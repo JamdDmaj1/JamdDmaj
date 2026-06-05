@@ -193,7 +193,6 @@
             background: rgba(255,255,255,0.25);
         }
 
-        /* Language Selector */
         .lang-selector {
             background: rgba(255,255,255,0.15);
             border: none;
@@ -209,7 +208,6 @@
             color: white;
         }
 
-        /* Crypto Bar */
         .crypto-bar {
             background: #1a1a2e;
             color: white;
@@ -253,7 +251,6 @@
             transform: scale(1.02);
         }
 
-        /* Sidebar mejorada */
         .sidebar {
             position: fixed;
             top: 0;
@@ -507,7 +504,6 @@
             word-break: break-all;
         }
 
-        /* Sugerencias flotantes transparentes */
         .suggestion-floating {
             position: fixed;
             bottom: 85px;
@@ -553,7 +549,6 @@
             transform: scale(1.02);
         }
 
-        /* Barra de sugerencias al final del chat */
         .suggestion-bar {
             background: transparent;
             padding: 0.5rem 0 0 0;
@@ -570,7 +565,6 @@
             background: rgba(0,0,0,0.05);
         }
 
-        /* Predicción de palabras */
         .prediction-container {
             position: relative;
             width: 100%;
@@ -816,7 +810,6 @@
         </div>
     </div>
 
-    <!-- Crypto Bar -->
     <div class="crypto-bar" id="cryptoBar">
         <span class="crypto-item" onclick="searchCrypto('bitcoin')">🪙 BTC: $<span id="btcPrice">---</span></span>
         <span class="crypto-item" onclick="searchCrypto('ethereum')">💎 ETH: $<span id="ethPrice">---</span></span>
@@ -903,15 +896,10 @@
     </div>
 </div>
 
-<!-- Sugerencias flotantes -->
 <div id="suggestionFloating" class="suggestion-floating"></div>
 
 <script>
-    // ============================================
-    // 🔑 OPENROUTER API KEY - PUT YOUR KEY HERE
-    // ============================================
-    const OPENROUTER_API_KEY = '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';
-    // ============================================
+    const OPENROUTER_API_KEY = 'YOUR_OPENROUTER_API_KEY_HERE';
     
     let currentChatId = Date.now().toString();
     let allChats = JSON.parse(localStorage.getItem('jamdMemoryChats') || '{}');
@@ -937,7 +925,6 @@
     const predictionText = document.getElementById('predictionText');
     const languageSelector = document.getElementById('languageSelector');
     
-    // Traducciones para la interfaz
     const translations = {
         en: {
             welcome: "🔥 JamdDmaj AI Ready!\n\n📅 Today is: {date}\n\n✅ I can:\n• 👁️ See and analyze images\n• 🎨 Generate images from descriptions (just ask!)\n• 🧠 Remember everything we talk about\n• 📸 Upload images, type question, press Enter!\n• 💬 Auto-detect language\n\n💡 Try: \"generate an image of a cat\" or upload a photo!",
@@ -947,7 +934,10 @@
             suggestionGen: "🎨 Generate an image of a beautiful sunset",
             suggestionPrice: "💰 What is the price of Bitcoin?",
             suggestionDark: "🌙 Change to dark mode",
-            suggestionSave: "📋 Save this conversation"
+            suggestionSave: "📋 Save this conversation",
+            noText: "🖼️ **Image uploaded:** {name}\n\n📸 No text detected in this image.\n\nWhat would you like me to do?\n• Describe the image\n• Analyze colors\n• Identify objects\n• Or just ask me your question",
+            processing: "📸 Processing: \"{name}\"...",
+            hasText: "📝 **Text detected in the image:**\n\n{text}\n\n---\n💡 What else would you like me to do with this text?"
         },
         es: {
             welcome: "🔥 JamdDmaj AI Listo!\n\n📅 Hoy es: {date}\n\n✅ Puedo:\n• 👁️ Ver y analizar imágenes\n• 🎨 Generar imágenes a partir de descripciones (¡solo pídemelo!)\n• 🧠 Recordar todo lo que hablamos\n• 📸 Subir imágenes, escribir pregunta, ¡presiona Enter!\n• 💬 Detectar idioma automáticamente\n\n💡 Prueba: \"genera una imagen de un gato\" o sube una foto!",
@@ -957,7 +947,10 @@
             suggestionGen: "🎨 Genera una imagen de un atardecer hermoso",
             suggestionPrice: "💰 ¿Cuál es el precio de Bitcoin?",
             suggestionDark: "🌙 Cambiar a modo noche",
-            suggestionSave: "📋 Guardar esta conversación"
+            suggestionSave: "📋 Guardar esta conversación",
+            noText: "🖼️ **Imagen subida:** {name}\n\n📸 No detecté texto en esta imagen.\n\n¿Qué quieres que haga?\n• Describir la imagen\n• Analizar colores\n• Identificar objetos\n• O simplemente dime tu pregunta",
+            processing: "📸 Procesando: \"{name}\"...",
+            hasText: "📝 **Texto detectado en la imagen:**\n\n{text}\n\n---\n💡 ¿Quieres que haga algo más con este texto?"
         },
         fr: {
             welcome: "🔥 JamdDmaj AI Prêt!\n\n📅 Aujourd'hui est: {date}\n\n✅ Je peux:\n• 👁️ Voir et analyser des images\n• 🎨 Générer des images à partir de descriptions\n• 🧠 Me souvenir de tout\n• 📸 Uploader des images, poser une question, Entrée!\n• 💬 Détection automatique de la langue\n\n💡 Essayez: \"génère une image d'un chat\" ou uploader une photo!",
@@ -967,7 +960,10 @@
             suggestionGen: "🎨 Génère une image d'un magnifique coucher de soleil",
             suggestionPrice: "💰 Quel est le prix du Bitcoin?",
             suggestionDark: "🌙 Passer en mode nuit",
-            suggestionSave: "📋 Sauvegarder cette conversation"
+            suggestionSave: "📋 Sauvegarder cette conversation",
+            noText: "🖼️ **Image téléchargée:** {name}\n\n📸 Aucun texte détecté dans cette image.\n\nQue voulez-vous que je fasse?\n• Décrire l'image\n• Analyser les couleurs\n• Identifier les objets\n• Ou posez-moi votre question",
+            processing: "📸 Traitement: \"{name}\"...",
+            hasText: "📝 **Texte détecté dans l'image:**\n\n{text}\n\n---\n💡 Que voulez-vous que je fasse d'autre avec ce texte?"
         },
         de: {
             welcome: "🔥 JamdDmaj AI Bereit!\n\n📅 Heute ist: {date}\n\n✅ Ich kann:\n• 👁️ Bilder sehen und analysieren\n• 🎨 Bilder aus Beschreibungen generieren\n• 🧠 Alles merken, worüber wir sprechen\n• 📸 Bilder hochladen, Frage eingeben, Enter drücken!\n• 💬 Automatische Spracherkennung\n\n💡 Versuche: \"generiere ein Bild von einer Katze\" oder lade ein Foto hoch!",
@@ -977,7 +973,10 @@
             suggestionGen: "🎨 Generiere ein Bild von einem wunderschönen Sonnenuntergang",
             suggestionPrice: "💰 Wie hoch ist der Preis von Bitcoin?",
             suggestionDark: "🌙 In den Nachtmodus wechseln",
-            suggestionSave: "📋 Dieses Gespräch speichern"
+            suggestionSave: "📋 Dieses Gespräch speichern",
+            noText: "🖼️ **Bild hochgeladen:** {name}\n\n📸 Kein Text in diesem Bild erkannt.\n\nWas soll ich tun?\n• Bild beschreiben\n• Farben analysieren\n• Objekte identifizieren\n• Oder stellen Sie mir einfach Ihre Frage",
+            processing: "📸 Verarbeitung: \"{name}\"...",
+            hasText: "📝 **Text im Bild erkannt:**\n\n{text}\n\n---\n💡 Was soll ich sonst noch mit diesem Text machen?"
         },
         pt: {
             welcome: "🔥 JamdDmaj AI Pronto!\n\n📅 Hoje é: {date}\n\n✅ Eu posso:\n• 👁️ Ver e analisar imagens\n• 🎨 Gerar imagens a partir de descrições\n• 🧠 Lembrar de tudo que conversamos\n• 📸 Enviar imagens, digitar pergunta, pressionar Enter!\n• 💬 Detectar idioma automaticamente\n\n💡 Tente: \"gere uma imagem de um gato\" ou envie uma foto!",
@@ -987,7 +986,10 @@
             suggestionGen: "🎨 Gere uma imagem de um belo pôr do sol",
             suggestionPrice: "💰 Qual é o preço do Bitcoin?",
             suggestionDark: "🌙 Mudar para modo noturno",
-            suggestionSave: "📋 Salvar esta conversa"
+            suggestionSave: "📋 Salvar esta conversa",
+            noText: "🖼️ **Imagem enviada:** {name}\n\n📸 Nenhum texto detectado nesta imagem.\n\nO que você quer que eu faça?\n• Descrever a imagem\n• Analisar cores\n• Identificar objetos\n• Ou apenas me faça sua pergunta",
+            processing: "📸 Processando: \"{name}\"...",
+            hasText: "📝 **Texto detectado na imagem:**\n\n{text}\n\n---\n💡 O que mais você quer que eu faça com este texto?"
         },
         it: {
             welcome: "🔥 JamdDmaj AI Pronto!\n\n📅 Oggi è: {date}\n\n✅ Posso:\n• 👁️ Vedere e analizzare immagini\n• 🎨 Generare immagini da descrizioni\n• 🧠 Ricordare tutto ciò di cui parliamo\n• 📸 Caricare immagini, scrivere domanda, premere Invio!\n• 💬 Rilevamento automatico della lingua\n\n💡 Prova: \"genera un'immagine di un gatto\" o carica una foto!",
@@ -997,7 +999,10 @@
             suggestionGen: "🎨 Genera un'immagine di un bellissimo tramonto",
             suggestionPrice: "💰 Qual è il prezzo del Bitcoin?",
             suggestionDark: "🌙 Passare alla modalità notturna",
-            suggestionSave: "📋 Salvare questa conversazione"
+            suggestionSave: "📋 Salvare questa conversa",
+            noText: "🖼️ **Immagine caricata:** {name}\n\n📸 Nessun testo rilevato in questa immagine.\n\nCosa vuoi che faccia?\n• Descrivere l'immagine\n• Analizzare i colori\n• Identificare oggetti\n• O semplicemente fammi la tua domanda",
+            processing: "📸 Elaborazione: \"{name}\"...",
+            hasText: "📝 **Testo rilevato nell'immagine:**\n\n{text}\n\n---\n💡 Cos'altro vuoi che faccia con questo testo?"
         }
     };
     
@@ -1006,7 +1011,6 @@
     function updateUILanguage() {
         const t = translations[currentLanguage];
         if (t) {
-            const welcomeText = t.welcome.replace('{date}', getCurrentDate());
             if (currentMessages.length === 0 || (currentMessages[0]?.content?.includes('JamdDmaj AI'))) {
                 currentMessages = [];
                 addWelcomeMessage();
@@ -1021,10 +1025,9 @@
         updateUILanguage();
     });
     
-    // Predicción de palabras
     const commonWords = {
         en: ['the', 'be', 'to', 'of', 'and', 'a', 'in', 'that', 'have', 'I', 'it', 'for', 'not', 'on', 'with', 'he', 'as', 'you', 'do', 'at', 'this', 'but', 'his', 'by', 'from', 'what', 'image', 'generate', 'price', 'help'],
-        es: ['que', 'de', 'la', 'el', 'en', 'y', 'a', 'los', 'se', 'del', 'las', 'un', 'por', 'con', 'no', 'una', 'su', 'para', 'como', 'me', 'image', 'genera', 'precio', 'ayuda']
+        es: ['que', 'de', 'la', 'el', 'en', 'y', 'a', 'los', 'se', 'del', 'las', 'un', 'por', 'con', 'no', 'una', 'su', 'para', 'como', 'me', 'imagen', 'genera', 'precio', 'ayuda']
     };
     
     function showPrediction(text) {
@@ -1131,10 +1134,6 @@
         if (lastUserMessage && lastUserMessage.toLowerCase().includes('code')) {
             suggestions.push("💻 " + (currentLanguage === 'es' ? "¿Puedes explicar este código?" : "Can you explain this code?"));
             suggestions.push("🐛 " + (currentLanguage === 'es' ? "¿Puedes ayudarme a depurarlo?" : "Can you help me debug it?"));
-        }
-        if (lastUserMessage && (lastUserMessage.toLowerCase().includes('brand') || lastUserMessage.toLowerCase().includes('marca'))) {
-            suggestions.push("🛒 " + (currentLanguage === 'es' ? "¿Dónde puedo comprarlo?" : "Where can I buy it?"));
-            suggestions.push("💰 " + (currentLanguage === 'es' ? "¿Cuánto cuesta?" : "How much does it cost?"));
         }
         
         if (suggestions.length === 0) {
@@ -1253,6 +1252,75 @@
     window.openLink = function(url) {
         window.open(url, '_blank');
     };
+    
+    // NUEVA FUNCIÓN: Detectar si la imagen tiene texto
+    async function detectarSiTieneTexto(imageBase64) {
+        try {
+            const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                    'HTTP-Referer': window.location.href,
+                    'X-Title': 'JamdDmaj AI'
+                },
+                body: JSON.stringify({
+                    model: 'google/gemini-2.5-flash',
+                    messages: [
+                        {
+                            role: 'user',
+                            content: [
+                                { type: 'text', text: 'Responde SOLO con "si" o "no". ¿Esta imagen tiene texto escrito? (Letras, palabras, números, frases, texto en cualquier idioma)' },
+                                { type: 'image_url', image_url: { url: imageBase64 } }
+                            ]
+                        }
+                    ],
+                    max_tokens: 10
+                })
+            });
+            
+            const data = await response.json();
+            const respuesta = data.choices[0]?.message?.content?.toLowerCase() || "no";
+            return respuesta.includes('si');
+        } catch (error) {
+            console.error('Error detectando texto:', error);
+            return false;
+        }
+    }
+    
+    // NUEVA FUNCIÓN: Leer texto de la imagen
+    async function readTextFromImage(imageBase64) {
+        try {
+            const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                    'HTTP-Referer': window.location.href,
+                    'X-Title': 'JamdDmaj AI'
+                },
+                body: JSON.stringify({
+                    model: 'google/gemini-2.5-flash',
+                    messages: [
+                        {
+                            role: 'user',
+                            content: [
+                                { type: 'text', text: 'Extrae TODO el texto que veas en esta imagen. Si hay texto en inglés u otro idioma, tradúcelo al español. Devuelve SOLO el texto extraído y su traducción. Si no hay texto, responde "No se encontró texto en la imagen".' },
+                                { type: 'image_url', image_url: { url: imageBase64 } }
+                            ]
+                        }
+                    ],
+                    max_tokens: 1000
+                })
+            });
+            
+            const data = await response.json();
+            return data.choices[0]?.message?.content || "No se pudo leer el texto.";
+        } catch (error) {
+            console.error('Error leyendo texto:', error);
+            return "❌ Error al leer el texto.";
+        }
+    }
     
     function init() {
         if (!allChats[currentChatId]) createNewChat();
@@ -1495,6 +1563,56 @@
         
         imagePreviewArea.appendChild(addBtn);
         imagePreviewArea.appendChild(info);
+    }
+    
+    // HANDLE FILE UPLOAD MEJORADO - Detecta si tiene texto o no
+    async function handleFileUpload(files) {
+        for (const file of files) {
+            if (file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    const imageData = e.target.result;
+                    pendingImages.push(imageData);
+                    updateImagePreview();
+                    
+                    const t = translations[currentLanguage];
+                    
+                    addMessageToUI('assistant', t.processing.replace('{name}', file.name), new Date().toLocaleTimeString(), null, false);
+                    
+                    // DETECTAR si la imagen TIENE texto
+                    const tieneTexto = await detectarSiTieneTexto(imageData);
+                    
+                    if (tieneTexto) {
+                        // Si TIENE texto, leerlo y traducirlo
+                        const textoLeido = await readTextFromImage(imageData);
+                        if (textoLeido && !textoLeido.includes("Error") && !textoLeido.includes("No se encontró")) {
+                            addMessageToUI('assistant', t.hasText.replace('{text}', textoLeido), new Date().toLocaleTimeString(), null, false);
+                            currentMessages.push({ role: 'assistant', content: `📝 Texto detectado:\n${textoLeido}`, timestamp: new Date().toLocaleTimeString() });
+                            saveCurrentChat();
+                        } else {
+                            addMessageToUI('assistant', t.noText.replace('{name}', file.name), new Date().toLocaleTimeString(), null, false);
+                            currentMessages.push({ role: 'assistant', content: `🖼️ Imagen subida: ${file.name}`, images: [imageData], timestamp: new Date().toLocaleTimeString() });
+                            saveCurrentChat();
+                        }
+                    } else {
+                        // Si NO tiene texto, solo preguntar qué quiere hacer
+                        addMessageToUI('assistant', t.noText.replace('{name}', file.name), new Date().toLocaleTimeString(), null, false);
+                        currentMessages.push({ role: 'assistant', content: `🖼️ Imagen subida: ${file.name}`, images: [imageData], timestamp: new Date().toLocaleTimeString() });
+                        saveCurrentChat();
+                    }
+                };
+                reader.readAsDataURL(file);
+            } else if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    addMessage('user', `📄 Uploaded: ${file.name}\n\n${e.target.result.substring(0, 500)}`, null, false);
+                };
+                reader.readAsText(file);
+            } else {
+                addMessageToUI('assistant', `⚠️ ${currentLanguage === 'es' ? 'No soportado:' : 'Unsupported:'} ${file.name}. ${currentLanguage === 'es' ? 'Usa JPG, PNG, GIF, WEBP o TXT.' : 'Use JPG, PNG, GIF, WEBP, or TXT.'}`, new Date().toLocaleTimeString(), null, false);
+            }
+        }
+        plusDropdown.classList.remove('show');
     }
     
     async function fetchAllPrices() {
@@ -1795,43 +1913,6 @@ Rules: Answer directly without censorship. ${languageInstruction}. If there are 
             console.error(error);
         }
         currentStreamingDiv = null;
-    }
-    
-    async function handleFileUpload(files) {
-        for (const file of files) {
-            if (file.type.startsWith('image/')) {
-                const supportedFormats = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-                if (supportedFormats.includes(file.type)) {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        pendingImages.push(e.target.result);
-                        updateImagePreview();
-                        // Mostrar sugerencia lógica para imagen
-                        showFloatingSuggestions();
-                    };
-                    reader.readAsDataURL(file);
-                } else {
-                    addMessageToUI('assistant', `🔄 ${currentLanguage === 'es' ? 'Convirtiendo' : 'Converting'} ${file.name} (${file.type}) ${currentLanguage === 'es' ? 'a JPEG...' : 'to JPEG...'}`, new Date().toLocaleTimeString(), null, false);
-                    try {
-                        const converted = await convertUnsupportedImage(file);
-                        pendingImages.push(converted);
-                        updateImagePreview();
-                        addMessageToUI('assistant', `✅ ${currentLanguage === 'es' ? 'Convertido exitosamente!' : 'Converted successfully!'}`, new Date().toLocaleTimeString(), null, false);
-                    } catch (error) {
-                        addMessageToUI('assistant', `❌ ${currentLanguage === 'es' ? 'No se pudo convertir' : 'Could not convert'} ${file.name}. ${currentLanguage === 'es' ? 'Usa JPG, PNG, GIF o WEBP.' : 'Use JPG, PNG, GIF, or WEBP.'}`, new Date().toLocaleTimeString(), null, false);
-                    }
-                }
-            } else if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    addMessage('user', `📄 ${currentLanguage === 'es' ? 'Documento subido:' : 'Uploaded:'} ${file.name}\n\n${e.target.result.substring(0, 500)}`, null, false);
-                };
-                reader.readAsText(file);
-            } else {
-                addMessageToUI('assistant', `⚠️ ${currentLanguage === 'es' ? 'No soportado:' : 'Unsupported:'} ${file.name}. ${currentLanguage === 'es' ? 'Usa JPG, PNG, GIF, WEBP o TXT.' : 'Use JPG, PNG, GIF, WEBP, or TXT.'}`, new Date().toLocaleTimeString(), null, false);
-            }
-        }
-        plusDropdown.classList.remove('show');
     }
     
     function initVoice() {
