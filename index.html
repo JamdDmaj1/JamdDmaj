@@ -2,12 +2,6 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#667eea">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="JamdDmaj AI">
-<link rel="apple-touch-icon" href="icon-192.png">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>JamdDmaj AI - Vision + Memory + Image Gen</title>
     <style>
@@ -1035,8 +1029,7 @@
 <div id="suggestionFloating" class="suggestion-floating"></div>
 
 <script>
-    const OPENROUTER_API_KEY = '
-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';
+    const OPENROUTER_API_KEY = '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';
     
     let currentChatId = Date.now().toString();
     let allChats = JSON.parse(localStorage.getItem('jamdMemoryChats') || '{}');
