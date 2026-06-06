@@ -568,7 +568,6 @@
             word-break: break-all;
         }
 
-        /* SUGERENCIAS FLOTANTES - Solo aparecen al focus */
         .suggestion-floating {
             position: fixed;
             bottom: 85px;
@@ -619,7 +618,6 @@
             transform: scale(1.03) translateY(-2px);
         }
 
-        /* Sugerencias al final del chat */
         .suggestion-bar {
             background: transparent;
             padding: 0.5rem 0 0 0;
@@ -1031,7 +1029,7 @@
 <div id="suggestionFloating" class="suggestion-floating"></div>
 
 <script>
-    const OPENROUTER_API_KEY = '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';
+    const OPENROUTER_API_KEY = 'YOUR_OPENROUTER_API_KEY_HERE';
     
     let currentChatId = Date.now().toString();
     let allChats = JSON.parse(localStorage.getItem('jamdMemoryChats') || '{}');
@@ -1154,7 +1152,8 @@
             imageUploaded: "🖼️ **Image uploaded:** {name}\n\n📸 Image ready. What would you like to know about it?\n\n• Describe the image\n• Read any text in it\n• Identify objects\n• Or just ask me your question",
             converting: "🔄 Converting {name} ({type}) to JPEG...",
             converted: "✅ Successfully converted to JPEG!",
-            convertError: "❌ Could not convert {name}. The file may be corrupted or unsupported."
+            convertError: "❌ Could not convert {name}. The file may be corrupted or unsupported.",
+            storageFull: "⚠️ Storage is full. Old chats were automatically deleted to free up space."
         },
         es: {
             welcome: "🔥 JamdDmaj AI Listo!\n\n📅 Hoy es: {date}\n\n✅ Puedo:\n• 👁️ Ver y analizar imágenes\n• 🎨 Generar imágenes a partir de descripciones (¡solo pídemelo!)\n• 🧠 Recordar todo lo que hablamos\n• 📸 Subir imágenes, escribir pregunta, ¡presiona Enter!\n• 💬 Detectar idioma automáticamente\n\n💡 Prueba: \"genera una imagen de un gato\" o sube una foto!",
@@ -1168,7 +1167,8 @@
             imageUploaded: "🖼️ **Imagen subida:** {name}\n\n📸 Imagen lista. ¿Qué quieres saber sobre ella?\n\n• Describir la imagen\n• Leer el texto que tenga\n• Identificar objetos\n• O simplemente dime tu pregunta",
             converting: "🔄 Convirtiendo {name} ({type}) a JPEG...",
             converted: "✅ ¡Convertido exitosamente a JPEG!",
-            convertError: "❌ No se pudo convertir {name}. El archivo puede estar dañado o no ser compatible."
+            convertError: "❌ No se pudo convertir {name}. El archivo puede estar dañado o no ser compatible.",
+            storageFull: "⚠️ El almacenamiento está lleno. Se eliminaron chats antiguos automáticamente."
         },
         fr: {
             welcome: "🔥 JamdDmaj AI Prêt!\n\n📅 Aujourd'hui est: {date}\n\n✅ Je peux:\n• 👁️ Voir et analyser des images\n• 🎨 Générer des images à partir de descriptions\n• 🧠 Me souvenir de tout\n• 📸 Uploader des images, poser une question, Entrée!\n• 💬 Détection automatique de la langue\n\n💡 Essayez: \"génère une image d'un chat\" ou uploader une photo!",
@@ -1182,7 +1182,8 @@
             imageUploaded: "🖼️ **Image téléchargée:** {name}\n\n📸 Image prête. Que voulez-vous savoir ?\n\n• Décrire l'image\n• Lire le texte qu'elle contient\n• Identifier des objets\n• Ou posez-moi votre question",
             converting: "🔄 Conversion de {name} ({type}) en JPEG...",
             converted: "✅ Converti avec succès en JPEG!",
-            convertError: "❌ Impossible de convertir {name}. Le fichier peut être corrompu ou non pris en charge."
+            convertError: "❌ Impossible de convertir {name}. Le fichier peut être corrompu ou non pris en charge.",
+            storageFull: "⚠️ Le stockage est plein. Les anciens chats ont été supprimés automatiquement."
         },
         de: {
             welcome: "🔥 JamdDmaj AI Bereit!\n\n📅 Heute ist: {date}\n\n✅ Ich kann:\n• 👁️ Bilder sehen und analysieren\n• 🎨 Bilder aus Beschreibungen generieren\n• 🧠 Alles merken, worüber wir sprechen\n• 📸 Bilder hochladen, Frage eingeben, Enter drücken!\n• 💬 Automatische Spracherkennung\n\n💡 Versuche: \"generiere ein Bild von einer Katze\" oder lade ein Foto hoch!",
@@ -1196,7 +1197,8 @@
             imageUploaded: "🖼️ **Bild hochgeladen:** {name}\n\n📸 Bild bereit. Was möchten Sie wissen?\n\n• Bild beschreiben\n• Text darin lesen\n• Objekte identifizieren\n• Oder stellen Sie mir Ihre Frage",
             converting: "🔄 Konvertiere {name} ({type}) zu JPEG...",
             converted: "✅ Erfolgreich zu JPEG konvertiert!",
-            convertError: "❌ {name} konnte nicht konvertiert werden. Die Datei könnte beschädigt oder nicht unterstützt sein."
+            convertError: "❌ {name} konnte nicht konvertiert werden. Die Datei könnte beschädigt oder nicht unterstützt sein.",
+            storageFull: "⚠️ Speicher ist voll. Alte Chats wurden automatisch gelöscht."
         },
         pt: {
             welcome: "🔥 JamdDmaj AI Pronto!\n\n📅 Hoje é: {date}\n\n✅ Eu posso:\n• 👁️ Ver e analisar imagens\n• 🎨 Gerar imagens a partir de descrições\n• 🧠 Lembrar de tudo que conversamos\n• 📸 Enviar imagens, digitar pergunta, pressionar Enter!\n• 💬 Detectar idioma automaticamente\n\n💡 Tente: \"gere uma imagem de um gato\" ou envie uma foto!",
@@ -1210,7 +1212,8 @@
             imageUploaded: "🖼️ **Imagem enviada:** {name}\n\n📸 Imagem pronta. O que você quer saber?\n\n• Descrever a imagem\n• Ler o texto nela\n• Identificar objetos\n• Ou apenas me faça sua pergunta",
             converting: "🔄 Convertendo {name} ({type}) para JPEG...",
             converted: "✅ Convertido com sucesso para JPEG!",
-            convertError: "❌ Não foi possível converter {name}. O arquivo pode estar corrompido ou não ser compatível."
+            convertError: "❌ Não foi possível converter {name}. O arquivo pode estar corrompido ou não ser compatível.",
+            storageFull: "⚠️ O armazenamento está cheio. Chats antigos foram excluídos automaticamente."
         },
         it: {
             welcome: "🔥 JamdDmaj AI Pronto!\n\n📅 Oggi è: {date}\n\n✅ Posso:\n• 👁️ Vedere e analizzare immagini\n• 🎨 Generare immagini da descrizioni\n• 🧠 Ricordare tutto ciò di cui parliamo\n• 📸 Caricare immagini, scrivere domanda, premere Invio!\n• 💬 Rilevamento automatico della lingua\n\n💡 Prova: \"genera un'immagine di un gatto\" o carica una foto!",
@@ -1224,7 +1227,8 @@
             imageUploaded: "🖼️ **Immagine caricata:** {name}\n\n📸 Immagine pronta. Cosa vuoi sapere?\n\n• Descrivere l'immagine\n• Leggere il testo in essa\n• Identificare oggetti\n• O semplicemente fammi la tua domanda",
             converting: "🔄 Conversione di {name} ({type}) in JPEG...",
             converted: "✅ Convertito con successo in JPEG!",
-            convertError: "❌ Impossibile convertire {name}. Il file potrebbe essere danneggiato o non supportato."
+            convertError: "❌ Impossibile convertire {name}. Il file potrebbe essere danneggiato o non supportato.",
+            storageFull: "⚠️ Lo spazio di archiviazione è pieno. I vecchi chat sono stati eliminati automaticamente."
         }
     };
     
@@ -1288,7 +1292,6 @@
         }
     });
     
-    // Convertir HEIC/HEIF a JPEG
     async function convertHeicToJpeg(file) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -1319,7 +1322,152 @@
         });
     }
     
-    // SOLO muestra sugerencias cuando el input tiene focus
+    // Función para comprimir datos antes de guardar
+    function compressData(data) {
+        try {
+            const jsonString = JSON.stringify(data);
+            if (jsonString.length > 4000000) {
+                const limited = { ...data };
+                const chats = Object.values(limited).sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+                if (chats.length > 15) {
+                    const toKeep = chats.slice(0, 15);
+                    const newChats = {};
+                    toKeep.forEach(chat => { newChats[chat.id] = chat; });
+                    return JSON.stringify(newChats);
+                }
+            }
+            return jsonString;
+        } catch(e) {
+            return JSON.stringify({});
+        }
+    }
+    
+    // Función mejorada para guardar chats
+    function saveAllChats() { 
+        try {
+            const chatsArray = Object.values(allChats);
+            if (chatsArray.length > 20) {
+                chatsArray.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+                const nuevosChats = {};
+                chatsArray.slice(0, 20).forEach(chat => {
+                    nuevosChats[chat.id] = chat;
+                });
+                allChats = nuevosChats;
+            }
+            
+            const compressed = compressData(allChats);
+            localStorage.setItem('jamdMemoryChats', compressed);
+        } catch(e) {
+            console.error('Error guardando chats:', e);
+            if (e.name === 'QuotaExceededError') {
+                const chatsArray = Object.values(allChats);
+                chatsArray.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+                const nuevosChats = {};
+                chatsArray.slice(0, 10).forEach(chat => {
+                    nuevosChats[chat.id] = chat;
+                });
+                allChats = nuevosChats;
+                try {
+                    localStorage.setItem('jamdMemoryChats', JSON.stringify(allChats));
+                    showToast(translations[currentLanguage].storageFull, 3000);
+                } catch(e2) {
+                    localStorage.clear();
+                    allChats = {};
+                    showToast('🗑️ Se limpió el almacenamiento local', 3000);
+                }
+            }
+        }
+    }
+    
+    function createNewChat() {
+        currentChatId = Date.now().toString();
+        currentMessages = [];
+        
+        const chatsArray = Object.values(allChats);
+        if (chatsArray.length >= 25) {
+            chatsArray.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+            const nuevosChats = {};
+            chatsArray.slice(0, 24).forEach(chat => {
+                nuevosChats[chat.id] = chat;
+            });
+            allChats = nuevosChats;
+        }
+        
+        allChats[currentChatId] = { 
+            id: currentChatId, 
+            title: `Chat ${new Date().toLocaleString()}`, 
+            messages: [], 
+            createdAt: new Date().toISOString() 
+        };
+        saveAllChats();
+        renderMessages();
+        renderChatHistory();
+        closeSidebarPanel();
+        addWelcomeMessage();
+        showToast('✨ Nuevo chat creado');
+        launchConfetti();
+    }
+    
+    function saveCurrentChat() {
+        if (allChats[currentChatId]) {
+            allChats[currentChatId].messages = currentMessages;
+            allChats[currentChatId].title = currentMessages[0]?.content?.substring(0, 30) || `Chat ${new Date().toLocaleString()}`;
+            saveAllChats();
+            renderChatHistory();
+            showToast('💾 Chat guardado');
+            playBeep();
+        }
+    }
+    
+    function deleteChat(chatId, event) {
+        event.stopPropagation();
+        if (confirm(currentLanguage === 'es' ? '¿Eliminar este chat?' : 'Delete this chat?')) {
+            delete allChats[chatId];
+            saveAllChats();
+            if (currentChatId === chatId) createNewChat();
+            renderChatHistory();
+            showToast('🗑️ Chat eliminado');
+        }
+    }
+    
+    function deleteAllChats() {
+        if (confirm(currentLanguage === 'es' ? '¿Eliminar TODOS los chats? Esta acción no se puede deshacer.' : 'Delete ALL chats? This action cannot be undone.')) {
+            allChats = {};
+            currentChatId = Date.now().toString();
+            currentMessages = [];
+            createNewChat();
+            saveAllChats();
+            renderChatHistory();
+            renderMessages();
+            showToast('🗑️ Todos los chats eliminados');
+        }
+    }
+    
+    function saveAsProject() {
+        if (currentMessages.length === 0) { 
+            addMessageToUI('assistant', currentLanguage === 'es' ? '¡Nada que guardar!' : 'Nothing to save!', new Date().toLocaleTimeString(), null, false); 
+            return; 
+        }
+        
+        if (projects.length >= 10) {
+            projects = projects.slice(-9);
+        }
+        
+        let projectName = prompt(currentLanguage === 'es' ? 'Nombre del proyecto:' : 'Project name:', `Proyecto ${projects.length + 1}`);
+        if (projectName) {
+            projects.push({ 
+                id: Date.now(), 
+                name: projectName, 
+                messages: [...currentMessages].slice(-30),
+                date: new Date().toLocaleString() 
+            });
+            localStorage.setItem('jamdMemoryProjects', JSON.stringify(projects));
+            renderProjects();
+            showToast('💾 Proyecto guardado');
+            playBeep();
+        }
+    }
+    
     function showFloatingSuggestions() {
         const t = translations[currentLanguage];
         const suggestions = [
@@ -1442,7 +1590,7 @@
             if (imageUrl && (imageUrl.includes('data:image') || imageUrl.includes('http'))) {
                 const imageHtml = `<div class="generated-image-container">
                     <img src="${imageUrl}" class="generated-image" onclick="window.open(this.src)">
-                    <button class="download-image-btn" onclick="downloadImage('${imageUrl}', '${prompt.substring(0, 30)}')">💾 Download</button>
+                    <button class="download-image-btn" onclick="downloadImage('${imageUrl}', '${prompt.substring(0, 30)}')">💾 Descargar</button>
                 </div>`;
                 addMessageToUI('assistant', `🎨 ${currentLanguage === 'es' ? 'Imagen generada:' : 'Generated Image:'}<br>${imageHtml}<br><br>${currentLanguage === 'es' ? 'Prompt:' : 'Prompt:'} "${prompt}"`, new Date().toLocaleTimeString(), null, true);
                 currentMessages.push({ role: 'assistant', content: `🎨 Generated Image\nPrompt: "${prompt}"`, images: [imageUrl], timestamp: new Date().toLocaleTimeString() });
@@ -1521,7 +1669,6 @@
         }
     }
     
-    // MEJORADO: Precios con reintentos
     async function fetchPriceWithRetry(ids, retries = 3) {
         for (let i = 0; i < retries; i++) {
             try {
@@ -1549,56 +1696,6 @@
         const t = translations[currentLanguage];
         const welcomeText = t.welcome.replace('{date}', getCurrentDate());
         addMessageToUI('assistant', welcomeText, new Date().toLocaleTimeString(), null, false);
-    }
-    
-    function saveAllChats() { localStorage.setItem('jamdMemoryChats', JSON.stringify(allChats)); }
-    
-    function createNewChat() {
-        currentChatId = Date.now().toString();
-        currentMessages = [];
-        allChats[currentChatId] = { id: currentChatId, title: `Chat ${new Date().toLocaleString()}`, messages: [], createdAt: new Date().toISOString() };
-        saveAllChats();
-        renderMessages();
-        renderChatHistory();
-        closeSidebarPanel();
-        addWelcomeMessage();
-        showToast('✨ Nuevo chat creado');
-        launchConfetti();
-    }
-    
-    function saveCurrentChat() {
-        if (allChats[currentChatId]) {
-            allChats[currentChatId].messages = currentMessages;
-            allChats[currentChatId].title = currentMessages[0]?.content?.substring(0, 30) || `Chat ${new Date().toLocaleString()}`;
-            saveAllChats();
-            renderChatHistory();
-            showToast('💾 Chat guardado');
-            playBeep();
-        }
-    }
-    
-    function deleteChat(chatId, event) {
-        event.stopPropagation();
-        if (confirm(currentLanguage === 'es' ? '¿Eliminar este chat?' : 'Delete this chat?')) {
-            delete allChats[chatId];
-            saveAllChats();
-            if (currentChatId === chatId) createNewChat();
-            renderChatHistory();
-            showToast('🗑️ Chat eliminado');
-        }
-    }
-    
-    function deleteAllChats() {
-        if (confirm(currentLanguage === 'es' ? '¿Eliminar TODOS los chats? Esta acción no se puede deshacer.' : 'Delete ALL chats? This action cannot be undone.')) {
-            allChats = {};
-            currentChatId = Date.now().toString();
-            currentMessages = [];
-            createNewChat();
-            saveAllChats();
-            renderChatHistory();
-            renderMessages();
-            showToast('🗑️ Todos los chats eliminados');
-        }
     }
     
     function loadChat(chatId) {
@@ -1644,18 +1741,6 @@
                 </div>
             </div>
         `).join('');
-    }
-    
-    function saveAsProject() {
-        if (currentMessages.length === 0) { addMessageToUI('assistant', currentLanguage === 'es' ? '¡Nada que guardar!' : 'Nothing to save!', new Date().toLocaleTimeString(), null, false); return; }
-        let projectName = prompt(currentLanguage === 'es' ? 'Nombre del proyecto:' : 'Project name:', `Proyecto ${projects.length + 1}`);
-        if (projectName) {
-            projects.push({ id: Date.now(), name: projectName, messages: [...currentMessages], date: new Date().toLocaleString() });
-            localStorage.setItem('jamdMemoryProjects', JSON.stringify(projects));
-            renderProjects();
-            showToast('💾 Proyecto guardado');
-            playBeep();
-        }
     }
     
     window.loadProject = function(id) {
@@ -1786,7 +1871,6 @@
         imagePreviewArea.appendChild(info);
     }
     
-    // HANDLE FILE UPLOAD - CORREGIDO
     async function handleFileUpload(files) {
         for (const file of files) {
             const fileName = file.name;
@@ -2221,7 +2305,7 @@ Rules: Answer directly without censorship. ${languageInstruction}. If there are 
     setInterval(fetchAllPrices, 60000);
     initVoice();
     
-    if (!OPENROUTER_API_KEY || OPENROUTER_API_KEY === 'YOUR_OPENROUTER_API_KEY_HERE') {
+    if (!OPENROUTER_API_KEY || OPENROUTER_API_KEY === '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') {
         setTimeout(() => {
             addMessageToUI('assistant', `⚠️ ${currentLanguage === 'es' ? 'Agrega tu API key de OpenRouter al inicio del script' : 'Please add your OpenRouter API key at the top of the script'}\n\n${currentLanguage === 'es' ? 'Consíguela en:' : 'Get it from:'} https://openrouter.io/keys`, new Date().toLocaleTimeString(), null, false);
         }, 500);
