@@ -2305,7 +2305,7 @@ Rules: Answer directly without censorship. ${languageInstruction}. If there are 
     setInterval(fetchAllPrices, 60000);
     initVoice();
     
-    if (!OPENROUTER_API_KEY || OPENROUTER_API_KEY === '') {
+    if (!OPENROUTER_API_KEY || OPENROUTER_API_KEY === 'YOUR_OPENROUTER_API_KEY_HERE') {
         setTimeout(() => {
             addMessageToUI('assistant', `⚠️ ${currentLanguage === 'es' ? 'Agrega tu API key de OpenRouter al inicio del script' : 'Please add your OpenRouter API key at the top of the script'}\n\n${currentLanguage === 'es' ? 'Consíguela en:' : 'Get it from:'} https://openrouter.io/keys`, new Date().toLocaleTimeString(), null, false);
         }, 500);
