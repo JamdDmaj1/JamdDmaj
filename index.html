@@ -4,11 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>JamdDmaj AI - Vision + Memory + Image Gen</title>
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#667eea">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="JamdDmaj AI">
     <style>
         * {
             margin: 0;
@@ -18,7 +13,7 @@
 
         body {
             background: linear-gradient(135deg, #0a0a0a 0%, #0f0f0f 100%);
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
             min-height: 100vh;
             padding: 1rem;
         }
@@ -39,32 +34,85 @@
             transition: background 0.3s ease;
         }
 
-        body.dark .app-container { background: #050505; }
-        body.dark .sidebar { background: #0a0a0a; border-right: 1px solid #1a1a1a; }
-        body.dark .chat-messages { background: #050505; }
-        body.dark .message-user .message-bubble { background: #1a3a3a; color: #ffffff; }
-        body.dark .message-ai .message-bubble { background: #0f0f0f; color: #e0e0e0; border: 1px solid #2a2a2a; }
-        body.dark .input-area { background: #0a0a0a; border-top-color: #1a1a1a; }
-        body.dark .plus-dropdown { background: #0f0f0f; border: 1px solid #2a2a2a; }
-        body.dark .dropdown-item { color: #e0e0e0; }
-        body.dark .dropdown-item:hover { background: #1a1a1a; }
-        body.dark .image-preview-area { background: #0f0f0f; }
-        body.dark .preview-info { color: #888; }
-        body.dark textarea { background: #0f0f0f; border-color: #2a2a2a; color: #e0e0e0; }
-        body.dark textarea::placeholder { color: #666; }
-        body.dark .action-icon { background: #1a1a1a; color: #e0e0e0; }
-        body.dark .action-icon:hover { background: #2a2a2a; }
-        body.dark .message-time { color: #666; }
-        body.dark .link-container { background: #1a1a1a; }
-        body.dark .link-container a { color: #90a0ff; }
-        body.dark .code-block-wrapper pre { background: #0a0a0a; border: 1px solid #2a2a2a; }
-        body.dark .sidebar-item { color: #e0e0e0; }
-        body.dark .sidebar-item:hover { background: #1a1a1a; }
-        body.dark .sidebar-title { color: #888; }
-        body.dark .empty-state { color: #666; }
-        body.dark .suggestion-chip { background: #1a1a1a; border-color: #333; color: #ccc; }
-        body.dark .suggestion-chip:hover { background: #2a2a2a; }
-        body.dark .suggestion-bar { background: #0f0f0f; border-top-color: #1a1a1a; }
+        body.dark .app-container {
+            background: #050505;
+        }
+        body.dark .sidebar {
+            background: #0a0a0a;
+            border-right: 1px solid #1a1a1a;
+        }
+        body.dark .chat-messages {
+            background: #050505;
+        }
+        body.dark .message-user .message-bubble {
+            background: #1a3a3a;
+            color: #ffffff;
+        }
+        body.dark .message-ai .message-bubble {
+            background: #0f0f0f;
+            color: #e0e0e0;
+            border: 1px solid #2a2a2a;
+        }
+        body.dark .input-area {
+            background: #0a0a0a;
+            border-top-color: #1a1a1a;
+        }
+        body.dark .plus-dropdown {
+            background: #0f0f0f;
+            border: 1px solid #2a2a2a;
+        }
+        body.dark .dropdown-item {
+            color: #e0e0e0;
+        }
+        body.dark .dropdown-item:hover {
+            background: #1a1a1a;
+        }
+        body.dark .image-preview-area {
+            background: #0f0f0f;
+        }
+        body.dark .preview-info {
+            color: #888;
+        }
+        body.dark textarea {
+            background: #0f0f0f;
+            border-color: #2a2a2a;
+            color: #e0e0e0;
+        }
+        body.dark textarea::placeholder {
+            color: #666;
+        }
+        body.dark .action-icon {
+            background: #1a1a1a;
+            color: #e0e0e0;
+        }
+        body.dark .action-icon:hover {
+            background: #2a2a2a;
+        }
+        body.dark .message-time {
+            color: #666;
+        }
+        body.dark .link-container {
+            background: #1a1a1a;
+        }
+        body.dark .link-container a {
+            color: #90a0ff;
+        }
+        body.dark .code-block-wrapper pre {
+            background: #0a0a0a;
+            border: 1px solid #2a2a2a;
+        }
+        body.dark .sidebar-item {
+            color: #e0e0e0;
+        }
+        body.dark .sidebar-item:hover {
+            background: #1a1a1a;
+        }
+        body.dark .sidebar-title {
+            color: #888;
+        }
+        body.dark .empty-state {
+            color: #666;
+        }
 
         .header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -184,7 +232,10 @@
             pointer-events: none;
             border: 1px solid rgba(255, 255, 255, 0.2);
         }
-        .toast-notification.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        .toast-notification.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
 
         .crypto-bar {
             background: #1a1a2e;
@@ -198,10 +249,20 @@
             scrollbar-width: thin;
             -webkit-overflow-scrolling: touch;
         }
-        .crypto-bar.show { display: flex; }
-        .crypto-bar::-webkit-scrollbar { height: 4px; }
-        .crypto-bar::-webkit-scrollbar-track { background: rgba(255,255,255,0.1); border-radius: 10px; }
-        .crypto-bar::-webkit-scrollbar-thumb { background: #667eea; border-radius: 10px; }
+        .crypto-bar.show {
+            display: flex;
+        }
+        .crypto-bar::-webkit-scrollbar {
+            height: 4px;
+        }
+        .crypto-bar::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+        }
+        .crypto-bar::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 10px;
+        }
         .crypto-item {
             cursor: pointer;
             padding: 0.25rem 0.7rem;
@@ -214,7 +275,10 @@
             gap: 4px;
             flex-shrink: 0;
         }
-        .crypto-item:hover { background: #667eea; transform: scale(1.05) translateY(-2px); }
+        .crypto-item:hover {
+            background: #667eea;
+            transform: scale(1.05) translateY(-2px);
+        }
 
         .sidebar {
             position: fixed;
@@ -238,8 +302,14 @@
             justify-content: space-between;
             align-items: center;
         }
-        .sidebar-header h3 { font-size: 1rem; font-weight: 600; }
-        .sidebar-actions { display: flex; gap: 0.5rem; }
+        .sidebar-header h3 {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+        .sidebar-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
         .sidebar-action-btn {
             background: rgba(255,255,255,0.2);
             border: none;
@@ -250,9 +320,18 @@
             cursor: pointer;
             transition: all 0.3s ease;
         }
-        .sidebar-action-btn:hover { background: rgba(255,255,255,0.3); transform: scale(1.05); }
-        .sidebar-content { flex: 1; overflow-y: auto; padding: 1rem; }
-        .sidebar-section { margin-bottom: 1.5rem; }
+        .sidebar-action-btn:hover {
+            background: rgba(255,255,255,0.3);
+            transform: scale(1.05);
+        }
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+        }
+        .sidebar-section {
+            margin-bottom: 1.5rem;
+        }
         .sidebar-title {
             font-size: 0.7rem;
             text-transform: uppercase;
@@ -272,9 +351,21 @@
             font-size: 0.85rem;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .sidebar-item:hover { background: #e2e8f0; transform: translateX(5px); }
-        .sidebar-item.active { background: #667eea; color: white; }
-        .sidebar-item-left { display: flex; align-items: center; gap: 10px; flex: 1; overflow: hidden; }
+        .sidebar-item:hover { 
+            background: #e2e8f0; 
+            transform: translateX(5px);
+        }
+        .sidebar-item.active { 
+            background: #667eea; 
+            color: white; 
+        }
+        .sidebar-item-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+            overflow: hidden;
+        }
         .sidebar-item-delete {
             background: none;
             border: none;
@@ -284,8 +375,16 @@
             opacity: 0.6;
             transition: all 0.3s ease;
         }
-        .sidebar-item-delete:hover { opacity: 1; transform: scale(1.1); }
-        .empty-state { text-align: center; padding: 1.5rem; color: #64748b; font-size: 0.75rem; }
+        .sidebar-item-delete:hover {
+            opacity: 1;
+            transform: scale(1.1);
+        }
+        .empty-state {
+            text-align: center;
+            padding: 1.5rem;
+            color: #64748b;
+            font-size: 0.75rem;
+        }
         .sidebar-overlay {
             position: fixed;
             top: 0;
@@ -316,9 +415,17 @@
             animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             transition: all 0.3s ease;
         }
-        .message:hover { transform: translateX(2px); }
-        @keyframes slideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .message:hover {
+            transform: translateX(2px);
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
         .message-user { justify-content: flex-end; }
         .message-user .message-bubble {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -326,7 +433,9 @@
             border-radius: 1.2rem 1.2rem 0.3rem 1.2rem;
             transition: all 0.3s ease;
         }
-        .message-user .message-bubble:hover { transform: scale(1.02); }
+        .message-user .message-bubble:hover {
+            transform: scale(1.02);
+        }
         .message-ai .message-bubble {
             background: white;
             color: #1e293b;
@@ -334,7 +443,10 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.05);
             transition: all 0.3s ease;
         }
-        .message-ai .message-bubble:hover { transform: scale(1.02); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .message-ai .message-bubble:hover {
+            transform: scale(1.02);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
         .message-bubble {
             max-width: 85%;
             padding: 0.8rem 1.2rem;
@@ -351,7 +463,9 @@
             background: #1e1e1e;
             transition: all 0.3s ease;
         }
-        .code-block-wrapper:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+        .code-block-wrapper:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
         .code-block-wrapper pre {
             color: #d4d4d4;
             padding: 1rem;
@@ -376,8 +490,15 @@
             transition: all 0.3s ease;
             z-index: 10;
         }
-        .copy-code-btn:hover { background: #5a67d8; transform: scale(1.05); }
-        .message-time { font-size: 0.55rem; color: #94a3b8; margin-top: 0.3rem; }
+        .copy-code-btn:hover {
+            background: #5a67d8;
+            transform: scale(1.05);
+        }
+        .message-time {
+            font-size: 0.55rem;
+            color: #94a3b8;
+            margin-top: 0.3rem;
+        }
         .chat-image {
             max-width: 200px;
             max-height: 200px;
@@ -386,10 +507,25 @@
             cursor: pointer;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .chat-image:hover { transform: scale(1.05); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
-        .generated-image-container { position: relative; display: inline-block; margin-top: 0.5rem; }
-        .generated-image { max-width: 300px; max-height: 300px; border-radius: 12px; cursor: pointer; transition: all 0.3s ease; }
-        .generated-image:hover { transform: scale(1.02); }
+        .chat-image:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        .generated-image-container {
+            position: relative;
+            display: inline-block;
+            margin-top: 0.5rem;
+        }
+        .generated-image {
+            max-width: 300px;
+            max-height: 300px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .generated-image:hover {
+            transform: scale(1.02);
+        }
         .download-image-btn {
             position: absolute;
             bottom: 0.5rem;
@@ -403,9 +539,17 @@
             cursor: pointer;
             transition: all 0.3s ease;
         }
-        .download-image-btn:hover { background: #667eea; transform: scale(1.05); }
-        a { color: #667eea; text-decoration: none; }
-        a:hover { text-decoration: underline; }
+        .download-image-btn:hover {
+            background: #667eea;
+            transform: scale(1.05);
+        }
+        a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
         .link-container {
             background: #f1f5f9;
             padding: 0.4rem 0.8rem;
@@ -415,8 +559,14 @@
             cursor: pointer;
             transition: all 0.3s ease;
         }
-        .link-container:hover { background: #e2e8f0; transform: translateX(5px); }
-        .link-container a { display: block; word-break: break-all; }
+        .link-container:hover {
+            background: #e2e8f0;
+            transform: translateX(5px);
+        }
+        .link-container a {
+            display: block;
+            word-break: break-all;
+        }
 
         .suggestion-floating {
             position: fixed;
@@ -438,8 +588,14 @@
             max-height: 200px;
             overflow-y: auto;
         }
-        body.dark .suggestion-floating { background: rgba(20, 20, 30, 0.98); border-color: rgba(255,255,255,0.1); }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        body.dark .suggestion-floating {
+            background: rgba(20, 20, 30, 0.98);
+            border-color: rgba(255,255,255,0.1);
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
         .suggestion-chip {
             background: rgba(255,255,255,0.1);
             border: none;
@@ -452,8 +608,15 @@
             color: white;
             font-weight: 500;
         }
-        body.dark .suggestion-chip { background: rgba(255,255,255,0.12); color: #e0e0e0; }
-        .suggestion-chip:hover { background: #667eea; color: white; transform: scale(1.03) translateY(-2px); }
+        body.dark .suggestion-chip {
+            background: rgba(255,255,255,0.12);
+            color: #e0e0e0;
+        }
+        .suggestion-chip:hover {
+            background: #667eea;
+            color: white;
+            transform: scale(1.03) translateY(-2px);
+        }
 
         .suggestion-bar {
             background: transparent;
@@ -465,11 +628,21 @@
             border-top: 1px solid rgba(0,0,0,0.05);
             animation: fadeIn 0.3s ease;
         }
-        body.dark .suggestion-bar { border-top-color: rgba(255,255,255,0.05); }
-        .suggestion-bar .suggestion-chip { background: rgba(0,0,0,0.05); color: inherit; }
-        body.dark .suggestion-bar .suggestion-chip { background: rgba(255,255,255,0.08); }
+        body.dark .suggestion-bar {
+            border-top-color: rgba(255,255,255,0.05);
+        }
+        .suggestion-bar .suggestion-chip {
+            background: rgba(0,0,0,0.05);
+            color: inherit;
+        }
+        body.dark .suggestion-bar .suggestion-chip {
+            background: rgba(255,255,255,0.08);
+        }
 
-        .prediction-container { position: relative; width: 100%; }
+        .prediction-container {
+            position: relative;
+            width: 100%;
+        }
         .prediction-text {
             position: absolute;
             bottom: 100%;
@@ -488,7 +661,10 @@
             z-index: 50;
             animation: fadeIn 0.2s ease;
         }
-        body.dark .prediction-text { background: rgba(0,0,0,0.9); color: #888; }
+        body.dark .prediction-text {
+            background: rgba(0,0,0,0.9);
+            color: #888;
+        }
 
         .input-area {
             padding: 1rem;
@@ -502,7 +678,9 @@
             gap: 0.5rem;
             position: relative;
         }
-        .plus-menu { position: relative; }
+        .plus-menu {
+            position: relative;
+        }
         .plus-btn {
             background: #667eea;
             border: none;
@@ -514,7 +692,10 @@
             color: white;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .plus-btn:hover { background: #5a67d8; transform: scale(1.05) rotate(90deg); }
+        .plus-btn:hover {
+            background: #5a67d8;
+            transform: scale(1.05) rotate(90deg);
+        }
         .plus-dropdown {
             position: absolute;
             bottom: 55px;
@@ -552,7 +733,10 @@
             transition: all 0.3s ease;
         }
         textarea:focus { outline: none; border-color: #667eea; transform: scale(1.01); }
-        .input-buttons { display: flex; gap: 0.4rem; }
+        .input-buttons {
+            display: flex;
+            gap: 0.4rem;
+        }
         .action-icon {
             background: #f1f5f9;
             border: none;
@@ -563,14 +747,24 @@
             font-size: 1.1rem;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .action-icon:hover { background: #e2e8f0; transform: scale(1.05) translateY(-2px); }
+        .action-icon:hover {
+            background: #e2e8f0;
+            transform: scale(1.05) translateY(-2px);
+        }
         .voice-active {
             background: #10b981;
             animation: pulse 1.5s infinite;
             color: white;
         }
-        @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.8; transform: scale(1.05); } }
-        .typing-indicator { display: flex; gap: 5px; padding: 0.3rem; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(1.05); }
+        }
+        .typing-indicator {
+            display: flex;
+            gap: 5px;
+            padding: 0.3rem;
+        }
         .typing-dot {
             width: 7px;
             height: 7px;
@@ -581,7 +775,10 @@
         .typing-dot:nth-child(1) { animation-delay: 0s; }
         .typing-dot:nth-child(2) { animation-delay: 0.2s; }
         .typing-dot:nth-child(3) { animation-delay: 0.4s; }
-        @keyframes typingPulse { 0%, 60%, 100% { transform: translateY(0); opacity: 0.5; } 30% { transform: translateY(-8px); opacity: 1; } }
+        @keyframes typingPulse {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+            30% { transform: translateY(-8px); opacity: 1; }
+        }
         
         .image-preview-area {
             display: flex;
@@ -594,9 +791,20 @@
             align-items: center;
             animation: fadeIn 0.3s ease;
         }
-        .image-preview { position: relative; display: inline-block; transition: all 0.3s ease; }
-        .image-preview:hover { transform: scale(1.05); }
-        .image-preview img { width: 65px; height: 65px; object-fit: cover; border-radius: 10px; }
+        .image-preview {
+            position: relative;
+            display: inline-block;
+            transition: all 0.3s ease;
+        }
+        .image-preview:hover {
+            transform: scale(1.05);
+        }
+        .image-preview img {
+            width: 65px;
+            height: 65px;
+            object-fit: cover;
+            border-radius: 10px;
+        }
         .remove-image {
             position: absolute;
             top: -6px;
@@ -614,7 +822,10 @@
             border: none;
             transition: all 0.3s ease;
         }
-        .remove-image:hover { background: #dc2626; transform: scale(1.1); }
+        .remove-image:hover {
+            background: #dc2626;
+            transform: scale(1.1);
+        }
         .preview-btn.add {
             background: #10b981;
             border: none;
@@ -626,9 +837,18 @@
             font-weight: 500;
             transition: all 0.3s ease;
         }
-        .preview-btn.add:hover { background: #059669; transform: scale(1.05); }
-        .preview-info { font-size: 0.7rem; color: #64748b; margin-left: 0.5rem; }
-        input[type="file"] { display: none; }
+        .preview-btn.add:hover {
+            background: #059669;
+            transform: scale(1.05);
+        }
+        .preview-info {
+            font-size: 0.7rem;
+            color: #64748b;
+            margin-left: 0.5rem;
+        }
+        input[type="file"] {
+            display: none;
+        }
 
         #confetti-canvas {
             position: fixed;
@@ -652,15 +872,40 @@
             transition: all 0.3s ease;
             margin-left: 0.5rem;
         }
-        .sound-toggle:hover { background: rgba(255,255,255,0.25); transform: scale(1.05); }
+        .sound-toggle:hover {
+            background: rgba(255,255,255,0.25);
+            transform: scale(1.05);
+        }
 
         @media (max-width: 768px) {
-            .logo h1 span { display: none; }
-            .header-btn, .top-menu-btn, .lang-selector { padding: 0.3rem 0.6rem; font-size: 0.65rem; }
-            .suggestion-chip { font-size: 0.65rem; padding: 0.35rem 0.8rem; }
-            .sidebar { width: 320px; left: -320px; }
-            .toast-notification { font-size: 0.7rem; padding: 0.4rem 1rem; white-space: normal; text-align: center; max-width: 90%; }
-            .suggestion-floating { bottom: 75px; left: 10px; right: 10px; padding: 0.6rem; }
+            .logo h1 span {
+                display: none;
+            }
+            .header-btn, .top-menu-btn, .lang-selector {
+                padding: 0.3rem 0.6rem;
+                font-size: 0.65rem;
+            }
+            .suggestion-chip {
+                font-size: 0.65rem;
+                padding: 0.35rem 0.8rem;
+            }
+            .sidebar {
+                width: 320px;
+                left: -320px;
+            }
+            .toast-notification {
+                font-size: 0.7rem;
+                padding: 0.4rem 1rem;
+                white-space: normal;
+                text-align: center;
+                max-width: 90%;
+            }
+            .suggestion-floating {
+                bottom: 75px;
+                left: 10px;
+                right: 10px;
+                padding: 0.6rem;
+            }
         }
     </style>
 </head>
@@ -818,7 +1063,9 @@
     function playBeep() {
         if (!soundEnabled) return;
         try {
-            if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
             const oscillator = audioContext.createOscillator();
             const gainNode = audioContext.createGain();
             oscillator.connect(gainNode);
@@ -842,18 +1089,20 @@
     function showToast(message, duration = 2000) {
         toastNotification.textContent = message;
         toastNotification.classList.add('show');
-        setTimeout(() => toastNotification.classList.remove('show'), duration);
+        setTimeout(() => {
+            toastNotification.classList.remove('show');
+        }, duration);
     }
     
     function showProgress() {
         progressBar.style.width = '30%';
-        setTimeout(() => progressBar.style.width = '70%', 200);
-        setTimeout(() => { progressBar.style.width = '100%'; setTimeout(() => progressBar.style.width = '0%', 300); }, 500);
+        setTimeout(() => { progressBar.style.width = '70%'; }, 200);
+        setTimeout(() => { progressBar.style.width = '100%'; setTimeout(() => { progressBar.style.width = '0%'; }, 300); }, 500);
     }
     
     function hideProgress() {
         progressBar.style.width = '100%';
-        setTimeout(() => progressBar.style.width = '0%', 300);
+        setTimeout(() => { progressBar.style.width = '0%'; }, 300);
     }
     
     function launchConfetti() {
@@ -861,6 +1110,7 @@
         const ctx = canvas.getContext('2d');
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
+        
         const particles = [];
         for (let i = 0; i < 100; i++) {
             particles.push({
@@ -868,9 +1118,11 @@
                 y: Math.random() * canvas.height - canvas.height,
                 size: Math.random() * 6 + 2,
                 color: `hsl(${Math.random() * 360}, 70%, 60%)`,
-                speed: Math.random() * 3 + 2
+                speed: Math.random() * 3 + 2,
+                angle: Math.random() * Math.PI * 2
             });
         }
+        
         function animate() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             let alive = false;
@@ -884,7 +1136,7 @@
             else ctx.clearRect(0, 0, canvas.width, canvas.height);
         }
         animate();
-        setTimeout(() => ctx.clearRect(0, 0, canvas.width, canvas.height), 2000);
+        setTimeout(() => { ctx.clearRect(0, 0, canvas.width, canvas.height); }, 2000);
     }
     
     const translations = {
@@ -984,7 +1236,9 @@
     
     function updateUILanguage() {
         const t = translations[currentLanguage];
-        if (t) questionInput.placeholder = t.placeholder;
+        if (t) {
+            questionInput.placeholder = t.placeholder;
+        }
     }
     
     languageSelector.addEventListener('change', (e) => {
@@ -1021,7 +1275,10 @@
         }
     }
     
-    questionInput.addEventListener('input', (e) => showPrediction(e.target.value));
+    questionInput.addEventListener('input', (e) => {
+        showPrediction(e.target.value);
+    });
+    
     questionInput.addEventListener('keydown', (e) => {
         if (e.key === 'Tab') {
             e.preventDefault();
@@ -1047,17 +1304,25 @@
                         canvas.height = img.height;
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0);
-                        resolve(canvas.toDataURL('image/jpeg', 0.9));
-                    } catch (err) { reject(new Error('Error al convertir la imagen: ' + err.message)); }
+                        const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.9);
+                        resolve(jpegDataUrl);
+                    } catch (err) {
+                        reject(new Error('Error al convertir la imagen: ' + err.message));
+                    }
                 };
-                img.onerror = () => reject(new Error('No se pudo cargar la imagen. El formato puede no ser compatible.'));
+                img.onerror = function() {
+                    reject(new Error('No se pudo cargar la imagen HEIC. El formato puede no ser compatible con este navegador.'));
+                };
                 img.src = e.target.result;
             };
-            reader.onerror = () => reject(new Error('No se pudo leer el archivo.'));
+            reader.onerror = function() {
+                reject(new Error('No se pudo leer el archivo HEIC.'));
+            };
             reader.readAsDataURL(file);
         });
     }
     
+    // Función para comprimir datos antes de guardar
     function compressData(data) {
         try {
             const jsonString = JSON.stringify(data);
@@ -1072,25 +1337,35 @@
                 }
             }
             return jsonString;
-        } catch(e) { return JSON.stringify({}); }
+        } catch(e) {
+            return JSON.stringify({});
+        }
     }
     
+    // Función mejorada para guardar chats
     function saveAllChats() { 
         try {
             const chatsArray = Object.values(allChats);
             if (chatsArray.length > 20) {
                 chatsArray.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
                 const nuevosChats = {};
-                chatsArray.slice(0, 20).forEach(chat => { nuevosChats[chat.id] = chat; });
+                chatsArray.slice(0, 20).forEach(chat => {
+                    nuevosChats[chat.id] = chat;
+                });
                 allChats = nuevosChats;
             }
-            localStorage.setItem('jamdMemoryChats', compressData(allChats));
+            
+            const compressed = compressData(allChats);
+            localStorage.setItem('jamdMemoryChats', compressed);
         } catch(e) {
+            console.error('Error guardando chats:', e);
             if (e.name === 'QuotaExceededError') {
                 const chatsArray = Object.values(allChats);
                 chatsArray.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
                 const nuevosChats = {};
-                chatsArray.slice(0, 10).forEach(chat => { nuevosChats[chat.id] = chat; });
+                chatsArray.slice(0, 10).forEach(chat => {
+                    nuevosChats[chat.id] = chat;
+                });
                 allChats = nuevosChats;
                 try {
                     localStorage.setItem('jamdMemoryChats', JSON.stringify(allChats));
@@ -1107,14 +1382,23 @@
     function createNewChat() {
         currentChatId = Date.now().toString();
         currentMessages = [];
+        
         const chatsArray = Object.values(allChats);
         if (chatsArray.length >= 25) {
             chatsArray.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
             const nuevosChats = {};
-            chatsArray.slice(0, 24).forEach(chat => { nuevosChats[chat.id] = chat; });
+            chatsArray.slice(0, 24).forEach(chat => {
+                nuevosChats[chat.id] = chat;
+            });
             allChats = nuevosChats;
         }
-        allChats[currentChatId] = { id: currentChatId, title: `Chat ${new Date().toLocaleString()}`, messages: [], createdAt: new Date().toISOString() };
+        
+        allChats[currentChatId] = { 
+            id: currentChatId, 
+            title: `Chat ${new Date().toLocaleString()}`, 
+            messages: [], 
+            createdAt: new Date().toISOString() 
+        };
         saveAllChats();
         renderMessages();
         renderChatHistory();
@@ -1164,10 +1448,19 @@
             addMessageToUI('assistant', currentLanguage === 'es' ? '¡Nada que guardar!' : 'Nothing to save!', new Date().toLocaleTimeString(), null, false); 
             return; 
         }
-        if (projects.length >= 10) projects = projects.slice(-9);
+        
+        if (projects.length >= 10) {
+            projects = projects.slice(-9);
+        }
+        
         let projectName = prompt(currentLanguage === 'es' ? 'Nombre del proyecto:' : 'Project name:', `Proyecto ${projects.length + 1}`);
         if (projectName) {
-            projects.push({ id: Date.now(), name: projectName, messages: [...currentMessages].slice(-30), date: new Date().toLocaleString() });
+            projects.push({ 
+                id: Date.now(), 
+                name: projectName, 
+                messages: [...currentMessages].slice(-30),
+                date: new Date().toLocaleString() 
+            });
             localStorage.setItem('jamdMemoryProjects', JSON.stringify(projects));
             renderProjects();
             showToast('💾 Proyecto guardado');
@@ -1177,11 +1470,22 @@
     
     function showFloatingSuggestions() {
         const t = translations[currentLanguage];
-        const suggestions = [t.suggestionUpload, t.suggestionHelp, t.suggestionGen, t.suggestionPrice, t.suggestionDark, t.suggestionSave];
-        suggestionFloating.innerHTML = suggestions.map(s => `<span class="suggestion-chip" onclick="insertSuggestion('${s.replace(/'/g, "\\'")}')">${s}</span>`).join('');
+        const suggestions = [
+            t.suggestionUpload,
+            t.suggestionHelp,
+            t.suggestionGen,
+            t.suggestionPrice,
+            t.suggestionDark,
+            t.suggestionSave
+        ];
+        suggestionFloating.innerHTML = suggestions.map(s => 
+            `<span class="suggestion-chip" onclick="insertSuggestion('${s.replace(/'/g, "\\'")}')">${s}</span>`
+        ).join('');
         suggestionFloating.style.display = 'flex';
         if (suggestionTimeout) clearTimeout(suggestionTimeout);
-        suggestionTimeout = setTimeout(() => suggestionFloating.style.display = 'none', 5000);
+        suggestionTimeout = setTimeout(() => {
+            suggestionFloating.style.display = 'none';
+        }, 5000);
     }
     
     function insertSuggestion(text) {
@@ -1189,10 +1493,12 @@
         suggestionFloating.style.display = 'none';
         questionInput.focus();
     }
+    
     window.insertSuggestion = insertSuggestion;
     
     function generateContextSuggestions(lastUserMessage, lastAIMessage) {
         const suggestions = [];
+        
         if (lastUserMessage && (lastUserMessage.toLowerCase().includes('image') || lastUserMessage.toLowerCase().includes('imagen'))) {
             suggestions.push("📸 " + (currentLanguage === 'es' ? "¿Qué más ves en esta imagen?" : "What else do you see in this image?"));
             suggestions.push("🔍 " + (currentLanguage === 'es' ? "¿Puedes leer el texto?" : "Can you read the text?"));
@@ -1203,6 +1509,7 @@
         if (lastUserMessage && lastUserMessage.toLowerCase().includes('code')) {
             suggestions.push("💻 " + (currentLanguage === 'es' ? "¿Puedes explicar este código?" : "Can you explain this code?"));
         }
+        
         if (suggestions.length === 0) {
             suggestions.push("💬 " + (currentLanguage === 'es' ? "¿Necesitas ayuda con algo más?" : "Need help with something else?"));
             suggestions.push("✨ " + (currentLanguage === 'es' ? "¿Quieres que genere una imagen?" : "Do you want me to generate an image?"));
@@ -1215,9 +1522,12 @@
         if (lastMessageDiv && lastMessageDiv.classList.contains('message-ai')) {
             let existingBar = lastMessageDiv.querySelector('.suggestion-bar');
             if (existingBar) existingBar.remove();
+            
             const suggestionBar = document.createElement('div');
             suggestionBar.className = 'suggestion-bar';
-            suggestionBar.innerHTML = suggestions.map(s => `<span class="suggestion-chip" onclick="insertSuggestionAndSend('${s.replace(/'/g, "\\'").replace(/[💬🤔✨📸🔍💰💻]/g, '').trim()}')">${s}</span>`).join('');
+            suggestionBar.innerHTML = suggestions.map(s => 
+                `<span class="suggestion-chip" onclick="insertSuggestionAndSend('${s.replace(/'/g, "\\'").replace(/[💬🤔✨📸🔍💰💻]/g, '').trim()}')">${s}</span>`
+            ).join('');
             lastMessageDiv.querySelector('.message-bubble').appendChild(suggestionBar);
         }
     }
@@ -1244,7 +1554,11 @@
     }
     
     function isImageGenerationRequest(text) {
-        const patterns = [/generat(?:e|ing)? image of/i, /create image of/i, /make image of/i, /draw image of/i, /genera una imagen de/i, /crea una imagen de/i, /diseña una imagen de/i, /haz una imagen de/i];
+        const patterns = [
+            /generat(?:e|ing)? image of/i, /create image of/i, /make image of/i, /draw image of/i,
+            /genera una imagen de/i, /crea una imagen de/i, /diseña una imagen de/i, /haz una imagen de/i,
+            /génère une image de/i, /erstelle ein bild von/i, /gere uma imagem de/i, /genera un'immagine di/i
+        ];
         return patterns.some(pattern => pattern.test(text));
     }
     
@@ -1252,28 +1566,46 @@
         showProgress();
         try {
             addMessageToUI('assistant', `🎨 ${currentLanguage === 'es' ? 'Generando imagen:' : 'Generating image:'} "${prompt}"...`, new Date().toLocaleTimeString(), null, true);
+            
             const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENROUTER_API_KEY}`, 'HTTP-Referer': window.location.href, 'X-Title': 'JamdDmaj AI' },
-                body: JSON.stringify({ model: 'black-forest-labs/flux-schnell:free', messages: [{ role: 'user', content: prompt }], max_tokens: 1000 })
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                    'HTTP-Referer': window.location.href,
+                    'X-Title': 'JamdDmaj AI'
+                },
+                body: JSON.stringify({
+                    model: 'black-forest-labs/flux-schnell:free',
+                    messages: [{ role: 'user', content: prompt }],
+                    max_tokens: 1000
+                })
             });
+            
             if (!response.ok) throw new Error('Image generation failed');
+            
             const data = await response.json();
             const imageUrl = data.choices[0]?.message?.content;
+            
             if (imageUrl && (imageUrl.includes('data:image') || imageUrl.includes('http'))) {
-                const imageHtml = `<div class="generated-image-container"><img src="${imageUrl}" class="generated-image" onclick="window.open(this.src)"><button class="download-image-btn" onclick="downloadImage('${imageUrl}', '${prompt.substring(0, 30)}')">💾 Descargar</button></div>`;
-                addMessageToUI('assistant', `🎨 ${currentLanguage === 'es' ? 'Imagen generada:' : 'Generated Image:'}<br>${imageHtml}<br><br>Prompt: "${prompt}"`, new Date().toLocaleTimeString(), null, true);
+                const imageHtml = `<div class="generated-image-container">
+                    <img src="${imageUrl}" class="generated-image" onclick="window.open(this.src)">
+                    <button class="download-image-btn" onclick="downloadImage('${imageUrl}', '${prompt.substring(0, 30)}')">💾 Descargar</button>
+                </div>`;
+                addMessageToUI('assistant', `🎨 ${currentLanguage === 'es' ? 'Imagen generada:' : 'Generated Image:'}<br>${imageHtml}<br><br>${currentLanguage === 'es' ? 'Prompt:' : 'Prompt:'} "${prompt}"`, new Date().toLocaleTimeString(), null, true);
                 currentMessages.push({ role: 'assistant', content: `🎨 Generated Image\nPrompt: "${prompt}"`, images: [imageUrl], timestamp: new Date().toLocaleTimeString() });
                 saveCurrentChat();
                 playBeep();
                 launchConfetti();
                 showToast('✨ Imagen generada!');
             } else {
-                addMessageToUI('assistant', currentLanguage === 'es' ? '❌ No se pudo generar la imagen. Intenta con otra descripción.' : '❌ Could not generate image. Try a different prompt.', new Date().toLocaleTimeString(), null, true);
+                addMessageToUI('assistant', `${currentLanguage === 'es' ? '❌ No se pudo generar la imagen. Intenta con otra descripción.' : '❌ Could not generate image. Try a different prompt.'}`, new Date().toLocaleTimeString(), null, true);
             }
         } catch (error) {
             addMessageToUI('assistant', `❌ ${currentLanguage === 'es' ? 'Error al generar imagen:' : 'Image generation error:'} ${error.message}`, new Date().toLocaleTimeString(), null, true);
-        } finally { hideProgress(); }
+        } finally {
+            hideProgress();
+        }
     }
     
     window.downloadImage = function(imageUrl, filename) {
@@ -1292,14 +1624,50 @@
             const code = wrapper.querySelector('code').innerText;
             navigator.clipboard.writeText(code).then(() => {
                 btn.textContent = '✅ Copiado!';
-                setTimeout(() => btn.textContent = '📋 Copiar Código', 2000);
+                setTimeout(() => { btn.textContent = '📋 Copiar Código'; }, 2000);
                 showToast('📋 Código copiado');
                 playBeep();
             });
         }
     };
     
-    window.openLink = function(url) { window.open(url, '_blank'); showToast('🔗 Enlace abierto'); };
+    window.openLink = function(url) {
+        window.open(url, '_blank');
+        showToast('🔗 Enlace abierto');
+    };
+    
+    async function readTextFromImage(imageBase64) {
+        try {
+            const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                    'HTTP-Referer': window.location.href,
+                    'X-Title': 'JamdDmaj AI'
+                },
+                body: JSON.stringify({
+                    model: 'google/gemini-2.5-flash',
+                    messages: [
+                        {
+                            role: 'user',
+                            content: [
+                                { type: 'text', text: 'Extrae TODO el texto que veas en esta imagen. Si hay texto en inglés u otro idioma, tradúcelo al español. Devuelve SOLO el texto extraído y su traducción.' },
+                                { type: 'image_url', image_url: { url: imageBase64 } }
+                            ]
+                        }
+                    ],
+                    max_tokens: 1000
+                })
+            });
+            
+            const data = await response.json();
+            return data.choices[0]?.message?.content || "No se encontró texto en la imagen.";
+        } catch (error) {
+            console.error('Error leyendo texto:', error);
+            return "❌ Error al leer el texto.";
+        }
+    }
     
     async function fetchPriceWithRetry(ids, retries = 3) {
         for (let i = 0; i < retries; i++) {
@@ -1325,7 +1693,9 @@
     }
     
     function addWelcomeMessage() {
-        addMessageToUI('assistant', translations[currentLanguage].welcome.replace('{date}', getCurrentDate()), new Date().toLocaleTimeString(), null, false);
+        const t = translations[currentLanguage];
+        const welcomeText = t.welcome.replace('{date}', getCurrentDate());
+        addMessageToUI('assistant', welcomeText, new Date().toLocaleTimeString(), null, false);
     }
     
     function loadChat(chatId) {
@@ -1342,10 +1712,16 @@
     function renderChatHistory() {
         const historyList = document.getElementById('chatHistoryList');
         const chats = Object.values(allChats).sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
-        if (chats.length === 0) { historyList.innerHTML = '<div class="empty-state">' + (currentLanguage === 'es' ? 'No hay chats aún' : 'No chats yet') + '</div>'; return; }
+        if (chats.length === 0) {
+            historyList.innerHTML = '<div class="empty-state">' + (currentLanguage === 'es' ? 'No hay chats aún' : 'No chats yet') + '</div>';
+            return;
+        }
         historyList.innerHTML = chats.map(chat => `
             <div class="sidebar-item ${chat.id === currentChatId ? 'active' : ''}" onclick="loadChat('${chat.id}')">
-                <div class="sidebar-item-left"><span>💬</span><span style="flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${escapeHtml(chat.title)}</span></div>
+                <div class="sidebar-item-left">
+                    <span>💬</span>
+                    <span style="flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${escapeHtml(chat.title)}</span>
+                </div>
                 <button class="sidebar-item-delete" onclick="event.stopPropagation(); deleteChat('${chat.id}', event)">🗑️</button>
             </div>
         `).join('');
@@ -1353,8 +1729,18 @@
     
     function renderProjects() {
         const projectsList = document.getElementById('projectsList');
-        if (projects.length === 0) { projectsList.innerHTML = '<div class="empty-state">' + (currentLanguage === 'es' ? 'No hay proyectos guardados' : 'No projects saved') + '</div>'; return; }
-        projectsList.innerHTML = projects.map(p => `<div class="sidebar-item" onclick="loadProject(${p.id})"><div class="sidebar-item-left"><span>📁</span><span>${escapeHtml(p.name)}</span></div></div>`).join('');
+        if (projects.length === 0) {
+            projectsList.innerHTML = '<div class="empty-state">' + (currentLanguage === 'es' ? 'No hay proyectos guardados' : 'No projects saved') + '</div>';
+            return;
+        }
+        projectsList.innerHTML = projects.map(p => `
+            <div class="sidebar-item" onclick="loadProject(${p.id})">
+                <div class="sidebar-item-left">
+                    <span>📁</span>
+                    <span>${escapeHtml(p.name)}</span>
+                </div>
+            </div>
+        `).join('');
     }
     
     window.loadProject = function(id) {
@@ -1370,13 +1756,17 @@
     
     function renderMessages() {
         chatMessages.innerHTML = '';
-        for (const msg of currentMessages) addMessageToUI(msg.role, msg.content, msg.timestamp, msg.images, false);
+        for (const msg of currentMessages) {
+            addMessageToUI(msg.role, msg.content, msg.timestamp, msg.images, false);
+        }
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
     
     function processLinks(content) {
         let processed = content;
-        processed = processed.replace(/(https?:\/\/(?:www\.)?youtube\.com\/watch\?v=[^\s]+|youtu\.be\/[^\s]+)/g, (match) => `<div class="link-container" onclick="openLink('${match}')"><a href="${match}" target="_blank" style="color:#ff0000;">▶️ Watch on YouTube</a></div>`);
+        processed = processed.replace(/(https?:\/\/(?:www\.)?youtube\.com\/watch\?v=[^\s]+|youtu\.be\/[^\s]+)/g, (match) => {
+            return `<div class="link-container" onclick="openLink('${match}')"><a href="${match}" target="_blank" style="color:#ff0000;">▶️ Watch on YouTube</a></div>`;
+        });
         processed = processed.replace(/(https?:\/\/[^\s]+)/g, (match) => {
             if (match.includes('youtube') || match.includes('youtu.be')) return match;
             let icon = '🔗';
@@ -1393,28 +1783,40 @@
     function addMessageToUI(role, content, timestamp, images = null, addSuggestions = true) {
         const div = document.createElement('div');
         div.className = `message message-${role}`;
+        
         let processedContent = processLinks(content);
         processedContent = processedContent.replace(/\n/g, '<br>');
+        
         processedContent = processedContent.replace(/```(\w*)\n([\s\S]*?)```/g, (match, language, code) => {
             const escapedCode = escapeHtml(code.trim());
-            return `<div class="code-block-wrapper"><pre><code>${escapedCode}</code></pre><button class="copy-code-btn" onclick="copyCode(this)">📋 Copiar Código</button></div>`;
+            return `<div class="code-block-wrapper">
+                        <pre><code>${escapedCode}</code></pre>
+                        <button class="copy-code-btn" onclick="copyCode(this)">📋 Copiar Código</button>
+                    </div>`;
         });
+        
         let imgHtml = '';
         if (images && images.length) {
             imgHtml = '<div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem;">';
             for (const img of images) {
                 if (img.startsWith('data:image') || img.startsWith('http')) {
-                    imgHtml += `<div class="generated-image-container"><img src="${img}" class="chat-image" onclick="window.open(this.src)"><button class="download-image-btn" onclick="downloadImage('${img}', 'image')">💾 Descargar</button></div>`;
+                    imgHtml += `<div class="generated-image-container">
+                                    <img src="${img}" class="chat-image" onclick="window.open(this.src)">
+                                    <button class="download-image-btn" onclick="downloadImage('${img}', 'image')">💾 Descargar</button>
+                                </div>`;
                 }
             }
             imgHtml += '</div>';
         }
+        
         div.innerHTML = `<div class="message-bubble">${processedContent}${imgHtml}<div class="message-time">${timestamp}</div></div>`;
         chatMessages.appendChild(div);
         chatMessages.scrollTop = chatMessages.scrollHeight;
+        
         if (addSuggestions && role === 'assistant') {
             const lastUserMessage = currentMessages.filter(m => m.role === 'user').pop()?.content || '';
-            addSuggestionBar(generateContextSuggestions(lastUserMessage, content));
+            const suggestions = generateContextSuggestions(lastUserMessage, content);
+            addSuggestionBar(suggestions);
         }
     }
     
@@ -1425,12 +1827,20 @@
         addMessageToUI(role, content, timestamp, images, addSuggestions);
     }
     
-    function escapeHtml(text) { const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
+    function escapeHtml(text) { 
+        const div = document.createElement('div'); 
+        div.textContent = text; 
+        return div.innerHTML; 
+    }
     
     function updateImagePreview() {
         imagePreviewArea.innerHTML = '';
-        if (pendingImages.length === 0) { imagePreviewArea.style.display = 'none'; return; }
+        if (pendingImages.length === 0) {
+            imagePreviewArea.style.display = 'none';
+            return;
+        }
         imagePreviewArea.style.display = 'flex';
+        
         pendingImages.forEach((imgData, index) => {
             const previewDiv = document.createElement('div');
             previewDiv.className = 'image-preview';
@@ -1439,18 +1849,24 @@
             const removeBtn = document.createElement('button');
             removeBtn.innerHTML = '×';
             removeBtn.className = 'remove-image';
-            removeBtn.onclick = () => { pendingImages.splice(index, 1); updateImagePreview(); };
+            removeBtn.onclick = () => {
+                pendingImages.splice(index, 1);
+                updateImagePreview();
+            };
             previewDiv.appendChild(img);
             previewDiv.appendChild(removeBtn);
             imagePreviewArea.appendChild(previewDiv);
         });
+        
         const addBtn = document.createElement('button');
         addBtn.innerHTML = '+ Añadir más';
         addBtn.className = 'preview-btn add';
         addBtn.onclick = () => fileInput.click();
+        
         const info = document.createElement('span');
         info.className = 'preview-info';
         info.innerHTML = `${pendingImages.length} ${currentLanguage === 'es' ? 'imagen(es) lista(s)' : 'image(s) ready'}. ${currentLanguage === 'es' ? 'Escribe tu pregunta y presiona Enter →' : 'Type question and press Enter →'}`;
+        
         imagePreviewArea.appendChild(addBtn);
         imagePreviewArea.appendChild(info);
     }
@@ -1461,9 +1877,11 @@
             const fileExt = fileName.split('.').pop().toLowerCase();
             const isHeic = fileExt === 'heic' || fileExt === 'heif';
             const t = translations[currentLanguage];
+            
             if (file.type.startsWith('image/') || isHeic) {
                 try {
                     let imageData;
+                    
                     if (isHeic) {
                         addMessageToUI('assistant', t.converting.replace('{name}', fileName).replace('{type}', fileExt.toUpperCase()), new Date().toLocaleTimeString(), null, false);
                         showProgress();
@@ -1484,18 +1902,25 @@
                             reader.readAsDataURL(file);
                         });
                     }
+                    
                     pendingImages.push(imageData);
                     updateImagePreview();
-                    addMessageToUI('assistant', t.imageUploaded.replace('{name}', fileName), new Date().toLocaleTimeString(), [imageData], false);
-                    currentMessages.push({ role: 'assistant', content: t.imageUploaded.replace('{name}', fileName), images: [imageData], timestamp: new Date().toLocaleTimeString() });
+                    
+                    const imageMessage = t.imageUploaded.replace('{name}', fileName);
+                    
+                    addMessageToUI('assistant', imageMessage, new Date().toLocaleTimeString(), [imageData], false);
+                    currentMessages.push({ role: 'assistant', content: imageMessage, images: [imageData], timestamp: new Date().toLocaleTimeString() });
                     saveCurrentChat();
                     playBeep();
                 } catch (error) {
+                    console.error('Error processing image:', error);
                     addMessageToUI('assistant', `❌ ${currentLanguage === 'es' ? 'Error al procesar la imagen:' : 'Error processing image:'} ${fileName} - ${error.message}`, new Date().toLocaleTimeString(), null, false);
                 }
             } else if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
                 const reader = new FileReader();
-                reader.onload = (e) => addMessage('user', `📄 Subido: ${file.name}\n\n${e.target.result.substring(0, 500)}`, null, false);
+                reader.onload = (e) => {
+                    addMessage('user', `📄 Subido: ${file.name}\n\n${e.target.result.substring(0, 500)}`, null, false);
+                };
                 reader.readAsText(file);
             } else {
                 addMessageToUI('assistant', `⚠️ ${currentLanguage === 'es' ? 'No soportado:' : 'Unsupported:'} ${file.name}. ${currentLanguage === 'es' ? 'Usa JPG, PNG, GIF, WEBP, HEIC o TXT.' : 'Use JPG, PNG, GIF, WEBP, HEIC, or TXT.'}`, new Date().toLocaleTimeString(), null, false);
@@ -1505,10 +1930,26 @@
     }
     
     async function fetchAllPrices() {
-        const cryptos = ['bitcoin','ethereum','ripple','solana','dogecoin','cardano','polkadot','chainlink','matic-network','uniswap','litecoin','shiba-inu','pepe','dogwifcoin','bonk','floki','avalanche-2','tron','near','aptos','arbitrum','optimism','sui','sei-network'];
+        const cryptos = [
+            'bitcoin', 'ethereum', 'ripple', 'solana', 'dogecoin', 'cardano',
+            'polkadot', 'chainlink', 'matic-network', 'uniswap', 'litecoin',
+            'shiba-inu', 'pepe', 'dogwifcoin', 'bonk', 'floki',
+            'avalanche-2', 'tron', 'near', 'aptos', 'arbitrum', 'optimism', 'sui', 'sei-network'
+        ];
+        
         try {
             const data = await fetchPriceWithRetry(cryptos.join(','));
-            const elements = { bitcoin:'btcPrice', ethereum:'ethPrice', ripple:'xrpPrice', solana:'solPrice', dogecoin:'dogePrice', cardano:'adaPrice', polkadot:'dotPrice', chainlink:'linkPrice', 'matic-network':'maticPrice', uniswap:'uniPrice', litecoin:'ltcPrice', 'shiba-inu':'shibPrice', pepe:'pepePrice', dogwifcoin:'wifPrice', bonk:'bonkPrice', floki:'flokiPrice', 'avalanche-2':'avaxPrice', tron:'trxPrice', near:'nearPrice', aptos:'aptPrice', arbitrum:'arbPrice', optimism:'opPrice', 'sui':'suiPrice', 'sei-network':'seiPrice' };
+            
+            const elements = {
+                bitcoin: 'btcPrice', ethereum: 'ethPrice', ripple: 'xrpPrice', solana: 'solPrice',
+                dogecoin: 'dogePrice', cardano: 'adaPrice', polkadot: 'dotPrice', chainlink: 'linkPrice',
+                'matic-network': 'maticPrice', uniswap: 'uniPrice', litecoin: 'ltcPrice',
+                'shiba-inu': 'shibPrice', pepe: 'pepePrice', dogwifcoin: 'wifPrice',
+                bonk: 'bonkPrice', floki: 'flokiPrice', 'avalanche-2': 'avaxPrice',
+                tron: 'trxPrice', near: 'nearPrice', aptos: 'aptPrice', arbitrum: 'arbPrice',
+                optimism: 'opPrice', 'sui': 'suiPrice', 'sei-network': 'seiPrice'
+            };
+            
             for (const [id, elementId] of Object.entries(elements)) {
                 const el = document.getElementById(elementId);
                 if (el && data[id]) {
@@ -1517,16 +1958,22 @@
                     else if (price < 1) price = price.toFixed(4);
                     else price = price.toFixed(2);
                     el.textContent = price;
-                } else if (el) el.textContent = '---';
+                } else if (el) {
+                    el.textContent = '---';
+                }
             }
         } catch(e) { console.error('Error fetching prices:', e); }
-        const stocks = ['AAPL','MSFT','GOOGL','AMZN','NVDA','TSLA','META','NFLX'];
+        
+        const stocks = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'TSLA', 'META', 'NFLX'];
         for (const stock of stocks) {
             try {
                 const res = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${stock}`);
                 const data = await res.json();
                 const price = data.chart.result[0]?.meta?.regularMarketPrice;
-                if (price) { const el = document.getElementById(`${stock.toLowerCase()}Price`); if (el) el.textContent = price.toFixed(2); }
+                if (price) {
+                    const el = document.getElementById(`${stock.toLowerCase()}Price`);
+                    if (el) el.textContent = price.toFixed(2);
+                }
             } catch(e) {}
         }
     }
@@ -1545,12 +1992,15 @@
         } catch(e) { return null; }
     }
     
-    window.searchStock = function(symbol) { questionInput.value = `What is the current price of ${symbol.toUpperCase()} stock?`; sendMessage(); };
-    window.searchCrypto = function(coin) { questionInput.value = `What is the price of ${coin}?`; sendMessage(); };
+    window.searchStock = function(symbol) {
+        questionInput.value = `What is the current price of ${symbol.toUpperCase()} stock?`;
+        sendMessage();
+    };
     
     async function webSearch(query) {
         try {
-            const res = await fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1`);
+            const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1`;
+            const res = await fetch(url);
             const data = await res.json();
             return data.AbstractText || '';
         } catch(e) { return ''; }
@@ -1558,70 +2008,147 @@
     
     async function sendMessage() {
         const question = questionInput.value.trim();
+        
         if (question && isImageGenerationRequest(question)) {
-            let prompt = question.replace(/generat(?:e|ing)? image of|create image of|make image of|draw image of|genera una imagen de|crea una imagen de|diseña una imagen de|haz una imagen de/gi, '').trim();
+            let prompt = question.replace(/generat(?:e|ing)? image of|create image of|make image of|draw image of|genera una imagen de|crea una imagen de|diseña una imagen de|haz una imagen de|génère une image de|erstelle ein bild von|gere uma imagem de|genera un'immagine di/gi, '').trim();
             if (!prompt) prompt = question;
             questionInput.value = '';
             await generateImage(prompt);
             return;
         }
+        
         if (!question && pendingImages.length === 0) return;
+        
         const finalQuestion = question || (currentLanguage === 'es' ? "¿Qué ves en estas imágenes?" : "What do you see in these images?");
         const imagesToSend = [...pendingImages];
+        
         questionInput.value = '';
         pendingImages = [];
         updateImagePreview();
+        
         addMessage('user', finalQuestion, imagesToSend.length > 0 ? imagesToSend : null, false);
+        
         const streamingDiv = document.createElement('div');
         streamingDiv.className = 'message message-ai';
         streamingDiv.innerHTML = `<div class="message-bubble"><div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div></div>`;
         chatMessages.appendChild(streamingDiv);
         chatMessages.scrollTop = chatMessages.scrollHeight;
         currentStreamingDiv = streamingDiv.querySelector('.message-bubble');
+        
         const detectedLang = detectLanguage(finalQuestion);
+        
         const nameMatch = finalQuestion.match(/(?:my name is|call me|i am|me llamo|soy|je m'appelle|ich heiße|me chamo|mi chiamo)\s+([A-Za-zÁÉÍÓÚáéíóúÑñÀ-ÿ]+)/i);
         if (nameMatch && !userName) { userName = nameMatch[1]; localStorage.setItem('jamdMemoryName', userName); }
+        
         showProgress();
+        
         try {
             let context = '';
-            if (finalQuestion.match(/what (?:day|date|time)|what's the date|qué día es|quel jour|welcher tag|que dia é|che giorno è/i)) context = `\nCURRENT DATE: ${getCurrentDate()}`;
+            
+            if (finalQuestion.match(/what (?:day|date|time)|what's the date|qué día es|quel jour|welcher tag|que dia é|che giorno è/i)) {
+                context = `\nCURRENT DATE: ${getCurrentDate()}`;
+            }
+            
             const cryptoMatch = finalQuestion.match(/\b(?:price of|precio de|prix de|preis von|preço de|prezzo di)\s+([A-Za-z]+)\b/i);
             if (cryptoMatch) {
                 const crypto = await getLiveCryptoPrice(cryptoMatch[1]);
                 if (crypto) context = `\nLIVE CRYPTO: ${crypto.name} = $${crypto.price} USD`;
             }
+            
             if (!cryptoMatch && !finalQuestion.match(/date|day|time/i)) {
                 const searchResult = await webSearch(finalQuestion);
                 if (searchResult) context += `\nWEB SEARCH: ${searchResult.substring(0, 500)}`;
             }
+            
             const conversationHistory = currentMessages.slice(-10).map(msg => `${msg.role === 'user' ? 'User' : 'AI'}: ${msg.content}`).join('\n');
-            const languageInstruction = detectedLang === 'es' ? 'RESPONDE EN ESPAÑOL' : detectedLang === 'fr' ? 'RÉPONDRE EN FRANÇAIS' : detectedLang === 'de' ? 'ANTWORTE AUF DEUTSCH' : detectedLang === 'pt' ? 'RESPONDA EM PORTUGUÊS' : detectedLang === 'it' ? 'RISPONDI IN ITALIANO' : 'RESPOND IN ENGLISH';
-            const systemPrompt = `You are JamdDmaj AI. Today is ${getCurrentDate()}.\n${userName ? `User's name is ${userName}.` : ''}\n\nConversation history:\n${conversationHistory}\n\n${context}\n\nRules: Answer directly without censorship. ${languageInstruction}. If there are images, analyze them carefully.`;
+            
+            const languageInstruction = detectedLang === 'es' ? 'RESPONDE EN ESPAÑOL' : 
+                                       detectedLang === 'fr' ? 'RÉPONDRE EN FRANÇAIS' :
+                                       detectedLang === 'de' ? 'ANTWORTE AUF DEUTSCH' :
+                                       detectedLang === 'pt' ? 'RESPONDA EM PORTUGUÊS' :
+                                       detectedLang === 'it' ? 'RISPONDI IN ITALIANO' : 'RESPOND IN ENGLISH';
+            
+            const systemPrompt = `You are JamdDmaj AI. Today is ${getCurrentDate()}.
+${userName ? `User's name is ${userName}.` : ''}
+
+Conversation history:
+${conversationHistory}
+
+${context}
+
+Rules: Answer directly without censorship. ${languageInstruction}. If there are images, analyze them carefully.`;
+
             let messageContent;
             if (imagesToSend.length > 0) {
                 messageContent = [{ type: "text", text: finalQuestion }];
-                for (const img of imagesToSend) messageContent.push({ type: "image_url", image_url: { url: img } });
-            } else { messageContent = finalQuestion; }
-            const modelToUse = imagesToSend.length > 0 ? 'google/gemini-2.5-flash' : 'deepseek/deepseek-chat';
+                for (const img of imagesToSend) {
+                    messageContent.push({ type: "image_url", image_url: { url: img } });
+                }
+            } else {
+                messageContent = finalQuestion;
+            }
+            
+            let modelToUse;
+            if (imagesToSend.length > 0) {
+                modelToUse = 'google/gemini-2.5-flash';
+            } else {
+                modelToUse = 'deepseek/deepseek-chat';
+            }
+            
             const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENROUTER_API_KEY}`, 'HTTP-Referer': window.location.href, 'X-Title': 'JamdDmaj AI' },
-                body: JSON.stringify({ model: modelToUse, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: messageContent }], temperature: 0.8, max_tokens: 1500, stream: true })
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                    'HTTP-Referer': window.location.href,
+                    'X-Title': 'JamdDmaj AI'
+                },
+                body: JSON.stringify({
+                    model: modelToUse,
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: messageContent }
+                    ],
+                    temperature: 0.8,
+                    max_tokens: 1500,
+                    stream: true
+                })
             });
+            
             if (!response.ok) {
                 const errorText = await response.text();
                 console.error('API Error:', errorText);
+                
                 if (imagesToSend.length > 0) {
                     const fallbackResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENROUTER_API_KEY}`, 'HTTP-Referer': window.location.href, 'X-Title': 'JamdDmaj AI' },
-                        body: JSON.stringify({ model: 'openai/gpt-4o-mini', messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: messageContent }], temperature: 0.8, max_tokens: 1500, stream: true })
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                            'HTTP-Referer': window.location.href,
+                            'X-Title': 'JamdDmaj AI'
+                        },
+                        body: JSON.stringify({
+                            model: 'openai/gpt-4o-mini',
+                            messages: [
+                                { role: 'system', content: systemPrompt },
+                                { role: 'user', content: messageContent }
+                            ],
+                            temperature: 0.8,
+                            max_tokens: 1500,
+                            stream: true
+                        })
                     });
-                    if (!fallbackResponse.ok) throw new Error(`Both vision models failed. Check your API key.`);
+                    
+                    if (!fallbackResponse.ok) {
+                        throw new Error(`Both vision models failed. Check your API key.`);
+                    }
+                    
                     const fallbackReader = fallbackResponse.body.getReader();
                     const fallbackDecoder = new TextDecoder();
                     let fallbackFullText = '';
                     const fallbackBubble = streamingDiv.querySelector('.message-bubble');
+                    
                     while (true) {
                         const { done, value } = await fallbackReader.read();
                         if (done) break;
@@ -1643,20 +2170,27 @@
                             }
                         }
                     }
+                    
                     fallbackBubble.innerHTML = fallbackFullText.replace(/\n/g, '<br>') + `<div class="message-time">${new Date().toLocaleTimeString()}</div>`;
                     currentMessages.push({ role: 'assistant', content: fallbackFullText, timestamp: new Date().toLocaleTimeString() });
                     saveCurrentChat();
-                    addSuggestionBar(generateContextSuggestions(finalQuestion, fallbackFullText));
+                    
+                    const suggestions = generateContextSuggestions(finalQuestion, fallbackFullText);
+                    addSuggestionBar(suggestions);
+                    
                     hideProgress();
                     currentStreamingDiv = null;
                     return;
                 }
+                
                 throw new Error(`API Error ${response.status}`);
             }
+            
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let fullText = '';
             const bubble = streamingDiv.querySelector('.message-bubble');
+            
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
@@ -1678,11 +2212,16 @@
                     }
                 }
             }
+            
             bubble.innerHTML = fullText.replace(/\n/g, '<br>') + `<div class="message-time">${new Date().toLocaleTimeString()}</div>`;
             currentMessages.push({ role: 'assistant', content: fullText, timestamp: new Date().toLocaleTimeString() });
             saveCurrentChat();
-            addSuggestionBar(generateContextSuggestions(finalQuestion, fullText));
+            
+            const suggestions = generateContextSuggestions(finalQuestion, fullText);
+            addSuggestionBar(suggestions);
+            
             playBeep();
+            
             if (isListening) {
                 const utterance = new SpeechSynthesisUtterance(fullText);
                 utterance.rate = 0.9;
@@ -1708,11 +2247,31 @@
         recognition.onend = () => { isListening = false; voiceBtn.classList.remove('voice-active'); voiceBtn.innerHTML = '🎤'; };
     }
     
-    function toggleVoice() { if (!recognition) initVoice(); if (isListening) recognition.stop(); else recognition.start(); }
-    function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); document.getElementById('sidebarOverlay').classList.toggle('show'); }
-    function closeSidebarPanel() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebarOverlay').classList.remove('show'); }
+    function toggleVoice() {
+        if (!recognition) initVoice();
+        if (isListening) recognition.stop();
+        else recognition.start();
+    }
+    
+    function toggleSidebar() { 
+        document.getElementById('sidebar').classList.toggle('open'); 
+        document.getElementById('sidebarOverlay').classList.toggle('show'); 
+    }
+    function closeSidebarPanel() { 
+        document.getElementById('sidebar').classList.remove('open'); 
+        document.getElementById('sidebarOverlay').classList.remove('show'); 
+    }
     function toggleCrypto() { document.getElementById('cryptoBar').classList.toggle('show'); }
-    function toggleTheme() { document.body.classList.toggle('dark'); localStorage.setItem('jamdMemoryDark', document.body.classList.contains('dark')); showToast(document.body.classList.contains('dark') ? '🌙 Modo noche activado' : '☀️ Modo día activado'); }
+    function toggleTheme() { 
+        document.body.classList.toggle('dark'); 
+        localStorage.setItem('jamdMemoryDark', document.body.classList.contains('dark'));
+        showToast(document.body.classList.contains('dark') ? '🌙 Modo noche activado' : '☀️ Modo día activado');
+    }
+    window.searchCrypto = function(coin) { questionInput.value = `What is the price of ${coin}?`; sendMessage(); };
+    window.loadChat = loadChat;
+    window.deleteChat = deleteChat;
+    window.openLink = function(url) { window.open(url, '_blank'); };
+    window.insertSuggestionAndSend = insertSuggestionAndSend;
     
     sendBtn.addEventListener('click', sendMessage);
     voiceBtn.addEventListener('click', toggleVoice);
@@ -1731,12 +2290,12 @@
     saveCurrentBtn.addEventListener('click', saveCurrentChat);
     cryptoHeaderBtn.addEventListener('click', toggleCrypto);
     themeHeaderBtn.addEventListener('click', toggleTheme);
-    document.getElementById('historyMenuBtn').addEventListener('click', () => toggleSidebar());
-    document.getElementById('projectsMenuBtn').addEventListener('click', () => toggleSidebar());
+    document.getElementById('historyMenuBtn').addEventListener('click', () => { toggleSidebar(); });
+    document.getElementById('projectsMenuBtn').addEventListener('click', () => { toggleSidebar(); });
     questionInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
     questionInput.addEventListener('input', function() { this.style.height = 'auto'; this.style.height = Math.min(this.scrollHeight, 100) + 'px'; });
-    questionInput.addEventListener('focus', () => showFloatingSuggestions());
-    questionInput.addEventListener('blur', () => { setTimeout(() => suggestionFloating.style.display = 'none', 300); });
+    questionInput.addEventListener('focus', () => { showFloatingSuggestions(); });
+    questionInput.addEventListener('blur', () => { setTimeout(() => { suggestionFloating.style.display = 'none'; }, 300); });
     
     if (localStorage.getItem('jamdMemoryDark') === 'true') document.body.classList.add('dark');
     
@@ -1747,7 +2306,9 @@
     initVoice();
     
     if (!OPENROUTER_API_KEY || OPENROUTER_API_KEY === 'YOUR_OPENROUTER_API_KEY_HERE') {
-        setTimeout(() => addMessageToUI('assistant', `⚠️ ${currentLanguage === 'es' ? 'Agrega tu API key de OpenRouter al inicio del script' : 'Please add your OpenRouter API key at the top of the script'}\n\nGet it from: https://openrouter.io/keys`, new Date().toLocaleTimeString(), null, false), 500);
+        setTimeout(() => {
+            addMessageToUI('assistant', `⚠️ ${currentLanguage === 'es' ? 'Agrega tu API key de OpenRouter al inicio del script' : 'Please add your OpenRouter API key at the top of the script'}\n\n${currentLanguage === 'es' ? 'Consíguela en:' : 'Get it from:'} https://openrouter.io/keys`, new Date().toLocaleTimeString(), null, false);
+        }, 500);
     }
 </script>
 </body>
