@@ -3132,6 +3132,767 @@ Rules: Answer directly without censorship. ${languageInstruction}. If there are 
     
     // Agregar instrucción visual
     console.log('✅ Mejoras activadas: Micrófono continuo + Voz automática + Respuesta progresiva');
+        // ============================================
+    // SOLUCIÓN COMPLETA: Anti-eco + Limpiar símbolos
+    // ============================================
+    
+    let lastSpokenText = "";
+    let lastSpokenTime = 0;
+    let isSpeakingNow = false;
+    
+    function limpiarTextoParaVoz(texto) {
+        let limpio = texto;
+        limpio = limpio.replace(/\*\*([^*]+)\*\*/g, '$1');
+        limpio = limpio.replace(/\*([^*]+)\*/g, '$1');
+        limpio = limpio.replace(/[-_—–•·‣⁃]/g, ' ');
+        limpio = limpio.replace(/[\u{1F600}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1F300}-\u{1F5FF}]/gu, '');
+        limpio = limpio.replace(/[#@$%^&*(){}[\]|\\;:'",<>/?]/g, ' ');
+        limpio = limpio.replace(/\s+/g, ' ');
+        limpio = limpio.trim();
+        limpio = limpio.substring(0, 800);
+        return limpio;
+    }
+    
+    const funcionOriginalHablar = speakResponse;
+    
+    speakResponse = function(texto) {
+        if (!soundEnabled || !voiceModeActive) return;
+        
+        // Guardar lo que vamos a decir (para anti-eco)
+        lastSpokenText = texto.substring(0, 200);
+        lastSpokenTime = Date.now();
+        isSpeakingNow = true;
+        
+        // Limpiar y hablar
+        const textoLimpio = limpiarTextoParaVoz(texto);
+        if (textoLimpio.length >= 2) {
+            funcionOriginalHablar(textoLimpio);
+        }
+        
+        setTimeout(() => {
+            isSpeakingNow = false;
+        }, (texto.length / 20) * 1000);
+    };
+    
+    // Modificar el reconocimiento de voz para ignorar su propia voz
+    if (micRecognition) {
+        const originalOnResult = micRecognition.onresult;
+        micRecognition.onresult = (event) => {
+            let transcript = '';
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                transcript += event.results[i][0].transcript;
+            }
+            
+            const now = Date.now();
+            
+            if (isSpeakingNow) {
+                console.log('🔇 Ignorando (estoy hablando)');
+                return;
+            }
+            
+            const similarity = transcript.trim().toLowerCase();
+            const lastSpoken = lastSpokenText.toLowerCase().substring(0, 100);
+            
+            if (similarity === lastSpoken || (lastSpoken.includes(similarity) && (now - lastSpokenTime) < 3000)) {
+                console.log('🔇 Ignorando eco');
+                return;
+            }
+            
+            if (transcript.trim()) {
+                questionInput.value = transcript;
+                sendMessageWithAutoVoice();
+            }
+        };
+    }
+    
+    console.log('✅ Anti-eco + limpieza de símbolos ACTIVADOS');
+        // ============================================
+    // MÁS CRIPTOS + MEJOR EXACTITUD
+    // ============================================
+    
+    // Lista de TODAS las criptomonedas importantes
+    const ALL_CRYPTOS = {
+        // Layer 1 / Blockchain principales
+        btc: { id: 'bitcoin', name: 'BTC', category: '🔷 LAYER 1' },
+        eth: { id: 'ethereum', name: 'ETH', category: '🔷 LAYER 1' },
+        sol: { id: 'solana', name: 'SOL', category: '🔷 LAYER 1' },
+        ada: { id: 'cardano', name: 'ADA', category: '🔷 LAYER 1' },
+        xrp: { id: 'ripple', name: 'XRP', category: '🔷 LAYER 1' },
+        avax: { id: 'avalanche-2', name: 'AVAX', category: '🔷 LAYER 1' },
+        dot: { id: 'polkadot', name: 'DOT', category: '🔷 LAYER 1' },
+        near: { id: 'near', name: 'NEAR', category: '🔷 LAYER 1' },
+        apt: { id: 'aptos', name: 'APT', category: '🔷 LAYER 1' },
+        sui: { id: 'sui', name: 'SUI', category: '🔷 LAYER 1' },
+        ton: { id: 'toncoin', name: 'TON', category: '🔷 LAYER 1' },
+        vet: { id: 'vechain', name: 'VET', category: '🔷 LAYER 1' },
+        hbar: { id: 'hedera-hashgraph', name: 'HBAR', category: '🔷 LAYER 1' },
+        algo: { id: 'algorand', name: 'ALGO', category: '🔷 LAYER 1' },
+        xtz: { id: 'tezos', name: 'XTZ', category: '🔷 LAYER 1' },
+        atom: { id: 'cosmos', name: 'ATOM', category: '🔷 LAYER 1' },
+        
+        // Memes
+        doge: { id: 'dogecoin', name: 'DOGE', category: '🐸 MEMES' },
+        shib: { id: 'shiba-inu', name: 'SHIB', category: '🐸 MEMES' },
+        pepe: { id: 'pepe', name: 'PEPE', category: '🐸 MEMES' },
+        wif: { id: 'dogwifcoin', name: 'WIF', category: '🐸 MEMES' },
+        bonk: { id: 'bonk', name: 'BONK', category: '🐸 MEMES' },
+        floki: { id: 'floki', name: 'FLOKI', category: '🐸 MEMES' },
+        coq: { id: 'coq-inu', name: 'COQ', category: '🐸 MEMES' },
+        myro: { id: 'myro', name: 'MYRO', category: '🐸 MEMES' },
+        mog: { id: 'mog-coin', name: 'MOG', category: '🐸 MEMES' },
+        popcat: { id: 'popcat', name: 'POPCAT', category: '🐸 MEMES' },
+        
+        // DeFi
+        uni: { id: 'uniswap', name: 'UNI', category: '🏦 DEFI' },
+        aave: { id: 'aave', name: 'AAVE', category: '🏦 DEFI' },
+        link: { id: 'chainlink', name: 'LINK', category: '🏦 DEFI' },
+        matic: { id: 'matic-network', name: 'MATIC', category: '🏦 DEFI' },
+        arb: { id: 'arbitrum', name: 'ARB', category: '🏦 DEFI' },
+        op: { id: 'optimism', name: 'OP', category: '🏦 DEFI' },
+        crv: { id: 'curve-dao-token', name: 'CRV', category: '🏦 DEFI' },
+        ldo: { id: 'lido-dao', name: 'LDO', category: '🏦 DEFI' },
+        mkr: { id: 'maker', name: 'MKR', category: '🏦 DEFI' },
+        comp: { id: 'compound', name: 'COMP', category: '🏦 DEFI' },
+        
+        // Gaming
+        imx: { id: 'immutable-x', name: 'IMX', category: '🎮 GAMING' },
+        gala: { id: 'gala', name: 'GALA', category: '🎮 GAMING' },
+        axs: { id: 'axie-infinity', name: 'AXS', category: '🎮 GAMING' },
+        sand: { id: 'the-sandbox', name: 'SAND', category: '🎮 GAMING' },
+        mana: { id: 'decentraland', name: 'MANA', category: '🎮 GAMING' },
+        beam: { id: 'beam', name: 'BEAM', category: '🎮 GAMING' },
+        
+        // AI / Big Data
+        fet: { id: 'fetch-ai', name: 'FET', category: '🤖 AI' },
+        render: { id: 'render-token', name: 'RNDR', category: '🤖 AI' },
+        grt: { id: 'the-graph', name: 'GRT', category: '🤖 AI' },
+        ocean: { id: 'ocean-protocol', name: 'OCEAN', category: '🤖 AI' },
+        agix: { id: 'singularitynet', name: 'AGIX', category: '🤖 AI' },
+        taos: { id: 'tao', name: 'TAO', category: '🤖 AI' },
+        
+        // Layer 2 / Escalabilidad
+        lrc: { id: 'loopring', name: 'LRC', category: '⚡ LAYER 2' },
+        zk: { id: 'zkSync', name: 'ZK', category: '⚡ LAYER 2' },
+        strk: { id: 'starknet', name: 'STRK', category: '⚡ LAYER 2' },
+        
+        // RWA / Tokenización
+        ondo: { id: 'ondo-finance', name: 'ONDO', category: '🏛️ RWA' },
+        pol: { id: 'polymesh', name: 'POLYX', category: '🏛️ RWA' },
+        
+        // Depin / Infraestructura
+        hnt: { id: 'helium', name: 'HNT', category: '📡 DEPIN' },
+        iotx: { id: 'iotex', name: 'IOTX', category: '📡 DEPIN' },
+        
+        // Exchange tokens
+        bnb: { id: 'binancecoin', name: 'BNB', category: '🔄 EXCHANGE' },
+        cro: { id: 'crypto-com-chain', name: 'CRO', category: '🔄 EXCHANGE' },
+        okb: { id: 'okb', name: 'OKB', category: '🔄 EXCHANGE' },
+        
+        // Privacy
+        xmr: { id: 'monero', name: 'XMR', category: '🔒 PRIVACY' },
+        zec: { id: 'zcash', name: 'ZEC', category: '🔒 PRIVACY' }
+    };
+    
+    // Función mejorada para obtener precios (múltiples fuentes)
+    async function fetchBetterPrices() {
+        try {
+            // Fuente 1: CoinGecko (principal)
+            const ids = Object.values(ALL_CRYPTOS).map(c => c.id).join(',');
+            const response = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`);
+            
+            if (response.ok) {
+                const data = await response.json();
+                
+                // Actualizar cada elemento
+                for (const [key, crypto] of Object.entries(ALL_CRYPTOS)) {
+                    const priceElement = document.getElementById(`${key}Price`);
+                    if (priceElement && data[crypto.id]) {
+                        let price = data[crypto.id].usd;
+                        if (price < 0.01) price = price.toFixed(8);
+                        else if (price < 1) price = price.toFixed(4);
+                        else price = price.toFixed(2);
+                        priceElement.textContent = price;
+                    }
+                }
+            } else {
+                // Fallback a Binance si CoinGecko falla
+                await fetchFromBinance();
+            }
+        } catch(e) {
+            console.log('Error CoinGecko, intentando Binance...', e);
+            await fetchFromBinance();
+        }
+    }
+    
+    async function fetchFromBinance() {
+        try {
+            const symbols = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'DOGEUSDT', 'ADAUSDT', 'XRPUSDT'];
+            for (const symbol of symbols) {
+                const response = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    const coin = symbol.replace('USDT', '').toLowerCase();
+                    const priceElement = document.getElementById(`${coin}Price`);
+                    if (priceElement) {
+                        priceElement.textContent = parseFloat(data.price).toFixed(2);
+                    }
+                }
+            }
+        } catch(e) {
+            console.log('Error en Binance:', e);
+        }
+    }
+    
+    // Función para actualizar la barra de crypto en el HTML
+    function updateCryptoBarHTML() {
+        const cryptoBar = document.getElementById('cryptoBar');
+        if (!cryptoBar) return;
+        
+        let html = '';
+        let currentCategory = '';
+        
+        for (const [key, crypto] of Object.entries(ALL_CRYPTOS)) {
+            if (crypto.category !== currentCategory) {
+                currentCategory = crypto.category;
+                html += `<span class="crypto-category">${currentCategory}</span>`;
+            }
+            html += `<span class="crypto-item" onclick="searchCrypto('${crypto.name}')">${crypto.name}: $<span id="${key}Price">---</span></span>`;
+        }
+        
+        // Agregar stocks también
+        html += `<span class="crypto-category">📈 STOCKS</span>`;
+        html += `<span class="crypto-item" onclick="searchStock('aapl')">🍎 AAPL: $<span id="aaplPrice">---</span></span>`;
+        html += `<span class="crypto-item" onclick="searchStock('msft')">💻 MSFT: $<span id="msftPrice">---</span></span>`;
+        html += `<span class="crypto-item" onclick="searchStock('nvda')">🎮 NVDA: $<span id="nvdaPrice">---</span></span>`;
+        html += `<span class="crypto-item" onclick="searchStock('tsla')">🚗 TSLA: $<span id="tslaPrice">---</span></span>`;
+        html += `<span class="crypto-item" onclick="searchStock('amzn')">📦 AMZN: $<span id="amznPrice">---</span></span>`;
+        html += `<span class="crypto-item" onclick="searchStock('googl')">🔍 GOOGL: $<span id="googlPrice">---</span></span>`;
+        html += `<span class="crypto-item" onclick="searchStock('meta')">📘 META: $<span id="metaPrice">---</span></span>`;
+        
+        cryptoBar.innerHTML = html;
+    }
+    
+    // Reemplazar la función fetchAllPrices original
+    const originalFetchAllPrices = fetchAllPrices;
+    window.fetchAllPrices = async function() {
+        await fetchBetterPrices();
+        await fetchStocksPrices();
+    };
+    
+    async function fetchStocksPrices() {
+        const stocks = ['AAPL', 'MSFT', 'NVDA', 'TSLA', 'AMZN', 'GOOGL', 'META'];
+        for (const stock of stocks) {
+            try {
+                const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${stock}`);
+                const data = await response.json();
+                const price = data.chart.result[0]?.meta?.regularMarketPrice;
+                if (price) {
+                    const el = document.getElementById(`${stock.toLowerCase()}Price`);
+                    if (el) el.textContent = price.toFixed(2);
+                }
+            } catch(e) {}
+        }
+    }
+    
+    // Actualizar la barra y comenzar a buscar precios
+    updateCryptoBarHTML();
+    
+    // Buscar precios cada 30 segundos (más actualizado)
+    setInterval(() => {
+        fetchBetterPrices();
+        fetchStocksPrices();
+    }, 30000);
+    
+    // Buscar inmediatamente
+    fetchBetterPrices();
+    fetchStocksPrices();
+    
+    console.log('✅ Crypto actualizado: ' + Object.keys(ALL_CRYPTOS).length + ' monedas agregadas');
+        // ============================================
+    // SISTEMA DE PRECIOS ULTRA RÁPIDO (Múltiples fuentes)
+    // ============================================
+    
+    // Configuración
+    let lastPrices = {};
+    let priceRetryCount = {};
+    let isFetching = false;
+    
+    // Fuentes alternativas (redundancia)
+    const PRICE_SOURCES = [
+        {
+            name: 'CoinGecko',
+            url: (ids) => `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`,
+            parser: (data, cryptos) => {
+                for (const [key, crypto] of Object.entries(cryptos)) {
+                    if (data[crypto.id]) {
+                        lastPrices[key] = data[crypto.id].usd;
+                        priceRetryCount[key] = 0;
+                    }
+                }
+            }
+        },
+        {
+            name: 'Binance',
+            url: () => `https://api.binance.com/api/v3/ticker/price`,
+            parser: (data, cryptos) => {
+                const binanceMap = {
+                    btc: 'BTCUSDT', eth: 'ETHUSDT', sol: 'SOLUSDT', doge: 'DOGEUSDT',
+                    ada: 'ADAUSDT', xrp: 'XRPUSDT', dot: 'DOTUSDT', link: 'LINKUSDT',
+                    uni: 'UNIUSDT', matic: 'MATICUSDT', ltc: 'LTCUSDT'
+                };
+                for (const [key, symbol] of Object.entries(binanceMap)) {
+                    const item = data.find(p => p.symbol === symbol);
+                    if (item && lastPrices[key] === undefined) {
+                        lastPrices[key] = parseFloat(item.price);
+                    }
+                }
+            }
+        },
+        {
+            name: 'MEXC',
+            url: () => `https://api.mexc.com/api/v3/ticker/price`,
+            parser: (data, cryptos) => {
+                const mexcMap = { btc: 'BTCUSDT', eth: 'ETHUSDT', sol: 'SOLUSDT' };
+                for (const [key, symbol] of Object.entries(mexcMap)) {
+                    const item = data.find(p => p.symbol === symbol);
+                    if (item && lastPrices[key] === undefined) {
+                        lastPrices[key] = parseFloat(item.price);
+                    }
+                }
+            }
+        },
+        {
+            name: 'KuCoin',
+            url: () => `https://api.kucoin.com/api/v1/prices`,
+            parser: (data, cryptos) => {
+                if (data.data) {
+                    if (data.data['BTC'] && lastPrices.btc === undefined) lastPrices.btc = data.data['BTC'];
+                    if (data.data['ETH'] && lastPrices.eth === undefined) lastPrices.eth = data.data['ETH'];
+                    if (data.data['SOL'] && lastPrices.sol === undefined) lastPrices.sol = data.data['SOL'];
+                }
+            }
+        }
+    ];
+    
+    // Función principal de precios ultra rápida
+    async function fetchUltraFastPrices() {
+        if (isFetching) return;
+        isFetching = true;
+        
+        const cryptos = ALL_CRYPTOS || {
+            btc: { id: 'bitcoin', name: 'BTC' }, eth: { id: 'ethereum', name: 'ETH' },
+            sol: { id: 'solana', name: 'SOL' }, ada: { id: 'cardano', name: 'ADA' },
+            xrp: { id: 'ripple', name: 'XRP' }, doge: { id: 'dogecoin', name: 'DOGE' }
+        };
+        
+        // Intentar todas las fuentes en paralelo
+        const promises = PRICE_SOURCES.map(async (source) => {
+            try {
+                let url;
+                if (typeof source.url === 'function') {
+                    url = source.url(Object.values(cryptos).map(c => c.id).join(','));
+                } else {
+                    url = source.url;
+                }
+                
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 seg timeout
+                
+                const response = await fetch(url, { signal: controller.signal });
+                clearTimeout(timeoutId);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    source.parser(data, cryptos);
+                    console.log(`✅ Precios cargados desde: ${source.name}`);
+                }
+            } catch(e) {
+                console.log(`⚠️ Falló ${source.name}:`, e.message);
+            }
+        });
+        
+        await Promise.all(promises);
+        
+        // Actualizar UI con los precios obtenidos
+        for (const [key, crypto] of Object.entries(cryptos)) {
+            const priceElement = document.getElementById(`${key}Price`);
+            if (priceElement && lastPrices[key] !== undefined) {
+                let price = lastPrices[key];
+                if (price < 0.01) price = price.toFixed(8);
+                else if (price < 1) price = price.toFixed(4);
+                else price = price.toFixed(2);
+                priceElement.textContent = price;
+            }
+        }
+        
+        isFetching = false;
+    }
+    
+    // Reintentar automáticamente si falla
+    let retryInterval = null;
+    
+    function startPriceWatcher() {
+        // Cargar inmediatamente
+        fetchUltraFastPrices();
+        
+        // Cada 15 segundos (más rápido)
+        setInterval(() => {
+            fetchUltraFastPrices();
+        }, 15000);
+        
+        // Si hay errores, reintentar más agresivamente
+        retryInterval = setInterval(() => {
+            const anyMissing = Object.values(ALL_CRYPTOS || {}).some((_, key) => {
+                const el = document.getElementById(`${key}Price`);
+                return el && el.textContent === '---';
+            });
+            if (anyMissing) {
+                console.log('🔄 Reintentando precios faltantes...');
+                fetchUltraFastPrices();
+            }
+        }, 5000);
+    }
+    
+    // Reemplazar la función fetchAllPrices original
+    if (typeof window.originalFetchAllPrices === 'undefined') {
+        window.originalFetchAllPrices = window.fetchAllPrices;
+    }
+    
+    window.fetchAllPrices = fetchUltraFastPrices;
+    
+    // Iniciar el sistema de precios
+    startPriceWatcher();
+    
+    console.log('✅ Sistema de precios ultra rápido activado (múltiples fuentes + reintentos)');
+        // ============================================
+    // INYECTAR PRECIOS REALES EN EL CHAT
+    // ============================================
+    
+    // Función para obtener todos los precios actuales de la barra
+    function getCurrentPricesText() {
+        const prices = [];
+        
+        // Lista de monedas que mostramos
+        const coins = ['btc', 'eth', 'sol', 'ada', 'xrp', 'avax', 'dot', 'near', 'apt', 'sui', 'ton', 'vet'];
+        
+        for (const coin of coins) {
+            const element = document.getElementById(`${coin}Price`);
+            if (element && element.textContent !== '---') {
+                const name = coin.toUpperCase();
+                const price = element.textContent;
+                prices.push(`${name}: $${price}`);
+            }
+        }
+        
+        if (prices.length === 0) return '';
+        return `\n\n📊 PRECIOS EN VIVO (actualizados ahora):\n${prices.join(' | ')}\n\n`;
+    }
+    
+    // Modificar la función sendMessage para inyectar precios
+    const originalSendMessage = sendMessage;
+    
+    window.sendMessage = async function() {
+        const question = questionInput.value.trim();
+        
+        // Verificar si pregunta por precio de crypto
+        const cryptoKeywords = ['price', 'precio', 'BTC', 'ETH', 'SOL', 'DOGE', 'bitcoin', 'ethereum', 'solana', 'dogecoin'];
+        const isCryptoQuestion = cryptoKeywords.some(keyword => question?.toLowerCase().includes(keyword.toLowerCase()));
+        
+        if (isCryptoQuestion && question) {
+            // Obtener precios actuales de la barra
+            const currentPrices = getCurrentPricesText();
+            if (currentPrices) {
+                // Agregar los precios al principio del mensaje
+                const originalValue = questionInput.value;
+                questionInput.value = `${currentPrices}\n\nUsuario pregunta: ${question}\n\nPor favor responde usando SOLO los precios de arriba (son los actuales en tiempo real). No inventes precios.`;
+                await originalSendMessage();
+                questionInput.value = originalValue;
+                return;
+            }
+        }
+        
+        // Si no es pregunta de crypto, usar función original
+        await originalSendMessage();
+    };
+    
+    // También modificar searchCrypto y searchStock
+    window.searchCrypto = function(coin) {
+        const currentPrices = getCurrentPricesText();
+        const coinUpper = coin.toUpperCase();
+        
+        // Buscar el precio específico en la barra
+        let specificPrice = '';
+        const priceElement = document.getElementById(`${coin.toLowerCase()}Price`);
+        if (priceElement && priceElement.textContent !== '---') {
+            specificPrice = `El precio actual de ${coinUpper} es $${priceElement.textContent}. `;
+        }
+        
+        if (specificPrice) {
+            questionInput.value = `${specificPrice}${currentPrices}\n\nUsuario pregunta: ¿Cuál es el precio de ${coinUpper}?\n\nResponde confirmando el precio que ya te di (${specificPrice}) y no inventes otros números.`;
+        } else {
+            questionInput.value = `¿Cuál es el precio de ${coinUpper}?`;
+        }
+        sendMessage();
+    };
+    
+    console.log('✅ Precios reales inyectados en las respuestas de crypto');
+        // ============================================
+    // SUGERENCIAS INTELIGENTES (Contextuales)
+    // ============================================
+    
+    // Banco de sugerencias por categoría
+    const SUGGESTIONS_BANK = {
+        crypto: [
+            "📊 Actúa como trader profesional - Usa RSI, MACD y volumen para darme una idea de trade en futuros para {coin}",
+            "📰 Dame las noticias más recientes sobre {coin} con fuentes actualizadas",
+            "🔮 Análisis técnico de {coin} para las próximas 24 horas",
+            "💰 ¿Cuál es la tendencia actual de {coin}? ¿alcista o bajista?",
+            "🎯 Dame niveles de soporte y resistencia para {coin}",
+            "📈 Proyección de precio para {coin} en 1 semana usando datos on-chain",
+            "⚡ ¿Hay algún evento importante próximamente que afecte a {coin}?",
+            "🔄 Comparativa entre {coin} y sus principales competidores",
+            "🏦 ¿Qué están haciendo los whales (ballenas) con {coin}?",
+            "📊 Flujo de liquidez y volumen de {coin} en exchanges",
+            "🎲 Análisis de velas japonesas para {coin} - ¿patrón alcista o bajista?",
+            "🔍 Qué dicen los indicadores de miedo y codicia para {coin}"
+        ],
+        general: [
+            "🤔 ¿Qué opinas sobre el mercado crypto hoy?",
+            "📊 ¿Cuál es la capitalización total del mercado crypto?",
+            "🏆 ¿Qué criptomoneda tiene mejor rendimiento esta semana?",
+            "⚠️ ¿Qué altcoins tienen más potencial de crecimiento?",
+            "🎓 Explícame qué es DeFi como si tuviera 12 años",
+            "🔒 ¿Cuál es la diferencia entre exchange centralizado y descentralizado?",
+            "💡 Dame 3 consejos para principiantes en crypto",
+            "🎯 ¿Qué proyectos están construyendo en la red Solana actualmente?",
+            "🚨 ¿Qué es un rug pull y cómo identificarlo?",
+            "🔑 Mejores prácticas para mantener seguras mis crypto"
+        ],
+        image: [
+            "📸 Describe esta imagen en detalle",
+            "🔍 ¿Hay texto en esta imagen? Léelo y tradúcelo",
+            "🎨 ¿Qué objetos reconoces en esta imagen?",
+            "🌈 Analiza los colores y composición de esta imagen",
+            "🏷️ Identifica marcas o productos en esta imagen",
+            "📝 Resume visualmente lo que ves en esta imagen"
+        ],
+        trading: [
+            "📊 Estrategia de scalping para {coin} en 1 hora",
+            "🎯 Puntos de entrada y salida para {coin} con stop loss",
+            "📈 Simulación de trade long/short con gestión de riesgo 2:1",
+            "⚡ Señal de trading intradía para {coin}",
+            "🔮 Predicción de volatilidad para {coin} en 4 horas"
+        ]
+    };
+    
+        function detectCoinFromContext(text) {
+        // Ordenar de mayor a menor longitud
+        const coins = [
+            'BITCOIN', 'BTC',
+            'ETHEREUM', 'ETH',
+            'SOLANA', 'SOL',
+            'CARDANO', 'ADA',
+            'XRP', 'RIPPLE',
+            'DOGECOIN', 'DOGE',
+            'AVALANCHE', 'AVAX',
+            'POLKADOT', 'DOT',
+            'NEAR', 'APTOS', 'APT', 'SUI', 'TON', 'LINK', 'MATIC', 'UNI', 'AAVE'
+        ];
+        
+        const upperText = text.toUpperCase();
+        
+        // Primero buscar nombres completos
+        for (const coin of coins) {
+            if (coin.length > 3) {
+                if (upperText.includes(coin)) {
+                    if (coin === 'BITCOIN') return 'BTC';
+                    if (coin === 'ETHEREUM') return 'ETH';
+                    if (coin === 'SOLANA') return 'SOL';
+                    if (coin === 'CARDANO') return 'ADA';
+                    if (coin === 'DOGECOIN') return 'DOGE';
+                    if (coin === 'AVALANCHE') return 'AVAX';
+                    if (coin === 'POLKADOT') return 'DOT';
+                    return coin;
+                }
+            }
+        }
+        
+        // Luego buscar símbolos cortos
+        const shortCoins = ['BTC', 'ETH', 'SOL', 'ADA', 'XRP', 'DOGE', 'AVAX', 'DOT', 'NEAR', 'APT', 'SUI', 'TON', 'LINK', 'MATIC', 'UNI', 'AAVE'];
+        for (const coin of shortCoins) {
+            const regex = new RegExp(`\\b${coin}\\b`, 'i');
+            if (regex.test(upperText)) {
+                return coin;
+            }
+        }
+        
+        if (upperText.includes('CRYPTO') || upperText.includes('CRIPTO') || upperText.includes('MERCADO')) {
+            return 'CRYPTO';
+        }
+        
+        return null;
+    }
+    
+    // Generar sugerencias dinámicas según el contexto
+    function generateDynamicSuggestions(lastUserMessage, lastAIMessage, hasImages) {
+        const suggestions = [];
+        const detectedCoin = detectCoinFromContext(lastUserMessage + ' ' + lastAIMessage);
+            console.log('🔍 Moneda detectada:', detectedCoin, '| Mensaje:', lastUserMessage.substring(0, 50));
+        
+        // Si hablamos de crypto, sugerir cosas relacionadas
+        if (detectedCoin !== 'crypto' || lastUserMessage.toLowerCase().includes('precio') || lastUserMessage.toLowerCase().includes('price')) {
+            // Sugerencias de trading profesional
+            const tradingSugs = SUGGESTIONS_BANK.trading.map(s => s.replace('{coin}', detectedCoin));
+            suggestions.push(...tradingSugs.slice(0, 2));
+            
+            // Sugerencias de noticias
+            suggestions.push(`📰 Dame noticias actualizadas sobre ${detectedCoin}`);
+            suggestions.push(`📊 Análisis técnico de ${detectedCoin} para hoy`);
+            suggestions.push(`🎯 Niveles clave (soporte/resistencia) para ${detectedCoin}`);
+        }
+        
+        // Sugerencias generales de crypto
+        if (lastUserMessage.toLowerCase().includes('crypto') || lastUserMessage.toLowerCase().includes('bitcoin') || lastUserMessage.toLowerCase().includes('ethereum')) {
+            suggestions.push(...SUGGESTIONS_BANK.general.slice(0, 3));
+        }
+        
+        // Si hay imágenes
+        if (hasImages) {
+            suggestions.push(...SUGGESTIONS_BANK.image.slice(0, 2));
+        }
+        
+        // Sugerencias por defecto si no hay ninguna
+        if (suggestions.length === 0) {
+            suggestions.push("📊 Dame un análisis de mercado crypto hoy");
+            suggestions.push("💰 ¿Qué moneda tiene mejor potencial ahora?");
+            suggestions.push("📰 ¿Hay noticias importantes hoy en el mundo crypto?");
+            suggestions.push("🎯 ¿Cuáles son los niveles clave de BTC?");
+            suggestions.push("🔮 Predicción de precio para ETH esta semana");
+        }
+        
+        return suggestions.slice(0, 6); // Máximo 6 sugerencias
+    }
+    
+    // Reemplazar la función generateContextSuggestions original
+    const originalGenerateContextSuggestions = generateContextSuggestions;
+    
+    window.generateContextSuggestions = function(lastUserMessage, lastAIMessage) {
+        const hasImages = pendingImages.length > 0;
+        const dynamicSugs = generateDynamicSuggestions(lastUserMessage, lastAIMessage, hasImages);
+        
+        // Combinar con las originales si las hay
+        const originalSugs = originalGenerateContextSuggestions ? originalGenerateContextSuggestions(lastUserMessage, lastAIMessage) : [];
+        
+        // Unir y eliminar duplicados
+        const allSugs = [...dynamicSugs, ...originalSugs];
+        const uniqueSugs = [...new Map(allSugs.map(s => [s.toLowerCase(), s])).values()];
+        
+        return uniqueSugs.slice(0, 6);
+    };
+    
+    // Función para sugerencias en tiempo real (mientras escribe)
+    function showSmartSuggestions() {
+        const inputText = questionInput.value.trim().toLowerCase();
+        if (inputText.length < 3) return;
+        
+        let smartSuggestions = [];
+        
+        // Detectar palabras clave
+        if (inputText.includes('precio') || inputText.includes('price')) {
+            const coins = ['bitcoin', 'ethereum', 'solana', 'dogecoin', 'cardano'];
+            smartSuggestions = coins.map(c => `💰 Precio de ${c} ahora`);
+        } else if (inputText.includes('trade') || inputText.includes('futuro') || inputText.includes('futures')) {
+            smartSuggestions = [
+                "📊 Estrategia de futuros para BTC hoy",
+                "🎯 Long/Short recomendado para ETH",
+                "⚡ Señal de trading intradía"
+            ];
+        } else if (inputText.includes('noticia') || inputText.includes('news')) {
+            smartSuggestions = [
+                "📰 Últimas noticias del mercado crypto",
+                "📢 Eventos importantes esta semana",
+                "📡 Alertas de volatilidad"
+            ];
+        } else if (inputText.includes('analisis') || inputText.includes('analysis') || inputText.includes('técnico')) {
+            smartSuggestions = [
+                "📊 Análisis técnico de BTC (RSI, MACD, volumen)",
+                "🔮 Soporte y resistencia para ETH",
+                "📈 Tendencia de mercado hoy"
+            ];
+        }
+        
+        if (smartSuggestions.length > 0 && suggestionFloating) {
+            suggestionFloating.innerHTML = smartSuggestions.map(s => 
+                `<span class="suggestion-chip" onclick="insertSmartSuggestion('${s.replace(/'/g, "\\'")}')">${s}</span>`
+            ).join('');
+            suggestionFloating.style.display = 'flex';
+            if (suggestionTimeout) clearTimeout(suggestionTimeout);
+            suggestionTimeout = setTimeout(() => {
+                if (suggestionFloating) suggestionFloating.style.display = 'none';
+            }, 4000);
+        }
+    }
+    
+    window.insertSmartSuggestion = function(text) {
+        questionInput.value = text;
+        if (suggestionFloating) suggestionFloating.style.display = 'none';
+        sendMessage();
+    };
+    
+    // Modificar el evento input para sugerencias inteligentes
+    const originalInputHandler = questionInput.oninput;
+    questionInput.addEventListener('input', (e) => {
+        if (originalInputHandler) originalInputHandler(e);
+        showSmartSuggestions();
+    });
+    
+    console.log('✅ Sugerencias inteligentes activadas (trader, noticias, análisis técnico)');
+        // ============================================
+    // DETECTAR MONEDA CORRECTAMENTE
+    // ============================================
+    function detectCoinFromContext(text) {
+        const shortCoins = ['BTC', 'ETH', 'SOL', 'ADA', 'XRP', 'DOGE', 'AVAX', 'DOT', 'NEAR', 'APT', 'SUI', 'TON', 'LINK', 'MATIC', 'UNI', 'AAVE'];
+        const upperText = text.toUpperCase();
+        
+        for (const coin of shortCoins) {
+            const regex = new RegExp(`\\b${coin}\\b`, 'i');
+            if (regex.test(upperText)) {
+                return coin;
+            }
+        }
+        return null;
+    }
+
+    // ============================================
+    // GENERAR SUGERENCIAS INTELIGENTES
+    // ============================================
+    window.generateDynamicSuggestions = function(lastUserMessage, lastAIMessage, hasImages) {
+        const suggestions = [];
+        const detectedCoin = detectCoinFromContext(lastUserMessage);
+        
+        console.log('🔍 Moneda detectada:', detectedCoin);
+        
+        if (detectedCoin) {
+            suggestions.push(`📊 Análisis técnico de ${detectedCoin} para hoy`);
+            suggestions.push(`📰 Noticias actualizadas sobre ${detectedCoin}`);
+            suggestions.push(`💰 ¿Cuál es la tendencia actual de ${detectedCoin}?`);
+            suggestions.push(`🎯 Niveles de soporte y resistencia para ${detectedCoin}`);
+        } else {
+            suggestions.push("📊 Análisis del mercado crypto hoy");
+            suggestions.push("💰 ¿Qué criptomoneda tiene mejor potencial?");
+            suggestions.push("📰 Noticias importantes del mundo crypto");
+        }
+        
+        if (hasImages) {
+            suggestions.push("📸 Describe esta imagen en detalle");
+            suggestions.push("🔍 ¿Qué objetos reconoces en esta imagen?");
+        }
+        
+        return suggestions.slice(0, 5);
+    };
+    
+    console.log('✅ Sugerencias inteligentes activadas');
+
 </script>
 </body>
 </html>
