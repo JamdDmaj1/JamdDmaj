@@ -2818,7 +2818,13 @@ Rules: Answer directly without censorship. ${languageInstruction}. If there are 
         showToast(document.body.classList.contains('dark') ? '🌙 Modo noche activado' : '☀️ Modo día activado');
     }
     
-    sendBtn.addEventListener('click', sendMessage);
+    sendBtn.addEventListener('click', () => {
+    if (isMicActive) {
+        sendMessageWithAutoVoice();
+    } else {
+        sendMessage();
+    }
+});
     voiceBtn.addEventListener('click', toggleVoice);
     plusBtn.addEventListener('click', () => plusDropdown.classList.toggle('show'));
     document.addEventListener('click', (e) => { if (!plusBtn.contains(e.target) && !plusDropdown.contains(e.target)) plusDropdown.classList.remove('show'); });
@@ -2837,7 +2843,16 @@ Rules: Answer directly without censorship. ${languageInstruction}. If there are 
     themeHeaderBtn.addEventListener('click', toggleTheme);
     document.getElementById('historyMenuBtn').addEventListener('click', () => { toggleSidebar(); });
     document.getElementById('projectsMenuBtn').addEventListener('click', () => { toggleSidebar(); });
-    questionInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
+    questionInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        if (isMicActive) {
+            sendMessageWithAutoVoice();
+        } else {
+            sendMessage();
+        }
+    }
+});
     questionInput.addEventListener('input', function() { this.style.height = 'auto'; this.style.height = Math.min(this.scrollHeight, 100) + 'px'; });
     questionInput.addEventListener('focus', () => { showFloatingSuggestions(); });
     questionInput.addEventListener('blur', () => { setTimeout(() => { suggestionFloating.style.display = 'none'; }, 300); });
@@ -2963,6 +2978,160 @@ Rules: Answer directly without censorship. ${languageInstruction}. If there are 
             }
         });
     }
+        // ============================================
+    // MEJORAS: Micrófono continuo + voz automática + respuesta progresiva
+    // ============================================
+    
+    let isMicActive = false;
+    let micRecognition = null;
+    
+    // Inicializar micrófono continuo
+    function initContinuousMic() {
+        if (!('webkitSpeechRecognition' in window)) {
+            alert('Micrófono no soportado');
+            return;
+        }
+        
+        micRecognition = new webkitSpeechRecognition();
+        micRecognition.continuous = true;  // 🔥 NO se desactiva automáticamente
+        micRecognition.interimResults = true;
+        micRecognition.lang = currentLanguage === 'es' ? 'es-ES' : 'en-US';
+        
+        micRecognition.onstart = () => {
+            isMicActive = true;
+            voiceBtn.classList.add('voice-active');
+            voiceBtn.innerHTML = '🎤🔴';
+            showToast('🎤 Micrófono activo - Habla, te responderé en voz alta');
+        };
+        
+        micRecognition.onend = () => {
+            // Solo desactivar si no estamos reiniciando manualmente
+            if (isMicActive) {
+                // Reiniciar automáticamente para mantenerlo activo
+                setTimeout(() => {
+                    if (isMicActive) {
+                        try {
+                            micRecognition.start();
+                        } catch(e) {}
+                    }
+                }, 100);
+            }
+        };
+        
+        micRecognition.onresult = (event) => {
+            // Obtener transcripción completa
+            let transcript = '';
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                transcript += event.results[i][0].transcript;
+            }
+            
+            if (transcript.trim()) {
+                questionInput.value = transcript;
+                // Enviar automáticamente y activar voz
+                sendMessageWithAutoVoice();
+            }
+        };
+        
+        micRecognition.onerror = (event) => {
+            console.log('Error micrófono:', event.error);
+            if (event.error === 'no-speech') {
+                // No hacer nada, solo esperar más
+            } else if (event.error === 'network') {
+                showToast('❌ Error de red, reintentando...');
+                setTimeout(() => {
+                    if (isMicActive) {
+                        try {
+                            micRecognition.start();
+                        } catch(e) {}
+                    }
+                }, 1000);
+            }
+        };
+    }
+    
+    // Función para enviar mensaje con voz automática
+    let isSendingWithVoice = false;
+    
+    async function sendMessageWithAutoVoice() {
+        if (isSendingWithVoice) return;
+        isSendingWithVoice = true;
+        
+        const question = questionInput.value.trim();
+        if (!question && pendingImages.length === 0) {
+            isSendingWithVoice = false;
+            return;
+        }
+        
+        // Guardar estado original del modo voz
+        const originalVoiceMode = voiceModeActive;
+        
+        // 🔥 ACTIVAR VOZ AUTOMÁTICAMENTE para esta respuesta
+        voiceModeActive = true;
+        
+        // Enviar mensaje (la voz se activará automáticamente)
+        await sendMessage();
+        
+        // Restaurar estado original
+        voiceModeActive = originalVoiceMode;
+        
+        isSendingWithVoice = false;
+    }
+    
+    // Función para activar/desactivar micrófono continuo
+    function toggleContinuousMic() {
+        if (!micRecognition) {
+            initContinuousMic();
+        }
+        
+        if (isMicActive) {
+            // Apagar micrófono
+            isMicActive = false;
+            try {
+                micRecognition.stop();
+            } catch(e) {}
+            voiceBtn.classList.remove('voice-active');
+            voiceBtn.innerHTML = '🎤';
+            showToast('🎤 Micrófono apagado');
+        } else {
+            // Encender micrófono
+            isMicActive = true;
+            try {
+                micRecognition.start();
+            } catch(e) {
+                initContinuousMic();
+                micRecognition.start();
+            }
+        }
+    }
+    
+    // 🔥 MODIFICAR LA FUNCIÓN addMessageToUI para que HABLE MIENTRAS PIENSA
+    // Guardar la función original
+    const originalAddMessageToUI = addMessageToUI;
+    
+    // Crear nueva versión con respuesta progresiva
+    window.addMessageToUI = function(role, content, timestamp, images = null, addSuggestions = true) {
+        if (role === 'assistant' && voiceModeActive && soundEnabled && content && !content.includes('typing')) {
+            // Hablar SOLO el nuevo contenido que llega
+            const cleanText = content.replace(/[^a-zA-ZáéíóúñÑÁÉÍÓÚ\s]/g, '').substring(0, 500);
+            if (cleanText.trim()) {
+                // Usar speakResponse existente
+                if (typeof speakResponse === 'function') {
+                    speakResponse(cleanText);
+                }
+            }
+        }
+        
+        // Llamar función original para el UI
+        originalAddMessageToUI(role, content, timestamp, images, addSuggestions);
+    };
+    
+    // Reemplazar el evento del botón de voz
+    const originalVoiceBtnClick = voiceBtn.onclick;
+    voiceBtn.onclick = null;
+    voiceBtn.addEventListener('click', toggleContinuousMic);
+    
+    // Agregar instrucción visual
+    console.log('✅ Mejoras activadas: Micrófono continuo + Voz automática + Respuesta progresiva');
 </script>
 </body>
 </html>
