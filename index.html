@@ -877,6 +877,112 @@
             transform: scale(1.05);
         }
 
+        /* Estilos para el tutorial */
+        .tutorial-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(8px);
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.3s ease;
+        }
+        .tutorial-card {
+            background: white;
+            border-radius: 2rem;
+            max-width: 350px;
+            width: 90%;
+            padding: 1.5rem;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            animation: slideUp 0.3s ease;
+        }
+        body.dark .tutorial-card {
+            background: #1a1a1a;
+            color: white;
+        }
+        .tutorial-card h3 {
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+        }
+        .tutorial-card p {
+            font-size: 0.85rem;
+            margin-bottom: 1rem;
+            line-height: 1.5;
+            color: #666;
+        }
+        body.dark .tutorial-card p {
+            color: #aaa;
+        }
+        .tutorial-steps {
+            text-align: left;
+            margin: 1rem 0;
+            padding-left: 1rem;
+        }
+        .tutorial-steps li {
+            margin: 0.8rem 0;
+            font-size: 0.8rem;
+        }
+        .tutorial-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-top: 1rem;
+        }
+        .tutorial-btn {
+            padding: 0.5rem 1rem;
+            border-radius: 30px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .tutorial-btn.next {
+            background: #667eea;
+            color: white;
+        }
+        .tutorial-btn.skip {
+            background: transparent;
+            border: 1px solid #ccc;
+            color: #666;
+        }
+        body.dark .tutorial-btn.skip {
+            border-color: #444;
+            color: #aaa;
+        }
+        .tutorial-btn.next:hover {
+            background: #5a67d8;
+            transform: scale(1.02);
+        }
+        .tutorial-btn.skip:hover {
+            background: rgba(0,0,0,0.05);
+        }
+        .tutorial-dot-container {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: center;
+            margin: 1rem 0;
+        }
+        .tutorial-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ccc;
+            transition: all 0.2s;
+        }
+        .tutorial-dot.active {
+            background: #667eea;
+            width: 20px;
+            border-radius: 10px;
+        }
+
         @media (max-width: 768px) {
             .logo h1 span {
                 display: none;
@@ -906,6 +1012,10 @@
                 right: 10px;
                 padding: 0.6rem;
             }
+            .tutorial-card {
+                max-width: 320px;
+                padding: 1.2rem;
+            }
         }
     </style>
 </head>
@@ -918,7 +1028,7 @@
     <div class="header">
         <button class="burger-btn" id="burgerBtn">☰</button>
         <div class="logo">
-            <h1>🔥 JamdDmaj AI <span style="font-size: 0.65rem; font-weight: 400;">VISION + MEMORY + IMAGE GEN</span></h1>
+            <h1>🔥 JamdDmaj AI <span style="font-size: 0.65rem; font-weight: 400;" id="logoText">VISION + MEMORY + IMAGE GEN</span></h1>
         </div>
         <div class="top-menu">
             <select id="languageSelector" class="lang-selector">
@@ -929,12 +1039,12 @@
                 <option value="pt">🌐 Português</option>
                 <option value="it">🌐 Italiano</option>
             </select>
-            <button class="top-menu-btn" id="historyMenuBtn">📋 History</button>
-            <button class="top-menu-btn" id="projectsMenuBtn">📁 Projects</button>
+            <button class="top-menu-btn" id="historyMenuBtn">📋 <span id="historyBtnText">History</span></button>
+            <button class="top-menu-btn" id="projectsMenuBtn">📁 <span id="projectsBtnText">Projects</span></button>
             <button id="soundToggle" class="sound-toggle">🔊</button>
         </div>
         <div class="header-actions">
-            <button class="header-btn" id="saveCurrentBtn">💾 Save</button>
+            <button class="header-btn" id="saveCurrentBtn">💾 <span id="saveBtnText">Save</span></button>
             <button class="header-btn" id="cryptoHeaderBtn">💰</button>
             <button class="header-btn" id="themeHeaderBtn">🌓</button>
         </div>
@@ -983,11 +1093,11 @@
                 <div class="plus-menu">
                     <button class="plus-btn" id="plusBtn">+</button>
                     <div class="plus-dropdown" id="plusDropdown">
-                        <div class="dropdown-item" id="uploadImageOption">📸 Upload Images</div>
-                        <div class="dropdown-item" id="uploadFileOption">📄 Upload Document (TXT)</div>
-                        <div class="dropdown-item" id="saveProjectOption">💾 Save as Project</div>
-                        <div class="dropdown-item" id="newChatOption">✨ New Chat</div>
-                        <div class="dropdown-item" id="clearAllHistoryOption">🗑️ Clear All History</div>
+                        <div class="dropdown-item" id="uploadImageOption">📸 <span id="uploadImageText">Upload Images</span></div>
+                        <div class="dropdown-item" id="uploadFileOption">📄 <span id="uploadFileText">Upload Document (TXT)</span></div>
+                        <div class="dropdown-item" id="saveProjectOption">💾 <span id="saveProjectText">Save as Project</span></div>
+                        <div class="dropdown-item" id="newChatOption">✨ <span id="newChatText">New Chat</span></div>
+                        <div class="dropdown-item" id="clearAllHistoryOption">🗑️ <span id="clearHistoryText">Clear All History</span></div>
                         <input type="file" id="fileInput" accept="image/*,.txt,.heic,.heif" multiple>
                     </div>
                 </div>
@@ -1010,23 +1120,24 @@
     <div class="sidebar-header">
         <h3>📁 JamdDmaj</h3>
         <div class="sidebar-actions">
-            <button class="sidebar-action-btn" id="deleteAllHistoryBtn">🗑️ Delete All</button>
+            <button class="sidebar-action-btn" id="deleteAllHistoryBtn">🗑️ <span id="deleteAllText">Delete All</span></button>
             <button class="close-sidebar" id="closeSidebar" style="background:none; border:none; color:white; font-size:1.5rem; cursor:pointer;">×</button>
         </div>
     </div>
     <div class="sidebar-content">
         <div class="sidebar-section">
-            <div class="sidebar-title">CHATS HISTORY</div>
+            <div class="sidebar-title" id="chatsHistoryTitle">CHATS HISTORY</div>
             <div id="chatHistoryList"></div>
         </div>
         <div class="sidebar-section">
-            <div class="sidebar-title">SAVED PROJECTS</div>
+            <div class="sidebar-title" id="savedProjectsTitle">SAVED PROJECTS</div>
             <div id="projectsList"></div>
         </div>
     </div>
 </div>
 
 <div id="suggestionFloating" class="suggestion-floating"></div>
+<div id="tutorialOverlay" class="tutorial-overlay" style="display: none;"></div>
 
 <script>
     const OPENROUTER_API_KEY = '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';
@@ -1043,6 +1154,33 @@
     let suggestionTimeout = null;
     let currentLanguage = localStorage.getItem('jamdLanguage') || 'es';
     let soundEnabled = localStorage.getItem('jamdSoundEnabled') !== 'false';
+    let isScrollingManually = false;
+    
+    // Tutorial
+    let tutorialShown = localStorage.getItem('jamdTutorialShown') !== 'true';
+    let tutorialStep = 0;
+    const tutorialSteps = [
+        {
+            title: "✨ ¡Bienvenido a JamdDmaj AI!",
+            content: "Tu asistente inteligente con visión artificial y generación de imágenes.",
+            steps: ["📸 Sube imágenes para analizarlas", "🎨 Pide 'genera una imagen de...'", "🧠 Recuerda todo lo que hablamos"]
+        },
+        {
+            title: "💬 ¿Cómo usar el chat?",
+            content: "Escribe tu pregunta y presiona Enter para hablar con la IA.",
+            steps: ["📤 Presiona Enter para enviar", "🎤 Usa el micrófono para voz", "🌓 Cambia entre modo claro/oscuro"]
+        },
+        {
+            title: "📸 Subir imágenes",
+            content: "Haz clic en el botón + para subir fotos y analizarlas.",
+            steps: ["➕ Botón + para subir imágenes", "🖼️ Soporta JPG, PNG, HEIC", "🔍 La IA leerá texto si lo hay"]
+        },
+        {
+            title: "🎨 Generar imágenes",
+            content: "Simplemente escribe: 'genera una imagen de un gato'",
+            steps: ["🎨 Pide cualquier imagen", "💾 Descarga las imágenes generadas", "✨ Confeti y sonido al crearse"]
+        }
+    ];
     
     const chatMessages = document.getElementById('chatMessages');
     const questionInput = document.getElementById('questionInput');
@@ -1058,6 +1196,259 @@
     const progressBar = document.getElementById('progressBar');
     const toastNotification = document.getElementById('toastNotification');
     const soundToggle = document.getElementById('soundToggle');
+    const tutorialOverlay = document.getElementById('tutorialOverlay');
+    
+    // Traducciones completas de la interfaz
+    const uiTranslations = {
+        en: {
+            logoText: "VISION + MEMORY + IMAGE GEN",
+            historyBtn: "History",
+            projectsBtn: "Projects",
+            saveBtn: "Save",
+            uploadImage: "Upload Images",
+            uploadFile: "Upload Document (TXT)",
+            saveProject: "Save as Project",
+            newChat: "New Chat",
+            clearHistory: "Clear All History",
+            deleteAll: "Delete All",
+            chatsTitle: "CHATS HISTORY",
+            projectsTitle: "SAVED PROJECTS",
+            placeholder: "Ask anything - Upload images, type question, press Enter! 🔥",
+            welcome: "🔥 JamdDmaj AI Ready!\n\n📅 Today is: {date}\n\n✅ I can:\n• 👁️ See and analyze images\n• 🎨 Generate images from descriptions (just ask!)\n• 🧠 Remember everything we talk about\n• 📸 Upload images, type question, press Enter!\n• 💬 Auto-detect language\n\n💡 Try: \"generate an image of a cat\" or upload a photo!",
+            suggestionUpload: "📸 What is this image?",
+            suggestionHelp: "💡 What can you do?",
+            suggestionGen: "🎨 Generate a beautiful sunset image",
+            suggestionPrice: "💰 What is the price of Bitcoin?",
+            suggestionDark: "🌙 Change to dark mode",
+            suggestionSave: "📋 Save this conversation",
+            imageUploaded: "🖼️ **Image uploaded:** {name}\n\n📸 Image ready. What would you like to know about it?\n\n• Describe the image\n• Read any text in it\n• Identify objects\n• Or just ask me your question",
+            converting: "🔄 Converting {name} ({type}) to JPEG...",
+            converted: "✅ Successfully converted to JPEG!",
+            convertError: "❌ Could not convert {name}. The file may be corrupted or unsupported.",
+            storageFull: "⚠️ Storage is full. Old chats were automatically deleted to free up space.",
+            deleteProjectConfirm: "Delete project \"{name}\"?",
+            projectDeleted: "📁 Project deleted",
+            noProjects: "No projects saved"
+        },
+        es: {
+            logoText: "VISIÓN + MEMORIA + GENERACIÓN DE IMÁGENES",
+            historyBtn: "Historial",
+            projectsBtn: "Proyectos",
+            saveBtn: "Guardar",
+            uploadImage: "Subir Imágenes",
+            uploadFile: "Subir Documento (TXT)",
+            saveProject: "Guardar como Proyecto",
+            newChat: "Nuevo Chat",
+            clearHistory: "Borrar Todo el Historial",
+            deleteAll: "Borrar Todo",
+            chatsTitle: "HISTORIAL DE CHATS",
+            projectsTitle: "PROYECTOS GUARDADOS",
+            placeholder: "Pregunta cualquier cosa - Sube imágenes, escribe tu pregunta, presiona Enter! 🔥",
+            welcome: "🔥 JamdDmaj AI Listo!\n\n📅 Hoy es: {date}\n\n✅ Puedo:\n• 👁️ Ver y analizar imágenes\n• 🎨 Generar imágenes a partir de descripciones (¡solo pídemelo!)\n• 🧠 Recordar todo lo que hablamos\n• 📸 Subir imágenes, escribir pregunta, ¡presiona Enter!\n• 💬 Detectar idioma automáticamente\n\n💡 Prueba: \"genera una imagen de un gato\" o sube una foto!",
+            suggestionUpload: "📸 ¿Qué es esta imagen?",
+            suggestionHelp: "💡 ¿Qué puedes hacer?",
+            suggestionGen: "🎨 Genera una imagen de un atardecer hermoso",
+            suggestionPrice: "💰 ¿Cuál es el precio de Bitcoin?",
+            suggestionDark: "🌙 Cambiar a modo noche",
+            suggestionSave: "📋 Guardar esta conversación",
+            imageUploaded: "🖼️ **Imagen subida:** {name}\n\n📸 Imagen lista. ¿Qué quieres saber sobre ella?\n\n• Describir la imagen\n• Leer el texto que tenga\n• Identificar objetos\n• O simplemente dime tu pregunta",
+            converting: "🔄 Convirtiendo {name} ({type}) a JPEG...",
+            converted: "✅ ¡Convertido exitosamente a JPEG!",
+            convertError: "❌ No se pudo convertir {name}. El archivo puede estar dañado o no ser compatible.",
+            storageFull: "⚠️ El almacenamiento está lleno. Se eliminaron chats antiguos automáticamente.",
+            deleteProjectConfirm: "¿Eliminar el proyecto \"{name}\"?",
+            projectDeleted: "📁 Proyecto eliminado",
+            noProjects: "No hay proyectos guardados"
+        },
+        fr: {
+            logoText: "VISION + MÉMOIRE + GÉNÉRATION D'IMAGES",
+            historyBtn: "Historique",
+            projectsBtn: "Projets",
+            saveBtn: "Sauvegarder",
+            uploadImage: "Télécharger Images",
+            uploadFile: "Télécharger Document (TXT)",
+            saveProject: "Sauvegarder comme Projet",
+            newChat: "Nouveau Chat",
+            clearHistory: "Effacer Tout l'Historique",
+            deleteAll: "Tout Supprimer",
+            chatsTitle: "HISTORIQUE DES CHATS",
+            projectsTitle: "PROJETS ENREGISTRÉS",
+            placeholder: "Demandez n'importe quoi - Téléchargez des images, tapez votre question, Entrée! 🔥",
+            welcome: "🔥 JamdDmaj AI Prêt!\n\n📅 Aujourd'hui est: {date}\n\n✅ Je peux:\n• 👁️ Voir et analyser des images\n• 🎨 Générer des images à partir de descriptions\n• 🧠 Me souvenir de tout\n• 📸 Uploader des images, poser une question, Entrée!\n• 💬 Détection automatique de la langue\n\n💡 Essayez: \"génère une image d'un chat\" ou uploader une photo!",
+            suggestionUpload: "📸 Qu'est-ce que cette image?",
+            suggestionHelp: "💡 Que peux-tu faire?",
+            suggestionGen: "🎨 Génère une image d'un magnifique coucher de soleil",
+            suggestionPrice: "💰 Quel est le prix du Bitcoin?",
+            suggestionDark: "🌙 Passer en mode nuit",
+            suggestionSave: "📋 Sauvegarder cette conversation",
+            imageUploaded: "🖼️ **Image téléchargée:** {name}\n\n📸 Image prête. Que voulez-vous savoir ?\n\n• Décrire l'image\n• Lire le texte qu'elle contient\n• Identifier des objets\n• Ou posez-moi votre question",
+            converting: "🔄 Conversion de {name} ({type}) en JPEG...",
+            converted: "✅ Converti avec succès en JPEG!",
+            convertError: "❌ Impossible de convertir {name}. Le fichier peut être corrompu ou non pris en charge.",
+            storageFull: "⚠️ Le stockage est plein. Les anciens chats ont été supprimés automatiquement.",
+            deleteProjectConfirm: "Supprimer le projet \"{name}\"?",
+            projectDeleted: "📁 Projet supprimé",
+            noProjects: "Aucun projet enregistré"
+        },
+        de: {
+            logoText: "VISION + SPEICHER + BILDGENERIERUNG",
+            historyBtn: "Verlauf",
+            projectsBtn: "Projekte",
+            saveBtn: "Speichern",
+            uploadImage: "Bilder Hochladen",
+            uploadFile: "Dokument Hochladen (TXT)",
+            saveProject: "Als Projekt Speichern",
+            newChat: "Neuer Chat",
+            clearHistory: "Gesamten Verlauf Löschen",
+            deleteAll: "Alles Löschen",
+            chatsTitle: "CHAT-VERLAUF",
+            projectsTitle: "GESPEICHERTE PROJEKTE",
+            placeholder: "Fragen Sie alles - Bilder hochladen, Frage eingeben, Enter drücken! 🔥",
+            welcome: "🔥 JamdDmaj AI Bereit!\n\n📅 Heute ist: {date}\n\n✅ Ich kann:\n• 👁️ Bilder sehen und analysieren\n• 🎨 Bilder aus Beschreibungen generieren\n• 🧠 Alles merken, worüber wir sprechen\n• 📸 Bilder hochladen, Frage eingeben, Enter drücken!\n• 💬 Automatische Spracherkennung\n\n💡 Versuche: \"generiere ein Bild von einer Katze\" oder lade ein Foto hoch!",
+            suggestionUpload: "📸 Was ist auf diesem Bild?",
+            suggestionHelp: "💡 Was kannst du tun?",
+            suggestionGen: "🎨 Generiere ein Bild von einem wunderschönen Sonnenuntergang",
+            suggestionPrice: "💰 Wie hoch ist der Preis von Bitcoin?",
+            suggestionDark: "🌙 In den Nachtmodus wechseln",
+            suggestionSave: "📋 Dieses Gespräch speichern",
+            imageUploaded: "🖼️ **Bild hochgeladen:** {name}\n\n📸 Bild bereit. Was möchten Sie wissen?\n\n• Bild beschreiben\n• Text darin lesen\n• Objekte identifizieren\n• Oder stellen Sie mir Ihre Frage",
+            converting: "🔄 Konvertiere {name} ({type}) zu JPEG...",
+            converted: "✅ Erfolgreich zu JPEG konvertiert!",
+            convertError: "❌ {name} konnte nicht konvertiert werden. Die Datei könnte beschädigt oder nicht unterstützt sein.",
+            storageFull: "⚠️ Speicher ist voll. Alte Chats wurden automatisch gelöscht.",
+            deleteProjectConfirm: "Projekt \"{name}\" löschen?",
+            projectDeleted: "📁 Projekt gelöscht",
+            noProjects: "Keine Projekte gespeichert"
+        },
+        pt: {
+            logoText: "VISÃO + MEMÓRIA + GERAÇÃO DE IMAGENS",
+            historyBtn: "Histórico",
+            projectsBtn: "Projetos",
+            saveBtn: "Salvar",
+            uploadImage: "Enviar Imagens",
+            uploadFile: "Enviar Documento (TXT)",
+            saveProject: "Salvar como Projeto",
+            newChat: "Novo Chat",
+            clearHistory: "Limpar Todo Histórico",
+            deleteAll: "Excluir Tudo",
+            chatsTitle: "HISTÓRICO DE CHATS",
+            projectsTitle: "PROJETOS SALVOS",
+            placeholder: "Pergunte qualquer coisa - Envie imagens, digite sua pergunta, pressione Enter! 🔥",
+            welcome: "🔥 JamdDmaj AI Pronto!\n\n📅 Hoje é: {date}\n\n✅ Eu posso:\n• 👁️ Ver e analisar imagens\n• 🎨 Gerar imagens a partir de descrições\n• 🧠 Lembrar de tudo que conversamos\n• 📸 Enviar imagens, digitar pergunta, pressionar Enter!\n• 💬 Detectar idioma automaticamente\n\n💡 Tente: \"gere uma imagem de um gato\" ou envie uma foto!",
+            suggestionUpload: "📸 O que é esta imagem?",
+            suggestionHelp: "💡 O que você pode fazer?",
+            suggestionGen: "🎨 Gere uma imagem de um belo pôr do sol",
+            suggestionPrice: "💰 Qual é o preço do Bitcoin?",
+            suggestionDark: "🌙 Mudar para modo noturno",
+            suggestionSave: "📋 Salvar esta conversa",
+            imageUploaded: "🖼️ **Imagem enviada:** {name}\n\n📸 Imagem pronta. O que você quer saber?\n\n• Descrever a imagem\n• Ler o texto nela\n• Identificar objetos\n• Ou apenas me faça sua pergunta",
+            converting: "🔄 Convertendo {name} ({type}) para JPEG...",
+            converted: "✅ Convertido com sucesso para JPEG!",
+            convertError: "❌ Não foi possível converter {name}. O arquivo pode estar corrompido ou não ser compatível.",
+            storageFull: "⚠️ O armazenamento está cheio. Chats antigos foram excluídos automaticamente.",
+            deleteProjectConfirm: "Excluir projeto \"{name}\"?",
+            projectDeleted: "📁 Projeto excluído",
+            noProjects: "Nenhum projeto salvo"
+        },
+        it: {
+            logoText: "VISIONE + MEMORIA + GENERAZIONE IMMAGINI",
+            historyBtn: "Cronologia",
+            projectsBtn: "Progetti",
+            saveBtn: "Salva",
+            uploadImage: "Carica Immagini",
+            uploadFile: "Carica Documento (TXT)",
+            saveProject: "Salva come Progetto",
+            newChat: "Nuova Chat",
+            clearHistory: "Cancella Tutta la Cronologia",
+            deleteAll: "Elimina Tutto",
+            chatsTitle: "CRONOLOGIA CHAT",
+            projectsTitle: "PROGETTI SALVATI",
+            placeholder: "Chiedi qualsiasi cosa - Carica immagini, scrivi la tua domanda, premi Invio! 🔥",
+            welcome: "🔥 JamdDmaj AI Pronto!\n\n📅 Oggi è: {date}\n\n✅ Posso:\n• 👁️ Vedere e analizzare immagini\n• 🎨 Generare immagini da descrizioni\n• 🧠 Ricordare tutto ciò di cui parliamo\n• 📸 Caricare immagini, scrivere domanda, premere Invio!\n• 💬 Rilevamento automatico della lingua\n\n💡 Prova: \"genera un'immagine di un gatto\" o carica una foto!",
+            suggestionUpload: "📸 Cos'è questa immagine?",
+            suggestionHelp: "💡 Cosa sai fare?",
+            suggestionGen: "🎨 Genera un'immagine di un bellissimo tramonto",
+            suggestionPrice: "💰 Qual è il prezzo del Bitcoin?",
+            suggestionDark: "🌙 Passare alla modalità notturna",
+            suggestionSave: "📋 Salvare questa conversa",
+            imageUploaded: "🖼️ **Immagine caricata:** {name}\n\n📸 Immagine pronta. Cosa vuoi sapere?\n\n• Descrivere l'immagine\n• Leggere il testo in essa\n• Identificare oggetti\n• O semplicemente fammi la tua domanda",
+            converting: "🔄 Conversione di {name} ({type}) in JPEG...",
+            converted: "✅ Convertito con successo in JPEG!",
+            convertError: "❌ Impossibile convertire {name}. Il file potrebbe essere danneggiato o non supportato.",
+            storageFull: "⚠️ Lo spazio di archiviazione è pieno. I vecchi chat sono stati eliminati automaticamente.",
+            deleteProjectConfirm: "Eliminare il progetto \"{name}\"?",
+            projectDeleted: "📁 Progetto eliminato",
+            noProjects: "Nessun progetto salvato"
+        }
+    };
+    
+    function updateUILanguage() {
+        const t = uiTranslations[currentLanguage];
+        if (t) {
+            document.getElementById('logoText').textContent = t.logoText;
+            document.getElementById('historyBtnText').textContent = t.historyBtn;
+            document.getElementById('projectsBtnText').textContent = t.projectsBtn;
+            document.getElementById('saveBtnText').textContent = t.saveBtn;
+            document.getElementById('uploadImageText').textContent = t.uploadImage;
+            document.getElementById('uploadFileText').textContent = t.uploadFile;
+            document.getElementById('saveProjectText').textContent = t.saveProject;
+            document.getElementById('newChatText').textContent = t.newChat;
+            document.getElementById('clearHistoryText').textContent = t.clearHistory;
+            document.getElementById('deleteAllText').textContent = t.deleteAll;
+            document.getElementById('chatsHistoryTitle').textContent = t.chatsTitle;
+            document.getElementById('savedProjectsTitle').textContent = t.projectsTitle;
+            questionInput.placeholder = t.placeholder;
+        }
+        const tMsg = translations[currentLanguage];
+        if (tMsg && currentMessages.length === 0) {
+            addWelcomeMessage();
+        }
+    }
+    
+    function showTutorial() {
+        if (!tutorialShown) return;
+        tutorialStep = 0;
+        showTutorialStep();
+    }
+    
+    function showTutorialStep() {
+        const step = tutorialSteps[tutorialStep];
+        const t = uiTranslations[currentLanguage];
+        
+        tutorialOverlay.innerHTML = `
+            <div class="tutorial-card">
+                <h3>${step.title}</h3>
+                <p>${step.content}</p>
+                <ul class="tutorial-steps">
+                    ${step.steps.map(s => `<li>${s}</li>`).join('')}
+                </ul>
+                <div class="tutorial-dot-container">
+                    ${tutorialSteps.map((_, i) => `<div class="tutorial-dot ${i === tutorialStep ? 'active' : ''}"></div>`).join('')}
+                </div>
+                <div class="tutorial-buttons">
+                    <button class="tutorial-btn skip" id="tutorialSkipBtn">${tutorialStep === tutorialSteps.length - 1 ? (currentLanguage === 'es' ? 'Cerrar' : 'Close') : (currentLanguage === 'es' ? 'Omitir' : 'Skip')}</button>
+                    <button class="tutorial-btn next" id="tutorialNextBtn">${tutorialStep === tutorialSteps.length - 1 ? (currentLanguage === 'es' ? 'Empezar' : 'Start') : (currentLanguage === 'es' ? 'Siguiente' : 'Next')}</button>
+                </div>
+            </div>
+        `;
+        tutorialOverlay.style.display = 'flex';
+        
+        document.getElementById('tutorialSkipBtn').onclick = () => {
+            tutorialOverlay.style.display = 'none';
+            localStorage.setItem('jamdTutorialShown', 'true');
+            tutorialShown = false;
+        };
+        document.getElementById('tutorialNextBtn').onclick = () => {
+            if (tutorialStep < tutorialSteps.length - 1) {
+                tutorialStep++;
+                showTutorialStep();
+            } else {
+                tutorialOverlay.style.display = 'none';
+                localStorage.setItem('jamdTutorialShown', 'true');
+                tutorialShown = false;
+            }
+        };
+    }
     
     let audioContext = null;
     function playBeep() {
@@ -1234,13 +1625,6 @@
     
     languageSelector.value = currentLanguage;
     
-    function updateUILanguage() {
-        const t = translations[currentLanguage];
-        if (t) {
-            questionInput.placeholder = t.placeholder;
-        }
-    }
-    
     languageSelector.addEventListener('change', (e) => {
         currentLanguage = e.target.value;
         localStorage.setItem('jamdLanguage', currentLanguage);
@@ -1322,7 +1706,6 @@
         });
     }
     
-    // Función para comprimir datos antes de guardar
     function compressData(data) {
         try {
             const jsonString = JSON.stringify(data);
@@ -1342,7 +1725,6 @@
         }
     }
     
-    // Función mejorada para guardar chats
     function saveAllChats() { 
         try {
             const chatsArray = Object.values(allChats);
@@ -1443,30 +1825,52 @@
         }
     }
     
+    // Función mejorada para guardar proyectos (con copia profunda)
     function saveAsProject() {
         if (currentMessages.length === 0) { 
             addMessageToUI('assistant', currentLanguage === 'es' ? '¡Nada que guardar!' : 'Nothing to save!', new Date().toLocaleTimeString(), null, false); 
             return; 
         }
         
-        if (projects.length >= 10) {
-            projects = projects.slice(-9);
-        }
-        
-        let projectName = prompt(currentLanguage === 'es' ? 'Nombre del proyecto:' : 'Project name:', `Proyecto ${projects.length + 1}`);
+        let projectName = prompt(currentLanguage === 'es' ? 'Nombre del proyecto:' : 'Project name:', `${currentLanguage === 'es' ? 'Proyecto' : 'Project'} ${projects.length + 1}`);
         if (projectName) {
-            projects.push({ 
+            const newProject = { 
                 id: Date.now(), 
                 name: projectName, 
-                messages: [...currentMessages].slice(-30),
+                messages: JSON.parse(JSON.stringify(currentMessages)),
                 date: new Date().toLocaleString() 
-            });
+            };
+            projects.push(newProject);
             localStorage.setItem('jamdMemoryProjects', JSON.stringify(projects));
             renderProjects();
             showToast('💾 Proyecto guardado');
             playBeep();
         }
     }
+    
+    // Eliminar proyecto individual
+    function deleteProject(projectId, event) {
+        event.stopPropagation();
+        const project = projects.find(p => p.id === projectId);
+        if (confirm(uiTranslations[currentLanguage].deleteProjectConfirm.replace('{name}', project.name))) {
+            projects = projects.filter(p => p.id !== projectId);
+            localStorage.setItem('jamdMemoryProjects', JSON.stringify(projects));
+            renderProjects();
+            showToast(uiTranslations[currentLanguage].projectDeleted);
+        }
+    }
+    
+    // Cargar proyecto
+    window.loadProject = function(id) {
+        const project = projects.find(p => p.id === id);
+        if (project && confirm(currentLanguage === 'es' ? `¿Cargar "${project.name}"?` : `Load "${project.name}"?`)) {
+            saveCurrentChat();
+            currentMessages = JSON.parse(JSON.stringify(project.messages));
+            renderMessages();
+            closeSidebarPanel();
+            showToast('📁 Proyecto cargado');
+        }
+    };
     
     function showFloatingSuggestions() {
         const t = translations[currentLanguage];
@@ -1690,6 +2094,7 @@
         setInterval(fetchAllPrices, 60000);
         if (currentMessages.length === 0) addWelcomeMessage();
         updateUILanguage();
+        showTutorial();
     }
     
     function addWelcomeMessage() {
@@ -1729,30 +2134,21 @@
     
     function renderProjects() {
         const projectsList = document.getElementById('projectsList');
+        const t = uiTranslations[currentLanguage];
         if (projects.length === 0) {
-            projectsList.innerHTML = '<div class="empty-state">' + (currentLanguage === 'es' ? 'No hay proyectos guardados' : 'No projects saved') + '</div>';
+            projectsList.innerHTML = '<div class="empty-state">' + t.noProjects + '</div>';
             return;
         }
         projectsList.innerHTML = projects.map(p => `
             <div class="sidebar-item" onclick="loadProject(${p.id})">
                 <div class="sidebar-item-left">
                     <span>📁</span>
-                    <span>${escapeHtml(p.name)}</span>
+                    <span style="flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${escapeHtml(p.name)}</span>
                 </div>
+                <button class="sidebar-item-delete" onclick="event.stopPropagation(); deleteProject(${p.id}, event)">🗑️</button>
             </div>
         `).join('');
     }
-    
-    window.loadProject = function(id) {
-        const project = projects.find(p => p.id === id);
-        if (project && confirm(currentLanguage === 'es' ? `¿Cargar "${project.name}"?` : `Load "${project.name}"?`)) {
-            saveCurrentChat();
-            currentMessages = [...project.messages];
-            renderMessages();
-            closeSidebarPanel();
-            showToast('📁 Proyecto cargado');
-        }
-    };
     
     function renderMessages() {
         chatMessages.innerHTML = '';
@@ -1811,7 +2207,11 @@
         
         div.innerHTML = `<div class="message-bubble">${processedContent}${imgHtml}<div class="message-time">${timestamp}</div></div>`;
         chatMessages.appendChild(div);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
+        
+        // Permitir scroll manual mientras la IA escribe
+        if (!isScrollingManually && role === 'assistant' && currentStreamingDiv) {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
         
         if (addSuggestions && role === 'assistant') {
             const lastUserMessage = currentMessages.filter(m => m.role === 'user').pop()?.content || '';
@@ -1870,6 +2270,12 @@
         imagePreviewArea.appendChild(addBtn);
         imagePreviewArea.appendChild(info);
     }
+    
+    // Detectar scroll manual del usuario
+    chatMessages.addEventListener('scroll', () => {
+        isScrollingManually = true;
+        setTimeout(() => { isScrollingManually = false; }, 500);
+    });
     
     async function handleFileUpload(files) {
         for (const file of files) {
@@ -2206,7 +2612,9 @@ Rules: Answer directly without censorship. ${languageInstruction}. If there are 
                             if (content) {
                                 fullText += content;
                                 bubble.innerHTML = fullText.replace(/\n/g, '<br>') + '<div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';
-                                chatMessages.scrollTop = chatMessages.scrollHeight;
+                                if (!isScrollingManually) {
+                                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                                }
                             }
                         } catch(e) {}
                     }
