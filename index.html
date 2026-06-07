@@ -2854,6 +2854,115 @@ Rules: Answer directly without censorship. ${languageInstruction}. If there are 
             addMessageToUI('assistant', `⚠️ ${currentLanguage === 'es' ? 'Agrega tu API key de OpenRouter al inicio del script' : 'Please add your OpenRouter API key at the top of the script'}\n\n${currentLanguage === 'es' ? 'Consíguela en:' : 'Get it from:'} https://openrouter.io/keys`, new Date().toLocaleTimeString(), null, false);
         }, 500);
     }
+        // ============================================
+    // MEJORA: Cargar voces correctamente
+    // ============================================
+    let availableVoices = [];
+    
+    function loadVoices() {
+        availableVoices = window.speechSynthesis.getVoices();
+        console.log('Voces cargadas:', availableVoices.length);
+    }
+    
+    function getSelectedVoiceObject() {
+        const voiceLangMap = {
+            'es-ES-female': { lang: 'es-ES', gender: 'female', name: 'Google' },
+            'es-MX-female': { lang: 'es-MX', gender: 'female', name: 'Google' },
+            'en-US-female': { lang: 'en-US', gender: 'female', name: 'Google' },
+            'en-GB-female': { lang: 'en-GB', gender: 'female', name: 'Google' },
+            'fr-FR-female': { lang: 'fr-FR', gender: 'female', name: 'Google' },
+            'de-DE-female': { lang: 'de-DE', gender: 'female', name: 'Google' },
+            'it-IT-female': { lang: 'it-IT', gender: 'female', name: 'Google' },
+            'pt-PT-female': { lang: 'pt-PT', gender: 'female', name: 'Google' },
+            'ja-JP-female': { lang: 'ja-JP', gender: 'female', name: 'Google' },
+            'ko-KR-female': { lang: 'ko-KR', gender: 'female', name: 'Google' },
+            'zh-CN-female': { lang: 'zh-CN', gender: 'female', name: 'Google' },
+            'es-ES-male': { lang: 'es-ES', gender: 'male', name: 'Google' },
+            'en-US-male': { lang: 'en-US', gender: 'male', name: 'Google' },
+            'default': { lang: currentLanguage === 'es' ? 'es-ES' : 'en-US', gender: 'female', name: '' }
+        };
+        
+        const config = voiceLangMap[selectedVoice] || voiceLangMap['default'];
+        
+        let foundVoice = null;
+        
+        if (config.name) {
+            foundVoice = availableVoices.find(v => 
+                v.lang.startsWith(config.lang) && 
+                v.name.includes(config.name)
+            );
+        }
+        
+        if (!foundVoice) {
+            const voicesWithLang = availableVoices.filter(v => v.lang.startsWith(config.lang));
+            
+            if (config.gender === 'female') {
+                foundVoice = voicesWithLang.find(v => 
+                    v.name.toLowerCase().includes('female') || 
+                    v.name.toLowerCase().includes('samantha') ||
+                    v.name.toLowerCase().includes('google')
+                );
+            } else {
+                foundVoice = voicesWithLang.find(v => 
+                    v.name.toLowerCase().includes('male')
+                );
+            }
+            
+            if (!foundVoice && voicesWithLang.length > 0) {
+                foundVoice = voicesWithLang[0];
+            }
+        }
+        
+        return foundVoice;
+    }
+    
+    // Reemplazar la función speakResponse
+    const originalSpeakResponse = speakResponse;
+    window.speakResponse = function(text) {
+        if (!soundEnabled || !voiceModeActive) return;
+        try {
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 0.9;
+            utterance.pitch = selectedVoice.includes('female') ? 1.1 : 0.9;
+            
+            if (selectedVoice.includes('es')) utterance.lang = 'es-ES';
+            else if (selectedVoice.includes('en')) utterance.lang = 'en-US';
+            else if (selectedVoice.includes('fr')) utterance.lang = 'fr-FR';
+            else if (selectedVoice.includes('de')) utterance.lang = 'de-DE';
+            else if (selectedVoice.includes('it')) utterance.lang = 'it-IT';
+            else if (selectedVoice.includes('pt')) utterance.lang = 'pt-PT';
+            else if (selectedVoice.includes('ja')) utterance.lang = 'ja-JP';
+            else if (selectedVoice.includes('ko')) utterance.lang = 'ko-KR';
+            else if (selectedVoice.includes('zh')) utterance.lang = 'zh-CN';
+            else utterance.lang = currentLanguage === 'es' ? 'es-ES' : 'en-US';
+            
+            const selectedVoiceObj = getSelectedVoiceObject();
+            if (selectedVoiceObj) {
+                utterance.voice = selectedVoiceObj;
+            }
+            
+            window.speechSynthesis.speak(utterance);
+        } catch(e) { console.log('Error al hablar:', e); }
+    };
+    
+    speakResponse = window.speakResponse;
+    
+    if (window.speechSynthesis) {
+        window.speechSynthesis.onvoiceschanged = function() {
+            loadVoices();
+        };
+        loadVoices();
+    }
+    
+    if (voiceSelector) {
+        voiceSelector.addEventListener('change', function() {
+            const testPhrase = currentLanguage === 'es' ? 'Hola, soy tu asistente de voz' : 'Hello, I am your voice assistant';
+            if (soundEnabled && voiceModeActive) {
+                speakResponse(testPhrase);
+            }
+        });
+    }
 </script>
 </body>
 </html>
