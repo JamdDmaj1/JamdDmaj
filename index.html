@@ -1204,8 +1204,7 @@
 <div id="tutorialOverlay" class="tutorial-overlay" style="display: none;"></div>
 
 <script>
-   const OPENROUTER_API_KEY = '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';
-const HUGGINGFACE_API_KEY = '';  // Déjalo vacío si no lo usas
+    const OPENROUTER_API_KEY = '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';
     
     let currentChatId = Date.now().toString();
     let allChats = JSON.parse(localStorage.getItem('jamdMemoryChats') || '{}');
@@ -1314,10 +1313,10 @@ const HUGGINGFACE_API_KEY = '';  // Déjalo vacío si no lo usas
         } catch(e) { console.log('Error al hablar:', e); }
     }
     
-    async function generateRealImage(prompt) {
-    // Usar OpenRouter en lugar de Hugging Face
+async function generateRealImage(prompt) {
     if (!OPENROUTER_API_KEY || OPENROUTER_API_KEY === '') {
         console.log('❌ No hay API key de OpenRouter');
+        showToast('⚠️ Agrega tu API key de OpenRouter en la variable OPENROUTER_API_KEY');
         return null;
     }
     
@@ -1341,20 +1340,20 @@ const HUGGINGFACE_API_KEY = '';  // Déjalo vacío si no lo usas
             const data = await response.json();
             const message = data.choices[0].message;
             
-            // Extraer imagen base64
             if (message.images && message.images[0] && message.images[0].image_url) {
                 const imgData = message.images[0].image_url.url;
-                if (imgData.startsWith('data:image')) {
-                    const imgBase64 = imgData.split(',')[1];
-                    const blob = await fetch(`data:image/png;base64,${imgBase64}`).then(r => r.blob());
-                    const imageUrl = URL.createObjectURL(blob);
-                    return imageUrl;
-                }
+                console.log('✅ Imagen generada, longitud:', imgData.length);
+                return imgData;
             }
+        } else {
+            const errorText = await response.text();
+            console.error('Error API:', response.status, errorText);
+            showToast(`❌ Error API: ${response.status}`);
         }
         return null;
     } catch(e) {
-        console.log('Error generando imagen con OpenRouter:', e);
+        console.error('Error en generateRealImage:', e);
+        showToast(`❌ Error: ${e.message}`);
         return null;
     }
 }
@@ -2059,71 +2058,38 @@ const HUGGINGFACE_API_KEY = '';  // Déjalo vacío si no lo usas
     }
     
     async function generateImageWithDescription(prompt) {
-        showProgress();
-        try {
-            addMessageToUI('assistant', `🎨 ${currentLanguage === 'es' ? 'Generando imagen real:' : 'Generating real image:'} "${prompt}"...`, new Date().toLocaleTimeString(), null, true);
-            
-            const realImage = await generateRealImage(prompt);
-            
-            if (realImage) {
-                const imageHtml = `<div class="generated-image-container">
-                    <img src="${realImage}" class="generated-image" onclick="window.open(this.src)">
-                    <button class="download-image-btn" onclick="downloadImage('${realImage}', '${prompt.substring(0, 30)}')">💾 Descargar</button>
-                </div>`;
-                addMessageToUI('assistant', `🎨 ${currentLanguage === 'es' ? 'Imagen generada:' : 'Generated Image:'}<br>${imageHtml}<br><br>${currentLanguage === 'es' ? 'Prompt:' : 'Prompt:'} "${prompt}"`, new Date().toLocaleTimeString(), null, true);
-                currentMessages.push({ role: 'assistant', content: `🎨 Generated Image\nPrompt: "${prompt}"`, images: [realImage], timestamp: new Date().toLocaleTimeString() });
-                saveCurrentChat();
-                playBeep();
-                launchConfetti();
-                showToast('✨ Imagen generada!');
-                hideProgress();
-                return;
-            }
-            
-            // Fallback: descripción + prompt para copiar
-            const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-                    'HTTP-Referer': window.location.href,
-                    'X-Title': 'JamdDmaj AI'
-                },
-                body: JSON.stringify({
-                    model: 'google/gemini-2.5-flash',
-                    messages: [{ role: 'user', content: `Genera una imagen de: ${prompt}. Devuelve SOLO una descripción detallada de la imagen que generarías y el prompt exacto que debería usarse. Incluye el prompt entre comillas.` }],
-                    max_tokens: 500
-                })
-            });
-            
-            const data = await response.json();
-            const content = data.choices[0]?.message?.content || "No se pudo generar la imagen.";
-            
-            const promptMatch = content.match(/["']([^"']+?)["']/);
-            const extractPrompt = promptMatch ? promptMatch[1] : prompt;
-            
-            const imageHtml = `<div class="generated-image-container" style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 12px; padding: 1rem; text-align: center;">
-                <div style="font-size: 3rem; margin-bottom: 0.5rem;">🎨</div>
-                <p style="margin-bottom: 0.5rem;">${currentLanguage === 'es' ? 'Prompt sugerido:' : 'Suggested prompt:'}</p>
-                <div class="code-block-wrapper" style="margin: 0.5rem 0;">
-                    <pre><code>${extractPrompt}</code></pre>
-                    <button class="copy-prompt-btn" onclick="copyPrompt('${extractPrompt.replace(/'/g, "\\'")}')">📋 ${currentLanguage === 'es' ? 'Copiar Prompt' : 'Copy Prompt'}</button>
-                </div>
-                <p style="font-size: 0.7rem; margin-top: 0.5rem;">${currentLanguage === 'es' ? 'Usa este prompt en plataformas como Lexica, Playground AI o Midjourney para generar la imagen real.' : 'Use this prompt on platforms like Lexica, Playground AI, or Midjourney to generate the actual image.'}</p>
+    showProgress();
+    try {
+        addMessageToUI('assistant', `🎨 ${currentLanguage === 'es' ? 'Generando imagen real:' : 'Generating real image:'} "${prompt}"...`, new Date().toLocaleTimeString(), null, true);
+        
+        const realImage = await generateRealImage(prompt);
+        
+        if (realImage) {
+            const imageHtml = `<div class="generated-image-container">
+                <img src="${realImage}" class="generated-image" onclick="window.open(this.src)" style="max-width: 300px; border-radius: 12px; cursor: pointer;">
+                <button class="download-image-btn" onclick="downloadImageFromDataUrl('${realImage}', '${prompt.substring(0, 30)}')">💾 Descargar</button>
             </div>`;
             
-            addMessageToUI('assistant', `🎨 ${currentLanguage === 'es' ? 'Generación de imagen:' : 'Image Generation:'}<br>${imageHtml}<br><br>${content}`, new Date().toLocaleTimeString(), null, true);
-            currentMessages.push({ role: 'assistant', content: `🎨 Image Generation\n${content}`, timestamp: new Date().toLocaleTimeString() });
+            addMessageToUI('assistant', `🎨 ${currentLanguage === 'es' ? 'Imagen generada:' : 'Generated Image:'}<br>${imageHtml}<br><br>📝 Prompt: "${prompt}"`, new Date().toLocaleTimeString(), null, true);
+            
+            currentMessages.push({ role: 'assistant', content: `🎨 Imagen generada\nPrompt: "${prompt}"`, timestamp: new Date().toLocaleTimeString() });
             saveCurrentChat();
             playBeep();
             launchConfetti();
-            showToast('✨ Prompt generado! Copia y pégalo en un generador de imágenes');
-        } catch (error) {
-            addMessageToUI('assistant', `❌ ${currentLanguage === 'es' ? 'Error al generar imagen:' : 'Image generation error:'} ${error.message}`, new Date().toLocaleTimeString(), null, true);
-        } finally {
+            showToast('🎉 Imagen generada con éxito!');
             hideProgress();
+            return;
         }
+        
+        // Fallback: si no se pudo generar la imagen real
+        addMessageToUI('assistant', `❌ ${currentLanguage === 'es' ? 'No se pudo generar la imagen. Verifica tu API key de OpenRouter.' : 'Could not generate image. Check your OpenRouter API key.'}`, new Date().toLocaleTimeString(), null, true);
+        
+    } catch (error) {
+        addMessageToUI('assistant', `❌ ${currentLanguage === 'es' ? 'Error al generar imagen:' : 'Image generation error:'} ${error.message}`, new Date().toLocaleTimeString(), null, true);
+    } finally {
+        hideProgress();
     }
+}
     
     window.copyPrompt = copyPrompt;
     window.downloadImage = function(imageUrl, filename) {
@@ -2149,11 +2115,27 @@ const HUGGINGFACE_API_KEY = '';  // Déjalo vacío si no lo usas
         }
     };
     
-    window.openLink = function(url) {
-        window.open(url, '_blank');
-        showToast('🔗 Enlace abierto');
-    };
-    
+   window.openLink = function(url) {
+    window.open(url, '_blank');
+    showToast('🔗 Enlace abierto');
+};
+
+// 👇 PEGA LA NUEVA FUNCIÓN JUSTO AQUÍ, DESPUÉS DE window.openLink
+window.downloadImageFromDataUrl = function(dataUrl, filename) {
+    try {
+        const link = document.createElement('a');
+        link.href = dataUrl;
+        link.download = `jamd_image_${filename.replace(/[^a-z0-9]/gi, '_')}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showToast('💾 Imagen descargada!');
+        playBeep();
+    } catch(e) {
+        console.error('Error al descargar:', e);
+        showToast('❌ Error al descargar la imagen');
+    }
+};
     async function readTextFromImage(imageBase64) {
         try {
             const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
