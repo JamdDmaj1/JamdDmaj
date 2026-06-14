@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="dark light">
   <meta name="description" content="JamdDmaj AI: private, local-first AI chat with vision, voice, image generation, and history.">
   <title>JamdDmaj AI</title>
@@ -44,8 +44,11 @@
 
     html,
     body {
+      width: 100%;
       height: 100%;
+      min-height: 100%;
       margin: 0;
+      overscroll-behavior: none;
     }
 
     body {
@@ -86,7 +89,9 @@
       display: grid;
       grid-template-columns: 290px minmax(0, 1fr);
       width: min(1580px, calc(100% - 28px));
-      height: calc(100% - 28px);
+      height: calc(var(--viewport-height, 100dvh) - 28px);
+      min-height: 0;
+      max-height: calc(var(--viewport-height, 100dvh) - 28px);
       margin: 14px auto;
       overflow: hidden;
       border: 1px solid var(--line);
@@ -259,16 +264,22 @@
       background: var(--panel-2);
     }
 
+    .mobile-side-action {
+      display: none;
+    }
+
     .main {
-      display: grid;
+      display: flex;
+      height: 100%;
       min-width: 0;
       min-height: 0;
       overflow: hidden;
-      grid-template-rows: auto auto minmax(0, 1fr) auto;
+      flex-direction: column;
     }
 
     .topbar {
       display: flex;
+      flex: 0 0 auto;
       align-items: center;
       gap: 12px;
       min-height: 68px;
@@ -349,6 +360,7 @@
 
     .ticker {
       display: flex;
+      flex: 0 0 auto;
       gap: 8px;
       overflow-x: auto;
       min-height: 47px;
@@ -384,8 +396,11 @@
     }
 
     .messages {
+      flex: 1 1 auto;
       min-height: 0;
+      max-width: 100%;
       overflow-y: auto;
+      overflow-x: hidden;
       padding: 26px clamp(16px, 4vw, 64px) 34px;
       overscroll-behavior: contain;
       touch-action: pan-y;
@@ -457,6 +472,7 @@
       grid-template-columns: 34px minmax(0, 1fr);
       gap: 12px;
       width: min(920px, 100%);
+      min-width: 0;
       margin: 0 auto 22px;
       animation: message-in 220ms ease both;
     }
@@ -482,6 +498,7 @@
 
     .message-body {
       min-width: 0;
+      max-width: 100%;
     }
 
     .user .message-body {
@@ -506,6 +523,7 @@
 
     .message-card {
       overflow: hidden;
+      max-width: 100%;
       padding: 13px 15px;
       border: 1px solid var(--line);
       border-radius: 6px 18px 18px;
@@ -603,6 +621,10 @@
     }
 
     .composer-wrap {
+      position: relative;
+      z-index: 5;
+      flex: 0 0 auto;
+      min-width: 0;
       padding: 12px clamp(12px, 3vw, 34px) 18px;
       background: linear-gradient(to top, var(--panel-solid) 72%, transparent);
     }
@@ -674,10 +696,11 @@
 
     .composer {
       display: grid;
-      grid-template-columns: auto auto minmax(0, 1fr) auto;
+      grid-template-columns: auto auto auto minmax(0, 1fr) auto;
       align-items: end;
       gap: 8px;
       width: min(920px, 100%);
+      min-width: 0;
       margin: auto;
       padding: 8px;
       border: 1px solid var(--line);
@@ -687,6 +710,7 @@
     }
 
     .composer textarea {
+      min-width: 0;
       width: 100%;
       max-height: 170px;
       resize: none;
@@ -906,7 +930,8 @@
       .app {
         grid-template-columns: 1fr;
         width: 100%;
-        height: 100%;
+        height: var(--viewport-height, 100dvh);
+        max-height: var(--viewport-height, 100dvh);
         margin: 0;
         border: 0;
         border-radius: 0;
@@ -922,6 +947,15 @@
         transition: transform 220ms ease;
       }
 
+      .mobile-side-action {
+        display: flex;
+      }
+
+      .sidebar-footer {
+        max-height: 48%;
+        overflow-y: auto;
+      }
+
       .overlay {
         z-index: 50;
       }
@@ -935,6 +969,7 @@
       }
 
       .topbar {
+        min-height: 64px;
         padding-inline: 12px;
       }
 
@@ -946,8 +981,12 @@
         max-width: 66vw;
       }
 
+      .top-actions .pill-btn:not(#marketsBtn) {
+        display: none;
+      }
+
       .messages {
-        padding-inline: 13px;
+        padding: 18px 12px 24px;
       }
 
       .suggestions {
@@ -959,8 +998,7 @@
       }
 
       .composer-wrap {
-        padding-inline: 8px;
-        padding-bottom: max(9px, env(safe-area-inset-bottom));
+        padding: 8px 8px max(9px, env(safe-area-inset-bottom));
       }
     }
 
@@ -981,12 +1019,28 @@
         gap: 8px;
       }
 
+      .message.user {
+        grid-template-columns: minmax(0, 1fr) 30px;
+      }
+
+      .avatar {
+        width: 30px;
+        height: 30px;
+      }
+
+      .user .message-body {
+        width: min(100%, 760px);
+        max-width: 100%;
+      }
+
       .message-card {
         padding: 11px 12px;
       }
 
       .composer {
-        grid-template-columns: auto minmax(0, 1fr) auto;
+        grid-template-columns: auto auto minmax(0, 1fr) auto;
+        gap: 4px;
+        padding: 6px;
       }
 
       #imageModeBtn {
@@ -1021,6 +1075,12 @@
       <div class="history" id="historyList"></div>
 
       <div class="sidebar-footer">
+        <button class="side-action mobile-side-action" id="sideMarketsBtn" type="button"><span>$</span><span>Show live markets</span></button>
+        <button class="side-action mobile-side-action" id="sideVoiceBtn" type="button"><span>◉</span><span>Voice mode</span></button>
+        <button class="side-action mobile-side-action" id="sideSaveBtn" type="button"><span>✓</span><span>Save conversation</span></button>
+        <button class="side-action mobile-side-action" id="sideRenameBtn" type="button"><span>A</span><span>Rename conversation</span></button>
+        <button class="side-action mobile-side-action" id="sideTutorialBtn" type="button"><span>?</span><span>Quick tutorial</span></button>
+        <button class="side-action mobile-side-action" id="sideExportBtn" type="button"><span>↓</span><span>Export conversation</span></button>
         <button class="side-action" id="themeBtn" type="button"><span>◐</span><span>Change theme</span></button>
         <button class="side-action" id="settingsBtn" type="button"><span>⚙</span><span>Settings</span></button>
       </div>
@@ -1580,6 +1640,12 @@
         els.marketsButton.textContent = marketsOpen ? "Hide markets" : "Markets";
         els.voiceModeButton.classList.toggle("active", settings.autoSpeak);
         els.voiceModeButton.textContent = settings.autoSpeak ? "Voice on" : "Voice off";
+        document.querySelector("#sideMarketsBtn span:last-child").textContent = marketsOpen
+          ? "Hide live markets"
+          : "Show live markets";
+        document.querySelector("#sideVoiceBtn span:last-child").textContent = settings.autoSpeak
+          ? "Turn voice off"
+          : "Turn voice on";
         if (voiceInputButton) voiceInputButton.disabled = !settings.autoSpeak;
       }
 
@@ -2112,6 +2178,11 @@
         toastTimer = setTimeout(() => els.toast.classList.remove("show"), 2600);
       }
 
+      function updateViewportHeight() {
+        const viewportHeight = window.visualViewport?.height || window.innerHeight;
+        document.documentElement.style.setProperty("--viewport-height", `${Math.round(viewportHeight)}px`);
+      }
+
       function loadCachedPrices() {
         try {
           const cached = JSON.parse(localStorage.getItem(PRICE_CACHE_KEY));
@@ -2301,6 +2372,30 @@
       document.getElementById("renameChatBtn").addEventListener("click", renameActiveChat);
       document.getElementById("tutorialBtn").addEventListener("click", openTutorial);
       document.getElementById("exportBtn").addEventListener("click", exportChat);
+      document.getElementById("sideMarketsBtn").addEventListener("click", () => {
+        toggleMarkets();
+        closeSidebar();
+      });
+      document.getElementById("sideVoiceBtn").addEventListener("click", () => {
+        toggleVoiceMode();
+        closeSidebar();
+      });
+      document.getElementById("sideSaveBtn").addEventListener("click", () => {
+        saveActiveChat();
+        closeSidebar();
+      });
+      document.getElementById("sideRenameBtn").addEventListener("click", () => {
+        closeSidebar();
+        renameActiveChat();
+      });
+      document.getElementById("sideTutorialBtn").addEventListener("click", () => {
+        closeSidebar();
+        openTutorial();
+      });
+      document.getElementById("sideExportBtn").addEventListener("click", () => {
+        exportChat();
+        closeSidebar();
+      });
       document.getElementById("exitImageMode").addEventListener("click", () => {
         imageGenerationMode = false;
         renderMode();
@@ -2318,6 +2413,12 @@
       });
       els.send.addEventListener("click", sendMessage);
       els.prompt.addEventListener("input", autoSizePrompt);
+      els.prompt.addEventListener("focus", () => {
+        setTimeout(() => {
+          updateViewportHeight();
+          scrollToBottom();
+        }, 180);
+      });
       els.prompt.addEventListener("keydown", (event) => {
         if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
           event.preventDefault();
@@ -2341,6 +2442,11 @@
       if (localStorage.getItem(STORAGE.theme) === "light") {
         document.body.classList.add("light");
       }
+      updateViewportHeight();
+      window.addEventListener("resize", updateViewportHeight);
+      window.addEventListener("orientationchange", () => setTimeout(updateViewportHeight, 120));
+      window.visualViewport?.addEventListener("resize", updateViewportHeight);
+      window.visualViewport?.addEventListener("scroll", updateViewportHeight);
       if (localStorage.getItem(STORAGE.markets) === "true") {
         els.ticker.classList.remove("is-hidden");
       }
