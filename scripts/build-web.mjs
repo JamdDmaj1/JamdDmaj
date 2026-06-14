@@ -1,26 +1,86 @@
-import { cp, mkdir, rm } from "node:fs/promises";
-import { resolve } from "node:path";
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <title>Volviendo a JamdDmaj AI</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
 
-const root = resolve(import.meta.dirname, "..");
-const output = resolve(root, "www");
-const assets = [
-  "index.html",
-  "manifest.json",
-  "icon-72.png",
-  "icon-96.png",
-  "icon-128.png",
-  "icon-144.png",
-  "icon-152.png",
-  "icon-192.png",
-  "icon-384.png",
-  "icon-512.png"
-];
+    body {
+      display: grid;
+      min-height: 100dvh;
+      margin: 0;
+      padding: 24px;
+      place-items: center;
+      background: #090b10;
+      color: #f5f7fb;
+      font-family: Inter, system-ui, sans-serif;
+      text-align: center;
+    }
 
-await rm(output, { recursive: true, force: true });
-await mkdir(output, { recursive: true });
+    main {
+      width: min(420px, 100%);
+      padding: 32px 24px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 24px;
+      background: #12151e;
+    }
 
-for (const asset of assets) {
-  await cp(resolve(root, asset), resolve(output, asset));
-}
+    h1 {
+      margin: 0 0 10px;
+      font-size: 1.45rem;
+    }
 
-console.log(`Prepared ${assets.length} web assets in www.`);
+    p {
+      margin: 0 0 22px;
+      color: #a6adbd;
+      line-height: 1.55;
+    }
+
+    button {
+      width: 100%;
+      min-height: 48px;
+      border: 0;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #8b5cf6, #22d3ee);
+      color: white;
+      font: inherit;
+      font-weight: 750;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Autorización completada</h1>
+    <p id="message">Volviendo a JamdDmaj AI...</p>
+    <button id="openAppBtn" type="button">Abrir JamdDmaj AI</button>
+  </main>
+
+  <script>
+    (() => {
+      const code = new URLSearchParams(location.search).get("code");
+      const button = document.getElementById("openAppBtn");
+      const message = document.getElementById("message");
+
+      if (!code) {
+        message.textContent = "OpenRouter no devolvió un código de autorización. Inténtalo de nuevo.";
+        button.hidden = true;
+        return;
+      }
+
+      const appUrl = `jamddmaj://oauth?code=${encodeURIComponent(code)}`;
+      const openApp = () => {
+        location.href = appUrl;
+      };
+
+      button.addEventListener("click", openApp);
+      setTimeout(openApp, 150);
+    })();
+  </script>
+</body>
+</html>
