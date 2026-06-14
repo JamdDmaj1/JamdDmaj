@@ -40,7 +40,9 @@ jobs:
 
       - name: Build debug APK
         working-directory: android
-        run: bash gradlew assembleDebug
+        run: |
+         sed -i 's/\r$//' gradlew
+         bash gradlew assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
