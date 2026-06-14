@@ -359,22 +359,64 @@
     }
 
     .ticker {
-      display: flex;
+      display: block;
       flex: 0 0 auto;
-      gap: 8px;
-      overflow-x: auto;
-      min-height: 47px;
-      padding: 8px 18px;
+      max-height: min(46vh, 430px);
+      overflow: auto;
+      padding: 12px 18px 16px;
       border-bottom: 1px solid var(--line);
-      scrollbar-width: none;
+      background: color-mix(in srgb, var(--panel-solid) 92%, transparent);
+      scrollbar-width: thin;
     }
 
     .ticker.is-hidden {
       display: none;
     }
 
-    .ticker::-webkit-scrollbar {
-      display: none;
+    .market-toolbar {
+      position: sticky;
+      top: -12px;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: -12px -18px 12px;
+      padding: 12px 18px 9px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel-solid);
+    }
+
+    .market-toolbar span {
+      color: var(--muted);
+      font-size: 0.72rem;
+    }
+
+    .market-groups {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 12px;
+    }
+
+    .market-group {
+      padding: 11px;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: color-mix(in srgb, var(--panel-2) 76%, transparent);
+    }
+
+    .market-group h3 {
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-size: 0.68rem;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+    }
+
+    .market-coins {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
     }
 
     .coin {
@@ -1012,7 +1054,17 @@
       }
 
       .ticker {
+        max-height: 52vh;
         padding-inline: 10px;
+      }
+
+      .market-toolbar {
+        margin-inline: -10px;
+        padding-inline: 10px;
+      }
+
+      .market-groups {
+        grid-template-columns: 1fr;
       }
 
       .message {
@@ -1038,14 +1090,25 @@
       }
 
       .composer {
-        grid-template-columns: auto auto minmax(0, 1fr) auto;
+        grid-template-columns: auto auto auto minmax(0, 1fr) auto;
         gap: 4px;
         padding: 6px;
       }
 
-      #imageModeBtn {
+      .composer .icon-btn {
+        width: 34px;
+        height: 38px;
+      }
+
+      .send-btn {
+        width: 40px;
+        height: 40px;
+      }
+
+      .composer-note {
         display: none;
       }
+
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -1105,34 +1168,18 @@
       </header>
 
       <div class="ticker is-hidden" id="ticker" aria-label="Live cryptocurrency prices">
-        <button class="coin" data-symbol="BTC" data-prompt="What is the current outlook for Bitcoin?">BTC <b id="price-btc">--</b></button>
-        <button class="coin" data-symbol="ETH" data-prompt="Analyze Ethereum's current market setup.">ETH <b id="price-eth">--</b></button>
-        <button class="coin" data-symbol="SOL" data-prompt="Analyze Solana's current market setup.">SOL <b id="price-sol">--</b></button>
-        <button class="coin" data-symbol="XRP" data-prompt="Analyze XRP's current market setup.">XRP <b id="price-xrp">--</b></button>
-        <button class="coin" data-symbol="BNB" data-prompt="Analyze BNB's current market setup.">BNB <b id="price-bnb">--</b></button>
-        <button class="coin" data-symbol="ADA" data-prompt="Analyze Cardano's current market setup.">ADA <b id="price-ada">--</b></button>
-        <button class="coin" data-symbol="DOGE" data-prompt="What is the current outlook for Dogecoin?">DOGE <b id="price-doge">--</b></button>
-        <button class="coin" data-symbol="AVAX" data-prompt="Analyze Avalanche's current market setup.">AVAX <b id="price-avax">--</b></button>
-        <button class="coin" data-symbol="DOT" data-prompt="Analyze Polkadot's current market setup.">DOT <b id="price-dot">--</b></button>
-        <button class="coin" data-symbol="LINK" data-prompt="Analyze Chainlink's current market setup.">LINK <b id="price-link">--</b></button>
-        <button class="coin" data-symbol="SUI" data-prompt="Analyze Sui's current market setup.">SUI <b id="price-sui">--</b></button>
-        <button class="coin" data-symbol="TON" data-prompt="Analyze Toncoin's current market setup.">TON <b id="price-ton">--</b></button>
-        <button class="coin" data-symbol="TRX" data-prompt="Analyze Tron's current market setup.">TRX <b id="price-trx">--</b></button>
-        <button class="coin" data-symbol="LTC" data-prompt="Analyze Litecoin's current market setup.">LTC <b id="price-ltc">--</b></button>
-        <button class="coin" data-symbol="UNI" data-prompt="Analyze Uniswap's current market setup.">UNI <b id="price-uni">--</b></button>
-        <button class="coin" data-symbol="AAVE" data-prompt="Analyze Aave's current market setup.">AAVE <b id="price-aave">--</b></button>
-        <button class="coin" data-symbol="NEAR" data-prompt="Analyze NEAR's current market setup.">NEAR <b id="price-near">--</b></button>
-        <button class="coin" data-symbol="APT" data-prompt="Analyze Aptos's current market setup.">APT <b id="price-apt">--</b></button>
-        <button class="coin" data-symbol="RENDER" data-prompt="Analyze Render's current market setup.">RENDER <b id="price-render">--</b></button>
-        <button class="coin" data-symbol="FET" data-prompt="Analyze Artificial Superintelligence Alliance's current market setup.">FET <b id="price-fet">--</b></button>
-        <button class="coin" id="refreshPricesBtn" type="button" aria-live="polite">Prices <b id="priceTime">loading</b></button>
+        <div class="market-toolbar">
+          <div><strong>Live crypto markets</strong> <span>Grouped by function</span></div>
+          <button class="coin" id="refreshPricesBtn" type="button" aria-live="polite">Refresh <b id="priceTime">loading</b></button>
+        </div>
+        <div class="market-groups" id="marketGroups"></div>
       </div>
 
       <section class="messages" id="messages" aria-live="polite"></section>
 
       <div class="composer-wrap">
         <div class="mode-banner" id="modeBanner">
-          <span>Image generation mode</span>
+          <span>Image generation mode - uses paid image credits</span>
           <button id="exitImageMode" type="button">Exit</button>
         </div>
         <div class="attachment-tray" id="attachmentTray"></div>
@@ -1171,7 +1218,8 @@
         </label>
         <div class="field">
           <label for="chatModelInput">Chat and vision model</label>
-          <input id="chatModelInput" type="text" value="openai/gpt-4.1-mini">
+          <input id="chatModelInput" type="text" value="nex-agi/nex-n2-pro:free">
+          <small>The default model is multimodal and currently free. Free models can have temporary rate limits.</small>
         </div>
         <div class="field">
           <label for="imageModelInput">Budget image generation model</label>
@@ -1187,8 +1235,8 @@
           Voice mode: enable dictation and read AI responses aloud
         </label>
         <label class="check-row">
-          <input id="liveWebInput" type="checkbox" checked>
-          Use live web search when current information may be needed
+          <input id="liveWebInput" type="checkbox">
+          Use paid live web search when current information may be needed
         </label>
       </div>
       <div class="dialog-actions">
@@ -1230,26 +1278,54 @@
       const API_URL = "https://openrouter.ai/api/v1/chat/completions";
       const PRICE_CACHE_KEY = "jamdV2CryptoPrices";
       const CRYPTO_ASSETS = [
-        { symbol: "BTC", id: "bitcoin", binance: "BTCUSDT" },
-        { symbol: "ETH", id: "ethereum", binance: "ETHUSDT" },
-        { symbol: "SOL", id: "solana", binance: "SOLUSDT" },
-        { symbol: "XRP", id: "ripple", binance: "XRPUSDT" },
-        { symbol: "BNB", id: "binancecoin", binance: "BNBUSDT" },
-        { symbol: "ADA", id: "cardano", binance: "ADAUSDT" },
-        { symbol: "DOGE", id: "dogecoin", binance: "DOGEUSDT" },
-        { symbol: "AVAX", id: "avalanche-2", binance: "AVAXUSDT" },
-        { symbol: "DOT", id: "polkadot", binance: "DOTUSDT" },
-        { symbol: "LINK", id: "chainlink", binance: "LINKUSDT" },
-        { symbol: "SUI", id: "sui", binance: "SUIUSDT" },
-        { symbol: "TON", id: "toncoin", binance: "TONUSDT" },
-        { symbol: "TRX", id: "tron", binance: "TRXUSDT" },
-        { symbol: "LTC", id: "litecoin", binance: "LTCUSDT" },
-        { symbol: "UNI", id: "uniswap", binance: "UNIUSDT" },
-        { symbol: "AAVE", id: "aave", binance: "AAVEUSDT" },
-        { symbol: "NEAR", id: "near", binance: "NEARUSDT" },
-        { symbol: "APT", id: "aptos", binance: "APTUSDT" },
-        { symbol: "RENDER", id: "render-token", binance: "RENDERUSDT" },
-        { symbol: "FET", id: "fetch-ai", binance: "FETUSDT" }
+        { symbol: "BTC", id: "bitcoin", binance: "BTCUSDT", category: "Payments and stores of value" },
+        { symbol: "XRP", id: "ripple", binance: "XRPUSDT", category: "Payments and stores of value" },
+        { symbol: "LTC", id: "litecoin", binance: "LTCUSDT", category: "Payments and stores of value" },
+        { symbol: "BCH", id: "bitcoin-cash", binance: "BCHUSDT", category: "Payments and stores of value" },
+        { symbol: "XLM", id: "stellar", binance: "XLMUSDT", category: "Payments and stores of value" },
+        { symbol: "TRX", id: "tron", binance: "TRXUSDT", category: "Payments and stores of value" },
+        { symbol: "TON", id: "toncoin", binance: "TONUSDT", category: "Payments and stores of value" },
+        { symbol: "ETH", id: "ethereum", binance: "ETHUSDT", category: "Layer 1 networks" },
+        { symbol: "SOL", id: "solana", binance: "SOLUSDT", category: "Layer 1 networks" },
+        { symbol: "BNB", id: "binancecoin", binance: "BNBUSDT", category: "Layer 1 networks" },
+        { symbol: "ADA", id: "cardano", binance: "ADAUSDT", category: "Layer 1 networks" },
+        { symbol: "AVAX", id: "avalanche-2", binance: "AVAXUSDT", category: "Layer 1 networks" },
+        { symbol: "DOT", id: "polkadot", binance: "DOTUSDT", category: "Layer 1 networks" },
+        { symbol: "NEAR", id: "near", binance: "NEARUSDT", category: "Layer 1 networks" },
+        { symbol: "SUI", id: "sui", binance: "SUIUSDT", category: "Layer 1 networks" },
+        { symbol: "APT", id: "aptos", binance: "APTUSDT", category: "Layer 1 networks" },
+        { symbol: "ATOM", id: "cosmos", binance: "ATOMUSDT", category: "Layer 1 networks" },
+        { symbol: "HBAR", id: "hedera-hashgraph", binance: "HBARUSDT", category: "Layer 1 networks" },
+        { symbol: "POL", id: "polygon-ecosystem-token", binance: "POLUSDT", category: "Layer 2 scaling" },
+        { symbol: "ARB", id: "arbitrum", binance: "ARBUSDT", category: "Layer 2 scaling" },
+        { symbol: "OP", id: "optimism", binance: "OPUSDT", category: "Layer 2 scaling" },
+        { symbol: "IMX", id: "immutable-x", binance: "IMXUSDT", category: "Layer 2 scaling" },
+        { symbol: "MNT", id: "mantle", binance: "MNTUSDT", category: "Layer 2 scaling" },
+        { symbol: "STRK", id: "starknet", binance: "STRKUSDT", category: "Layer 2 scaling" },
+        { symbol: "OKB", id: "okb", binance: "OKBUSDT", category: "Exchange tokens" },
+        { symbol: "CRO", id: "crypto-com-chain", binance: "CROUSDT", category: "Exchange tokens" },
+        { symbol: "LEO", id: "leo-token", binance: "LEOUSDT", category: "Exchange tokens" },
+        { symbol: "KCS", id: "kucoin-shares", binance: "KCSUSDT", category: "Exchange tokens" },
+        { symbol: "GT", id: "gatechain-token", binance: "GTUSDT", category: "Exchange tokens" },
+        { symbol: "UNI", id: "uniswap", binance: "UNIUSDT", category: "DeFi and governance" },
+        { symbol: "AAVE", id: "aave", binance: "AAVEUSDT", category: "DeFi and governance" },
+        { symbol: "MKR", id: "maker", binance: "MKRUSDT", category: "DeFi and governance" },
+        { symbol: "CRV", id: "curve-dao-token", binance: "CRVUSDT", category: "DeFi and governance" },
+        { symbol: "LDO", id: "lido-dao", binance: "LDOUSDT", category: "DeFi and governance" },
+        { symbol: "COMP", id: "compound-governance-token", binance: "COMPUSDT", category: "DeFi and governance" },
+        { symbol: "CAKE", id: "pancakeswap-token", binance: "CAKEUSDT", category: "DeFi and governance" },
+        { symbol: "LINK", id: "chainlink", binance: "LINKUSDT", category: "AI, data and infrastructure" },
+        { symbol: "FET", id: "fetch-ai", binance: "FETUSDT", category: "AI, data and infrastructure" },
+        { symbol: "RENDER", id: "render-token", binance: "RENDERUSDT", category: "AI, data and infrastructure" },
+        { symbol: "TAO", id: "bittensor", binance: "TAOUSDT", category: "AI, data and infrastructure" },
+        { symbol: "GRT", id: "the-graph", binance: "GRTUSDT", category: "AI, data and infrastructure" },
+        { symbol: "FIL", id: "filecoin", binance: "FILUSDT", category: "AI, data and infrastructure" },
+        { symbol: "DOGE", id: "dogecoin", binance: "DOGEUSDT", category: "Community and meme coins" },
+        { symbol: "SHIB", id: "shiba-inu", binance: "SHIBUSDT", category: "Community and meme coins" },
+        { symbol: "PEPE", id: "pepe", binance: "PEPEUSDT", category: "Community and meme coins" },
+        { symbol: "BONK", id: "bonk", binance: "BONKUSDT", category: "Community and meme coins" },
+        { symbol: "WIF", id: "dogwifcoin", binance: "WIFUSDT", category: "Community and meme coins" },
+        { symbol: "FLOKI", id: "floki", binance: "FLOKIUSDT", category: "Community and meme coins" }
       ];
       const STORAGE = {
         chats: "jamdV2Chats",
@@ -1258,16 +1334,17 @@
         theme: "jamdV2Theme",
         apiKey: "jamdV2ApiKey",
         tutorial: "jamdV2TutorialSeen",
-        markets: "jamdV2MarketsOpen"
+        markets: "jamdV2MarketsOpen",
+        costProfile: "jamdV2CostProfile"
       };
 
       const DEFAULT_SETTINGS = {
-        chatModel: "openai/gpt-4.1-mini",
+        chatModel: "nex-agi/nex-n2-pro:free",
         imageModel: "google/gemini-2.5-flash-image",
         systemPrompt: "You are JamdDmaj AI, a clear, capable, and friendly assistant. Be accurate, concise, and say when you are uncertain.",
         rememberKey: false,
         autoSpeak: false,
-        liveWeb: true
+        liveWeb: false
       };
 
       const els = {
@@ -1295,6 +1372,7 @@
         marketsButton: document.getElementById("marketsBtn"),
         voiceModeButton: document.getElementById("voiceModeBtn"),
         tutorial: document.getElementById("tutorialDialog"),
+        marketGroups: document.getElementById("marketGroups"),
         toast: document.getElementById("toast"),
         title: document.getElementById("chatTitle"),
         modelLabel: document.getElementById("modelLabel")
@@ -1302,6 +1380,12 @@
 
       let toastTimer = null;
       let settings = loadJson(STORAGE.settings, DEFAULT_SETTINGS);
+      if (localStorage.getItem(STORAGE.costProfile) !== "2") {
+        settings.chatModel = DEFAULT_SETTINGS.chatModel;
+        settings.liveWeb = false;
+        localStorage.setItem(STORAGE.settings, JSON.stringify(settings));
+        localStorage.setItem(STORAGE.costProfile, "2");
+      }
       let chats = loadChats();
       let currentChatId = localStorage.getItem(STORAGE.current) || "";
       let pendingImages = [];
@@ -1809,6 +1893,8 @@
             body: JSON.stringify({
               model: getChatModel(),
               stream: true,
+              max_tokens: 700,
+              temperature: 0.5,
               messages: buildApiMessages(chat.messages)
             })
           });
@@ -1861,11 +1947,15 @@
           role: "system",
           content: `${settings.systemPrompt}\n\n${currentContext}`
         }];
-        messages
+        const recentMessages = messages
           .filter((message) => !message.streaming && message.content)
-          .slice(-18)
-          .forEach((message) => {
-            if (message.role === "user" && message.images?.length) {
+          .slice(-8);
+        let lastImageMessage = -1;
+        recentMessages.forEach((message, index) => {
+          if (message.images?.length) lastImageMessage = index;
+        });
+        recentMessages.forEach((message, index) => {
+            if (message.role === "user" && message.images?.length && index === lastImageMessage) {
               result.push({
                 role: "user",
                 content: [
@@ -1876,7 +1966,7 @@
             } else {
               result.push({ role: message.role, content: message.content });
             }
-          });
+        });
         return result;
       }
 
@@ -1966,6 +2056,7 @@
               messages: [{ role: "user", content: prompt }],
               modalities: ["image", "text"],
               image_config: { aspect_ratio: "1:1" },
+              max_tokens: 300,
               stream: false
             })
           });
@@ -2194,6 +2285,41 @@
         }
       }
 
+      function renderMarketGroups() {
+        els.marketGroups.replaceChildren();
+        const grouped = CRYPTO_ASSETS.reduce((map, asset) => {
+          if (!map.has(asset.category)) map.set(asset.category, []);
+          map.get(asset.category).push(asset);
+          return map;
+        }, new Map());
+
+        grouped.forEach((assets, category) => {
+          const section = document.createElement("section");
+          section.className = "market-group";
+          const heading = document.createElement("h3");
+          heading.textContent = category;
+          const coins = document.createElement("div");
+          coins.className = "market-coins";
+
+          assets.forEach((asset) => {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "coin";
+            button.dataset.symbol = asset.symbol;
+            button.dataset.prompt = `Analyze ${asset.symbol}'s current market setup.`;
+            button.append(document.createTextNode(`${asset.symbol} `));
+            const price = document.createElement("b");
+            price.id = `price-${asset.symbol.toLowerCase()}`;
+            price.textContent = "--";
+            button.append(price);
+            coins.append(button);
+          });
+
+          section.append(heading, coins);
+          els.marketGroups.append(section);
+        });
+      }
+
       async function fetchPrices() {
         if (priceFetchInProgress) return;
         priceFetchInProgress = true;
@@ -2310,11 +2436,6 @@
 
       function initVoiceInput() {
         const VoiceRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!VoiceRecognition) {
-          els.voiceModeButton.disabled = true;
-          els.voiceModeButton.title = "Voice input is not supported in this browser.";
-          return;
-        }
         const voiceButton = document.createElement("button");
         voiceButton.type = "button";
         voiceButton.className = "icon-btn";
@@ -2323,6 +2444,12 @@
         els.prompt.before(voiceButton);
         voiceInputButton = voiceButton;
         voiceInputButton.disabled = !settings.autoSpeak;
+        if (!VoiceRecognition) {
+          voiceInputButton.disabled = true;
+          voiceInputButton.title = "Voice input is not supported in this browser.";
+          els.voiceModeButton.title = "Spoken replies remain available, but dictation is not supported.";
+          return;
+        }
 
         const recognition = new VoiceRecognition();
         recognition.continuous = false;
@@ -2426,13 +2553,13 @@
         }
       });
       els.settingsForm.addEventListener("submit", saveSettings);
-      document.querySelectorAll(".coin[data-prompt]").forEach((coin) => {
-        coin.addEventListener("click", () => {
-          const price = coin.querySelector("b")?.textContent;
-          els.prompt.value = `${coin.dataset.prompt} The displayed live price is ${price}.`;
-          autoSizePrompt();
-          els.prompt.focus();
-        });
+      els.marketGroups.addEventListener("click", (event) => {
+        const coin = event.target.closest(".coin[data-prompt]");
+        if (!coin) return;
+        const price = coin.querySelector("b")?.textContent;
+        els.prompt.value = `${coin.dataset.prompt} The displayed live price is ${price}.`;
+        autoSizePrompt();
+        els.prompt.focus();
       });
       document.getElementById("refreshPricesBtn").addEventListener("click", fetchPrices);
       document.addEventListener("keydown", (event) => {
@@ -2453,6 +2580,7 @@
       ensureCurrentChat();
       renderAll();
       initVoiceInput();
+      renderMarketGroups();
       loadCachedPrices();
       fetchPrices();
       setInterval(() => {
