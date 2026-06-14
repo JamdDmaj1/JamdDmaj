@@ -471,6 +471,300 @@
       font-variant-numeric: tabular-nums;
     }
 
+    .learn-view {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      padding: clamp(18px, 4vw, 44px);
+      background:
+        radial-gradient(circle at 88% 4%, rgba(45, 212, 191, 0.17), transparent 28rem),
+        radial-gradient(circle at 4% 90%, rgba(59, 130, 246, 0.15), transparent 25rem);
+      scrollbar-width: thin;
+    }
+
+    .learn-view.is-hidden,
+    .learning-session-bar.is-hidden {
+      display: none;
+    }
+
+    .learn-shell {
+      width: min(1120px, 100%);
+      margin: 0 auto;
+    }
+
+    .learn-hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.5fr) minmax(240px, 0.7fr);
+      gap: 18px;
+      margin-bottom: 24px;
+    }
+
+    .learn-hero-main,
+    .learn-stats,
+    .learn-path,
+    .learn-track {
+      border: 1px solid rgba(45, 212, 191, 0.2);
+      background: color-mix(in srgb, var(--panel-2) 88%, transparent);
+      box-shadow: 0 18px 42px rgba(2, 8, 23, 0.14);
+    }
+
+    .learn-hero-main {
+      padding: clamp(22px, 4vw, 38px);
+      border-radius: 26px;
+    }
+
+    .learn-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      margin-bottom: 12px;
+      color: #5eead4;
+      font-size: 0.72rem;
+      font-weight: 850;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+    }
+
+    .learn-hero h1 {
+      max-width: 760px;
+      margin: 0;
+      font-size: clamp(2rem, 5vw, 4.3rem);
+      letter-spacing: -0.06em;
+      line-height: 0.98;
+    }
+
+    .learn-hero p {
+      max-width: 670px;
+      margin: 16px 0 0;
+      color: var(--muted);
+    }
+
+    .learn-stats {
+      display: grid;
+      align-content: center;
+      gap: 14px;
+      padding: 22px;
+      border-radius: 26px;
+    }
+
+    .learn-stat {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .learn-stat span {
+      color: var(--muted);
+      font-size: 0.75rem;
+    }
+
+    .learn-stat strong {
+      font-size: 1.2rem;
+    }
+
+    .learn-progress {
+      overflow: hidden;
+      height: 9px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .learn-progress > span {
+      display: block;
+      width: 0;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #2dd4bf, #60a5fa);
+      transition: width 260ms ease;
+    }
+
+    .learn-section-head {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 16px;
+      margin: 26px 0 13px;
+    }
+
+    .learn-section-head h2,
+    .learn-path h2 {
+      margin: 0;
+      letter-spacing: -0.035em;
+    }
+
+    .learn-section-head p {
+      margin: 3px 0 0;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .learn-controls {
+      display: flex;
+      gap: 8px;
+    }
+
+    .learn-controls select {
+      min-height: 40px;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel-2);
+      color: var(--text);
+    }
+
+    .learn-tracks {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .learn-track {
+      position: relative;
+      min-height: 168px;
+      padding: 17px;
+      border-radius: 20px;
+      color: var(--text);
+      text-align: left;
+      cursor: pointer;
+      transition: transform 180ms ease, border-color 180ms ease;
+    }
+
+    .learn-track:hover,
+    .learn-track.active {
+      border-color: var(--track-color, #2dd4bf);
+      transform: translateY(-3px);
+    }
+
+    .learn-track-icon {
+      display: grid;
+      width: 46px;
+      height: 46px;
+      margin-bottom: 20px;
+      place-items: center;
+      border-radius: 15px;
+      background: color-mix(in srgb, var(--track-color, #2dd4bf) 20%, transparent);
+      color: var(--track-color, #2dd4bf);
+      font-size: 1.25rem;
+      font-weight: 900;
+    }
+
+    .learn-track strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .learn-track small {
+      color: var(--muted);
+    }
+
+    .learn-path {
+      margin-top: 18px;
+      padding: clamp(18px, 3vw, 28px);
+      border-radius: 24px;
+    }
+
+    .learn-path-top {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+
+    .learn-path-top p {
+      margin: 6px 0 0;
+      color: var(--muted);
+    }
+
+    .learn-modules {
+      display: grid;
+      gap: 10px;
+    }
+
+    .learn-module {
+      display: grid;
+      grid-template-columns: 42px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 13px;
+      padding: 13px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: color-mix(in srgb, var(--panel-solid) 78%, transparent);
+    }
+
+    .learn-module-number {
+      display: grid;
+      width: 42px;
+      height: 42px;
+      place-items: center;
+      border-radius: 13px;
+      background: rgba(45, 212, 191, 0.12);
+      color: #5eead4;
+      font-weight: 850;
+    }
+
+    .learn-module.complete .learn-module-number {
+      background: rgba(52, 211, 153, 0.18);
+      color: var(--success);
+    }
+
+    .learn-module-copy strong,
+    .learn-module-copy span {
+      display: block;
+    }
+
+    .learn-module-copy span {
+      color: var(--muted);
+      font-size: 0.72rem;
+    }
+
+    .learning-session-bar {
+      display: flex;
+      flex: 0 0 auto;
+      align-items: center;
+      gap: 12px;
+      padding: 9px 18px;
+      border-bottom: 1px solid rgba(45, 212, 191, 0.2);
+      background: linear-gradient(90deg, rgba(13, 148, 136, 0.16), rgba(37, 99, 235, 0.12));
+    }
+
+    .learning-session-copy {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .learning-session-copy strong,
+    .learning-session-copy span {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .learning-session-copy span {
+      color: var(--muted);
+      font-size: 0.7rem;
+    }
+
+    .learning-session-actions {
+      display: flex;
+      gap: 7px;
+    }
+
+    body.learn-mode {
+      --accent: #14b8a6;
+      --accent-2: #60a5fa;
+      --accent-soft: rgba(20, 184, 166, 0.16);
+      --user-bubble: #0f766e;
+    }
+
+    body.learn-mode .brand-mark,
+    body.learn-mode .avatar {
+      background: linear-gradient(135deg, #14b8a6, #2563eb);
+      box-shadow: 0 10px 26px rgba(20, 184, 166, 0.25);
+    }
+
     .messages {
       flex: 1 1 auto;
       min-height: 0;
@@ -1394,7 +1688,37 @@
         max-width: 66vw;
       }
 
-      .top-actions .pill-btn:not(#marketsBtn):not(#topThemeBtn):not(#topSettingsBtn) {
+      .top-actions .pill-btn:not(#learnBtn):not(#marketsBtn):not(#topThemeBtn):not(#topSettingsBtn) {
+        display: none;
+      }
+
+      .top-actions .pill-btn#learnBtn {
+        display: block;
+      }
+
+      .learn-view {
+        padding: 16px 12px 26px;
+      }
+
+      .learn-hero {
+        grid-template-columns: 1fr;
+      }
+
+      .learn-tracks {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .learn-path-top,
+      .learn-section-head {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .learning-session-bar {
+        padding-inline: 12px;
+      }
+
+      .learning-session-actions .pill-btn:first-child {
         display: none;
       }
 
@@ -1449,6 +1773,22 @@
 
       .market-groups {
         grid-template-columns: 1fr;
+      }
+
+      .learn-tracks {
+        grid-template-columns: 1fr;
+      }
+
+      .learn-track {
+        min-height: 136px;
+      }
+
+      .learn-module {
+        grid-template-columns: 38px minmax(0, 1fr);
+      }
+
+      .learn-module .pill-btn {
+        grid-column: 1 / -1;
       }
 
       .message {
@@ -1528,6 +1868,7 @@
       <div class="history" id="projectsList"></div>
 
       <div class="sidebar-footer">
+        <button class="side-action" id="sideLearnBtn" type="button"><span>LE</span><span>Learn</span></button>
         <button class="side-action mobile-side-action" id="sideVoiceBtn" type="button"><span>◉</span><span>Voice mode</span></button>
         <button class="side-action mobile-side-action" id="sideSaveBtn" type="button"><span>✓</span><span>Save conversation</span></button>
         <button class="side-action mobile-side-action" id="sideRenameBtn" type="button"><span>A</span><span>Rename conversation</span></button>
@@ -1546,6 +1887,7 @@
           <span id="modelLabel">One group. Every system.</span>
         </div>
         <div class="top-actions">
+          <button class="pill-btn" id="learnBtn" type="button">Learn</button>
           <button class="pill-btn" id="marketsBtn" type="button">Markets</button>
           <button class="pill-btn" id="voiceModeBtn" type="button">Voice off</button>
           <button class="pill-btn" id="saveChatBtn" type="button">Save</button>
@@ -1563,6 +1905,53 @@
           <button class="coin" id="refreshPricesBtn" type="button" aria-live="polite">Refresh <b id="priceTime">loading</b></button>
         </div>
         <div class="market-groups" id="marketGroups"></div>
+      </div>
+
+      <section class="learn-view is-hidden" id="learnView" aria-label="Learning center">
+        <div class="learn-shell">
+          <div class="learn-hero">
+            <div class="learn-hero-main">
+              <span class="learn-eyebrow">JamdDmaj Learn</span>
+              <h1>Aprende algo que puedas usar.</h1>
+              <p>Rutas guiadas, explicaciones personales, ejercicios y practica con una tutora que se adapta a tu nivel.</p>
+            </div>
+            <aside class="learn-stats">
+              <div class="learn-stat"><span>Racha actual</span><strong id="learnStreak">1 dia</strong></div>
+              <div class="learn-stat"><span>Lecciones terminadas</span><strong id="learnCompletedCount">0</strong></div>
+              <div class="learn-stat"><span>Progreso total</span><strong id="learnProgressLabel">0%</strong></div>
+              <div class="learn-progress"><span id="learnProgressBar"></span></div>
+            </aside>
+          </div>
+
+          <div class="learn-section-head">
+            <div>
+              <h2>Que quieres aprender?</h2>
+              <p>Elige una ruta. Puedes cambiar cuando quieras sin perder tu progreso.</p>
+            </div>
+            <div class="learn-controls">
+              <select id="learnLevel" aria-label="Nivel de aprendizaje">
+                <option value="beginner">Principiante</option>
+                <option value="intermediate">Intermedio</option>
+                <option value="advanced">Avanzado</option>
+              </select>
+              <button class="pill-btn" id="exitLearnBtn" type="button">Volver al chat</button>
+            </div>
+          </div>
+
+          <div class="learn-tracks" id="learnTracks"></div>
+          <section class="learn-path" id="learnPath"></section>
+        </div>
+      </section>
+
+      <div class="learning-session-bar is-hidden" id="learningSessionBar">
+        <div class="learning-session-copy">
+          <strong id="learningSessionTitle">Learn</strong>
+          <span id="learningSessionSubtitle">Leccion interactiva</span>
+        </div>
+        <div class="learning-session-actions">
+          <button class="pill-btn" id="learnHomeBtn" type="button">Ruta</button>
+          <button class="pill-btn" id="completeLessonBtn" type="button">Completar</button>
+        </div>
       </div>
 
       <section class="messages" id="messages" aria-live="polite"></section>
@@ -1862,7 +2251,134 @@
       const API_URL = "https://openrouter.ai/api/v1/chat/completions";
       const WEB_APP_URL = "https://jamd-dmaj.vercel.app/";
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
+      const APP_VERSION = "1.5.0";
       const PRICE_CACHE_KEY = "jamdV2CryptoPrices";
+      const STOCK_ALIASES = {
+        nvidia: "NVDA",
+        nvidea: "NVDA",
+        nvda: "NVDA",
+        apple: "AAPL",
+        microsoft: "MSFT",
+        tesla: "TSLA",
+        amazon: "AMZN",
+        google: "GOOGL",
+        alphabet: "GOOGL",
+        meta: "META",
+        netflix: "NFLX",
+        amd: "AMD",
+        intel: "INTC",
+        coinbase: "COIN",
+        paypal: "PYPL",
+        disney: "DIS",
+        walmart: "WMT",
+        coca: "KO"
+      };
+      const LEARNING_TRACKS = [
+        {
+          id: "languages",
+          icon: "Aa",
+          color: "#38bdf8",
+          title: { es: "Idiomas", en: "Languages" },
+          description: { es: "Habla, escucha y practica situaciones reales.", en: "Speak, listen, and practice real situations." },
+          modules: [
+            ["Primeras conversaciones", "Presentarte, saludar y responder con confianza."],
+            ["Vocabulario esencial", "Las palabras y expresiones que mas vas a usar."],
+            ["Escucha y pronunciacion", "Entrena el oido y corrige tu pronunciacion."],
+            ["Situaciones reales", "Viajes, trabajo, amigos y conversaciones cotidianas."]
+          ]
+        },
+        {
+          id: "programming",
+          icon: "</>",
+          color: "#a78bfa",
+          title: { es: "Programacion", en: "Programming" },
+          description: { es: "Aprende construyendo proyectos de verdad.", en: "Learn by building real projects." },
+          modules: [
+            ["Pensamiento de programador", "Variables, decisiones, ciclos y solucion de problemas."],
+            ["JavaScript desde cero", "Crea programas pequenos y entiende cada linea."],
+            ["Web interactiva", "HTML, CSS y JavaScript trabajando juntos."],
+            ["Proyecto personal", "Construye una app y mejora el codigo con tu tutora."]
+          ]
+        },
+        {
+          id: "mathematics",
+          icon: "x2",
+          color: "#f59e0b",
+          title: { es: "Matematicas", en: "Mathematics" },
+          description: { es: "Entiende el por que, no solo la formula.", en: "Understand why, not just the formula." },
+          modules: [
+            ["Fundamentos claros", "Numeros, fracciones, porcentajes y operaciones."],
+            ["Algebra visual", "Ecuaciones explicadas paso a paso."],
+            ["Geometria practica", "Formas, medidas, areas y razonamiento espacial."],
+            ["Retos aplicados", "Problemas reales y estrategias para resolverlos."]
+          ]
+        },
+        {
+          id: "science",
+          icon: "LAB",
+          color: "#34d399",
+          title: { es: "Ciencia", en: "Science" },
+          description: { es: "Explora como funciona el mundo.", en: "Explore how the world works." },
+          modules: [
+            ["Metodo cientifico", "Pregunta, hipotesis, experimento y evidencia."],
+            ["Fisica cotidiana", "Movimiento, energia, fuerzas y electricidad."],
+            ["Vida y biologia", "Celulas, genetica, evolucion y ecosistemas."],
+            ["Universo", "Planetas, estrellas, espacio y grandes preguntas."]
+          ]
+        },
+        {
+          id: "business",
+          icon: "$",
+          color: "#2dd4bf",
+          title: { es: "Negocios y finanzas", en: "Business and finance" },
+          description: { es: "Dinero, mercados y proyectos sostenibles.", en: "Money, markets, and sustainable projects." },
+          modules: [
+            ["Finanzas personales", "Presupuesto, ahorro, deuda e interes compuesto."],
+            ["Como funciona un negocio", "Clientes, propuesta de valor, costos e ingresos."],
+            ["Mercados e inversion", "Riesgo, acciones, indices y analisis responsable."],
+            ["Lanza una idea", "Valida, organiza y presenta un proyecto real."]
+          ]
+        },
+        {
+          id: "history",
+          icon: "HIS",
+          color: "#fb7185",
+          title: { es: "Historia y sociedad", en: "History and society" },
+          description: { es: "Conecta hechos, causas y consecuencias.", en: "Connect events, causes, and consequences." },
+          modules: [
+            ["Pensar como historiador", "Fuentes, contexto, sesgos y evidencia."],
+            ["Civilizaciones", "Ideas y cambios que transformaron sociedades."],
+            ["Mundo moderno", "Revoluciones, industria, guerras y derechos."],
+            ["Debate historico", "Compara perspectivas y construye argumentos."]
+          ]
+        },
+        {
+          id: "writing",
+          icon: "ABC",
+          color: "#f472b6",
+          title: { es: "Escritura y comunicacion", en: "Writing and communication" },
+          description: { es: "Expresa ideas con claridad y personalidad.", en: "Express ideas clearly and with personality." },
+          modules: [
+            ["Ideas que se entienden", "Ordena lo que piensas antes de escribir."],
+            ["Escritura clara", "Frases fuertes, estructura y revision."],
+            ["Persuasion", "Argumentos, ejemplos y comunicacion convincente."],
+            ["Tu proyecto", "Crea un articulo, guion, historia o presentacion."]
+          ]
+        },
+        {
+          id: "ai",
+          icon: "AI",
+          color: "#60a5fa",
+          title: { es: "IA y tecnologia", en: "AI and technology" },
+          description: { es: "Usa la IA mejor y comprende sus limites.", en: "Use AI better and understand its limits." },
+          modules: [
+            ["Como aprende una IA", "Modelos, datos, tokens y probabilidades."],
+            ["Prompts efectivos", "Pide, evalua e itera para obtener mejores resultados."],
+            ["Automatizacion", "Combina herramientas para ahorrar tiempo."],
+            ["Proyecto con IA", "Disena una solucion util y responsable."]
+          ]
+        }
+      ];
       const CRYPTO_ASSETS = [
         { symbol: "BTC", id: "bitcoin", binance: "BTCUSDT", category: "Payments and stores of value" },
         { symbol: "XRP", id: "ripple", binance: "XRPUSDT", category: "Payments and stores of value" },
@@ -1925,7 +2441,8 @@
         oauthVerifier: "jamdV2OauthVerifier",
         projects: "jamdV2Projects",
         settingsCoach: "jamdV2SettingsCoachSeen",
-        idleNudge: "jamdV2IdleNudgeDismissed"
+        idleNudge: "jamdV2IdleNudgeDismissed",
+        learning: "jamdV2Learning"
       };
 
       const DEFAULT_SETTINGS = {
@@ -2075,6 +2592,12 @@
         endVoiceButton: document.getElementById("endVoiceBtn"),
         tutorial: document.getElementById("tutorialDialog"),
         marketGroups: document.getElementById("marketGroups"),
+        learnView: document.getElementById("learnView"),
+        learnTracks: document.getElementById("learnTracks"),
+        learnPath: document.getElementById("learnPath"),
+        learnLevel: document.getElementById("learnLevel"),
+        learnButton: document.getElementById("learnBtn"),
+        learningSessionBar: document.getElementById("learningSessionBar"),
         toast: document.getElementById("toast"),
         title: document.getElementById("chatTitle"),
         modelLabel: document.getElementById("modelLabel")
@@ -2088,9 +2611,18 @@
         if (!settings.personality || settings.personality === "balanced") settings.personality = "direct";
         localStorage.setItem(STORAGE.settings, JSON.stringify(settings));
         localStorage.setItem(STORAGE.costProfile, "3");
-      }
+      } // End the one-time settings migration.
       let chats = loadChats();
       let projects = loadProjects();
+      let learning = loadJson(STORAGE.learning, {
+        selectedTrack: "languages",
+        level: "beginner",
+        completed: [],
+        streak: 1,
+        lastStudyDate: "",
+        mode: "chat",
+        activeLesson: null
+      });
       let currentChatId = localStorage.getItem(STORAGE.current) || "";
       let pendingImages = [];
       let pendingTextFiles = [];
@@ -2284,6 +2816,9 @@
 
       function newChat() {
         if (activeController) activeController.abort();
+        learning.mode = "chat";
+        learning.activeLesson = null;
+        persistLearning();
         currentChatId = "";
         pendingImages = [];
         imageGenerationMode = false;
@@ -2298,6 +2833,18 @@
         if (activeController) activeController.abort();
         currentChatId = id;
         localStorage.setItem(STORAGE.current, id);
+        const selectedChat = chats.find((chat) => chat.id === id);
+        if (selectedChat?.learningSession) {
+          learning.mode = "session";
+          learning.activeLesson = {
+            trackId: selectedChat.learningSession.trackId,
+            moduleIndex: selectedChat.learningSession.moduleIndex
+          };
+        } else {
+          learning.mode = "chat";
+          learning.activeLesson = null;
+        }
+        persistLearning();
         pendingImages = [];
         imageGenerationMode = false;
         autoFollowStream = true;
@@ -2320,7 +2867,204 @@
         renderMessages();
         renderAttachments();
         renderMode();
+        renderLearningMode();
         updateHeader();
+      }
+
+      function persistLearning() {
+        localStorage.setItem(STORAGE.learning, JSON.stringify(learning));
+      }
+
+      function getLearningTrack(id = learning.selectedTrack) {
+        return LEARNING_TRACKS.find((track) => track.id === id) || LEARNING_TRACKS[0];
+      }
+
+      function enterLearnDashboard() {
+        if (activeController) activeController.abort();
+        learning.mode = "dashboard";
+        persistLearning();
+        closeSidebar();
+        renderAll();
+      }
+
+      function exitLearnMode() {
+        learning.mode = "chat";
+        learning.activeLesson = null;
+        persistLearning();
+        renderAll();
+        els.prompt.focus();
+      }
+
+      function renderLearningMode() {
+        const dashboardOpen = learning.mode === "dashboard";
+        const sessionOpen = learning.mode === "session" && Boolean(learning.activeLesson);
+        document.body.classList.toggle("learn-mode", dashboardOpen || sessionOpen);
+        els.learnView.classList.toggle("is-hidden", !dashboardOpen);
+        els.messages.hidden = dashboardOpen;
+        document.querySelector(".composer-wrap").hidden = dashboardOpen;
+        els.learningSessionBar.classList.toggle("is-hidden", !sessionOpen);
+        els.learnButton.classList.toggle("active", dashboardOpen || sessionOpen);
+
+        if (dashboardOpen || sessionOpen) {
+          els.ticker.classList.add("is-hidden");
+        }
+        if (dashboardOpen) renderLearnDashboard();
+        if (sessionOpen) {
+          const track = getLearningTrack(learning.activeLesson.trackId);
+          const module = track.modules[learning.activeLesson.moduleIndex];
+          document.getElementById("learningSessionTitle").textContent =
+            `${track.title[resolvedLanguage()] || track.title.en} · ${module[0]}`;
+          document.getElementById("learningSessionSubtitle").textContent =
+            learning.level === "advanced" ? "Nivel avanzado" :
+            learning.level === "intermediate" ? "Nivel intermedio" : "Nivel principiante";
+        }
+      }
+
+      function renderLearnDashboard() {
+        const language = resolvedLanguage();
+        const selected = getLearningTrack();
+        const completed = Array.isArray(learning.completed) ? learning.completed : [];
+        const totalModules = LEARNING_TRACKS.reduce((sum, track) => sum + track.modules.length, 0);
+        const progress = Math.round((completed.length / totalModules) * 100);
+
+        els.learnLevel.value = learning.level || "beginner";
+        document.getElementById("learnCompletedCount").textContent = String(completed.length);
+        document.getElementById("learnProgressLabel").textContent = `${progress}%`;
+        document.getElementById("learnProgressBar").style.width = `${progress}%`;
+        document.getElementById("learnStreak").textContent =
+          `${Math.max(1, Number(learning.streak) || 1)} ${language === "es" ? "dias" : "days"}`;
+
+        els.learnTracks.replaceChildren();
+        LEARNING_TRACKS.forEach((track) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = `learn-track${track.id === selected.id ? " active" : ""}`;
+          button.style.setProperty("--track-color", track.color);
+          const icon = document.createElement("span");
+          icon.className = "learn-track-icon";
+          icon.textContent = track.icon;
+          const title = document.createElement("strong");
+          title.textContent = track.title[language] || track.title.en;
+          const description = document.createElement("small");
+          description.textContent = track.description[language] || track.description.en;
+          button.append(icon, title, description);
+          button.addEventListener("click", () => {
+            learning.selectedTrack = track.id;
+            persistLearning();
+            renderLearnDashboard();
+          });
+          els.learnTracks.append(button);
+        });
+
+        els.learnPath.replaceChildren();
+        const top = document.createElement("div");
+        top.className = "learn-path-top";
+        const heading = document.createElement("div");
+        const title = document.createElement("h2");
+        title.textContent = selected.title[language] || selected.title.en;
+        const description = document.createElement("p");
+        description.textContent = selected.description[language] || selected.description.en;
+        heading.append(title, description);
+        top.append(heading);
+
+        if (selected.id === "languages") {
+          const languageSelect = document.createElement("select");
+          languageSelect.className = "pill-btn";
+          ["English", "French", "German", "Portuguese", "Italian", "Japanese", "Korean"].forEach((name) => {
+            const option = document.createElement("option");
+            option.value = name;
+            option.textContent = name;
+            languageSelect.append(option);
+          });
+          languageSelect.value = learning.targetLanguage || "English";
+          languageSelect.addEventListener("change", () => {
+            learning.targetLanguage = languageSelect.value;
+            persistLearning();
+          });
+          top.append(languageSelect);
+        }
+
+        const modules = document.createElement("div");
+        modules.className = "learn-modules";
+        selected.modules.forEach((module, index) => {
+          const key = `${selected.id}:${index}`;
+          const row = document.createElement("article");
+          row.className = `learn-module${completed.includes(key) ? " complete" : ""}`;
+          const number = document.createElement("span");
+          number.className = "learn-module-number";
+          number.textContent = completed.includes(key) ? "OK" : String(index + 1);
+          const copy = document.createElement("div");
+          copy.className = "learn-module-copy";
+          const moduleTitle = document.createElement("strong");
+          moduleTitle.textContent = module[0];
+          const moduleDescription = document.createElement("span");
+          moduleDescription.textContent = module[1];
+          copy.append(moduleTitle, moduleDescription);
+          const start = document.createElement("button");
+          start.type = "button";
+          start.className = "pill-btn";
+          start.textContent = completed.includes(key)
+            ? (language === "es" ? "Repasar" : "Review")
+            : (language === "es" ? "Comenzar" : "Start");
+          start.addEventListener("click", () => startLearningLesson(selected.id, index));
+          row.append(number, copy, start);
+          modules.append(row);
+        });
+        els.learnPath.append(top, modules);
+      }
+
+      async function startLearningLesson(trackId, moduleIndex) {
+        const track = getLearningTrack(trackId);
+        const module = track.modules[moduleIndex];
+        learning.mode = "session";
+        learning.selectedTrack = trackId;
+        learning.activeLesson = { trackId, moduleIndex };
+        updateLearningStreak();
+
+        const chat = {
+          id: globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : String(Date.now()),
+          title: `Learn: ${module[0]}`,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          learningSession: { trackId, moduleIndex, level: learning.level },
+          messages: []
+        };
+        chats.unshift(chat);
+        currentChatId = chat.id;
+        localStorage.setItem(STORAGE.current, currentChatId);
+        persistChats();
+        persistLearning();
+        renderAll();
+
+        const targetLanguage = trackId === "languages"
+          ? ` Target language: ${learning.targetLanguage || "English"}.`
+          : "";
+        els.prompt.value = resolvedLanguage() === "es"
+          ? `Inicia mi leccion interactiva: "${module[0]}". Tema: ${module[1]}.${targetLanguage} Mi nivel es ${learning.level}. Ensena un concepto pequeno a la vez y luego pideme responder o hacer un ejercicio corto. Responde en espanol, excepto las practicas del idioma que estoy aprendiendo.`
+          : `Start my interactive lesson: "${module[0]}". Topic: ${module[1]}.${targetLanguage} My level is ${learning.level}. Teach one small concept at a time, then ask me to answer or try a short exercise.`;
+        autoSizePrompt();
+        await sendMessage();
+      }
+
+      function updateLearningStreak() {
+        const today = new Date().toISOString().slice(0, 10);
+        if (learning.lastStudyDate === today) return;
+        const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+        learning.streak = learning.lastStudyDate === yesterday ? (Number(learning.streak) || 0) + 1 : 1;
+        learning.lastStudyDate = today;
+      }
+
+      function completeLearningLesson() {
+        if (!learning.activeLesson) return;
+        const key = `${learning.activeLesson.trackId}:${learning.activeLesson.moduleIndex}`;
+        const completed = new Set(Array.isArray(learning.completed) ? learning.completed : []);
+        completed.add(key);
+        learning.completed = [...completed];
+        learning.mode = "dashboard";
+        learning.activeLesson = null;
+        persistLearning();
+        showToast(resolvedLanguage() === "es" ? "Leccion completada. Tu progreso fue guardado." : "Lesson complete. Your progress was saved.");
+        renderAll();
       }
 
       function renderHistory() {
@@ -2671,8 +3415,17 @@
 
       function updateHeader() {
         const chat = ensureCurrentChat();
-        els.title.textContent = chat.title || "New conversation";
-        els.modelLabel.textContent = "One group. Every system.";
+        if (learning.mode === "dashboard") {
+          els.title.textContent = "JamdDmaj Learn";
+          els.modelLabel.textContent = resolvedLanguage() === "es"
+            ? `v${APP_VERSION} · Tu espacio para aprender`
+            : `v${APP_VERSION} · Your learning space`;
+        } else {
+          els.title.textContent = chat.title || "New conversation";
+          els.modelLabel.textContent = learning.mode === "session"
+            ? (resolvedLanguage() === "es" ? "Leccion interactiva · Aprende practicando" : "Interactive lesson · Learn by doing")
+            : `v${APP_VERSION} · One group. Every system.`;
+        }
         const marketsOpen = !els.ticker.classList.contains("is-hidden");
         els.marketsButton.classList.toggle("active", marketsOpen);
         els.marketsButton.textContent = marketsOpen ? translate("hideMarkets") : translate("markets");
@@ -3027,9 +3780,11 @@
       function renderMode() {
         els.modeBanner.classList.toggle("show", imageGenerationMode);
         els.imageMode.classList.toggle("active", imageGenerationMode);
-        els.prompt.placeholder = imageGenerationMode
-          ? translate("createImage")
-          : translate("message");
+        els.prompt.placeholder = learning.mode === "session"
+          ? (resolvedLanguage() === "es" ? "Responde, pregunta o pide otro ejemplo..." : "Answer, ask, or request another example...")
+          : imageGenerationMode
+            ? translate("createImage")
+            : translate("message");
       }
 
       async function handleFiles(files) {
@@ -3377,7 +4132,8 @@
             updateLastMessage(assistantMessage);
           });
 
-          if (!assistantMessage.content.trim()) {
+          assistantMessage.content = cleanProviderOutput(assistantMessage.content);
+          if (!isUsableAssistantContent(assistantMessage.content)) {
             assistantMessage.content = await retryEmptyChatResponse(apiMessages);
             updateLastMessage(assistantMessage);
           }
@@ -3434,29 +4190,68 @@
         showToast(resolvedLanguage() === "es"
           ? "El primer modelo no respondió. Probando otro automáticamente..."
           : "The first model did not respond. Trying another automatically...");
-        const response = await fetch(API_URL, {
-          method: "POST",
-          signal: activeController?.signal,
-          headers: {
-            "Authorization": `Bearer ${getApiKey()}`,
-            "Content-Type": "application/json",
-            "X-Title": "JamdDmaj AI"
-          },
-          body: JSON.stringify({
-            model: "openrouter/free",
-            stream: false,
-            max_tokens: getResponseTokenLimit(),
-            temperature: getResponseTemperature(),
-            messages
-          })
-        });
-        if (!response.ok) throw new Error(await readApiError(response));
-        const data = await response.json();
-        const content = data.choices?.[0]?.message?.content;
-        if (typeof content === "string" && content.trim()) return content.trim();
+        const retryMessages = [
+          ...messages,
+          {
+            role: "system",
+            content: "Return a direct, useful answer to the user. Output only the answer. Never output safety labels, moderation classifications, hidden analysis, or provider metadata."
+          }
+        ];
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+          const response = await fetch(API_URL, {
+            method: "POST",
+            signal: activeController?.signal,
+            headers: {
+              "Authorization": `Bearer ${getApiKey()}`,
+              "Content-Type": "application/json",
+              "X-Title": "JamdDmaj AI"
+            },
+            body: JSON.stringify({
+              model: "openrouter/free",
+              stream: false,
+              max_tokens: getResponseTokenLimit(),
+              temperature: getResponseTemperature(),
+              provider: { allow_fallbacks: true },
+              messages: retryMessages
+            })
+          });
+          if (!response.ok) {
+            if (attempt === 1) throw new Error(await readApiError(response));
+            continue;
+          }
+          const data = await response.json();
+          const content = cleanProviderOutput(extractAssistantText(data.choices?.[0]?.message));
+          if (isUsableAssistantContent(content)) return content;
+        }
         throw new Error(resolvedLanguage() === "es"
           ? "Los modelos gratuitos no devolvieron texto. Inténtalo de nuevo o elige otro modelo en Ajustes."
           : "The free models returned no text. Try again or choose another model in Settings.");
+      }
+
+      function extractAssistantText(message) {
+        if (typeof message?.content === "string") return message.content;
+        if (Array.isArray(message?.content)) {
+          return message.content
+            .map((part) => typeof part === "string" ? part : part?.text || "")
+            .filter(Boolean)
+            .join("\n");
+        }
+        return "";
+      }
+
+      function cleanProviderOutput(value) {
+        return String(value || "")
+          .replace(/^\s*(user|prompt)\s+safety\s*:\s*(safe|unsafe)\s*$/gim, "")
+          .replace(/^\s*(response|assistant|output)\s+safety\s*:\s*(safe|unsafe)\s*$/gim, "")
+          .replace(/^\s*(safety|moderation)\s*(classification|result)?\s*:\s*(safe|unsafe)\s*$/gim, "")
+          .replace(/\n{3,}/g, "\n\n")
+          .trim();
+      }
+
+      function isUsableAssistantContent(value) {
+        const clean = String(value || "").trim();
+        if (clean.length < 2) return false;
+        return !/^(safe|unsafe|approved|blocked|null|none)[.!]?$/i.test(clean);
       }
 
       function getResponseTokenLimit() {
@@ -3497,6 +4292,10 @@
         const voiceInstruction = voiceConversationActive
           ? "The user is speaking with you. Reply conversationally, usually in 2-5 short sentences. Sound warm and expressive without claiming to be human or sentient. Avoid long lists unless requested."
           : "";
+        const learningSession = getCurrentChat()?.learningSession;
+        const learningInstruction = learningSession
+          ? `You are now the user's interactive tutor inside JamdDmaj Learn. The route is "${getLearningTrack(learningSession.trackId).title.en}" and the level is "${learningSession.level || learning.level}". Teach in small steps. Ask one useful question or exercise at a time, wait for the learner's attempt, give specific feedback, adapt difficulty, and encourage understanding instead of memorization. Do not dump an entire course in one reply.`
+          : "";
         const lengthInstruction = {
           concise: "Prefer concise answers unless more detail is essential.",
           balanced: "Use a balanced amount of detail.",
@@ -3507,7 +4306,7 @@
           : "";
         const result = [{
           role: "system",
-          content: `${settings.systemPrompt}\n\n${personalities[settings.personality] || personalities.balanced}\n${languageInstruction}\n${currentContext}\n${lengthInstruction}\n${voiceInstruction}${verifiedContext}`
+          content: `${settings.systemPrompt}\n\n${personalities[settings.personality] || personalities.balanced}\n${languageInstruction}\n${currentContext}\n${lengthInstruction}\n${voiceInstruction}\n${learningInstruction}${verifiedContext}`
         }];
         const recentMessages = messages
           .filter((message) => !message.streaming && message.content)
@@ -3988,6 +4787,12 @@
       }
 
       function toggleMarkets() {
+        if (learning.mode !== "chat") {
+          learning.mode = "chat";
+          learning.activeLesson = null;
+          persistLearning();
+          renderLearningMode();
+        }
         const willOpen = els.ticker.classList.contains("is-hidden");
         els.ticker.classList.toggle("is-hidden", !willOpen);
         localStorage.setItem(STORAGE.markets, String(willOpen));
@@ -4531,24 +5336,54 @@
           .slice(0, 4);
       }
 
+      function findStockSymbols(text) {
+        const original = String(text);
+        const normalized = original
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase();
+        const symbols = new Set();
+        Object.entries(STOCK_ALIASES).forEach(([alias, symbol]) => {
+          if (new RegExp(`(^|[^a-z0-9])${alias}([^a-z0-9]|$)`).test(normalized)) symbols.add(symbol);
+        });
+        const marketIntent = /\b(stock|share|accion|acciones|bolsa|nasdaq|nyse|ticker|cotiza|cotizacion|precio de)\b/.test(normalized);
+        if (marketIntent) {
+          (original.match(/\$?[A-Z]{2,5}\b/g) || []).forEach((value) => {
+            const symbol = value.replace("$", "");
+            if (!["USD", "USDT", "PRICE"].includes(symbol)) symbols.add(symbol);
+          });
+        }
+        return [...symbols].slice(0, 4);
+      }
+
       async function buildFreeLiveContext(text) {
         const assets = findCryptoAssets(text);
-        if (!assets.length) return "";
+        const stockSymbols = findStockSymbols(text);
+        if (!assets.length && !stockSymbols.length) return "";
 
-        const results = await Promise.all(assets.map(async (asset) => {
+        const cryptoResults = await Promise.all(assets.map(async (asset) => {
           try {
             return await fetchCryptoIndicators(asset);
           } catch {
             return null;
           }
         }));
-        const available = results.filter(Boolean);
-        if (!available.length) return "";
+        const stockResults = await Promise.all(stockSymbols.map(async (symbol) => {
+          try {
+            return await fetchStockQuote(symbol);
+          } catch {
+            return null;
+          }
+        }));
+        const available = cryptoResults.filter(Boolean);
+        const availableStocks = stockResults.filter(Boolean);
+        if (!available.length && !availableStocks.length) return "";
 
         const timestamp = new Date().toISOString();
-        return [
-          `Market snapshot timestamp: ${timestamp}. Source: Binance public market-data endpoints; hourly candles. Exchange-specific prices can differ.`,
-          ...available.map((data) => [
+        const context = [`Market snapshot requested by the app at ${timestamp}. Prices can be delayed and can vary by venue.`];
+        if (available.length) {
+          context.push("Crypto source: Binance public market-data endpoints; hourly candles.");
+          context.push(...available.map((data) => [
             `${data.symbol}/USDT`,
             `price ${formatCompactNumber(data.price)} USD`,
             `24h change ${formatSignedPercent(data.change24h)}`,
@@ -4565,8 +5400,57 @@
             `histogram ${formatIndicator(data.macdHistogram)}`,
             `1h volume vs 20h average ${formatIndicator(data.volumeRatio)}x`,
             `mechanical trend ${data.trend}`
-          ].join("; "))
-        ].join("\n");
+          ].join("; ")));
+        }
+        if (availableStocks.length) {
+          context.push("Equity source: Yahoo Finance chart market-data endpoint.");
+          context.push(...availableStocks.map((data) => [
+            `${data.symbol} (${data.exchange})`,
+            `price ${formatCompactNumber(data.price)} ${data.currency}`,
+            `previous close ${formatCompactNumber(data.previousClose)} ${data.currency}`,
+            `change ${formatSignedPercent(data.changePercent)}`,
+            `market timestamp ${data.marketTimestamp}`,
+            `market state ${data.marketState || "unknown"}`
+          ].join("; ")));
+        }
+        return context.join("\n");
+      }
+
+      async function fetchStockQuote(symbol) {
+        let lastError;
+        for (const host of ["https://query1.finance.yahoo.com", "https://query2.finance.yahoo.com"]) {
+          try {
+            const data = await fetchJsonWithTimeout(
+              `${host}/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=5d`,
+              7000
+            );
+            const result = data?.chart?.result?.[0];
+            const meta = result?.meta;
+            if (!meta) throw new Error("No stock quote returned.");
+            const closes = result.indicators?.quote?.[0]?.close || [];
+            const validCloses = closes.filter(Number.isFinite);
+            const price = Number(meta.regularMarketPrice ?? validCloses.at(-1));
+            const previousClose = Number(meta.chartPreviousClose ?? meta.previousClose ?? validCloses.at(-2));
+            if (!Number.isFinite(price)) throw new Error("No current stock price returned.");
+            return {
+              symbol: String(meta.symbol || symbol).toUpperCase(),
+              exchange: meta.exchangeName || meta.fullExchangeName || "market",
+              price,
+              previousClose,
+              changePercent: Number.isFinite(previousClose) && previousClose !== 0
+                ? ((price - previousClose) / previousClose) * 100
+                : NaN,
+              currency: meta.currency || "USD",
+              marketTimestamp: meta.regularMarketTime
+                ? new Date(meta.regularMarketTime * 1000).toISOString()
+                : new Date().toISOString(),
+              marketState: meta.marketState || ""
+            };
+          } catch (error) {
+            lastError = error;
+          }
+        }
+        throw lastError || new Error("Stock quote unavailable.");
       }
 
       async function fetchCryptoIndicators(asset) {
@@ -4906,6 +5790,16 @@
       document.getElementById("settingsBtn").addEventListener("click", openSettings);
       document.getElementById("topSettingsBtn").addEventListener("click", openSettings);
       document.getElementById("connectOpenRouterBtn").addEventListener("click", connectOpenRouter);
+      document.getElementById("learnBtn").addEventListener("click", enterLearnDashboard);
+      document.getElementById("sideLearnBtn").addEventListener("click", enterLearnDashboard);
+      document.getElementById("exitLearnBtn").addEventListener("click", exitLearnMode);
+      document.getElementById("learnHomeBtn").addEventListener("click", enterLearnDashboard);
+      document.getElementById("completeLessonBtn").addEventListener("click", completeLearningLesson);
+      els.learnLevel.addEventListener("change", () => {
+        learning.level = els.learnLevel.value;
+        persistLearning();
+        renderLearnDashboard();
+      });
       document.getElementById("marketsBtn").addEventListener("click", toggleMarkets);
       document.getElementById("voiceModeBtn").addEventListener("click", toggleVoiceMode);
       els.endVoiceButton.addEventListener("click", () => setVoiceConversationEnabled(false));
