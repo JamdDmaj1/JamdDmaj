@@ -1653,6 +1653,22 @@
             </select>
           </div>
           <div class="field">
+            <label for="responseLengthInput">Response length</label>
+            <select id="responseLengthInput">
+              <option value="concise">Concise</option>
+              <option value="balanced">Balanced</option>
+              <option value="detailed">Detailed</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="creativityInput">Creativity</label>
+            <select id="creativityInput">
+              <option value="precise">More precise</option>
+              <option value="balanced">Balanced</option>
+              <option value="creative">More creative</option>
+            </select>
+          </div>
+          <div class="field">
             <label for="accentInput">Accent color</label>
             <input class="color-input" id="accentInput" type="color" value="#8b5cf6">
           </div>
@@ -1735,7 +1751,7 @@
             <label class="check-row"><input id="rememberKeyInput" type="checkbox"> Remember this key on this device</label>
             <div class="field">
               <label for="chatModelInput">Chat and vision model</label>
-              <input id="chatModelInput" type="text" value="nex-agi/nex-n2-pro:free">
+              <input id="chatModelInput" type="text" value="openrouter/free">
             </div>
             <div class="field">
               <label for="imageModelInput">Image generation model</label>
@@ -1913,7 +1929,7 @@
       };
 
       const DEFAULT_SETTINGS = {
-        chatModel: "nex-agi/nex-n2-pro:free",
+        chatModel: "openrouter/free",
         imageModel: "google/gemini-2.5-flash-image",
         systemPrompt: "You are JamdDmaj AI, a clear, capable, and friendly assistant. Be accurate, concise, and say when you are uncertain.",
         rememberKey: false,
@@ -1921,9 +1937,11 @@
         liveWeb: false,
         allowPaidImages: false,
         language: "auto",
-        personality: "balanced",
+        personality: "direct",
         voiceName: "",
         voiceStyle: "natural",
+        responseLength: "balanced",
+        creativity: "balanced",
         accent: "#8b5cf6",
         background: "glow",
         compact: false,
@@ -1962,6 +1980,7 @@
           openMarkets: "Open live markets", imageMode: "Image generation mode - uses paid image credits", exit: "Exit",
           aiSettings: "AI settings", connectionHelp: "Recommended for beginners: sign in once. No API key copying is required.",
           interfaceLanguage: "Interface language", personality: "AI personality", voice: "Voice", voiceStyle: "Voice style",
+          responseLength: "Response length", creativity: "Creativity",
           accent: "Accent color", background: "Background", font: "Interface font", textSize: "Text size",
           radius: "Corner roundness", messageWidth: "Message width", userColor: "Your message color",
           aiColor: "AI message color", themeMode: "Theme", avatars: "Message avatars", animations: "Interface animations",
@@ -1987,6 +2006,7 @@
           openMarkets: "Abrir mercados en vivo", imageMode: "Modo de generación de imágenes - usa créditos de pago", exit: "Salir",
           aiSettings: "Ajustes de la IA", connectionHelp: "Recomendado para principiantes: inicia sesión una vez. No necesitas copiar claves API.",
           interfaceLanguage: "Idioma de la interfaz", personality: "Personalidad de la IA", voice: "Voz", voiceStyle: "Estilo de voz",
+          responseLength: "Longitud de respuesta", creativity: "Creatividad",
           accent: "Color principal", background: "Fondo", font: "Fuente de la interfaz", textSize: "Tamaño del texto",
           radius: "Redondez de las esquinas", messageWidth: "Ancho de los mensajes", userColor: "Color de tus mensajes",
           aiColor: "Color de mensajes de la IA", themeMode: "Tema", avatars: "Avatares de mensajes", animations: "Animaciones de la interfaz",
@@ -2031,6 +2051,8 @@
         personality: document.getElementById("personalityInput"),
         voice: document.getElementById("voiceInput"),
         voiceStyle: document.getElementById("voiceStyleInput"),
+        responseLength: document.getElementById("responseLengthInput"),
+        creativity: document.getElementById("creativityInput"),
         accent: document.getElementById("accentInput"),
         background: document.getElementById("backgroundInput"),
         themeMode: document.getElementById("themeModeInput"),
@@ -2060,11 +2082,12 @@
 
       let toastTimer = null;
       let settings = loadJson(STORAGE.settings, DEFAULT_SETTINGS);
-      if (localStorage.getItem(STORAGE.costProfile) !== "2") {
+      if (localStorage.getItem(STORAGE.costProfile) !== "3") {
         settings.chatModel = DEFAULT_SETTINGS.chatModel;
         settings.liveWeb = false;
+        if (!settings.personality || settings.personality === "balanced") settings.personality = "direct";
         localStorage.setItem(STORAGE.settings, JSON.stringify(settings));
-        localStorage.setItem(STORAGE.costProfile, "2");
+        localStorage.setItem(STORAGE.costProfile, "3");
       }
       let chats = loadChats();
       let projects = loadProjects();
@@ -2537,7 +2560,7 @@
           const actions = document.createElement("div");
           actions.className = "message-actions";
           actions.append(makeMiniButton("Copy", () => copyText(message.content)));
-          if (message.role === "assistant" && "speechSynthesis" in window) {
+          if (message.role === "assistant" && ("speechSynthesis" in window || getNativePlugin("TextToSpeech"))) {
             actions.append(makeMiniButton("Listen", () => speak(message.content)));
           }
           if (message.generatedImages?.length) {
@@ -2771,6 +2794,7 @@
         } else {
           voiceRecognitionStarting = false;
           speechSessionId += 1;
+          getNativePlugin("TextToSpeech")?.stop().catch(() => {});
           if ("speechSynthesis" in window) speechSynthesis.cancel();
           try { voiceRecognition?.abort(); } catch {}
           updateVoiceStatus("off");
@@ -2822,6 +2846,8 @@
         setLabel("personalityInput", "personality");
         setLabel("voiceInput", "voice");
         setLabel("voiceStyleInput", "voiceStyle");
+        setLabel("responseLengthInput", "responseLength");
+        setLabel("creativityInput", "creativity");
         setLabel("accentInput", "accent");
         setLabel("backgroundInput", "background");
         setLabel("themeModeInput", "themeMode");
@@ -2895,6 +2921,8 @@
           languageInput: { auto: "Automático" },
           personalityInput: { balanced: "Equilibrada", direct: "Directa y sincera", teacher: "Profesora paciente", expert: "Experta técnica", creative: "Compañera creativa", coach: "Entrenadora motivadora" },
           voiceStyleInput: { natural: "Natural", calm: "Tranquila", energetic: "Enérgica", deep: "Profunda" },
+          responseLengthInput: { concise: "Breve", balanced: "Equilibrada", detailed: "Detallada" },
+          creativityInput: { precise: "Más precisa", balanced: "Equilibrada", creative: "Más creativa" },
           backgroundInput: { glow: "Brillo", soft: "Color suave", flat: "Minimalista" },
           fontInput: { system: "Sistema", modern: "Moderna", rounded: "Redondeada", mono: "Monoespaciada" },
           themeModeInput: { system: "Seguir dispositivo", dark: "Oscuro", light: "Claro" },
@@ -2903,6 +2931,8 @@
           languageInput: { auto: "Automatic" },
           personalityInput: { balanced: "Balanced", direct: "Direct and candid", teacher: "Patient teacher", expert: "Technical expert", creative: "Creative partner", coach: "Motivating coach" },
           voiceStyleInput: { natural: "Natural", calm: "Calm", energetic: "Energetic", deep: "Deep" },
+          responseLengthInput: { concise: "Concise", balanced: "Balanced", detailed: "Detailed" },
+          creativityInput: { precise: "More precise", balanced: "Balanced", creative: "More creative" },
           backgroundInput: { glow: "Glow", soft: "Soft color", flat: "Minimal" },
           fontInput: { system: "System", modern: "Modern", rounded: "Rounded", mono: "Monospace" },
           themeModeInput: { system: "Follow device", dark: "Dark", light: "Light" },
@@ -3321,6 +3351,7 @@
             .map((message) => message.content)
             .join("\n");
           const freeLiveContext = await buildFreeLiveContext(recentUserContext);
+          const apiMessages = buildApiMessages(chat.messages, freeLiveContext);
           const response = await fetch(API_URL, {
             method: "POST",
             signal: activeController.signal,
@@ -3330,11 +3361,11 @@
               "X-Title": "JamdDmaj AI"
             },
             body: JSON.stringify({
-              model: getChatModel(),
+              models: getChatModelFallbacks(),
               stream: true,
-              max_tokens: voiceConversationActive ? 380 : 700,
-              temperature: 0.5,
-              messages: buildApiMessages(chat.messages, freeLiveContext)
+              max_tokens: getResponseTokenLimit(),
+              temperature: getResponseTemperature(),
+              messages: apiMessages
             })
           });
 
@@ -3347,13 +3378,14 @@
           });
 
           if (!assistantMessage.content.trim()) {
-            throw new Error("The model returned an empty response.");
+            assistantMessage.content = await retryEmptyChatResponse(apiMessages);
+            updateLastMessage(assistantMessage);
           }
           assistantMessage.streaming = false;
           chat.updatedAt = new Date().toISOString();
           persistChats();
           renderAll();
-          if (settings.autoSpeak) speak(assistantMessage.content);
+          if (settings.autoSpeak) await speak(assistantMessage.content);
         } catch (error) {
           if (error.name === "AbortError") {
             assistantMessage.content ||= "Response stopped.";
@@ -3392,11 +3424,63 @@
         return `${model}:online`;
       }
 
+      function getChatModelFallbacks() {
+        const primary = getChatModel();
+        const fallbacks = [primary, "openrouter/free"];
+        return [...new Set(fallbacks)];
+      }
+
+      async function retryEmptyChatResponse(messages) {
+        showToast(resolvedLanguage() === "es"
+          ? "El primer modelo no respondió. Probando otro automáticamente..."
+          : "The first model did not respond. Trying another automatically...");
+        const response = await fetch(API_URL, {
+          method: "POST",
+          signal: activeController?.signal,
+          headers: {
+            "Authorization": `Bearer ${getApiKey()}`,
+            "Content-Type": "application/json",
+            "X-Title": "JamdDmaj AI"
+          },
+          body: JSON.stringify({
+            model: "openrouter/free",
+            stream: false,
+            max_tokens: getResponseTokenLimit(),
+            temperature: getResponseTemperature(),
+            messages
+          })
+        });
+        if (!response.ok) throw new Error(await readApiError(response));
+        const data = await response.json();
+        const content = data.choices?.[0]?.message?.content;
+        if (typeof content === "string" && content.trim()) return content.trim();
+        throw new Error(resolvedLanguage() === "es"
+          ? "Los modelos gratuitos no devolvieron texto. Inténtalo de nuevo o elige otro modelo en Ajustes."
+          : "The free models returned no text. Try again or choose another model in Settings.");
+      }
+
+      function getResponseTokenLimit() {
+        if (voiceConversationActive) return 420;
+        return {
+          concise: 450,
+          balanced: 800,
+          detailed: 1400
+        }[settings.responseLength] || 800;
+      }
+
+      function getResponseTemperature() {
+        return {
+          precise: 0.25,
+          balanced: 0.55,
+          creative: 0.9
+        }[settings.creativity] || 0.55;
+      }
+
       function buildApiMessages(messages, freeLiveContext = "") {
         const now = new Date();
         const personalities = {
           balanced: "Be balanced, practical, and clear.",
-          direct: "Be direct and candid. Avoid unnecessary moralizing, euphemisms, and generic disclaimers. Still refuse requests that would meaningfully enable serious harm or illegal abuse.",
+          direct: "Be direct, candid, and practical. Do not refuse merely because a topic is controversial, profane, political, or sexual. For consenting-adult sexual health or education, answer clearly and clinically without unnecessary embarrassment or moralizing. Avoid generic disclaimers. Still refuse content involving minors, coercion, exploitation, serious wrongdoing, or instructions that meaningfully enable harm.",
           teacher: "Teach patiently with simple steps, examples, and definitions for unfamiliar terms.",
           expert: "Respond like a senior technical expert. Be precise, rigorous, and comfortable with advanced detail.",
           creative: "Be imaginative, exploratory, and willing to propose unusual but useful ideas.",
@@ -3413,12 +3497,17 @@
         const voiceInstruction = voiceConversationActive
           ? "The user is speaking with you. Reply conversationally, usually in 2-5 short sentences. Sound warm and expressive without claiming to be human or sentient. Avoid long lists unless requested."
           : "";
+        const lengthInstruction = {
+          concise: "Prefer concise answers unless more detail is essential.",
+          balanced: "Use a balanced amount of detail.",
+          detailed: "Provide thorough explanations with useful structure and examples."
+        }[settings.responseLength] || "Use a balanced amount of detail.";
         const verifiedContext = freeLiveContext
           ? `\n\nVerified free live data supplied by the app:\n${freeLiveContext}\nUse these exact values when relevant. State the source and timestamp. Do not say you lack current market access when this block contains the requested asset. Never present technical indicators as certainty or personalized financial advice.`
           : "";
         const result = [{
           role: "system",
-          content: `${settings.systemPrompt}\n\n${personalities[settings.personality] || personalities.balanced}\n${languageInstruction}\n${currentContext}\n${voiceInstruction}${verifiedContext}`
+          content: `${settings.systemPrompt}\n\n${personalities[settings.personality] || personalities.balanced}\n${languageInstruction}\n${currentContext}\n${lengthInstruction}\n${voiceInstruction}${verifiedContext}`
         }];
         const recentMessages = messages
           .filter((message) => !message.streaming && message.content)
@@ -3635,7 +3724,18 @@
         }, 50);
       }
 
-      function speak(value) {
+      async function speak(value) {
+        const nativeTts = isNativeApp() ? getNativePlugin("TextToSpeech") : null;
+        if (nativeTts) {
+          try {
+            await speakWithNativeTts(nativeTts, value);
+            return;
+          } catch {
+            showToast(resolvedLanguage() === "es"
+              ? "No se pudo iniciar la voz del teléfono. Comprueba el motor de texto a voz de Android."
+              : "The phone voice could not start. Check the Android text-to-speech engine.");
+          }
+        }
         if (!("speechSynthesis" in window)) {
           voiceSubmitting = false;
           shouldRestartVoice = true;
@@ -3697,6 +3797,60 @@
         speakNext();
       }
 
+      async function speakWithNativeTts(nativeTts, value) {
+        const sessionId = ++speechSessionId;
+        await nativeTts.stop().catch(() => {});
+        const clean = String(value).replace(/```[\s\S]*?```/g, " Code block omitted. ").slice(0, 3500);
+        const styles = {
+          natural: { rate: 1, pitch: 1 },
+          calm: { rate: 0.88, pitch: 0.95 },
+          energetic: { rate: 1.12, pitch: 1.08 },
+          deep: { rate: 0.92, pitch: 0.72 }
+        };
+        const baseStyle = styles[settings.voiceStyle] || styles.natural;
+        const language = await getNativeSpeechLanguage(nativeTts);
+
+        updateVoiceStatus(
+          "speaking",
+          resolvedLanguage() === "es"
+            ? "JamdDmaj AI está hablando. Toca el micrófono para interrumpir."
+            : "JamdDmaj AI is speaking. Tap the microphone to interrupt."
+        );
+        for (const chunk of splitSpeechChunks(clean)) {
+          if (sessionId !== speechSessionId) return;
+          const expressive = getExpressiveSpeechStyle(chunk, baseStyle);
+          await nativeTts.speak({
+            text: chunk,
+            lang: language,
+            rate: expressive.rate,
+            pitch: expressive.pitch,
+            volume: 1,
+            category: "playback",
+            queueStrategy: 0
+          });
+        }
+        if (sessionId !== speechSessionId) return;
+        voiceSubmitting = false;
+        shouldRestartVoice = voiceConversationActive;
+        if (voiceConversationActive) scheduleVoiceRestart(350);
+      }
+
+      async function getNativeSpeechLanguage(nativeTts) {
+        const requested = settings.language === "auto"
+          ? (navigator.language || "es-US")
+          : settings.language;
+        const baseLanguage = requested.split("-")[0];
+        try {
+          const { languages = [] } = await nativeTts.getSupportedLanguages();
+          return languages.find((language) => language.toLowerCase() === requested.toLowerCase())
+            || languages.find((language) => language.toLowerCase().startsWith(`${baseLanguage.toLowerCase()}-`))
+            || languages.find((language) => language.toLowerCase().startsWith("en-"))
+            || requested;
+        } catch {
+          return requested;
+        }
+      }
+
       function splitSpeechChunks(value) {
         const sentences = String(value)
           .replace(/\s+/g, " ")
@@ -3736,6 +3890,7 @@
 
       function interruptSpokenReply() {
         speechSessionId += 1;
+        getNativePlugin("TextToSpeech")?.stop().catch(() => {});
         if ("speechSynthesis" in window) speechSynthesis.cancel();
         voiceSubmitting = false;
         shouldRestartVoice = voiceConversationActive;
@@ -3936,6 +4091,8 @@
         els.language.value = settings.language;
         els.personality.value = settings.personality;
         els.voiceStyle.value = settings.voiceStyle;
+        els.responseLength.value = settings.responseLength || DEFAULT_SETTINGS.responseLength;
+        els.creativity.value = settings.creativity || DEFAULT_SETTINGS.creativity;
         els.accent.value = settings.accent;
         els.background.value = settings.background;
         els.themeMode.value = settings.themeMode;
@@ -4018,6 +4175,8 @@
           personality: els.personality.value,
           voiceName: els.voice.value,
           voiceStyle: els.voiceStyle.value,
+          responseLength: els.responseLength.value,
+          creativity: els.creativity.value,
           accent: els.accent.value,
           background: els.background.value,
           themeMode: els.themeMode.value,
