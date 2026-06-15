@@ -2194,9 +2194,9 @@
       </div>
       <div class="dialog-body">
         <div class="connection-card">
-          <strong id="connectionStatus">Connect AI service</strong>
-          <p>Recommended for beginners: sign in once. No API key copying is required.</p>
-          <button class="pill-btn connect-btn" id="connectOpenRouterBtn" type="button">Connect with OpenRouter</button>
+          <strong id="connectionStatus">JamdDmaj automatic access</strong>
+          <p>Normal chat works automatically. Connecting a personal OpenRouter account is optional and enables personal limits and paid image generation.</p>
+          <button class="pill-btn connect-btn" id="connectOpenRouterBtn" type="button">Connect personal OpenRouter</button>
         </div>
         <div class="settings-grid">
           <div class="field">
@@ -2449,8 +2449,10 @@
 
       const API_URL = "https://openrouter.ai/api/v1/chat/completions";
       const WEB_APP_URL = "https://jamd-dmaj.vercel.app/";
+      const MANAGED_API_URL = `${WEB_APP_URL}api/chat`;
+      const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
-      const APP_VERSION = "1.6.0";
+      const APP_VERSION = "1.7.0";
       const PRICE_CACHE_KEY = "jamdV2CryptoPrices";
       const STOCK_ALIASES = {
         nvidia: "NVDA",
@@ -2733,7 +2735,8 @@
         projects: "jamdV2Projects",
         settingsCoach: "jamdV2SettingsCoachSeen",
         idleNudge: "jamdV2IdleNudgeDismissed",
-        learning: "jamdV2Learning"
+        learning: "jamdV2Learning",
+        deviceId: "jamdV2DeviceId"
       };
 
       const DEFAULT_SETTINGS = {
@@ -2786,7 +2789,7 @@
           deleteProjectConfirm: "Delete this saved project?", storageFull: "Storage is full",
           attachImages: "Attach images", attachText: "Attach a text file", startVoice: "Start voice conversation",
           openMarkets: "Open live markets", imageMode: "Image generation mode - uses paid image credits", exit: "Exit",
-          aiSettings: "AI settings", connectionHelp: "Recommended for beginners: sign in once. No API key copying is required.",
+          aiSettings: "AI settings", connectionHelp: "Free chat uses JamdDmaj automatic access. A personal OpenRouter connection is optional and is required only for personal usage limits or paid images.",
           interfaceLanguage: "Interface language", personality: "AI personality", voice: "Voice", voiceStyle: "Voice style",
           responseLength: "Response length", creativity: "Creativity",
           accent: "Accent color", background: "Background", font: "Interface font", textSize: "Text size",
@@ -2812,7 +2815,7 @@
           deleteProjectConfirm: "¿Borrar este proyecto guardado?", storageFull: "El almacenamiento está lleno",
           attachImages: "Adjuntar imágenes", attachText: "Adjuntar archivo de texto", startVoice: "Iniciar conversación por voz",
           openMarkets: "Abrir mercados en vivo", imageMode: "Modo de generación de imágenes - usa créditos de pago", exit: "Salir",
-          aiSettings: "Ajustes de la IA", connectionHelp: "Recomendado para principiantes: inicia sesión una vez. No necesitas copiar claves API.",
+          aiSettings: "Ajustes de la IA", connectionHelp: "El chat gratuito usa el acceso automático de JamdDmaj. La conexión personal con OpenRouter es opcional y solo se necesita para límites propios o imágenes de pago.",
           interfaceLanguage: "Idioma de la interfaz", personality: "Personalidad de la IA", voice: "Voz", voiceStyle: "Estilo de voz",
           responseLength: "Longitud de respuesta", creativity: "Creatividad",
           accent: "Color principal", background: "Fondo", font: "Fuente de la interfaz", textSize: "Tamaño del texto",
@@ -2945,8 +2948,9 @@
       let mainCoachIndex = 0;
       let pendingProjectChatId = null;
       let placementQuiz = null;
+      let managedAccessReady = null;
       const SETTINGS_COACH_STEPS = [
-        { selector: ".connection-card", title: "Conecta la IA", text: "Para principiantes, este botón inicia sesión sin copiar claves. En la web publicada es la forma recomendada de empezar." },
+        { selector: ".connection-card", title: "Acceso automático", text: "El chat gratuito funciona con JamdDmaj sin crear una cuenta. Conecta OpenRouter solo si quieres límites personales o generar imágenes de pago." },
         { selector: "#languageInput", title: "Idioma automático", text: "Cambia la interfaz. El chat además detecta por separado el idioma de cada mensaje." },
         { selector: "#personalityInput", title: "Elige cómo responde", text: "Puedes hacerla más directa, didáctica, técnica, creativa o motivadora." },
         { selector: "#accentInput", title: "Hazla tuya", text: "Personaliza colores, fuente, tamaño, esquinas, ancho y fondos. Los cambios se guardan en este dispositivo." },
@@ -4135,8 +4139,7 @@
         document.getElementById("exportBtn").textContent = translate("export");
         document.querySelector("#topSettingsBtn .pill-label").textContent = `${translate("settings")} `;
         els.prompt.placeholder = imageGenerationMode ? translate("createImage") : translate("message");
-        document.getElementById("connectOpenRouterBtn").textContent = translate("connect");
-        els.connectionStatus.textContent = getApiKey() ? translate("connected") : translate("connect");
+        updateConnectionStatus();
         setText("#recentChatsLabel", "recentChats");
         setText("#projectsLabel", "savedProjects");
         setText("#plusImageBtn span:last-child", "attachImages");
@@ -4264,7 +4267,7 @@
           ? "Un recorrido rápido por las herramientas incluidas en esta página."
           : "A quick tour of the tools built into this page.";
         const cards = spanish ? [
-          ["Chat e investigación", "Haz preguntas, planea proyectos y activa información web actual cuando la necesites."],
+          ["Chat automático", "Empieza a conversar sin crear una cuenta de OpenRouter. El acceso personal queda como opción avanzada."],
           ["Visión", "Adjunta hasta tres imágenes y pídele a la IA que las analice o explique."],
           ["Crear imágenes", "Usa el botón de diamante para entrar al modo económico de generación visual."],
           ["Conversación por voz", "Activa Voz para dictar y escuchar las respuestas de la IA."],
@@ -4272,7 +4275,7 @@
           ["JamdDmaj Learn", "Elige una materia, configura tus idiomas, realiza una prueba de nivel y aprende con ejercicios visuales."],
           ["Guarda tu trabajo", "Guarda proyectos, renómbralos, vuelve a abrirlos o exporta conversaciones."]
         ] : [
-          ["Chat and research", "Ask questions, plan projects, and enable current web information when needed."],
+          ["Automatic chat", "Start chatting without creating an OpenRouter account. Personal access remains an advanced option."],
           ["Vision", "Attach up to three images and ask the AI to inspect or explain them."],
           ["Create images", "Use the diamond button to enter budget image-generation mode."],
           ["Voice conversation", "Turn Voice on to dictate and hear AI responses aloud."],
@@ -4408,6 +4411,94 @@
 
       function getApiKey() {
         return sessionStorage.getItem(STORAGE.apiKey) || localStorage.getItem(STORAGE.apiKey) || "";
+      }
+
+      function getDeviceId() {
+        let value = localStorage.getItem(STORAGE.deviceId) || "";
+        if (/^[a-zA-Z0-9_-]{16,100}$/.test(value)) return value;
+        value = globalThis.crypto?.randomUUID
+          ? globalThis.crypto.randomUUID()
+          : `${Date.now()}_${Math.random().toString(36).slice(2)}_${Math.random().toString(36).slice(2)}`;
+        localStorage.setItem(STORAGE.deviceId, value);
+        return value;
+      }
+
+      async function checkManagedAccess() {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 5000);
+        try {
+          const response = await fetch(MANAGED_STATUS_URL, {
+            signal: controller.signal,
+            cache: "no-store"
+          });
+          const data = response.ok ? await response.json() : {};
+          managedAccessReady = Boolean(data.ready);
+        } catch {
+          managedAccessReady = false;
+        } finally {
+          clearTimeout(timer);
+        }
+        updateConnectionStatus();
+        return managedAccessReady;
+      }
+
+      function updateConnectionStatus() {
+        const button = document.getElementById("connectOpenRouterBtn");
+        const spanish = resolvedLanguage() === "es";
+        if (getApiKey()) {
+          els.connectionStatus.textContent = spanish
+            ? "Cuenta personal de OpenRouter conectada"
+            : "Personal OpenRouter account connected";
+        } else if (managedAccessReady) {
+          els.connectionStatus.textContent = spanish
+            ? "Acceso automático de JamdDmaj activo"
+            : "JamdDmaj automatic access is active";
+        } else if (managedAccessReady === false) {
+          els.connectionStatus.textContent = spanish
+            ? "Acceso automático pendiente de configurar"
+            : "Automatic access needs configuration";
+        } else {
+          els.connectionStatus.textContent = spanish
+            ? "Comprobando acceso automático..."
+            : "Checking automatic access...";
+        }
+        if (button) {
+          button.textContent = spanish
+            ? "Conectar OpenRouter personal"
+            : "Connect personal OpenRouter";
+        }
+      }
+
+      function getChatTransport() {
+        const key = getApiKey();
+        if (key) {
+          return {
+            url: API_URL,
+            headers: {
+              "Authorization": `Bearer ${key}`,
+              "Content-Type": "application/json",
+              "X-Title": "JamdDmaj AI"
+            }
+          };
+        }
+        return {
+          url: MANAGED_API_URL,
+          headers: {
+            "Content-Type": "application/json",
+            "X-JamdDmaj-Device": getDeviceId(),
+            "X-JamdDmaj-Version": APP_VERSION
+          }
+        };
+      }
+
+      function fetchChatCompletion(body, signal) {
+        const transport = getChatTransport();
+        return fetch(transport.url, {
+          method: "POST",
+          signal,
+          headers: transport.headers,
+          body: JSON.stringify(body)
+        });
       }
 
       function saveApiKey(key, remember) {
@@ -4603,18 +4694,6 @@
           resumeVoiceConversation();
           return;
         }
-        if (!getApiKey()) {
-          if (voiceConversationActive) {
-            setVoiceConversationEnabled(false, false);
-            updateVoiceStatus("error", resolvedLanguage() === "es"
-              ? "Conecta el servicio de IA para recibir respuestas por voz."
-              : "Connect the AI service to receive voice replies.");
-          }
-          openSettings();
-          showToast("Connect the AI service to start chatting.");
-          return;
-        }
-
         const chat = ensureCurrentChat();
         const fileContext = pendingTextFiles.map((file) =>
           `\n\nAttached file: ${file.name}\n\`\`\`\n${file.content}\n\`\`\``
@@ -4663,22 +4742,13 @@
             .join("\n");
           const freeLiveContext = await buildFreeLiveContext(recentUserContext);
           const apiMessages = buildApiMessages(chat.messages, freeLiveContext);
-          const response = await fetch(API_URL, {
-            method: "POST",
-            signal: activeController.signal,
-            headers: {
-              "Authorization": `Bearer ${getApiKey()}`,
-              "Content-Type": "application/json",
-              "X-Title": "JamdDmaj AI"
-            },
-            body: JSON.stringify({
-              models: getChatModelFallbacks(),
-              stream: true,
-              max_tokens: getResponseTokenLimit(),
-              temperature: getResponseTemperature(),
-              messages: apiMessages
-            })
-          });
+          const response = await fetchChatCompletion({
+            models: getChatModelFallbacks(),
+            stream: true,
+            max_tokens: getResponseTokenLimit(),
+            temperature: getResponseTemperature(),
+            messages: apiMessages
+          }, activeController.signal);
 
           if (!response.ok) throw new Error(await readApiError(response));
           if (!response.body) throw new Error("This browser did not provide a response stream.");
@@ -4754,23 +4824,14 @@
           }
         ];
         for (let attempt = 0; attempt < 2; attempt += 1) {
-          const response = await fetch(API_URL, {
-            method: "POST",
-            signal: activeController?.signal,
-            headers: {
-              "Authorization": `Bearer ${getApiKey()}`,
-              "Content-Type": "application/json",
-              "X-Title": "JamdDmaj AI"
-            },
-            body: JSON.stringify({
-              model: "openrouter/free",
-              stream: false,
-              max_tokens: getResponseTokenLimit(),
-              temperature: getResponseTemperature(),
-              provider: { allow_fallbacks: true },
-              messages: retryMessages
-            })
-          });
+          const response = await fetchChatCompletion({
+            model: "openrouter/free",
+            stream: false,
+            max_tokens: getResponseTokenLimit(),
+            temperature: getResponseTemperature(),
+            provider: { allow_fallbacks: true },
+            messages: retryMessages
+          }, activeController?.signal);
           if (!response.ok) {
             if (attempt === 1) throw new Error(await readApiError(response));
             continue;
@@ -5019,6 +5080,7 @@
         } catch {
           // Keep the status-based message.
         }
+        if (!getApiKey()) return message;
         if (response.status === 401) return "The API key is invalid or has been revoked.";
         if (response.status === 402) return "The OpenRouter account has insufficient credits.";
         if (response.status === 429) return "Too many requests. Wait a moment and try again.";
@@ -5472,7 +5534,7 @@
         els.avatars.value = settings.avatars;
         populateVoices();
         els.voice.value = settings.voiceName;
-        els.connectionStatus.textContent = getApiKey() ? translate("connected") : translate("connect");
+        updateConnectionStatus();
         els.settings.showModal();
         if (localStorage.getItem(STORAGE.settingsCoach) !== "true") {
           settingsCoachIndex = 0;
@@ -6540,6 +6602,7 @@
       if (redirectNativeOAuthCallback()) return;
       await initializeNativeOAuth();
       await finishOpenRouterConnection();
+      await checkManagedAccess();
       const shouldAutoConnect = new URLSearchParams(location.search).get("connect") === "1";
       if (shouldAutoConnect && !getApiKey() && location.protocol !== "file:") {
         history.replaceState({}, document.title, location.pathname);
@@ -6582,10 +6645,11 @@
         }
       });
 
-      if (!getApiKey() && !shouldAutoConnect) {
+      if (!getApiKey() && managedAccessReady === false && !shouldAutoConnect) {
         setTimeout(() => {
-          showToast("Connect the AI service once to start chatting.");
-          openSettings();
+          showToast(resolvedLanguage() === "es"
+            ? "El acceso automático aún no está configurado. Puedes conectar OpenRouter personalmente."
+            : "Automatic access is not configured yet. You can connect OpenRouter personally.");
         }, 500);
       }
       if (localStorage.getItem(STORAGE.tutorial) !== "true") {
