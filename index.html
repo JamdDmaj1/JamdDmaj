@@ -830,6 +830,55 @@
       color: var(--success);
     }
 
+    .recovery-code-box {
+      display: grid;
+      gap: 6px;
+      padding: 12px;
+      border: 1px dashed rgba(56, 189, 248, 0.42);
+      border-radius: 14px;
+      background: rgba(56, 189, 248, 0.08);
+    }
+
+    .recovery-code-box code {
+      overflow-wrap: anywhere;
+      color: var(--accent-2);
+      font-size: 0.9rem;
+      font-weight: 850;
+      letter-spacing: 0.08em;
+    }
+
+    .recovery-code-box span {
+      color: var(--muted);
+      font-size: 0.72rem;
+    }
+
+    .backup-status {
+      color: var(--muted);
+      font-size: 0.74rem;
+    }
+
+    .learn-phrase-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-top: 10px;
+    }
+
+    .learn-phrase-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      min-height: 32px;
+      padding: 0 10px;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.1);
+      color: var(--text);
+      font-size: 0.74rem;
+      font-weight: 780;
+      cursor: pointer;
+    }
+
     .quiz-body {
       display: grid;
       gap: 14px;
@@ -2475,6 +2524,23 @@
             <button class="pill-btn" id="importBackupBtn" type="button">Restore backup</button>
             <input id="backupFileInput" type="file" accept="application/json,.json" hidden>
           </div>
+          <div class="settings-section">
+            <div>
+              <h3 id="cloudBackupTitle">Encrypted cloud backup</h3>
+              <p id="cloudBackupText">Save conversations, projects, settings, and Learn progress automatically. Keep your recovery code somewhere private.</p>
+            </div>
+            <div class="recovery-code-box">
+              <span id="backupCodeLabel">Recovery code</span>
+              <code id="backupRecoveryCode">Not created yet</code>
+              <span id="backupCodeHelp">Save this code. If the app is deleted, this code restores your encrypted backup.</span>
+            </div>
+            <div class="data-actions">
+              <button class="pill-btn" id="syncCloudBackupBtn" type="button">Sync now</button>
+              <button class="pill-btn" id="showRecoveryCodeBtn" type="button">Show recovery code</button>
+              <button class="pill-btn" id="restoreCloudBackupBtn" type="button">Restore with code</button>
+            </div>
+            <div class="backup-status" id="cloudBackupStatus"></div>
+          </div>
           <div class="backup-note"><strong id="backupNoteTitle">Updates:</strong><span id="backupNoteText">Install the new APK over the current app. Do not uninstall it. Your local information stays in place.</span></div>
         </section>
         <section class="settings-section" id="socialSection">
@@ -2596,7 +2662,8 @@
       const MANAGED_API_URL = `${WEB_APP_URL}api/chat`;
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
-      const APP_VERSION = "1.8.0";
+      const APP_VERSION = "1.9.0";
+      const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
       const LEARN_TEXT = {
         en: {
           heroTitle: "Learn something you can use.", heroText: "Guided paths, personal explanations, exercises, and practice with a tutor that adapts to your level.",
@@ -2610,8 +2677,11 @@
           visual: "Today's visual card", pronunciation: "Pronunciation", listen: "Listen", path: "Path", complete: "Complete",
           question: "Question", of: "of", recommended: "Recommended level", useLevel: "Use this level", testComplete: "Test complete",
           lessonDone: "Lesson complete. Your progress was saved.", session: "Interactive lesson · Learn by doing",
-          dataTitle: "Data and backup", dataText: "Create a private backup of conversations, projects, settings, and Learn progress before changing phones or reinstalling.",
-          exportBackup: "Export full backup", importBackup: "Restore backup", updates: "Updates:", updateText: "Install the new APK over the current app. Do not uninstall it. Your local information stays in place.",
+          dataTitle: "Data and backup", dataText: "JamdDmaj saves local data on this device and can also keep an encrypted cloud backup with your recovery code.",
+          exportBackup: "Export file backup", importBackup: "Restore file", updates: "Updates:", updateText: "Install the new APK over the current app. Do not uninstall it. Your local information stays in place.",
+          cloudBackup: "Encrypted cloud backup", cloudBackupText: "Save conversations, projects, settings, and Learn progress automatically. Keep your recovery code somewhere private.",
+          syncBackup: "Sync now", showCode: "Show recovery code", restoreCloud: "Restore with code", backupCodeLabel: "Recovery code", backupCodeHelp: "Save this code. If the app is deleted, this code restores your encrypted backup.",
+          backupSynced: "Cloud backup saved.", backupRestoredCloud: "Cloud backup restored. JamdDmaj will reload now.", backupUnavailable: "Cloud backup is unavailable right now.", enterRecoveryCode: "Enter your JamdDmaj recovery code:",
           socialTitle: "JamdDmaj official networks", socialText: "Follow updates, tutorials, demonstrations, and new releases.",
           sideBackup: "Data and backup", sideSocial: "Official social networks", backupReady: "Backup created.", backupRestored: "Backup restored. JamdDmaj will reload now.",
           invalidBackup: "This is not a valid JamdDmaj backup.", restoreConfirm: "Restore this backup? It will replace the information currently stored on this device."
@@ -2628,8 +2698,11 @@
           visual: "Tarjeta visual de hoy", pronunciation: "Pronunciación", listen: "Escuchar", path: "Ruta", complete: "Completar",
           question: "Pregunta", of: "de", recommended: "Nivel recomendado", useLevel: "Usar este nivel", testComplete: "Prueba terminada",
           lessonDone: "Lección completada. Tu progreso fue guardado.", session: "Lección interactiva · Aprende practicando",
-          dataTitle: "Datos y respaldo", dataText: "Crea un respaldo privado de conversaciones, proyectos, ajustes y progreso de Learn antes de cambiar de teléfono o reinstalar.",
-          exportBackup: "Exportar respaldo completo", importBackup: "Restaurar respaldo", updates: "Actualizaciones:", updateText: "Instala el APK nuevo encima de la app actual. No la desinstales. Tus datos locales permanecerán guardados.",
+          dataTitle: "Datos y respaldo", dataText: "JamdDmaj guarda datos en este dispositivo y también puede guardar una copia cifrada en la nube con tu código de recuperación.",
+          exportBackup: "Exportar archivo", importBackup: "Restaurar archivo", updates: "Actualizaciones:", updateText: "Instala el APK nuevo encima de la app actual. No la desinstales. Tus datos locales permanecerán guardados.",
+          cloudBackup: "Respaldo cifrado en la nube", cloudBackupText: "Guarda automáticamente conversaciones, proyectos, ajustes y progreso de Learn. Conserva tu código de recuperación en privado.",
+          syncBackup: "Sincronizar ahora", showCode: "Ver código", restoreCloud: "Restaurar con código", backupCodeLabel: "Código de recuperación", backupCodeHelp: "Guarda este código. Si borras la app, este código restaura tu respaldo cifrado.",
+          backupSynced: "Respaldo en la nube guardado.", backupRestoredCloud: "Respaldo restaurado. JamdDmaj se reiniciará ahora.", backupUnavailable: "El respaldo en la nube no está disponible ahora.", enterRecoveryCode: "Escribe tu código de recuperación de JamdDmaj:",
           socialTitle: "Redes oficiales de JamdDmaj", socialText: "Sigue las novedades, tutoriales, demostraciones y nuevas versiones.",
           sideBackup: "Datos y respaldo", sideSocial: "Redes sociales oficiales", backupReady: "Respaldo creado.", backupRestored: "Respaldo restaurado. JamdDmaj se reiniciará ahora.",
           invalidBackup: "Este archivo no es un respaldo válido de JamdDmaj.", restoreConfirm: "¿Restaurar este respaldo? Reemplazará la información guardada actualmente en este dispositivo."
@@ -3126,7 +3199,9 @@
         settingsCoach: "jamdV2SettingsCoachSeen",
         idleNudge: "jamdV2IdleNudgeDismissed",
         learning: "jamdV2Learning",
-        deviceId: "jamdV2DeviceId"
+        deviceId: "jamdV2DeviceId",
+        recoveryCode: "jamdV3RecoveryCode",
+        backupSyncedAt: "jamdV3BackupSyncedAt"
       };
 
       const DEFAULT_SETTINGS = {
@@ -3463,6 +3538,8 @@
       let pendingProjectChatId = null;
       let placementQuiz = null;
       let managedAccessReady = null;
+      let cloudBackupTimer = null;
+      let cloudBackupInProgress = false;
       const SETTINGS_COACH_STEPS = [
         { selector: ".connection-card", title: "Acceso automático", text: "El chat gratuito funciona con JamdDmaj sin crear una cuenta. Conecta OpenRouter solo si quieres límites personales o generar imágenes de pago." },
         { selector: "#languageInput", title: "Idioma automático", text: "Cambia la interfaz. El chat además detecta por separado el idioma de cada mensaje." },
@@ -3590,6 +3667,7 @@
       function persistProjects() {
         try {
           localStorage.setItem(STORAGE.projects, JSON.stringify(projects.slice(0, 30)));
+          scheduleCloudBackup();
         } catch {
           showToast(translate("storageFull"));
         }
@@ -3604,6 +3682,7 @@
         try {
           localStorage.setItem(STORAGE.chats, JSON.stringify(trimmed));
           chats = trimmed;
+          scheduleCloudBackup();
         } catch {
           const lightweight = trimmed.map((chat) => ({
             ...chat,
@@ -3616,6 +3695,7 @@
           try {
             localStorage.setItem(STORAGE.chats, JSON.stringify(lightweight));
             chats = lightweight;
+            scheduleCloudBackup();
             showToast("Images were omitted from saved history to conserve storage.");
           } catch {
             showToast("Chat history is full. Export or delete older chats.");
@@ -3712,6 +3792,7 @@
 
       function persistLearning() {
         localStorage.setItem(STORAGE.learning, JSON.stringify(learning));
+        scheduleCloudBackup();
       }
 
       function getLearningTrack(id = learning.selectedTrack) {
@@ -3742,7 +3823,10 @@
           learnGuideTitle3: "guide3Title", learnGuideText3: "guide3Text", learnHomeBtn: "path",
           completeLessonBtn: "complete", dataSectionTitle: "dataTitle", dataSectionText: "dataText",
           exportBackupBtn: "exportBackup", importBackupBtn: "importBackup", backupNoteTitle: "updates",
-          backupNoteText: "updateText", socialSectionTitle: "socialTitle", socialSectionText: "socialText"
+          backupNoteText: "updateText", cloudBackupTitle: "cloudBackup", cloudBackupText: "cloudBackupText",
+          syncCloudBackupBtn: "syncBackup", showRecoveryCodeBtn: "showCode", restoreCloudBackupBtn: "restoreCloud",
+          backupCodeLabel: "backupCodeLabel", backupCodeHelp: "backupCodeHelp",
+          socialSectionTitle: "socialTitle", socialSectionText: "socialText"
         };
         Object.entries(mappings).forEach(([id, key]) => {
           const element = document.getElementById(id);
@@ -4435,6 +4519,8 @@
         text.className = `message-text${message.streaming ? " typing" : ""}`;
         renderSafeText(text, message.content || (message.streaming ? "Thinking" : ""));
         card.append(text);
+        const phraseChips = createLearningPhraseChips(message);
+        if (phraseChips) card.append(phraseChips);
 
         if (!message.streaming && message.content) {
           const actions = document.createElement("div");
@@ -4452,6 +4538,56 @@
         body.append(meta, card);
         article.append(avatar, body);
         return article;
+      }
+
+      function createLearningPhraseChips(message) {
+        const session = getCurrentChat()?.learningSession;
+        if (
+          message.role !== "assistant"
+          || message.streaming
+          || session?.trackId !== "languages"
+          || !message.content
+        ) return null;
+        const phrases = extractLearningPhrases(message.content, session.targetLanguage || learning.targetLanguage);
+        if (!phrases.length) return null;
+        const wrap = document.createElement("div");
+        wrap.className = "learn-phrase-chips";
+        phrases.slice(0, 8).forEach((phrase) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "learn-phrase-chip";
+          button.textContent = `▶ ${phrase.label}`;
+          button.addEventListener("click", () => speakLearningPhrase(phrase.speak, session.targetLanguage || learning.targetLanguage));
+          wrap.append(button);
+        });
+        return wrap;
+      }
+
+      function extractLearningPhrases(content, targetLanguage) {
+        const text = String(content || "");
+        const found = new Map();
+        const add = (value, label = value) => {
+          const clean = String(value || "").trim().replace(/[.,;:!?¡¿()[\]{}"“”'`*_#>]+$/g, "");
+          if (clean.length < 2 || clean.length > 40) return;
+          const key = clean.toLowerCase();
+          if (!found.has(key)) found.set(key, { speak: clean, label: String(label || clean).trim().slice(0, 42) });
+        };
+        const profile = LANGUAGE_PROFILES[targetLanguage];
+        if (profile?.visual?.target) add(profile.visual.target, profile.visual.target);
+        const scripts = {
+          Japanese: /[ぁ-ゟ゠-ヿ一-龯々ー]{2,}/g,
+          Korean: /[가-힣]{2,}/g,
+          Chinese: /[\u4e00-\u9fff]{2,}/g
+        };
+        const scriptRegex = scripts[targetLanguage];
+        if (scriptRegex) {
+          [...text.matchAll(scriptRegex)].forEach((match) => add(match[0]));
+        }
+        [...text.matchAll(/(?:word|phrase|expresi[oó]n|palabra|frase)\s*[:\-]\s*([^\n]+)/gi)]
+          .forEach((match) => add(match[1].split(/[\/|—-]/)[0]));
+        [...text.matchAll(/["“]([^"”]{2,30})["”]\s*\(([^)]{2,30})\)/g)]
+          .forEach((match) => add(match[1], `${match[1]} · ${match[2]}`));
+        return [...found.values()];
       }
 
       function makeMiniButton(label, action) {
@@ -5748,10 +5884,10 @@
         }
         if (!("speechSynthesis" in window)) return;
         speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text);
+        const utterance = new SpeechSynthesisUtterance(normalizeSpeechText(text, { keepForeignScript: true }));
         utterance.lang = locale;
-        utterance.rate = 0.86;
-        utterance.pitch = 1;
+        utterance.rate = 0.78;
+        utterance.pitch = 1.02;
         const base = locale.split("-")[0].toLowerCase();
         const matchingVoice = speechSynthesis.getVoices().find((voice) =>
           voice.lang.toLowerCase() === locale.toLowerCase()
@@ -5782,13 +5918,13 @@
         }
         const sessionId = ++speechSessionId;
         speechSynthesis.cancel();
-        const clean = String(value).replace(/```[\s\S]*?```/g, " Code block omitted. ").slice(0, 3500);
+        const clean = normalizeSpeechText(value).slice(0, 3500);
         const selected = speechSynthesis.getVoices().find((voice) => voice.name === settings.voiceName);
         const styles = {
-          natural: { rate: 1, pitch: 1 },
-          calm: { rate: 0.88, pitch: 0.95 },
-          energetic: { rate: 1.12, pitch: 1.08 },
-          deep: { rate: 0.92, pitch: 0.72 }
+          natural: { rate: 0.94, pitch: 1.02 },
+          calm: { rate: 0.84, pitch: 0.96 },
+          energetic: { rate: 1.04, pitch: 1.08 },
+          deep: { rate: 0.88, pitch: 0.78 }
         };
         const baseStyle = styles[settings.voiceStyle] || styles.natural;
         const chunks = splitSpeechChunks(clean);
@@ -5838,12 +5974,12 @@
       async function speakWithNativeTts(nativeTts, value) {
         const sessionId = ++speechSessionId;
         await nativeTts.stop().catch(() => {});
-        const clean = String(value).replace(/```[\s\S]*?```/g, " Code block omitted. ").slice(0, 3500);
+        const clean = normalizeSpeechText(value).slice(0, 3500);
         const styles = {
-          natural: { rate: 1, pitch: 1 },
-          calm: { rate: 0.88, pitch: 0.95 },
-          energetic: { rate: 1.12, pitch: 1.08 },
-          deep: { rate: 0.92, pitch: 0.72 }
+          natural: { rate: 0.94, pitch: 1.02 },
+          calm: { rate: 0.84, pitch: 0.96 },
+          energetic: { rate: 1.04, pitch: 1.08 },
+          deep: { rate: 0.88, pitch: 0.78 }
         };
         const baseStyle = styles[settings.voiceStyle] || styles.natural;
         const language = await getNativeSpeechLanguage(nativeTts);
@@ -5906,6 +6042,25 @@
         });
         if (current) chunks.push(current);
         return chunks;
+      }
+
+      function normalizeSpeechText(value, options = {}) {
+        const codeLabel = resolvedLanguage() === "es" ? " bloque de codigo omitido. " : " code block omitted. ";
+        return String(value || "")
+          .replace(/```[\s\S]*?```/g, codeLabel)
+          .replace(/`([^`]+)`/g, "$1")
+          .replace(/!\[([^\]]*)\]\([^)]+\)/g, "$1")
+          .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+          .replace(/^#{1,6}\s+/gm, "")
+          .replace(/^\s*[-*+]\s+/gm, "")
+          .replace(/^\s*\d+\.\s+/gm, "")
+          .replace(/[*_~]{1,3}([^*_~]+)[*_~]{1,3}/g, "$1")
+          .replace(/[*_~>#|]/g, " ")
+          .replace(/[•◆◇▪▫◦]/g, " ")
+          .replace(/\bhttps?:\/\/\S+/gi, " link ")
+          .replace(/\s+([.,;:!?])/g, "$1")
+          .replace(/\s+/g, " ")
+          .trim();
       }
 
       function getExpressiveSpeechStyle(text, base) {
@@ -6124,9 +6279,9 @@
         setTimeout(() => URL.revokeObjectURL(link.href), 1000);
       }
 
-      async function exportFullBackup() {
+      function createBackupPayload() {
         checkpointChats();
-        const payload = {
+        return {
           format: "jamddmaj-backup",
           schemaVersion: 1,
           appVersion: APP_VERSION,
@@ -6142,6 +6297,10 @@
             tutorialSeen: localStorage.getItem(STORAGE.tutorial)
           }
         };
+      }
+
+      async function exportFullBackup() {
+        const payload = createBackupPayload();
         const fileName = `JamdDmaj-backup-${new Date().toISOString().slice(0, 10)}.json`;
         const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
         const file = new File([blob], fileName, { type: blob.type });
@@ -6165,27 +6324,196 @@
         }
       }
 
+      function normalizeRecoveryCode(value) {
+        return String(value || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+      }
+
+      function formatRecoveryCode(value) {
+        const clean = normalizeRecoveryCode(value).slice(0, 20);
+        return clean.match(/.{1,4}/g)?.join("-") || "";
+      }
+
+      function getRecoveryCode(create = true) {
+        let code = normalizeRecoveryCode(localStorage.getItem(STORAGE.recoveryCode));
+        if (code || !create) return code;
+        const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        const bytes = crypto.getRandomValues(new Uint8Array(20));
+        code = [...bytes].map((byte) => alphabet[byte % alphabet.length]).join("");
+        localStorage.setItem(STORAGE.recoveryCode, code);
+        return code;
+      }
+
+      function updateCloudBackupStatus(text = "") {
+        const codeElement = document.getElementById("backupRecoveryCode");
+        const status = document.getElementById("cloudBackupStatus");
+        const code = getRecoveryCode(false);
+        if (codeElement) codeElement.textContent = code ? formatRecoveryCode(code) : "Not created yet";
+        if (status) {
+          const synced = localStorage.getItem(STORAGE.backupSyncedAt);
+          status.textContent = text || (synced
+            ? `${resolvedLanguage() === "es" ? "Última copia:" : "Last backup:"} ${new Date(synced).toLocaleString()}`
+            : "");
+        }
+      }
+
+      async function hashRecoveryCode(code) {
+        const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(normalizeRecoveryCode(code)));
+        return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+      }
+
+      async function getBackupCryptoKey(code) {
+        const baseKey = await crypto.subtle.importKey(
+          "raw",
+          new TextEncoder().encode(normalizeRecoveryCode(code)),
+          "PBKDF2",
+          false,
+          ["deriveKey"]
+        );
+        return crypto.subtle.deriveKey(
+          {
+            name: "PBKDF2",
+            salt: new TextEncoder().encode("JamdDmaj encrypted backup v1"),
+            iterations: 120000,
+            hash: "SHA-256"
+          },
+          baseKey,
+          { name: "AES-GCM", length: 256 },
+          false,
+          ["encrypt", "decrypt"]
+        );
+      }
+
+      function bytesToBase64(bytes) {
+        let binary = "";
+        bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
+        return btoa(binary);
+      }
+
+      function base64ToBytes(value) {
+        return Uint8Array.from(atob(String(value || "")), (character) => character.charCodeAt(0));
+      }
+
+      async function encryptBackupPayload(payload, code) {
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const key = await getBackupCryptoKey(code);
+        const encrypted = await crypto.subtle.encrypt(
+          { name: "AES-GCM", iv },
+          key,
+          new TextEncoder().encode(JSON.stringify(payload))
+        );
+        return {
+          iv: bytesToBase64(iv),
+          data: bytesToBase64(new Uint8Array(encrypted))
+        };
+      }
+
+      async function decryptBackupPayload(encrypted, code) {
+        const key = await getBackupCryptoKey(code);
+        const decrypted = await crypto.subtle.decrypt(
+          { name: "AES-GCM", iv: base64ToBytes(encrypted.iv) },
+          key,
+          base64ToBytes(encrypted.data)
+        );
+        return JSON.parse(new TextDecoder().decode(decrypted));
+      }
+
+      function scheduleCloudBackup(delay = 3500) {
+        if (!crypto?.subtle || cloudBackupInProgress) return;
+        clearTimeout(cloudBackupTimer);
+        cloudBackupTimer = setTimeout(() => syncCloudBackup(false), delay);
+      }
+
+      async function syncCloudBackup(notify = true) {
+        if (!crypto?.subtle) {
+          if (notify) showToast(learnText("backupUnavailable"));
+          return false;
+        }
+        cloudBackupInProgress = true;
+        try {
+          const code = getRecoveryCode(true);
+          const payload = createBackupPayload();
+          const encrypted = await encryptBackupPayload(payload, code);
+          const response = await fetch(BACKUP_API_URL, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-JamdDmaj-Device": getDeviceId(),
+              "X-JamdDmaj-Version": APP_VERSION
+            },
+            body: JSON.stringify({
+              action: "save",
+              recoveryHash: await hashRecoveryCode(code),
+              encrypted,
+              updatedAt: payload.exportedAt
+            })
+          });
+          if (!response.ok) throw new Error("backup failed");
+          localStorage.setItem(STORAGE.backupSyncedAt, new Date().toISOString());
+          updateCloudBackupStatus();
+          if (notify) showToast(learnText("backupSynced"));
+          return true;
+        } catch {
+          if (notify) showToast(learnText("backupUnavailable"));
+          return false;
+        } finally {
+          cloudBackupInProgress = false;
+        }
+      }
+
+      async function restoreCloudBackup() {
+        const entered = window.prompt(learnText("enterRecoveryCode"), formatRecoveryCode(getRecoveryCode(false)));
+        const code = normalizeRecoveryCode(entered);
+        if (!code) return;
+        try {
+          const response = await fetch(BACKUP_API_URL, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-JamdDmaj-Device": getDeviceId(),
+              "X-JamdDmaj-Version": APP_VERSION
+            },
+            body: JSON.stringify({
+              action: "restore",
+              recoveryHash: await hashRecoveryCode(code)
+            })
+          });
+          if (!response.ok) throw new Error("restore failed");
+          const data = await response.json();
+          const payload = await decryptBackupPayload(data.encrypted, code);
+          applyBackupPayload(payload);
+          localStorage.setItem(STORAGE.recoveryCode, code);
+          showToast(learnText("backupRestoredCloud"));
+          setTimeout(() => location.reload(), 900);
+        } catch {
+          showToast(learnText("invalidBackup"));
+        }
+      }
+
+      function applyBackupPayload(payload) {
+        const data = payload?.data;
+        if (payload?.format !== "jamddmaj-backup" || !data || !Array.isArray(data.chats)) {
+          throw new Error("Invalid backup");
+        }
+        localStorage.setItem(STORAGE.chats, JSON.stringify(data.chats.slice(0, 30)));
+        localStorage.setItem(STORAGE.projects, JSON.stringify(Array.isArray(data.projects) ? data.projects.slice(0, 30) : []));
+        localStorage.setItem(STORAGE.learning, JSON.stringify(data.learning || learning));
+        localStorage.setItem(STORAGE.settings, JSON.stringify({ ...DEFAULT_SETTINGS, ...(data.settings || {}) }));
+        localStorage.setItem(STORAGE.current, String(data.currentChatId || data.chats[0]?.id || ""));
+        if (data.theme) localStorage.setItem(STORAGE.theme, data.theme);
+        if (data.marketsOpen !== null && data.marketsOpen !== undefined) {
+          localStorage.setItem(STORAGE.markets, String(data.marketsOpen));
+        }
+        if (data.tutorialSeen !== null && data.tutorialSeen !== undefined) {
+          localStorage.setItem(STORAGE.tutorial, String(data.tutorialSeen));
+        }
+      }
+
       async function restoreFullBackup(file) {
         if (!file) return;
         try {
           const payload = JSON.parse(await file.text());
-          const data = payload?.data;
-          if (payload?.format !== "jamddmaj-backup" || !data || !Array.isArray(data.chats)) {
-            throw new Error("Invalid backup");
-          }
           if (!confirm(learnText("restoreConfirm"))) return;
-          localStorage.setItem(STORAGE.chats, JSON.stringify(data.chats.slice(0, 30)));
-          localStorage.setItem(STORAGE.projects, JSON.stringify(Array.isArray(data.projects) ? data.projects.slice(0, 30) : []));
-          localStorage.setItem(STORAGE.learning, JSON.stringify(data.learning || learning));
-          localStorage.setItem(STORAGE.settings, JSON.stringify({ ...DEFAULT_SETTINGS, ...(data.settings || {}) }));
-          localStorage.setItem(STORAGE.current, String(data.currentChatId || data.chats[0]?.id || ""));
-          if (data.theme) localStorage.setItem(STORAGE.theme, data.theme);
-          if (data.marketsOpen !== null && data.marketsOpen !== undefined) {
-            localStorage.setItem(STORAGE.markets, String(data.marketsOpen));
-          }
-          if (data.tutorialSeen !== null && data.tutorialSeen !== undefined) {
-            localStorage.setItem(STORAGE.tutorial, String(data.tutorialSeen));
-          }
+          applyBackupPayload(payload);
           showToast(learnText("backupRestored"));
           setTimeout(() => location.reload(), 900);
         } catch {
@@ -6222,6 +6550,7 @@
         populateVoices();
         els.voice.value = settings.voiceName;
         updateConnectionStatus();
+        updateCloudBackupStatus();
         els.settings.showModal();
         if (focusSection) {
           setTimeout(() => document.getElementById(focusSection)?.scrollIntoView({
@@ -6313,6 +6642,7 @@
         };
         saveApiKey(els.apiKey.value.trim(), settings.rememberKey);
         localStorage.setItem(STORAGE.settings, JSON.stringify(settings));
+        scheduleCloudBackup();
         setVoiceConversationEnabled(settings.autoSpeak, false);
         els.settings.close();
         applyAppearance();
@@ -7158,6 +7488,16 @@
       document.getElementById("importBackupBtn").addEventListener("click", () => {
         document.getElementById("backupFileInput").click();
       });
+      document.getElementById("syncCloudBackupBtn").addEventListener("click", () => syncCloudBackup(true));
+      document.getElementById("showRecoveryCodeBtn").addEventListener("click", async () => {
+        const code = formatRecoveryCode(getRecoveryCode(true));
+        updateCloudBackupStatus();
+        await copyText(code);
+        showToast(resolvedLanguage() === "es"
+          ? "Código copiado. Guárdalo en un lugar privado."
+          : "Recovery code copied. Save it somewhere private.");
+      });
+      document.getElementById("restoreCloudBackupBtn").addEventListener("click", restoreCloudBackup);
       document.getElementById("backupFileInput").addEventListener("change", (event) => {
         restoreFullBackup(event.target.files?.[0]);
         event.target.value = "";
@@ -7333,6 +7673,8 @@
       initTooltips();
       initVoiceInput();
       updateHeader();
+      updateCloudBackupStatus();
+      scheduleCloudBackup(9000);
       populateVoices();
       if ("speechSynthesis" in window) speechSynthesis.onvoiceschanged = populateVoices;
       renderMarketGroups();
