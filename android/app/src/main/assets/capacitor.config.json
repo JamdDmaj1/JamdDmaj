@@ -1,9 +1,0 @@
-{
-	"appId": "com.jamddmaj.ai",
-	"appName": "JamdDmaj AI",
-	"webDir": "www",
-	"backgroundColor": "#090b10",
-	"server": {
-		"androidScheme": "https"
-	}
-}
