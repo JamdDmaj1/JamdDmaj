@@ -1,0 +1,11 @@
+node_modules/
+www/
+.npm-cache/
+.gradle/
+android/.gradle/
+android/local.properties
+android/app/build/
+ios/App/Pods/
+ios/App/DerivedData/
+.env*
+!.env.example
