@@ -613,6 +613,165 @@
       color: var(--text);
     }
 
+    .learn-guide {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin: 14px 0 20px;
+    }
+
+    .learn-guide-card {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: color-mix(in srgb, var(--panel-2) 75%, transparent);
+    }
+
+    .learn-guide-card b,
+    .learn-guide-card span {
+      display: block;
+    }
+
+    .learn-guide-card b {
+      margin-bottom: 4px;
+      color: #5eead4;
+      font-size: 0.76rem;
+    }
+
+    .learn-guide-card span {
+      color: var(--muted);
+      font-size: 0.7rem;
+    }
+
+    .language-setup {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+      align-items: end;
+      gap: 10px;
+      width: min(680px, 100%);
+      margin-left: auto;
+    }
+
+    .language-field {
+      display: grid;
+      gap: 5px;
+    }
+
+    .language-field label {
+      color: var(--muted);
+      font-size: 0.68rem;
+      font-weight: 750;
+    }
+
+    .language-field select {
+      width: 100%;
+      min-height: 42px;
+      padding: 0 11px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel-2);
+      color: var(--text);
+    }
+
+    .language-visual {
+      display: grid;
+      grid-template-columns: minmax(170px, 0.65fr) minmax(0, 1fr);
+      gap: 14px;
+      margin: 0 0 16px;
+      padding: 14px;
+      border: 1px solid rgba(56, 189, 248, 0.26);
+      border-radius: 20px;
+      background: linear-gradient(135deg, rgba(14, 116, 144, 0.15), rgba(37, 99, 235, 0.1));
+    }
+
+    .language-visual-art {
+      display: grid;
+      min-height: 150px;
+      place-items: center;
+      overflow: hidden;
+      border-radius: 16px;
+      background: linear-gradient(145deg, #e0f2fe, #dbeafe);
+      color: #0f172a;
+    }
+
+    .language-visual-art svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .language-visual-copy {
+      display: grid;
+      align-content: center;
+      gap: 5px;
+    }
+
+    .language-visual-copy small {
+      color: #38bdf8;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .language-visual-copy strong {
+      font-size: clamp(1.5rem, 4vw, 2.7rem);
+      line-height: 1.05;
+    }
+
+    .language-visual-copy span,
+    .language-visual-copy p {
+      color: var(--muted);
+    }
+
+    .language-visual-copy p {
+      margin: 6px 0 0;
+      font-size: 0.76rem;
+    }
+
+    .quiz-body {
+      display: grid;
+      gap: 14px;
+    }
+
+    .quiz-progress {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--muted);
+      font-size: 0.72rem;
+    }
+
+    .quiz-question {
+      margin: 0;
+      font-size: 1.1rem;
+    }
+
+    .quiz-options {
+      display: grid;
+      gap: 8px;
+    }
+
+    .quiz-option {
+      padding: 12px 13px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: var(--panel-2);
+      color: var(--text);
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .quiz-option:hover {
+      border-color: #38bdf8;
+      background: rgba(56, 189, 248, 0.1);
+    }
+
+    .quiz-result {
+      padding: 16px;
+      border: 1px solid rgba(52, 211, 153, 0.3);
+      border-radius: 16px;
+      background: rgba(52, 211, 153, 0.1);
+    }
+
     .learn-tracks {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1714,6 +1873,23 @@
         flex-direction: column;
       }
 
+      .learn-guide {
+        grid-template-columns: 1fr;
+      }
+
+      .language-setup {
+        grid-template-columns: 1fr 1fr;
+        margin: 0;
+      }
+
+      .language-setup .pill-btn {
+        grid-column: 1 / -1;
+      }
+
+      .language-visual {
+        grid-template-columns: 1fr;
+      }
+
       .learning-session-bar {
         padding-inline: 12px;
       }
@@ -1868,7 +2044,7 @@
       <div class="history" id="projectsList"></div>
 
       <div class="sidebar-footer">
-        <button class="side-action" id="sideLearnBtn" type="button"><span>LE</span><span>Learn</span></button>
+        <button class="side-action" id="sideLearnBtn" type="button"><span>Jl</span><span>JamdDmaj Learn</span></button>
         <button class="side-action mobile-side-action" id="sideVoiceBtn" type="button"><span>◉</span><span>Voice mode</span></button>
         <button class="side-action mobile-side-action" id="sideSaveBtn" type="button"><span>✓</span><span>Save conversation</span></button>
         <button class="side-action mobile-side-action" id="sideRenameBtn" type="button"><span>A</span><span>Rename conversation</span></button>
@@ -1938,6 +2114,12 @@
             </div>
           </div>
 
+          <div class="learn-guide">
+            <div class="learn-guide-card"><b>1. Elige una ruta</b><span>Selecciona una materia, tu nivel y, en idiomas, desde que idioma quieres aprender.</span></div>
+            <div class="learn-guide-card"><b>2. Aprende practicando</b><span>JamdDmaj explica una idea, espera tu respuesta y adapta el siguiente ejercicio.</span></div>
+            <div class="learn-guide-card"><b>3. Guarda tu avance</b><span>Completa lecciones, aumenta tu racha y vuelve a cualquier tema cuando quieras.</span></div>
+          </div>
+
           <div class="learn-tracks" id="learnTracks"></div>
           <section class="learn-path" id="learnPath"></section>
         </div>
@@ -1945,7 +2127,7 @@
 
       <div class="learning-session-bar is-hidden" id="learningSessionBar">
         <div class="learning-session-copy">
-          <strong id="learningSessionTitle">Learn</strong>
+          <strong id="learningSessionTitle">JamdDmaj Learn</strong>
           <span id="learningSessionSubtitle">Leccion interactiva</span>
         </div>
         <div class="learning-session-actions">
@@ -1987,6 +2169,22 @@
 
     <div class="overlay" id="mobileOverlay"></div>
   </div>
+
+  <dialog id="placementDialog">
+    <form method="dialog" id="placementForm">
+      <div class="dialog-head">
+        <h2>Prueba de nivel</h2>
+        <button class="icon-btn" value="cancel" aria-label="Cerrar prueba" type="submit">×</button>
+      </div>
+      <div class="dialog-body quiz-body">
+        <div class="quiz-progress">
+          <span id="quizProgressText">Pregunta 1 de 5</span>
+          <span id="quizLanguagePair"></span>
+        </div>
+        <div id="quizContent"></div>
+      </div>
+    </form>
+  </dialog>
 
   <dialog id="settingsDialog">
     <form method="dialog" id="settingsForm">
@@ -2178,6 +2376,7 @@
           <div class="tutorial-card"><strong>Create images</strong><span>Use the diamond button to switch into budget image-generation mode.</span></div>
           <div class="tutorial-card"><strong>Voice conversation</strong><span>Turn Voice on, dictate with the microphone, and hear AI replies aloud.</span></div>
           <div class="tutorial-card"><strong>Live markets</strong><span>Open Markets for frequently refreshed crypto prices from multiple sources.</span></div>
+          <div class="tutorial-card"><strong>JamdDmaj Learn</strong><span>Choose a subject, take a placement test, set your learning language, and follow interactive lessons with saved progress.</span></div>
           <div class="tutorial-card"><strong>Keep your work</strong><span>Save, rename, revisit, or export conversations whenever you need them.</span></div>
         </div>
       </div>
@@ -2251,7 +2450,7 @@
       const API_URL = "https://openrouter.ai/api/v1/chat/completions";
       const WEB_APP_URL = "https://jamd-dmaj.vercel.app/";
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
-      const APP_VERSION = "1.5.0";
+      const APP_VERSION = "1.6.0";
       const PRICE_CACHE_KEY = "jamdV2CryptoPrices";
       const STOCK_ALIASES = {
         nvidia: "NVDA",
@@ -2379,6 +2578,98 @@
           ]
         }
       ];
+      const LEARNING_LANGUAGES = [
+        { id: "English", label: "English" },
+        { id: "Spanish", label: "Español" },
+        { id: "French", label: "Français" },
+        { id: "German", label: "Deutsch" },
+        { id: "Portuguese", label: "Português" },
+        { id: "Italian", label: "Italiano" },
+        { id: "Japanese", label: "日本語" },
+        { id: "Korean", label: "한국어" }
+      ];
+      const LANGUAGE_PROFILES = {
+        English: {
+          visual: { target: "Hello!", pronunciation: "heh-LOH", meaning: "A friendly greeting" },
+          quiz: [
+            ["Choose the greeting.", ["Hello", "Table", "Tomorrow", "Blue"], 0],
+            ["What does “Thank you” express?", ["A question", "Gratitude", "A warning", "A price"], 1],
+            ["Complete: “I ___ learning.”", ["am", "is", "be", "are"], 0],
+            ["Choose the natural question.", ["Where you live?", "Where do you live?", "You live where do?", "Do where live you?"], 1],
+            ["Choose the closest meaning of “although”.", ["because", "despite the fact that", "before", "therefore"], 1]
+          ]
+        },
+        Spanish: {
+          visual: { target: "¡Hola!", pronunciation: "OH-lah", meaning: "Un saludo amistoso" },
+          quiz: [
+            ["¿Cuál palabra es un saludo?", ["Hola", "Mesa", "Mañana", "Azul"], 0],
+            ["¿Qué significa “gracias”?", ["Goodbye", "Thank you", "Please", "Sorry"], 1],
+            ["Completa: “Yo ___ aprendiendo.”", ["estoy", "eres", "somos", "ser"], 0],
+            ["Elige la pregunta natural.", ["¿Dónde vives?", "¿Dónde tú vivir?", "¿Vives dónde haces?", "¿Dónde vivir tú es?"], 0],
+            ["¿Qué significa “sin embargo”?", ["however", "because", "always", "perhaps"], 0]
+          ]
+        },
+        French: {
+          visual: { target: "Bonjour !", pronunciation: "bohn-ZHOOR", meaning: "Hello / Good morning" },
+          quiz: [
+            ["Que signifie « Bonjour » ?", ["Hello", "Good night", "Please", "Food"], 0],
+            ["Que signifie « Merci » ?", ["Sorry", "Thank you", "Tomorrow", "Friend"], 1],
+            ["Complète : « Je ___ étudiant. »", ["suis", "es", "sommes", "être"], 0],
+            ["Choisis la question correcte.", ["Où habites-tu ?", "Où tu habiter ?", "Habites où tu est ?", "Tu où habite faire ?"], 0],
+            ["Que signifie « pourtant » ?", ["however", "never", "before", "perhaps"], 0]
+          ]
+        },
+        German: {
+          visual: { target: "Hallo!", pronunciation: "HAH-loh", meaning: "Hello" },
+          quiz: [
+            ["Was bedeutet „Hallo“?", ["Hello", "Goodbye", "Food", "Book"], 0],
+            ["Was bedeutet „Danke“?", ["Please", "Thank you", "Sorry", "Today"], 1],
+            ["Ergänze: „Ich ___ müde.“", ["bin", "bist", "sind", "sein"], 0],
+            ["Wähle die richtige Frage.", ["Wo wohnst du?", "Wo du wohnen?", "Wohnst wo du ist?", "Du wo wohnt?"], 0],
+            ["Was bedeutet „trotzdem“?", ["nevertheless", "because", "always", "early"], 0]
+          ]
+        },
+        Portuguese: {
+          visual: { target: "Olá!", pronunciation: "oh-LAH", meaning: "Hello" },
+          quiz: [
+            ["O que significa “Olá”?", ["Hello", "Goodbye", "House", "Night"], 0],
+            ["O que significa “Obrigado/a”?", ["Please", "Thank you", "Maybe", "Later"], 1],
+            ["Complete: “Eu ___ aprendendo.”", ["estou", "é", "somos", "ser"], 0],
+            ["Escolha a pergunta correta.", ["Onde você mora?", "Onde você morar?", "Mora onde você é?", "Você onde mora fazer?"], 0],
+            ["O que significa “porém”?", ["however", "never", "today", "inside"], 0]
+          ]
+        },
+        Italian: {
+          visual: { target: "Ciao!", pronunciation: "CHOW", meaning: "Hello / Bye" },
+          quiz: [
+            ["Che cosa significa “Ciao”?", ["Hello / Bye", "Thank you", "Tomorrow", "Food"], 0],
+            ["Che cosa significa “Grazie”?", ["Sorry", "Thank you", "Please", "Friend"], 1],
+            ["Completa: “Io ___ stanco.”", ["sono", "sei", "siamo", "essere"], 0],
+            ["Scegli la domanda corretta.", ["Dove abiti?", "Dove tu abitare?", "Abiti dove sei?", "Tu dove abita fare?"], 0],
+            ["Che cosa significa “tuttavia”?", ["however", "because", "always", "near"], 0]
+          ]
+        },
+        Japanese: {
+          visual: { target: "こんにちは", pronunciation: "konnichiwa", meaning: "Hello / Good afternoon" },
+          quiz: [
+            ["What does 「こんにちは」 mean?", ["Hello", "Thank you", "Goodbye", "Water"], 0],
+            ["What does 「ありがとう」 (arigatou) mean?", ["Sorry", "Thank you", "Please", "Tomorrow"], 1],
+            ["Choose “yes” in Japanese.", ["はい (hai)", "いいえ (iie)", "みず (mizu)", "ねこ (neko)"], 0],
+            ["What is 「ねこ」 (neko)?", ["Dog", "Cat", "Book", "House"], 1],
+            ["Which particle commonly marks the topic?", ["は (wa)", "を (o)", "で (de)", "へ (e)"], 0]
+          ]
+        },
+        Korean: {
+          visual: { target: "안녕하세요", pronunciation: "annyeonghaseyo", meaning: "Hello" },
+          quiz: [
+            ["What does 「안녕하세요」 mean?", ["Hello", "Thank you", "Goodbye", "Food"], 0],
+            ["What does 「감사합니다」 mean?", ["Sorry", "Thank you", "Please", "Tomorrow"], 1],
+            ["Choose “yes” in Korean.", ["네 (ne)", "아니요 (aniyo)", "물 (mul)", "책 (chaek)"], 0],
+            ["What is 「고양이」 (goyangi)?", ["Dog", "Cat", "Book", "House"], 1],
+            ["Which marker commonly marks the topic?", ["은/는", "을/를", "에서", "에게"], 0]
+          ]
+        }
+      };
       const CRYPTO_ASSETS = [
         { symbol: "BTC", id: "bitcoin", binance: "BTCUSDT", category: "Payments and stores of value" },
         { symbol: "XRP", id: "ripple", binance: "XRPUSDT", category: "Payments and stores of value" },
@@ -2435,7 +2726,7 @@
         settings: "jamdV2Settings",
         theme: "jamdV2Theme",
         apiKey: "jamdV2ApiKey",
-        tutorial: "jamdV2TutorialSeen",
+        tutorial: "jamdV3TutorialSeen",
         markets: "jamdV2MarketsOpen",
         costProfile: "jamdV2CostProfile",
         oauthVerifier: "jamdV2OauthVerifier",
@@ -2598,6 +2889,8 @@
         learnLevel: document.getElementById("learnLevel"),
         learnButton: document.getElementById("learnBtn"),
         learningSessionBar: document.getElementById("learningSessionBar"),
+        placementDialog: document.getElementById("placementDialog"),
+        quizContent: document.getElementById("quizContent"),
         toast: document.getElementById("toast"),
         title: document.getElementById("chatTitle"),
         modelLabel: document.getElementById("modelLabel")
@@ -2621,7 +2914,10 @@
         streak: 1,
         lastStudyDate: "",
         mode: "chat",
-        activeLesson: null
+        activeLesson: null,
+        sourceLanguage: "English",
+        targetLanguage: "Japanese",
+        placementScores: {}
       });
       let currentChatId = localStorage.getItem(STORAGE.current) || "";
       let pendingImages = [];
@@ -2648,6 +2944,7 @@
       let currentIdleFact = "";
       let mainCoachIndex = 0;
       let pendingProjectChatId = null;
+      let placementQuiz = null;
       const SETTINGS_COACH_STEPS = [
         { selector: ".connection-card", title: "Conecta la IA", text: "Para principiantes, este botón inicia sesión sin copiar claves. En la web publicada es la forma recomendada de empezar." },
         { selector: "#languageInput", title: "Idioma automático", text: "Cambia la interfaz. El chat además detecta por separado el idioma de cada mensaje." },
@@ -2659,6 +2956,7 @@
 
       const MAIN_COACH_STEPS = [
         { selector: "#menuBtn", title: "Tu espacio de trabajo", text: "Abre el menú para ver el historial, tus proyectos guardados, el tema y los ajustes." },
+        { selector: "#learnBtn", title: "JamdDmaj Learn", text: "Elige una materia, configura desde qué idioma aprender, realiza una prueba de nivel y guarda tu progreso." },
         { selector: "#marketsBtn", title: "Mercados en vivo", text: "Consulta criptomonedas organizadas por función y usa un precio como contexto para preguntar." },
         { selector: "#saveChatBtn", title: "Guarda proyectos", text: "Convierte una conversación en proyecto para conservarla, renombrarla o volver a abrirla después." },
         { selector: "#topThemeBtn", title: "Modo claro u oscuro", text: "Cambia rápidamente la apariencia. En Ajustes encontrarás muchas más opciones visuales." },
@@ -2912,11 +3210,15 @@
         if (sessionOpen) {
           const track = getLearningTrack(learning.activeLesson.trackId);
           const module = track.modules[learning.activeLesson.moduleIndex];
+          const session = getCurrentChat()?.learningSession || {};
+          const levelText = learning.level === "advanced" ? "Nivel avanzado" :
+            learning.level === "intermediate" ? "Nivel intermedio" : "Nivel principiante";
           document.getElementById("learningSessionTitle").textContent =
             `${track.title[resolvedLanguage()] || track.title.en} · ${module[0]}`;
           document.getElementById("learningSessionSubtitle").textContent =
-            learning.level === "advanced" ? "Nivel avanzado" :
-            learning.level === "intermediate" ? "Nivel intermedio" : "Nivel principiante";
+            track.id === "languages"
+              ? `${session.sourceLanguage || learning.sourceLanguage} → ${session.targetLanguage || learning.targetLanguage} · ${levelText}`
+              : levelText;
         }
       }
 
@@ -2967,21 +3269,48 @@
         heading.append(title, description);
         top.append(heading);
 
+        let languageVisual = null;
         if (selected.id === "languages") {
-          const languageSelect = document.createElement("select");
-          languageSelect.className = "pill-btn";
-          ["English", "French", "German", "Portuguese", "Italian", "Japanese", "Korean"].forEach((name) => {
-            const option = document.createElement("option");
-            option.value = name;
-            option.textContent = name;
-            languageSelect.append(option);
-          });
-          languageSelect.value = learning.targetLanguage || "English";
-          languageSelect.addEventListener("change", () => {
-            learning.targetLanguage = languageSelect.value;
-            persistLearning();
-          });
-          top.append(languageSelect);
+          if (!LANGUAGE_PROFILES[learning.targetLanguage]) learning.targetLanguage = "Japanese";
+          if (!LANGUAGE_PROFILES[learning.sourceLanguage]) learning.sourceLanguage = "English";
+          if (learning.sourceLanguage === learning.targetLanguage) {
+            learning.sourceLanguage = learning.targetLanguage === "English" ? "Spanish" : "English";
+          }
+
+          const setup = document.createElement("div");
+          setup.className = "language-setup";
+          const sourceField = createLanguageField(
+            language === "es" ? "Aprendo desde" : "Explain lessons in",
+            learning.sourceLanguage,
+            (value) => {
+              learning.sourceLanguage = value;
+              if (learning.sourceLanguage === learning.targetLanguage) {
+                learning.targetLanguage = value === "English" ? "Japanese" : "English";
+              }
+              persistLearning();
+              renderLearnDashboard();
+            }
+          );
+          const targetField = createLanguageField(
+            language === "es" ? "Quiero aprender" : "I want to learn",
+            learning.targetLanguage,
+            (value) => {
+              learning.targetLanguage = value;
+              if (learning.sourceLanguage === learning.targetLanguage) {
+                learning.sourceLanguage = value === "English" ? "Spanish" : "English";
+              }
+              persistLearning();
+              renderLearnDashboard();
+            }
+          );
+          const placementButton = document.createElement("button");
+          placementButton.type = "button";
+          placementButton.className = "pill-btn";
+          placementButton.textContent = language === "es" ? "Probar mi nivel" : "Test my level";
+          placementButton.addEventListener("click", openPlacementTest);
+          setup.append(sourceField, targetField, placementButton);
+          top.append(setup);
+          languageVisual = createLanguageVisual();
         }
 
         const modules = document.createElement("div");
@@ -3010,7 +3339,168 @@
           row.append(number, copy, start);
           modules.append(row);
         });
-        els.learnPath.append(top, modules);
+        els.learnPath.append(top);
+        if (languageVisual) els.learnPath.append(languageVisual);
+        els.learnPath.append(modules);
+      }
+
+      function createLanguageField(labelText, selectedValue, onChange) {
+        const field = document.createElement("div");
+        field.className = "language-field";
+        const label = document.createElement("label");
+        label.textContent = labelText;
+        const select = document.createElement("select");
+        LEARNING_LANGUAGES.forEach((language) => {
+          const option = document.createElement("option");
+          option.value = language.id;
+          option.textContent = language.label;
+          select.append(option);
+        });
+        select.value = selectedValue;
+        select.addEventListener("change", () => onChange(select.value));
+        field.append(label, select);
+        return field;
+      }
+
+      function createLanguageVisual() {
+        const profile = LANGUAGE_PROFILES[learning.targetLanguage] || LANGUAGE_PROFILES.Japanese;
+        const translatedMeaning = getGreetingMeaning(learning.sourceLanguage);
+        const visual = document.createElement("article");
+        visual.className = "language-visual";
+        const art = document.createElement("div");
+        art.className = "language-visual-art";
+        art.innerHTML = `
+          <svg viewBox="0 0 360 220" role="img" aria-label="Visual greeting card">
+            <defs>
+              <linearGradient id="learnSky" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#bae6fd"/>
+                <stop offset="1" stop-color="#ddd6fe"/>
+              </linearGradient>
+            </defs>
+            <rect width="360" height="220" fill="url(#learnSky)"/>
+            <circle cx="286" cy="50" r="28" fill="#fde68a"/>
+            <path d="M0 164 Q76 118 145 158 T360 145 V220 H0Z" fill="#93c5fd"/>
+            <path d="M0 184 Q90 145 180 181 T360 168 V220 H0Z" fill="#5eead4"/>
+            <circle cx="122" cy="91" r="29" fill="#f8fafc"/>
+            <path d="M78 170 Q85 112 122 112 Q159 112 167 170Z" fill="#2563eb"/>
+            <path d="M151 90 Q213 54 268 91" fill="none" stroke="#0f172a" stroke-width="4" stroke-linecap="round"/>
+            <path d="M255 78 L271 91 L252 101" fill="none" stroke="#0f172a" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>`;
+        const copy = document.createElement("div");
+        copy.className = "language-visual-copy";
+        const eyebrow = document.createElement("small");
+        eyebrow.textContent = resolvedLanguage() === "es" ? "Tarjeta visual de hoy" : "Today's visual card";
+        const target = document.createElement("strong");
+        target.textContent = profile.visual.target;
+        const pronunciation = document.createElement("span");
+        pronunciation.textContent = `Pronunciation: ${profile.visual.pronunciation}`;
+        const meaning = document.createElement("span");
+        meaning.textContent = `${learning.sourceLanguage}: ${translatedMeaning}`;
+        const help = document.createElement("p");
+        help.textContent = learning.targetLanguage === "Japanese" || learning.targetLanguage === "Korean"
+          ? (resolvedLanguage() === "es"
+              ? "Las lecciones siempre mostrarán escritura original, pronunciación con letras latinas y significado."
+              : "Lessons always show original script, Latin-letter pronunciation, and meaning.")
+          : (resolvedLanguage() === "es"
+              ? "Las imágenes y ejemplos conectan palabras con situaciones fáciles de recordar."
+              : "Images and examples connect words with memorable situations.");
+        copy.append(eyebrow, target, pronunciation, meaning, help);
+        visual.append(art, copy);
+        return visual;
+      }
+
+      function openPlacementTest() {
+        const profile = LANGUAGE_PROFILES[learning.targetLanguage] || LANGUAGE_PROFILES.Japanese;
+        placementQuiz = {
+          questions: profile.quiz,
+          index: 0,
+          score: 0
+        };
+        document.getElementById("quizLanguagePair").textContent =
+          `${learning.sourceLanguage} → ${learning.targetLanguage}`;
+        renderPlacementQuestion();
+        els.placementDialog.showModal();
+      }
+
+      function renderPlacementQuestion() {
+        if (!placementQuiz) return;
+        const { questions, index } = placementQuiz;
+        if (index >= questions.length) {
+          finishPlacementTest();
+          return;
+        }
+        const [prompt, options] = questions[index];
+        document.getElementById("quizProgressText").textContent =
+          `${resolvedLanguage() === "es" ? "Pregunta" : "Question"} ${index + 1} ${resolvedLanguage() === "es" ? "de" : "of"} ${questions.length}`;
+        els.quizContent.replaceChildren();
+        const question = document.createElement("h3");
+        question.className = "quiz-question";
+        question.textContent = prompt;
+        const optionList = document.createElement("div");
+        optionList.className = "quiz-options";
+        options.forEach((option, optionIndex) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "quiz-option";
+          button.textContent = option;
+          button.addEventListener("click", () => answerPlacementQuestion(optionIndex));
+          optionList.append(button);
+        });
+        els.quizContent.append(question, optionList);
+      }
+
+      function answerPlacementQuestion(optionIndex) {
+        if (!placementQuiz) return;
+        const correct = placementQuiz.questions[placementQuiz.index][2];
+        if (optionIndex === correct) placementQuiz.score += 1;
+        placementQuiz.index += 1;
+        renderPlacementQuestion();
+      }
+
+      function finishPlacementTest() {
+        const score = placementQuiz?.score || 0;
+        const level = score >= 4 ? "advanced" : score >= 2 ? "intermediate" : "beginner";
+        learning.level = level;
+        learning.placementScores = {
+          ...(learning.placementScores || {}),
+          [learning.targetLanguage]: {
+            score,
+            total: placementQuiz?.questions.length || 5,
+            level,
+            date: new Date().toISOString()
+          }
+        };
+        persistLearning();
+        els.learnLevel.value = level;
+        els.quizContent.replaceChildren();
+        const result = document.createElement("div");
+        result.className = "quiz-result";
+        const title = document.createElement("h3");
+        title.textContent = resolvedLanguage() === "es" ? "Nivel recomendado" : "Recommended level";
+        const levelLabel = level === "advanced"
+          ? (resolvedLanguage() === "es" ? "Avanzado" : "Advanced")
+          : level === "intermediate"
+            ? (resolvedLanguage() === "es" ? "Intermedio" : "Intermediate")
+            : (resolvedLanguage() === "es" ? "Principiante" : "Beginner");
+        const summary = document.createElement("p");
+        summary.textContent = `${levelLabel} · ${score}/${placementQuiz?.questions.length || 5}`;
+        const explanation = document.createElement("p");
+        explanation.textContent = resolvedLanguage() === "es"
+          ? "JamdDmaj ajustará explicaciones, vocabulario y ejercicios a este resultado. Puedes cambiar el nivel manualmente cuando quieras."
+          : "JamdDmaj will adjust explanations, vocabulary, and exercises to this result. You can change the level manually at any time.";
+        const close = document.createElement("button");
+        close.type = "button";
+        close.className = "pill-btn";
+        close.textContent = resolvedLanguage() === "es" ? "Usar este nivel" : "Use this level";
+        close.addEventListener("click", () => {
+          els.placementDialog.close();
+          placementQuiz = null;
+          renderLearnDashboard();
+        });
+        result.append(title, summary, explanation, close);
+        els.quizContent.append(result);
+        document.getElementById("quizProgressText").textContent =
+          resolvedLanguage() === "es" ? "Prueba terminada" : "Test complete";
       }
 
       async function startLearningLesson(trackId, moduleIndex) {
@@ -3023,11 +3513,24 @@
 
         const chat = {
           id: globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : String(Date.now()),
-          title: `Learn: ${module[0]}`,
+          title: `JamdDmaj Learn: ${module[0]}`,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-          learningSession: { trackId, moduleIndex, level: learning.level },
-          messages: []
+          learningSession: {
+            trackId,
+            moduleIndex,
+            level: learning.level,
+            sourceLanguage: learning.sourceLanguage,
+            targetLanguage: learning.targetLanguage
+          },
+          messages: trackId === "languages" ? [{
+            role: "assistant",
+            content: resolvedLanguage() === "es"
+              ? "Calentamiento visual: observa la escena, lee la expresión y compárala con la pronunciación y el significado."
+              : "Visual warm-up: observe the scene, read the expression, and compare it with the pronunciation and meaning.",
+            images: [createLessonVisualDataUrl()],
+            time: new Date().toISOString()
+          }] : []
         };
         chats.unshift(chat);
         currentChatId = chat.id;
@@ -3037,13 +3540,64 @@
         renderAll();
 
         const targetLanguage = trackId === "languages"
-          ? ` Target language: ${learning.targetLanguage || "English"}.`
+          ? ` Explain in ${learning.sourceLanguage || "English"}. Target language: ${learning.targetLanguage || "Japanese"}. For every new expression, show original writing, Latin-letter pronunciation or romanization, and its meaning in ${learning.sourceLanguage || "English"}. Never respond only in an unfamiliar script.`
           : "";
         els.prompt.value = resolvedLanguage() === "es"
-          ? `Inicia mi leccion interactiva: "${module[0]}". Tema: ${module[1]}.${targetLanguage} Mi nivel es ${learning.level}. Ensena un concepto pequeno a la vez y luego pideme responder o hacer un ejercicio corto. Responde en espanol, excepto las practicas del idioma que estoy aprendiendo.`
+          ? `Inicia mi leccion interactiva: "${module[0]}". Tema: ${module[1]}.${targetLanguage} Mi nivel es ${learning.level}. Ensena un concepto pequeno a la vez y luego pideme responder o hacer un ejercicio corto. Usa ${learning.sourceLanguage || "English"} como idioma principal de explicacion.`
           : `Start my interactive lesson: "${module[0]}". Topic: ${module[1]}.${targetLanguage} My level is ${learning.level}. Teach one small concept at a time, then ask me to answer or try a short exercise.`;
         autoSizePrompt();
         await sendMessage();
+      }
+
+      function createLessonVisualDataUrl() {
+        const profile = LANGUAGE_PROFILES[learning.targetLanguage] || LANGUAGE_PROFILES.Japanese;
+        const target = escapeXml(profile.visual.target);
+        const pronunciation = escapeXml(profile.visual.pronunciation);
+        const meaning = escapeXml(getGreetingMeaning(learning.sourceLanguage));
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="900" height="540" viewBox="0 0 900 540">
+          <defs>
+            <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+              <stop stop-color="#bae6fd"/>
+              <stop offset="1" stop-color="#ddd6fe"/>
+            </linearGradient>
+          </defs>
+          <rect width="900" height="540" rx="36" fill="url(#bg)"/>
+          <circle cx="735" cy="112" r="64" fill="#fde68a"/>
+          <path d="M0 390 Q190 250 365 380 T900 330 V540 H0Z" fill="#93c5fd"/>
+          <path d="M0 442 Q250 315 455 430 T900 385 V540 H0Z" fill="#5eead4"/>
+          <circle cx="245" cy="205" r="72" fill="#fff"/>
+          <path d="M135 410 Q155 275 245 275 Q335 275 355 410Z" fill="#2563eb"/>
+          <path d="M326 196 Q470 90 618 202" fill="none" stroke="#0f172a" stroke-width="12" stroke-linecap="round"/>
+          <path d="M585 169 L628 205 L580 231" fill="none" stroke="#0f172a" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+          <rect x="390" y="250" width="440" height="185" rx="28" fill="rgba(255,255,255,.88)"/>
+          <text x="430" y="318" font-family="Arial, sans-serif" font-size="48" font-weight="700" fill="#0f172a">${target}</text>
+          <text x="430" y="365" font-family="Arial, sans-serif" font-size="26" fill="#2563eb">${pronunciation}</text>
+          <text x="430" y="405" font-family="Arial, sans-serif" font-size="24" fill="#475569">${meaning}</text>
+        </svg>`;
+        return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+      }
+
+      function getGreetingMeaning(language) {
+        return {
+          English: "Hello / a friendly greeting",
+          Spanish: "Hola / un saludo amistoso",
+          French: "Bonjour / une salutation amicale",
+          German: "Hallo / eine freundliche Begrüßung",
+          Portuguese: "Olá / uma saudação amigável",
+          Italian: "Ciao / un saluto amichevole",
+          Japanese: "こんにちは / 親しみのある挨拶",
+          Korean: "안녕하세요 / 친근한 인사"
+        }[language] || "Hello / a friendly greeting";
+      }
+
+      function escapeXml(value) {
+        return String(value).replace(/[&<>"']/g, (character) => ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          "\"": "&quot;",
+          "'": "&apos;"
+        })[character]);
       }
 
       function updateLearningStreak() {
@@ -3715,6 +4269,7 @@
           ["Crear imágenes", "Usa el botón de diamante para entrar al modo económico de generación visual."],
           ["Conversación por voz", "Activa Voz para dictar y escuchar las respuestas de la IA."],
           ["Mercados en vivo", "Abre Mercados para consultar precios frecuentes desde varias fuentes."],
+          ["JamdDmaj Learn", "Elige una materia, configura tus idiomas, realiza una prueba de nivel y aprende con ejercicios visuales."],
           ["Guarda tu trabajo", "Guarda proyectos, renómbralos, vuelve a abrirlos o exporta conversaciones."]
         ] : [
           ["Chat and research", "Ask questions, plan projects, and enable current web information when needed."],
@@ -3722,6 +4277,7 @@
           ["Create images", "Use the diamond button to enter budget image-generation mode."],
           ["Voice conversation", "Turn Voice on to dictate and hear AI responses aloud."],
           ["Live markets", "Open Markets for frequently refreshed prices from several sources."],
+          ["JamdDmaj Learn", "Choose a subject, configure your languages, take a placement test, and learn with visual exercises."],
           ["Keep your work", "Save projects, rename them, reopen them, or export conversations."]
         ];
         document.querySelectorAll("#tutorialDialog .tutorial-card").forEach((card, index) => {
@@ -4294,7 +4850,11 @@
           : "";
         const learningSession = getCurrentChat()?.learningSession;
         const learningInstruction = learningSession
-          ? `You are now the user's interactive tutor inside JamdDmaj Learn. The route is "${getLearningTrack(learningSession.trackId).title.en}" and the level is "${learningSession.level || learning.level}". Teach in small steps. Ask one useful question or exercise at a time, wait for the learner's attempt, give specific feedback, adapt difficulty, and encourage understanding instead of memorization. Do not dump an entire course in one reply.`
+          ? `You are now the user's interactive tutor inside JamdDmaj Learn. The route is "${getLearningTrack(learningSession.trackId).title.en}" and the level is "${learningSession.level || learning.level}". Teach in small steps. Ask one useful question or exercise at a time, wait for the learner's attempt, give specific feedback, adapt difficulty, and encourage understanding instead of memorization. Do not dump an entire course in one reply.${
+              learningSession.trackId === "languages"
+                ? ` The learner is studying ${learningSession.targetLanguage || learning.targetLanguage || "Japanese"} through ${learningSession.sourceLanguage || learning.sourceLanguage || "English"}. Explanations must primarily use ${learningSession.sourceLanguage || learning.sourceLanguage || "English"}. For each new word or sentence, include: original target-language writing, Latin-letter pronunciation/romanization, and a translation into ${learningSession.sourceLanguage || learning.sourceLanguage || "English"}. Never write an entire explanation only in the target script. Use concrete visual descriptions, memory associations, and short speaking practice.`
+                : ""
+            }`
           : "";
         const lengthInstruction = {
           concise: "Prefer concise answers unless more detail is essential.",
@@ -5795,6 +6355,9 @@
       document.getElementById("exitLearnBtn").addEventListener("click", exitLearnMode);
       document.getElementById("learnHomeBtn").addEventListener("click", enterLearnDashboard);
       document.getElementById("completeLessonBtn").addEventListener("click", completeLearningLesson);
+      els.placementDialog.addEventListener("close", () => {
+        placementQuiz = null;
+      });
       els.learnLevel.addEventListener("change", () => {
         learning.level = els.learnLevel.value;
         persistLearning();
