@@ -1,0 +1,7369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark light">
+  <meta name="description" content="JamdDmaj AI: private, local-first AI chat with vision, voice, image generation, and history.">
+  <title>JamdDmaj AI</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #090b10;
+      --panel: rgba(18, 21, 30, 0.88);
+      --panel-solid: #12151e;
+      --panel-2: #191d29;
+      --text: #f5f7fb;
+      --muted: #979eaf;
+      --line: rgba(255, 255, 255, 0.09);
+      --accent: #8b5cf6;
+      --accent-2: #22d3ee;
+      --accent-soft: rgba(139, 92, 246, 0.16);
+      --danger: #fb7185;
+      --success: #34d399;
+      --shadow: 0 24px 80px rgba(0, 0, 0, 0.38);
+      --radius: 22px;
+      --font-size: 15px;
+      --message-width: 920px;
+      --user-bubble: #7c3aed;
+      --assistant-bubble: #191d29;
+    }
+
+    body.light {
+      color-scheme: light;
+      --bg: #edf1f7;
+      --panel: rgba(255, 255, 255, 0.9);
+      --panel-solid: #ffffff;
+      --panel-2: #f4f6fa;
+      --text: #161922;
+      --muted: #667085;
+      --line: rgba(22, 25, 34, 0.1);
+      --accent-soft: rgba(124, 58, 237, 0.1);
+      --shadow: 0 24px 80px rgba(38, 48, 70, 0.16);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      min-height: 100%;
+      margin: 0;
+      overscroll-behavior: none;
+    }
+
+    body {
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 15% 10%, rgba(139, 92, 246, 0.18), transparent 34rem),
+        radial-gradient(circle at 92% 90%, rgba(34, 211, 238, 0.12), transparent 30rem),
+        var(--bg);
+      color: var(--text);
+      font: var(--font-size)/1.55 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    button,
+    textarea,
+    input,
+    select {
+      font: inherit;
+    }
+
+    button {
+      color: inherit;
+    }
+
+    button:focus-visible,
+    textarea:focus-visible,
+    input:focus-visible,
+    select:focus-visible {
+      outline: 2px solid var(--accent-2);
+      outline-offset: 2px;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 290px minmax(0, 1fr);
+      width: min(1580px, calc(100% - 28px));
+      height: calc(var(--viewport-height, 100dvh) - 28px);
+      min-height: 0;
+      max-height: calc(var(--viewport-height, 100dvh) - 28px);
+      margin: 14px auto;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: calc(var(--radius) + 6px);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(24px);
+    }
+
+    .sidebar {
+      display: flex;
+      min-width: 0;
+      flex-direction: column;
+      border-right: 1px solid var(--line);
+      background: color-mix(in srgb, var(--panel-solid) 82%, transparent);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 22px 18px 16px;
+    }
+
+    .brand-mark,
+    .avatar {
+      display: grid;
+      flex: 0 0 auto;
+      place-items: center;
+      color: white;
+      background: linear-gradient(135deg, var(--accent), #6d28d9 52%, var(--accent-2));
+      box-shadow: 0 10px 26px rgba(124, 58, 237, 0.28);
+    }
+
+    .brand-mark {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      font-weight: 850;
+      letter-spacing: -0.04em;
+    }
+
+    .brand-copy {
+      min-width: 0;
+    }
+
+    .brand-copy strong {
+      display: block;
+      font-size: 1rem;
+    }
+
+    .brand-copy span {
+      color: var(--muted);
+      font-size: 0.72rem;
+    }
+
+    .new-chat {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      min-height: 44px;
+      margin: 0 14px 16px;
+      border: 1px solid rgba(139, 92, 246, 0.35);
+      border-radius: 14px;
+      background: var(--accent-soft);
+      font-weight: 750;
+      cursor: pointer;
+      transition: transform 160ms ease, background 160ms ease;
+    }
+
+    .new-chat:hover {
+      transform: translateY(-1px);
+      background: rgba(139, 92, 246, 0.24);
+    }
+
+    .sidebar-label {
+      padding: 0 18px 8px;
+      color: var(--muted);
+      font-size: 0.69rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .history {
+      flex: 0 1 auto;
+      min-height: 70px;
+      overflow: auto;
+      padding: 0 9px 18px;
+      scrollbar-width: thin;
+    }
+
+    #historyList {
+      flex: 1 1 auto;
+    }
+
+    #projectsList {
+      max-height: 32%;
+    }
+
+    .history-item {
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      width: 100%;
+      margin-bottom: 4px;
+      padding: 11px 10px 11px 12px;
+      border: 1px solid transparent;
+      border-radius: 13px;
+      background: transparent;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .history-item:hover,
+    .history-item.active {
+      border-color: var(--line);
+      background: var(--panel-2);
+    }
+
+    .history-item > span:first-child {
+      display: grid;
+      min-width: 0;
+      gap: 3px;
+    }
+
+    .history-title {
+      overflow: hidden;
+      font-size: 0.84rem;
+      font-weight: 650;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .history-date {
+      color: var(--muted);
+      font-size: 0.68rem;
+    }
+
+    .delete-chat {
+      align-self: center;
+      width: 29px;
+      height: 29px;
+      border: 0;
+      border-radius: 9px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      opacity: 0;
+    }
+
+    .history-item:hover .delete-chat,
+    .delete-chat:focus-visible {
+      opacity: 1;
+    }
+
+    .delete-chat:hover {
+      background: rgba(251, 113, 133, 0.12);
+      color: var(--danger);
+    }
+
+    .project-actions {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .project-actions .delete-chat {
+      opacity: 0.65;
+    }
+
+    .sidebar-footer {
+      display: grid;
+      gap: 8px;
+      padding: 12px;
+      border-top: 1px solid var(--line);
+    }
+
+    .side-action {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 10px;
+      border: 0;
+      border-radius: 12px;
+      background: transparent;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .side-action:hover {
+      background: var(--panel-2);
+    }
+
+    .mobile-side-action {
+      display: none;
+    }
+
+    .main {
+      display: flex;
+      height: 100%;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+      flex-direction: column;
+    }
+
+    .topbar {
+      display: flex;
+      flex: 0 0 auto;
+      align-items: center;
+      gap: 12px;
+      min-height: 68px;
+      padding: 10px 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .mobile-menu {
+      display: none;
+    }
+
+    .icon-btn,
+    .pill-btn,
+    .send-btn {
+      border: 1px solid var(--line);
+      background: var(--panel-2);
+      cursor: pointer;
+      transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+    }
+
+    .icon-btn:hover,
+    .pill-btn:hover {
+      border-color: rgba(139, 92, 246, 0.45);
+      transform: translateY(-1px);
+    }
+
+    .icon-btn {
+      display: grid;
+      width: 42px;
+      height: 42px;
+      place-items: center;
+      border-radius: 13px;
+    }
+
+    .conversation-heading {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .persistent-brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--accent-2);
+      font-size: 0.68rem;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .persistent-brand::before {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      box-shadow: 0 0 12px var(--accent);
+      content: "";
+    }
+
+    .conversation-heading strong {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .conversation-heading span {
+      color: var(--muted);
+      font-size: 0.74rem;
+    }
+
+    .top-actions {
+      display: flex;
+      min-width: 0;
+      gap: 8px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .top-actions::-webkit-scrollbar {
+      display: none;
+    }
+
+    .pill-btn {
+      flex: 0 0 auto;
+      min-height: 40px;
+      padding: 0 14px;
+      border-radius: 12px;
+      font-size: 0.8rem;
+      font-weight: 720;
+    }
+
+    .pill-btn.active {
+      border-color: rgba(34, 211, 238, 0.42);
+      background: rgba(34, 211, 238, 0.12);
+      color: var(--accent-2);
+    }
+
+    #topSettingsBtn {
+      border-color: rgba(139, 92, 246, 0.44);
+      background: var(--accent-soft);
+    }
+
+    .ticker {
+      display: block;
+      flex: 0 0 auto;
+      max-height: min(46vh, 430px);
+      overflow: auto;
+      padding: 12px 18px 16px;
+      border-bottom: 1px solid var(--line);
+      background: color-mix(in srgb, var(--panel-solid) 92%, transparent);
+      scrollbar-width: thin;
+    }
+
+    .ticker.is-hidden {
+      display: none;
+    }
+
+    .market-toolbar {
+      position: sticky;
+      top: -12px;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: -12px -18px 12px;
+      padding: 12px 18px 9px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel-solid);
+    }
+
+    .market-toolbar span {
+      color: var(--muted);
+      font-size: 0.72rem;
+    }
+
+    .market-groups {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 12px;
+    }
+
+    .market-group {
+      padding: 11px;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: color-mix(in srgb, var(--panel-2) 76%, transparent);
+    }
+
+    .market-group h3 {
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-size: 0.68rem;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+    }
+
+    .market-coins {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+
+    .coin {
+      display: flex;
+      flex: 0 0 auto;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--panel-2) 80%, transparent);
+      font-size: 0.72rem;
+      cursor: pointer;
+    }
+
+    .coin b {
+      color: var(--accent-2);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .learn-view {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      padding: clamp(18px, 4vw, 44px);
+      background:
+        radial-gradient(circle at 88% 4%, rgba(45, 212, 191, 0.17), transparent 28rem),
+        radial-gradient(circle at 4% 90%, rgba(59, 130, 246, 0.15), transparent 25rem);
+      scrollbar-width: thin;
+    }
+
+    .learn-view.is-hidden,
+    .learning-session-bar.is-hidden {
+      display: none;
+    }
+
+    .learn-shell {
+      width: min(1120px, 100%);
+      margin: 0 auto;
+    }
+
+    .learn-hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.5fr) minmax(240px, 0.7fr);
+      gap: 18px;
+      margin-bottom: 24px;
+    }
+
+    .learn-hero-main,
+    .learn-stats,
+    .learn-path,
+    .learn-track {
+      border: 1px solid rgba(45, 212, 191, 0.2);
+      background: color-mix(in srgb, var(--panel-2) 88%, transparent);
+      box-shadow: 0 18px 42px rgba(2, 8, 23, 0.14);
+    }
+
+    .learn-hero-main {
+      padding: clamp(22px, 4vw, 38px);
+      border-radius: 26px;
+    }
+
+    .learn-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      margin-bottom: 12px;
+      color: #5eead4;
+      font-size: 0.72rem;
+      font-weight: 850;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+    }
+
+    .learn-hero h1 {
+      max-width: 760px;
+      margin: 0;
+      font-size: clamp(2rem, 5vw, 4.3rem);
+      letter-spacing: -0.06em;
+      line-height: 0.98;
+    }
+
+    .learn-hero p {
+      max-width: 670px;
+      margin: 16px 0 0;
+      color: var(--muted);
+    }
+
+    .learn-stats {
+      display: grid;
+      align-content: center;
+      gap: 14px;
+      padding: 22px;
+      border-radius: 26px;
+    }
+
+    .learn-stat {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .learn-stat span {
+      color: var(--muted);
+      font-size: 0.75rem;
+    }
+
+    .learn-stat strong {
+      font-size: 1.2rem;
+    }
+
+    .learn-progress {
+      overflow: hidden;
+      height: 9px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .learn-progress > span {
+      display: block;
+      width: 0;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #2dd4bf, #60a5fa);
+      transition: width 260ms ease;
+    }
+
+    .learn-section-head {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 16px;
+      margin: 26px 0 13px;
+    }
+
+    .learn-section-head h2,
+    .learn-path h2 {
+      margin: 0;
+      letter-spacing: -0.035em;
+    }
+
+    .learn-section-head p {
+      margin: 3px 0 0;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .learn-controls {
+      display: flex;
+      gap: 8px;
+    }
+
+    .learn-controls select {
+      min-height: 40px;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel-2);
+      color: var(--text);
+    }
+
+    .learn-guide {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin: 14px 0 20px;
+    }
+
+    .learn-guide-card {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: color-mix(in srgb, var(--panel-2) 75%, transparent);
+    }
+
+    .learn-guide-card b,
+    .learn-guide-card span {
+      display: block;
+    }
+
+    .learn-guide-card b {
+      margin-bottom: 4px;
+      color: #5eead4;
+      font-size: 0.76rem;
+    }
+
+    .learn-guide-card span {
+      color: var(--muted);
+      font-size: 0.7rem;
+    }
+
+    .language-setup {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+      align-items: end;
+      gap: 10px;
+      width: min(680px, 100%);
+      margin-left: auto;
+    }
+
+    .language-field {
+      display: grid;
+      gap: 5px;
+    }
+
+    .language-field label {
+      color: var(--muted);
+      font-size: 0.68rem;
+      font-weight: 750;
+    }
+
+    .language-field select {
+      width: 100%;
+      min-height: 42px;
+      padding: 0 11px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel-2);
+      color: var(--text);
+    }
+
+    .language-visual {
+      display: grid;
+      grid-template-columns: minmax(170px, 0.65fr) minmax(0, 1fr);
+      gap: 14px;
+      margin: 0 0 16px;
+      padding: 14px;
+      border: 1px solid rgba(56, 189, 248, 0.26);
+      border-radius: 20px;
+      background: linear-gradient(135deg, rgba(14, 116, 144, 0.15), rgba(37, 99, 235, 0.1));
+    }
+
+    .language-visual-art {
+      display: grid;
+      min-height: 150px;
+      place-items: center;
+      overflow: hidden;
+      border-radius: 16px;
+      background: linear-gradient(145deg, #e0f2fe, #dbeafe);
+      color: #0f172a;
+    }
+
+    .language-visual-art svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .language-visual-copy {
+      display: grid;
+      align-content: center;
+      gap: 5px;
+    }
+
+    .language-visual-copy small {
+      color: #38bdf8;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .language-visual-copy strong {
+      font-size: clamp(1.5rem, 4vw, 2.7rem);
+      line-height: 1.05;
+    }
+
+    .language-visual-copy span,
+    .language-visual-copy p {
+      color: var(--muted);
+    }
+
+    .language-visual-copy p {
+      margin: 6px 0 0;
+      font-size: 0.76rem;
+    }
+
+    .language-audio-btn {
+      display: inline-flex;
+      width: fit-content;
+      align-items: center;
+      gap: 7px;
+      min-height: 38px;
+      margin-top: 5px;
+      padding: 0 13px;
+      border: 1px solid rgba(56, 189, 248, 0.36);
+      border-radius: 12px;
+      background: rgba(56, 189, 248, 0.12);
+      color: var(--text);
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .language-audio-btn:hover {
+      border-color: rgba(56, 189, 248, 0.72);
+      background: rgba(56, 189, 248, 0.2);
+    }
+
+    .settings-section {
+      display: grid;
+      gap: 12px;
+      margin-top: 18px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: color-mix(in srgb, var(--panel-2) 72%, transparent);
+    }
+
+    .settings-section h3,
+    .settings-section p {
+      margin: 0;
+    }
+
+    .settings-section p {
+      color: var(--muted);
+      font-size: 0.76rem;
+    }
+
+    .data-actions,
+    .social-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .social-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 40px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel-solid);
+      color: var(--text);
+      font-size: 0.8rem;
+      font-weight: 780;
+      text-decoration: none;
+    }
+
+    .social-link:hover {
+      border-color: rgba(139, 92, 246, 0.5);
+      color: var(--accent-2);
+    }
+
+    .backup-note {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: rgba(52, 211, 153, 0.09);
+      color: var(--muted);
+      font-size: 0.72rem;
+    }
+
+    .backup-note strong {
+      color: var(--success);
+    }
+
+    .quiz-body {
+      display: grid;
+      gap: 14px;
+    }
+
+    .quiz-progress {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--muted);
+      font-size: 0.72rem;
+    }
+
+    .quiz-question {
+      margin: 0;
+      font-size: 1.1rem;
+    }
+
+    .quiz-options {
+      display: grid;
+      gap: 8px;
+    }
+
+    .quiz-option {
+      padding: 12px 13px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: var(--panel-2);
+      color: var(--text);
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .quiz-option:hover {
+      border-color: #38bdf8;
+      background: rgba(56, 189, 248, 0.1);
+    }
+
+    .quiz-result {
+      padding: 16px;
+      border: 1px solid rgba(52, 211, 153, 0.3);
+      border-radius: 16px;
+      background: rgba(52, 211, 153, 0.1);
+    }
+
+    .learn-tracks {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .learn-track {
+      position: relative;
+      min-height: 168px;
+      padding: 17px;
+      border-radius: 20px;
+      color: var(--text);
+      text-align: left;
+      cursor: pointer;
+      transition: transform 180ms ease, border-color 180ms ease;
+    }
+
+    .learn-track:hover,
+    .learn-track.active {
+      border-color: var(--track-color, #2dd4bf);
+      transform: translateY(-3px);
+    }
+
+    .learn-track-icon {
+      display: grid;
+      width: 46px;
+      height: 46px;
+      margin-bottom: 20px;
+      place-items: center;
+      border-radius: 15px;
+      background: color-mix(in srgb, var(--track-color, #2dd4bf) 20%, transparent);
+      color: var(--track-color, #2dd4bf);
+      font-size: 1.25rem;
+      font-weight: 900;
+    }
+
+    .learn-track strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .learn-track small {
+      color: var(--muted);
+    }
+
+    .learn-path {
+      margin-top: 18px;
+      padding: clamp(18px, 3vw, 28px);
+      border-radius: 24px;
+    }
+
+    .learn-path-top {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+
+    .learn-path-top p {
+      margin: 6px 0 0;
+      color: var(--muted);
+    }
+
+    .learn-modules {
+      display: grid;
+      gap: 10px;
+    }
+
+    .learn-module {
+      display: grid;
+      grid-template-columns: 42px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 13px;
+      padding: 13px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: color-mix(in srgb, var(--panel-solid) 78%, transparent);
+    }
+
+    .learn-module-number {
+      display: grid;
+      width: 42px;
+      height: 42px;
+      place-items: center;
+      border-radius: 13px;
+      background: rgba(45, 212, 191, 0.12);
+      color: #5eead4;
+      font-weight: 850;
+    }
+
+    .learn-module.complete .learn-module-number {
+      background: rgba(52, 211, 153, 0.18);
+      color: var(--success);
+    }
+
+    .learn-module-copy strong,
+    .learn-module-copy span {
+      display: block;
+    }
+
+    .learn-module-copy span {
+      color: var(--muted);
+      font-size: 0.72rem;
+    }
+
+    .learning-session-bar {
+      display: flex;
+      flex: 0 0 auto;
+      align-items: center;
+      gap: 12px;
+      padding: 9px 18px;
+      border-bottom: 1px solid rgba(45, 212, 191, 0.2);
+      background: linear-gradient(90deg, rgba(13, 148, 136, 0.16), rgba(37, 99, 235, 0.12));
+    }
+
+    .learning-session-copy {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .learning-session-copy strong,
+    .learning-session-copy span {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .learning-session-copy span {
+      color: var(--muted);
+      font-size: 0.7rem;
+    }
+
+    .learning-session-actions {
+      display: flex;
+      gap: 7px;
+    }
+
+    body.learn-mode {
+      --accent: #14b8a6;
+      --accent-2: #60a5fa;
+      --accent-soft: rgba(20, 184, 166, 0.16);
+      --user-bubble: #0f766e;
+    }
+
+    body.learn-mode .brand-mark,
+    body.learn-mode .avatar {
+      background: linear-gradient(135deg, #14b8a6, #2563eb);
+      box-shadow: 0 10px 26px rgba(20, 184, 166, 0.25);
+    }
+
+    .messages {
+      flex: 1 1 auto;
+      min-height: 0;
+      max-width: 100%;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 26px clamp(16px, 4vw, 64px) 34px;
+      overscroll-behavior: contain;
+      touch-action: pan-y;
+      -webkit-overflow-scrolling: touch;
+      scroll-behavior: smooth;
+      scrollbar-width: thin;
+    }
+
+    .welcome {
+      display: grid;
+      min-height: 100%;
+      place-content: center;
+      text-align: center;
+    }
+
+    .welcome-orb {
+      display: grid;
+      width: 76px;
+      height: 76px;
+      margin: 0 auto 20px;
+      place-items: center;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 26px;
+      background: linear-gradient(145deg, var(--accent), #5b21b6 55%, var(--accent-2));
+      box-shadow: 0 18px 50px rgba(124, 58, 237, 0.34);
+      color: white;
+      font-size: 1.5rem;
+      font-weight: 900;
+    }
+
+    .welcome h1 {
+      margin: 0;
+      font-size: clamp(1.8rem, 4vw, 3.4rem);
+      letter-spacing: -0.055em;
+      line-height: 1.05;
+    }
+
+    .welcome p {
+      max-width: 610px;
+      margin: 14px auto 24px;
+      color: var(--muted);
+    }
+
+    .suggestions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      width: min(680px, 100%);
+      margin: auto;
+    }
+
+    .suggestion {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: var(--panel-2);
+      color: var(--text);
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .suggestion:hover {
+      border-color: rgba(139, 92, 246, 0.55);
+      background: var(--accent-soft);
+    }
+
+    .message {
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr);
+      gap: 12px;
+      width: min(var(--message-width), 100%);
+      min-width: 0;
+      margin: 0 auto 22px;
+      animation: message-in 220ms ease both;
+    }
+
+    .message.user {
+      grid-template-columns: minmax(0, 1fr) 34px;
+    }
+
+    .avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 11px;
+      font-size: 0.7rem;
+      font-weight: 850;
+    }
+
+    .user .avatar {
+      grid-column: 2;
+      background: var(--assistant-bubble);
+      color: var(--text);
+      box-shadow: none;
+    }
+
+    .message-body {
+      min-width: 0;
+      max-width: 100%;
+    }
+
+    .user .message-body {
+      grid-column: 1;
+      grid-row: 1;
+      justify-self: end;
+      max-width: min(760px, 92%);
+    }
+
+    .message-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+      color: var(--muted);
+      font-size: 0.68rem;
+    }
+
+    .user .message-meta {
+      justify-content: flex-end;
+    }
+
+    .message-card {
+      overflow: hidden;
+      max-width: 100%;
+      padding: 13px 15px;
+      border: 1px solid var(--line);
+      border-radius: 6px 18px 18px;
+      background: var(--panel-2);
+      box-shadow: 0 7px 20px rgba(0, 0, 0, 0.08);
+    }
+
+    .user .message-card {
+      border-color: rgba(139, 92, 246, 0.28);
+      border-radius: 18px 6px 18px 18px;
+      background: var(--user-bubble);
+      color: white;
+    }
+
+    .message-text {
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+    }
+
+    .message-text pre {
+      position: relative;
+      overflow-x: auto;
+      margin: 12px 0;
+      padding: 42px 14px 14px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 13px;
+      background: #090b10;
+      color: #dbeafe;
+      white-space: pre;
+    }
+
+    .youtube-player {
+      position: relative;
+      overflow: hidden;
+      width: min(640px, 100%);
+      aspect-ratio: 16 / 9;
+      margin: 12px 0 4px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #000;
+    }
+
+    .youtube-player iframe {
+      width: 100%;
+      height: 100%;
+      border: 0;
+    }
+
+    .copy-code {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      padding: 5px 9px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 8px;
+      background: #171b26;
+      color: #dbeafe;
+      font-size: 0.66rem;
+      cursor: pointer;
+    }
+
+    .message-images {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .message-images img {
+      width: min(220px, 100%);
+      max-height: 220px;
+      border-radius: 13px;
+      object-fit: cover;
+      cursor: zoom-in;
+    }
+
+    .generated-image {
+      width: min(520px, 100%) !important;
+      max-height: 520px !important;
+    }
+
+    .message-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .mini-action {
+      padding: 4px 8px;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 0.68rem;
+      cursor: pointer;
+    }
+
+    .mini-action:hover {
+      background: var(--accent-soft);
+      color: var(--text);
+    }
+
+    .typing::after {
+      content: "";
+      display: inline-block;
+      width: 7px;
+      height: 14px;
+      margin-left: 4px;
+      background: var(--accent-2);
+      vertical-align: -2px;
+      animation: blink 900ms steps(2) infinite;
+    }
+
+    .composer-wrap {
+      position: relative;
+      z-index: 5;
+      flex: 0 0 auto;
+      min-width: 0;
+      padding: 12px clamp(12px, 3vw, 34px) 18px;
+      background: linear-gradient(to top, var(--panel-solid) 72%, transparent);
+    }
+
+    .plus-menu {
+      position: absolute;
+      bottom: calc(100% - 4px);
+      left: max(12px, calc((100% - min(920px, 100%)) / 2));
+      z-index: 20;
+      display: none;
+      width: min(290px, calc(100% - 24px));
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--panel-solid);
+      box-shadow: var(--shadow);
+    }
+
+    .plus-menu.show {
+      display: grid;
+      gap: 4px;
+    }
+
+    .plus-menu button {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 10px 11px;
+      border: 0;
+      border-radius: 11px;
+      background: transparent;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .plus-menu button:hover {
+      background: var(--panel-2);
+    }
+
+    .connection-card {
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+      border: 1px solid rgba(34, 211, 238, 0.28);
+      border-radius: 14px;
+      background: rgba(34, 211, 238, 0.08);
+    }
+
+    .connection-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.76rem;
+    }
+
+    .connect-btn {
+      border: 0;
+      background: linear-gradient(135deg, var(--accent), #6d28d9);
+      color: white;
+    }
+
+    .advanced-settings {
+      padding: 11px 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+    }
+
+    .advanced-settings summary {
+      cursor: pointer;
+      font-weight: 750;
+    }
+
+    .advanced-content {
+      display: grid;
+      gap: 14px;
+      padding-top: 14px;
+    }
+
+    .settings-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .color-input {
+      min-height: 44px;
+      padding: 4px !important;
+    }
+
+    body.compact .message {
+      margin-bottom: 12px;
+    }
+
+    body.compact .message-card {
+      padding: 9px 11px;
+    }
+
+    body.soft-background {
+      background:
+        radial-gradient(circle at 10% 5%, color-mix(in srgb, var(--accent) 28%, transparent), transparent 38rem),
+        radial-gradient(circle at 90% 90%, rgba(34, 211, 238, 0.16), transparent 35rem),
+        var(--bg);
+    }
+
+    body.flat-background {
+      background: var(--bg);
+    }
+
+    body.no-animations *,
+    body.no-animations *::before,
+    body.no-animations *::after {
+      scroll-behavior: auto !important;
+      animation: none !important;
+      transition: none !important;
+    }
+
+    body.hide-avatars .avatar {
+      display: none;
+    }
+
+    body.hide-avatars .message,
+    body.hide-avatars .message.user {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    body.hide-avatars .user .message-body {
+      grid-column: 1;
+    }
+
+    #topThemeBtn {
+      min-width: 46px;
+      border-color: rgba(34, 211, 238, 0.35);
+      background: rgba(34, 211, 238, 0.1);
+      font-size: 1rem;
+    }
+
+    .voice-conversation-btn {
+      position: relative;
+    }
+
+    .voice-conversation-btn.active {
+      background: rgba(52, 211, 153, 0.18) !important;
+      color: var(--success);
+      box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.12);
+    }
+
+    .voice-conversation-btn.active.listening::after {
+      content: "";
+      position: absolute;
+      inset: 4px;
+      border: 1px solid currentColor;
+      border-radius: inherit;
+      animation: pulse-ring 1.3s ease-out infinite;
+    }
+
+    .voice-status {
+      display: none;
+      align-items: center;
+      gap: 9px;
+      width: min(var(--message-width), 100%);
+      margin: 0 auto 8px;
+      padding: 9px 10px 9px 12px;
+      border: 1px solid rgba(52, 211, 153, 0.3);
+      border-radius: 14px;
+      background: var(--panel-solid);
+      background: color-mix(in srgb, var(--panel-solid) 88%, #34d399 12%);
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.12);
+      font-size: 0.76rem;
+      font-weight: 720;
+    }
+
+    .voice-status.show {
+      display: flex;
+    }
+
+    .voice-status-dot {
+      flex: 0 0 auto;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.12);
+    }
+
+    .voice-status[data-state="listening"] .voice-status-dot {
+      animation: voice-dot 1.15s ease-in-out infinite;
+    }
+
+    .voice-status[data-state="thinking"] .voice-status-dot {
+      background: var(--accent-2);
+      box-shadow: 0 0 0 4px var(--accent-soft);
+    }
+
+    .voice-status[data-state="speaking"] .voice-status-dot {
+      background: #38bdf8;
+      box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.13);
+      animation: voice-dot 850ms ease-in-out infinite;
+    }
+
+    .voice-status[data-state="error"] {
+      border-color: rgba(251, 113, 133, 0.35);
+      background: var(--panel-solid);
+      background: color-mix(in srgb, var(--panel-solid) 90%, var(--danger) 10%);
+    }
+
+    .voice-status[data-state="error"] .voice-status-dot {
+      background: var(--danger);
+      box-shadow: 0 0 0 4px rgba(251, 113, 133, 0.12);
+    }
+
+    .voice-status-text {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .voice-end-btn {
+      flex: 0 0 auto;
+      padding: 7px 10px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--panel-2);
+      font: inherit;
+      color: inherit;
+      cursor: pointer;
+    }
+
+    .attachment-tray {
+      display: none;
+      gap: 8px;
+      width: min(var(--message-width), 100%);
+      margin: 0 auto 8px;
+      overflow-x: auto;
+    }
+
+    .attachment-tray.show {
+      display: flex;
+    }
+
+    .attachment {
+      position: relative;
+      flex: 0 0 auto;
+    }
+
+    .attachment img {
+      width: 68px;
+      height: 58px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      object-fit: cover;
+    }
+
+    .remove-attachment {
+      position: absolute;
+      top: -5px;
+      right: -5px;
+      display: grid;
+      width: 21px;
+      height: 21px;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      background: var(--panel-solid);
+      cursor: pointer;
+    }
+
+    .mode-banner {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      width: min(var(--message-width), 100%);
+      margin: 0 auto 8px;
+      padding: 8px 12px;
+      border: 1px solid rgba(34, 211, 238, 0.28);
+      border-radius: 12px;
+      background: rgba(34, 211, 238, 0.08);
+      color: var(--accent-2);
+      font-size: 0.75rem;
+      font-weight: 720;
+    }
+
+    .mode-banner.show {
+      display: flex;
+    }
+
+    .mode-banner button {
+      border: 0;
+      background: transparent;
+      color: inherit;
+      cursor: pointer;
+    }
+
+    .composer {
+      display: grid;
+      grid-template-columns: auto auto auto minmax(0, 1fr) auto;
+      align-items: end;
+      gap: 8px;
+      width: min(var(--message-width), 100%);
+      min-width: 0;
+      margin: auto;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 19px;
+      background: var(--panel-solid);
+      box-shadow: 0 16px 50px rgba(0, 0, 0, 0.18);
+    }
+
+    .composer textarea {
+      min-width: 0;
+      width: 100%;
+      max-height: 170px;
+      resize: none;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: var(--text);
+      line-height: 1.45;
+      padding: 9px 5px;
+    }
+
+    .composer textarea::placeholder {
+      color: var(--muted);
+    }
+
+    .composer .icon-btn {
+      width: 40px;
+      height: 40px;
+      border: 0;
+      background: transparent;
+    }
+
+    .composer .icon-btn.active {
+      background: var(--accent-soft);
+      color: var(--accent-2);
+    }
+
+    .send-btn {
+      display: grid;
+      width: 44px;
+      height: 44px;
+      place-items: center;
+      border: 0;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--accent), #6d28d9);
+      color: white;
+      font-size: 1rem;
+      font-weight: 900;
+      box-shadow: 0 8px 22px rgba(124, 58, 237, 0.28);
+    }
+
+    .send-btn:hover {
+      transform: translateY(-1px);
+    }
+
+    .send-btn.stop {
+      background: var(--danger);
+    }
+
+    .composer-note {
+      margin: 7px auto 0;
+      color: var(--muted);
+      font-size: 0.66rem;
+      text-align: center;
+    }
+
+    .overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      display: none;
+      background: rgba(2, 6, 23, 0.62);
+      backdrop-filter: blur(5px);
+    }
+
+    .overlay.show {
+      display: block;
+    }
+
+    dialog {
+      width: min(560px, calc(100% - 24px));
+      padding: 0;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: var(--panel-solid);
+      color: var(--text);
+      box-shadow: var(--shadow);
+    }
+
+    dialog::backdrop {
+      background: rgba(2, 6, 23, 0.7);
+      backdrop-filter: blur(7px);
+    }
+
+    .dialog-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .dialog-head h2 {
+      margin: 0;
+      font-size: 1rem;
+    }
+
+    .dialog-body {
+      display: grid;
+      gap: 15px;
+      padding: 20px;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+
+    .field label {
+      font-size: 0.76rem;
+      font-weight: 750;
+    }
+
+    .field input,
+    .field select,
+    .field textarea {
+      width: 100%;
+      padding: 11px 12px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: var(--panel-2);
+      color: var(--text);
+    }
+
+    .field small {
+      color: var(--muted);
+      font-size: 0.68rem;
+    }
+
+    .check-row {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .warning {
+      padding: 11px 12px;
+      border: 1px solid rgba(251, 191, 36, 0.24);
+      border-radius: 11px;
+      background: rgba(251, 191, 36, 0.08);
+      color: #fbbf24;
+      font-size: 0.72rem;
+    }
+
+    .dialog-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      padding: 14px 20px 20px;
+    }
+
+    .tutorial-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .tutorial-card {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--panel-2);
+    }
+
+    .tutorial-card strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .tutorial-card span {
+      color: var(--muted);
+      font-size: 0.76rem;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 26px;
+      z-index: 100;
+      max-width: min(430px, calc(100% - 28px));
+      padding: 10px 15px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--panel-solid);
+      box-shadow: var(--shadow);
+      color: var(--text);
+      font-size: 0.76rem;
+      opacity: 0;
+      pointer-events: none;
+      transform: translate(-50%, 18px);
+      transition: opacity 180ms ease, transform 180ms ease;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+
+    .empty-history {
+      padding: 18px 10px;
+      color: var(--muted);
+      font-size: 0.76rem;
+      text-align: center;
+    }
+
+    .copy-dialog-text {
+      width: 100%;
+      min-height: 280px;
+      resize: vertical;
+      padding: 13px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #090b10;
+      color: #dbeafe;
+      font: 0.78rem/1.5 ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+
+    .settings-coach {
+      position: fixed;
+      z-index: 1000;
+      display: none;
+      width: min(330px, calc(100% - 24px));
+      padding: 16px;
+      border: 1px solid rgba(34, 211, 238, 0.38);
+      border-radius: 17px;
+      background: var(--panel-solid);
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.48);
+    }
+
+    .settings-coach.show {
+      display: block;
+      animation: message-in 180ms ease both;
+    }
+
+    .settings-coach strong {
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .settings-coach p {
+      margin: 0 0 14px;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .coach-actions {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .coach-highlight {
+      position: relative;
+      z-index: 5;
+      border-radius: 13px;
+      outline: 3px solid var(--accent-2);
+      outline-offset: 5px;
+      box-shadow: 0 0 0 9999px rgba(2, 6, 23, 0.5);
+    }
+
+    .idle-nudge {
+      position: fixed;
+      right: 24px;
+      bottom: 24px;
+      z-index: 25;
+      display: none;
+      width: min(330px, calc(100% - 24px));
+      padding: 14px;
+      border: 1px solid rgba(139, 92, 246, 0.35);
+      border-radius: 18px;
+      background: var(--panel-solid);
+      box-shadow: var(--shadow);
+    }
+
+    .idle-nudge.show {
+      display: block;
+      animation: message-in 220ms ease both;
+    }
+
+    .idle-nudge p {
+      margin: 4px 0 12px;
+      color: var(--muted);
+      font-size: 0.76rem;
+    }
+
+    .idle-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    @keyframes blink {
+      50% { opacity: 0; }
+    }
+
+    @keyframes message-in {
+      from { opacity: 0; transform: translateY(8px); }
+    }
+
+    @keyframes pulse-ring {
+      70%, 100% { opacity: 0; transform: scale(1.3); }
+    }
+
+    @keyframes voice-dot {
+      50% { opacity: 0.45; transform: scale(0.72); }
+    }
+
+    @media (max-width: 820px) {
+      .app {
+        grid-template-columns: 1fr;
+        width: 100%;
+        height: var(--viewport-height, 100dvh);
+        max-height: var(--viewport-height, 100dvh);
+        margin: 0;
+        border: 0;
+        border-radius: 0;
+      }
+
+      .sidebar {
+        position: fixed;
+        inset: 0 auto 0 0;
+        z-index: 60;
+        width: min(310px, 88vw);
+        background: var(--panel-solid);
+        transform: translateX(-105%);
+        transition: transform 220ms ease;
+      }
+
+      .sidebar .brand {
+        padding-top: calc(22px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
+      }
+
+      .mobile-side-action {
+        display: flex;
+      }
+
+      .sidebar-footer {
+        max-height: 48%;
+        overflow-y: auto;
+      }
+
+      .overlay {
+        z-index: 50;
+      }
+
+      .sidebar.open {
+        transform: translateX(0);
+      }
+
+      .mobile-menu {
+        display: grid;
+      }
+
+      .topbar {
+        min-height: calc(64px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
+        padding-top: calc(10px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
+        padding-inline: 12px;
+      }
+
+      .persistent-brand {
+        font-size: 0.61rem;
+        letter-spacing: 0.08em;
+      }
+
+      .conversation-heading strong {
+        font-size: 0.82rem;
+      }
+
+      .pill-label {
+        display: none;
+      }
+
+      .top-actions {
+        max-width: 66vw;
+      }
+
+      .top-actions .pill-btn:not(#learnBtn):not(#marketsBtn):not(#topThemeBtn):not(#topSettingsBtn) {
+        display: none;
+      }
+
+      .top-actions .pill-btn#learnBtn {
+        display: block;
+      }
+
+      .learn-view {
+        padding: 16px 12px 26px;
+      }
+
+      .learn-hero {
+        grid-template-columns: 1fr;
+      }
+
+      .learn-tracks {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .learn-path-top,
+      .learn-section-head {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .learn-guide {
+        grid-template-columns: 1fr;
+      }
+
+      .language-setup {
+        grid-template-columns: 1fr 1fr;
+        margin: 0;
+      }
+
+      .language-setup .pill-btn {
+        grid-column: 1 / -1;
+      }
+
+      .language-visual {
+        grid-template-columns: 1fr;
+      }
+
+      .learning-session-bar {
+        padding-inline: 12px;
+      }
+
+      .learning-session-actions .pill-btn:first-child {
+        display: none;
+      }
+
+      .messages {
+        padding: 18px 12px 24px;
+      }
+
+      .suggestions {
+        grid-template-columns: 1fr;
+      }
+
+      .tutorial-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .settings-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .idle-nudge {
+        right: 12px;
+        bottom: 88px;
+      }
+
+      .composer-wrap {
+        padding:
+          8px
+          max(8px, var(--safe-area-inset-right, env(safe-area-inset-right, 0px)))
+          max(9px, var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)))
+          max(8px, var(--safe-area-inset-left, env(safe-area-inset-left, 0px)));
+      }
+    }
+
+    @media (max-width: 500px) {
+      .top-actions .export-btn {
+        display: none;
+      }
+
+      .top-actions {
+        max-width: 58vw;
+      }
+
+      .ticker {
+        max-height: 52vh;
+        padding-inline: 10px;
+      }
+
+      .market-toolbar {
+        margin-inline: -10px;
+        padding-inline: 10px;
+      }
+
+      .market-groups {
+        grid-template-columns: 1fr;
+      }
+
+      .learn-tracks {
+        grid-template-columns: 1fr;
+      }
+
+      .learn-track {
+        min-height: 136px;
+      }
+
+      .learn-module {
+        grid-template-columns: 38px minmax(0, 1fr);
+      }
+
+      .learn-module .pill-btn {
+        grid-column: 1 / -1;
+      }
+
+      .message {
+        gap: 8px;
+      }
+
+      .message.user {
+        grid-template-columns: minmax(0, 1fr) 30px;
+      }
+
+      .avatar {
+        width: 30px;
+        height: 30px;
+      }
+
+      .user .message-body {
+        width: min(100%, 760px);
+        max-width: 100%;
+      }
+
+      .message-card {
+        padding: 11px 12px;
+      }
+
+      .composer {
+        grid-template-columns: auto auto auto minmax(0, 1fr) auto;
+        gap: 4px;
+        padding: 6px;
+      }
+
+      .composer .icon-btn {
+        width: 34px;
+        height: 38px;
+      }
+
+      .send-btn {
+        width: 40px;
+        height: 40px;
+      }
+
+      .composer-note {
+        display: none;
+      }
+
+      .voice-status {
+        padding: 8px 8px 8px 10px;
+      }
+
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar" aria-label="Chat history">
+      <div class="brand">
+        <div class="brand-mark">JD</div>
+        <div class="brand-copy">
+          <strong>JamdDmaj AI</strong>
+          <span>Vision, voice, and image studio</span>
+        </div>
+      </div>
+
+      <button class="new-chat" id="newChatBtn" type="button"><span>+</span> New conversation</button>
+      <div class="sidebar-label" id="recentChatsLabel">Recent chats</div>
+      <div class="history" id="historyList"></div>
+      <div class="sidebar-label" id="projectsLabel">Saved projects</div>
+      <div class="history" id="projectsList"></div>
+
+      <div class="sidebar-footer">
+        <button class="side-action" id="sideLearnBtn" type="button"><span>Jl</span><span>JamdDmaj Learn</span></button>
+        <button class="side-action mobile-side-action" id="sideVoiceBtn" type="button"><span>◉</span><span>Voice mode</span></button>
+        <button class="side-action mobile-side-action" id="sideSaveBtn" type="button"><span>✓</span><span>Save conversation</span></button>
+        <button class="side-action mobile-side-action" id="sideRenameBtn" type="button"><span>A</span><span>Rename conversation</span></button>
+        <button class="side-action mobile-side-action" id="sideTutorialBtn" type="button"><span>?</span><span>Quick tutorial</span></button>
+        <button class="side-action mobile-side-action" id="sideExportBtn" type="button"><span>↓</span><span>Export conversation</span></button>
+        <button class="side-action" id="themeBtn" type="button"><span>◐</span><span>Change theme</span></button>
+        <button class="side-action" id="settingsBtn" type="button"><span>⚙</span><span>Settings</span></button>
+        <button class="side-action" id="sideBackupBtn" type="button"><span>DB</span><span>Data and backup</span></button>
+        <button class="side-action" id="sideSocialBtn" type="button"><span>@</span><span>Official social networks</span></button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="icon-btn mobile-menu" id="menuBtn" type="button" aria-label="Open menu">☰</button>
+        <div class="conversation-heading">
+          <b class="persistent-brand">JamdDmaj AI</b>
+          <strong id="chatTitle">New conversation</strong>
+          <span id="modelLabel">One group. Every system.</span>
+        </div>
+        <div class="top-actions">
+          <button class="pill-btn" id="learnBtn" type="button">Learn</button>
+          <button class="pill-btn" id="marketsBtn" type="button">Markets</button>
+          <button class="pill-btn" id="voiceModeBtn" type="button">Voice off</button>
+          <button class="pill-btn" id="saveChatBtn" type="button">Save</button>
+          <button class="pill-btn" id="renameChatBtn" type="button">Rename</button>
+          <button class="pill-btn" id="tutorialBtn" type="button">Help</button>
+          <button class="pill-btn export-btn" id="exportBtn" type="button">Export</button>
+          <button class="pill-btn" id="topThemeBtn" type="button" title="Change light or dark mode">☾</button>
+          <button class="pill-btn" id="topSettingsBtn" type="button"><span class="pill-label">Settings </span>⚙</button>
+        </div>
+      </header>
+
+      <div class="ticker is-hidden" id="ticker" aria-label="Live cryptocurrency prices">
+        <div class="market-toolbar">
+          <div><strong>Live crypto markets</strong> <span>Grouped by function</span></div>
+          <button class="coin" id="refreshPricesBtn" type="button" aria-live="polite">Refresh <b id="priceTime">loading</b></button>
+        </div>
+        <div class="market-groups" id="marketGroups"></div>
+      </div>
+
+      <section class="learn-view is-hidden" id="learnView" aria-label="Learning center">
+        <div class="learn-shell">
+          <div class="learn-hero">
+            <div class="learn-hero-main">
+              <span class="learn-eyebrow" id="learnEyebrow">JamdDmaj Learn</span>
+              <h1 id="learnHeroTitle">Learn something you can use.</h1>
+              <p id="learnHeroText">Guided paths, personal explanations, exercises, and practice with a tutor that adapts to your level.</p>
+            </div>
+            <aside class="learn-stats">
+              <div class="learn-stat"><span id="learnStreakLabel">Current streak</span><strong id="learnStreak">1 day</strong></div>
+              <div class="learn-stat"><span id="learnCompletedLabel">Completed lessons</span><strong id="learnCompletedCount">0</strong></div>
+              <div class="learn-stat"><span id="learnProgressTitle">Overall progress</span><strong id="learnProgressLabel">0%</strong></div>
+              <div class="learn-progress"><span id="learnProgressBar"></span></div>
+            </aside>
+          </div>
+
+          <div class="learn-section-head">
+            <div>
+              <h2 id="learnChooseTitle">What do you want to learn?</h2>
+              <p id="learnChooseText">Choose a path. You can switch whenever you want without losing progress.</p>
+            </div>
+            <div class="learn-controls">
+              <select id="learnLevel" aria-label="Nivel de aprendizaje">
+                <option value="beginner">Principiante</option>
+                <option value="intermediate">Intermedio</option>
+                <option value="advanced">Avanzado</option>
+              </select>
+              <button class="pill-btn" id="exitLearnBtn" type="button">Back to chat</button>
+            </div>
+          </div>
+
+          <div class="learn-guide">
+            <div class="learn-guide-card"><b id="learnGuideTitle1">1. Choose a path</b><span id="learnGuideText1">Select a subject, your level, and the language you want explanations in.</span></div>
+            <div class="learn-guide-card"><b id="learnGuideTitle2">2. Learn by practicing</b><span id="learnGuideText2">JamdDmaj explains one idea, waits for your answer, and adapts the next exercise.</span></div>
+            <div class="learn-guide-card"><b id="learnGuideTitle3">3. Save your progress</b><span id="learnGuideText3">Complete lessons, build your streak, and return to any topic whenever you want.</span></div>
+          </div>
+
+          <div class="learn-tracks" id="learnTracks"></div>
+          <section class="learn-path" id="learnPath"></section>
+        </div>
+      </section>
+
+      <div class="learning-session-bar is-hidden" id="learningSessionBar">
+        <div class="learning-session-copy">
+          <strong id="learningSessionTitle">JamdDmaj Learn</strong>
+          <span id="learningSessionSubtitle">Leccion interactiva</span>
+        </div>
+        <div class="learning-session-actions">
+          <button class="pill-btn" id="learnHomeBtn" type="button">Path</button>
+          <button class="pill-btn" id="completeLessonBtn" type="button">Complete</button>
+        </div>
+      </div>
+
+      <section class="messages" id="messages" aria-live="polite"></section>
+
+      <div class="composer-wrap">
+        <div class="plus-menu" id="plusMenu">
+          <button id="plusImageBtn" type="button"><span>▧</span><span>Attach images</span></button>
+          <button id="plusTextBtn" type="button"><span>TXT</span><span>Attach a text file</span></button>
+          <button id="plusGenerateBtn" type="button"><span>◇</span><span>Create an image</span></button>
+          <button id="plusVoiceBtn" type="button"><span>◉</span><span>Start voice conversation</span></button>
+          <button id="plusNewChatBtn" type="button"><span>+</span><span>New conversation</span></button>
+        </div>
+        <div class="mode-banner" id="modeBanner">
+          <span>Image generation mode - uses paid image credits</span>
+          <button id="exitImageMode" type="button">Exit</button>
+        </div>
+        <div class="voice-status" id="voiceStatus" data-state="off" aria-live="polite">
+          <span class="voice-status-dot" aria-hidden="true"></span>
+          <span class="voice-status-text" id="voiceStatusText">Voice mode is ready</span>
+          <button class="voice-end-btn" id="endVoiceBtn" type="button">End</button>
+        </div>
+        <div class="attachment-tray" id="attachmentTray"></div>
+        <div class="composer">
+          <input id="fileInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif,.txt,.md,.json,.csv,.js,.html,.css,.py" multiple hidden>
+          <button class="icon-btn" id="attachBtn" type="button" aria-label="Open attachment menu">＋</button>
+          <button class="icon-btn" id="imageModeBtn" type="button" aria-label="Create an image">◇</button>
+          <textarea id="promptInput" rows="1" maxlength="12000" placeholder="Message JamdDmaj AI..." aria-label="Message"></textarea>
+          <button class="send-btn" id="sendBtn" type="button" aria-label="Send message">↑</button>
+        </div>
+        <div class="composer-note">Enter to send · Shift + Enter for a new line · Your key is never included in this file</div>
+      </div>
+    </main>
+
+    <div class="overlay" id="mobileOverlay"></div>
+  </div>
+
+  <dialog id="placementDialog">
+    <form method="dialog" id="placementForm">
+      <div class="dialog-head">
+        <h2>Prueba de nivel</h2>
+        <button class="icon-btn" value="cancel" aria-label="Cerrar prueba" type="submit">×</button>
+      </div>
+      <div class="dialog-body quiz-body">
+        <div class="quiz-progress">
+          <span id="quizProgressText">Pregunta 1 de 5</span>
+          <span id="quizLanguagePair"></span>
+        </div>
+        <div id="quizContent"></div>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="settingsDialog">
+    <form method="dialog" id="settingsForm">
+      <div class="dialog-head">
+        <h2>AI settings</h2>
+        <button class="icon-btn" value="cancel" aria-label="Close settings" type="submit">×</button>
+      </div>
+      <div class="dialog-body">
+        <div class="connection-card">
+          <strong id="connectionStatus">JamdDmaj automatic access</strong>
+          <p>Normal chat works automatically. Connecting a personal OpenRouter account is optional and enables personal limits and paid image generation.</p>
+          <button class="pill-btn connect-btn" id="connectOpenRouterBtn" type="button">Connect personal OpenRouter</button>
+        </div>
+        <div class="settings-grid">
+          <div class="field">
+            <label for="languageInput">Interface language</label>
+            <select id="languageInput">
+              <option value="auto">Automatic</option>
+              <option value="es">Español</option>
+              <option value="en">English</option>
+              <option value="fr">Français</option>
+              <option value="de">Deutsch</option>
+              <option value="pt">Português</option>
+              <option value="it">Italiano</option>
+              <option value="ja">日本語</option>
+              <option value="ko">한국어</option>
+              <option value="zh">中文</option>
+              <option value="ar">العربية</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="personalityInput">AI personality</label>
+            <select id="personalityInput">
+              <option value="balanced">Balanced</option>
+              <option value="direct">Direct and candid</option>
+              <option value="teacher">Patient teacher</option>
+              <option value="expert">Technical expert</option>
+              <option value="creative">Creative partner</option>
+              <option value="coach">Motivating coach</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="voiceInput">Voice</label>
+            <select id="voiceInput"><option value="">System default</option></select>
+          </div>
+          <div class="field">
+            <label for="voiceStyleInput">Voice style</label>
+            <select id="voiceStyleInput">
+              <option value="natural">Natural</option>
+              <option value="calm">Calm</option>
+              <option value="energetic">Energetic</option>
+              <option value="deep">Deep</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="responseLengthInput">Response length</label>
+            <select id="responseLengthInput">
+              <option value="concise">Concise</option>
+              <option value="balanced">Balanced</option>
+              <option value="detailed">Detailed</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="creativityInput">Creativity</label>
+            <select id="creativityInput">
+              <option value="precise">More precise</option>
+              <option value="balanced">Balanced</option>
+              <option value="creative">More creative</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="accentInput">Accent color</label>
+            <input class="color-input" id="accentInput" type="color" value="#8b5cf6">
+          </div>
+          <div class="field">
+            <label for="backgroundInput">Background</label>
+            <select id="backgroundInput">
+              <option value="glow">Glow</option>
+              <option value="soft">Soft color</option>
+              <option value="flat">Minimal</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="themeModeInput">Theme</label>
+            <select id="themeModeInput">
+              <option value="system">Follow device</option>
+              <option value="dark">Dark</option>
+              <option value="light">Light</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="fontInput">Interface font</label>
+            <select id="fontInput">
+              <option value="system">System</option>
+              <option value="modern">Modern</option>
+              <option value="rounded">Rounded</option>
+              <option value="mono">Monospace</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="fontSizeInput">Text size</label>
+            <input id="fontSizeInput" type="range" min="13" max="20" step="1" value="15">
+          </div>
+          <div class="field">
+            <label for="radiusInput">Corner roundness</label>
+            <input id="radiusInput" type="range" min="6" max="30" step="1" value="22">
+          </div>
+          <div class="field">
+            <label for="messageWidthInput">Message width</label>
+            <input id="messageWidthInput" type="range" min="680" max="1200" step="20" value="920">
+          </div>
+          <div class="field">
+            <label for="userBubbleInput">Your message color</label>
+            <input class="color-input" id="userBubbleInput" type="color" value="#7c3aed">
+          </div>
+          <div class="field">
+            <label for="assistantBubbleInput">AI message color</label>
+            <input class="color-input" id="assistantBubbleInput" type="color" value="#191d29">
+          </div>
+          <div class="field">
+            <label for="avatarInput">Message avatars</label>
+            <select id="avatarInput">
+              <option value="show">Show</option>
+              <option value="hide">Hide</option>
+            </select>
+          </div>
+        </div>
+        <label class="check-row"><input id="compactInput" type="checkbox"> Compact chat layout</label>
+        <label class="check-row"><input id="animationsInput" type="checkbox" checked> Interface animations</label>
+        <label class="check-row"><input id="allowImagesInput" type="checkbox"> Allow paid image generation</label>
+        <div class="field">
+          <label for="systemPromptInput">Assistant instructions</label>
+          <textarea id="systemPromptInput" rows="3">You are JamdDmaj AI, a clear, capable, and friendly assistant. Be accurate, concise, and say when you are uncertain.</textarea>
+        </div>
+        <label class="check-row">
+          <input id="autoSpeakInput" type="checkbox">
+          Voice mode: enable dictation and read AI responses aloud
+        </label>
+        <label class="check-row">
+          <input id="liveWebInput" type="checkbox">
+          Use paid live web search when current information may be needed
+        </label>
+        <details class="advanced-settings">
+          <summary>Advanced connection and models</summary>
+          <div class="advanced-content">
+            <div class="warning">Manual keys are intended for advanced users. A public static page cannot completely hide a manually entered key.</div>
+            <div class="field">
+              <label for="apiKeyInput">OpenRouter API key</label>
+              <input id="apiKeyInput" type="password" autocomplete="off" placeholder="sk-or-v1-...">
+            </div>
+            <label class="check-row"><input id="rememberKeyInput" type="checkbox"> Remember this key on this device</label>
+            <div class="field">
+              <label for="chatModelInput">Chat and vision model</label>
+              <input id="chatModelInput" type="text" value="openrouter/free">
+            </div>
+            <div class="field">
+              <label for="imageModelInput">Image generation model</label>
+              <input id="imageModelInput" type="text" value="google/gemini-2.5-flash-image">
+            </div>
+          </div>
+        </details>
+        <section class="settings-section" id="dataSection">
+          <div>
+            <h3 id="dataSectionTitle">Data and backup</h3>
+            <p id="dataSectionText">Create a private backup of conversations, projects, settings, and Learn progress before changing phones or reinstalling.</p>
+          </div>
+          <div class="data-actions">
+            <button class="pill-btn" id="exportBackupBtn" type="button">Export full backup</button>
+            <button class="pill-btn" id="importBackupBtn" type="button">Restore backup</button>
+            <input id="backupFileInput" type="file" accept="application/json,.json" hidden>
+          </div>
+          <div class="backup-note"><strong id="backupNoteTitle">Updates:</strong><span id="backupNoteText">Install the new APK over the current app. Do not uninstall it. Your local information stays in place.</span></div>
+        </section>
+        <section class="settings-section" id="socialSection">
+          <div>
+            <h3 id="socialSectionTitle">JamdDmaj official networks</h3>
+            <p id="socialSectionText">Follow updates, tutorials, demonstrations, and new releases.</p>
+          </div>
+          <div class="social-links">
+            <a class="social-link" href="https://x.com/JamdDmaj1" target="_blank" rel="noopener noreferrer">X</a>
+            <a class="social-link" href="https://www.instagram.com/jamddmaj1/" target="_blank" rel="noopener noreferrer">Instagram</a>
+            <a class="social-link" href="https://www.facebook.com/JamdDmaj1" target="_blank" rel="noopener noreferrer">Facebook</a>
+            <a class="social-link" href="https://www.youtube.com/@JamdDmaj1" target="_blank" rel="noopener noreferrer">YouTube</a>
+            <a class="social-link" href="https://github.com/JamdDmaj1" target="_blank" rel="noopener noreferrer">GitHub</a>
+          </div>
+        </section>
+      </div>
+      <div class="dialog-actions">
+        <button class="pill-btn" value="cancel" type="submit">Cancel</button>
+        <button class="pill-btn" id="saveSettingsBtn" value="default" type="submit">Save settings</button>
+      </div>
+      <div class="settings-coach" id="settingsCoach" role="dialog" aria-live="polite">
+        <strong id="coachTitle"></strong>
+        <p id="coachText"></p>
+        <div class="coach-actions">
+          <button class="pill-btn" id="skipCoachBtn" type="button">Skip</button>
+          <button class="pill-btn" id="nextCoachBtn" type="button">Next</button>
+        </div>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="tutorialDialog">
+    <form method="dialog">
+      <div class="dialog-head">
+        <h2>What JamdDmaj AI can do</h2>
+        <button class="icon-btn" value="close" aria-label="Close tutorial" type="submit">X</button>
+      </div>
+      <div class="dialog-body">
+        <p style="margin:0;color:var(--muted)">A quick tour of the tools built into this page.</p>
+        <div class="tutorial-grid">
+          <div class="tutorial-card"><strong>Chat and research</strong><span>Ask questions, plan projects, and use live web information for current topics.</span></div>
+          <div class="tutorial-card"><strong>Vision</strong><span>Attach up to three images and ask the AI to inspect or explain them.</span></div>
+          <div class="tutorial-card"><strong>Create images</strong><span>Use the diamond button to switch into budget image-generation mode.</span></div>
+          <div class="tutorial-card"><strong>Voice conversation</strong><span>Turn Voice on, dictate with the microphone, and hear AI replies aloud.</span></div>
+          <div class="tutorial-card"><strong>Live markets</strong><span>Open Markets for frequently refreshed crypto prices from multiple sources.</span></div>
+          <div class="tutorial-card"><strong>JamdDmaj Learn</strong><span>Choose a subject, take a placement test, set your learning language, and follow interactive lessons with saved progress.</span></div>
+          <div class="tutorial-card"><strong>Keep your work</strong><span>Save, rename, revisit, or export conversations whenever you need them.</span></div>
+        </div>
+      </div>
+      <div class="dialog-actions">
+        <button class="pill-btn" value="close" type="submit">Start using JamdDmaj AI</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="copyDialog">
+    <form method="dialog">
+      <div class="dialog-head">
+        <h2 id="copyDialogTitle">Copy content</h2>
+        <button class="icon-btn" value="close" aria-label="Close copy window" type="submit">×</button>
+      </div>
+      <div class="dialog-body">
+        <p id="copyDialogHelp" style="margin:0;color:var(--muted)">The browser blocked automatic copying. The content below is selected and ready to copy.</p>
+        <textarea class="copy-dialog-text" id="copyDialogText" readonly></textarea>
+      </div>
+      <div class="dialog-actions">
+        <button class="pill-btn" id="selectCopyTextBtn" type="button">Select all</button>
+        <button class="pill-btn" value="close" type="submit">Done</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="projectDialog">
+    <form method="dialog" id="projectForm">
+      <div class="dialog-head">
+        <h2 id="projectDialogTitle">Save project</h2>
+        <button class="icon-btn" value="cancel" aria-label="Close project window" type="submit">×</button>
+      </div>
+      <div class="dialog-body">
+        <div class="field">
+          <label for="projectNameInput" id="projectNameLabel">Project name</label>
+          <input id="projectNameInput" maxlength="80" autocomplete="off">
+        </div>
+        <p id="projectDialogHelp" style="margin:0;color:var(--muted)">This creates a saved copy that remains separate from recent chat history.</p>
+      </div>
+      <div class="dialog-actions">
+        <button class="pill-btn" value="cancel" type="submit">Cancel</button>
+        <button class="pill-btn" id="confirmProjectBtn" value="save" type="submit">Save project</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="settings-coach" id="mainCoach" role="dialog" aria-live="polite">
+    <strong id="mainCoachTitle"></strong>
+    <p id="mainCoachText"></p>
+    <div class="coach-actions">
+      <button class="pill-btn" id="skipMainCoachBtn" type="button">Skip</button>
+      <button class="pill-btn" id="nextMainCoachBtn" type="button">Next</button>
+    </div>
+  </div>
+
+  <aside class="idle-nudge" id="idleNudge">
+    <strong id="idleNudgeTitle">Need a hand?</strong>
+    <p id="idleNudgeText">Ask JamdDmaj AI to explain something, review a file, or help you start a project.</p>
+    <div class="idle-actions">
+      <button class="pill-btn" id="idleStartBtn" type="button">Give me an idea</button>
+      <button class="pill-btn" id="idleDismissBtn" type="button">Not now</button>
+    </div>
+  </aside>
+
+  <div class="toast" id="toast" role="status"></div>
+
+  <script>
+    (async () => {
+      "use strict";
+
+      const API_URL = "https://openrouter.ai/api/v1/chat/completions";
+      const WEB_APP_URL = "https://jamd-dmaj.vercel.app/";
+      const MANAGED_API_URL = `${WEB_APP_URL}api/chat`;
+      const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
+      const MOBILE_OAUTH_URL = "jamddmaj://oauth";
+      const APP_VERSION = "1.8.0";
+      const LEARN_TEXT = {
+        en: {
+          heroTitle: "Learn something you can use.", heroText: "Guided paths, personal explanations, exercises, and practice with a tutor that adapts to your level.",
+          streak: "Current streak", completed: "Completed lessons", progress: "Overall progress", day: "day", days: "days",
+          chooseTitle: "What do you want to learn?", chooseText: "Choose a path. You can switch whenever you want without losing progress.",
+          beginner: "Beginner", intermediate: "Intermediate", advanced: "Advanced", back: "Back to chat",
+          guide1Title: "1. Choose a path", guide1Text: "Select a subject, your level, and the language you want explanations in.",
+          guide2Title: "2. Learn by practicing", guide2Text: "JamdDmaj explains one idea, waits for your answer, and adapts the next exercise.",
+          guide3Title: "3. Save your progress", guide3Text: "Complete lessons, build your streak, and return to any topic whenever you want.",
+          source: "Explain lessons in", target: "I want to learn", test: "Test my level", review: "Review", start: "Start",
+          visual: "Today's visual card", pronunciation: "Pronunciation", listen: "Listen", path: "Path", complete: "Complete",
+          question: "Question", of: "of", recommended: "Recommended level", useLevel: "Use this level", testComplete: "Test complete",
+          lessonDone: "Lesson complete. Your progress was saved.", session: "Interactive lesson · Learn by doing",
+          dataTitle: "Data and backup", dataText: "Create a private backup of conversations, projects, settings, and Learn progress before changing phones or reinstalling.",
+          exportBackup: "Export full backup", importBackup: "Restore backup", updates: "Updates:", updateText: "Install the new APK over the current app. Do not uninstall it. Your local information stays in place.",
+          socialTitle: "JamdDmaj official networks", socialText: "Follow updates, tutorials, demonstrations, and new releases.",
+          sideBackup: "Data and backup", sideSocial: "Official social networks", backupReady: "Backup created.", backupRestored: "Backup restored. JamdDmaj will reload now.",
+          invalidBackup: "This is not a valid JamdDmaj backup.", restoreConfirm: "Restore this backup? It will replace the information currently stored on this device."
+        },
+        es: {
+          heroTitle: "Aprende algo que puedas usar.", heroText: "Rutas guiadas, explicaciones personales, ejercicios y práctica con una tutora que se adapta a tu nivel.",
+          streak: "Racha actual", completed: "Lecciones terminadas", progress: "Progreso total", day: "día", days: "días",
+          chooseTitle: "¿Qué quieres aprender?", chooseText: "Elige una ruta. Puedes cambiar cuando quieras sin perder tu progreso.",
+          beginner: "Principiante", intermediate: "Intermedio", advanced: "Avanzado", back: "Volver al chat",
+          guide1Title: "1. Elige una ruta", guide1Text: "Selecciona una materia, tu nivel y desde qué idioma quieres aprender.",
+          guide2Title: "2. Aprende practicando", guide2Text: "JamdDmaj explica una idea, espera tu respuesta y adapta el siguiente ejercicio.",
+          guide3Title: "3. Guarda tu avance", guide3Text: "Completa lecciones, aumenta tu racha y vuelve a cualquier tema cuando quieras.",
+          source: "Aprendo desde", target: "Quiero aprender", test: "Probar mi nivel", review: "Repasar", start: "Comenzar",
+          visual: "Tarjeta visual de hoy", pronunciation: "Pronunciación", listen: "Escuchar", path: "Ruta", complete: "Completar",
+          question: "Pregunta", of: "de", recommended: "Nivel recomendado", useLevel: "Usar este nivel", testComplete: "Prueba terminada",
+          lessonDone: "Lección completada. Tu progreso fue guardado.", session: "Lección interactiva · Aprende practicando",
+          dataTitle: "Datos y respaldo", dataText: "Crea un respaldo privado de conversaciones, proyectos, ajustes y progreso de Learn antes de cambiar de teléfono o reinstalar.",
+          exportBackup: "Exportar respaldo completo", importBackup: "Restaurar respaldo", updates: "Actualizaciones:", updateText: "Instala el APK nuevo encima de la app actual. No la desinstales. Tus datos locales permanecerán guardados.",
+          socialTitle: "Redes oficiales de JamdDmaj", socialText: "Sigue las novedades, tutoriales, demostraciones y nuevas versiones.",
+          sideBackup: "Datos y respaldo", sideSocial: "Redes sociales oficiales", backupReady: "Respaldo creado.", backupRestored: "Respaldo restaurado. JamdDmaj se reiniciará ahora.",
+          invalidBackup: "Este archivo no es un respaldo válido de JamdDmaj.", restoreConfirm: "¿Restaurar este respaldo? Reemplazará la información guardada actualmente en este dispositivo."
+        },
+        fr: {
+          heroTitle: "Apprenez quelque chose d'utile.", heroText: "Parcours guidés, explications personnelles, exercices et pratique avec un tuteur adapté à votre niveau.",
+          streak: "Série actuelle", completed: "Leçons terminées", progress: "Progression totale", day: "jour", days: "jours",
+          chooseTitle: "Que voulez-vous apprendre ?", chooseText: "Choisissez un parcours. Vous pouvez changer sans perdre votre progression.",
+          beginner: "Débutant", intermediate: "Intermédiaire", advanced: "Avancé", back: "Retour au chat",
+          guide1Title: "1. Choisissez un parcours", guide1Text: "Sélectionnez une matière, votre niveau et la langue des explications.",
+          guide2Title: "2. Apprenez en pratiquant", guide2Text: "JamdDmaj explique une idée, attend votre réponse et adapte l'exercice suivant.",
+          guide3Title: "3. Sauvegardez vos progrès", guide3Text: "Terminez des leçons et revenez à tout moment.",
+          source: "Langue des explications", target: "Je veux apprendre", test: "Tester mon niveau", review: "Réviser", start: "Commencer",
+          visual: "Carte visuelle du jour", pronunciation: "Prononciation", listen: "Écouter", path: "Parcours", complete: "Terminer",
+          question: "Question", of: "sur", recommended: "Niveau recommandé", useLevel: "Utiliser ce niveau", testComplete: "Test terminé",
+          lessonDone: "Leçon terminée. Votre progression est enregistrée.", session: "Leçon interactive · Apprendre en pratiquant",
+          dataTitle: "Données et sauvegarde", dataText: "Créez une sauvegarde privée de vos conversations, projets, réglages et progrès Learn.",
+          exportBackup: "Exporter la sauvegarde", importBackup: "Restaurer la sauvegarde", updates: "Mises à jour :", updateText: "Installez le nouvel APK par-dessus l'application actuelle. Ne la désinstallez pas.",
+          socialTitle: "Réseaux officiels JamdDmaj", socialText: "Suivez les nouveautés, tutoriels et nouvelles versions.",
+          sideBackup: "Données et sauvegarde", sideSocial: "Réseaux sociaux officiels", backupReady: "Sauvegarde créée.", backupRestored: "Sauvegarde restaurée. JamdDmaj va redémarrer.",
+          invalidBackup: "Ce fichier n'est pas une sauvegarde JamdDmaj valide.", restoreConfirm: "Restaurer cette sauvegarde ? Les données actuelles seront remplacées."
+        },
+        de: {
+          heroTitle: "Lerne etwas, das du nutzen kannst.", heroText: "Geführte Lernwege, persönliche Erklärungen und Übungen mit einem Tutor, der sich deinem Niveau anpasst.",
+          streak: "Aktuelle Serie", completed: "Abgeschlossene Lektionen", progress: "Gesamtfortschritt", day: "Tag", days: "Tage",
+          chooseTitle: "Was möchtest du lernen?", chooseText: "Wähle einen Lernweg. Du kannst jederzeit wechseln, ohne Fortschritt zu verlieren.",
+          beginner: "Anfänger", intermediate: "Mittelstufe", advanced: "Fortgeschritten", back: "Zurück zum Chat",
+          guide1Title: "1. Lernweg wählen", guide1Text: "Wähle ein Fach, dein Niveau und die Sprache der Erklärungen.",
+          guide2Title: "2. Durch Übung lernen", guide2Text: "JamdDmaj erklärt eine Idee, wartet auf deine Antwort und passt die nächste Übung an.",
+          guide3Title: "3. Fortschritt speichern", guide3Text: "Schließe Lektionen ab und kehre jederzeit zurück.",
+          source: "Erklärungen auf", target: "Ich möchte lernen", test: "Niveau testen", review: "Wiederholen", start: "Starten",
+          visual: "Heutige Bildkarte", pronunciation: "Aussprache", listen: "Anhören", path: "Lernweg", complete: "Abschließen",
+          question: "Frage", of: "von", recommended: "Empfohlenes Niveau", useLevel: "Dieses Niveau verwenden", testComplete: "Test abgeschlossen",
+          lessonDone: "Lektion abgeschlossen. Dein Fortschritt wurde gespeichert.", session: "Interaktive Lektion · Lernen durch Übung",
+          dataTitle: "Daten und Sicherung", dataText: "Erstelle eine private Sicherung deiner Chats, Projekte, Einstellungen und Learn-Fortschritte.",
+          exportBackup: "Sicherung exportieren", importBackup: "Sicherung wiederherstellen", updates: "Updates:", updateText: "Installiere die neue APK über die bestehende App. Deinstalliere sie nicht.",
+          socialTitle: "Offizielle JamdDmaj-Kanäle", socialText: "Folge Neuigkeiten, Tutorials und neuen Versionen.",
+          sideBackup: "Daten und Sicherung", sideSocial: "Offizielle soziale Netzwerke", backupReady: "Sicherung erstellt.", backupRestored: "Sicherung wiederhergestellt. JamdDmaj wird neu geladen.",
+          invalidBackup: "Dies ist keine gültige JamdDmaj-Sicherung.", restoreConfirm: "Diese Sicherung wiederherstellen? Aktuelle Daten werden ersetzt."
+        },
+        pt: {
+          heroTitle: "Aprenda algo que você possa usar.", heroText: "Trilhas guiadas, explicações pessoais e exercícios com uma tutora que se adapta ao seu nível.",
+          streak: "Sequência atual", completed: "Lições concluídas", progress: "Progresso total", day: "dia", days: "dias",
+          chooseTitle: "O que você quer aprender?", chooseText: "Escolha uma trilha. Você pode mudar sem perder o progresso.",
+          beginner: "Iniciante", intermediate: "Intermediário", advanced: "Avançado", back: "Voltar ao chat",
+          guide1Title: "1. Escolha uma trilha", guide1Text: "Selecione uma matéria, seu nível e o idioma das explicações.",
+          guide2Title: "2. Aprenda praticando", guide2Text: "JamdDmaj explica uma ideia, espera sua resposta e adapta o próximo exercício.",
+          guide3Title: "3. Salve seu progresso", guide3Text: "Conclua lições e volte a qualquer tema quando quiser.",
+          source: "Explicar em", target: "Quero aprender", test: "Testar meu nível", review: "Revisar", start: "Começar",
+          visual: "Cartão visual de hoje", pronunciation: "Pronúncia", listen: "Ouvir", path: "Trilha", complete: "Concluir",
+          question: "Pergunta", of: "de", recommended: "Nível recomendado", useLevel: "Usar este nível", testComplete: "Teste concluído",
+          lessonDone: "Lição concluída. Seu progresso foi salvo.", session: "Lição interativa · Aprenda praticando",
+          dataTitle: "Dados e backup", dataText: "Crie um backup privado das conversas, projetos, configurações e progresso do Learn.",
+          exportBackup: "Exportar backup", importBackup: "Restaurar backup", updates: "Atualizações:", updateText: "Instale o novo APK sobre o aplicativo atual. Não desinstale.",
+          socialTitle: "Redes oficiais do JamdDmaj", socialText: "Acompanhe novidades, tutoriais e novas versões.",
+          sideBackup: "Dados e backup", sideSocial: "Redes sociais oficiais", backupReady: "Backup criado.", backupRestored: "Backup restaurado. O JamdDmaj será reiniciado.",
+          invalidBackup: "Este não é um backup válido do JamdDmaj.", restoreConfirm: "Restaurar este backup? Os dados atuais serão substituídos."
+        },
+        it: {
+          heroTitle: "Impara qualcosa che puoi usare.", heroText: "Percorsi guidati, spiegazioni personali ed esercizi con un tutor che si adatta al tuo livello.",
+          streak: "Serie attuale", completed: "Lezioni completate", progress: "Progresso totale", day: "giorno", days: "giorni",
+          chooseTitle: "Cosa vuoi imparare?", chooseText: "Scegli un percorso. Puoi cambiare senza perdere i progressi.",
+          beginner: "Principiante", intermediate: "Intermedio", advanced: "Avanzato", back: "Torna alla chat",
+          guide1Title: "1. Scegli un percorso", guide1Text: "Seleziona una materia, il livello e la lingua delle spiegazioni.",
+          guide2Title: "2. Impara facendo pratica", guide2Text: "JamdDmaj spiega un'idea, aspetta la tua risposta e adatta l'esercizio seguente.",
+          guide3Title: "3. Salva i progressi", guide3Text: "Completa le lezioni e torna quando vuoi.",
+          source: "Spiega in", target: "Voglio imparare", test: "Verifica il mio livello", review: "Ripassa", start: "Inizia",
+          visual: "Scheda visiva di oggi", pronunciation: "Pronuncia", listen: "Ascolta", path: "Percorso", complete: "Completa",
+          question: "Domanda", of: "di", recommended: "Livello consigliato", useLevel: "Usa questo livello", testComplete: "Test completato",
+          lessonDone: "Lezione completata. I progressi sono stati salvati.", session: "Lezione interattiva · Impara facendo pratica",
+          dataTitle: "Dati e backup", dataText: "Crea un backup privato di chat, progetti, impostazioni e progressi Learn.",
+          exportBackup: "Esporta backup", importBackup: "Ripristina backup", updates: "Aggiornamenti:", updateText: "Installa il nuovo APK sopra l'app attuale. Non disinstallarla.",
+          socialTitle: "Canali ufficiali JamdDmaj", socialText: "Segui novità, tutorial e nuove versioni.",
+          sideBackup: "Dati e backup", sideSocial: "Social network ufficiali", backupReady: "Backup creato.", backupRestored: "Backup ripristinato. JamdDmaj verrà riavviato.",
+          invalidBackup: "Questo non è un backup JamdDmaj valido.", restoreConfirm: "Ripristinare questo backup? I dati attuali saranno sostituiti."
+        },
+        ja: {
+          heroTitle: "実際に使えることを学ぼう。", heroText: "レベルに合わせて進むガイド、個別説明、練習問題を利用できます。",
+          streak: "現在の連続記録", completed: "完了したレッスン", progress: "全体の進捗", day: "日", days: "日",
+          chooseTitle: "何を学びたいですか？", chooseText: "コースを選んでください。進捗を失わずにいつでも変更できます。",
+          beginner: "初級", intermediate: "中級", advanced: "上級", back: "チャットに戻る",
+          guide1Title: "1. コースを選ぶ", guide1Text: "科目、レベル、説明に使う言語を選択します。",
+          guide2Title: "2. 練習しながら学ぶ", guide2Text: "JamdDmajが一つずつ説明し、回答に合わせて次の問題を調整します。",
+          guide3Title: "3. 進捗を保存", guide3Text: "レッスンを完了し、いつでも続きから再開できます。",
+          source: "説明の言語", target: "学びたい言語", test: "レベルを確認", review: "復習", start: "開始",
+          visual: "今日のビジュアルカード", pronunciation: "発音", listen: "聞く", path: "コース", complete: "完了",
+          question: "質問", of: "/", recommended: "おすすめレベル", useLevel: "このレベルを使う", testComplete: "テスト完了",
+          lessonDone: "レッスン完了。進捗を保存しました。", session: "対話型レッスン · 練習しながら学ぶ",
+          dataTitle: "データとバックアップ", dataText: "チャット、プロジェクト、設定、Learnの進捗を非公開でバックアップします。",
+          exportBackup: "バックアップを書き出す", importBackup: "バックアップを復元", updates: "更新:", updateText: "現在のアプリの上に新しいAPKをインストールしてください。アンインストールしないでください。",
+          socialTitle: "JamdDmaj公式SNS", socialText: "最新情報、チュートリアル、新バージョンを確認できます。",
+          sideBackup: "データとバックアップ", sideSocial: "公式SNS", backupReady: "バックアップを作成しました。", backupRestored: "復元しました。JamdDmajを再読み込みします。",
+          invalidBackup: "有効なJamdDmajバックアップではありません。", restoreConfirm: "このバックアップを復元しますか？現在のデータは置き換えられます。"
+        },
+        ko: {
+          heroTitle: "실제로 사용할 수 있는 것을 배워보세요.", heroText: "수준에 맞춰 조정되는 안내 과정, 개인 설명과 연습 문제를 제공합니다.",
+          streak: "현재 연속 학습", completed: "완료한 수업", progress: "전체 진행률", day: "일", days: "일",
+          chooseTitle: "무엇을 배우고 싶나요?", chooseText: "과정을 선택하세요. 진행 상황을 잃지 않고 언제든 변경할 수 있습니다.",
+          beginner: "초급", intermediate: "중급", advanced: "고급", back: "채팅으로 돌아가기",
+          guide1Title: "1. 과정 선택", guide1Text: "과목, 수준, 설명에 사용할 언어를 선택하세요.",
+          guide2Title: "2. 연습하며 배우기", guide2Text: "JamdDmaj가 하나씩 설명하고 답변에 맞춰 다음 연습을 조정합니다.",
+          guide3Title: "3. 진행 상황 저장", guide3Text: "수업을 완료하고 언제든 이어서 학습하세요.",
+          source: "설명 언어", target: "배우고 싶은 언어", test: "수준 테스트", review: "복습", start: "시작",
+          visual: "오늘의 시각 카드", pronunciation: "발음", listen: "듣기", path: "과정", complete: "완료",
+          question: "문제", of: "/", recommended: "추천 수준", useLevel: "이 수준 사용", testComplete: "테스트 완료",
+          lessonDone: "수업을 완료했습니다. 진행 상황이 저장되었습니다.", session: "대화형 수업 · 연습하며 배우기",
+          dataTitle: "데이터 및 백업", dataText: "채팅, 프로젝트, 설정과 Learn 진행 상황을 비공개로 백업하세요.",
+          exportBackup: "백업 내보내기", importBackup: "백업 복원", updates: "업데이트:", updateText: "현재 앱 위에 새 APK를 설치하세요. 앱을 삭제하지 마세요.",
+          socialTitle: "JamdDmaj 공식 소셜", socialText: "새 소식, 튜토리얼과 새 버전을 확인하세요.",
+          sideBackup: "데이터 및 백업", sideSocial: "공식 소셜 네트워크", backupReady: "백업을 만들었습니다.", backupRestored: "백업을 복원했습니다. JamdDmaj를 다시 불러옵니다.",
+          invalidBackup: "유효한 JamdDmaj 백업이 아닙니다.", restoreConfirm: "이 백업을 복원할까요? 현재 데이터가 교체됩니다."
+        },
+        zh: {
+          heroTitle: "学习真正能用到的知识。", heroText: "提供引导课程、个性化讲解和练习，并根据你的水平自动调整。",
+          streak: "当前连续学习", completed: "已完成课程", progress: "总体进度", day: "天", days: "天",
+          chooseTitle: "你想学习什么？", chooseText: "选择一条学习路线。可以随时更改且不会丢失进度。",
+          beginner: "初级", intermediate: "中级", advanced: "高级", back: "返回聊天",
+          guide1Title: "1. 选择路线", guide1Text: "选择科目、水平以及讲解所使用的语言。",
+          guide2Title: "2. 在练习中学习", guide2Text: "JamdDmaj逐步讲解，并根据你的回答调整下一道练习。",
+          guide3Title: "3. 保存进度", guide3Text: "完成课程并随时返回继续学习。",
+          source: "讲解语言", target: "我想学习", test: "测试我的水平", review: "复习", start: "开始",
+          visual: "今日视觉卡片", pronunciation: "发音", listen: "播放", path: "路线", complete: "完成",
+          question: "问题", of: "/", recommended: "推荐水平", useLevel: "使用此水平", testComplete: "测试完成",
+          lessonDone: "课程完成，进度已保存。", session: "互动课程 · 在练习中学习",
+          dataTitle: "数据与备份", dataText: "为聊天、项目、设置和Learn进度创建私人备份。",
+          exportBackup: "导出完整备份", importBackup: "恢复备份", updates: "更新:", updateText: "请在当前应用上直接安装新APK，不要卸载应用。",
+          socialTitle: "JamdDmaj官方社交账号", socialText: "关注更新、教程、演示和新版本。",
+          sideBackup: "数据与备份", sideSocial: "官方社交网络", backupReady: "备份已创建。", backupRestored: "备份已恢复，JamdDmaj即将重新加载。",
+          invalidBackup: "这不是有效的JamdDmaj备份。", restoreConfirm: "恢复此备份吗？当前设备上的数据将被替换。"
+        },
+        ar: {
+          heroTitle: "تعلّم شيئًا يمكنك استخدامه.", heroText: "مسارات موجهة وشروحات شخصية وتمارين مع مدرس يتكيف مع مستواك.",
+          streak: "السلسلة الحالية", completed: "الدروس المكتملة", progress: "التقدم الكلي", day: "يوم", days: "أيام",
+          chooseTitle: "ماذا تريد أن تتعلم؟", chooseText: "اختر مسارًا. يمكنك تغييره دون فقدان تقدمك.",
+          beginner: "مبتدئ", intermediate: "متوسط", advanced: "متقدم", back: "العودة إلى الدردشة",
+          guide1Title: "1. اختر مسارًا", guide1Text: "اختر المادة والمستوى ولغة الشرح.",
+          guide2Title: "2. تعلم بالممارسة", guide2Text: "يشرح JamdDmaj فكرة وينتظر إجابتك ثم يكيّف التمرين التالي.",
+          guide3Title: "3. احفظ تقدمك", guide3Text: "أكمل الدروس وعد إلى أي موضوع متى شئت.",
+          source: "لغة الشرح", target: "أريد تعلم", test: "اختبار مستواي", review: "مراجعة", start: "ابدأ",
+          visual: "بطاقة اليوم المرئية", pronunciation: "النطق", listen: "استمع", path: "المسار", complete: "إكمال",
+          question: "السؤال", of: "من", recommended: "المستوى المقترح", useLevel: "استخدم هذا المستوى", testComplete: "اكتمل الاختبار",
+          lessonDone: "اكتمل الدرس وتم حفظ تقدمك.", session: "درس تفاعلي · تعلم بالممارسة",
+          dataTitle: "البيانات والنسخ الاحتياطي", dataText: "أنشئ نسخة خاصة من المحادثات والمشاريع والإعدادات وتقدم Learn.",
+          exportBackup: "تصدير نسخة كاملة", importBackup: "استعادة نسخة", updates: "التحديثات:", updateText: "ثبّت ملف APK الجديد فوق التطبيق الحالي ولا تحذف التطبيق.",
+          socialTitle: "حسابات JamdDmaj الرسمية", socialText: "تابع الأخبار والدروس والإصدارات الجديدة.",
+          sideBackup: "البيانات والنسخ الاحتياطي", sideSocial: "الشبكات الاجتماعية الرسمية", backupReady: "تم إنشاء النسخة.", backupRestored: "تمت الاستعادة. سيعاد تحميل JamdDmaj.",
+          invalidBackup: "هذا الملف ليس نسخة JamdDmaj صالحة.", restoreConfirm: "هل تريد استعادة هذه النسخة؟ سيتم استبدال البيانات الحالية."
+        }
+      };
+      const LEARNING_MODULES_EN = {
+        languages: [
+          ["First conversations", "Introduce yourself, greet people, and reply with confidence."],
+          ["Essential vocabulary", "The words and expressions you will use most often."],
+          ["Listening and pronunciation", "Train your ear and improve your pronunciation."],
+          ["Real situations", "Travel, work, friends, and everyday conversations."]
+        ],
+        programming: [
+          ["Think like a programmer", "Variables, decisions, loops, and problem solving."],
+          ["JavaScript from scratch", "Create small programs and understand every line."],
+          ["Interactive web", "HTML, CSS, and JavaScript working together."],
+          ["Personal project", "Build an app and improve its code with your tutor."]
+        ],
+        mathematics: [
+          ["Clear foundations", "Numbers, fractions, percentages, and operations."],
+          ["Visual algebra", "Equations explained step by step."],
+          ["Practical geometry", "Shapes, measurements, areas, and spatial reasoning."],
+          ["Applied challenges", "Real problems and strategies to solve them."]
+        ],
+        science: [
+          ["Scientific method", "Questions, hypotheses, experiments, and evidence."],
+          ["Everyday physics", "Motion, energy, forces, and electricity."],
+          ["Life and biology", "Cells, genetics, evolution, and ecosystems."],
+          ["The universe", "Planets, stars, space, and big questions."]
+        ],
+        business: [
+          ["Personal finance", "Budgeting, saving, debt, and compound interest."],
+          ["How a business works", "Customers, value, costs, and revenue."],
+          ["Markets and investing", "Risk, stocks, indexes, and responsible analysis."],
+          ["Launch an idea", "Validate, organize, and present a real project."]
+        ],
+        history: [
+          ["Think like a historian", "Sources, context, bias, and evidence."],
+          ["Civilizations", "Ideas and changes that transformed societies."],
+          ["The modern world", "Revolutions, industry, wars, and rights."],
+          ["Historical debate", "Compare perspectives and build arguments."]
+        ],
+        writing: [
+          ["Ideas people understand", "Organize your thoughts before writing."],
+          ["Clear writing", "Strong sentences, structure, and revision."],
+          ["Persuasion", "Arguments, examples, and convincing communication."],
+          ["Your project", "Create an article, script, story, or presentation."]
+        ],
+        ai: [
+          ["How AI learns", "Models, data, tokens, and probabilities."],
+          ["Effective prompts", "Ask, evaluate, and iterate for better results."],
+          ["Automation", "Combine tools to save time."],
+          ["AI project", "Design a useful and responsible solution."]
+        ]
+      };
+      const LEARNING_TRACK_TITLES = {
+        fr: { languages: "Langues", programming: "Programmation", mathematics: "Mathématiques", science: "Sciences", business: "Affaires et finance", history: "Histoire et société", writing: "Écriture et communication", ai: "IA et technologie" },
+        de: { languages: "Sprachen", programming: "Programmierung", mathematics: "Mathematik", science: "Wissenschaft", business: "Wirtschaft und Finanzen", history: "Geschichte und Gesellschaft", writing: "Schreiben und Kommunikation", ai: "KI und Technologie" },
+        pt: { languages: "Idiomas", programming: "Programação", mathematics: "Matemática", science: "Ciências", business: "Negócios e finanças", history: "História e sociedade", writing: "Escrita e comunicação", ai: "IA e tecnologia" },
+        it: { languages: "Lingue", programming: "Programmazione", mathematics: "Matematica", science: "Scienze", business: "Affari e finanza", history: "Storia e società", writing: "Scrittura e comunicazione", ai: "IA e tecnologia" },
+        ja: { languages: "言語", programming: "プログラミング", mathematics: "数学", science: "科学", business: "ビジネスと金融", history: "歴史と社会", writing: "文章とコミュニケーション", ai: "AIとテクノロジー" },
+        ko: { languages: "언어", programming: "프로그래밍", mathematics: "수학", science: "과학", business: "비즈니스와 금융", history: "역사와 사회", writing: "글쓰기와 소통", ai: "AI와 기술" },
+        zh: { languages: "语言", programming: "编程", mathematics: "数学", science: "科学", business: "商业与金融", history: "历史与社会", writing: "写作与沟通", ai: "人工智能与技术" },
+        ar: { languages: "اللغات", programming: "البرمجة", mathematics: "الرياضيات", science: "العلوم", business: "الأعمال والتمويل", history: "التاريخ والمجتمع", writing: "الكتابة والتواصل", ai: "الذكاء الاصطناعي والتقنية" }
+      };
+      const LEARNING_LANGUAGE_LOCALES = {
+        English: "en-US", Spanish: "es-ES", French: "fr-FR", German: "de-DE",
+        Portuguese: "pt-BR", Italian: "it-IT", Japanese: "ja-JP", Korean: "ko-KR"
+      };
+      const PRICE_CACHE_KEY = "jamdV2CryptoPrices";
+      const STOCK_ALIASES = {
+        nvidia: "NVDA",
+        nvidea: "NVDA",
+        nvda: "NVDA",
+        apple: "AAPL",
+        microsoft: "MSFT",
+        tesla: "TSLA",
+        amazon: "AMZN",
+        google: "GOOGL",
+        alphabet: "GOOGL",
+        meta: "META",
+        netflix: "NFLX",
+        amd: "AMD",
+        intel: "INTC",
+        coinbase: "COIN",
+        paypal: "PYPL",
+        disney: "DIS",
+        walmart: "WMT",
+        coca: "KO"
+      };
+      const LEARNING_TRACKS = [
+        {
+          id: "languages",
+          icon: "Aa",
+          color: "#38bdf8",
+          title: { es: "Idiomas", en: "Languages" },
+          description: { es: "Habla, escucha y practica situaciones reales.", en: "Speak, listen, and practice real situations." },
+          modules: [
+            ["Primeras conversaciones", "Presentarte, saludar y responder con confianza."],
+            ["Vocabulario esencial", "Las palabras y expresiones que mas vas a usar."],
+            ["Escucha y pronunciacion", "Entrena el oido y corrige tu pronunciacion."],
+            ["Situaciones reales", "Viajes, trabajo, amigos y conversaciones cotidianas."]
+          ]
+        },
+        {
+          id: "programming",
+          icon: "</>",
+          color: "#a78bfa",
+          title: { es: "Programacion", en: "Programming" },
+          description: { es: "Aprende construyendo proyectos de verdad.", en: "Learn by building real projects." },
+          modules: [
+            ["Pensamiento de programador", "Variables, decisiones, ciclos y solucion de problemas."],
+            ["JavaScript desde cero", "Crea programas pequenos y entiende cada linea."],
+            ["Web interactiva", "HTML, CSS y JavaScript trabajando juntos."],
+            ["Proyecto personal", "Construye una app y mejora el codigo con tu tutora."]
+          ]
+        },
+        {
+          id: "mathematics",
+          icon: "x2",
+          color: "#f59e0b",
+          title: { es: "Matematicas", en: "Mathematics" },
+          description: { es: "Entiende el por que, no solo la formula.", en: "Understand why, not just the formula." },
+          modules: [
+            ["Fundamentos claros", "Numeros, fracciones, porcentajes y operaciones."],
+            ["Algebra visual", "Ecuaciones explicadas paso a paso."],
+            ["Geometria practica", "Formas, medidas, areas y razonamiento espacial."],
+            ["Retos aplicados", "Problemas reales y estrategias para resolverlos."]
+          ]
+        },
+        {
+          id: "science",
+          icon: "LAB",
+          color: "#34d399",
+          title: { es: "Ciencia", en: "Science" },
+          description: { es: "Explora como funciona el mundo.", en: "Explore how the world works." },
+          modules: [
+            ["Metodo cientifico", "Pregunta, hipotesis, experimento y evidencia."],
+            ["Fisica cotidiana", "Movimiento, energia, fuerzas y electricidad."],
+            ["Vida y biologia", "Celulas, genetica, evolucion y ecosistemas."],
+            ["Universo", "Planetas, estrellas, espacio y grandes preguntas."]
+          ]
+        },
+        {
+          id: "business",
+          icon: "$",
+          color: "#2dd4bf",
+          title: { es: "Negocios y finanzas", en: "Business and finance" },
+          description: { es: "Dinero, mercados y proyectos sostenibles.", en: "Money, markets, and sustainable projects." },
+          modules: [
+            ["Finanzas personales", "Presupuesto, ahorro, deuda e interes compuesto."],
+            ["Como funciona un negocio", "Clientes, propuesta de valor, costos e ingresos."],
+            ["Mercados e inversion", "Riesgo, acciones, indices y analisis responsable."],
+            ["Lanza una idea", "Valida, organiza y presenta un proyecto real."]
+          ]
+        },
+        {
+          id: "history",
+          icon: "HIS",
+          color: "#fb7185",
+          title: { es: "Historia y sociedad", en: "History and society" },
+          description: { es: "Conecta hechos, causas y consecuencias.", en: "Connect events, causes, and consequences." },
+          modules: [
+            ["Pensar como historiador", "Fuentes, contexto, sesgos y evidencia."],
+            ["Civilizaciones", "Ideas y cambios que transformaron sociedades."],
+            ["Mundo moderno", "Revoluciones, industria, guerras y derechos."],
+            ["Debate historico", "Compara perspectivas y construye argumentos."]
+          ]
+        },
+        {
+          id: "writing",
+          icon: "ABC",
+          color: "#f472b6",
+          title: { es: "Escritura y comunicacion", en: "Writing and communication" },
+          description: { es: "Expresa ideas con claridad y personalidad.", en: "Express ideas clearly and with personality." },
+          modules: [
+            ["Ideas que se entienden", "Ordena lo que piensas antes de escribir."],
+            ["Escritura clara", "Frases fuertes, estructura y revision."],
+            ["Persuasion", "Argumentos, ejemplos y comunicacion convincente."],
+            ["Tu proyecto", "Crea un articulo, guion, historia o presentacion."]
+          ]
+        },
+        {
+          id: "ai",
+          icon: "AI",
+          color: "#60a5fa",
+          title: { es: "IA y tecnologia", en: "AI and technology" },
+          description: { es: "Usa la IA mejor y comprende sus limites.", en: "Use AI better and understand its limits." },
+          modules: [
+            ["Como aprende una IA", "Modelos, datos, tokens y probabilidades."],
+            ["Prompts efectivos", "Pide, evalua e itera para obtener mejores resultados."],
+            ["Automatizacion", "Combina herramientas para ahorrar tiempo."],
+            ["Proyecto con IA", "Disena una solucion util y responsable."]
+          ]
+        }
+      ];
+      const LEARNING_LANGUAGES = [
+        { id: "English", label: "English" },
+        { id: "Spanish", label: "Español" },
+        { id: "French", label: "Français" },
+        { id: "German", label: "Deutsch" },
+        { id: "Portuguese", label: "Português" },
+        { id: "Italian", label: "Italiano" },
+        { id: "Japanese", label: "日本語" },
+        { id: "Korean", label: "한국어" }
+      ];
+      const LANGUAGE_PROFILES = {
+        English: {
+          visual: { target: "Hello!", pronunciation: "heh-LOH", meaning: "A friendly greeting" },
+          quiz: [
+            ["Choose the greeting.", ["Hello", "Table", "Tomorrow", "Blue"], 0],
+            ["What does “Thank you” express?", ["A question", "Gratitude", "A warning", "A price"], 1],
+            ["Complete: “I ___ learning.”", ["am", "is", "be", "are"], 0],
+            ["Choose the natural question.", ["Where you live?", "Where do you live?", "You live where do?", "Do where live you?"], 1],
+            ["Choose the closest meaning of “although”.", ["because", "despite the fact that", "before", "therefore"], 1]
+          ]
+        },
+        Spanish: {
+          visual: { target: "¡Hola!", pronunciation: "OH-lah", meaning: "Un saludo amistoso" },
+          quiz: [
+            ["¿Cuál palabra es un saludo?", ["Hola", "Mesa", "Mañana", "Azul"], 0],
+            ["¿Qué significa “gracias”?", ["Goodbye", "Thank you", "Please", "Sorry"], 1],
+            ["Completa: “Yo ___ aprendiendo.”", ["estoy", "eres", "somos", "ser"], 0],
+            ["Elige la pregunta natural.", ["¿Dónde vives?", "¿Dónde tú vivir?", "¿Vives dónde haces?", "¿Dónde vivir tú es?"], 0],
+            ["¿Qué significa “sin embargo”?", ["however", "because", "always", "perhaps"], 0]
+          ]
+        },
+        French: {
+          visual: { target: "Bonjour !", pronunciation: "bohn-ZHOOR", meaning: "Hello / Good morning" },
+          quiz: [
+            ["Que signifie « Bonjour » ?", ["Hello", "Good night", "Please", "Food"], 0],
+            ["Que signifie « Merci » ?", ["Sorry", "Thank you", "Tomorrow", "Friend"], 1],
+            ["Complète : « Je ___ étudiant. »", ["suis", "es", "sommes", "être"], 0],
+            ["Choisis la question correcte.", ["Où habites-tu ?", "Où tu habiter ?", "Habites où tu est ?", "Tu où habite faire ?"], 0],
+            ["Que signifie « pourtant » ?", ["however", "never", "before", "perhaps"], 0]
+          ]
+        },
+        German: {
+          visual: { target: "Hallo!", pronunciation: "HAH-loh", meaning: "Hello" },
+          quiz: [
+            ["Was bedeutet „Hallo“?", ["Hello", "Goodbye", "Food", "Book"], 0],
+            ["Was bedeutet „Danke“?", ["Please", "Thank you", "Sorry", "Today"], 1],
+            ["Ergänze: „Ich ___ müde.“", ["bin", "bist", "sind", "sein"], 0],
+            ["Wähle die richtige Frage.", ["Wo wohnst du?", "Wo du wohnen?", "Wohnst wo du ist?", "Du wo wohnt?"], 0],
+            ["Was bedeutet „trotzdem“?", ["nevertheless", "because", "always", "early"], 0]
+          ]
+        },
+        Portuguese: {
+          visual: { target: "Olá!", pronunciation: "oh-LAH", meaning: "Hello" },
+          quiz: [
+            ["O que significa “Olá”?", ["Hello", "Goodbye", "House", "Night"], 0],
+            ["O que significa “Obrigado/a”?", ["Please", "Thank you", "Maybe", "Later"], 1],
+            ["Complete: “Eu ___ aprendendo.”", ["estou", "é", "somos", "ser"], 0],
+            ["Escolha a pergunta correta.", ["Onde você mora?", "Onde você morar?", "Mora onde você é?", "Você onde mora fazer?"], 0],
+            ["O que significa “porém”?", ["however", "never", "today", "inside"], 0]
+          ]
+        },
+        Italian: {
+          visual: { target: "Ciao!", pronunciation: "CHOW", meaning: "Hello / Bye" },
+          quiz: [
+            ["Che cosa significa “Ciao”?", ["Hello / Bye", "Thank you", "Tomorrow", "Food"], 0],
+            ["Che cosa significa “Grazie”?", ["Sorry", "Thank you", "Please", "Friend"], 1],
+            ["Completa: “Io ___ stanco.”", ["sono", "sei", "siamo", "essere"], 0],
+            ["Scegli la domanda corretta.", ["Dove abiti?", "Dove tu abitare?", "Abiti dove sei?", "Tu dove abita fare?"], 0],
+            ["Che cosa significa “tuttavia”?", ["however", "because", "always", "near"], 0]
+          ]
+        },
+        Japanese: {
+          visual: { target: "こんにちは", pronunciation: "konnichiwa", meaning: "Hello / Good afternoon" },
+          quiz: [
+            ["What does 「こんにちは」 mean?", ["Hello", "Thank you", "Goodbye", "Water"], 0],
+            ["What does 「ありがとう」 (arigatou) mean?", ["Sorry", "Thank you", "Please", "Tomorrow"], 1],
+            ["Choose “yes” in Japanese.", ["はい (hai)", "いいえ (iie)", "みず (mizu)", "ねこ (neko)"], 0],
+            ["What is 「ねこ」 (neko)?", ["Dog", "Cat", "Book", "House"], 1],
+            ["Which particle commonly marks the topic?", ["は (wa)", "を (o)", "で (de)", "へ (e)"], 0]
+          ]
+        },
+        Korean: {
+          visual: { target: "안녕하세요", pronunciation: "annyeonghaseyo", meaning: "Hello" },
+          quiz: [
+            ["What does 「안녕하세요」 mean?", ["Hello", "Thank you", "Goodbye", "Food"], 0],
+            ["What does 「감사합니다」 mean?", ["Sorry", "Thank you", "Please", "Tomorrow"], 1],
+            ["Choose “yes” in Korean.", ["네 (ne)", "아니요 (aniyo)", "물 (mul)", "책 (chaek)"], 0],
+            ["What is 「고양이」 (goyangi)?", ["Dog", "Cat", "Book", "House"], 1],
+            ["Which marker commonly marks the topic?", ["은/는", "을/를", "에서", "에게"], 0]
+          ]
+        }
+      };
+      const CRYPTO_ASSETS = [
+        { symbol: "BTC", id: "bitcoin", binance: "BTCUSDT", category: "Payments and stores of value" },
+        { symbol: "XRP", id: "ripple", binance: "XRPUSDT", category: "Payments and stores of value" },
+        { symbol: "LTC", id: "litecoin", binance: "LTCUSDT", category: "Payments and stores of value" },
+        { symbol: "BCH", id: "bitcoin-cash", binance: "BCHUSDT", category: "Payments and stores of value" },
+        { symbol: "XLM", id: "stellar", binance: "XLMUSDT", category: "Payments and stores of value" },
+        { symbol: "TRX", id: "tron", binance: "TRXUSDT", category: "Payments and stores of value" },
+        { symbol: "TON", id: "toncoin", binance: "TONUSDT", category: "Payments and stores of value" },
+        { symbol: "ETH", id: "ethereum", binance: "ETHUSDT", category: "Layer 1 networks" },
+        { symbol: "SOL", id: "solana", binance: "SOLUSDT", category: "Layer 1 networks" },
+        { symbol: "BNB", id: "binancecoin", binance: "BNBUSDT", category: "Layer 1 networks" },
+        { symbol: "ADA", id: "cardano", binance: "ADAUSDT", category: "Layer 1 networks" },
+        { symbol: "AVAX", id: "avalanche-2", binance: "AVAXUSDT", category: "Layer 1 networks" },
+        { symbol: "DOT", id: "polkadot", binance: "DOTUSDT", category: "Layer 1 networks" },
+        { symbol: "NEAR", id: "near", binance: "NEARUSDT", category: "Layer 1 networks" },
+        { symbol: "SUI", id: "sui", binance: "SUIUSDT", category: "Layer 1 networks" },
+        { symbol: "APT", id: "aptos", binance: "APTUSDT", category: "Layer 1 networks" },
+        { symbol: "ATOM", id: "cosmos", binance: "ATOMUSDT", category: "Layer 1 networks" },
+        { symbol: "HBAR", id: "hedera-hashgraph", binance: "HBARUSDT", category: "Layer 1 networks" },
+        { symbol: "POL", id: "polygon-ecosystem-token", binance: "POLUSDT", category: "Layer 2 scaling" },
+        { symbol: "ARB", id: "arbitrum", binance: "ARBUSDT", category: "Layer 2 scaling" },
+        { symbol: "OP", id: "optimism", binance: "OPUSDT", category: "Layer 2 scaling" },
+        { symbol: "IMX", id: "immutable-x", binance: "IMXUSDT", category: "Layer 2 scaling" },
+        { symbol: "MNT", id: "mantle", binance: "MNTUSDT", category: "Layer 2 scaling" },
+        { symbol: "STRK", id: "starknet", binance: "STRKUSDT", category: "Layer 2 scaling" },
+        { symbol: "OKB", id: "okb", binance: "OKBUSDT", category: "Exchange tokens" },
+        { symbol: "CRO", id: "crypto-com-chain", binance: "CROUSDT", category: "Exchange tokens" },
+        { symbol: "LEO", id: "leo-token", binance: "LEOUSDT", category: "Exchange tokens" },
+        { symbol: "KCS", id: "kucoin-shares", binance: "KCSUSDT", category: "Exchange tokens" },
+        { symbol: "GT", id: "gatechain-token", binance: "GTUSDT", category: "Exchange tokens" },
+        { symbol: "UNI", id: "uniswap", binance: "UNIUSDT", category: "DeFi and governance" },
+        { symbol: "AAVE", id: "aave", binance: "AAVEUSDT", category: "DeFi and governance" },
+        { symbol: "MKR", id: "maker", binance: "MKRUSDT", category: "DeFi and governance" },
+        { symbol: "CRV", id: "curve-dao-token", binance: "CRVUSDT", category: "DeFi and governance" },
+        { symbol: "LDO", id: "lido-dao", binance: "LDOUSDT", category: "DeFi and governance" },
+        { symbol: "COMP", id: "compound-governance-token", binance: "COMPUSDT", category: "DeFi and governance" },
+        { symbol: "CAKE", id: "pancakeswap-token", binance: "CAKEUSDT", category: "DeFi and governance" },
+        { symbol: "LINK", id: "chainlink", binance: "LINKUSDT", category: "AI, data and infrastructure" },
+        { symbol: "FET", id: "fetch-ai", binance: "FETUSDT", category: "AI, data and infrastructure" },
+        { symbol: "RENDER", id: "render-token", binance: "RENDERUSDT", category: "AI, data and infrastructure" },
+        { symbol: "TAO", id: "bittensor", binance: "TAOUSDT", category: "AI, data and infrastructure" },
+        { symbol: "GRT", id: "the-graph", binance: "GRTUSDT", category: "AI, data and infrastructure" },
+        { symbol: "FIL", id: "filecoin", binance: "FILUSDT", category: "AI, data and infrastructure" },
+        { symbol: "DOGE", id: "dogecoin", binance: "DOGEUSDT", category: "Community and meme coins" },
+        { symbol: "SHIB", id: "shiba-inu", binance: "SHIBUSDT", category: "Community and meme coins" },
+        { symbol: "PEPE", id: "pepe", binance: "PEPEUSDT", category: "Community and meme coins" },
+        { symbol: "BONK", id: "bonk", binance: "BONKUSDT", category: "Community and meme coins" },
+        { symbol: "WIF", id: "dogwifcoin", binance: "WIFUSDT", category: "Community and meme coins" },
+        { symbol: "FLOKI", id: "floki", binance: "FLOKIUSDT", category: "Community and meme coins" }
+      ];
+      const STORAGE = {
+        chats: "jamdV2Chats",
+        current: "jamdV2CurrentChat",
+        settings: "jamdV2Settings",
+        theme: "jamdV2Theme",
+        apiKey: "jamdV2ApiKey",
+        tutorial: "jamdV3TutorialSeen",
+        markets: "jamdV2MarketsOpen",
+        costProfile: "jamdV2CostProfile",
+        oauthVerifier: "jamdV2OauthVerifier",
+        projects: "jamdV2Projects",
+        settingsCoach: "jamdV2SettingsCoachSeen",
+        idleNudge: "jamdV2IdleNudgeDismissed",
+        learning: "jamdV2Learning",
+        deviceId: "jamdV2DeviceId"
+      };
+
+      const DEFAULT_SETTINGS = {
+        chatModel: "openrouter/free",
+        imageModel: "google/gemini-2.5-flash-image",
+        systemPrompt: "You are JamdDmaj AI, a clear, capable, and friendly assistant. Be accurate, concise, and say when you are uncertain.",
+        rememberKey: false,
+        autoSpeak: false,
+        liveWeb: false,
+        allowPaidImages: false,
+        language: "auto",
+        personality: "direct",
+        voiceName: "",
+        voiceStyle: "natural",
+        responseLength: "balanced",
+        creativity: "balanced",
+        accent: "#8b5cf6",
+        background: "glow",
+        compact: false,
+        font: "system",
+        fontSize: 15,
+        radius: 22,
+        messageWidth: 920,
+        userBubble: "#7c3aed",
+        assistantBubble: "#191d29",
+        themeMode: "system",
+        animations: true,
+        avatars: "show"
+      };
+
+      const UI_TEXT = {
+        en: { newChat: "New conversation", markets: "Markets", hideMarkets: "Hide markets", voiceOn: "Voice on", voiceOff: "Voice off", save: "Save", rename: "Rename", help: "Help", export: "Export", settings: "Settings", message: "Message JamdDmaj AI...", createImage: "Create an image", connect: "Connect with OpenRouter", connected: "AI service connected" },
+        es: { newChat: "Nueva conversación", markets: "Mercados", hideMarkets: "Ocultar mercados", voiceOn: "Voz activa", voiceOff: "Voz apagada", save: "Guardar", rename: "Renombrar", help: "Ayuda", export: "Exportar", settings: "Ajustes", message: "Escribe a JamdDmaj AI...", createImage: "Crear una imagen", connect: "Conectar con OpenRouter", connected: "Servicio de IA conectado" },
+        fr: { newChat: "Nouvelle conversation", markets: "Marchés", hideMarkets: "Masquer marchés", voiceOn: "Voix active", voiceOff: "Voix désactivée", save: "Enregistrer", rename: "Renommer", help: "Aide", export: "Exporter", settings: "Paramètres", message: "Écrire à JamdDmaj AI...", createImage: "Créer une image", connect: "Connecter OpenRouter", connected: "Service IA connecté" },
+        de: { newChat: "Neue Unterhaltung", markets: "Märkte", hideMarkets: "Märkte ausblenden", voiceOn: "Stimme an", voiceOff: "Stimme aus", save: "Speichern", rename: "Umbenennen", help: "Hilfe", export: "Exportieren", settings: "Einstellungen", message: "Nachricht an JamdDmaj AI...", createImage: "Bild erstellen", connect: "Mit OpenRouter verbinden", connected: "KI-Dienst verbunden" },
+        pt: { newChat: "Nova conversa", markets: "Mercados", hideMarkets: "Ocultar mercados", voiceOn: "Voz ativa", voiceOff: "Voz desligada", save: "Salvar", rename: "Renomear", help: "Ajuda", export: "Exportar", settings: "Configurações", message: "Mensagem para JamdDmaj AI...", createImage: "Criar imagem", connect: "Conectar ao OpenRouter", connected: "Serviço de IA conectado" },
+        it: { newChat: "Nuova conversazione", markets: "Mercati", hideMarkets: "Nascondi mercati", voiceOn: "Voce attiva", voiceOff: "Voce disattivata", save: "Salva", rename: "Rinomina", help: "Aiuto", export: "Esporta", settings: "Impostazioni", message: "Scrivi a JamdDmaj AI...", createImage: "Crea immagine", connect: "Connetti OpenRouter", connected: "Servizio AI connesso" },
+        ja: { newChat: "新しい会話", markets: "市場", hideMarkets: "市場を隠す", voiceOn: "音声オン", voiceOff: "音声オフ", save: "保存", rename: "名前変更", help: "ヘルプ", export: "書き出し", settings: "設定", message: "JamdDmaj AIにメッセージ...", createImage: "画像を作成", connect: "OpenRouterに接続", connected: "AIサービス接続済み" },
+        ko: { newChat: "새 대화", markets: "시장", hideMarkets: "시장 숨기기", voiceOn: "음성 켜짐", voiceOff: "음성 꺼짐", save: "저장", rename: "이름 변경", help: "도움말", export: "내보내기", settings: "설정", message: "JamdDmaj AI에게 메시지...", createImage: "이미지 만들기", connect: "OpenRouter 연결", connected: "AI 서비스 연결됨" },
+        zh: { newChat: "新对话", markets: "市场", hideMarkets: "隐藏市场", voiceOn: "语音开启", voiceOff: "语音关闭", save: "保存", rename: "重命名", help: "帮助", export: "导出", settings: "设置", message: "给 JamdDmaj AI 发消息...", createImage: "创建图片", connect: "连接 OpenRouter", connected: "AI 服务已连接" },
+        ar: { newChat: "محادثة جديدة", markets: "الأسواق", hideMarkets: "إخفاء الأسواق", voiceOn: "الصوت مفعل", voiceOff: "الصوت متوقف", save: "حفظ", rename: "إعادة تسمية", help: "مساعدة", export: "تصدير", settings: "الإعدادات", message: "اكتب إلى JamdDmaj AI...", createImage: "إنشاء صورة", connect: "الاتصال بـ OpenRouter", connected: "تم توصيل خدمة الذكاء الاصطناعي" }
+      };
+
+      const UI_EXTENDED = {
+        en: {
+          recentChats: "Recent chats", savedProjects: "Saved projects", noProjects: "No saved projects yet",
+          projectNamePrompt: "Project name:", newProject: "New project", projectSaved: "Project saved",
+          saveProject: "Save project",
+          renameProject: "Rename project", deleteProject: "Delete project", renameProjectPrompt: "Rename this project:",
+          deleteProjectConfirm: "Delete this saved project?", storageFull: "Storage is full",
+          attachImages: "Attach images", attachText: "Attach a text file", startVoice: "Start voice conversation",
+          openMarkets: "Open live markets", imageMode: "Image generation mode - uses paid image credits", exit: "Exit",
+          aiSettings: "AI settings", connectionHelp: "Free chat uses JamdDmaj automatic access. A personal OpenRouter connection is optional and is required only for personal usage limits or paid images.",
+          interfaceLanguage: "Interface language", personality: "AI personality", voice: "Voice", voiceStyle: "Voice style",
+          responseLength: "Response length", creativity: "Creativity",
+          accent: "Accent color", background: "Background", font: "Interface font", textSize: "Text size",
+          radius: "Corner roundness", messageWidth: "Message width", userColor: "Your message color",
+          aiColor: "AI message color", themeMode: "Theme", avatars: "Message avatars", animations: "Interface animations",
+          compact: "Compact chat layout", paidImages: "Allow paid image generation",
+          instructions: "Assistant instructions", voiceModeHelp: "Voice mode: enable dictation and read AI responses aloud",
+          webSearch: "Use paid live web search when current information may be needed",
+          advanced: "Advanced connection and models", cancel: "Cancel", saveSettings: "Save settings",
+          changeTheme: "Change theme", quickTutorial: "Quick tutorial", exportConversation: "Export conversation",
+          saveConversation: "Save conversation", renameConversation: "Rename conversation",
+          copyContent: "Copy content", copyHelp: "The browser blocked automatic copying. The content below is selected and ready to copy.",
+          selectAll: "Select all", done: "Done", skip: "Skip", next: "Next", finish: "Finish",
+          idleTitle: "Need a hand?", idleText: "Ask JamdDmaj AI to explain something, review a file, or help you start a project.",
+          idleStart: "Give me an idea", notNow: "Not now", didYouKnow: "Did you know?",
+          projectDialogHelp: "This creates a saved copy that remains separate from recent chat history."
+        },
+        es: {
+          recentChats: "Chats recientes", savedProjects: "Proyectos guardados", noProjects: "Todavía no hay proyectos guardados",
+          projectNamePrompt: "Nombre del proyecto:", newProject: "Nuevo proyecto", projectSaved: "Proyecto guardado",
+          saveProject: "Guardar proyecto",
+          renameProject: "Renombrar proyecto", deleteProject: "Borrar proyecto", renameProjectPrompt: "Renombra este proyecto:",
+          deleteProjectConfirm: "¿Borrar este proyecto guardado?", storageFull: "El almacenamiento está lleno",
+          attachImages: "Adjuntar imágenes", attachText: "Adjuntar archivo de texto", startVoice: "Iniciar conversación por voz",
+          openMarkets: "Abrir mercados en vivo", imageMode: "Modo de generación de imágenes - usa créditos de pago", exit: "Salir",
+          aiSettings: "Ajustes de la IA", connectionHelp: "El chat gratuito usa el acceso automático de JamdDmaj. La conexión personal con OpenRouter es opcional y solo se necesita para límites propios o imágenes de pago.",
+          interfaceLanguage: "Idioma de la interfaz", personality: "Personalidad de la IA", voice: "Voz", voiceStyle: "Estilo de voz",
+          responseLength: "Longitud de respuesta", creativity: "Creatividad",
+          accent: "Color principal", background: "Fondo", font: "Fuente de la interfaz", textSize: "Tamaño del texto",
+          radius: "Redondez de las esquinas", messageWidth: "Ancho de los mensajes", userColor: "Color de tus mensajes",
+          aiColor: "Color de mensajes de la IA", themeMode: "Tema", avatars: "Avatares de mensajes", animations: "Animaciones de la interfaz",
+          compact: "Diseño compacto del chat", paidImages: "Permitir generación de imágenes de pago",
+          instructions: "Instrucciones del asistente", voiceModeHelp: "Modo de voz: activa dictado y lectura de respuestas",
+          webSearch: "Usar búsqueda web de pago cuando se necesite información actual",
+          advanced: "Conexión y modelos avanzados", cancel: "Cancelar", saveSettings: "Guardar ajustes",
+          changeTheme: "Cambiar tema", quickTutorial: "Tutorial rápido", exportConversation: "Exportar conversación",
+          saveConversation: "Guardar conversación", renameConversation: "Renombrar conversación",
+          copyContent: "Copiar contenido", copyHelp: "El navegador bloqueó la copia automática. El contenido está seleccionado y listo para copiar.",
+          selectAll: "Seleccionar todo", done: "Listo", skip: "Omitir", next: "Siguiente", finish: "Finalizar",
+          idleTitle: "¿Te ayudo con algo?", idleText: "Pídele a JamdDmaj AI que explique algo, revise un archivo o te ayude a comenzar un proyecto.",
+          idleStart: "Dame una idea", notNow: "Ahora no", didYouKnow: "¿Sabías que?",
+          projectDialogHelp: "Esto crea una copia guardada independiente del historial de chats recientes."
+        },
+        fr: {
+          recentChats: "Conversations récentes", savedProjects: "Projets enregistrés", noProjects: "Aucun projet enregistré",
+          saveProject: "Enregistrer le projet", attachImages: "Joindre des images", attachText: "Joindre un fichier texte",
+          startVoice: "Démarrer une conversation vocale", openMarkets: "Ouvrir les marchés en direct",
+          imageMode: "Mode de création d'images - utilise des crédits payants", exit: "Quitter",
+          aiSettings: "Paramètres de l'IA", connectionHelp: "Le chat gratuit utilise l'accès automatique JamdDmaj. Un compte OpenRouter personnel est facultatif.",
+          interfaceLanguage: "Langue de l'interface", personality: "Personnalité de l'IA", voice: "Voix", voiceStyle: "Style de voix",
+          responseLength: "Longueur des réponses", creativity: "Créativité", accent: "Couleur principale", background: "Arrière-plan",
+          font: "Police de l'interface", textSize: "Taille du texte", radius: "Arrondi des angles", messageWidth: "Largeur des messages",
+          userColor: "Couleur de vos messages", aiColor: "Couleur des messages IA", themeMode: "Thème", avatars: "Avatars",
+          animations: "Animations", compact: "Disposition compacte", paidImages: "Autoriser les images payantes",
+          instructions: "Instructions de l'assistant", voiceModeHelp: "Mode vocal : dicter et écouter les réponses",
+          advanced: "Connexion et modèles avancés", cancel: "Annuler", saveSettings: "Enregistrer",
+          changeTheme: "Changer de thème", quickTutorial: "Tutoriel rapide", exportConversation: "Exporter la conversation",
+          renameConversation: "Renommer la conversation", skip: "Passer", next: "Suivant", finish: "Terminer"
+        },
+        de: {
+          recentChats: "Letzte Chats", savedProjects: "Gespeicherte Projekte", noProjects: "Noch keine Projekte gespeichert",
+          saveProject: "Projekt speichern", attachImages: "Bilder anhängen", attachText: "Textdatei anhängen",
+          startVoice: "Sprachgespräch starten", openMarkets: "Live-Märkte öffnen",
+          imageMode: "Bilderstellungsmodus - verwendet kostenpflichtige Guthaben", exit: "Beenden",
+          aiSettings: "KI-Einstellungen", connectionHelp: "Der kostenlose Chat nutzt den automatischen JamdDmaj-Zugang. Ein persönliches OpenRouter-Konto ist optional.",
+          interfaceLanguage: "Oberflächensprache", personality: "KI-Persönlichkeit", voice: "Stimme", voiceStyle: "Stimmstil",
+          responseLength: "Antwortlänge", creativity: "Kreativität", accent: "Akzentfarbe", background: "Hintergrund",
+          font: "Schriftart", textSize: "Textgröße", radius: "Eckenrundung", messageWidth: "Nachrichtenbreite",
+          userColor: "Farbe deiner Nachrichten", aiColor: "Farbe der KI-Nachrichten", themeMode: "Design", avatars: "Avatare",
+          animations: "Animationen", compact: "Kompaktes Chat-Layout", paidImages: "Kostenpflichtige Bilder erlauben",
+          instructions: "Assistentenanweisungen", voiceModeHelp: "Sprachmodus: diktieren und Antworten anhören",
+          advanced: "Erweiterte Verbindung und Modelle", cancel: "Abbrechen", saveSettings: "Einstellungen speichern",
+          changeTheme: "Design ändern", quickTutorial: "Kurzanleitung", exportConversation: "Chat exportieren",
+          renameConversation: "Chat umbenennen", skip: "Überspringen", next: "Weiter", finish: "Fertig"
+        },
+        pt: {
+          recentChats: "Conversas recentes", savedProjects: "Projetos salvos", noProjects: "Nenhum projeto salvo",
+          saveProject: "Salvar projeto", attachImages: "Anexar imagens", attachText: "Anexar arquivo de texto",
+          startVoice: "Iniciar conversa por voz", openMarkets: "Abrir mercados ao vivo",
+          imageMode: "Modo de criação de imagens - usa créditos pagos", exit: "Sair",
+          aiSettings: "Configurações da IA", connectionHelp: "O chat gratuito usa o acesso automático do JamdDmaj. Uma conta pessoal OpenRouter é opcional.",
+          interfaceLanguage: "Idioma da interface", personality: "Personalidade da IA", voice: "Voz", voiceStyle: "Estilo de voz",
+          responseLength: "Tamanho da resposta", creativity: "Criatividade", accent: "Cor principal", background: "Fundo",
+          font: "Fonte da interface", textSize: "Tamanho do texto", radius: "Arredondamento", messageWidth: "Largura das mensagens",
+          userColor: "Cor das suas mensagens", aiColor: "Cor das mensagens da IA", themeMode: "Tema", avatars: "Avatares",
+          animations: "Animações", compact: "Layout compacto", paidImages: "Permitir imagens pagas",
+          instructions: "Instruções da assistente", voiceModeHelp: "Modo de voz: ditar e ouvir respostas",
+          advanced: "Conexão e modelos avançados", cancel: "Cancelar", saveSettings: "Salvar configurações",
+          changeTheme: "Mudar tema", quickTutorial: "Tutorial rápido", exportConversation: "Exportar conversa",
+          renameConversation: "Renomear conversa", skip: "Pular", next: "Próximo", finish: "Concluir"
+        },
+        it: {
+          recentChats: "Chat recenti", savedProjects: "Progetti salvati", noProjects: "Nessun progetto salvato",
+          saveProject: "Salva progetto", attachImages: "Allega immagini", attachText: "Allega file di testo",
+          startVoice: "Avvia conversazione vocale", openMarkets: "Apri mercati in tempo reale",
+          imageMode: "Modalità creazione immagini - usa crediti a pagamento", exit: "Esci",
+          aiSettings: "Impostazioni IA", connectionHelp: "La chat gratuita usa l'accesso automatico JamdDmaj. Un account OpenRouter personale è facoltativo.",
+          interfaceLanguage: "Lingua dell'interfaccia", personality: "Personalità IA", voice: "Voce", voiceStyle: "Stile della voce",
+          responseLength: "Lunghezza risposta", creativity: "Creatività", accent: "Colore principale", background: "Sfondo",
+          font: "Carattere interfaccia", textSize: "Dimensione testo", radius: "Arrotondamento", messageWidth: "Larghezza messaggi",
+          userColor: "Colore dei tuoi messaggi", aiColor: "Colore messaggi IA", themeMode: "Tema", avatars: "Avatar",
+          animations: "Animazioni", compact: "Layout compatto", paidImages: "Consenti immagini a pagamento",
+          instructions: "Istruzioni assistente", voiceModeHelp: "Modalità voce: detta e ascolta le risposte",
+          advanced: "Connessione e modelli avanzati", cancel: "Annulla", saveSettings: "Salva impostazioni",
+          changeTheme: "Cambia tema", quickTutorial: "Tutorial rapido", exportConversation: "Esporta conversazione",
+          renameConversation: "Rinomina conversazione", skip: "Salta", next: "Avanti", finish: "Fine"
+        },
+        ja: {
+          recentChats: "最近のチャット", savedProjects: "保存済みプロジェクト", noProjects: "保存済みプロジェクトはありません",
+          saveProject: "プロジェクトを保存", attachImages: "画像を添付", attachText: "テキストファイルを添付",
+          startVoice: "音声会話を開始", openMarkets: "ライブ市場を開く", imageMode: "画像作成モード - 有料クレジットを使用", exit: "終了",
+          aiSettings: "AI設定", connectionHelp: "無料チャットはJamdDmajの自動アクセスを使用します。個人のOpenRouter接続は任意です。",
+          interfaceLanguage: "表示言語", personality: "AIの性格", voice: "音声", voiceStyle: "音声スタイル",
+          responseLength: "回答の長さ", creativity: "創造性", accent: "メインカラー", background: "背景",
+          font: "表示フォント", textSize: "文字サイズ", radius: "角の丸み", messageWidth: "メッセージ幅",
+          userColor: "自分のメッセージ色", aiColor: "AIメッセージ色", themeMode: "テーマ", avatars: "アバター",
+          animations: "アニメーション", compact: "コンパクト表示", paidImages: "有料画像生成を許可",
+          instructions: "アシスタントへの指示", voiceModeHelp: "音声モード：音声入力と回答の読み上げ",
+          advanced: "高度な接続とモデル", cancel: "キャンセル", saveSettings: "設定を保存",
+          changeTheme: "テーマを変更", quickTutorial: "クイックガイド", exportConversation: "会話を書き出す",
+          renameConversation: "会話名を変更", skip: "スキップ", next: "次へ", finish: "完了"
+        },
+        ko: {
+          recentChats: "최근 채팅", savedProjects: "저장된 프로젝트", noProjects: "저장된 프로젝트가 없습니다",
+          saveProject: "프로젝트 저장", attachImages: "이미지 첨부", attachText: "텍스트 파일 첨부",
+          startVoice: "음성 대화 시작", openMarkets: "실시간 시장 열기", imageMode: "이미지 생성 모드 - 유료 크레딧 사용", exit: "종료",
+          aiSettings: "AI 설정", connectionHelp: "무료 채팅은 JamdDmaj 자동 액세스를 사용합니다. 개인 OpenRouter 연결은 선택 사항입니다.",
+          interfaceLanguage: "인터페이스 언어", personality: "AI 성격", voice: "음성", voiceStyle: "음성 스타일",
+          responseLength: "답변 길이", creativity: "창의성", accent: "강조 색상", background: "배경",
+          font: "인터페이스 글꼴", textSize: "글자 크기", radius: "모서리 둥글기", messageWidth: "메시지 너비",
+          userColor: "내 메시지 색상", aiColor: "AI 메시지 색상", themeMode: "테마", avatars: "아바타",
+          animations: "애니메이션", compact: "간단한 채팅 배치", paidImages: "유료 이미지 생성 허용",
+          instructions: "도우미 지침", voiceModeHelp: "음성 모드: 말하고 답변 듣기",
+          advanced: "고급 연결 및 모델", cancel: "취소", saveSettings: "설정 저장",
+          changeTheme: "테마 변경", quickTutorial: "빠른 안내", exportConversation: "대화 내보내기",
+          renameConversation: "대화 이름 변경", skip: "건너뛰기", next: "다음", finish: "완료"
+        },
+        zh: {
+          recentChats: "最近聊天", savedProjects: "已保存项目", noProjects: "还没有保存的项目",
+          saveProject: "保存项目", attachImages: "添加图片", attachText: "添加文本文件",
+          startVoice: "开始语音对话", openMarkets: "打开实时市场", imageMode: "图片生成模式 - 使用付费额度", exit: "退出",
+          aiSettings: "AI设置", connectionHelp: "免费聊天使用JamdDmaj自动访问。个人OpenRouter连接为可选项。",
+          interfaceLanguage: "界面语言", personality: "AI个性", voice: "语音", voiceStyle: "语音风格",
+          responseLength: "回答长度", creativity: "创造力", accent: "主题颜色", background: "背景",
+          font: "界面字体", textSize: "文字大小", radius: "圆角", messageWidth: "消息宽度",
+          userColor: "你的消息颜色", aiColor: "AI消息颜色", themeMode: "主题", avatars: "头像",
+          animations: "界面动画", compact: "紧凑聊天布局", paidImages: "允许付费图片生成",
+          instructions: "助手指令", voiceModeHelp: "语音模式：语音输入并朗读回答",
+          advanced: "高级连接和模型", cancel: "取消", saveSettings: "保存设置",
+          changeTheme: "更改主题", quickTutorial: "快速教程", exportConversation: "导出对话",
+          renameConversation: "重命名对话", skip: "跳过", next: "下一步", finish: "完成"
+        },
+        ar: {
+          recentChats: "المحادثات الأخيرة", savedProjects: "المشاريع المحفوظة", noProjects: "لا توجد مشاريع محفوظة",
+          saveProject: "حفظ المشروع", attachImages: "إرفاق صور", attachText: "إرفاق ملف نصي",
+          startVoice: "بدء محادثة صوتية", openMarkets: "فتح الأسواق المباشرة", imageMode: "وضع إنشاء الصور - يستخدم رصيدًا مدفوعًا", exit: "خروج",
+          aiSettings: "إعدادات الذكاء الاصطناعي", connectionHelp: "تستخدم الدردشة المجانية وصول JamdDmaj التلقائي. اتصال OpenRouter الشخصي اختياري.",
+          interfaceLanguage: "لغة الواجهة", personality: "شخصية الذكاء الاصطناعي", voice: "الصوت", voiceStyle: "نمط الصوت",
+          responseLength: "طول الإجابة", creativity: "الإبداع", accent: "اللون الرئيسي", background: "الخلفية",
+          font: "خط الواجهة", textSize: "حجم النص", radius: "استدارة الزوايا", messageWidth: "عرض الرسائل",
+          userColor: "لون رسائلك", aiColor: "لون رسائل الذكاء الاصطناعي", themeMode: "السمة", avatars: "الصور الرمزية",
+          animations: "الحركات", compact: "تخطيط دردشة مضغوط", paidImages: "السماح بإنشاء صور مدفوعة",
+          instructions: "تعليمات المساعد", voiceModeHelp: "الوضع الصوتي: الإملاء والاستماع إلى الإجابات",
+          advanced: "الاتصال والنماذج المتقدمة", cancel: "إلغاء", saveSettings: "حفظ الإعدادات",
+          changeTheme: "تغيير السمة", quickTutorial: "دليل سريع", exportConversation: "تصدير المحادثة",
+          renameConversation: "إعادة تسمية المحادثة", skip: "تخطي", next: "التالي", finish: "إنهاء"
+        }
+      };
+
+      const els = {
+        sidebar: document.getElementById("sidebar"),
+        mobileOverlay: document.getElementById("mobileOverlay"),
+        historyList: document.getElementById("historyList"),
+        projectsList: document.getElementById("projectsList"),
+        messages: document.getElementById("messages"),
+        prompt: document.getElementById("promptInput"),
+        send: document.getElementById("sendBtn"),
+        attach: document.getElementById("attachBtn"),
+        file: document.getElementById("fileInput"),
+        tray: document.getElementById("attachmentTray"),
+        modeBanner: document.getElementById("modeBanner"),
+        imageMode: document.getElementById("imageModeBtn"),
+        settings: document.getElementById("settingsDialog"),
+        settingsForm: document.getElementById("settingsForm"),
+        apiKey: document.getElementById("apiKeyInput"),
+        rememberKey: document.getElementById("rememberKeyInput"),
+        chatModel: document.getElementById("chatModelInput"),
+        imageModel: document.getElementById("imageModelInput"),
+        systemPrompt: document.getElementById("systemPromptInput"),
+        autoSpeak: document.getElementById("autoSpeakInput"),
+        liveWeb: document.getElementById("liveWebInput"),
+        allowPaidImages: document.getElementById("allowImagesInput"),
+        language: document.getElementById("languageInput"),
+        personality: document.getElementById("personalityInput"),
+        voice: document.getElementById("voiceInput"),
+        voiceStyle: document.getElementById("voiceStyleInput"),
+        responseLength: document.getElementById("responseLengthInput"),
+        creativity: document.getElementById("creativityInput"),
+        accent: document.getElementById("accentInput"),
+        background: document.getElementById("backgroundInput"),
+        themeMode: document.getElementById("themeModeInput"),
+        compact: document.getElementById("compactInput"),
+        animations: document.getElementById("animationsInput"),
+        font: document.getElementById("fontInput"),
+        fontSize: document.getElementById("fontSizeInput"),
+        radius: document.getElementById("radiusInput"),
+        messageWidth: document.getElementById("messageWidthInput"),
+        userBubble: document.getElementById("userBubbleInput"),
+        assistantBubble: document.getElementById("assistantBubbleInput"),
+        avatars: document.getElementById("avatarInput"),
+        connectionStatus: document.getElementById("connectionStatus"),
+        plusMenu: document.getElementById("plusMenu"),
+        ticker: document.getElementById("ticker"),
+        marketsButton: document.getElementById("marketsBtn"),
+        voiceModeButton: document.getElementById("voiceModeBtn"),
+        voiceStatus: document.getElementById("voiceStatus"),
+        voiceStatusText: document.getElementById("voiceStatusText"),
+        endVoiceButton: document.getElementById("endVoiceBtn"),
+        tutorial: document.getElementById("tutorialDialog"),
+        marketGroups: document.getElementById("marketGroups"),
+        learnView: document.getElementById("learnView"),
+        learnTracks: document.getElementById("learnTracks"),
+        learnPath: document.getElementById("learnPath"),
+        learnLevel: document.getElementById("learnLevel"),
+        learnButton: document.getElementById("learnBtn"),
+        learningSessionBar: document.getElementById("learningSessionBar"),
+        placementDialog: document.getElementById("placementDialog"),
+        quizContent: document.getElementById("quizContent"),
+        toast: document.getElementById("toast"),
+        title: document.getElementById("chatTitle"),
+        modelLabel: document.getElementById("modelLabel")
+      };
+
+      let toastTimer = null;
+      let settings = loadJson(STORAGE.settings, DEFAULT_SETTINGS);
+      if (localStorage.getItem(STORAGE.costProfile) !== "3") {
+        settings.chatModel = DEFAULT_SETTINGS.chatModel;
+        settings.liveWeb = false;
+        if (!settings.personality || settings.personality === "balanced") settings.personality = "direct";
+        localStorage.setItem(STORAGE.settings, JSON.stringify(settings));
+        localStorage.setItem(STORAGE.costProfile, "3");
+      } // End the one-time settings migration.
+      let chats = loadChats();
+      let projects = loadProjects();
+      let learning = loadJson(STORAGE.learning, {
+        selectedTrack: "languages",
+        level: "beginner",
+        completed: [],
+        streak: 1,
+        lastStudyDate: "",
+        mode: "chat",
+        activeLesson: null,
+        sourceLanguage: "English",
+        targetLanguage: "Japanese",
+        placementScores: {}
+      });
+      let currentChatId = localStorage.getItem(STORAGE.current) || "";
+      let pendingImages = [];
+      let pendingTextFiles = [];
+      let imageGenerationMode = false;
+      let activeController = null;
+      let voiceInputButton = null;
+      let priceFetchInProgress = false;
+      let voiceRecognition = null;
+      let speechSessionId = 0;
+      let voiceConversationActive = Boolean(settings.autoSpeak);
+      let shouldRestartVoice = voiceConversationActive;
+      let voiceRecognitionRunning = false;
+      let voiceRecognitionStarting = false;
+      let voiceRestartTimer = null;
+      let voiceNoSpeechCount = 0;
+      let voiceSubmitting = false;
+      let voiceState = voiceConversationActive ? "ready" : "off";
+      let autoFollowStream = true;
+      let settingsCoachIndex = 0;
+      let idleTimer = null;
+      let idleAutoHideTimer = null;
+      let idlePhase = "prompt";
+      let currentIdleFact = "";
+      let mainCoachIndex = 0;
+      let pendingProjectChatId = null;
+      let placementQuiz = null;
+      let managedAccessReady = null;
+      const SETTINGS_COACH_STEPS = [
+        { selector: ".connection-card", title: "Acceso automático", text: "El chat gratuito funciona con JamdDmaj sin crear una cuenta. Conecta OpenRouter solo si quieres límites personales o generar imágenes de pago." },
+        { selector: "#languageInput", title: "Idioma automático", text: "Cambia la interfaz. El chat además detecta por separado el idioma de cada mensaje." },
+        { selector: "#personalityInput", title: "Elige cómo responde", text: "Puedes hacerla más directa, didáctica, técnica, creativa o motivadora." },
+        { selector: "#accentInput", title: "Hazla tuya", text: "Personaliza colores, fuente, tamaño, esquinas, ancho y fondos. Los cambios se guardan en este dispositivo." },
+        { selector: "#allowImagesInput", title: "Controla el gasto", text: "La generación de imágenes usa créditos. Déjala apagada para evitar cargos accidentales." },
+        { selector: ".advanced-settings", title: "Opciones avanzadas", text: "Aquí quedan los modelos y la clave manual. La mayoría de usuarios no necesita tocar esta sección." },
+        { selector: "#dataSection", title: "Protege tus datos", text: "Exporta un respaldo completo antes de cambiar de teléfono o si Android exige desinstalar una versión antigua." },
+        { selector: "#socialSection", title: "Sigue a JamdDmaj", text: "Aquí encontrarás las redes oficiales, tutoriales y anuncios de nuevas versiones." }
+      ];
+      const SETTINGS_COACH_STEPS_EN = [
+        { selector: ".connection-card", title: "Automatic access", text: "Free chat works through JamdDmaj without creating an account. Connect OpenRouter only for personal limits or paid images." },
+        { selector: "#languageInput", title: "Interface language", text: "Change the interface language. Chat separately detects the language of each message." },
+        { selector: "#personalityInput", title: "Choose how it responds", text: "Make JamdDmaj direct, patient, technical, creative, or motivating." },
+        { selector: "#accentInput", title: "Make it yours", text: "Customize colors, font, size, corners, width, and backgrounds. Changes stay on this device." },
+        { selector: "#allowImagesInput", title: "Control spending", text: "Image generation uses credits. Leave it off to prevent accidental charges." },
+        { selector: ".advanced-settings", title: "Advanced options", text: "Personal models and keys live here. Most people do not need to change this section." },
+        { selector: "#dataSection", title: "Protect your data", text: "Export a full backup before changing phones or if Android requires removing an older build." },
+        { selector: "#socialSection", title: "Follow JamdDmaj", text: "Find official social networks, tutorials, and new release announcements here." }
+      ];
+
+      const MAIN_COACH_STEPS = [
+        { selector: "#menuBtn", title: "Tu espacio de trabajo", text: "Abre el menú para ver el historial, tus proyectos guardados, el tema y los ajustes." },
+        { selector: "#learnBtn", title: "JamdDmaj Learn", text: "Elige una materia, configura desde qué idioma aprender, realiza una prueba de nivel y guarda tu progreso." },
+        { selector: "#marketsBtn", title: "Mercados en vivo", text: "Consulta criptomonedas organizadas por función y usa un precio como contexto para preguntar." },
+        { selector: "#saveChatBtn", title: "Guarda proyectos", text: "Convierte una conversación en proyecto para conservarla, renombrarla o volver a abrirla después." },
+        { selector: "#topThemeBtn", title: "Modo claro u oscuro", text: "Cambia rápidamente la apariencia. En Ajustes encontrarás muchas más opciones visuales." },
+        { selector: "#attachBtn", title: "Herramientas rápidas", text: "Adjunta imágenes o archivos, inicia voz, crea una imagen o abre una conversación nueva." },
+        { selector: "#imageModeBtn", title: "Generación visual", text: "Activa el modo de imágenes. La app te avisará antes si esta función de pago está desactivada." },
+        { selector: ".voice-conversation-btn", title: "Habla como en una llamada", text: "Este micrófono inicia una conversación continua: escuchas, respondes y la IA vuelve a escucharte." },
+        { selector: "#topSettingsBtn", title: "Personaliza todo", text: "Configura idioma, personalidad, voces, colores, tamaños, modelos y control de gastos." }
+      ];
+      const MAIN_COACH_STEPS_EN = [
+        { selector: "#menuBtn", title: "Your workspace", text: "Open the menu for chat history, saved projects, backups, social links, theme, and settings." },
+        { selector: "#learnBtn", title: "JamdDmaj Learn", text: "Choose a subject, set your learning languages, take a placement test, hear pronunciation, and save progress." },
+        { selector: "#marketsBtn", title: "Live markets", text: "View cryptocurrencies grouped by purpose and use a displayed price as context for a question." },
+        { selector: "#saveChatBtn", title: "Save projects", text: "Turn a conversation into a saved project that you can rename and reopen later." },
+        { selector: "#topThemeBtn", title: "Light or dark mode", text: "Quickly change the appearance. Settings contains many more visual options." },
+        { selector: "#attachBtn", title: "Quick tools", text: "Attach images or files, start voice mode, create an image, or open a new conversation." },
+        { selector: "#imageModeBtn", title: "Image generation", text: "Enable image mode. JamdDmaj warns you when paid image generation is disabled." },
+        { selector: ".voice-conversation-btn", title: "Talk naturally", text: "Start a continuous voice conversation where JamdDmaj listens, responds, and listens again." },
+        { selector: "#topSettingsBtn", title: "Customize everything", text: "Configure language, personality, voices, appearance, backups, models, and spending controls." }
+      ];
+
+      const RANDOM_FACTS = {
+        es: [
+          "Los pulpos tienen tres corazones y su sangre es azul por una proteína llamada hemocianina.",
+          "Un día en Venus dura más que un año venusiano.",
+          "Las abejas pueden comunicar la dirección de una fuente de alimento mediante una danza.",
+          "La primera página web sigue disponible y fue publicada en 1991.",
+          "Los árboles pueden intercambiar nutrientes y señales mediante redes de hongos subterráneos.",
+          "Bitcoin limita matemáticamente su suministro máximo a 21 millones de monedas.",
+          "El sonido viaja aproximadamente cuatro veces más rápido en el agua que en el aire.",
+          "El cerebro humano consume cerca del 20% de la energía del cuerpo aunque representa una pequeña parte de su peso.",
+          "Los códigos QR fueron creados originalmente para seguir piezas en fábricas de automóviles.",
+          "La Antártida es técnicamente el desierto más grande del planeta."
+        ],
+        en: [
+          "Octopuses have three hearts, and their blood is blue because it uses hemocyanin.",
+          "A day on Venus lasts longer than a Venusian year.",
+          "Honeybees communicate food direction through a movement called the waggle dance.",
+          "The first website, published in 1991, is still online.",
+          "Trees can exchange nutrients and signals through underground fungal networks.",
+          "Bitcoin mathematically limits its maximum supply to 21 million coins.",
+          "Sound travels about four times faster through water than through air.",
+          "The human brain uses roughly 20% of the body's energy.",
+          "QR codes were originally invented to track automotive parts.",
+          "Antarctica is technically the largest desert on Earth."
+        ]
+      };
+
+      function loadJson(key, fallback) {
+        try {
+          const value = JSON.parse(localStorage.getItem(key));
+          return value && typeof value === "object" ? { ...fallback, ...value } : { ...fallback };
+        } catch {
+          return { ...fallback };
+        }
+      }
+
+      function loadChats() {
+        try {
+          const current = JSON.parse(localStorage.getItem(STORAGE.chats));
+          if (Array.isArray(current)) {
+            return current.map((chat) => ({
+              ...chat,
+              messages: Array.isArray(chat.messages)
+                ? chat.messages.filter((message) => !message.streaming)
+                : []
+            }));
+          }
+
+          const legacy = JSON.parse(localStorage.getItem("jamdMemoryChats") || "null");
+          if (legacy && typeof legacy === "object") {
+            const migrated = Object.values(legacy).map((chat) => ({
+              id: String(chat.id || Date.now() + Math.random()),
+              title: chat.title || "Imported conversation",
+              createdAt: chat.createdAt || new Date().toISOString(),
+              updatedAt: chat.updatedAt || chat.createdAt || new Date().toISOString(),
+              messages: Array.isArray(chat.messages) ? chat.messages.map((message) => ({
+                role: message.role === "assistant" ? "assistant" : "user",
+                content: String(message.content || ""),
+                time: message.time || new Date().toISOString(),
+                images: []
+              })) : []
+            }));
+            localStorage.setItem(STORAGE.chats, JSON.stringify(migrated));
+            return migrated;
+          }
+        } catch {
+          showToast("Older chat history could not be imported.");
+        }
+        return [];
+      }
+
+      function loadProjects() {
+        try {
+          const value = JSON.parse(localStorage.getItem(STORAGE.projects));
+          return Array.isArray(value) ? value : [];
+        } catch {
+          return [];
+        }
+      }
+
+      function persistProjects() {
+        try {
+          localStorage.setItem(STORAGE.projects, JSON.stringify(projects.slice(0, 30)));
+        } catch {
+          showToast(translate("storageFull"));
+        }
+      }
+
+      function persistChats() {
+        const trimmed = chats
+          .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+          .slice(0, 30)
+          .map((chat) => ({ ...chat, messages: chat.messages.slice(-80) }));
+
+        try {
+          localStorage.setItem(STORAGE.chats, JSON.stringify(trimmed));
+          chats = trimmed;
+        } catch {
+          const lightweight = trimmed.map((chat) => ({
+            ...chat,
+            messages: chat.messages.map((message) => ({
+              ...message,
+              images: [],
+              generatedImages: []
+            }))
+          }));
+          try {
+            localStorage.setItem(STORAGE.chats, JSON.stringify(lightweight));
+            chats = lightweight;
+            showToast("Images were omitted from saved history to conserve storage.");
+          } catch {
+            showToast("Chat history is full. Export or delete older chats.");
+          }
+        }
+      }
+
+      function checkpointChats() {
+        try {
+          localStorage.setItem(STORAGE.chats, JSON.stringify(chats));
+        } catch {
+          // The final save path will retry without large image data if needed.
+        }
+      }
+
+      function getCurrentChat() {
+        return chats.find((chat) => chat.id === currentChatId) || null;
+      }
+
+      function ensureCurrentChat() {
+        let chat = getCurrentChat();
+        if (!chat) {
+          chat = {
+            id: globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : String(Date.now()),
+            title: "New conversation",
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            messages: []
+          };
+          chats.unshift(chat);
+          currentChatId = chat.id;
+          localStorage.setItem(STORAGE.current, currentChatId);
+          persistChats();
+        }
+        return chat;
+      }
+
+      function newChat() {
+        if (activeController) activeController.abort();
+        learning.mode = "chat";
+        learning.activeLesson = null;
+        persistLearning();
+        currentChatId = "";
+        pendingImages = [];
+        imageGenerationMode = false;
+        autoFollowStream = true;
+        ensureCurrentChat();
+        renderAll();
+        closeSidebar();
+        els.prompt.focus();
+      }
+
+      function selectChat(id) {
+        if (activeController) activeController.abort();
+        currentChatId = id;
+        localStorage.setItem(STORAGE.current, id);
+        const selectedChat = chats.find((chat) => chat.id === id);
+        if (selectedChat?.learningSession) {
+          learning.mode = "session";
+          learning.activeLesson = {
+            trackId: selectedChat.learningSession.trackId,
+            moduleIndex: selectedChat.learningSession.moduleIndex
+          };
+        } else {
+          learning.mode = "chat";
+          learning.activeLesson = null;
+        }
+        persistLearning();
+        pendingImages = [];
+        imageGenerationMode = false;
+        autoFollowStream = true;
+        renderAll();
+        closeSidebar();
+      }
+
+      function deleteChat(id) {
+        chats = chats.filter((chat) => chat.id !== id);
+        if (currentChatId === id) currentChatId = chats[0]?.id || "";
+        if (!currentChatId) ensureCurrentChat();
+        localStorage.setItem(STORAGE.current, currentChatId);
+        persistChats();
+        renderAll();
+      }
+
+      function renderAll() {
+        renderHistory();
+        renderProjects();
+        renderMessages();
+        renderAttachments();
+        renderMode();
+        renderLearningMode();
+        updateHeader();
+      }
+
+      function persistLearning() {
+        localStorage.setItem(STORAGE.learning, JSON.stringify(learning));
+      }
+
+      function getLearningTrack(id = learning.selectedTrack) {
+        return LEARNING_TRACKS.find((track) => track.id === id) || LEARNING_TRACKS[0];
+      }
+
+      function learnText(key) {
+        const language = resolvedLanguage();
+        return LEARN_TEXT[language]?.[key] || LEARN_TEXT.en[key] || key;
+      }
+
+      function getLocalizedModule(track, moduleIndex) {
+        if (resolvedLanguage() === "es") return track.modules[moduleIndex];
+        return LEARNING_MODULES_EN[track.id]?.[moduleIndex] || track.modules[moduleIndex];
+      }
+
+      function getLocalizedTrackTitle(track) {
+        const language = resolvedLanguage();
+        return LEARNING_TRACK_TITLES[language]?.[track.id] || track.title[language] || track.title.en;
+      }
+
+      function applyLearnLanguage() {
+        const mappings = {
+          learnHeroTitle: "heroTitle", learnHeroText: "heroText", learnStreakLabel: "streak",
+          learnCompletedLabel: "completed", learnProgressTitle: "progress", learnChooseTitle: "chooseTitle",
+          learnChooseText: "chooseText", exitLearnBtn: "back", learnGuideTitle1: "guide1Title",
+          learnGuideText1: "guide1Text", learnGuideTitle2: "guide2Title", learnGuideText2: "guide2Text",
+          learnGuideTitle3: "guide3Title", learnGuideText3: "guide3Text", learnHomeBtn: "path",
+          completeLessonBtn: "complete", dataSectionTitle: "dataTitle", dataSectionText: "dataText",
+          exportBackupBtn: "exportBackup", importBackupBtn: "importBackup", backupNoteTitle: "updates",
+          backupNoteText: "updateText", socialSectionTitle: "socialTitle", socialSectionText: "socialText"
+        };
+        Object.entries(mappings).forEach(([id, key]) => {
+          const element = document.getElementById(id);
+          if (element) element.textContent = learnText(key);
+        });
+        const levelLabels = { beginner: "beginner", intermediate: "intermediate", advanced: "advanced" };
+        Object.entries(levelLabels).forEach(([value, key]) => {
+          const option = [...els.learnLevel.options].find((entry) => entry.value === value);
+          if (option) option.textContent = learnText(key);
+        });
+        const sideBackup = document.querySelector("#sideBackupBtn span:last-child");
+        const sideSocial = document.querySelector("#sideSocialBtn span:last-child");
+        if (sideBackup) sideBackup.textContent = learnText("sideBackup");
+        if (sideSocial) sideSocial.textContent = learnText("sideSocial");
+      }
+
+      function enterLearnDashboard() {
+        if (activeController) activeController.abort();
+        learning.mode = "dashboard";
+        persistLearning();
+        closeSidebar();
+        renderAll();
+      }
+
+      function exitLearnMode() {
+        learning.mode = "chat";
+        learning.activeLesson = null;
+        persistLearning();
+        renderAll();
+        els.prompt.focus();
+      }
+
+      function renderLearningMode() {
+        const dashboardOpen = learning.mode === "dashboard";
+        const sessionOpen = learning.mode === "session" && Boolean(learning.activeLesson);
+        document.body.classList.toggle("learn-mode", dashboardOpen || sessionOpen);
+        els.learnView.classList.toggle("is-hidden", !dashboardOpen);
+        els.messages.hidden = dashboardOpen;
+        document.querySelector(".composer-wrap").hidden = dashboardOpen;
+        els.learningSessionBar.classList.toggle("is-hidden", !sessionOpen);
+        els.learnButton.classList.toggle("active", dashboardOpen || sessionOpen);
+
+        if (dashboardOpen || sessionOpen) {
+          els.ticker.classList.add("is-hidden");
+        }
+        if (dashboardOpen) renderLearnDashboard();
+        if (sessionOpen) {
+          const track = getLearningTrack(learning.activeLesson.trackId);
+          const module = getLocalizedModule(track, learning.activeLesson.moduleIndex);
+          const session = getCurrentChat()?.learningSession || {};
+          const levelText = learnText(learning.level || "beginner");
+          document.getElementById("learningSessionTitle").textContent =
+            `${getLocalizedTrackTitle(track)} · ${module[0]}`;
+          document.getElementById("learningSessionSubtitle").textContent =
+            track.id === "languages"
+              ? `${session.sourceLanguage || learning.sourceLanguage} → ${session.targetLanguage || learning.targetLanguage} · ${levelText}`
+              : levelText;
+        }
+      }
+
+      function renderLearnDashboard() {
+        const language = resolvedLanguage();
+        const selected = getLearningTrack();
+        const completed = Array.isArray(learning.completed) ? learning.completed : [];
+        const totalModules = LEARNING_TRACKS.reduce((sum, track) => sum + track.modules.length, 0);
+        const progress = Math.round((completed.length / totalModules) * 100);
+
+        applyLearnLanguage();
+        els.learnLevel.value = learning.level || "beginner";
+        document.getElementById("learnCompletedCount").textContent = String(completed.length);
+        document.getElementById("learnProgressLabel").textContent = `${progress}%`;
+        document.getElementById("learnProgressBar").style.width = `${progress}%`;
+        const streak = Math.max(1, Number(learning.streak) || 1);
+        document.getElementById("learnStreak").textContent =
+          `${streak} ${learnText(streak === 1 ? "day" : "days")}`;
+
+        els.learnTracks.replaceChildren();
+        LEARNING_TRACKS.forEach((track) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = `learn-track${track.id === selected.id ? " active" : ""}`;
+          button.style.setProperty("--track-color", track.color);
+          const icon = document.createElement("span");
+          icon.className = "learn-track-icon";
+          icon.textContent = track.icon;
+          const title = document.createElement("strong");
+          title.textContent = getLocalizedTrackTitle(track);
+          const description = document.createElement("small");
+          description.textContent = track.description[language] || track.description.en;
+          button.append(icon, title, description);
+          button.addEventListener("click", () => {
+            learning.selectedTrack = track.id;
+            persistLearning();
+            renderLearnDashboard();
+          });
+          els.learnTracks.append(button);
+        });
+
+        els.learnPath.replaceChildren();
+        const top = document.createElement("div");
+        top.className = "learn-path-top";
+        const heading = document.createElement("div");
+        const title = document.createElement("h2");
+        title.textContent = getLocalizedTrackTitle(selected);
+        const description = document.createElement("p");
+        description.textContent = selected.description[language] || selected.description.en;
+        heading.append(title, description);
+        top.append(heading);
+
+        let languageVisual = null;
+        if (selected.id === "languages") {
+          if (!LANGUAGE_PROFILES[learning.targetLanguage]) learning.targetLanguage = "Japanese";
+          if (!LANGUAGE_PROFILES[learning.sourceLanguage]) learning.sourceLanguage = "English";
+          if (learning.sourceLanguage === learning.targetLanguage) {
+            learning.sourceLanguage = learning.targetLanguage === "English" ? "Spanish" : "English";
+          }
+
+          const setup = document.createElement("div");
+          setup.className = "language-setup";
+          const sourceField = createLanguageField(
+            learnText("source"),
+            learning.sourceLanguage,
+            (value) => {
+              learning.sourceLanguage = value;
+              if (learning.sourceLanguage === learning.targetLanguage) {
+                learning.targetLanguage = value === "English" ? "Japanese" : "English";
+              }
+              persistLearning();
+              renderLearnDashboard();
+            }
+          );
+          const targetField = createLanguageField(
+            learnText("target"),
+            learning.targetLanguage,
+            (value) => {
+              learning.targetLanguage = value;
+              if (learning.sourceLanguage === learning.targetLanguage) {
+                learning.sourceLanguage = value === "English" ? "Spanish" : "English";
+              }
+              persistLearning();
+              renderLearnDashboard();
+            }
+          );
+          const placementButton = document.createElement("button");
+          placementButton.type = "button";
+          placementButton.className = "pill-btn";
+          placementButton.textContent = learnText("test");
+          placementButton.addEventListener("click", openPlacementTest);
+          setup.append(sourceField, targetField, placementButton);
+          top.append(setup);
+          languageVisual = createLanguageVisual();
+        }
+
+        const modules = document.createElement("div");
+        modules.className = "learn-modules";
+        selected.modules.forEach((unusedModule, index) => {
+          const module = getLocalizedModule(selected, index);
+          const key = `${selected.id}:${index}`;
+          const row = document.createElement("article");
+          row.className = `learn-module${completed.includes(key) ? " complete" : ""}`;
+          const number = document.createElement("span");
+          number.className = "learn-module-number";
+          number.textContent = completed.includes(key) ? "OK" : String(index + 1);
+          const copy = document.createElement("div");
+          copy.className = "learn-module-copy";
+          const moduleTitle = document.createElement("strong");
+          moduleTitle.textContent = module[0];
+          const moduleDescription = document.createElement("span");
+          moduleDescription.textContent = module[1];
+          copy.append(moduleTitle, moduleDescription);
+          const start = document.createElement("button");
+          start.type = "button";
+          start.className = "pill-btn";
+          start.textContent = completed.includes(key) ? learnText("review") : learnText("start");
+          start.addEventListener("click", () => startLearningLesson(selected.id, index));
+          row.append(number, copy, start);
+          modules.append(row);
+        });
+        els.learnPath.append(top);
+        if (languageVisual) els.learnPath.append(languageVisual);
+        els.learnPath.append(modules);
+      }
+
+      function createLanguageField(labelText, selectedValue, onChange) {
+        const field = document.createElement("div");
+        field.className = "language-field";
+        const label = document.createElement("label");
+        label.textContent = labelText;
+        const select = document.createElement("select");
+        LEARNING_LANGUAGES.forEach((language) => {
+          const option = document.createElement("option");
+          option.value = language.id;
+          option.textContent = language.label;
+          select.append(option);
+        });
+        select.value = selectedValue;
+        select.addEventListener("change", () => onChange(select.value));
+        field.append(label, select);
+        return field;
+      }
+
+      function createLanguageVisual() {
+        const profile = LANGUAGE_PROFILES[learning.targetLanguage] || LANGUAGE_PROFILES.Japanese;
+        const translatedMeaning = getGreetingMeaning(learning.sourceLanguage);
+        const visual = document.createElement("article");
+        visual.className = "language-visual";
+        const art = document.createElement("div");
+        art.className = "language-visual-art";
+        art.innerHTML = `
+          <svg viewBox="0 0 360 220" role="img" aria-label="Visual greeting card">
+            <defs>
+              <linearGradient id="learnSky" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#bae6fd"/>
+                <stop offset="1" stop-color="#ddd6fe"/>
+              </linearGradient>
+            </defs>
+            <rect width="360" height="220" fill="url(#learnSky)"/>
+            <circle cx="286" cy="50" r="28" fill="#fde68a"/>
+            <path d="M0 164 Q76 118 145 158 T360 145 V220 H0Z" fill="#93c5fd"/>
+            <path d="M0 184 Q90 145 180 181 T360 168 V220 H0Z" fill="#5eead4"/>
+            <circle cx="122" cy="91" r="29" fill="#f8fafc"/>
+            <path d="M78 170 Q85 112 122 112 Q159 112 167 170Z" fill="#2563eb"/>
+            <path d="M151 90 Q213 54 268 91" fill="none" stroke="#0f172a" stroke-width="4" stroke-linecap="round"/>
+            <path d="M255 78 L271 91 L252 101" fill="none" stroke="#0f172a" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>`;
+        const copy = document.createElement("div");
+        copy.className = "language-visual-copy";
+        const eyebrow = document.createElement("small");
+        eyebrow.textContent = learnText("visual");
+        const target = document.createElement("strong");
+        target.textContent = profile.visual.target;
+        const pronunciation = document.createElement("span");
+        pronunciation.textContent = `${learnText("pronunciation")}: ${profile.visual.pronunciation}`;
+        const meaning = document.createElement("span");
+        meaning.textContent = `${learning.sourceLanguage}: ${translatedMeaning}`;
+        const listen = document.createElement("button");
+        listen.type = "button";
+        listen.className = "language-audio-btn";
+        listen.textContent = `▶ ${learnText("listen")}`;
+        listen.addEventListener("click", () => speakLearningPhrase(profile.visual.target, learning.targetLanguage));
+        const help = document.createElement("p");
+        help.textContent = learning.targetLanguage === "Japanese" || learning.targetLanguage === "Korean"
+          ? (resolvedLanguage() === "es"
+              ? "Las lecciones siempre mostrarán escritura original, pronunciación con letras latinas y significado."
+              : "Lessons always show original script, Latin-letter pronunciation, and meaning.")
+          : (resolvedLanguage() === "es"
+              ? "Las imágenes y ejemplos conectan palabras con situaciones fáciles de recordar."
+              : "Images and examples connect words with memorable situations.");
+        copy.append(eyebrow, target, pronunciation, meaning, listen, help);
+        visual.append(art, copy);
+        return visual;
+      }
+
+      function openPlacementTest() {
+        const profile = LANGUAGE_PROFILES[learning.targetLanguage] || LANGUAGE_PROFILES.Japanese;
+        placementQuiz = {
+          questions: profile.quiz,
+          index: 0,
+          score: 0
+        };
+        document.getElementById("quizLanguagePair").textContent =
+          `${learning.sourceLanguage} → ${learning.targetLanguage}`;
+        renderPlacementQuestion();
+        els.placementDialog.showModal();
+      }
+
+      function renderPlacementQuestion() {
+        if (!placementQuiz) return;
+        const { questions, index } = placementQuiz;
+        if (index >= questions.length) {
+          finishPlacementTest();
+          return;
+        }
+        const [prompt, options] = questions[index];
+        document.getElementById("quizProgressText").textContent =
+          `${learnText("question")} ${index + 1} ${learnText("of")} ${questions.length}`;
+        els.quizContent.replaceChildren();
+        const question = document.createElement("h3");
+        question.className = "quiz-question";
+        question.textContent = prompt;
+        const optionList = document.createElement("div");
+        optionList.className = "quiz-options";
+        options.forEach((option, optionIndex) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "quiz-option";
+          button.textContent = option;
+          button.addEventListener("click", () => answerPlacementQuestion(optionIndex));
+          optionList.append(button);
+        });
+        els.quizContent.append(question, optionList);
+      }
+
+      function answerPlacementQuestion(optionIndex) {
+        if (!placementQuiz) return;
+        const correct = placementQuiz.questions[placementQuiz.index][2];
+        if (optionIndex === correct) placementQuiz.score += 1;
+        placementQuiz.index += 1;
+        renderPlacementQuestion();
+      }
+
+      function finishPlacementTest() {
+        const score = placementQuiz?.score || 0;
+        const level = score >= 4 ? "advanced" : score >= 2 ? "intermediate" : "beginner";
+        learning.level = level;
+        learning.placementScores = {
+          ...(learning.placementScores || {}),
+          [learning.targetLanguage]: {
+            score,
+            total: placementQuiz?.questions.length || 5,
+            level,
+            date: new Date().toISOString()
+          }
+        };
+        persistLearning();
+        els.learnLevel.value = level;
+        els.quizContent.replaceChildren();
+        const result = document.createElement("div");
+        result.className = "quiz-result";
+        const title = document.createElement("h3");
+        title.textContent = learnText("recommended");
+        const levelLabel = learnText(level);
+        const summary = document.createElement("p");
+        summary.textContent = `${levelLabel} · ${score}/${placementQuiz?.questions.length || 5}`;
+        const explanation = document.createElement("p");
+        explanation.textContent = resolvedLanguage() === "es"
+          ? "JamdDmaj ajustará explicaciones, vocabulario y ejercicios a este resultado. Puedes cambiar el nivel manualmente cuando quieras."
+          : "JamdDmaj will adjust explanations, vocabulary, and exercises to this result. You can change the level manually at any time.";
+        const close = document.createElement("button");
+        close.type = "button";
+        close.className = "pill-btn";
+        close.textContent = learnText("useLevel");
+        close.addEventListener("click", () => {
+          els.placementDialog.close();
+          placementQuiz = null;
+          renderLearnDashboard();
+        });
+        result.append(title, summary, explanation, close);
+        els.quizContent.append(result);
+        document.getElementById("quizProgressText").textContent = learnText("testComplete");
+      }
+
+      async function startLearningLesson(trackId, moduleIndex) {
+        const track = getLearningTrack(trackId);
+        const module = getLocalizedModule(track, moduleIndex);
+        learning.mode = "session";
+        learning.selectedTrack = trackId;
+        learning.activeLesson = { trackId, moduleIndex };
+        updateLearningStreak();
+
+        const chat = {
+          id: globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : String(Date.now()),
+          title: `JamdDmaj Learn: ${module[0]}`,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          learningSession: {
+            trackId,
+            moduleIndex,
+            level: learning.level,
+            sourceLanguage: learning.sourceLanguage,
+            targetLanguage: learning.targetLanguage
+          },
+          messages: trackId === "languages" ? [{
+            role: "assistant",
+            content: resolvedLanguage() === "es"
+              ? "Calentamiento visual: observa la escena, lee la expresión y compárala con la pronunciación y el significado."
+              : "Visual warm-up: observe the scene, read the expression, and compare it with the pronunciation and meaning.",
+            images: [createLessonVisualDataUrl()],
+            time: new Date().toISOString()
+          }] : []
+        };
+        chats.unshift(chat);
+        currentChatId = chat.id;
+        localStorage.setItem(STORAGE.current, currentChatId);
+        persistChats();
+        persistLearning();
+        renderAll();
+
+        const targetLanguage = trackId === "languages"
+          ? ` Explain in ${learning.sourceLanguage || "English"}. Target language: ${learning.targetLanguage || "Japanese"}. For every new expression, show original writing, Latin-letter pronunciation or romanization, and its meaning in ${learning.sourceLanguage || "English"}. Never respond only in an unfamiliar script.`
+          : "";
+        els.prompt.value = resolvedLanguage() === "es"
+          ? `Inicia mi leccion interactiva: "${module[0]}". Tema: ${module[1]}.${targetLanguage} Mi nivel es ${learning.level}. Ensena un concepto pequeno a la vez y luego pideme responder o hacer un ejercicio corto. Usa ${learning.sourceLanguage || "English"} como idioma principal de explicacion.`
+          : `Start my interactive lesson: "${module[0]}". Topic: ${module[1]}.${targetLanguage} My level is ${learning.level}. Teach one small concept at a time, then ask me to answer or try a short exercise.`;
+        autoSizePrompt();
+        await sendMessage();
+      }
+
+      function createLessonVisualDataUrl() {
+        const profile = LANGUAGE_PROFILES[learning.targetLanguage] || LANGUAGE_PROFILES.Japanese;
+        const target = escapeXml(profile.visual.target);
+        const pronunciation = escapeXml(profile.visual.pronunciation);
+        const meaning = escapeXml(getGreetingMeaning(learning.sourceLanguage));
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="900" height="540" viewBox="0 0 900 540">
+          <defs>
+            <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+              <stop stop-color="#bae6fd"/>
+              <stop offset="1" stop-color="#ddd6fe"/>
+            </linearGradient>
+          </defs>
+          <rect width="900" height="540" rx="36" fill="url(#bg)"/>
+          <circle cx="735" cy="112" r="64" fill="#fde68a"/>
+          <path d="M0 390 Q190 250 365 380 T900 330 V540 H0Z" fill="#93c5fd"/>
+          <path d="M0 442 Q250 315 455 430 T900 385 V540 H0Z" fill="#5eead4"/>
+          <circle cx="245" cy="205" r="72" fill="#fff"/>
+          <path d="M135 410 Q155 275 245 275 Q335 275 355 410Z" fill="#2563eb"/>
+          <path d="M326 196 Q470 90 618 202" fill="none" stroke="#0f172a" stroke-width="12" stroke-linecap="round"/>
+          <path d="M585 169 L628 205 L580 231" fill="none" stroke="#0f172a" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+          <rect x="390" y="250" width="440" height="185" rx="28" fill="rgba(255,255,255,.88)"/>
+          <text x="430" y="318" font-family="Arial, sans-serif" font-size="48" font-weight="700" fill="#0f172a">${target}</text>
+          <text x="430" y="365" font-family="Arial, sans-serif" font-size="26" fill="#2563eb">${pronunciation}</text>
+          <text x="430" y="405" font-family="Arial, sans-serif" font-size="24" fill="#475569">${meaning}</text>
+        </svg>`;
+        return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+      }
+
+      function getGreetingMeaning(language) {
+        return {
+          English: "Hello / a friendly greeting",
+          Spanish: "Hola / un saludo amistoso",
+          French: "Bonjour / une salutation amicale",
+          German: "Hallo / eine freundliche Begrüßung",
+          Portuguese: "Olá / uma saudação amigável",
+          Italian: "Ciao / un saluto amichevole",
+          Japanese: "こんにちは / 親しみのある挨拶",
+          Korean: "안녕하세요 / 친근한 인사"
+        }[language] || "Hello / a friendly greeting";
+      }
+
+      function escapeXml(value) {
+        return String(value).replace(/[&<>"']/g, (character) => ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          "\"": "&quot;",
+          "'": "&apos;"
+        })[character]);
+      }
+
+      function updateLearningStreak() {
+        const today = new Date().toISOString().slice(0, 10);
+        if (learning.lastStudyDate === today) return;
+        const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+        learning.streak = learning.lastStudyDate === yesterday ? (Number(learning.streak) || 0) + 1 : 1;
+        learning.lastStudyDate = today;
+      }
+
+      function completeLearningLesson() {
+        if (!learning.activeLesson) return;
+        const key = `${learning.activeLesson.trackId}:${learning.activeLesson.moduleIndex}`;
+        const completed = new Set(Array.isArray(learning.completed) ? learning.completed : []);
+        completed.add(key);
+        learning.completed = [...completed];
+        learning.mode = "dashboard";
+        learning.activeLesson = null;
+        persistLearning();
+        showToast(learnText("lessonDone"));
+        renderAll();
+      }
+
+      function renderHistory() {
+        els.historyList.replaceChildren();
+        if (!chats.length) {
+          const empty = document.createElement("div");
+          empty.className = "empty-history";
+          empty.textContent = "Your conversations will appear here.";
+          els.historyList.append(empty);
+          return;
+        }
+
+        [...chats]
+          .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+          .forEach((chat) => {
+            const item = document.createElement("div");
+            item.className = `history-item${chat.id === currentChatId ? " active" : ""}`;
+            item.tabIndex = 0;
+            item.setAttribute("role", "button");
+            item.addEventListener("click", () => selectChat(chat.id));
+            item.addEventListener("keydown", (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                selectChat(chat.id);
+              }
+            });
+
+            const copy = document.createElement("span");
+            const title = document.createElement("span");
+            title.className = "history-title";
+            title.textContent = chat.title || "New conversation";
+            const date = document.createElement("span");
+            date.className = "history-date";
+            date.textContent = relativeDate(chat.updatedAt);
+            copy.append(title, date);
+
+            const remove = document.createElement("button");
+            remove.type = "button";
+            remove.className = "delete-chat";
+            remove.setAttribute("aria-label", `Delete ${chat.title}`);
+            remove.textContent = "×";
+            remove.addEventListener("click", (event) => {
+              event.stopPropagation();
+              deleteChat(chat.id);
+            });
+
+            item.append(copy, remove);
+            els.historyList.append(item);
+          });
+      }
+
+      function renderProjects() {
+        els.projectsList.replaceChildren();
+        if (!projects.length) {
+          const empty = document.createElement("div");
+          empty.className = "empty-history";
+          empty.textContent = translate("noProjects");
+          els.projectsList.append(empty);
+          return;
+        }
+
+        [...projects]
+          .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+          .forEach((project) => {
+            const item = document.createElement("div");
+            item.className = "history-item";
+            item.tabIndex = 0;
+            item.setAttribute("role", "button");
+            item.addEventListener("click", () => openProject(project.id));
+            item.addEventListener("keydown", (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                openProject(project.id);
+              }
+            });
+
+            const copy = document.createElement("span");
+            const title = document.createElement("span");
+            title.className = "history-title";
+            title.textContent = project.title;
+            const date = document.createElement("span");
+            date.className = "history-date";
+            date.textContent = relativeDate(project.updatedAt);
+            copy.append(title, date);
+
+            const actions = document.createElement("span");
+            actions.className = "project-actions";
+            const rename = document.createElement("button");
+            rename.type = "button";
+            rename.className = "delete-chat";
+            rename.textContent = "A";
+            rename.title = translate("renameProject");
+            rename.addEventListener("click", (event) => {
+              event.stopPropagation();
+              renameProject(project.id);
+            });
+            const remove = document.createElement("button");
+            remove.type = "button";
+            remove.className = "delete-chat";
+            remove.textContent = "×";
+            remove.title = translate("deleteProject");
+            remove.addEventListener("click", (event) => {
+              event.stopPropagation();
+              deleteProject(project.id);
+            });
+            actions.append(rename, remove);
+            item.append(copy, actions);
+            els.projectsList.append(item);
+          });
+      }
+
+      function openProject(id) {
+        const project = projects.find((entry) => entry.id === id);
+        if (!project) return;
+        const chat = {
+          id: globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : String(Date.now()),
+          title: project.title,
+          projectId: project.id,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          messages: structuredCloneSafe(project.messages)
+        };
+        chats.unshift(chat);
+        currentChatId = chat.id;
+        localStorage.setItem(STORAGE.current, currentChatId);
+        persistChats();
+        renderAll();
+        closeSidebar();
+      }
+
+      function renameProject(id) {
+        const project = projects.find((entry) => entry.id === id);
+        if (!project) return;
+        const name = window.prompt(translate("renameProjectPrompt"), project.title);
+        if (name === null) return;
+        const clean = name.replace(/\s+/g, " ").trim().slice(0, 80);
+        if (!clean) return;
+        project.title = clean;
+        project.updatedAt = new Date().toISOString();
+        persistProjects();
+        renderProjects();
+      }
+
+      function deleteProject(id) {
+        if (!window.confirm(translate("deleteProjectConfirm"))) return;
+        projects = projects.filter((entry) => entry.id !== id);
+        persistProjects();
+        renderProjects();
+      }
+
+      function structuredCloneSafe(value) {
+        if (globalThis.structuredClone) return structuredClone(value);
+        return JSON.parse(JSON.stringify(value));
+      }
+
+      function relativeDate(dateValue) {
+        const elapsed = Date.now() - new Date(dateValue).getTime();
+        const minutes = Math.max(0, Math.floor(elapsed / 60000));
+        if (minutes < 1) return "Just now";
+        if (minutes < 60) return `${minutes}m ago`;
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return `${hours}h ago`;
+        return new Date(dateValue).toLocaleDateString([], { month: "short", day: "numeric" });
+      }
+
+      function renderMessages() {
+        const chat = ensureCurrentChat();
+        els.messages.replaceChildren();
+
+        if (!chat.messages.length) {
+          const welcome = document.createElement("div");
+          welcome.className = "welcome";
+          welcome.innerHTML = `
+            <div class="welcome-orb">JD</div>
+            <h1>What are we building?</h1>
+            <p>Chat, inspect an image, brainstorm an idea, or switch on image mode to create something new.</p>
+            <div class="suggestions">
+              <button class="suggestion" data-text="Explain a complex topic in a simple way.">Explain something clearly</button>
+              <button class="suggestion" data-text="Tell me about JamdDmaj AI and how its systems work together.">JamdDmaj AI – One group. Every system.</button>
+              <button class="suggestion" data-text="Give me a practical plan for a new project idea.">Plan a project</button>
+              <button class="suggestion" data-text="Analyze the image I attach and describe the important details.">Analyze an image</button>
+            </div>`;
+          welcome.querySelectorAll("[data-text]").forEach((button) => {
+            button.addEventListener("click", () => {
+              els.prompt.value = button.dataset.text;
+              autoSizePrompt();
+              els.prompt.focus();
+            });
+          });
+          els.messages.append(welcome);
+          return;
+        }
+
+        chat.messages.forEach((message) => els.messages.append(createMessageElement(message)));
+        requestAnimationFrame(() => scrollToBottom(false));
+      }
+
+      function createMessageElement(message) {
+        const article = document.createElement("article");
+        article.className = `message ${message.role}`;
+
+        const avatar = document.createElement("div");
+        avatar.className = "avatar";
+        avatar.textContent = message.role === "assistant" ? "AI" : "YOU";
+
+        const body = document.createElement("div");
+        body.className = "message-body";
+
+        const meta = document.createElement("div");
+        meta.className = "message-meta";
+        meta.textContent = `${message.role === "assistant" ? "JamdDmaj AI" : "You"} · ${formatTime(message.time)}`;
+
+        const card = document.createElement("div");
+        card.className = "message-card";
+
+        const images = [...(message.images || []), ...(message.generatedImages || [])];
+        if (images.length) {
+          const gallery = document.createElement("div");
+          gallery.className = "message-images";
+          images.forEach((source) => {
+            const image = document.createElement("img");
+            image.src = source;
+            image.alt = message.generatedImages?.includes(source) ? "AI generated image" : "Attached image";
+            if (message.generatedImages?.includes(source)) image.classList.add("generated-image");
+            image.addEventListener("click", () => window.open(source, "_blank", "noopener"));
+            gallery.append(image);
+          });
+          card.append(gallery);
+        }
+
+        const text = document.createElement("div");
+        text.className = `message-text${message.streaming ? " typing" : ""}`;
+        renderSafeText(text, message.content || (message.streaming ? "Thinking" : ""));
+        card.append(text);
+
+        if (!message.streaming && message.content) {
+          const actions = document.createElement("div");
+          actions.className = "message-actions";
+          actions.append(makeMiniButton("Copy", () => copyText(message.content)));
+          if (message.role === "assistant" && ("speechSynthesis" in window || getNativePlugin("TextToSpeech"))) {
+            actions.append(makeMiniButton("Listen", () => speak(message.content)));
+          }
+          if (message.generatedImages?.length) {
+            actions.append(makeMiniButton("Download", () => downloadImage(message.generatedImages[0])));
+          }
+          card.append(actions);
+        }
+
+        body.append(meta, card);
+        article.append(avatar, body);
+        return article;
+      }
+
+      function makeMiniButton(label, action) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "mini-action";
+        button.textContent = label;
+        button.addEventListener("click", action);
+        return button;
+      }
+
+      function renderSafeText(target, value) {
+        target.replaceChildren();
+        const parts = String(value).split(/```/);
+        parts.forEach((part, index) => {
+          if (index % 2 === 0) {
+            if (part) appendRichText(target, part);
+            return;
+          }
+
+          const lines = part.replace(/^\n/, "").split("\n");
+          const knownLanguage = /^[a-z0-9+#.-]{1,20}$/i.test(lines[0] || "");
+          const codeValue = knownLanguage ? lines.slice(1).join("\n") : lines.join("\n");
+          const pre = document.createElement("pre");
+          const code = document.createElement("code");
+          code.textContent = codeValue;
+          const copy = document.createElement("button");
+          copy.type = "button";
+          copy.className = "copy-code";
+          copy.textContent = knownLanguage ? `Copy ${lines[0]}` : "Copy code";
+          copy.addEventListener("click", () => copyText(codeValue));
+          pre.append(copy, code);
+          target.append(pre);
+        });
+      }
+
+      function appendRichText(target, text) {
+        const pattern = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<]+)|\*\*([^*\n]+)\*\*/gi;
+        let cursor = 0;
+        let match;
+        while ((match = pattern.exec(text))) {
+          if (match.index > cursor) target.append(document.createTextNode(text.slice(cursor, match.index)));
+          if (match[4]) {
+            const strong = document.createElement("strong");
+            strong.textContent = match[4];
+            target.append(strong);
+            cursor = match.index + match[0].length;
+            continue;
+          }
+          const rawUrl = match[2] || match[3];
+          const url = match[2] ? rawUrl : rawUrl.replace(/[.,;!?]+$/, "");
+          const link = document.createElement("a");
+          link.href = url;
+          link.textContent = match[1] || url;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.title = `Open ${link.textContent}`;
+          target.append(link);
+          appendYouTubePlayer(target, url);
+          cursor = match.index + match[0].length;
+        }
+        if (cursor < text.length) target.append(document.createTextNode(text.slice(cursor)));
+      }
+
+      function appendYouTubePlayer(target, value) {
+        const videoId = getYouTubeVideoId(value);
+        if (!videoId) return;
+        const player = document.createElement("div");
+        player.className = "youtube-player";
+        const frame = document.createElement("iframe");
+        frame.src = `https://www.youtube-nocookie.com/embed/${videoId}?playsinline=1&rel=0&origin=${encodeURIComponent(location.origin)}`;
+        frame.title = "YouTube video player";
+        frame.loading = "lazy";
+        frame.referrerPolicy = "strict-origin-when-cross-origin";
+        frame.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
+        frame.allowFullscreen = true;
+        player.append(frame);
+        target.append(player);
+      }
+
+      function getYouTubeVideoId(value) {
+        try {
+          const url = new URL(value);
+          const host = url.hostname.replace(/^www\./, "").toLowerCase();
+          let videoId = "";
+          if (host === "youtu.be") {
+            videoId = url.pathname.split("/").filter(Boolean)[0] || "";
+          } else if (host === "youtube.com" || host === "m.youtube.com" || host === "music.youtube.com") {
+            if (url.pathname === "/watch") videoId = url.searchParams.get("v") || "";
+            else if (/^\/(shorts|embed)\//.test(url.pathname)) videoId = url.pathname.split("/")[2] || "";
+          }
+          return /^[a-zA-Z0-9_-]{11}$/.test(videoId) ? videoId : "";
+        } catch {
+          return "";
+        }
+      }
+
+      function updateHeader() {
+        const chat = ensureCurrentChat();
+        if (learning.mode === "dashboard") {
+          els.title.textContent = "JamdDmaj Learn";
+          els.modelLabel.textContent = `v${APP_VERSION} · JamdDmaj Learn`;
+        } else {
+          els.title.textContent = chat.title || translate("newChat");
+          els.modelLabel.textContent = learning.mode === "session"
+            ? learnText("session")
+            : `v${APP_VERSION} · One group. Every system.`;
+        }
+        const marketsOpen = !els.ticker.classList.contains("is-hidden");
+        els.marketsButton.classList.toggle("active", marketsOpen);
+        els.marketsButton.textContent = marketsOpen ? translate("hideMarkets") : translate("markets");
+        els.voiceModeButton.classList.toggle("active", settings.autoSpeak);
+        els.voiceModeButton.textContent = settings.autoSpeak ? translate("voiceOn") : translate("voiceOff");
+        document.querySelector("#sideVoiceBtn span:last-child").textContent = settings.autoSpeak
+          ? "Turn voice off"
+          : "Turn voice on";
+        if (voiceInputButton) {
+          voiceInputButton.classList.toggle("active", voiceConversationActive);
+          voiceInputButton.classList.toggle("listening", voiceState === "listening");
+          voiceInputButton.setAttribute("aria-pressed", String(voiceConversationActive));
+          voiceInputButton.title = voiceConversationActive
+            ? (resolvedLanguage() === "es" ? "Terminar conversación por voz" : "End voice conversation")
+            : (resolvedLanguage() === "es" ? "Iniciar conversación por voz" : "Start voice conversation");
+        }
+        updateVoiceStatus(voiceState);
+      }
+
+      function resolvedLanguage() {
+        const requested = settings.language === "auto"
+          ? (navigator.language || "en").slice(0, 2).toLowerCase()
+          : settings.language;
+        return UI_TEXT[requested] ? requested : "en";
+      }
+
+      function voiceStatusCopy(state) {
+        const spanish = resolvedLanguage() === "es";
+        const copy = spanish
+          ? {
+              off: "Modo de voz apagado",
+              ready: "Voz activa. Preparando el microfono...",
+              listening: "Escuchando. Habla con naturalidad.",
+              thinking: "Te escuche. JamdDmaj AI esta pensando...",
+              speaking: "JamdDmaj AI esta hablando...",
+              reconnecting: "Voz activa. Volviendo a escuchar...",
+              error: "No se pudo usar el microfono.",
+              unsupported: "Este navegador no admite conversaciones por voz."
+            }
+          : {
+              off: "Voice mode is off",
+              ready: "Voice is on. Preparing the microphone...",
+              listening: "Listening. Speak naturally.",
+              thinking: "I heard you. JamdDmaj AI is thinking...",
+              speaking: "JamdDmaj AI is speaking...",
+              reconnecting: "Voice is on. Listening again...",
+              error: "The microphone could not be used.",
+              unsupported: "This browser does not support voice conversations."
+            };
+        return copy[state] || copy.ready;
+      }
+
+      function updateVoiceStatus(state = voiceState, detail = "") {
+        voiceState = state;
+        if (!els.voiceStatus) return;
+        const visible = voiceConversationActive || state === "error" || state === "unsupported";
+        els.voiceStatus.classList.toggle("show", visible);
+        els.voiceStatus.dataset.state = state;
+        els.voiceStatusText.textContent = detail || voiceStatusCopy(state);
+        els.endVoiceButton.textContent = resolvedLanguage() === "es" ? "Terminar" : "End";
+        els.endVoiceButton.hidden = !voiceConversationActive;
+        if (voiceInputButton) {
+          voiceInputButton.classList.toggle("active", voiceConversationActive);
+          voiceInputButton.classList.toggle("listening", state === "listening");
+        }
+      }
+
+      function clearVoiceRestart() {
+        if (!voiceRestartTimer) return;
+        clearTimeout(voiceRestartTimer);
+        voiceRestartTimer = null;
+      }
+
+      function scheduleVoiceRestart(delay = 550) {
+        clearVoiceRestart();
+        if (!voiceConversationActive || !shouldRestartVoice || voiceSubmitting) return;
+        if (activeController || window.speechSynthesis?.speaking) return;
+        if (voiceState !== "ready") updateVoiceStatus("reconnecting");
+        voiceRestartTimer = setTimeout(() => {
+          voiceRestartTimer = null;
+          startVoiceListening();
+        }, delay);
+      }
+
+      function resumeVoiceConversation(delay = 650) {
+        if (!voiceConversationActive) return;
+        voiceSubmitting = false;
+        shouldRestartVoice = true;
+        scheduleVoiceRestart(delay);
+      }
+
+      function setVoiceConversationEnabled(enabled, notify = true) {
+        clearVoiceRestart();
+        if (enabled && !voiceRecognition) {
+          settings.autoSpeak = false;
+          voiceConversationActive = false;
+          shouldRestartVoice = false;
+          localStorage.setItem(STORAGE.settings, JSON.stringify(settings));
+          updateHeader();
+          updateVoiceStatus("unsupported");
+          if (notify) {
+            showToast(resolvedLanguage() === "es"
+              ? "Este navegador no permite conversaciones por voz."
+              : "This browser does not support voice conversations.");
+          }
+          return;
+        }
+
+        settings.autoSpeak = Boolean(enabled);
+        voiceConversationActive = settings.autoSpeak;
+        shouldRestartVoice = voiceConversationActive;
+        voiceSubmitting = false;
+        voiceNoSpeechCount = 0;
+        localStorage.setItem(STORAGE.settings, JSON.stringify(settings));
+
+        if (voiceConversationActive) {
+          updateVoiceStatus("ready");
+          scheduleVoiceRestart(120);
+        } else {
+          voiceRecognitionStarting = false;
+          speechSessionId += 1;
+          getNativePlugin("TextToSpeech")?.stop().catch(() => {});
+          if ("speechSynthesis" in window) speechSynthesis.cancel();
+          try { voiceRecognition?.abort(); } catch {}
+          updateVoiceStatus("off");
+        }
+
+        updateHeader();
+        if (notify) {
+          showToast(voiceConversationActive
+            ? (resolvedLanguage() === "es" ? "Conversacion por voz activa." : "Voice conversation is on.")
+            : (resolvedLanguage() === "es" ? "Conversacion por voz terminada." : "Voice conversation ended."));
+        }
+      }
+
+      function translate(key) {
+        const language = resolvedLanguage();
+        return UI_EXTENDED[language]?.[key]
+          || UI_EXTENDED.en[key]
+          || UI_TEXT[language]?.[key]
+          || UI_TEXT.en[key]
+          || key;
+      }
+
+      function applyLanguage() {
+        const language = resolvedLanguage();
+        document.documentElement.lang = language;
+        document.documentElement.dir = language === "ar" ? "rtl" : "ltr";
+        document.getElementById("newChatBtn").lastChild.textContent = ` ${translate("newChat")}`;
+        document.getElementById("saveChatBtn").textContent = translate("saveProject");
+        document.getElementById("renameChatBtn").textContent = translate("rename");
+        document.getElementById("tutorialBtn").textContent = translate("help");
+        document.getElementById("exportBtn").textContent = translate("export");
+        document.querySelector("#topSettingsBtn .pill-label").textContent = `${translate("settings")} `;
+        els.prompt.placeholder = imageGenerationMode ? translate("createImage") : translate("message");
+        updateConnectionStatus();
+        setText("#recentChatsLabel", "recentChats");
+        setText("#projectsLabel", "savedProjects");
+        setText("#plusImageBtn span:last-child", "attachImages");
+        setText("#plusTextBtn span:last-child", "attachText");
+        setText("#plusGenerateBtn span:last-child", "createImage");
+        setText("#plusVoiceBtn span:last-child", "startVoice");
+        setText("#plusMarketsBtn span:last-child", "openMarkets");
+        setText("#plusNewChatBtn span:last-child", "newChat");
+        setText("#modeBanner span", "imageMode");
+        setText("#exitImageMode", "exit");
+        setText("#settingsDialog .dialog-head h2", "aiSettings");
+        setText("#settingsDialog .connection-card p", "connectionHelp");
+        setLabel("languageInput", "interfaceLanguage");
+        setLabel("personalityInput", "personality");
+        setLabel("voiceInput", "voice");
+        setLabel("voiceStyleInput", "voiceStyle");
+        setLabel("responseLengthInput", "responseLength");
+        setLabel("creativityInput", "creativity");
+        setLabel("accentInput", "accent");
+        setLabel("backgroundInput", "background");
+        setLabel("themeModeInput", "themeMode");
+        setLabel("fontInput", "font");
+        setLabel("fontSizeInput", "textSize");
+        setLabel("radiusInput", "radius");
+        setLabel("messageWidthInput", "messageWidth");
+        setLabel("userBubbleInput", "userColor");
+        setLabel("assistantBubbleInput", "aiColor");
+        setLabel("avatarInput", "avatars");
+        setCheckText("compactInput", "compact");
+        setCheckText("animationsInput", "animations");
+        setCheckText("allowImagesInput", "paidImages");
+        setLabel("systemPromptInput", "instructions");
+        setCheckText("autoSpeakInput", "voiceModeHelp");
+        setCheckText("liveWebInput", "webSearch");
+        setText(".advanced-settings summary", "advanced");
+        setText('#settingsForm button[value="cancel"]', "cancel");
+        setText("#saveSettingsBtn", "saveSettings");
+        setText("#copyDialogTitle", "copyContent");
+        setText("#copyDialogHelp", "copyHelp");
+        setText("#selectCopyTextBtn", "selectAll");
+        setText("#copyDialog .dialog-actions button:last-child", "done");
+        setText("#skipCoachBtn", "skip");
+        setText("#nextCoachBtn", "next");
+        setText("#idleNudgeTitle", "idleTitle");
+        setText("#idleNudgeText", "idleText");
+        setText("#idleStartBtn", "idleStart");
+        setText("#idleDismissBtn", "notNow");
+        setText("#projectDialogTitle", "saveProject");
+        setText("#projectNameLabel", "projectNamePrompt");
+        setText("#projectDialogHelp", "projectDialogHelp");
+        setText("#confirmProjectBtn", "saveProject");
+        setText('#projectForm button[value="cancel"]', "cancel");
+        setText("#sideSaveBtn span:last-child", "saveProject");
+        setText("#sideRenameBtn span:last-child", "renameConversation");
+        setText("#sideTutorialBtn span:last-child", "quickTutorial");
+        setText("#sideExportBtn span:last-child", "exportConversation");
+        setText("#themeBtn span:last-child", "changeTheme");
+        setText("#settingsBtn span:last-child", "settings");
+        applyLearnLanguage();
+        localizeSelectOptions(language);
+        localizeTutorial(language);
+        renderHistory();
+        renderProjects();
+        renderMarketGroups();
+        updateHeader();
+      }
+
+      function setText(selector, key) {
+        const element = document.querySelector(selector);
+        if (element) element.textContent = translate(key);
+      }
+
+      function setLabel(inputId, key) {
+        const label = document.querySelector(`label[for="${inputId}"]`);
+        if (label) label.textContent = translate(key);
+      }
+
+      function setCheckText(inputId, key) {
+        const input = document.getElementById(inputId);
+        const label = input?.closest("label");
+        if (!input || !label) return;
+        [...label.childNodes].forEach((node) => {
+          if (node.nodeType === Node.TEXT_NODE) node.remove();
+        });
+        label.append(document.createTextNode(` ${translate(key)}`));
+      }
+
+      function localizeSelectOptions(language) {
+        const values = language === "es" ? {
+          languageInput: { auto: "Automático" },
+          personalityInput: { balanced: "Equilibrada", direct: "Directa y sincera", teacher: "Profesora paciente", expert: "Experta técnica", creative: "Compañera creativa", coach: "Entrenadora motivadora" },
+          voiceStyleInput: { natural: "Natural", calm: "Tranquila", energetic: "Enérgica", deep: "Profunda" },
+          responseLengthInput: { concise: "Breve", balanced: "Equilibrada", detailed: "Detallada" },
+          creativityInput: { precise: "Más precisa", balanced: "Equilibrada", creative: "Más creativa" },
+          backgroundInput: { glow: "Brillo", soft: "Color suave", flat: "Minimalista" },
+          fontInput: { system: "Sistema", modern: "Moderna", rounded: "Redondeada", mono: "Monoespaciada" },
+          themeModeInput: { system: "Seguir dispositivo", dark: "Oscuro", light: "Claro" },
+          avatarInput: { show: "Mostrar", hide: "Ocultar" }
+        } : {
+          languageInput: { auto: "Automatic" },
+          personalityInput: { balanced: "Balanced", direct: "Direct and candid", teacher: "Patient teacher", expert: "Technical expert", creative: "Creative partner", coach: "Motivating coach" },
+          voiceStyleInput: { natural: "Natural", calm: "Calm", energetic: "Energetic", deep: "Deep" },
+          responseLengthInput: { concise: "Concise", balanced: "Balanced", detailed: "Detailed" },
+          creativityInput: { precise: "More precise", balanced: "Balanced", creative: "More creative" },
+          backgroundInput: { glow: "Glow", soft: "Soft color", flat: "Minimal" },
+          fontInput: { system: "System", modern: "Modern", rounded: "Rounded", mono: "Monospace" },
+          themeModeInput: { system: "Follow device", dark: "Dark", light: "Light" },
+          avatarInput: { show: "Show", hide: "Hide" }
+        };
+        Object.entries(values).forEach(([id, labels]) => {
+          const select = document.getElementById(id);
+          Object.entries(labels).forEach(([value, label]) => {
+            const option = [...select.options].find((entry) => entry.value === value);
+            if (option) option.textContent = label;
+          });
+        });
+      }
+
+      function localizeTutorial(language) {
+        const spanish = language === "es";
+        document.querySelector("#tutorialDialog .dialog-head h2").textContent = spanish
+          ? "Tutorial rápido"
+          : "What JamdDmaj AI can do";
+        const intro = document.querySelector("#tutorialDialog .dialog-body > p");
+        if (intro) intro.textContent = spanish
+          ? "Un recorrido rápido por las herramientas incluidas en esta página."
+          : "A quick tour of the tools built into this page.";
+        const cards = spanish ? [
+          ["Chat automático", "Empieza a conversar sin crear una cuenta de OpenRouter. El acceso personal queda como opción avanzada."],
+          ["Visión", "Adjunta hasta tres imágenes y pídele a la IA que las analice o explique."],
+          ["Crear imágenes", "Usa el botón de diamante para entrar al modo económico de generación visual."],
+          ["Conversación por voz", "Activa Voz para dictar y escuchar las respuestas de la IA."],
+          ["Mercados en vivo", "Abre Mercados para consultar precios frecuentes desde varias fuentes."],
+          ["JamdDmaj Learn", "Elige una materia, configura tus idiomas, realiza una prueba de nivel y aprende con ejercicios visuales."],
+          ["Guarda tu trabajo", "Guarda proyectos, renómbralos, vuelve a abrirlos o exporta conversaciones."]
+        ] : [
+          ["Automatic chat", "Start chatting without creating an OpenRouter account. Personal access remains an advanced option."],
+          ["Vision", "Attach up to three images and ask the AI to inspect or explain them."],
+          ["Create images", "Use the diamond button to enter budget image-generation mode."],
+          ["Voice conversation", "Turn Voice on to dictate and hear AI responses aloud."],
+          ["Live markets", "Open Markets for frequently refreshed prices from several sources."],
+          ["JamdDmaj Learn", "Choose a subject, configure your languages, take a placement test, and learn with visual exercises."],
+          ["Keep your work", "Save projects, rename them, reopen them, or export conversations."]
+        ];
+        document.querySelectorAll("#tutorialDialog .tutorial-card").forEach((card, index) => {
+          card.querySelector("strong").textContent = cards[index][0];
+          card.querySelector("span").textContent = cards[index][1];
+        });
+        const start = document.querySelector("#tutorialDialog .dialog-actions button");
+        if (start) start.textContent = spanish ? "Empezar a usar JamdDmaj AI" : "Start using JamdDmaj AI";
+      }
+
+      function formatTime(value) {
+        const date = new Date(value || Date.now());
+        return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      }
+
+      function renderAttachments() {
+        els.tray.replaceChildren();
+        pendingImages.forEach((source, index) => {
+          const wrapper = document.createElement("div");
+          wrapper.className = "attachment";
+          const image = document.createElement("img");
+          image.src = source;
+          image.alt = `Attachment ${index + 1}`;
+          const remove = document.createElement("button");
+          remove.type = "button";
+          remove.className = "remove-attachment";
+          remove.textContent = "×";
+          remove.setAttribute("aria-label", `Remove attachment ${index + 1}`);
+          remove.addEventListener("click", () => {
+            pendingImages.splice(index, 1);
+            renderAttachments();
+          });
+          wrapper.append(image, remove);
+          els.tray.append(wrapper);
+        });
+        pendingTextFiles.forEach((file, index) => {
+          const wrapper = document.createElement("div");
+          wrapper.className = "attachment";
+          const chip = document.createElement("div");
+          chip.className = "coin";
+          chip.textContent = `TXT ${file.name}`;
+          const remove = document.createElement("button");
+          remove.type = "button";
+          remove.className = "remove-attachment";
+          remove.textContent = "×";
+          remove.addEventListener("click", () => {
+            pendingTextFiles.splice(index, 1);
+            renderAttachments();
+          });
+          wrapper.append(chip, remove);
+          els.tray.append(wrapper);
+        });
+        els.tray.classList.toggle("show", pendingImages.length > 0 || pendingTextFiles.length > 0);
+      }
+
+      function renderMode() {
+        els.modeBanner.classList.toggle("show", imageGenerationMode);
+        els.imageMode.classList.toggle("active", imageGenerationMode);
+        els.prompt.placeholder = learning.mode === "session"
+          ? (resolvedLanguage() === "es" ? "Responde, pregunta o pide otro ejemplo..." : "Answer, ask, or request another example...")
+          : imageGenerationMode
+            ? translate("createImage")
+            : translate("message");
+      }
+
+      async function handleFiles(files) {
+        const accepted = [...files];
+        const images = accepted.filter((file) => /^image\/(png|jpeg|webp|gif)$/.test(file.type));
+        const texts = accepted.filter((file) =>
+          file.type.startsWith("text/") || /\.(txt|md|json|csv|js|html|css|py)$/i.test(file.name)
+        );
+        const remaining = 3 - pendingImages.length;
+        if (images.length && remaining <= 0) {
+          showToast("You can attach up to 3 images at once.");
+        }
+
+        for (const file of images.slice(0, Math.max(0, remaining))) {
+          if (file.size > 12 * 1024 * 1024) {
+            showToast(`${file.name} is larger than 12 MB.`);
+            continue;
+          }
+          try {
+            pendingImages.push(await compressImage(file));
+          } catch {
+            showToast(`Could not read ${file.name}.`);
+          }
+        }
+        for (const file of texts.slice(0, 3 - pendingTextFiles.length)) {
+          if (file.size > 1024 * 1024) {
+            showToast(`${file.name} is larger than 1 MB.`);
+            continue;
+          }
+          try {
+            pendingTextFiles.push({ name: file.name, content: (await file.text()).slice(0, 30000) });
+          } catch {
+            showToast(`Could not read ${file.name}.`);
+          }
+        }
+        if (!images.length && !texts.length) showToast("Choose an image or text-based file.");
+        renderAttachments();
+      }
+
+      function compressImage(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onerror = reject;
+          reader.onload = () => {
+            if (file.type === "image/gif") {
+              resolve(String(reader.result));
+              return;
+            }
+            const image = new Image();
+            image.onerror = reject;
+            image.onload = () => {
+              const maxSide = 1400;
+              const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
+              const canvas = document.createElement("canvas");
+              canvas.width = Math.max(1, Math.round(image.width * scale));
+              canvas.height = Math.max(1, Math.round(image.height * scale));
+              canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+              resolve(canvas.toDataURL("image/jpeg", 0.82));
+            };
+            image.src = String(reader.result);
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+
+      function getApiKey() {
+        return sessionStorage.getItem(STORAGE.apiKey) || localStorage.getItem(STORAGE.apiKey) || "";
+      }
+
+      function getDeviceId() {
+        let value = localStorage.getItem(STORAGE.deviceId) || "";
+        if (/^[a-zA-Z0-9_-]{16,100}$/.test(value)) return value;
+        value = globalThis.crypto?.randomUUID
+          ? globalThis.crypto.randomUUID()
+          : `${Date.now()}_${Math.random().toString(36).slice(2)}_${Math.random().toString(36).slice(2)}`;
+        localStorage.setItem(STORAGE.deviceId, value);
+        return value;
+      }
+
+      async function checkManagedAccess() {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 5000);
+        try {
+          const response = await fetch(MANAGED_STATUS_URL, {
+            signal: controller.signal,
+            cache: "no-store"
+          });
+          const data = response.ok ? await response.json() : {};
+          managedAccessReady = Boolean(data.ready);
+        } catch {
+          managedAccessReady = false;
+        } finally {
+          clearTimeout(timer);
+        }
+        updateConnectionStatus();
+        return managedAccessReady;
+      }
+
+      function updateConnectionStatus() {
+        const button = document.getElementById("connectOpenRouterBtn");
+        const spanish = resolvedLanguage() === "es";
+        if (getApiKey()) {
+          els.connectionStatus.textContent = spanish
+            ? "Cuenta personal de OpenRouter conectada"
+            : "Personal OpenRouter account connected";
+        } else if (managedAccessReady) {
+          els.connectionStatus.textContent = spanish
+            ? "Acceso automático de JamdDmaj activo"
+            : "JamdDmaj automatic access is active";
+        } else if (managedAccessReady === false) {
+          els.connectionStatus.textContent = spanish
+            ? "Acceso automático pendiente de configurar"
+            : "Automatic access needs configuration";
+        } else {
+          els.connectionStatus.textContent = spanish
+            ? "Comprobando acceso automático..."
+            : "Checking automatic access...";
+        }
+        if (button) {
+          button.textContent = spanish
+            ? "Conectar OpenRouter personal"
+            : "Connect personal OpenRouter";
+        }
+      }
+
+      function getChatTransport() {
+        const key = getApiKey();
+        if (key) {
+          return {
+            url: API_URL,
+            headers: {
+              "Authorization": `Bearer ${key}`,
+              "Content-Type": "application/json",
+              "X-Title": "JamdDmaj AI"
+            }
+          };
+        }
+        return {
+          url: MANAGED_API_URL,
+          headers: {
+            "Content-Type": "application/json",
+            "X-JamdDmaj-Device": getDeviceId(),
+            "X-JamdDmaj-Version": APP_VERSION
+          }
+        };
+      }
+
+      function fetchChatCompletion(body, signal) {
+        const transport = getChatTransport();
+        return fetch(transport.url, {
+          method: "POST",
+          signal,
+          headers: transport.headers,
+          body: JSON.stringify(body)
+        });
+      }
+
+      function saveApiKey(key, remember) {
+        sessionStorage.removeItem(STORAGE.apiKey);
+        localStorage.removeItem(STORAGE.apiKey);
+        if (!key) return;
+        (remember ? localStorage : sessionStorage).setItem(STORAGE.apiKey, key);
+      }
+
+      function isNativeApp() {
+        return Boolean(window.Capacitor?.isNativePlatform?.());
+      }
+
+      function getNativePlugin(name) {
+        return window.Capacitor?.Plugins?.[name];
+      }
+
+      function getOAuthVerifier() {
+        return sessionStorage.getItem(STORAGE.oauthVerifier)
+          || localStorage.getItem(STORAGE.oauthVerifier)
+          || "";
+      }
+
+      function clearOAuthVerifier() {
+        sessionStorage.removeItem(STORAGE.oauthVerifier);
+        localStorage.removeItem(STORAGE.oauthVerifier);
+      }
+
+      async function connectOpenRouter() {
+        if (location.protocol === "file:") {
+          els.connectionStatus.textContent = resolvedLanguage() === "es"
+            ? "Abriendo la versión web segura..."
+            : "Opening the secure web version...";
+          document.getElementById("connectOpenRouterBtn").textContent = resolvedLanguage() === "es"
+            ? "Abrir versión web"
+            : "Open web version";
+          location.href = `${WEB_APP_URL}?connect=1`;
+          return;
+        }
+        if (!crypto.subtle) {
+          showToast("Secure login is unavailable in this browser.");
+          return;
+        }
+        const bytes = crypto.getRandomValues(new Uint8Array(48));
+        const verifier = toBase64Url(bytes);
+        const challengeBytes = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier)));
+        const challenge = toBase64Url(challengeBytes);
+        const native = isNativeApp();
+        (native ? localStorage : sessionStorage).setItem(STORAGE.oauthVerifier, verifier);
+        const callback = native
+          ? `${WEB_APP_URL}oauth-mobile.html`
+          : `${location.origin}${location.pathname}`;
+        const authUrl = `https://openrouter.ai/auth?callback_url=${encodeURIComponent(callback)}&code_challenge=${encodeURIComponent(challenge)}&code_challenge_method=S256`;
+        const browser = getNativePlugin("Browser");
+        if (native && browser) {
+          await browser.open({ url: authUrl });
+        } else {
+          location.href = authUrl;
+        }
+      }
+
+      function toBase64Url(bytes) {
+        let binary = "";
+        bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
+        return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+      }
+
+      async function exchangeOpenRouterCode(code) {
+        if (!code) return;
+        const verifier = getOAuthVerifier();
+        try {
+          const response = await fetch("https://openrouter.ai/api/v1/auth/keys", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              code,
+              code_verifier: verifier || undefined,
+              code_challenge_method: verifier ? "S256" : undefined
+            })
+          });
+          if (!response.ok) throw new Error("Connection authorization failed.");
+          const data = await response.json();
+          if (!data.key) throw new Error("No access key was returned.");
+          saveApiKey(data.key, true);
+          settings.rememberKey = true;
+          localStorage.setItem(STORAGE.settings, JSON.stringify(settings));
+          showToast("AI connected. You can start chatting.");
+        } catch (error) {
+          showToast(error.message || "Could not connect the AI service.");
+        } finally {
+          clearOAuthVerifier();
+        }
+      }
+
+      async function finishOpenRouterConnection() {
+        const code = new URLSearchParams(location.search).get("code");
+        if (!code) return;
+        await exchangeOpenRouterCode(code);
+        history.replaceState({}, document.title, location.pathname + location.hash);
+      }
+
+      function redirectNativeOAuthCallback() {
+        const params = new URLSearchParams(location.search);
+        const code = params.get("code");
+        if (params.get("native_callback") !== "1" || !code || isNativeApp()) return false;
+        location.replace(`${MOBILE_OAUTH_URL}?code=${encodeURIComponent(code)}`);
+        return true;
+      }
+
+      async function handleNativeOAuthUrl(url) {
+        if (!url?.startsWith(MOBILE_OAUTH_URL)) return;
+        const code = new URL(url).searchParams.get("code");
+        if (!code) return;
+        try {
+          await getNativePlugin("Browser")?.close();
+        } catch {}
+        await exchangeOpenRouterCode(code);
+        updateHeader();
+        if (els.settings.open) els.settings.close();
+      }
+
+      async function initializeNativeOAuth() {
+        if (!isNativeApp()) return;
+        const app = getNativePlugin("App");
+        if (!app) return;
+        await app.addListener("appUrlOpen", ({ url }) => handleNativeOAuthUrl(url));
+        const launch = await app.getLaunchUrl();
+        if (launch?.url) await handleNativeOAuthUrl(launch.url);
+      }
+
+      function applyAppearance(config = settings) {
+        const accent = /^#[0-9a-f]{6}$/i.test(config.accent) ? config.accent : DEFAULT_SETTINGS.accent;
+        document.documentElement.style.setProperty("--accent", accent);
+        document.documentElement.style.setProperty("--font-size", `${Number(config.fontSize) || 15}px`);
+        document.documentElement.style.setProperty("--radius", `${Number(config.radius) || 22}px`);
+        document.documentElement.style.setProperty("--message-width", `${Number(config.messageWidth) || 920}px`);
+        document.documentElement.style.setProperty("--user-bubble", config.userBubble || DEFAULT_SETTINGS.userBubble);
+        document.documentElement.style.setProperty("--assistant-bubble", config.assistantBubble || DEFAULT_SETTINGS.assistantBubble);
+        const fonts = {
+          system: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+          modern: '"Segoe UI", Inter, Arial, sans-serif',
+          rounded: '"Trebuchet MS", "Arial Rounded MT Bold", system-ui, sans-serif',
+          mono: 'ui-monospace, "Cascadia Code", Consolas, monospace'
+        };
+        document.body.style.fontFamily = fonts[config.font] || fonts.system;
+        document.body.classList.toggle("compact", Boolean(config.compact));
+        document.body.classList.toggle("soft-background", config.background === "soft");
+        document.body.classList.toggle("flat-background", config.background === "flat");
+        document.body.classList.toggle("hide-avatars", config.avatars === "hide");
+        document.body.classList.toggle("no-animations", config.animations === false);
+        applyThemeMode(config.themeMode || "system");
+      }
+
+      function applyThemeMode(mode) {
+        const prefersLight = window.matchMedia?.("(prefers-color-scheme: light)").matches;
+        const useLight = mode === "light" || (mode === "system" && prefersLight);
+        document.body.classList.toggle("light", useLight);
+        const button = document.getElementById("topThemeBtn");
+        if (button) {
+          button.textContent = useLight ? "☀" : "☾";
+          button.title = useLight
+            ? (resolvedLanguage() === "es" ? "Cambiar a modo oscuro" : "Switch to dark mode")
+            : (resolvedLanguage() === "es" ? "Cambiar a modo claro" : "Switch to light mode");
+        }
+      }
+
+      async function sendMessage() {
+        if (activeController) {
+          activeController.abort();
+          return;
+        }
+
+        const prompt = els.prompt.value.trim();
+        if (!prompt && !pendingImages.length && !pendingTextFiles.length) return;
+        if (imageGenerationMode) {
+          if (!settings.allowPaidImages) {
+            addAssistantNotice("Image generation is turned off to protect your credits. Open Settings and enable “Allow paid image generation,” then try again. Normal chat can still use the free model.");
+            resumeVoiceConversation();
+            return;
+          }
+          if (!getApiKey()) {
+            addAssistantNotice("I cannot generate the image yet because the AI service is not connected. Open Settings and choose “Connect with OpenRouter.” Image generation uses paid credits even when normal chat uses a free model.");
+            if (voiceConversationActive) {
+              setVoiceConversationEnabled(false, false);
+              updateVoiceStatus("error", resolvedLanguage() === "es"
+                ? "Conecta el servicio de IA antes de crear imagenes por voz."
+                : "Connect the AI service before creating images by voice.");
+            }
+            openSettings();
+            return;
+          }
+          await generateImage(prompt);
+          resumeVoiceConversation();
+          return;
+        }
+        const chat = ensureCurrentChat();
+        const fileContext = pendingTextFiles.map((file) =>
+          `\n\nAttached file: ${file.name}\n\`\`\`\n${file.content}\n\`\`\``
+        ).join("");
+        const userMessage = {
+          role: "user",
+          content: `${prompt || (pendingImages.length ? "What do you see in these images?" : "Review the attached files.")}${fileContext}`,
+          images: [...pendingImages],
+          time: new Date().toISOString()
+        };
+        chat.messages.push(userMessage);
+        if (chat.messages.filter((message) => message.role === "user").length === 1) {
+          chat.title = createTitle(userMessage.content);
+        }
+
+        const assistantMessage = {
+          role: "assistant",
+          content: "",
+          time: new Date().toISOString(),
+          streaming: true
+        };
+        chat.messages.push(assistantMessage);
+        chat.updatedAt = new Date().toISOString();
+        checkpointChats();
+        autoFollowStream = true;
+
+        els.prompt.value = "";
+        pendingImages = [];
+        pendingTextFiles = [];
+        autoSizePrompt();
+        renderAll();
+        setSending(true);
+
+        if (voiceConversationActive) {
+          voiceSubmitting = true;
+          shouldRestartVoice = false;
+          updateVoiceStatus("thinking");
+          try { voiceRecognition?.stop(); } catch {}
+        }
+        activeController = new AbortController();
+        try {
+          const recentUserContext = chat.messages
+            .filter((message) => message.role === "user")
+            .slice(-3)
+            .map((message) => message.content)
+            .join("\n");
+          const freeLiveContext = await buildFreeLiveContext(recentUserContext);
+          const apiMessages = buildApiMessages(chat.messages, freeLiveContext);
+          const response = await fetchChatCompletion({
+            models: getChatModelFallbacks(),
+            stream: true,
+            max_tokens: getResponseTokenLimit(),
+            temperature: getResponseTemperature(),
+            messages: apiMessages
+          }, activeController.signal);
+
+          if (!response.ok) throw new Error(await readApiError(response));
+          if (!response.body) throw new Error("This browser did not provide a response stream.");
+
+          await consumeStream(response.body, (token) => {
+            assistantMessage.content += token;
+            updateLastMessage(assistantMessage);
+          });
+
+          assistantMessage.content = cleanProviderOutput(assistantMessage.content);
+          if (!isUsableAssistantContent(assistantMessage.content)) {
+            assistantMessage.content = await retryEmptyChatResponse(apiMessages);
+            updateLastMessage(assistantMessage);
+          }
+          assistantMessage.streaming = false;
+          chat.updatedAt = new Date().toISOString();
+          persistChats();
+          renderAll();
+          if (settings.autoSpeak) await speak(assistantMessage.content);
+        } catch (error) {
+          if (error.name === "AbortError") {
+            assistantMessage.content ||= "Response stopped.";
+          } else {
+            assistantMessage.content = `I could not complete that request.\n\n${error.message}`;
+          }
+          assistantMessage.streaming = false;
+          persistChats();
+          renderAll();
+        } finally {
+          activeController = null;
+          setSending(false);
+          if (voiceConversationActive && voiceState !== "speaking") {
+            voiceSubmitting = false;
+            shouldRestartVoice = true;
+            scheduleVoiceRestart(650);
+          }
+        }
+      }
+
+      function addAssistantNotice(content) {
+        const chat = ensureCurrentChat();
+        chat.messages.push({
+          role: "assistant",
+          content,
+          time: new Date().toISOString()
+        });
+        chat.updatedAt = new Date().toISOString();
+        persistChats();
+        renderAll();
+      }
+
+      function getChatModel() {
+        const model = settings.chatModel || DEFAULT_SETTINGS.chatModel;
+        if (!settings.liveWeb || model.endsWith(":online")) return model;
+        return `${model}:online`;
+      }
+
+      function getChatModelFallbacks() {
+        const primary = getChatModel();
+        const fallbacks = [primary, "openrouter/free"];
+        return [...new Set(fallbacks)];
+      }
+
+      async function retryEmptyChatResponse(messages) {
+        showToast(resolvedLanguage() === "es"
+          ? "El primer modelo no respondió. Probando otro automáticamente..."
+          : "The first model did not respond. Trying another automatically...");
+        const retryMessages = [
+          ...messages,
+          {
+            role: "system",
+            content: "Return a direct, useful answer to the user. Output only the answer. Never output safety labels, moderation classifications, hidden analysis, or provider metadata."
+          }
+        ];
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+          const response = await fetchChatCompletion({
+            model: "openrouter/free",
+            stream: false,
+            max_tokens: getResponseTokenLimit(),
+            temperature: getResponseTemperature(),
+            provider: { allow_fallbacks: true },
+            messages: retryMessages
+          }, activeController?.signal);
+          if (!response.ok) {
+            if (attempt === 1) throw new Error(await readApiError(response));
+            continue;
+          }
+          const data = await response.json();
+          const content = cleanProviderOutput(extractAssistantText(data.choices?.[0]?.message));
+          if (isUsableAssistantContent(content)) return content;
+        }
+        throw new Error(resolvedLanguage() === "es"
+          ? "Los modelos gratuitos no devolvieron texto. Inténtalo de nuevo o elige otro modelo en Ajustes."
+          : "The free models returned no text. Try again or choose another model in Settings.");
+      }
+
+      function extractAssistantText(message) {
+        if (typeof message?.content === "string") return message.content;
+        if (Array.isArray(message?.content)) {
+          return message.content
+            .map((part) => typeof part === "string" ? part : part?.text || "")
+            .filter(Boolean)
+            .join("\n");
+        }
+        return "";
+      }
+
+      function cleanProviderOutput(value) {
+        return String(value || "")
+          .replace(/^\s*(user|prompt)\s+safety\s*:\s*(safe|unsafe)\s*$/gim, "")
+          .replace(/^\s*(response|assistant|output)\s+safety\s*:\s*(safe|unsafe)\s*$/gim, "")
+          .replace(/^\s*(safety|moderation)\s*(classification|result)?\s*:\s*(safe|unsafe)\s*$/gim, "")
+          .replace(/\n{3,}/g, "\n\n")
+          .trim();
+      }
+
+      function isUsableAssistantContent(value) {
+        const clean = String(value || "").trim();
+        if (clean.length < 2) return false;
+        return !/^(safe|unsafe|approved|blocked|null|none)[.!]?$/i.test(clean);
+      }
+
+      function getResponseTokenLimit() {
+        if (voiceConversationActive) return 420;
+        return {
+          concise: 450,
+          balanced: 800,
+          detailed: 1400
+        }[settings.responseLength] || 800;
+      }
+
+      function getResponseTemperature() {
+        return {
+          precise: 0.25,
+          balanced: 0.55,
+          creative: 0.9
+        }[settings.creativity] || 0.55;
+      }
+
+      function buildApiMessages(messages, freeLiveContext = "") {
+        const now = new Date();
+        const personalities = {
+          balanced: "Be balanced, practical, and clear.",
+          direct: "Be direct, candid, and practical. Do not refuse merely because a topic is controversial, profane, political, or sexual. For consenting-adult sexual health or education, answer clearly and clinically without unnecessary embarrassment or moralizing. Avoid generic disclaimers. Still refuse content involving minors, coercion, exploitation, serious wrongdoing, or instructions that meaningfully enable harm.",
+          teacher: "Teach patiently with simple steps, examples, and definitions for unfamiliar terms.",
+          expert: "Respond like a senior technical expert. Be precise, rigorous, and comfortable with advanced detail.",
+          creative: "Be imaginative, exploratory, and willing to propose unusual but useful ideas.",
+          coach: "Be motivating, action-oriented, and honest while helping the user make progress."
+        };
+        const languageInstruction = settings.language === "auto"
+          ? "Automatically detect the language of the user's latest message and answer in that same language."
+          : `Answer in the interface language code "${settings.language}" unless the user clearly asks for another language.`;
+        const currentContext = `Current date and time: ${now.toLocaleString()} (${Intl.DateTimeFormat().resolvedOptions().timeZone}). ${
+          settings.liveWeb
+            ? "Use live web search for current events, prices, schedules, public figures, laws, products, or anything likely to have changed. Clearly distinguish live facts from inference."
+            : "Do not claim general live web access. You may use any verified live data block supplied directly by the app; otherwise clearly state when knowledge may be outdated."
+        }`;
+        const voiceInstruction = voiceConversationActive
+          ? "The user is speaking with you. Reply conversationally, usually in 2-5 short sentences. Sound warm and expressive without claiming to be human or sentient. Avoid long lists unless requested."
+          : "";
+        const learningSession = getCurrentChat()?.learningSession;
+        const learningInstruction = learningSession
+          ? `You are now the user's interactive tutor inside JamdDmaj Learn. The route is "${getLearningTrack(learningSession.trackId).title.en}" and the level is "${learningSession.level || learning.level}". Teach in small steps. Ask one useful question or exercise at a time, wait for the learner's attempt, give specific feedback, adapt difficulty, and encourage understanding instead of memorization. Do not dump an entire course in one reply.${
+              learningSession.trackId === "languages"
+                ? ` The learner is studying ${learningSession.targetLanguage || learning.targetLanguage || "Japanese"} through ${learningSession.sourceLanguage || learning.sourceLanguage || "English"}. Explanations must primarily use ${learningSession.sourceLanguage || learning.sourceLanguage || "English"}. For each new word or sentence, include: original target-language writing, Latin-letter pronunciation/romanization, and a translation into ${learningSession.sourceLanguage || learning.sourceLanguage || "English"}. Never write an entire explanation only in the target script. Use concrete visual descriptions, memory associations, and short speaking practice.`
+                : ""
+            }`
+          : "";
+        const lengthInstruction = {
+          concise: "Prefer concise answers unless more detail is essential.",
+          balanced: "Use a balanced amount of detail.",
+          detailed: "Provide thorough explanations with useful structure and examples."
+        }[settings.responseLength] || "Use a balanced amount of detail.";
+        const verifiedContext = freeLiveContext
+          ? `\n\nVerified free live data supplied by the app:\n${freeLiveContext}\nUse these exact values when relevant. State the source and timestamp. Do not say you lack current market access when this block contains the requested asset. Never present technical indicators as certainty or personalized financial advice.`
+          : "";
+        const result = [{
+          role: "system",
+          content: `${settings.systemPrompt}\n\n${personalities[settings.personality] || personalities.balanced}\n${languageInstruction}\n${currentContext}\n${lengthInstruction}\n${voiceInstruction}\n${learningInstruction}${verifiedContext}`
+        }];
+        const recentMessages = messages
+          .filter((message) => !message.streaming && message.content)
+          .slice(-8);
+        let lastImageMessage = -1;
+        recentMessages.forEach((message, index) => {
+          if (message.images?.length) lastImageMessage = index;
+        });
+        recentMessages.forEach((message, index) => {
+            if (message.role === "user" && message.images?.length && index === lastImageMessage) {
+              result.push({
+                role: "user",
+                content: [
+                  { type: "text", text: message.content },
+                  ...message.images.map((url) => ({ type: "image_url", image_url: { url } }))
+                ]
+              });
+            } else {
+              result.push({ role: message.role, content: message.content });
+            }
+        });
+        return result;
+      }
+
+      async function consumeStream(stream, onToken) {
+        const reader = stream.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { value, done } = await reader.read();
+          buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            const value = line.trim();
+            if (!value.startsWith("data:")) continue;
+            const payload = value.slice(5).trim();
+            if (!payload || payload === "[DONE]") continue;
+            let data;
+            try {
+              data = JSON.parse(payload);
+            } catch {
+              continue;
+            }
+            if (data.error) throw new Error(data.error.message || "The provider stopped the response.");
+            const token = data.choices?.[0]?.delta?.content;
+            if (token) onToken(token);
+          }
+          if (done) break;
+        }
+      }
+
+      function updateLastMessage(message) {
+        const last = els.messages.lastElementChild;
+        const text = last?.querySelector(".message-text");
+        if (!text) {
+          renderMessages();
+          return;
+        }
+        text.classList.toggle("typing", message.streaming);
+        renderSafeText(text, message.content || "Thinking");
+        if (autoFollowStream) scrollToBottom(false);
+      }
+
+      async function generateImage(prompt) {
+        if (!prompt) {
+          showToast("Describe the image you want to create.");
+          return;
+        }
+
+        const chat = ensureCurrentChat();
+        const userMessage = {
+          role: "user",
+          content: prompt,
+          time: new Date().toISOString()
+        };
+        const assistantMessage = {
+          role: "assistant",
+          content: "Creating your image...",
+          time: new Date().toISOString(),
+          streaming: true
+        };
+        chat.messages.push(userMessage, assistantMessage);
+        if (chat.messages.filter((message) => message.role === "user").length === 1) {
+          chat.title = createTitle(prompt);
+        }
+        checkpointChats();
+        els.prompt.value = "";
+        pendingImages = [];
+        autoSizePrompt();
+        renderAll();
+        setSending(true);
+        activeController = new AbortController();
+
+        try {
+          const response = await fetch(API_URL, {
+            method: "POST",
+            signal: activeController.signal,
+            headers: {
+              "Authorization": `Bearer ${getApiKey()}`,
+              "Content-Type": "application/json",
+              "X-Title": "JamdDmaj AI"
+            },
+            body: JSON.stringify({
+              model: settings.imageModel,
+              messages: [{ role: "user", content: prompt }],
+              modalities: ["image", "text"],
+              image_config: { aspect_ratio: "1:1" },
+              max_tokens: 300,
+              stream: false
+            })
+          });
+
+          if (!response.ok) throw new Error(await readApiError(response));
+          const data = await response.json();
+          const responseMessage = data.choices?.[0]?.message || {};
+          const generated = (responseMessage.images || [])
+            .map((image) => image.image_url?.url || image.imageUrl?.url)
+            .filter(Boolean);
+          if (!generated.length) throw new Error("The selected model did not return an image.");
+
+          assistantMessage.content = typeof responseMessage.content === "string"
+            ? responseMessage.content
+            : "Image created.";
+          assistantMessage.generatedImages = generated;
+          assistantMessage.streaming = false;
+          chat.updatedAt = new Date().toISOString();
+          persistChats();
+          renderAll();
+        } catch (error) {
+          assistantMessage.content = error.name === "AbortError"
+            ? "Image generation stopped."
+            : `Image generation failed.\n\n${error.message}`;
+          assistantMessage.streaming = false;
+          persistChats();
+          renderAll();
+        } finally {
+          activeController = null;
+          setSending(false);
+        }
+      }
+
+      async function readApiError(response) {
+        let message = `Request failed (${response.status}).`;
+        try {
+          const data = await response.json();
+          message = data.error?.message || message;
+        } catch {
+          // Keep the status-based message.
+        }
+        if (!getApiKey()) return message;
+        if (response.status === 401) return "The API key is invalid or has been revoked.";
+        if (response.status === 402) return "The OpenRouter account has insufficient credits.";
+        if (response.status === 429) return "Too many requests. Wait a moment and try again.";
+        return message;
+      }
+
+      function setSending(sending) {
+        els.send.classList.toggle("stop", sending);
+        els.send.textContent = sending ? "■" : "↑";
+        els.send.setAttribute("aria-label", sending ? "Stop response" : "Send message");
+      }
+
+      function createTitle(text) {
+        const clean = String(text).replace(/\s+/g, " ").trim();
+        return clean.length > 42 ? `${clean.slice(0, 42)}…` : clean || "Image conversation";
+      }
+
+      function autoSizePrompt() {
+        els.prompt.style.height = "auto";
+        els.prompt.style.height = `${Math.min(170, els.prompt.scrollHeight)}px`;
+      }
+
+      function isNearChatBottom() {
+        return els.messages.scrollHeight - els.messages.scrollTop - els.messages.clientHeight < 90;
+      }
+
+      function scrollToBottom(force = true) {
+        if (!force && !autoFollowStream) return;
+        els.messages.scrollTop = els.messages.scrollHeight;
+        autoFollowStream = true;
+      }
+
+      async function copyText(value) {
+        try {
+          if (navigator.clipboard?.writeText && window.isSecureContext) {
+            await navigator.clipboard.writeText(value);
+          } else {
+            const area = document.createElement("textarea");
+            area.value = value;
+            area.style.position = "fixed";
+            area.style.opacity = "0";
+            document.body.append(area);
+            area.select();
+            if (!document.execCommand("copy")) throw new Error();
+            area.remove();
+          }
+          showToast("Copied to clipboard.");
+        } catch {
+          openCopyFallback(value);
+        }
+      }
+
+      function openCopyFallback(value) {
+        const dialog = document.getElementById("copyDialog");
+        const area = document.getElementById("copyDialogText");
+        area.value = value;
+        if (!dialog.open) dialog.showModal();
+        setTimeout(() => {
+          area.focus();
+          area.select();
+          area.setSelectionRange(0, area.value.length);
+        }, 50);
+      }
+
+      async function speakLearningPhrase(value, targetLanguage) {
+        const text = String(value || "").trim();
+        if (!text) return;
+        const locale = LEARNING_LANGUAGE_LOCALES[targetLanguage] || "en-US";
+        const nativeTts = isNativeApp() ? getNativePlugin("TextToSpeech") : null;
+        if (nativeTts) {
+          try {
+            await nativeTts.stop().catch(() => {});
+            await nativeTts.speak({
+              text,
+              lang: locale,
+              rate: 0.86,
+              pitch: 1,
+              volume: 1,
+              category: "playback",
+              queueStrategy: 0
+            });
+            return;
+          } catch {
+            showToast(resolvedLanguage() === "es"
+              ? "No se encontró una voz para este idioma. Instálala en los ajustes de voz del teléfono."
+              : "A voice for this language was not found. Install it in your phone's text-to-speech settings.");
+          }
+        }
+        if (!("speechSynthesis" in window)) return;
+        speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = locale;
+        utterance.rate = 0.86;
+        utterance.pitch = 1;
+        const base = locale.split("-")[0].toLowerCase();
+        const matchingVoice = speechSynthesis.getVoices().find((voice) =>
+          voice.lang.toLowerCase() === locale.toLowerCase()
+        ) || speechSynthesis.getVoices().find((voice) =>
+          voice.lang.toLowerCase().startsWith(`${base}-`)
+        );
+        if (matchingVoice) utterance.voice = matchingVoice;
+        speechSynthesis.speak(utterance);
+      }
+
+      async function speak(value) {
+        const nativeTts = isNativeApp() ? getNativePlugin("TextToSpeech") : null;
+        if (nativeTts) {
+          try {
+            await speakWithNativeTts(nativeTts, value);
+            return;
+          } catch {
+            showToast(resolvedLanguage() === "es"
+              ? "No se pudo iniciar la voz del teléfono. Comprueba el motor de texto a voz de Android."
+              : "The phone voice could not start. Check the Android text-to-speech engine.");
+          }
+        }
+        if (!("speechSynthesis" in window)) {
+          voiceSubmitting = false;
+          shouldRestartVoice = true;
+          scheduleVoiceRestart(500);
+          return;
+        }
+        const sessionId = ++speechSessionId;
+        speechSynthesis.cancel();
+        const clean = String(value).replace(/```[\s\S]*?```/g, " Code block omitted. ").slice(0, 3500);
+        const selected = speechSynthesis.getVoices().find((voice) => voice.name === settings.voiceName);
+        const styles = {
+          natural: { rate: 1, pitch: 1 },
+          calm: { rate: 0.88, pitch: 0.95 },
+          energetic: { rate: 1.12, pitch: 1.08 },
+          deep: { rate: 0.92, pitch: 0.72 }
+        };
+        const baseStyle = styles[settings.voiceStyle] || styles.natural;
+        const chunks = splitSpeechChunks(clean);
+        let index = 0;
+
+        const finish = (delay = 450) => {
+          if (sessionId !== speechSessionId) return;
+          voiceSubmitting = false;
+          shouldRestartVoice = voiceConversationActive;
+          if (voiceConversationActive) scheduleVoiceRestart(delay);
+        };
+
+        const speakNext = () => {
+          if (sessionId !== speechSessionId) return;
+          const chunk = chunks[index];
+          if (!chunk) {
+            finish();
+            return;
+          }
+
+          const utterance = new SpeechSynthesisUtterance(chunk);
+          if (selected) utterance.voice = selected;
+          const expressive = getExpressiveSpeechStyle(chunk, baseStyle);
+          utterance.rate = expressive.rate;
+          utterance.pitch = expressive.pitch;
+          utterance.volume = 1;
+          utterance.onstart = () => {
+            updateVoiceStatus(
+              "speaking",
+              resolvedLanguage() === "es"
+                ? "JamdDmaj AI está hablando. Toca el micrófono para interrumpir."
+                : "JamdDmaj AI is speaking. Tap the microphone to interrupt."
+            );
+          };
+          utterance.onend = () => {
+            index += 1;
+            speakNext();
+          };
+          utterance.onerror = () => finish(650);
+          speechSynthesis.speak(utterance);
+        };
+
+        updateVoiceStatus("speaking");
+        speakNext();
+      }
+
+      async function speakWithNativeTts(nativeTts, value) {
+        const sessionId = ++speechSessionId;
+        await nativeTts.stop().catch(() => {});
+        const clean = String(value).replace(/```[\s\S]*?```/g, " Code block omitted. ").slice(0, 3500);
+        const styles = {
+          natural: { rate: 1, pitch: 1 },
+          calm: { rate: 0.88, pitch: 0.95 },
+          energetic: { rate: 1.12, pitch: 1.08 },
+          deep: { rate: 0.92, pitch: 0.72 }
+        };
+        const baseStyle = styles[settings.voiceStyle] || styles.natural;
+        const language = await getNativeSpeechLanguage(nativeTts);
+
+        updateVoiceStatus(
+          "speaking",
+          resolvedLanguage() === "es"
+            ? "JamdDmaj AI está hablando. Toca el micrófono para interrumpir."
+            : "JamdDmaj AI is speaking. Tap the microphone to interrupt."
+        );
+        for (const chunk of splitSpeechChunks(clean)) {
+          if (sessionId !== speechSessionId) return;
+          const expressive = getExpressiveSpeechStyle(chunk, baseStyle);
+          await nativeTts.speak({
+            text: chunk,
+            lang: language,
+            rate: expressive.rate,
+            pitch: expressive.pitch,
+            volume: 1,
+            category: "playback",
+            queueStrategy: 0
+          });
+        }
+        if (sessionId !== speechSessionId) return;
+        voiceSubmitting = false;
+        shouldRestartVoice = voiceConversationActive;
+        if (voiceConversationActive) scheduleVoiceRestart(350);
+      }
+
+      async function getNativeSpeechLanguage(nativeTts) {
+        const requested = settings.language === "auto"
+          ? (navigator.language || "es-US")
+          : settings.language;
+        const baseLanguage = requested.split("-")[0];
+        try {
+          const { languages = [] } = await nativeTts.getSupportedLanguages();
+          return languages.find((language) => language.toLowerCase() === requested.toLowerCase())
+            || languages.find((language) => language.toLowerCase().startsWith(`${baseLanguage.toLowerCase()}-`))
+            || languages.find((language) => language.toLowerCase().startsWith("en-"))
+            || requested;
+        } catch {
+          return requested;
+        }
+      }
+
+      function splitSpeechChunks(value) {
+        const sentences = String(value)
+          .replace(/\s+/g, " ")
+          .match(/[^.!?¿¡]+[.!?¿¡]+|[^.!?¿¡]+$/g) || [String(value)];
+        const chunks = [];
+        let current = "";
+        sentences.forEach((sentence) => {
+          const next = `${current} ${sentence}`.trim();
+          if (next.length > 260 && current) {
+            chunks.push(current);
+            current = sentence.trim();
+          } else {
+            current = next;
+          }
+        });
+        if (current) chunks.push(current);
+        return chunks;
+      }
+
+      function getExpressiveSpeechStyle(text, base) {
+        let rate = base.rate;
+        let pitch = base.pitch;
+        if (/[!?¡]/.test(text)) {
+          rate += 0.04;
+          pitch += 0.04;
+        }
+        if (/[?¿]/.test(text)) pitch += 0.03;
+        if (/\b(lo siento|entiendo|te comprendo|sorry|I understand)\b/i.test(text)) {
+          rate -= 0.07;
+          pitch -= 0.02;
+        }
+        return {
+          rate: Math.max(0.7, Math.min(1.3, rate)),
+          pitch: Math.max(0.55, Math.min(1.35, pitch))
+        };
+      }
+
+      function interruptSpokenReply() {
+        speechSessionId += 1;
+        getNativePlugin("TextToSpeech")?.stop().catch(() => {});
+        if ("speechSynthesis" in window) speechSynthesis.cancel();
+        voiceSubmitting = false;
+        shouldRestartVoice = voiceConversationActive;
+        updateVoiceStatus("ready", resolvedLanguage() === "es" ? "Te escucho." : "I'm listening.");
+        setTimeout(startVoiceListening, 100);
+      }
+
+      function populateVoices() {
+        if (!("speechSynthesis" in window)) return;
+        const voices = speechSynthesis.getVoices();
+        const previous = settings.voiceName;
+        els.voice.replaceChildren(new Option("System default", ""));
+        voices.forEach((voice) => {
+          els.voice.add(new Option(`${voice.name} (${voice.lang})`, voice.name));
+        });
+        els.voice.value = voices.some((voice) => voice.name === previous) ? previous : "";
+      }
+
+      function downloadImage(source) {
+        const link = document.createElement("a");
+        link.href = source;
+        link.download = `jamddmaj-image-${Date.now()}.png`;
+        link.click();
+      }
+
+      function saveActiveChat() {
+        const chat = getCurrentChat();
+        if (!chat) return;
+        let project = chat.projectId
+          ? projects.find((entry) => entry.id === chat.projectId)
+          : null;
+        if (project) {
+          commitProjectSave(chat, project);
+          return;
+        }
+        pendingProjectChatId = chat.id;
+        const input = document.getElementById("projectNameInput");
+        input.value = chat.title === "New conversation" ? translate("newProject") : chat.title;
+        const dialog = document.getElementById("projectDialog");
+        if (!dialog.open) dialog.showModal();
+        setTimeout(() => {
+          input.focus();
+          input.select();
+        }, 50);
+      }
+
+      function confirmProjectSave() {
+        const chat = chats.find((entry) => entry.id === pendingProjectChatId) || getCurrentChat();
+        if (!chat) return false;
+        const clean = document.getElementById("projectNameInput").value.replace(/\s+/g, " ").trim().slice(0, 80);
+        if (!clean) {
+          showToast(resolvedLanguage() === "es" ? "Escribe un nombre para el proyecto." : "Enter a project name.");
+          return false;
+        }
+        const project = {
+          id: globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : String(Date.now()),
+          title: clean,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          messages: []
+        };
+        projects.unshift(project);
+        chat.projectId = project.id;
+        commitProjectSave(chat, project);
+        pendingProjectChatId = null;
+        return true;
+      }
+
+      function commitProjectSave(chat, project) {
+        project.title = project.title || chat.title;
+        project.messages = structuredCloneSafe(chat.messages.filter((message) => !message.streaming));
+        project.updatedAt = new Date().toISOString();
+        chat.updatedAt = project.updatedAt;
+        persistProjects();
+        persistChats();
+        renderAll();
+        showToast(translate("projectSaved"));
+      }
+
+      function renameActiveChat() {
+        const chat = getCurrentChat();
+        if (!chat) return;
+        const nextTitle = window.prompt("Rename this conversation:", chat.title || "New conversation");
+        if (nextTitle === null) return;
+        const cleanTitle = nextTitle.replace(/\s+/g, " ").trim().slice(0, 80);
+        if (!cleanTitle) {
+          showToast("Enter a name for the conversation.");
+          return;
+        }
+        chat.title = cleanTitle;
+        chat.updatedAt = new Date().toISOString();
+        persistChats();
+        renderAll();
+        showToast("Conversation renamed.");
+      }
+
+      function toggleMarkets() {
+        if (learning.mode !== "chat") {
+          learning.mode = "chat";
+          learning.activeLesson = null;
+          persistLearning();
+          renderLearningMode();
+        }
+        const willOpen = els.ticker.classList.contains("is-hidden");
+        els.ticker.classList.toggle("is-hidden", !willOpen);
+        localStorage.setItem(STORAGE.markets, String(willOpen));
+        updateHeader();
+        if (willOpen) fetchPrices();
+      }
+
+      function toggleVoiceMode() {
+        setVoiceConversationEnabled(!voiceConversationActive);
+      }
+
+      function openTutorial() {
+        localStorage.setItem(STORAGE.tutorial, "true");
+        mainCoachIndex = 0;
+        closeSidebar();
+        showMainCoachStep();
+      }
+
+      function showMainCoachStep() {
+        clearMainCoachHighlight();
+        const steps = resolvedLanguage() === "es" ? MAIN_COACH_STEPS : MAIN_COACH_STEPS_EN;
+        const step = steps[mainCoachIndex];
+        if (!step) {
+          finishMainCoach();
+          return;
+        }
+        const target = document.querySelector(step.selector);
+        if (!target || target.offsetParent === null) {
+          mainCoachIndex += 1;
+          showMainCoachStep();
+          return;
+        }
+        target.scrollIntoView({ block: "center", behavior: "smooth" });
+        setTimeout(() => {
+          target.classList.add("coach-highlight");
+          const coach = document.getElementById("mainCoach");
+          document.getElementById("mainCoachTitle").textContent = step.title;
+          document.getElementById("mainCoachText").textContent = step.text;
+          document.getElementById("nextMainCoachBtn").textContent = mainCoachIndex === steps.length - 1
+            ? translate("finish")
+            : translate("next");
+          document.getElementById("skipMainCoachBtn").textContent = translate("skip");
+          positionCoach(coach, target);
+          coach.classList.add("show");
+        }, 180);
+      }
+
+      function positionCoach(coach, target) {
+        const rect = target.getBoundingClientRect();
+        const width = Math.min(330, window.innerWidth - 24);
+        const left = Math.max(12, Math.min(window.innerWidth - width - 12, rect.left + rect.width / 2 - width / 2));
+        const below = rect.bottom + 190 < window.innerHeight;
+        coach.style.left = `${left}px`;
+        coach.style.top = `${below ? rect.bottom + 12 : Math.max(12, rect.top - 180)}px`;
+      }
+
+      function clearMainCoachHighlight() {
+        document.querySelectorAll("body > .coach-highlight, .app .coach-highlight").forEach((element) => {
+          if (!els.settings.contains(element)) element.classList.remove("coach-highlight");
+        });
+      }
+
+      function finishMainCoach() {
+        clearMainCoachHighlight();
+        document.getElementById("mainCoach").classList.remove("show");
+      }
+
+      function exportChat() {
+        const chat = getCurrentChat();
+        if (!chat?.messages.length) {
+          showToast("There is no conversation to export.");
+          return;
+        }
+        const markdown = [
+          `# ${chat.title}`,
+          "",
+          ...chat.messages.flatMap((message) => [
+            `## ${message.role === "assistant" ? "JamdDmaj AI" : "You"}`,
+            "",
+            message.content,
+            "",
+            ...(message.generatedImages?.length ? ["_Generated image omitted from text export._", ""] : [])
+          ])
+        ].join("\n");
+        const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `${chat.title.replace(/[^\w-]+/g, "-").replace(/^-|-$/g, "") || "chat"}.md`;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+      }
+
+      async function exportFullBackup() {
+        checkpointChats();
+        const payload = {
+          format: "jamddmaj-backup",
+          schemaVersion: 1,
+          appVersion: APP_VERSION,
+          exportedAt: new Date().toISOString(),
+          data: {
+            chats,
+            projects,
+            learning,
+            settings,
+            currentChatId,
+            theme: localStorage.getItem(STORAGE.theme),
+            marketsOpen: localStorage.getItem(STORAGE.markets),
+            tutorialSeen: localStorage.getItem(STORAGE.tutorial)
+          }
+        };
+        const fileName = `JamdDmaj-backup-${new Date().toISOString().slice(0, 10)}.json`;
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+        const file = new File([blob], fileName, { type: blob.type });
+        try {
+          if (navigator.canShare?.({ files: [file] })) {
+            await navigator.share({
+              files: [file],
+              title: "JamdDmaj AI backup",
+              text: learnText("dataText")
+            });
+          } else {
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = fileName;
+            link.click();
+            setTimeout(() => URL.revokeObjectURL(link.href), 1500);
+          }
+          showToast(learnText("backupReady"));
+        } catch (error) {
+          if (error?.name !== "AbortError") showToast(learnText("invalidBackup"));
+        }
+      }
+
+      async function restoreFullBackup(file) {
+        if (!file) return;
+        try {
+          const payload = JSON.parse(await file.text());
+          const data = payload?.data;
+          if (payload?.format !== "jamddmaj-backup" || !data || !Array.isArray(data.chats)) {
+            throw new Error("Invalid backup");
+          }
+          if (!confirm(learnText("restoreConfirm"))) return;
+          localStorage.setItem(STORAGE.chats, JSON.stringify(data.chats.slice(0, 30)));
+          localStorage.setItem(STORAGE.projects, JSON.stringify(Array.isArray(data.projects) ? data.projects.slice(0, 30) : []));
+          localStorage.setItem(STORAGE.learning, JSON.stringify(data.learning || learning));
+          localStorage.setItem(STORAGE.settings, JSON.stringify({ ...DEFAULT_SETTINGS, ...(data.settings || {}) }));
+          localStorage.setItem(STORAGE.current, String(data.currentChatId || data.chats[0]?.id || ""));
+          if (data.theme) localStorage.setItem(STORAGE.theme, data.theme);
+          if (data.marketsOpen !== null && data.marketsOpen !== undefined) {
+            localStorage.setItem(STORAGE.markets, String(data.marketsOpen));
+          }
+          if (data.tutorialSeen !== null && data.tutorialSeen !== undefined) {
+            localStorage.setItem(STORAGE.tutorial, String(data.tutorialSeen));
+          }
+          showToast(learnText("backupRestored"));
+          setTimeout(() => location.reload(), 900);
+        } catch {
+          showToast(learnText("invalidBackup"));
+        }
+      }
+
+      function openSettings(focusSection = "") {
+        els.apiKey.value = getApiKey();
+        els.rememberKey.checked = settings.rememberKey;
+        els.chatModel.value = settings.chatModel;
+        els.imageModel.value = settings.imageModel;
+        els.systemPrompt.value = settings.systemPrompt;
+        els.autoSpeak.checked = settings.autoSpeak;
+        els.liveWeb.checked = settings.liveWeb;
+        els.allowPaidImages.checked = settings.allowPaidImages;
+        els.language.value = settings.language;
+        els.personality.value = settings.personality;
+        els.voiceStyle.value = settings.voiceStyle;
+        els.responseLength.value = settings.responseLength || DEFAULT_SETTINGS.responseLength;
+        els.creativity.value = settings.creativity || DEFAULT_SETTINGS.creativity;
+        els.accent.value = settings.accent;
+        els.background.value = settings.background;
+        els.themeMode.value = settings.themeMode;
+        els.compact.checked = settings.compact;
+        els.animations.checked = settings.animations;
+        els.font.value = settings.font;
+        els.fontSize.value = settings.fontSize;
+        els.radius.value = settings.radius;
+        els.messageWidth.value = settings.messageWidth;
+        els.userBubble.value = settings.userBubble;
+        els.assistantBubble.value = settings.assistantBubble;
+        els.avatars.value = settings.avatars;
+        populateVoices();
+        els.voice.value = settings.voiceName;
+        updateConnectionStatus();
+        els.settings.showModal();
+        if (focusSection) {
+          setTimeout(() => document.getElementById(focusSection)?.scrollIntoView({
+            block: "center",
+            behavior: "smooth"
+          }), 160);
+        }
+        if (localStorage.getItem(STORAGE.settingsCoach) !== "true") {
+          settingsCoachIndex = 0;
+          setTimeout(showSettingsCoachStep, 180);
+        }
+      }
+
+      function showSettingsCoachStep() {
+        clearSettingsCoachHighlight();
+        const steps = resolvedLanguage() === "es" ? SETTINGS_COACH_STEPS : SETTINGS_COACH_STEPS_EN;
+        const step = steps[settingsCoachIndex];
+        if (!step || !els.settings.open) {
+          finishSettingsCoach();
+          return;
+        }
+        const target = els.settings.querySelector(step.selector);
+        if (!target) {
+          settingsCoachIndex += 1;
+          showSettingsCoachStep();
+          return;
+        }
+        target.scrollIntoView({ block: "center", behavior: "smooth" });
+        setTimeout(() => {
+          target.classList.add("coach-highlight");
+          const coach = document.getElementById("settingsCoach");
+          document.getElementById("coachTitle").textContent = step.title;
+          document.getElementById("coachText").textContent = step.text;
+          document.getElementById("nextCoachBtn").textContent = settingsCoachIndex === steps.length - 1
+            ? translate("finish")
+            : translate("next");
+          const rect = target.getBoundingClientRect();
+          const width = Math.min(330, window.innerWidth - 24);
+          const left = Math.max(12, Math.min(window.innerWidth - width - 12, rect.left + rect.width / 2 - width / 2));
+          const preferBelow = rect.bottom + 190 < window.innerHeight;
+          const top = preferBelow
+            ? Math.min(window.innerHeight - 190, rect.bottom + 12)
+            : Math.max(12, rect.top - 180);
+          coach.style.left = `${left}px`;
+          coach.style.top = `${top}px`;
+          coach.classList.add("show");
+        }, 220);
+      }
+
+      function clearSettingsCoachHighlight() {
+        els.settings.querySelectorAll(".coach-highlight").forEach((element) => element.classList.remove("coach-highlight"));
+      }
+
+      function finishSettingsCoach() {
+        clearSettingsCoachHighlight();
+        document.getElementById("settingsCoach").classList.remove("show");
+        localStorage.setItem(STORAGE.settingsCoach, "true");
+      }
+
+      function saveSettings(event) {
+        if (event.submitter?.value !== "default") return;
+        event.preventDefault();
+        settings = {
+          chatModel: els.chatModel.value.trim() || DEFAULT_SETTINGS.chatModel,
+          imageModel: els.imageModel.value.trim() || DEFAULT_SETTINGS.imageModel,
+          systemPrompt: els.systemPrompt.value.trim() || DEFAULT_SETTINGS.systemPrompt,
+          rememberKey: els.rememberKey.checked,
+          autoSpeak: els.autoSpeak.checked,
+          liveWeb: els.liveWeb.checked,
+          allowPaidImages: els.allowPaidImages.checked,
+          language: els.language.value,
+          personality: els.personality.value,
+          voiceName: els.voice.value,
+          voiceStyle: els.voiceStyle.value,
+          responseLength: els.responseLength.value,
+          creativity: els.creativity.value,
+          accent: els.accent.value,
+          background: els.background.value,
+          themeMode: els.themeMode.value,
+          compact: els.compact.checked,
+          animations: els.animations.checked,
+          font: els.font.value,
+          fontSize: Number(els.fontSize.value),
+          radius: Number(els.radius.value),
+          messageWidth: Number(els.messageWidth.value),
+          userBubble: els.userBubble.value,
+          assistantBubble: els.assistantBubble.value,
+          avatars: els.avatars.value
+        };
+        saveApiKey(els.apiKey.value.trim(), settings.rememberKey);
+        localStorage.setItem(STORAGE.settings, JSON.stringify(settings));
+        setVoiceConversationEnabled(settings.autoSpeak, false);
+        els.settings.close();
+        applyAppearance();
+        applyLanguage();
+        updateHeader();
+        showToast("Settings saved.");
+      }
+
+      function toggleTheme() {
+        settings.themeMode = document.body.classList.contains("light") ? "dark" : "light";
+        localStorage.setItem(STORAGE.settings, JSON.stringify(settings));
+        localStorage.setItem(STORAGE.theme, settings.themeMode);
+        applyThemeMode(settings.themeMode);
+      }
+
+      function openSidebar() {
+        els.sidebar.classList.add("open");
+        els.mobileOverlay.classList.add("show");
+      }
+
+      function closeSidebar() {
+        els.sidebar.classList.remove("open");
+        els.mobileOverlay.classList.remove("show");
+      }
+
+      function showToast(message) {
+        if (!els.toast) return;
+        clearTimeout(toastTimer);
+        els.toast.textContent = message;
+        els.toast.classList.add("show");
+        toastTimer = setTimeout(() => els.toast.classList.remove("show"), 2600);
+      }
+
+      function initTooltips() {
+        document.querySelectorAll("button[aria-label]").forEach((button) => {
+          if (!button.title) button.title = button.getAttribute("aria-label");
+        });
+        document.getElementById("imageModeBtn").title = "Create an image";
+        document.getElementById("attachBtn").title = "More tools and attachments";
+        document.getElementById("sendBtn").title = "Send message";
+      }
+
+      function closePlusMenu() {
+        els.plusMenu.classList.remove("show");
+      }
+
+      function chooseFiles(accept) {
+        els.file.accept = accept;
+        closePlusMenu();
+        els.file.click();
+      }
+
+      function scheduleIdleNudge() {
+        clearTimeout(idleTimer);
+        clearTimeout(idleAutoHideTimer);
+        document.getElementById("idleNudge").classList.remove("show");
+        const dismissedAt = Number(localStorage.getItem(STORAGE.idleNudge) || 0);
+        if (idlePhase === "prompt" && Date.now() - dismissedAt < 24 * 60 * 60 * 1000) {
+          idlePhase = "fact";
+        }
+        const delay = idlePhase === "prompt" ? 30000 : 60000;
+        idleTimer = setTimeout(() => {
+          if (!activeController && !els.settings.open && !els.tutorial.open && document.visibilityState === "visible") {
+            showIdleNudge();
+          }
+        }, delay);
+      }
+
+      function showIdleNudge() {
+        const panel = document.getElementById("idleNudge");
+        if (idlePhase === "prompt") {
+          document.getElementById("idleNudgeTitle").textContent = translate("idleTitle");
+          document.getElementById("idleNudgeText").textContent = translate("idleText");
+          document.getElementById("idleStartBtn").textContent = translate("idleStart");
+          document.getElementById("idleDismissBtn").textContent = translate("notNow");
+        } else {
+          const facts = RANDOM_FACTS[resolvedLanguage()] || RANDOM_FACTS.en;
+          currentIdleFact = facts[Math.floor(Math.random() * facts.length)];
+          document.getElementById("idleNudgeTitle").textContent = translate("didYouKnow");
+          document.getElementById("idleNudgeText").textContent = currentIdleFact;
+          document.getElementById("idleStartBtn").textContent = resolvedLanguage() === "es" ? "Cuéntame más" : "Tell me more";
+          document.getElementById("idleDismissBtn").textContent = resolvedLanguage() === "es" ? "Cerrar" : "Close";
+        }
+        panel.classList.add("show");
+        idleAutoHideTimer = setTimeout(() => {
+          panel.classList.remove("show");
+          if (idlePhase === "prompt") {
+            localStorage.setItem(STORAGE.idleNudge, String(Date.now()));
+            idlePhase = "fact";
+          }
+          scheduleIdleNudge();
+        }, idlePhase === "prompt" ? 12000 : 15000);
+      }
+
+      function dismissIdleNudge(remember = false) {
+        clearTimeout(idleAutoHideTimer);
+        document.getElementById("idleNudge").classList.remove("show");
+        if (idlePhase === "prompt" || remember) {
+          localStorage.setItem(STORAGE.idleNudge, String(Date.now()));
+          idlePhase = "fact";
+        }
+        scheduleIdleNudge();
+      }
+
+      function previewSettings() {
+        applyAppearance({
+          ...settings,
+          accent: els.accent.value,
+          background: els.background.value,
+          themeMode: els.themeMode.value,
+          compact: els.compact.checked,
+          animations: els.animations.checked,
+          font: els.font.value,
+          fontSize: Number(els.fontSize.value),
+          radius: Number(els.radius.value),
+          messageWidth: Number(els.messageWidth.value),
+          userBubble: els.userBubble.value,
+          assistantBubble: els.assistantBubble.value,
+          avatars: els.avatars.value
+        });
+      }
+
+      function updateViewportHeight() {
+        const viewportHeight = window.visualViewport?.height || window.innerHeight;
+        document.documentElement.style.setProperty("--viewport-height", `${Math.round(viewportHeight)}px`);
+      }
+
+      function loadCachedPrices() {
+        try {
+          const cached = JSON.parse(localStorage.getItem(PRICE_CACHE_KEY));
+          if (!cached?.prices || typeof cached.prices !== "object") return;
+          updatePriceElements(cached.prices);
+          document.getElementById("priceTime").textContent = "cached";
+        } catch {
+          // Ignore an invalid cache and fetch fresh values.
+        }
+      }
+
+      function renderMarketGroups() {
+        els.marketGroups.replaceChildren();
+        const grouped = CRYPTO_ASSETS.reduce((map, asset) => {
+          if (!map.has(asset.category)) map.set(asset.category, []);
+          map.get(asset.category).push(asset);
+          return map;
+        }, new Map());
+
+        grouped.forEach((assets, category) => {
+          const section = document.createElement("section");
+          section.className = "market-group";
+          const heading = document.createElement("h3");
+          heading.textContent = localizeMarketCategory(category);
+          const coins = document.createElement("div");
+          coins.className = "market-coins";
+
+          assets.forEach((asset) => {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "coin";
+            button.dataset.symbol = asset.symbol;
+            button.dataset.prompt = `Analyze ${asset.symbol}'s current market setup.`;
+            button.append(document.createTextNode(`${asset.symbol} `));
+            const price = document.createElement("b");
+            price.id = `price-${asset.symbol.toLowerCase()}`;
+            price.textContent = "--";
+            button.append(price);
+            coins.append(button);
+          });
+
+          section.append(heading, coins);
+          els.marketGroups.append(section);
+        });
+      }
+
+      function localizeMarketCategory(category) {
+        if (resolvedLanguage() !== "es") return category;
+        return {
+          "Payments and stores of value": "Pagos y reserva de valor",
+          "Layer 1 networks": "Redes de capa 1",
+          "Layer 2 scaling": "Escalado de capa 2",
+          "Exchange tokens": "Tokens de exchanges",
+          "DeFi and governance": "DeFi y gobernanza",
+          "AI, data and infrastructure": "IA, datos e infraestructura",
+          "Community and meme coins": "Comunidad y memecoins"
+        }[category] || category;
+      }
+
+      async function fetchPrices() {
+        if (priceFetchInProgress) return;
+        priceFetchInProgress = true;
+        const status = document.getElementById("priceTime");
+        status.textContent = "loading";
+        try {
+          const sourceRequests = [
+            fetchCoinGeckoPrices(),
+            fetchCryptoComparePrices(),
+            fetchBinancePrices()
+          ];
+          const results = await Promise.allSettled(sourceRequests);
+          const prices = {};
+
+          results.forEach((result) => {
+            if (result.status !== "fulfilled") return;
+            Object.entries(result.value).forEach(([symbol, price]) => {
+              if (!Number.isFinite(prices[symbol]) && Number.isFinite(price)) {
+                prices[symbol] = price;
+              }
+            });
+          });
+
+          if (!Object.keys(prices).length) {
+            status.textContent = "retry";
+            showToast("Live prices are temporarily unavailable. Tap Prices to retry.");
+            return;
+          }
+
+          updatePriceElements(prices);
+          localStorage.setItem(PRICE_CACHE_KEY, JSON.stringify({
+            prices,
+            updatedAt: new Date().toISOString()
+          }));
+          status.textContent = new Date().toLocaleTimeString([], {
+            hour: "numeric",
+            minute: "2-digit",
+            second: "2-digit"
+          });
+        } finally {
+          priceFetchInProgress = false;
+        }
+      }
+
+      async function fetchCoinGeckoPrices() {
+        const ids = CRYPTO_ASSETS.map((asset) => asset.id).join(",");
+        const data = await fetchJsonWithTimeout(
+          `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(ids)}&vs_currencies=usd`,
+          6500
+        );
+        return Object.fromEntries(CRYPTO_ASSETS.map((asset) => [
+          asset.symbol,
+          Number(data[asset.id]?.usd)
+        ]));
+      }
+
+      async function fetchCryptoComparePrices() {
+        const symbols = CRYPTO_ASSETS.map((asset) => asset.symbol).join(",");
+        const data = await fetchJsonWithTimeout(
+          `https://min-api.cryptocompare.com/data/pricemulti?fsyms=${encodeURIComponent(symbols)}&tsyms=USD`,
+          6500
+        );
+        return Object.fromEntries(CRYPTO_ASSETS.map((asset) => [
+          asset.symbol,
+          Number(data[asset.symbol]?.USD)
+        ]));
+      }
+
+      async function fetchBinancePrices() {
+        const data = await fetchJsonWithTimeout(
+          "https://api.binance.us/api/v3/ticker/price",
+          6500
+        );
+        const bySymbol = new Map(
+          (Array.isArray(data) ? data : []).map((item) => [item.symbol, Number(item.price)])
+        );
+        return Object.fromEntries(CRYPTO_ASSETS.map((asset) => [
+          asset.symbol,
+          bySymbol.get(asset.binance)
+        ]));
+      }
+
+      async function fetchJsonWithTimeout(url, timeout) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeout);
+        try {
+          const response = await fetch(url, {
+            signal: controller.signal,
+            cache: "no-store"
+          });
+          if (!response.ok) throw new Error(`Price source returned ${response.status}`);
+          return await response.json();
+        } finally {
+          clearTimeout(timer);
+        }
+      }
+
+      function findCryptoAssets(text) {
+        const original = String(text);
+        const normalized = original
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase();
+        const commonLowercaseSymbols = new Set(["btc", "eth", "sol", "xrp", "ada", "doge", "bnb", "ltc", "trx", "shib", "pepe"]);
+        const aliases = {
+          bitcoin: "BTC",
+          ethereum: "ETH",
+          ether: "ETH",
+          solana: "SOL",
+          ripple: "XRP",
+          cardano: "ADA",
+          dogecoin: "DOGE",
+          chainlink: "LINK",
+          avalanche: "AVAX",
+          polkadot: "DOT",
+          litecoin: "LTC",
+          stellar: "XLM",
+          tron: "TRX",
+          uniswap: "UNI",
+          shiba: "SHIB",
+          pepe: "PEPE",
+          bittensor: "TAO",
+          render: "RENDER"
+        };
+        const symbols = new Set();
+
+        CRYPTO_ASSETS.forEach((asset) => {
+          const lowercaseSymbol = asset.symbol.toLowerCase();
+          const lowercasePattern = new RegExp(`(^|[^a-z0-9])\\$?${lowercaseSymbol}([^a-z0-9]|$)`);
+          const uppercasePattern = new RegExp(`(^|[^A-Z0-9])\\$?${asset.symbol}([^A-Z0-9]|$)`);
+          const name = asset.id.replace(/-\d+$/, "").replace(/-/g, " ");
+          const safeNameMatch = name !== "near" && normalized.includes(name);
+          if (
+            uppercasePattern.test(original)
+            || (commonLowercaseSymbols.has(lowercaseSymbol) && lowercasePattern.test(normalized))
+            || safeNameMatch
+          ) {
+            symbols.add(asset.symbol);
+          }
+        });
+        Object.entries(aliases).forEach(([name, symbol]) => {
+          if (normalized.includes(name)) symbols.add(symbol);
+        });
+
+        const asksAboutCrypto = /\b(crypto|cripto|criptomoneda|coin|token|altcoin|mercado cripto)\b/.test(normalized);
+        if (!symbols.size && asksAboutCrypto) ["BTC", "ETH", "SOL"].forEach((symbol) => symbols.add(symbol));
+
+        return [...symbols]
+          .map((symbol) => CRYPTO_ASSETS.find((asset) => asset.symbol === symbol))
+          .filter(Boolean)
+          .slice(0, 4);
+      }
+
+      function findStockSymbols(text) {
+        const original = String(text);
+        const normalized = original
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase();
+        const symbols = new Set();
+        Object.entries(STOCK_ALIASES).forEach(([alias, symbol]) => {
+          if (new RegExp(`(^|[^a-z0-9])${alias}([^a-z0-9]|$)`).test(normalized)) symbols.add(symbol);
+        });
+        const marketIntent = /\b(stock|share|accion|acciones|bolsa|nasdaq|nyse|ticker|cotiza|cotizacion|precio de)\b/.test(normalized);
+        if (marketIntent) {
+          (original.match(/\$?[A-Z]{2,5}\b/g) || []).forEach((value) => {
+            const symbol = value.replace("$", "");
+            if (!["USD", "USDT", "PRICE"].includes(symbol)) symbols.add(symbol);
+          });
+        }
+        return [...symbols].slice(0, 4);
+      }
+
+      async function buildFreeLiveContext(text) {
+        const assets = findCryptoAssets(text);
+        const stockSymbols = findStockSymbols(text);
+        if (!assets.length && !stockSymbols.length) return "";
+
+        const cryptoResults = await Promise.all(assets.map(async (asset) => {
+          try {
+            return await fetchCryptoIndicators(asset);
+          } catch {
+            return null;
+          }
+        }));
+        const stockResults = await Promise.all(stockSymbols.map(async (symbol) => {
+          try {
+            return await fetchStockQuote(symbol);
+          } catch {
+            return null;
+          }
+        }));
+        const available = cryptoResults.filter(Boolean);
+        const availableStocks = stockResults.filter(Boolean);
+        if (!available.length && !availableStocks.length) return "";
+
+        const timestamp = new Date().toISOString();
+        const context = [`Market snapshot requested by the app at ${timestamp}. Prices can be delayed and can vary by venue.`];
+        if (available.length) {
+          context.push("Crypto source: Binance public market-data endpoints; hourly candles.");
+          context.push(...available.map((data) => [
+            `${data.symbol}/USDT`,
+            `price ${formatCompactNumber(data.price)} USD`,
+            `24h change ${formatSignedPercent(data.change24h)}`,
+            `24h high ${formatCompactNumber(data.high24h)}`,
+            `24h low ${formatCompactNumber(data.low24h)}`,
+            `24h quote volume ${formatCompactNumber(data.quoteVolume)} USD`,
+            `RSI(14) ${formatIndicator(data.rsi)}`,
+            `EMA(12) ${formatCompactNumber(data.ema12)}`,
+            `EMA(26) ${formatCompactNumber(data.ema26)}`,
+            `SMA(20) ${formatCompactNumber(data.sma20)}`,
+            `SMA(50) ${formatCompactNumber(data.sma50)}`,
+            `MACD ${formatIndicator(data.macd)}`,
+            `signal ${formatIndicator(data.macdSignal)}`,
+            `histogram ${formatIndicator(data.macdHistogram)}`,
+            `1h volume vs 20h average ${formatIndicator(data.volumeRatio)}x`,
+            `mechanical trend ${data.trend}`
+          ].join("; ")));
+        }
+        if (availableStocks.length) {
+          context.push("Equity source: Yahoo Finance chart market-data endpoint.");
+          context.push(...availableStocks.map((data) => [
+            `${data.symbol} (${data.exchange})`,
+            `price ${formatCompactNumber(data.price)} ${data.currency}`,
+            `previous close ${formatCompactNumber(data.previousClose)} ${data.currency}`,
+            `change ${formatSignedPercent(data.changePercent)}`,
+            `market timestamp ${data.marketTimestamp}`,
+            `market state ${data.marketState || "unknown"}`
+          ].join("; ")));
+        }
+        return context.join("\n");
+      }
+
+      async function fetchStockQuote(symbol) {
+        let lastError;
+        for (const host of ["https://query1.finance.yahoo.com", "https://query2.finance.yahoo.com"]) {
+          try {
+            const data = await fetchJsonWithTimeout(
+              `${host}/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=5d`,
+              7000
+            );
+            const result = data?.chart?.result?.[0];
+            const meta = result?.meta;
+            if (!meta) throw new Error("No stock quote returned.");
+            const closes = result.indicators?.quote?.[0]?.close || [];
+            const validCloses = closes.filter(Number.isFinite);
+            const price = Number(meta.regularMarketPrice ?? validCloses.at(-1));
+            const previousClose = Number(meta.chartPreviousClose ?? meta.previousClose ?? validCloses.at(-2));
+            if (!Number.isFinite(price)) throw new Error("No current stock price returned.");
+            return {
+              symbol: String(meta.symbol || symbol).toUpperCase(),
+              exchange: meta.exchangeName || meta.fullExchangeName || "market",
+              price,
+              previousClose,
+              changePercent: Number.isFinite(previousClose) && previousClose !== 0
+                ? ((price - previousClose) / previousClose) * 100
+                : NaN,
+              currency: meta.currency || "USD",
+              marketTimestamp: meta.regularMarketTime
+                ? new Date(meta.regularMarketTime * 1000).toISOString()
+                : new Date().toISOString(),
+              marketState: meta.marketState || ""
+            };
+          } catch (error) {
+            lastError = error;
+          }
+        }
+        throw lastError || new Error("Stock quote unavailable.");
+      }
+
+      async function fetchCryptoIndicators(asset) {
+        const hosts = ["https://api.binance.us", "https://api.binance.com"];
+        let ticker;
+        let klines;
+        let lastError;
+
+        for (const host of hosts) {
+          try {
+            [ticker, klines] = await Promise.all([
+              fetchJsonWithTimeout(`${host}/api/v3/ticker/24hr?symbol=${encodeURIComponent(asset.binance)}`, 6500),
+              fetchJsonWithTimeout(`${host}/api/v3/klines?symbol=${encodeURIComponent(asset.binance)}&interval=1h&limit=120`, 6500)
+            ]);
+            break;
+          } catch (error) {
+            lastError = error;
+          }
+        }
+        if (!ticker || !Array.isArray(klines) || klines.length < 55) throw lastError || new Error("Market data unavailable.");
+
+        const closes = klines.map((item) => Number(item[4])).filter(Number.isFinite);
+        const volumes = klines.map((item) => Number(item[5])).filter(Number.isFinite);
+        const ema12Series = calculateEmaSeries(closes, 12);
+        const ema26Series = calculateEmaSeries(closes, 26);
+        const macdSeries = closes.map((_, index) => (
+          Number.isFinite(ema12Series[index]) && Number.isFinite(ema26Series[index])
+            ? ema12Series[index] - ema26Series[index]
+            : NaN
+        ));
+        const validMacd = macdSeries.filter(Number.isFinite);
+        const signalSeries = calculateEmaSeries(validMacd, 9).filter(Number.isFinite);
+        const macd = validMacd.at(-1);
+        const macdSignal = signalSeries.at(-1);
+        const price = Number(ticker.lastPrice);
+        const sma20 = calculateSma(closes, 20);
+        const sma50 = calculateSma(closes, 50);
+        const recentVolume = volumes.at(-1);
+        const averageVolume = calculateSma(volumes.slice(0, -1), 20);
+        const trend = price > sma20 && sma20 > sma50
+          ? "bullish alignment"
+          : price < sma20 && sma20 < sma50
+            ? "bearish alignment"
+            : "mixed or sideways alignment";
+
+        return {
+          symbol: asset.symbol,
+          price,
+          change24h: Number(ticker.priceChangePercent),
+          high24h: Number(ticker.highPrice),
+          low24h: Number(ticker.lowPrice),
+          quoteVolume: Number(ticker.quoteVolume),
+          rsi: calculateRsi(closes, 14),
+          ema12: ema12Series.at(-1),
+          ema26: ema26Series.at(-1),
+          sma20,
+          sma50,
+          macd,
+          macdSignal,
+          macdHistogram: macd - macdSignal,
+          volumeRatio: averageVolume ? recentVolume / averageVolume : NaN,
+          trend
+        };
+      }
+
+      function calculateSma(values, period) {
+        const slice = values.slice(-period);
+        if (slice.length < period) return NaN;
+        return slice.reduce((sum, value) => sum + value, 0) / period;
+      }
+
+      function calculateEmaSeries(values, period) {
+        const result = Array(values.length).fill(NaN);
+        if (values.length < period) return result;
+        const multiplier = 2 / (period + 1);
+        let ema = values.slice(0, period).reduce((sum, value) => sum + value, 0) / period;
+        result[period - 1] = ema;
+        for (let index = period; index < values.length; index += 1) {
+          ema = (values[index] - ema) * multiplier + ema;
+          result[index] = ema;
+        }
+        return result;
+      }
+
+      function calculateRsi(values, period) {
+        if (values.length <= period) return NaN;
+        const changes = values.slice(1).map((value, index) => value - values[index]);
+        let averageGain = changes.slice(0, period).reduce((sum, change) => sum + Math.max(change, 0), 0) / period;
+        let averageLoss = changes.slice(0, period).reduce((sum, change) => sum + Math.max(-change, 0), 0) / period;
+        for (const change of changes.slice(period)) {
+          averageGain = ((averageGain * (period - 1)) + Math.max(change, 0)) / period;
+          averageLoss = ((averageLoss * (period - 1)) + Math.max(-change, 0)) / period;
+        }
+        if (averageLoss === 0) return 100;
+        const relativeStrength = averageGain / averageLoss;
+        return 100 - (100 / (1 + relativeStrength));
+      }
+
+      function formatCompactNumber(value) {
+        if (!Number.isFinite(value)) return "unavailable";
+        return new Intl.NumberFormat("en-US", {
+          notation: Math.abs(value) >= 1_000_000 ? "compact" : "standard",
+          maximumFractionDigits: Math.abs(value) < 1 ? 6 : 2
+        }).format(value);
+      }
+
+      function formatSignedPercent(value) {
+        if (!Number.isFinite(value)) return "unavailable";
+        return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
+      }
+
+      function formatIndicator(value) {
+        return Number.isFinite(value) ? value.toFixed(3) : "unavailable";
+      }
+
+      function updatePriceElements(prices) {
+        CRYPTO_ASSETS.forEach((asset) => {
+          const element = document.getElementById(`price-${asset.symbol.toLowerCase()}`);
+          const price = prices[asset.symbol];
+          if (element && Number.isFinite(price)) element.textContent = formatPrice(price);
+        });
+      }
+
+      function formatPrice(value) {
+        if (!Number.isFinite(value)) return "--";
+        return new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+          maximumFractionDigits: value < 1 ? 4 : 2
+        }).format(value);
+      }
+
+      function initVoiceInput() {
+        const nativeSpeech = isNativeApp() ? getNativePlugin("SpeechRecognition") : null;
+        let VoiceRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (nativeSpeech) {
+          VoiceRecognition = class {
+            constructor() {
+              this.lang = navigator.language || "en-US";
+              this.onstart = null;
+              this.onresult = null;
+              this.onend = null;
+              this.onerror = null;
+              this.stopping = false;
+            }
+
+            start() {
+              this.stopping = false;
+              this.run();
+            }
+
+            async run() {
+              try {
+                const availability = await nativeSpeech.available();
+                if (!availability.available) throw new Error("audio-capture");
+                let permission = await nativeSpeech.checkPermissions();
+                if (permission.speechRecognition !== "granted") {
+                  permission = await nativeSpeech.requestPermissions();
+                }
+                if (permission.speechRecognition !== "granted") throw new Error("not-allowed");
+                this.onstart?.();
+                const result = await nativeSpeech.start({
+                  language: this.lang,
+                  maxResults: 1,
+                  partialResults: false,
+                  popup: false
+                });
+                const transcript = result.matches?.[0]?.trim() || "";
+                if (transcript && !this.stopping) {
+                  this.onresult?.({
+                    results: [{
+                      0: { transcript },
+                      isFinal: true,
+                      length: 1
+                    }]
+                  });
+                }
+              } catch (error) {
+                if (!this.stopping) this.onerror?.({ error: error.message || "audio-capture" });
+              } finally {
+                this.onend?.();
+              }
+            }
+
+            stop() {
+              this.stopping = true;
+              nativeSpeech.stop().catch(() => {});
+            }
+
+            abort() {
+              this.stop();
+            }
+          };
+        }
+        const voiceButton = document.createElement("button");
+        voiceButton.type = "button";
+        voiceButton.className = "icon-btn voice-conversation-btn";
+        voiceButton.textContent = "🎙";
+        voiceButton.setAttribute("aria-label", "Start voice conversation");
+        voiceButton.title = "Start voice conversation";
+        els.prompt.before(voiceButton);
+        voiceInputButton = voiceButton;
+        if (!VoiceRecognition) {
+          voiceInputButton.disabled = true;
+          voiceInputButton.title = "Voice input is not supported in this browser.";
+          els.voiceModeButton.title = "Spoken replies remain available, but dictation is not supported.";
+          settings.autoSpeak = false;
+          voiceConversationActive = false;
+          shouldRestartVoice = false;
+          localStorage.setItem(STORAGE.settings, JSON.stringify(settings));
+          updateVoiceStatus("unsupported");
+          return;
+        }
+
+        voiceRecognition = new VoiceRecognition();
+        voiceRecognition.continuous = false;
+        voiceRecognition.interimResults = true;
+        voiceRecognition.lang = settings.language === "auto" ? (navigator.language || "en-US") : settings.language;
+        let startingValue = "";
+
+        voiceRecognition.onstart = () => {
+          voiceRecognitionRunning = true;
+          voiceRecognitionStarting = false;
+          startingValue = els.prompt.value;
+          updateVoiceStatus("listening");
+        };
+        voiceRecognition.onresult = (event) => {
+          let transcript = "";
+          let finalResult = false;
+          for (let index = 0; index < event.results.length; index += 1) {
+            transcript += event.results[index][0].transcript;
+            finalResult ||= event.results[index].isFinal;
+          }
+          els.prompt.value = `${startingValue}${startingValue ? " " : ""}${transcript}`;
+          autoSizePrompt();
+          if (transcript.trim()) voiceNoSpeechCount = 0;
+          if (finalResult && voiceConversationActive && !voiceSubmitting && els.prompt.value.trim()) {
+            voiceSubmitting = true;
+            shouldRestartVoice = false;
+            updateVoiceStatus("thinking");
+            try { voiceRecognition.stop(); } catch {}
+            setTimeout(sendMessage, 120);
+          }
+        };
+        voiceRecognition.onend = () => {
+          voiceRecognitionRunning = false;
+          voiceRecognitionStarting = false;
+          voiceButton.classList.remove("listening");
+          if (!voiceConversationActive || voiceSubmitting || activeController || window.speechSynthesis?.speaking) return;
+          if (shouldRestartVoice) scheduleVoiceRestart(Math.min(1800, 500 + voiceNoSpeechCount * 300));
+        };
+        voiceRecognition.onerror = (event) => {
+          voiceRecognitionRunning = false;
+          voiceRecognitionStarting = false;
+          voiceButton.classList.remove("listening");
+
+          if (event.error === "aborted") return;
+          if (event.error === "no-speech") {
+            voiceNoSpeechCount = Math.min(4, voiceNoSpeechCount + 1);
+            updateVoiceStatus("reconnecting");
+            return;
+          }
+
+          if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+            settings.autoSpeak = false;
+            voiceConversationActive = false;
+            shouldRestartVoice = false;
+            voiceSubmitting = false;
+            localStorage.setItem(STORAGE.settings, JSON.stringify(settings));
+            updateHeader();
+            updateVoiceStatus("error", resolvedLanguage() === "es"
+              ? "Permite el microfono en el navegador y vuelve a intentarlo."
+              : "Allow microphone access in the browser, then try again.");
+            showToast(resolvedLanguage() === "es"
+              ? "El navegador bloqueo el permiso del microfono."
+              : "The browser blocked microphone access.");
+            return;
+          }
+
+          if (event.error === "audio-capture") {
+            settings.autoSpeak = false;
+            voiceConversationActive = false;
+            shouldRestartVoice = false;
+            localStorage.setItem(STORAGE.settings, JSON.stringify(settings));
+            updateHeader();
+            updateVoiceStatus("error", resolvedLanguage() === "es"
+              ? "No se encontro un microfono disponible."
+              : "No available microphone was found.");
+            return;
+          }
+
+          shouldRestartVoice = voiceConversationActive;
+          updateVoiceStatus("error", resolvedLanguage() === "es"
+            ? "La escucha se interrumpio. Reconectando..."
+            : "Listening was interrupted. Reconnecting...");
+          if (voiceConversationActive) scheduleVoiceRestart(1800);
+        };
+        voiceButton.addEventListener("click", () => {
+          if (window.speechSynthesis?.speaking || voiceState === "speaking") {
+            interruptSpokenReply();
+          } else {
+            toggleVoiceMode();
+          }
+        });
+
+        if (voiceConversationActive) {
+          updateVoiceStatus("ready");
+          scheduleVoiceRestart(250);
+        }
+      }
+
+      function startVoiceListening() {
+        if (!voiceRecognition || !voiceConversationActive || activeController || voiceSubmitting) return;
+        if (voiceRecognitionRunning || voiceRecognitionStarting || window.speechSynthesis?.speaking) return;
+        if (document.hidden) {
+          scheduleVoiceRestart(1200);
+          return;
+        }
+        clearVoiceRestart();
+        shouldRestartVoice = true;
+        voiceRecognitionStarting = true;
+        updateVoiceStatus("ready");
+        try {
+          voiceRecognition.lang = settings.language === "auto" ? (navigator.language || "en-US") : settings.language;
+          voiceRecognition.start();
+        } catch {
+          voiceRecognitionStarting = false;
+          scheduleVoiceRestart(700);
+        }
+      }
+
+      document.getElementById("newChatBtn").addEventListener("click", newChat);
+      document.getElementById("menuBtn").addEventListener("click", openSidebar);
+      els.mobileOverlay.addEventListener("click", closeSidebar);
+      document.getElementById("themeBtn").addEventListener("click", toggleTheme);
+      document.getElementById("topThemeBtn").addEventListener("click", toggleTheme);
+      document.getElementById("settingsBtn").addEventListener("click", openSettings);
+      document.getElementById("topSettingsBtn").addEventListener("click", openSettings);
+      document.getElementById("connectOpenRouterBtn").addEventListener("click", connectOpenRouter);
+      document.getElementById("learnBtn").addEventListener("click", enterLearnDashboard);
+      document.getElementById("sideLearnBtn").addEventListener("click", enterLearnDashboard);
+      document.getElementById("exitLearnBtn").addEventListener("click", exitLearnMode);
+      document.getElementById("learnHomeBtn").addEventListener("click", enterLearnDashboard);
+      document.getElementById("completeLessonBtn").addEventListener("click", completeLearningLesson);
+      els.placementDialog.addEventListener("close", () => {
+        placementQuiz = null;
+      });
+      els.learnLevel.addEventListener("change", () => {
+        learning.level = els.learnLevel.value;
+        persistLearning();
+        renderLearnDashboard();
+      });
+      document.getElementById("marketsBtn").addEventListener("click", toggleMarkets);
+      document.getElementById("voiceModeBtn").addEventListener("click", toggleVoiceMode);
+      els.endVoiceButton.addEventListener("click", () => setVoiceConversationEnabled(false));
+      document.getElementById("saveChatBtn").addEventListener("click", saveActiveChat);
+      document.getElementById("renameChatBtn").addEventListener("click", renameActiveChat);
+      document.getElementById("tutorialBtn").addEventListener("click", openTutorial);
+      document.getElementById("exportBtn").addEventListener("click", exportChat);
+      document.getElementById("sideVoiceBtn").addEventListener("click", () => {
+        toggleVoiceMode();
+        closeSidebar();
+      });
+      document.getElementById("sideSaveBtn").addEventListener("click", () => {
+        saveActiveChat();
+        closeSidebar();
+      });
+      document.getElementById("sideRenameBtn").addEventListener("click", () => {
+        closeSidebar();
+        renameActiveChat();
+      });
+      document.getElementById("sideTutorialBtn").addEventListener("click", () => {
+        closeSidebar();
+        openTutorial();
+      });
+      document.getElementById("sideExportBtn").addEventListener("click", () => {
+        exportChat();
+        closeSidebar();
+      });
+      document.getElementById("sideBackupBtn").addEventListener("click", () => {
+        closeSidebar();
+        openSettings("dataSection");
+      });
+      document.getElementById("sideSocialBtn").addEventListener("click", () => {
+        closeSidebar();
+        openSettings("socialSection");
+      });
+      document.getElementById("exportBackupBtn").addEventListener("click", exportFullBackup);
+      document.getElementById("importBackupBtn").addEventListener("click", () => {
+        document.getElementById("backupFileInput").click();
+      });
+      document.getElementById("backupFileInput").addEventListener("change", (event) => {
+        restoreFullBackup(event.target.files?.[0]);
+        event.target.value = "";
+      });
+      document.getElementById("exitImageMode").addEventListener("click", () => {
+        imageGenerationMode = false;
+        renderMode();
+      });
+
+      els.attach.addEventListener("click", (event) => {
+        event.stopPropagation();
+        els.plusMenu.classList.toggle("show");
+      });
+      document.getElementById("plusImageBtn").addEventListener("click", () =>
+        chooseFiles("image/png,image/jpeg,image/webp,image/gif")
+      );
+      document.getElementById("plusTextBtn").addEventListener("click", () =>
+        chooseFiles(".txt,.md,.json,.csv,.js,.html,.css,.py,text/*")
+      );
+      document.getElementById("plusGenerateBtn").addEventListener("click", () => {
+        closePlusMenu();
+        imageGenerationMode = true;
+        renderMode();
+        els.prompt.focus();
+      });
+      document.getElementById("plusVoiceBtn").addEventListener("click", () => {
+        closePlusMenu();
+        if (!settings.autoSpeak) toggleVoiceMode();
+        else startVoiceListening();
+      });
+      document.getElementById("plusNewChatBtn").addEventListener("click", () => {
+        closePlusMenu();
+        newChat();
+      });
+      document.addEventListener("click", (event) => {
+        if (!els.plusMenu.contains(event.target) && event.target !== els.attach) closePlusMenu();
+      });
+      els.file.addEventListener("change", () => {
+        handleFiles(els.file.files);
+        els.file.value = "";
+      });
+      els.imageMode.addEventListener("click", () => {
+        imageGenerationMode = !imageGenerationMode;
+        renderMode();
+        els.prompt.focus();
+      });
+      els.send.addEventListener("click", sendMessage);
+      els.prompt.addEventListener("input", autoSizePrompt);
+      els.messages.addEventListener("scroll", () => {
+        autoFollowStream = isNearChatBottom();
+      }, { passive: true });
+      els.messages.addEventListener("wheel", () => {
+        if (activeController) autoFollowStream = false;
+      }, { passive: true });
+      els.messages.addEventListener("touchstart", () => {
+        if (activeController) autoFollowStream = false;
+      }, { passive: true });
+      els.prompt.addEventListener("focus", () => {
+        setTimeout(() => {
+          updateViewportHeight();
+          scrollToBottom();
+        }, 180);
+      });
+      els.prompt.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+          event.preventDefault();
+          sendMessage();
+        }
+      });
+      els.settingsForm.addEventListener("submit", saveSettings);
+      document.getElementById("projectForm").addEventListener("submit", (event) => {
+        if (event.submitter?.value !== "save") {
+          pendingProjectChatId = null;
+          return;
+        }
+        event.preventDefault();
+        if (confirmProjectSave()) document.getElementById("projectDialog").close();
+      });
+      els.marketGroups.addEventListener("click", (event) => {
+        const coin = event.target.closest(".coin[data-prompt]");
+        if (!coin) return;
+        const price = coin.querySelector("b")?.textContent;
+        els.prompt.value = `${coin.dataset.prompt} The displayed live price is ${price}.`;
+        autoSizePrompt();
+        els.prompt.focus();
+      });
+      document.getElementById("refreshPricesBtn").addEventListener("click", fetchPrices);
+      document.getElementById("selectCopyTextBtn").addEventListener("click", () => {
+        const area = document.getElementById("copyDialogText");
+        area.focus();
+        area.select();
+        area.setSelectionRange(0, area.value.length);
+      });
+      document.getElementById("skipCoachBtn").addEventListener("click", finishSettingsCoach);
+      document.getElementById("nextCoachBtn").addEventListener("click", () => {
+        settingsCoachIndex += 1;
+        if (settingsCoachIndex >= SETTINGS_COACH_STEPS.length) finishSettingsCoach();
+        else showSettingsCoachStep();
+      });
+      document.getElementById("skipMainCoachBtn").addEventListener("click", finishMainCoach);
+      document.getElementById("nextMainCoachBtn").addEventListener("click", () => {
+        mainCoachIndex += 1;
+        if (mainCoachIndex >= MAIN_COACH_STEPS.length) finishMainCoach();
+        else showMainCoachStep();
+      });
+      els.settings.addEventListener("close", () => {
+        finishSettingsCoach();
+        applyAppearance();
+      });
+      [
+        els.accent, els.background, els.themeMode, els.compact, els.animations,
+        els.font, els.fontSize, els.radius, els.messageWidth, els.userBubble,
+        els.assistantBubble, els.avatars
+      ].forEach((input) => input.addEventListener("input", previewSettings));
+      document.getElementById("idleStartBtn").addEventListener("click", () => {
+        if (idlePhase === "fact" && currentIdleFact) {
+          els.prompt.value = resolvedLanguage() === "es"
+            ? `Cuéntame más sobre este dato: ${currentIdleFact}`
+            : `Tell me more about this fact: ${currentIdleFact}`;
+        } else {
+          const ideas = resolvedLanguage() === "es"
+            ? [
+                "Ayúdame a planear un proyecto útil paso a paso.",
+                "Explícame algo interesante que pueda aprender en diez minutos.",
+                "Hazme tres preguntas y recomiéndame una idea para crear hoy."
+              ]
+            : [
+                "Help me plan a useful project step by step.",
+                "Teach me something interesting I can learn in ten minutes.",
+                "Ask me three questions and recommend something I can create today."
+              ];
+          els.prompt.value = ideas[Math.floor(Math.random() * ideas.length)];
+        }
+        autoSizePrompt();
+        els.prompt.focus();
+        dismissIdleNudge(false);
+      });
+      document.getElementById("idleDismissBtn").addEventListener("click", () => dismissIdleNudge(true));
+      ["pointerdown", "keydown", "scroll"].forEach((eventName) => {
+        document.addEventListener(eventName, (event) => {
+          if (event.target?.closest?.("#idleNudge")) return;
+          scheduleIdleNudge();
+        }, { passive: true });
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") closeSidebar();
+      });
+
+      if (localStorage.getItem(STORAGE.theme) === "light") {
+        document.body.classList.add("light");
+      }
+      if (redirectNativeOAuthCallback()) return;
+      await initializeNativeOAuth();
+      await finishOpenRouterConnection();
+      await checkManagedAccess();
+      const shouldAutoConnect = new URLSearchParams(location.search).get("connect") === "1";
+      if (shouldAutoConnect && !getApiKey() && location.protocol !== "file:") {
+        history.replaceState({}, document.title, location.pathname);
+        setTimeout(connectOpenRouter, 150);
+      }
+      updateViewportHeight();
+      window.addEventListener("resize", updateViewportHeight);
+      window.addEventListener("orientationchange", () => setTimeout(updateViewportHeight, 120));
+      window.visualViewport?.addEventListener("resize", updateViewportHeight);
+      window.visualViewport?.addEventListener("scroll", updateViewportHeight);
+      if (localStorage.getItem(STORAGE.markets) === "true") {
+        els.ticker.classList.remove("is-hidden");
+      }
+      ensureCurrentChat();
+      renderAll();
+      applyAppearance();
+      applyLanguage();
+      initTooltips();
+      initVoiceInput();
+      updateHeader();
+      populateVoices();
+      if ("speechSynthesis" in window) speechSynthesis.onvoiceschanged = populateVoices;
+      renderMarketGroups();
+      loadCachedPrices();
+      fetchPrices();
+      scheduleIdleNudge();
+      setInterval(() => {
+        if (!document.hidden) fetchPrices();
+      }, 30000);
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden && voiceConversationActive) {
+          clearVoiceRestart();
+          try { voiceRecognition?.abort(); } catch {}
+        } else if (!document.hidden) {
+          fetchPrices();
+          if (voiceConversationActive && !activeController && !window.speechSynthesis?.speaking) {
+            shouldRestartVoice = true;
+            scheduleVoiceRestart(400);
+          }
+        }
+      });
+
+      if (!getApiKey() && managedAccessReady === false && !shouldAutoConnect) {
+        setTimeout(() => {
+          showToast(resolvedLanguage() === "es"
+            ? "El acceso automático aún no está configurado. Puedes conectar OpenRouter personalmente."
+            : "Automatic access is not configured yet. You can connect OpenRouter personally.");
+        }, 500);
+      }
+      if (localStorage.getItem(STORAGE.tutorial) !== "true") {
+        setTimeout(() => {
+          if (!els.settings.open) openTutorial();
+        }, 850);
+      }
+    })();
+  </script>
+</body>
+</html>
