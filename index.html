@@ -2550,8 +2550,8 @@
           </div>
           <div class="social-links">
             <a class="social-link" href="https://x.com/jamddmaj" target="_blank" rel="noopener noreferrer">X</a>
-            <a class="social-link" href="https://www.instagram.com/jamd_dmaj?igsh=Y2VzZ2Nkd3M2em1n" target="_blank" rel="noopener noreferrer">Instagram</a>
-            <a class="social-link" href="https://www.facebook.com/share/1E2TJs81yQ/" target="_blank" rel="noopener noreferrer">Facebook</a>
+            <a class="social-link" href="https://www.instagram.com/jamd_dmaj/" target="_blank" rel="noopener noreferrer">Instagram</a>
+            <a class="social-link" href="https://www.facebook.com/share/1E2TJp8lY0/" target="_blank" rel="noopener noreferrer">Facebook</a>
             <a class="social-link" href="https://youtube.com/@jamddmaj" target="_blank" rel="noopener noreferrer">YouTube</a>
             <a class="social-link" href="https://github.com/JamdDmaj1/JamdDmaj" target="_blank" rel="noopener noreferrer">GitHub</a>
           </div>
@@ -2662,8 +2662,9 @@
       const MANAGED_API_URL = `${WEB_APP_URL}api/chat`;
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
-      const APP_VERSION = "1.9.0";
+      const APP_VERSION = "1.11.0";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
+      const FREE_LIVE_API_URL = `${WEB_APP_URL}api/live`;
       const LEARN_TEXT = {
         en: {
           heroTitle: "Learn something you can use.", heroText: "Guided paths, personal explanations, exercises, and practice with a tutor that adapts to your level.",
@@ -2681,7 +2682,8 @@
           exportBackup: "Export file backup", importBackup: "Restore file", updates: "Updates:", updateText: "Install the new APK over the current app. Do not uninstall it. Your local information stays in place.",
           cloudBackup: "Encrypted cloud backup", cloudBackupText: "Save conversations, projects, settings, and Learn progress automatically. Keep your recovery code somewhere private.",
           syncBackup: "Sync now", showCode: "Show recovery code", restoreCloud: "Restore with code", backupCodeLabel: "Recovery code", backupCodeHelp: "Save this code. If the app is deleted, this code restores your encrypted backup.",
-          backupSynced: "Cloud backup saved.", backupRestoredCloud: "Cloud backup restored. JamdDmaj will reload now.", backupUnavailable: "Cloud backup is unavailable right now.", enterRecoveryCode: "Enter your JamdDmaj recovery code:",
+          backupSynced: "Cloud backup saved.", backupRestoredCloud: "Cloud backup restored. JamdDmaj will reload now.", backupUnavailable: "Cloud backup is unavailable right now.", backupPending: "Backup pending. JamdDmaj will retry automatically.", backupOffline: "No internet connection. Backup will sync when you are online.", enterRecoveryCode: "Enter your JamdDmaj recovery code:",
+          chatNetworkError: "I could not reach the JamdDmaj server. Check your internet connection or wait a moment if Vercel is redeploying, then try again.",
           socialTitle: "JamdDmaj official networks", socialText: "Follow updates, tutorials, demonstrations, and new releases.",
           sideBackup: "Data and backup", sideSocial: "Official social networks", backupReady: "Backup created.", backupRestored: "Backup restored. JamdDmaj will reload now.",
           invalidBackup: "This is not a valid JamdDmaj backup.", restoreConfirm: "Restore this backup? It will replace the information currently stored on this device."
@@ -2702,7 +2704,8 @@
           exportBackup: "Exportar archivo", importBackup: "Restaurar archivo", updates: "Actualizaciones:", updateText: "Instala el APK nuevo encima de la app actual. No la desinstales. Tus datos locales permanecerán guardados.",
           cloudBackup: "Respaldo cifrado en la nube", cloudBackupText: "Guarda automáticamente conversaciones, proyectos, ajustes y progreso de Learn. Conserva tu código de recuperación en privado.",
           syncBackup: "Sincronizar ahora", showCode: "Ver código", restoreCloud: "Restaurar con código", backupCodeLabel: "Código de recuperación", backupCodeHelp: "Guarda este código. Si borras la app, este código restaura tu respaldo cifrado.",
-          backupSynced: "Respaldo en la nube guardado.", backupRestoredCloud: "Respaldo restaurado. JamdDmaj se reiniciará ahora.", backupUnavailable: "El respaldo en la nube no está disponible ahora.", enterRecoveryCode: "Escribe tu código de recuperación de JamdDmaj:",
+          backupSynced: "Respaldo en la nube guardado.", backupRestoredCloud: "Respaldo restaurado. JamdDmaj se reiniciara ahora.", backupUnavailable: "El respaldo en la nube no esta disponible ahora.", backupPending: "Respaldo pendiente. JamdDmaj lo reintentara automaticamente.", backupOffline: "No hay conexion a internet. El respaldo se sincronizara cuando vuelvas online.", enterRecoveryCode: "Escribe tu codigo de recuperacion de JamdDmaj:",
+          chatNetworkError: "No pude conectar con el servidor de JamdDmaj. Revisa internet o espera un momento si Vercel esta actualizando, y prueba otra vez.",
           socialTitle: "Redes oficiales de JamdDmaj", socialText: "Sigue las novedades, tutoriales, demostraciones y nuevas versiones.",
           sideBackup: "Datos y respaldo", sideSocial: "Redes sociales oficiales", backupReady: "Respaldo creado.", backupRestored: "Respaldo restaurado. JamdDmaj se reiniciará ahora.",
           invalidBackup: "Este archivo no es un respaldo válido de JamdDmaj.", restoreConfirm: "¿Restaurar este respaldo? Reemplazará la información guardada actualmente en este dispositivo."
@@ -3201,7 +3204,9 @@
         learning: "jamdV2Learning",
         deviceId: "jamdV2DeviceId",
         recoveryCode: "jamdV3RecoveryCode",
-        backupSyncedAt: "jamdV3BackupSyncedAt"
+        backupSyncedAt: "jamdV3BackupSyncedAt",
+        backupPending: "jamdV3BackupPending",
+        backupRetryCount: "jamdV3BackupRetryCount"
       };
 
       const DEFAULT_SETTINGS = {
@@ -5204,14 +5209,38 @@
         };
       }
 
-      function fetchChatCompletion(body, signal) {
+      function createNetworkError(originalError, fallbackKey = "chatNetworkError") {
+        const error = new Error(learnText(fallbackKey));
+        error.name = "JamdDmajNetworkError";
+        error.originalMessage = originalError?.message || "";
+        return error;
+      }
+
+      function isNetworkError(error) {
+        return error?.name === "JamdDmajNetworkError"
+          || error?.name === "TypeError"
+          || /failed to fetch|network|load failed|connection/i.test(error?.message || "");
+      }
+
+      function formatAssistantError(error) {
+        if (error?.name === "AbortError") return "Response stopped.";
+        if (isNetworkError(error)) return learnText("chatNetworkError");
+        return error?.message || "Unknown error.";
+      }
+
+      async function fetchChatCompletion(body, signal) {
         const transport = getChatTransport();
-        return fetch(transport.url, {
-          method: "POST",
-          signal,
-          headers: transport.headers,
-          body: JSON.stringify(body)
-        });
+        try {
+          return await fetch(transport.url, {
+            method: "POST",
+            signal,
+            headers: transport.headers,
+            body: JSON.stringify(body)
+          });
+        } catch (error) {
+          if (error?.name === "AbortError") throw error;
+          throw createNetworkError(error);
+        }
       }
 
       function saveApiKey(key, remember) {
@@ -5449,9 +5478,9 @@
         activeController = new AbortController();
         try {
           const recentUserContext = chat.messages
-            .filter((message) => message.role === "user")
-            .slice(-3)
-            .map((message) => message.content)
+            .filter((message) => !message.streaming && message.content)
+            .slice(-6)
+            .map((message) => `${message.role}: ${message.content}`)
             .join("\n");
           const freeLiveContext = await buildFreeLiveContext(recentUserContext);
           const apiMessages = buildApiMessages(chat.messages, freeLiveContext);
@@ -5485,7 +5514,8 @@
           if (error.name === "AbortError") {
             assistantMessage.content ||= "Response stopped.";
           } else {
-            assistantMessage.content = `I could not complete that request.\n\n${error.message}`;
+            assistantMessage.content = `I could not complete that request.\n\n${formatAssistantError(error)}`;
+            if (!getApiKey() && isNetworkError(error)) checkManagedAccess();
           }
           assistantMessage.streaming = false;
           persistChats();
@@ -5636,7 +5666,7 @@
           detailed: "Provide thorough explanations with useful structure and examples."
         }[settings.responseLength] || "Use a balanced amount of detail.";
         const verifiedContext = freeLiveContext
-          ? `\n\nVerified free live data supplied by the app:\n${freeLiveContext}\nUse these exact values when relevant. State the source and timestamp. Do not say you lack current market access when this block contains the requested asset. Never present technical indicators as certainty or personalized financial advice.`
+          ? `\n\nVerified free live data supplied by the app:\n${freeLiveContext}\nUse these exact values when relevant. State the source and timestamp. Do not say you lack current market access, current web access, or YouTube access when this block contains the requested information. If the block includes a YouTube URL, include that direct URL in your answer so the app can show the embedded player. Never tell the user to search manually when the needed result is present. Never present technical indicators as certainty or personalized financial advice.`
           : "";
         const result = [{
           role: "system",
@@ -6350,15 +6380,61 @@
         if (codeElement) codeElement.textContent = code ? formatRecoveryCode(code) : "Not created yet";
         if (status) {
           const synced = localStorage.getItem(STORAGE.backupSyncedAt);
+          const pending = localStorage.getItem(STORAGE.backupPending) === "true";
           status.textContent = text || (synced
             ? `${resolvedLanguage() === "es" ? "Última copia:" : "Last backup:"} ${new Date(synced).toLocaleString()}`
-            : "");
+            : pending ? learnText("backupPending") : "");
         }
       }
 
       async function hashRecoveryCode(code) {
         const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(normalizeRecoveryCode(code)));
         return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+      }
+
+      function markCloudBackupPending(error = null) {
+        localStorage.setItem(STORAGE.backupPending, "true");
+        const detail = error?.message ? ` ${resolvedLanguage() === "es" ? "Detalle:" : "Detail:"} ${error.message}` : "";
+        const text = navigator.onLine === false
+          ? learnText("backupOffline")
+          : `${learnText("backupPending")}${detail}`;
+        updateCloudBackupStatus(text);
+      }
+
+      function clearCloudBackupPending() {
+        localStorage.removeItem(STORAGE.backupPending);
+        localStorage.removeItem(STORAGE.backupRetryCount);
+      }
+
+      function nextCloudBackupRetryDelay() {
+        const current = Number(localStorage.getItem(STORAGE.backupRetryCount) || 0);
+        const next = Math.min(current + 1, 6);
+        localStorage.setItem(STORAGE.backupRetryCount, String(next));
+        return Math.min(120000, 8000 * next);
+      }
+
+      async function fetchBackupApi(body) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 20000);
+        try {
+          return await fetch(BACKUP_API_URL, {
+            method: "POST",
+            signal: controller.signal,
+            headers: {
+              "Content-Type": "application/json",
+              "X-JamdDmaj-Device": getDeviceId(),
+              "X-JamdDmaj-Version": APP_VERSION
+            },
+            body: JSON.stringify(body)
+          });
+        } catch (error) {
+          if (error?.name === "AbortError") {
+            throw new Error(resolvedLanguage() === "es" ? "La conexion tardo demasiado." : "The connection took too long.");
+          }
+          throw createNetworkError(error, "backupPending");
+        } finally {
+          clearTimeout(timer);
+        }
       }
 
       async function getBackupCryptoKey(code) {
@@ -6418,45 +6494,47 @@
       }
 
       function scheduleCloudBackup(delay = 3500) {
-        if (!crypto?.subtle || cloudBackupInProgress) return;
+        if (!globalThis.crypto?.subtle || cloudBackupInProgress) return;
         clearTimeout(cloudBackupTimer);
         cloudBackupTimer = setTimeout(() => syncCloudBackup(false), delay);
       }
 
       async function syncCloudBackup(notify = true) {
-        if (!crypto?.subtle) {
+        if (!globalThis.crypto?.subtle) {
           if (notify) showToast(learnText("backupUnavailable"));
           return false;
         }
+        if (navigator.onLine === false) {
+          markCloudBackupPending();
+          if (notify) showToast(learnText("backupOffline"));
+          return false;
+        }
         cloudBackupInProgress = true;
+        let retry = false;
         try {
           const code = getRecoveryCode(true);
           const payload = createBackupPayload();
           const encrypted = await encryptBackupPayload(payload, code);
-          const response = await fetch(BACKUP_API_URL, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-JamdDmaj-Device": getDeviceId(),
-              "X-JamdDmaj-Version": APP_VERSION
-            },
-            body: JSON.stringify({
-              action: "save",
-              recoveryHash: await hashRecoveryCode(code),
-              encrypted,
-              updatedAt: payload.exportedAt
-            })
+          const response = await fetchBackupApi({
+            action: "save",
+            recoveryHash: await hashRecoveryCode(code),
+            encrypted,
+            updatedAt: payload.exportedAt
           });
-          if (!response.ok) throw new Error("backup failed");
+          if (!response.ok) throw new Error(await readApiError(response));
           localStorage.setItem(STORAGE.backupSyncedAt, new Date().toISOString());
+          clearCloudBackupPending();
           updateCloudBackupStatus();
           if (notify) showToast(learnText("backupSynced"));
           return true;
-        } catch {
+        } catch (error) {
+          retry = true;
+          markCloudBackupPending(error);
           if (notify) showToast(learnText("backupUnavailable"));
           return false;
         } finally {
           cloudBackupInProgress = false;
+          if (retry) scheduleCloudBackup(nextCloudBackupRetryDelay());
         }
       }
 
@@ -6465,27 +6543,20 @@
         const code = normalizeRecoveryCode(entered);
         if (!code) return;
         try {
-          const response = await fetch(BACKUP_API_URL, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-JamdDmaj-Device": getDeviceId(),
-              "X-JamdDmaj-Version": APP_VERSION
-            },
-            body: JSON.stringify({
-              action: "restore",
-              recoveryHash: await hashRecoveryCode(code)
-            })
+          const response = await fetchBackupApi({
+            action: "restore",
+            recoveryHash: await hashRecoveryCode(code)
           });
-          if (!response.ok) throw new Error("restore failed");
+          if (!response.ok) throw new Error(await readApiError(response));
           const data = await response.json();
           const payload = await decryptBackupPayload(data.encrypted, code);
           applyBackupPayload(payload);
           localStorage.setItem(STORAGE.recoveryCode, code);
           showToast(learnText("backupRestoredCloud"));
           setTimeout(() => location.reload(), 900);
-        } catch {
-          showToast(learnText("invalidBackup"));
+        } catch (error) {
+          updateCloudBackupStatus(isNetworkError(error) ? learnText("backupPending") : error.message);
+          showToast(isNetworkError(error) ? learnText("backupUnavailable") : learnText("invalidBackup"));
         }
       }
 
@@ -7005,7 +7076,8 @@
       async function buildFreeLiveContext(text) {
         const assets = findCryptoAssets(text);
         const stockSymbols = findStockSymbols(text);
-        if (!assets.length && !stockSymbols.length) return "";
+        const needsWebLookup = shouldUseFreeWebLookup(text);
+        if (!assets.length && !stockSymbols.length && !needsWebLookup) return "";
 
         const cryptoResults = await Promise.all(assets.map(async (asset) => {
           try {
@@ -7021,12 +7093,15 @@
             return null;
           }
         }));
+        const webContext = needsWebLookup ? await fetchFreeWebContext(text) : "";
         const available = cryptoResults.filter(Boolean);
         const availableStocks = stockResults.filter(Boolean);
-        if (!available.length && !availableStocks.length) return "";
+        if (!available.length && !availableStocks.length && !webContext) return "";
 
         const timestamp = new Date().toISOString();
-        const context = [`Market snapshot requested by the app at ${timestamp}. Prices can be delayed and can vary by venue.`];
+        const context = available.length || availableStocks.length
+          ? [`Market snapshot requested by the app at ${timestamp}. Prices can be delayed and can vary by venue.`]
+          : [`Free live lookup requested by the app at ${timestamp}.`];
         if (available.length) {
           context.push("Crypto source: Binance public market-data endpoints; hourly candles.");
           context.push(...available.map((data) => [
@@ -7059,7 +7134,35 @@
             `market state ${data.marketState || "unknown"}`
           ].join("; ")));
         }
+        if (webContext) context.push(webContext);
         return context.join("\n");
+      }
+
+      function shouldUseFreeWebLookup(text) {
+        const normalized = String(text || "")
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase();
+        return /\b(ultimo|ultima|latest|reciente|recent|hoy|today|ayer|yesterday|manana|tomorrow|noticia|news|actual|current|ahora|now|youtube|video|canal|channel|precio|price)\b/.test(normalized);
+      }
+
+      async function fetchFreeWebContext(text) {
+        try {
+          const response = await fetch(FREE_LIVE_API_URL, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-JamdDmaj-Device": getDeviceId(),
+              "X-JamdDmaj-Version": APP_VERSION
+            },
+            body: JSON.stringify({ query: String(text || "").slice(-500) })
+          });
+          if (!response.ok) return "";
+          const data = await response.json();
+          return String(data.context || "").slice(0, 5000);
+        } catch {
+          return "";
+        }
       }
 
       async function fetchStockQuote(symbol) {
@@ -7690,12 +7793,15 @@
           try { voiceRecognition?.abort(); } catch {}
         } else if (!document.hidden) {
           fetchPrices();
+          if (localStorage.getItem(STORAGE.backupPending) === "true") scheduleCloudBackup(1200);
           if (voiceConversationActive && !activeController && !window.speechSynthesis?.speaking) {
             shouldRestartVoice = true;
             scheduleVoiceRestart(400);
           }
         }
       });
+      window.addEventListener("online", () => scheduleCloudBackup(1200));
+      window.addEventListener("offline", () => markCloudBackupPending());
 
       if (!getApiKey() && managedAccessReady === false && !shouldAutoConnect) {
         setTimeout(() => {

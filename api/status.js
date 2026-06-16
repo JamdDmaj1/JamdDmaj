@@ -11,6 +11,9 @@ export default function handler(request) {
   }
   return jsonResponse(request, {
     ready: isServiceConfigured(),
-    mode: "managed-free-chat"
+    mode: "managed-free-chat",
+    backup: isServiceConfigured(),
+    liveSearch: isServiceConfigured(),
+    version: "1.11.0"
   });
 }
