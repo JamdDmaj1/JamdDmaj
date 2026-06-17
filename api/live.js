@@ -35,14 +35,19 @@ export default async function handler(request) {
 
     const youtubeIntent = hasYouTubeIntent(query);
     const results = [];
-    if (youtubeIntent) {
-      const youtube = await findLatestYouTubeVideo(query);
-      if (youtube) results.push(youtube);
-    }
+  if (youtubeIntent) {
+    const youtube = await findLatestYouTubeVideo(query);
+    if (youtube) results.push(youtube);
+  }
 
-    if (!results.length && shouldSearchWeb(query)) {
-      results.push(...await searchDuckDuckGo(query));
-    }
+  if (!results.length && shouldSearchWeb(query)) {
+      const webResults = await searchDuckDuckGo(query);
+      if (youtubeIntent) {
+        const youtubeFromWeb = await findLatestFromWebChannel(webResults);
+        if (youtubeFromWeb) results.push(youtubeFromWeb);
+      }
+      if (!results.length) results.push(...webResults);
+  }
 
     const context = buildLiveContext(query, results);
     return jsonResponse(request, {
@@ -74,7 +79,7 @@ function normalizeText(value) {
 
 function hasYouTubeIntent(query) {
   const text = normalizeText(query);
-  return /\b(youtube|youtu\.be|ultimo video|latest video|video mas reciente|newest video|canal|channel)\b/.test(text);
+  return /\b(youtube|youtu\.be|ultimo video|last video|latest video|video mas reciente|newest video|canal|channel)\b/.test(text);
 }
 
 function shouldSearchWeb(query) {
@@ -109,6 +114,37 @@ async function findLatestYouTubeVideo(query) {
   };
 }
 
+async function findLatestFromWebChannel(results) {
+  for (const result of results || []) {
+    try {
+      const url = new URL(result.url);
+      if (!/youtube\.com$/i.test(url.hostname.replace(/^www\./, ""))) continue;
+      if (!url.pathname.startsWith("/@") && !url.pathname.startsWith("/channel/") && !url.pathname.startsWith("/c/") && !url.pathname.startsWith("/user/")) continue;
+      const html = await fetchText(url.href);
+      const channelId = parseChannelId(html);
+      if (!channelId) continue;
+      const feedUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${encodeURIComponent(channelId)}`;
+      const xml = await fetchText(feedUrl);
+      const entry = xml.match(/<entry>([\s\S]*?)<\/entry>/i)?.[1] || "";
+      if (!entry) continue;
+      const title = decodeHtml(getXmlText(entry, "title"));
+      const author = decodeHtml(getXmlText(entry, "name"));
+      const published = getXmlText(entry, "published") || getXmlText(entry, "updated");
+      const videoId = entry.match(/<yt:videoId>([^<]+)<\/yt:videoId>/i)?.[1] || "";
+      if (!title || !videoId) continue;
+      return {
+        type: "youtube_latest",
+        title,
+        url: `https://www.youtube.com/watch?v=${videoId}`,
+        channel: author || result.title,
+        published,
+        source: "YouTube RSS via web result"
+      };
+    } catch {}
+  }
+  return null;
+}
+
 function extractYouTubeChannelQuery(query) {
   const text = String(query || " ");
   const urlHandle = text.match(/youtube\.com\/@([a-zA-Z0-9._-]+)/i)?.[1];
@@ -116,7 +152,7 @@ function extractYouTubeChannelQuery(query) {
   const handle = text.match(/@([a-zA-Z0-9._-]{2,})/)?.[1];
   if (handle) return `@${handle}`;
   const patterns = [
-    /(?:ultimo|ultima|latest|reciente|recent|newest)?\s*(?:video|short)?\s*(?:de|from)\s+([^?.!,\n]+)/i,
+    /(?:ultimo|ultima|last|latest|reciente|recent|newest)?\s*(?:video|short)?\s*(?:de|from|of)\s+([^?.!,\n]+)/i,
     /(?:canal|channel)\s+(?:de|from)?\s*([^?.!,\n]+)/i,
     /youtube\s+(?:de|from)?\s*([^?.!,\n]+)/i
   ];
@@ -130,7 +166,7 @@ function extractYouTubeChannelQuery(query) {
 function cleanChannelQuery(value) {
   const cleaned = String(value || "")
     .replace(/https?:\/\/\S+/g, " ")
-    .replace(/\b(mandame|manda|enviame|enviar|quiero|dame|el|la|los|las|ultimo|ultima|latest|video|videos|youtube|en|in|on|de|from|porfa|please|pero)\b/gi, " ")
+    .replace(/\b(mandame|manda|enviame|enviar|quiero|dame|send|give|show|can|you|me|the|a|an|el|la|los|las|ultimo|ultima|last|latest|newest|recent|video|videos|youtube|en|in|on|de|from|of|porfa|please|pero)\b/gi, " ")
     .replace(/\s+/g, " ")
     .trim();
   return cleaned;

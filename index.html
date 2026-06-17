@@ -491,6 +491,163 @@
       font-variant-numeric: tabular-nums;
     }
 
+    .trader-view {
+      height: min(100%, calc(var(--viewport-height, 100dvh) - 96px));
+      overflow: auto;
+      padding: clamp(16px, 3vw, 28px);
+      background:
+        radial-gradient(circle at 15% 10%, rgba(16, 185, 129, 0.18), transparent 26rem),
+        radial-gradient(circle at 85% 5%, rgba(139, 92, 246, 0.16), transparent 24rem);
+    }
+
+    .trader-view.is-hidden {
+      display: none;
+    }
+
+    .trader-shell {
+      display: grid;
+      gap: 18px;
+      max-width: 1120px;
+      margin: 0 auto;
+    }
+
+    .trader-hero,
+    .signal-card {
+      border: 1px solid rgba(52, 211, 153, 0.22);
+      border-radius: 28px;
+      background: linear-gradient(145deg, rgba(11, 18, 32, 0.94), rgba(18, 24, 38, 0.86));
+      box-shadow: 0 22px 70px rgba(0, 0, 0, 0.28);
+    }
+
+    .trader-hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 16px;
+      align-items: center;
+      padding: clamp(18px, 4vw, 30px);
+    }
+
+    .trader-hero small,
+    .signal-card small {
+      color: var(--accent-2);
+      font-weight: 900;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .trader-hero h2 {
+      margin: 8px 0;
+      font-size: clamp(1.7rem, 4vw, 3.2rem);
+      line-height: 1;
+    }
+
+    .trader-hero p,
+    .signal-card p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .trader-actions,
+    .signal-grid,
+    .signal-reasons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .signal-card {
+      padding: 18px;
+    }
+
+    .signal-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: start;
+      margin-bottom: 14px;
+    }
+
+    .signal-top h3 {
+      margin: 4px 0 0;
+      font-size: 1.35rem;
+    }
+
+    .signal-badge {
+      border: 1px solid currentColor;
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-weight: 900;
+    }
+
+    .signal-badge.long {
+      color: #34d399;
+      background: rgba(52, 211, 153, 0.1);
+    }
+
+    .signal-badge.short {
+      color: #fb7185;
+      background: rgba(251, 113, 133, 0.1);
+    }
+
+    .signal-grid span {
+      min-width: 120px;
+      flex: 1;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.035);
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .signal-grid b {
+      display: block;
+      margin-top: 3px;
+      color: var(--text);
+      font-size: 1rem;
+    }
+
+    .signal-reasons {
+      margin-top: 14px;
+    }
+
+    .signal-reasons span {
+      border-radius: 999px;
+      padding: 7px 10px;
+      background: rgba(34, 211, 238, 0.09);
+      color: color-mix(in srgb, var(--accent-2) 78%, white);
+      font-size: 0.78rem;
+      font-weight: 750;
+    }
+
+    .learn-inline-visuals {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .learn-inline-card {
+      overflow: hidden;
+      border: 1px solid rgba(34, 211, 238, 0.22);
+      border-radius: 18px;
+      background: rgba(34, 211, 238, 0.06);
+    }
+
+    .learn-inline-card svg {
+      display: block;
+      width: 100%;
+      height: 110px;
+      background: linear-gradient(135deg, #bae6fd, #ddd6fe);
+    }
+
+    .learn-inline-card span {
+      display: block;
+      padding: 9px 10px 10px;
+      color: var(--text);
+      font-weight: 800;
+    }
+
     .learn-view {
       flex: 1 1 auto;
       min-height: 0;
@@ -2226,7 +2383,7 @@
       <header class="topbar">
         <button class="icon-btn mobile-menu" id="menuBtn" type="button" aria-label="Open menu">☰</button>
         <div class="conversation-heading">
-          <b class="persistent-brand">JamdDmaj AI</b>
+          <b class="persistent-brand" id="brandSecretTap" role="button" tabindex="0">JamdDmaj AI</b>
           <strong id="chatTitle">New conversation</strong>
           <span id="modelLabel">One group. Every system.</span>
         </div>
@@ -2250,6 +2407,24 @@
         </div>
         <div class="market-groups" id="marketGroups"></div>
       </div>
+
+      <section class="trader-view is-hidden" id="traderView" aria-label="JamdDmaj Pro Signals">
+        <div class="trader-shell">
+          <div class="trader-hero">
+            <div>
+              <small>JamdDmaj Pro Signals</small>
+              <h2>Crypto futures scanner</h2>
+              <p>Educational setups with entry, TP, SL, validity window, momentum, trend, RSI, MACD, volume, and risk notes. No automatic order execution.</p>
+            </div>
+            <div class="trader-actions">
+              <button class="pill-btn" id="scanSignalsBtn" type="button">Scan now</button>
+              <button class="pill-btn" id="exitTraderBtn" type="button">Back</button>
+            </div>
+          </div>
+          <div id="traderStatus" class="backup-status">Tap Scan now. Hidden access: tap the JamdDmaj AI name 5 times.</div>
+          <div id="signalList" class="trader-signals"></div>
+        </div>
+      </section>
 
       <section class="learn-view is-hidden" id="learnView" aria-label="Learning center">
         <div class="learn-shell">
@@ -2662,7 +2837,7 @@
       const MANAGED_API_URL = `${WEB_APP_URL}api/chat`;
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
-      const APP_VERSION = "1.11.0";
+      const APP_VERSION = "1.12.0";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
       const FREE_LIVE_API_URL = `${WEB_APP_URL}api/live`;
       const LEARN_TEXT = {
@@ -3473,6 +3648,9 @@
         connectionStatus: document.getElementById("connectionStatus"),
         plusMenu: document.getElementById("plusMenu"),
         ticker: document.getElementById("ticker"),
+        traderView: document.getElementById("traderView"),
+        traderStatus: document.getElementById("traderStatus"),
+        signalList: document.getElementById("signalList"),
         marketsButton: document.getElementById("marketsBtn"),
         voiceModeButton: document.getElementById("voiceModeBtn"),
         voiceStatus: document.getElementById("voiceStatus"),
@@ -3530,6 +3708,7 @@
       let voiceRecognitionRunning = false;
       let voiceRecognitionStarting = false;
       let voiceRestartTimer = null;
+      let voiceStartWatchdog = null;
       let voiceNoSpeechCount = 0;
       let voiceSubmitting = false;
       let voiceState = voiceConversationActive ? "ready" : "off";
@@ -3545,6 +3724,10 @@
       let managedAccessReady = null;
       let cloudBackupTimer = null;
       let cloudBackupInProgress = false;
+      let latestFreeLiveLookup = null;
+      let traderScanTimer = null;
+      let traderSecretTaps = 0;
+      let traderMode = false;
       const SETTINGS_COACH_STEPS = [
         { selector: ".connection-card", title: "Acceso automático", text: "El chat gratuito funciona con JamdDmaj sin crear una cuenta. Conecta OpenRouter solo si quieres límites personales o generar imágenes de pago." },
         { selector: "#languageInput", title: "Idioma automático", text: "Cambia la interfaz. El chat además detecta por separado el idioma de cada mensaje." },
@@ -3792,6 +3975,7 @@
         renderAttachments();
         renderMode();
         renderLearningMode();
+        renderTraderMode();
         updateHeader();
       }
 
@@ -3850,6 +4034,7 @@
 
       function enterLearnDashboard() {
         if (activeController) activeController.abort();
+        traderMode = false;
         learning.mode = "dashboard";
         persistLearning();
         closeSidebar();
@@ -3857,6 +4042,7 @@
       }
 
       function exitLearnMode() {
+        traderMode = false;
         learning.mode = "chat";
         learning.activeLesson = null;
         persistLearning();
@@ -3869,8 +4055,10 @@
         const sessionOpen = learning.mode === "session" && Boolean(learning.activeLesson);
         document.body.classList.toggle("learn-mode", dashboardOpen || sessionOpen);
         els.learnView.classList.toggle("is-hidden", !dashboardOpen);
-        els.messages.hidden = dashboardOpen;
-        document.querySelector(".composer-wrap").hidden = dashboardOpen;
+        if (!traderMode) {
+          els.messages.hidden = dashboardOpen;
+          document.querySelector(".composer-wrap").hidden = dashboardOpen;
+        }
         els.learningSessionBar.classList.toggle("is-hidden", !sessionOpen);
         els.learnButton.classList.toggle("active", dashboardOpen || sessionOpen);
 
@@ -3890,6 +4078,38 @@
               ? `${session.sourceLanguage || learning.sourceLanguage} → ${session.targetLanguage || learning.targetLanguage} · ${levelText}`
               : levelText;
         }
+      }
+
+      function renderTraderMode() {
+        els.traderView.classList.toggle("is-hidden", !traderMode);
+        if (traderMode) {
+          document.body.classList.remove("learn-mode");
+          els.learnView.classList.add("is-hidden");
+          els.learningSessionBar.classList.add("is-hidden");
+          els.ticker.classList.add("is-hidden");
+          els.messages.hidden = true;
+          document.querySelector(".composer-wrap").hidden = true;
+        }
+      }
+
+      function enterTraderMode() {
+        traderMode = true;
+        learning.mode = "chat";
+        learning.activeLesson = null;
+        closeSidebar();
+        renderAll();
+        if (!els.signalList.children.length) scanProSignals();
+        clearInterval(traderScanTimer);
+        traderScanTimer = setInterval(() => {
+          if (traderMode && !document.hidden) scanProSignals(false);
+        }, 60000);
+      }
+
+      function exitTraderMode() {
+        traderMode = false;
+        clearInterval(traderScanTimer);
+        traderScanTimer = null;
+        renderAll();
       }
 
       function renderLearnDashboard() {
@@ -4271,6 +4491,20 @@
         })[character]);
       }
 
+      function escapeHtml(value) {
+        return String(value).replace(/[&<>"']/g, (character) => ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          "\"": "&quot;",
+          "'": "&#39;"
+        })[character]);
+      }
+
+      function escapeRegex(value) {
+        return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      }
+
       function updateLearningStreak() {
         const today = new Date().toISOString().slice(0, 10);
         if (learning.lastStudyDate === today) return;
@@ -4526,6 +4760,8 @@
         card.append(text);
         const phraseChips = createLearningPhraseChips(message);
         if (phraseChips) card.append(phraseChips);
+        const inlineVisuals = createLearningInlineVisuals(message);
+        if (inlineVisuals) card.append(inlineVisuals);
 
         if (!message.streaming && message.content) {
           const actions = document.createElement("div");
@@ -4566,6 +4802,66 @@
           wrap.append(button);
         });
         return wrap;
+      }
+
+      function createLearningInlineVisuals(message) {
+        const session = getCurrentChat()?.learningSession;
+        if (message.role !== "assistant" || message.streaming || !session || !message.content) return null;
+        const visuals = findLearningVisuals(message.content, session.trackId);
+        if (!visuals.length) return null;
+        const wrap = document.createElement("div");
+        wrap.className = "learn-inline-visuals";
+        visuals.slice(0, 4).forEach((visual) => {
+          const card = document.createElement("div");
+          card.className = "learn-inline-card";
+          card.innerHTML = `${buildLearningVisualSvg(visual.kind)}<span>${escapeHtml(visual.label)}</span>`;
+          wrap.append(card);
+        });
+        return wrap;
+      }
+
+      function findLearningVisuals(text, trackId) {
+        const normalized = String(text || "").toLowerCase();
+        const library = [
+          { keys: ["ball", "pelota", "bola"], label: "ball / pelota", kind: "ball", tracks: ["languages"] },
+          { keys: ["cat", "gato", "neko"], label: "cat / gato", kind: "cat", tracks: ["languages"] },
+          { keys: ["dog", "perro"], label: "dog / perro", kind: "dog", tracks: ["languages"] },
+          { keys: ["water", "agua", "mizu"], label: "water / agua", kind: "water", tracks: ["languages", "science"] },
+          { keys: ["book", "libro"], label: "book / libro", kind: "book", tracks: ["languages", "writing"] },
+          { keys: ["house", "casa"], label: "house / casa", kind: "house", tracks: ["languages"] },
+          { keys: ["apple", "manzana"], label: "apple / manzana", kind: "apple", tracks: ["languages"] },
+          { keys: ["sun", "sol"], label: "sun / sol", kind: "sun", tracks: ["languages", "science"] },
+          { keys: ["triangle", "triangulo"], label: "triangle", kind: "triangle", tracks: ["mathematics"] },
+          { keys: ["variable", "const", "let"], label: "variable", kind: "variable", tracks: ["programming"] },
+          { keys: ["atom", "cell", "celula"], label: "science model", kind: "atom", tracks: ["science"] },
+          { keys: ["budget", "cash flow", "revenue"], label: "business flow", kind: "business", tracks: ["business"] },
+          { keys: ["timeline", "history"], label: "timeline", kind: "timeline", tracks: ["history"] },
+          { keys: ["prompt", "model", "token"], label: "AI concept", kind: "ai", tracks: ["ai"] }
+        ];
+        return library.filter((item) =>
+          item.tracks.includes(trackId)
+          && item.keys.some((key) => new RegExp(`(^|[^a-z0-9])${escapeRegex(key)}([^a-z0-9]|$)`, "i").test(normalized))
+        );
+      }
+
+      function buildLearningVisualSvg(kind) {
+        const shapes = {
+          ball: '<circle cx="90" cy="56" r="36" fill="#f97316"/><path d="M58 56 Q90 34 122 56 M58 56 Q90 78 122 56 M90 20 V92" fill="none" stroke="#fff7ed" stroke-width="5"/>',
+          cat: '<circle cx="90" cy="58" r="34" fill="#fbbf24"/><path d="M62 36 L70 12 L84 31 M118 36 L110 12 L96 31" fill="#fbbf24"/><circle cx="78" cy="56" r="4"/><circle cx="102" cy="56" r="4"/><path d="M83 73 Q90 79 97 73" fill="none" stroke="#111827" stroke-width="4" stroke-linecap="round"/>',
+          dog: '<circle cx="90" cy="60" r="32" fill="#a16207"/><ellipse cx="58" cy="58" rx="14" ry="28" fill="#854d0e"/><ellipse cx="122" cy="58" rx="14" ry="28" fill="#854d0e"/><circle cx="79" cy="57" r="4"/><circle cx="101" cy="57" r="4"/><ellipse cx="90" cy="73" rx="9" ry="7" fill="#111827"/>',
+          water: '<path d="M90 16 C118 54 132 78 118 101 C104 124 74 124 62 101 C48 78 62 54 90 16Z" fill="#38bdf8"/><path d="M73 92 Q88 110 108 91" fill="none" stroke="#e0f2fe" stroke-width="5" stroke-linecap="round"/>',
+          book: '<path d="M38 28 H86 Q98 28 98 40 V108 Q88 98 38 101Z" fill="#60a5fa"/><path d="M142 28 H94 Q82 28 82 40 V108 Q92 98 142 101Z" fill="#818cf8"/><path d="M90 38 V109" stroke="#e0e7ff" stroke-width="4"/>',
+          house: '<path d="M36 76 L90 28 L144 76" fill="none" stroke="#f97316" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/><rect x="52" y="75" width="76" height="54" rx="8" fill="#fde68a"/><rect x="82" y="94" width="18" height="35" fill="#92400e"/>',
+          apple: '<circle cx="77" cy="72" r="31" fill="#ef4444"/><circle cx="103" cy="72" r="31" fill="#dc2626"/><path d="M90 40 Q98 20 118 24" fill="none" stroke="#15803d" stroke-width="7" stroke-linecap="round"/><path d="M88 38 Q78 24 68 21" fill="none" stroke="#7c2d12" stroke-width="6" stroke-linecap="round"/>',
+          sun: '<circle cx="90" cy="70" r="32" fill="#fde047"/><g stroke="#facc15" stroke-width="7" stroke-linecap="round"><path d="M90 18 V4"/><path d="M90 136 v-14"/><path d="M38 70 H24"/><path d="M156 70 h-14"/><path d="M52 32 L42 22"/><path d="M128 108 l10 10"/><path d="M128 32 l10-10"/><path d="M52 108 l-10 10"/></g>',
+          triangle: '<path d="M90 22 L145 120 H35Z" fill="#22d3ee"/><path d="M90 22 L145 120 H35Z" fill="none" stroke="#0f172a" stroke-width="6"/>',
+          variable: '<rect x="38" y="35" width="104" height="78" rx="14" fill="#111827"/><text x="55" y="85" font-size="34" font-family="monospace" fill="#22d3ee">x = 7</text>',
+          atom: '<circle cx="90" cy="70" r="8" fill="#f472b6"/><ellipse cx="90" cy="70" rx="58" ry="18" fill="none" stroke="#22d3ee" stroke-width="5"/><ellipse cx="90" cy="70" rx="58" ry="18" fill="none" stroke="#a78bfa" stroke-width="5" transform="rotate(60 90 70)"/><ellipse cx="90" cy="70" rx="58" ry="18" fill="none" stroke="#34d399" stroke-width="5" transform="rotate(-60 90 70)"/>',
+          business: '<rect x="35" y="82" width="26" height="40" fill="#22c55e"/><rect x="77" y="58" width="26" height="64" fill="#06b6d4"/><rect x="119" y="34" width="26" height="88" fill="#8b5cf6"/><path d="M36 42 Q85 18 142 24" fill="none" stroke="#facc15" stroke-width="6" stroke-linecap="round"/>',
+          timeline: '<path d="M32 72 H148" stroke="#22d3ee" stroke-width="6" stroke-linecap="round"/><circle cx="50" cy="72" r="11" fill="#8b5cf6"/><circle cx="90" cy="72" r="11" fill="#34d399"/><circle cx="130" cy="72" r="11" fill="#f97316"/>',
+          ai: '<rect x="48" y="30" width="84" height="84" rx="18" fill="#111827"/><circle cx="74" cy="70" r="7" fill="#22d3ee"/><circle cx="106" cy="70" r="7" fill="#22d3ee"/><path d="M74 92 H106" stroke="#a78bfa" stroke-width="6" stroke-linecap="round"/>'
+        };
+        return `<svg viewBox="0 0 180 140" role="img" aria-hidden="true"><rect width="180" height="140" fill="rgba(255,255,255,.2)"/>${shapes[kind] || shapes.ball}</svg>`;
       }
 
       function extractLearningPhrases(content, targetLanguage) {
@@ -5483,6 +5779,16 @@
             .map((message) => `${message.role}: ${message.content}`)
             .join("\n");
           const freeLiveContext = await buildFreeLiveContext(recentUserContext);
+          const directLiveAnswer = buildDirectLiveAnswer(latestFreeLiveLookup);
+          if (directLiveAnswer) {
+            assistantMessage.content = directLiveAnswer;
+            assistantMessage.streaming = false;
+            chat.updatedAt = new Date().toISOString();
+            persistChats();
+            renderAll();
+            if (settings.autoSpeak) await speak(assistantMessage.content);
+            return;
+          }
           const apiMessages = buildApiMessages(chat.messages, freeLiveContext);
           const response = await fetchChatCompletion({
             models: getChatModelFallbacks(),
@@ -7074,6 +7380,7 @@
       }
 
       async function buildFreeLiveContext(text) {
+        latestFreeLiveLookup = null;
         const assets = findCryptoAssets(text);
         const stockSymbols = findStockSymbols(text);
         const needsWebLookup = shouldUseFreeWebLookup(text);
@@ -7143,11 +7450,12 @@
           .normalize("NFD")
           .replace(/[\u0300-\u036f]/g, "")
           .toLowerCase();
-        return /\b(ultimo|ultima|latest|reciente|recent|hoy|today|ayer|yesterday|manana|tomorrow|noticia|news|actual|current|ahora|now|youtube|video|canal|channel|precio|price)\b/.test(normalized);
+        return /\b(ultimo|ultima|last|latest|reciente|recent|hoy|today|ayer|yesterday|manana|tomorrow|noticia|news|actual|current|ahora|now|youtube|video|canal|channel|precio|price)\b/.test(normalized);
       }
 
       async function fetchFreeWebContext(text) {
         try {
+          latestFreeLiveLookup = null;
           const response = await fetch(FREE_LIVE_API_URL, {
             method: "POST",
             headers: {
@@ -7159,10 +7467,24 @@
           });
           if (!response.ok) return "";
           const data = await response.json();
+          latestFreeLiveLookup = data;
           return String(data.context || "").slice(0, 5000);
         } catch {
+          latestFreeLiveLookup = null;
           return "";
         }
+      }
+
+      function buildDirectLiveAnswer(lookup) {
+        const result = lookup?.results?.find((item) => item?.type === "youtube_latest" && item.url);
+        if (!result) return "";
+        const published = result.published
+          ? new Date(result.published).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })
+          : "";
+        const spanish = resolvedLanguage() === "es";
+        return spanish
+          ? `Encontré el video más reciente de ${result.channel || "ese canal"}:\n\n${result.title}\n${result.url}${published ? `\n\nPublicado: ${published}` : ""}\n\nLa app debería mostrar el reproductor aquí mismo.`
+          : `I found the latest video from ${result.channel || "that channel"}:\n\n${result.title}\n${result.url}${published ? `\n\nPublished: ${published}` : ""}\n\nThe app should show the player right here.`;
       }
 
       async function fetchStockQuote(symbol) {
@@ -7265,6 +7587,120 @@
         };
       }
 
+      async function scanProSignals(notify = true) {
+        if (notify) els.traderStatus.textContent = "Scanning live futures-style setups...";
+        const universe = CRYPTO_ASSETS.filter((asset) =>
+          ["BTC", "ETH", "SOL", "BNB", "XRP", "ADA", "AVAX", "DOGE", "LINK", "SUI", "NEAR", "PEPE"].includes(asset.symbol)
+        );
+        const results = await Promise.all(universe.map(async (asset) => {
+          try {
+            const data = await fetchCryptoIndicators(asset);
+            return buildProSignal(data);
+          } catch {
+            return null;
+          }
+        }));
+        const signals = results
+          .filter(Boolean)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 6);
+        renderProSignals(signals);
+      }
+
+      function buildProSignal(data) {
+        const longScore = [
+          data.trend.includes("bullish") ? 2 : 0,
+          data.macdHistogram > 0 ? 1 : 0,
+          data.rsi > 45 && data.rsi < 68 ? 1 : 0,
+          data.change24h > 0 ? 1 : 0,
+          data.volumeRatio > 1.05 ? 1 : 0
+        ].reduce((sum, value) => sum + value, 0);
+        const shortScore = [
+          data.trend.includes("bearish") ? 2 : 0,
+          data.macdHistogram < 0 ? 1 : 0,
+          data.rsi < 55 && data.rsi > 32 ? 1 : 0,
+          data.change24h < 0 ? 1 : 0,
+          data.volumeRatio > 1.05 ? 1 : 0
+        ].reduce((sum, value) => sum + value, 0);
+        const side = longScore >= shortScore ? "LONG" : "SHORT";
+        const score = Math.max(longScore, shortScore);
+        if (score < 4 || !Number.isFinite(data.price) || data.price <= 0) return null;
+        const volatility = Math.max(0.006, Math.min(0.035, Math.abs(data.change24h || 0) / 100 / 2));
+        const entry = data.price;
+        const direction = side === "LONG" ? 1 : -1;
+        const stopDistance = volatility * 1.25;
+        const tp1Distance = stopDistance * 1.1;
+        const tp2Distance = stopDistance * 1.8;
+        const tp3Distance = stopDistance * 2.6;
+        const validUntil = new Date(Date.now() + 90 * 60 * 1000);
+        return {
+          symbol: `${data.symbol}/USDT PERP`,
+          side,
+          score,
+          confidence: score >= 6 ? "A" : score === 5 ? "B" : "C",
+          entry,
+          sl: entry * (1 - direction * stopDistance),
+          tp1: entry * (1 + direction * tp1Distance),
+          tp2: entry * (1 + direction * tp2Distance),
+          tp3: entry * (1 + direction * tp3Distance),
+          validUntil,
+          createdAt: new Date(),
+          reasons: [
+            data.trend,
+            `RSI ${formatIndicator(data.rsi)}`,
+            `MACD hist ${formatIndicator(data.macdHistogram)}`,
+            `24h ${formatSignedPercent(data.change24h)}`,
+            `Volume ${formatIndicator(data.volumeRatio)}x`
+          ]
+        };
+      }
+
+      function renderProSignals(signals) {
+        els.signalList.replaceChildren();
+        const stamp = new Date().toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+        els.traderStatus.textContent = signals.length
+          ? `Last scan: ${stamp}. Educational scanner only. Risk max 1% per idea.`
+          : `Last scan: ${stamp}. No clean A/B setups right now. Waiting is also a pro move.`;
+        signals.forEach((signal) => {
+          const card = document.createElement("article");
+          card.className = "signal-card";
+          const top = document.createElement("div");
+          top.className = "signal-top";
+          const title = document.createElement("div");
+          title.innerHTML = `<small>${signal.confidence}-grade setup</small><h3>${signal.symbol}</h3><p>Created ${signal.createdAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} · Valid until ${signal.validUntil.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</p>`;
+          const badge = document.createElement("span");
+          badge.className = `signal-badge ${signal.side.toLowerCase()}`;
+          badge.textContent = signal.side;
+          top.append(title, badge);
+          const grid = document.createElement("div");
+          grid.className = "signal-grid";
+          [
+            ["Entry", formatPrice(signal.entry)],
+            ["TP 1", formatPrice(signal.tp1)],
+            ["TP 2", formatPrice(signal.tp2)],
+            ["TP 3", formatPrice(signal.tp3)],
+            ["SL", formatPrice(signal.sl)],
+            ["Score", `${signal.score}/6`]
+          ].forEach(([label, value]) => {
+            const item = document.createElement("span");
+            item.innerHTML = `${label}<b>${value}</b>`;
+            grid.append(item);
+          });
+          const reasons = document.createElement("div");
+          reasons.className = "signal-reasons";
+          signal.reasons.forEach((reason) => {
+            const chip = document.createElement("span");
+            chip.textContent = reason;
+            reasons.append(chip);
+          });
+          const note = document.createElement("p");
+          note.style.marginTop = "14px";
+          note.textContent = "Educational futures signal, not financial advice. Confirm liquidity, funding, news, and your own risk before doing anything.";
+          card.append(top, grid, reasons, note);
+          els.signalList.append(card);
+        });
+      }
+
       function calculateSma(values, period) {
         const slice = values.slice(-period);
         if (slice.length < period) return NaN;
@@ -7361,12 +7797,15 @@
                 }
                 if (permission.speechRecognition !== "granted") throw new Error("not-allowed");
                 this.onstart?.();
-                const result = await nativeSpeech.start({
-                  language: this.lang,
-                  maxResults: 1,
-                  partialResults: false,
-                  popup: false
-                });
+                const result = await Promise.race([
+                  nativeSpeech.start({
+                    language: this.lang,
+                    maxResults: 1,
+                    partialResults: false,
+                    popup: false
+                  }),
+                  new Promise((_, reject) => setTimeout(() => reject(new Error("audio-timeout")), 12000))
+                ]);
                 const transcript = result.matches?.[0]?.trim() || "";
                 if (transcript && !this.stopping) {
                   this.onresult?.({
@@ -7421,6 +7860,8 @@
         let startingValue = "";
 
         voiceRecognition.onstart = () => {
+          clearTimeout(voiceStartWatchdog);
+          voiceStartWatchdog = null;
           voiceRecognitionRunning = true;
           voiceRecognitionStarting = false;
           startingValue = els.prompt.value;
@@ -7445,6 +7886,8 @@
           }
         };
         voiceRecognition.onend = () => {
+          clearTimeout(voiceStartWatchdog);
+          voiceStartWatchdog = null;
           voiceRecognitionRunning = false;
           voiceRecognitionStarting = false;
           voiceButton.classList.remove("listening");
@@ -7452,6 +7895,8 @@
           if (shouldRestartVoice) scheduleVoiceRestart(Math.min(1800, 500 + voiceNoSpeechCount * 300));
         };
         voiceRecognition.onerror = (event) => {
+          clearTimeout(voiceStartWatchdog);
+          voiceStartWatchdog = null;
           voiceRecognitionRunning = false;
           voiceRecognitionStarting = false;
           voiceButton.classList.remove("listening");
@@ -7525,6 +7970,16 @@
         try {
           voiceRecognition.lang = settings.language === "auto" ? (navigator.language || "en-US") : settings.language;
           voiceRecognition.start();
+          clearTimeout(voiceStartWatchdog);
+          voiceStartWatchdog = setTimeout(() => {
+            if (!voiceRecognitionStarting) return;
+            voiceRecognitionStarting = false;
+            try { voiceRecognition.abort(); } catch {}
+            updateVoiceStatus("error", resolvedLanguage() === "es"
+              ? "El microfono tardo demasiado. Toca el microfono otra vez o revisa permisos."
+              : "The microphone took too long. Tap the microphone again or check permissions.");
+            if (voiceConversationActive) scheduleVoiceRestart(2500);
+          }, 9000);
         } catch {
           voiceRecognitionStarting = false;
           scheduleVoiceRestart(700);
@@ -7553,6 +8008,17 @@
         renderLearnDashboard();
       });
       document.getElementById("marketsBtn").addEventListener("click", toggleMarkets);
+      document.getElementById("scanSignalsBtn").addEventListener("click", () => scanProSignals(true));
+      document.getElementById("exitTraderBtn").addEventListener("click", exitTraderMode);
+      document.getElementById("brandSecretTap").addEventListener("click", () => {
+        traderSecretTaps += 1;
+        clearTimeout(document.getElementById("brandSecretTap")._tapTimer);
+        document.getElementById("brandSecretTap")._tapTimer = setTimeout(() => { traderSecretTaps = 0; }, 1800);
+        if (traderSecretTaps >= 5) {
+          traderSecretTaps = 0;
+          enterTraderMode();
+        }
+      });
       document.getElementById("voiceModeBtn").addEventListener("click", toggleVoiceMode);
       els.endVoiceButton.addEventListener("click", () => setVoiceConversationEnabled(false));
       document.getElementById("saveChatBtn").addEventListener("click", saveActiveChat);
