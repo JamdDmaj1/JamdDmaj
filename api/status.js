@@ -14,6 +14,6 @@ export default function handler(request) {
     mode: "managed-free-chat",
     backup: isServiceConfigured(),
     liveSearch: isServiceConfigured(),
-    version: "1.12.0"
+    version: "1.13.0"
   });
 }

@@ -555,6 +555,23 @@
       gap: 10px;
     }
 
+    .trader-search {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      min-width: min(100%, 420px);
+    }
+
+    .trader-search input {
+      flex: 1 1 180px;
+      min-height: 44px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 0 14px;
+      background: rgba(255, 255, 255, 0.055);
+      color: var(--text);
+    }
+
     .signal-card {
       padding: 18px;
     }
@@ -618,6 +635,57 @@
       color: color-mix(in srgb, var(--accent-2) 78%, white);
       font-size: 0.78rem;
       font-weight: 750;
+    }
+
+    .signal-outcome {
+      margin-top: 12px;
+      border-radius: 16px;
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, 0.055);
+      color: var(--muted);
+      font-weight: 750;
+    }
+
+    .signal-outcome.hit {
+      color: #34d399;
+      background: rgba(52, 211, 153, 0.1);
+    }
+
+    .signal-outcome.stopped {
+      color: #fb7185;
+      background: rgba(251, 113, 133, 0.1);
+    }
+
+    .signal-tech {
+      margin-top: 12px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 10px 12px;
+      background: rgba(0, 0, 0, 0.12);
+    }
+
+    .signal-tech summary {
+      cursor: pointer;
+      color: var(--accent-2);
+      font-weight: 900;
+    }
+
+    .learn-resume-card {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 14px;
+      border: 1px solid rgba(34, 211, 238, 0.24);
+      border-radius: 22px;
+      padding: 16px;
+      background: linear-gradient(135deg, rgba(34, 211, 238, 0.1), rgba(139, 92, 246, 0.08));
+    }
+
+    .learn-resume-card strong {
+      font-size: 1.05rem;
+    }
+
+    .learn-resume-card span {
+      color: var(--muted);
     }
 
     .learn-inline-visuals {
@@ -2417,6 +2485,10 @@
               <p>Educational setups with entry, TP, SL, validity window, momentum, trend, RSI, MACD, volume, and risk notes. No automatic order execution.</p>
             </div>
             <div class="trader-actions">
+              <div class="trader-search">
+                <input id="traderSearchInput" placeholder="Search any crypto, e.g. BTC, SOL, render, pepe" autocomplete="off">
+                <button class="pill-btn" id="analyzeCryptoBtn" type="button">Analyze</button>
+              </div>
               <button class="pill-btn" id="scanSignalsBtn" type="button">Scan now</button>
               <button class="pill-btn" id="exitTraderBtn" type="button">Back</button>
             </div>
@@ -2837,7 +2909,7 @@
       const MANAGED_API_URL = `${WEB_APP_URL}api/chat`;
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
-      const APP_VERSION = "1.12.0";
+      const APP_VERSION = "1.13.0";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
       const FREE_LIVE_API_URL = `${WEB_APP_URL}api/live`;
       const LEARN_TEXT = {
@@ -3381,7 +3453,9 @@
         recoveryCode: "jamdV3RecoveryCode",
         backupSyncedAt: "jamdV3BackupSyncedAt",
         backupPending: "jamdV3BackupPending",
-        backupRetryCount: "jamdV3BackupRetryCount"
+        backupRetryCount: "jamdV3BackupRetryCount",
+        traderSignals: "jamdV3TraderSignals",
+        learnLastSession: "jamdV3LearnLastSession"
       };
 
       const DEFAULT_SETTINGS = {
@@ -3651,6 +3725,7 @@
         traderView: document.getElementById("traderView"),
         traderStatus: document.getElementById("traderStatus"),
         signalList: document.getElementById("signalList"),
+        traderSearch: document.getElementById("traderSearchInput"),
         marketsButton: document.getElementById("marketsBtn"),
         voiceModeButton: document.getElementById("voiceModeBtn"),
         voiceStatus: document.getElementById("voiceStatus"),
@@ -4098,7 +4173,9 @@
         learning.activeLesson = null;
         closeSidebar();
         renderAll();
-        if (!els.signalList.children.length) scanProSignals();
+        const cachedSignals = loadTraderSignals();
+        if (cachedSignals.length) renderProSignals(cachedSignals);
+        else scanProSignals();
         clearInterval(traderScanTimer);
         traderScanTimer = setInterval(() => {
           if (traderMode && !document.hidden) scanProSignals(false);
@@ -4231,8 +4308,40 @@
           modules.append(row);
         });
         els.learnPath.append(top);
+        const resumeCard = createLearnResumeCard();
+        if (resumeCard) els.learnPath.append(resumeCard);
         if (languageVisual) els.learnPath.append(languageVisual);
         els.learnPath.append(modules);
+      }
+
+      function createLearnResumeCard() {
+        const last = loadJson(STORAGE.learnLastSession, null);
+        if (!last?.trackId) return null;
+        const track = getLearningTrack(last.trackId);
+        const module = getLocalizedModule(track, Number(last.moduleIndex) || 0);
+        const card = document.createElement("article");
+        card.className = "learn-resume-card";
+        const title = document.createElement("strong");
+        title.textContent = resolvedLanguage() === "es" ? "Continua donde te quedaste" : "Continue where you left off";
+        const detail = document.createElement("span");
+        detail.textContent = `${getLocalizedTrackTitle(track)} · ${module[0]} · ${last.sourceLanguage || learning.sourceLanguage} -> ${last.targetLanguage || learning.targetLanguage}`;
+        const action = document.createElement("button");
+        action.type = "button";
+        action.className = "pill-btn";
+        action.textContent = resolvedLanguage() === "es" ? "Continuar" : "Continue";
+        action.addEventListener("click", () => {
+          const existing = chats.find((chat) => chat.id === last.chatId);
+          if (existing) {
+            selectChat(existing.id);
+          } else {
+            learning.sourceLanguage = last.sourceLanguage || learning.sourceLanguage;
+            learning.targetLanguage = last.targetLanguage || learning.targetLanguage;
+            learning.level = last.level || learning.level;
+            startLearningLesson(last.trackId, Number(last.moduleIndex) || 0);
+          }
+        });
+        card.append(title, detail, action);
+        return card;
       }
 
       function createLanguageField(labelText, selectedValue, onChange) {
@@ -4426,6 +4535,15 @@
         chats.unshift(chat);
         currentChatId = chat.id;
         localStorage.setItem(STORAGE.current, currentChatId);
+        localStorage.setItem(STORAGE.learnLastSession, JSON.stringify({
+          chatId: chat.id,
+          trackId,
+          moduleIndex,
+          level: learning.level,
+          sourceLanguage: learning.sourceLanguage,
+          targetLanguage: learning.targetLanguage,
+          updatedAt: new Date().toISOString()
+        }));
         persistChats();
         persistLearning();
         renderAll();
@@ -4644,6 +4762,7 @@
           projectId: project.id,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
+          learningSession: project.learningSession ? structuredCloneSafe(project.learningSession) : null,
           messages: structuredCloneSafe(project.messages)
         };
         chats.unshift(chat);
@@ -6491,6 +6610,7 @@
       function commitProjectSave(chat, project) {
         project.title = project.title || chat.title;
         project.messages = structuredCloneSafe(chat.messages.filter((message) => !message.streaming));
+        project.learningSession = chat.learningSession ? structuredCloneSafe(chat.learningSession) : null;
         project.updatedAt = new Date().toISOString();
         chat.updatedAt = project.updatedAt;
         persistProjects();
@@ -7592,22 +7712,25 @@
         const universe = CRYPTO_ASSETS.filter((asset) =>
           ["BTC", "ETH", "SOL", "BNB", "XRP", "ADA", "AVAX", "DOGE", "LINK", "SUI", "NEAR", "PEPE"].includes(asset.symbol)
         );
-        const results = await Promise.all(universe.map(async (asset) => {
+        const marketData = (await Promise.all(universe.map(async (asset) => {
           try {
-            const data = await fetchCryptoIndicators(asset);
-            return buildProSignal(data);
+            return await fetchCryptoIndicators(asset);
           } catch {
             return null;
           }
-        }));
-        const signals = results
+        }))).filter(Boolean);
+        const tracked = updateTrackedSignals(loadTraderSignals(), marketData);
+        const signals = marketData
+          .map((data) => buildProSignal(data))
           .filter(Boolean)
           .sort((a, b) => b.score - a.score)
           .slice(0, 6);
-        renderProSignals(signals);
+        const merged = mergeTraderSignals(tracked, signals);
+        saveTraderSignals(merged);
+        renderProSignals(merged.slice(0, 10));
       }
 
-      function buildProSignal(data) {
+      function buildProSignal(data, force = false, fundamentalContext = "") {
         const longScore = [
           data.trend.includes("bullish") ? 2 : 0,
           data.macdHistogram > 0 ? 1 : 0,
@@ -7624,7 +7747,8 @@
         ].reduce((sum, value) => sum + value, 0);
         const side = longScore >= shortScore ? "LONG" : "SHORT";
         const score = Math.max(longScore, shortScore);
-        if (score < 4 || !Number.isFinite(data.price) || data.price <= 0) return null;
+        if (!force && score < 4) return null;
+        if (!Number.isFinite(data.price) || data.price <= 0) return null;
         const volatility = Math.max(0.006, Math.min(0.035, Math.abs(data.change24h || 0) / 100 / 2));
         const entry = data.price;
         const direction = side === "LONG" ? 1 : -1;
@@ -7633,8 +7757,11 @@
         const tp2Distance = stopDistance * 1.8;
         const tp3Distance = stopDistance * 2.6;
         const validUntil = new Date(Date.now() + 90 * 60 * 1000);
+        const createdAt = new Date();
         return {
+          id: `${data.symbol}-${side}-${Math.round(entry * 100000)}-${Date.now()}`,
           symbol: `${data.symbol}/USDT PERP`,
+          baseSymbol: data.symbol,
           side,
           score,
           confidence: score >= 6 ? "A" : score === 5 ? "B" : "C",
@@ -7644,15 +7771,125 @@
           tp2: entry * (1 + direction * tp2Distance),
           tp3: entry * (1 + direction * tp3Distance),
           validUntil,
-          createdAt: new Date(),
+          createdAt,
+          status: "active",
+          lastPrice: entry,
           reasons: [
             data.trend,
             `RSI ${formatIndicator(data.rsi)}`,
             `MACD hist ${formatIndicator(data.macdHistogram)}`,
             `24h ${formatSignedPercent(data.change24h)}`,
             `Volume ${formatIndicator(data.volumeRatio)}x`
-          ]
+          ],
+          technical: buildSignalThesis(data, side, score, fundamentalContext)
         };
+      }
+
+      function buildSignalThesis(data, side, score, fundamentalContext = "") {
+        const bias = side === "LONG" ? "bullish continuation or bounce" : "bearish continuation or rejection";
+        return [
+          `Bias: ${bias}. Score ${score}/6 from trend alignment, momentum, RSI zone, 24h direction, and volume expansion.`,
+          `Trend: ${data.trend}. EMA12 ${formatCompactNumber(data.ema12)}, EMA26 ${formatCompactNumber(data.ema26)}, SMA20 ${formatCompactNumber(data.sma20)}, SMA50 ${formatCompactNumber(data.sma50)}.`,
+          `Momentum: RSI(14) ${formatIndicator(data.rsi)}, MACD ${formatIndicator(data.macd)}, signal ${formatIndicator(data.macdSignal)}, histogram ${formatIndicator(data.macdHistogram)}.`,
+          `Market activity: 24h change ${formatSignedPercent(data.change24h)}, high ${formatCompactNumber(data.high24h)}, low ${formatCompactNumber(data.low24h)}, quote volume ${formatCompactNumber(data.quoteVolume)}, volume ratio ${formatIndicator(data.volumeRatio)}x.`,
+          fundamentalContext ? `Fundamental/live context: ${fundamentalContext.slice(0, 900)}` : "Fundamental/live context: no major live headline block was available in this scan."
+        ].join("\n");
+      }
+
+      function loadTraderSignals() {
+        return loadJson(STORAGE.traderSignals, []).map(normalizeStoredSignal).filter(Boolean).slice(0, 25);
+      }
+
+      function normalizeStoredSignal(signal) {
+        if (!signal?.symbol || !Number.isFinite(Number(signal.entry))) return null;
+        return {
+          ...signal,
+          entry: Number(signal.entry),
+          tp1: Number(signal.tp1),
+          tp2: Number(signal.tp2),
+          tp3: Number(signal.tp3),
+          sl: Number(signal.sl),
+          score: Number(signal.score) || 0,
+          createdAt: signal.createdAt || new Date().toISOString(),
+          validUntil: signal.validUntil || new Date(Date.now() + 90 * 60 * 1000).toISOString()
+        };
+      }
+
+      function saveTraderSignals(signals) {
+        localStorage.setItem(STORAGE.traderSignals, JSON.stringify(signals.slice(0, 25)));
+      }
+
+      function mergeTraderSignals(existing, fresh) {
+        const key = (signal) => `${signal.baseSymbol || signal.symbol}:${signal.side}`;
+        const activeFreshKeys = new Set(fresh.map(key));
+        const kept = existing.filter((signal) => signal.status !== "active" || !activeFreshKeys.has(key(signal)));
+        return [...fresh, ...kept].sort((a, b) => {
+          const statusScore = (signal) => signal.status === "active" ? 2 : signal.status?.startsWith("tp") ? 1 : 0;
+          return statusScore(b) - statusScore(a) || new Date(b.createdAt) - new Date(a.createdAt);
+        });
+      }
+
+      function updateTrackedSignals(signals, marketDataList) {
+        const priceMap = new Map(marketDataList.map((data) => [data.symbol, data.price]));
+        return signals.map((signal) => {
+          if (signal.status !== "active") return signal;
+          const price = priceMap.get(signal.baseSymbol);
+          if (!Number.isFinite(price)) return signal;
+          signal.lastPrice = price;
+          const long = signal.side === "LONG";
+          const hitTp3 = long ? price >= signal.tp3 : price <= signal.tp3;
+          const hitTp2 = long ? price >= signal.tp2 : price <= signal.tp2;
+          const hitTp1 = long ? price >= signal.tp1 : price <= signal.tp1;
+          const hitSl = long ? price <= signal.sl : price >= signal.sl;
+          const expired = Date.now() > new Date(signal.validUntil).getTime();
+          if (hitTp3 || hitTp2 || hitTp1 || hitSl || expired) {
+            signal.status = hitTp3 ? "tp3" : hitTp2 ? "tp2" : hitTp1 ? "tp1" : hitSl ? "sl" : "expired";
+            signal.closedAt = new Date().toISOString();
+            signal.elapsedMinutes = Math.max(1, Math.round((new Date(signal.closedAt) - new Date(signal.createdAt)) / 60000));
+          }
+          return signal;
+        });
+      }
+
+      async function analyzeCryptoSearch() {
+        const query = els.traderSearch.value.trim();
+        if (!query) return;
+        els.traderStatus.textContent = `Analyzing ${query.toUpperCase()} with live market data...`;
+        try {
+          const asset = resolveCryptoAsset(query);
+          const [data, fundamentalContext] = await Promise.all([
+            fetchCryptoIndicators(asset),
+            fetchFreeWebContext(`${asset.symbol} crypto news today fundamentals catalyst`)
+          ]);
+          const signal = buildProSignal(data, true, fundamentalContext);
+          if (!signal) throw new Error("No usable data");
+          const merged = mergeTraderSignals(updateTrackedSignals(loadTraderSignals(), [data]), [signal]);
+          saveTraderSignals(merged);
+          renderProSignals(merged.slice(0, 10));
+          els.traderStatus.textContent = `Manual analysis ready for ${signal.symbol}. Live data can be delayed by exchange/source.`;
+        } catch {
+          els.traderStatus.textContent = `I could not analyze "${query}". Try the symbol, like BTC, SOL, RENDER, PEPE, or XRP.`;
+        }
+      }
+
+      function resolveCryptoAsset(query) {
+        const clean = String(query || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+        const normalized = String(query || "").toLowerCase();
+        const match = CRYPTO_ASSETS.find((asset) =>
+          asset.symbol === clean
+          || asset.id.toLowerCase() === normalized
+          || asset.id.toLowerCase().replace(/-/g, " ") === normalized
+        );
+        if (match) return match;
+        if (/^[A-Z0-9]{2,12}$/.test(clean)) {
+          return {
+            symbol: clean,
+            id: clean.toLowerCase(),
+            binance: `${clean}USDT`,
+            category: "Manual search"
+          };
+        }
+        throw new Error("Unknown crypto");
       }
 
       function renderProSignals(signals) {
@@ -7667,7 +7904,9 @@
           const top = document.createElement("div");
           top.className = "signal-top";
           const title = document.createElement("div");
-          title.innerHTML = `<small>${signal.confidence}-grade setup</small><h3>${signal.symbol}</h3><p>Created ${signal.createdAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} · Valid until ${signal.validUntil.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</p>`;
+          const createdAt = new Date(signal.createdAt);
+          const validUntil = new Date(signal.validUntil);
+          title.innerHTML = `<small>${signal.confidence}-grade setup · ${signal.status || "active"}</small><h3>${signal.symbol}</h3><p>Created ${createdAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} · Valid until ${validUntil.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</p>`;
           const badge = document.createElement("span");
           badge.className = `signal-badge ${signal.side.toLowerCase()}`;
           badge.textContent = signal.side;
@@ -7696,9 +7935,33 @@
           const note = document.createElement("p");
           note.style.marginTop = "14px";
           note.textContent = "Educational futures signal, not financial advice. Confirm liquidity, funding, news, and your own risk before doing anything.";
-          card.append(top, grid, reasons, note);
+          const outcome = document.createElement("div");
+          outcome.className = `signal-outcome ${signal.status?.startsWith("tp") ? "hit" : signal.status === "sl" ? "stopped" : ""}`;
+          outcome.textContent = describeSignalOutcome(signal);
+          const tech = document.createElement("details");
+          tech.className = "signal-tech";
+          const summary = document.createElement("summary");
+          summary.textContent = "Why this setup? Technical + context";
+          const thesis = document.createElement("p");
+          thesis.style.whiteSpace = "pre-wrap";
+          thesis.textContent = signal.technical || signal.reasons.join("\n");
+          tech.append(summary, thesis);
+          card.append(top, grid, reasons, outcome, tech, note);
           els.signalList.append(card);
         });
+      }
+
+      function describeSignalOutcome(signal) {
+        if (signal.status === "tp3" || signal.status === "tp2" || signal.status === "tp1") {
+          return `Trade update: ${signal.status.toUpperCase()} touched in about ${signal.elapsedMinutes || "?"} min. Last checked price: ${formatPrice(signal.lastPrice)}.`;
+        }
+        if (signal.status === "sl") {
+          return `Trade update: SL touched in about ${signal.elapsedMinutes || "?"} min. Last checked price: ${formatPrice(signal.lastPrice)}.`;
+        }
+        if (signal.status === "expired") {
+          return `Trade update: setup expired without confirmed TP/SL. Last checked price: ${formatPrice(signal.lastPrice)}.`;
+        }
+        return `Active: waiting for TP/SL confirmation. Last checked price: ${formatPrice(signal.lastPrice || signal.entry)}.`;
       }
 
       function calculateSma(values, period) {
@@ -8009,6 +8272,10 @@
       });
       document.getElementById("marketsBtn").addEventListener("click", toggleMarkets);
       document.getElementById("scanSignalsBtn").addEventListener("click", () => scanProSignals(true));
+      document.getElementById("analyzeCryptoBtn").addEventListener("click", analyzeCryptoSearch);
+      els.traderSearch.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") analyzeCryptoSearch();
+      });
       document.getElementById("exitTraderBtn").addEventListener("click", exitTraderMode);
       document.getElementById("brandSecretTap").addEventListener("click", () => {
         traderSecretTaps += 1;
@@ -8259,6 +8526,7 @@
           try { voiceRecognition?.abort(); } catch {}
         } else if (!document.hidden) {
           fetchPrices();
+          if (traderMode) scanProSignals(false);
           if (localStorage.getItem(STORAGE.backupPending) === "true") scheduleCloudBackup(1200);
           if (voiceConversationActive && !activeController && !window.speechSynthesis?.speaking) {
             shouldRestartVoice = true;
