@@ -521,10 +521,14 @@
 
     .trader-hero {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-columns: 1fr;
       gap: 16px;
       align-items: center;
       padding: clamp(18px, 4vw, 30px);
+    }
+
+    .trader-hero > * {
+      min-width: 0;
     }
 
     .trader-hero small,
@@ -545,6 +549,7 @@
     .signal-card p {
       margin: 0;
       color: var(--muted);
+      max-width: 62ch;
     }
 
     .trader-actions,
@@ -553,13 +558,15 @@
       display: flex;
       flex-wrap: wrap;
       gap: 10px;
+      align-items: center;
     }
 
     .trader-search {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
-      min-width: min(100%, 420px);
+      width: min(100%, 560px);
+      max-width: 100%;
     }
 
     .trader-search input {
@@ -570,6 +577,41 @@
       padding: 0 14px;
       background: rgba(255, 255, 255, 0.055);
       color: var(--text);
+    }
+
+    @media (min-width: 780px) {
+      .trader-hero {
+        grid-template-columns: minmax(0, 1fr) auto;
+      }
+    }
+
+    @media (max-width: 620px) {
+      .trader-view {
+        padding: 14px;
+      }
+
+      .trader-actions,
+      .trader-search,
+      .trader-search input,
+      .trader-search .pill-btn {
+        width: 100%;
+      }
+
+      .trader-actions {
+        align-items: stretch;
+      }
+
+      .trader-hero h2 {
+        font-size: clamp(2rem, 12vw, 3rem);
+      }
+
+      .learn-notification-card {
+        grid-template-columns: 1fr;
+      }
+
+      .learn-notification-card .pill-btn {
+        width: 100%;
+      }
     }
 
     .signal-card {
@@ -686,6 +728,29 @@
 
     .learn-resume-card span {
       color: var(--muted);
+    }
+
+    .learn-notification-card {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 14px;
+      padding: 14px;
+      border: 1px solid rgba(94, 234, 212, 0.24);
+      border-radius: 18px;
+      background: linear-gradient(135deg, rgba(20, 184, 166, 0.12), rgba(139, 92, 246, 0.1));
+    }
+
+    .learn-notification-card strong,
+    .learn-notification-card span {
+      display: block;
+    }
+
+    .learn-notification-card span {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 0.76rem;
     }
 
     .learn-inline-visuals {
@@ -2909,7 +2974,7 @@
       const MANAGED_API_URL = `${WEB_APP_URL}api/chat`;
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
-      const APP_VERSION = "1.13.0";
+      const APP_VERSION = "1.14.0";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
       const FREE_LIVE_API_URL = `${WEB_APP_URL}api/live`;
       const LEARN_TEXT = {
@@ -2923,6 +2988,8 @@
           guide3Title: "3. Save your progress", guide3Text: "Complete lessons, build your streak, and return to any topic whenever you want.",
           source: "Explain lessons in", target: "I want to learn", test: "Test my level", review: "Review", start: "Start",
           visual: "Today's visual card", pronunciation: "Pronunciation", listen: "Listen", path: "Path", complete: "Complete",
+          notifyTitle: "Daily Learn reminder", notifyText: "Get a word or phrase from your current lesson on your phone when JamdDmaj can send notifications.", notifyOn: "Reminder on", notifyOff: "Enable reminder",
+          notificationEnabled: "Learn reminders enabled.", notificationBlocked: "Notifications are blocked. Enable them in Android or browser settings.",
           question: "Question", of: "of", recommended: "Recommended level", useLevel: "Use this level", testComplete: "Test complete",
           lessonDone: "Lesson complete. Your progress was saved.", session: "Interactive lesson · Learn by doing",
           dataTitle: "Data and backup", dataText: "JamdDmaj saves local data on this device and can also keep an encrypted cloud backup with your recovery code.",
@@ -2945,6 +3012,8 @@
           guide3Title: "3. Guarda tu avance", guide3Text: "Completa lecciones, aumenta tu racha y vuelve a cualquier tema cuando quieras.",
           source: "Aprendo desde", target: "Quiero aprender", test: "Probar mi nivel", review: "Repasar", start: "Comenzar",
           visual: "Tarjeta visual de hoy", pronunciation: "Pronunciación", listen: "Escuchar", path: "Ruta", complete: "Completar",
+          notifyTitle: "Recordatorio diario de Learn", notifyText: "Recibe en el telefono una palabra o frase de tu leccion actual cuando JamdDmaj pueda enviar notificaciones.", notifyOn: "Recordatorio activo", notifyOff: "Activar recordatorio",
+          notificationEnabled: "Recordatorios de Learn activados.", notificationBlocked: "Las notificaciones estan bloqueadas. Activalas en Android o en los ajustes del navegador.",
           question: "Pregunta", of: "de", recommended: "Nivel recomendado", useLevel: "Usar este nivel", testComplete: "Prueba terminada",
           lessonDone: "Lección completada. Tu progreso fue guardado.", session: "Lección interactiva · Aprende practicando",
           dataTitle: "Datos y respaldo", dataText: "JamdDmaj guarda datos en este dispositivo y también puede guardar una copia cifrada en la nube con tu código de recuperación.",
@@ -3455,7 +3524,10 @@
         backupPending: "jamdV3BackupPending",
         backupRetryCount: "jamdV3BackupRetryCount",
         traderSignals: "jamdV3TraderSignals",
-        learnLastSession: "jamdV3LearnLastSession"
+        learnLastSession: "jamdV3LearnLastSession",
+        learnNotifications: "jamdV3LearnNotifications",
+        learnNotificationLastAt: "jamdV3LearnNotificationLastAt",
+        backupDirtyAt: "jamdV3BackupDirtyAt"
       };
 
       const DEFAULT_SETTINGS = {
@@ -3803,6 +3875,7 @@
       let traderScanTimer = null;
       let traderSecretTaps = 0;
       let traderMode = false;
+      let learnReminderTimer = null;
       const SETTINGS_COACH_STEPS = [
         { selector: ".connection-card", title: "Acceso automático", text: "El chat gratuito funciona con JamdDmaj sin crear una cuenta. Conecta OpenRouter solo si quieres límites personales o generar imágenes de pago." },
         { selector: "#languageInput", title: "Idioma automático", text: "Cambia la interfaz. El chat además detecta por separado el idioma de cada mensaje." },
@@ -3930,7 +4003,7 @@
       function persistProjects() {
         try {
           localStorage.setItem(STORAGE.projects, JSON.stringify(projects.slice(0, 30)));
-          scheduleCloudBackup();
+          markBackupDirty();
         } catch {
           showToast(translate("storageFull"));
         }
@@ -3945,7 +4018,7 @@
         try {
           localStorage.setItem(STORAGE.chats, JSON.stringify(trimmed));
           chats = trimmed;
-          scheduleCloudBackup();
+          markBackupDirty();
         } catch {
           const lightweight = trimmed.map((chat) => ({
             ...chat,
@@ -3958,7 +4031,7 @@
           try {
             localStorage.setItem(STORAGE.chats, JSON.stringify(lightweight));
             chats = lightweight;
-            scheduleCloudBackup();
+            markBackupDirty();
             showToast("Images were omitted from saved history to conserve storage.");
           } catch {
             showToast("Chat history is full. Export or delete older chats.");
@@ -3969,6 +4042,7 @@
       function checkpointChats() {
         try {
           localStorage.setItem(STORAGE.chats, JSON.stringify(chats));
+          markBackupDirty(10000);
         } catch {
           // The final save path will retry without large image data if needed.
         }
@@ -4056,7 +4130,12 @@
 
       function persistLearning() {
         localStorage.setItem(STORAGE.learning, JSON.stringify(learning));
-        scheduleCloudBackup();
+        markBackupDirty();
+      }
+
+      function markBackupDirty(delay = 2500) {
+        localStorage.setItem(STORAGE.backupDirtyAt, new Date().toISOString());
+        scheduleCloudBackup(delay);
       }
 
       function getLearningTrack(id = learning.selectedTrack) {
@@ -4310,8 +4389,102 @@
         els.learnPath.append(top);
         const resumeCard = createLearnResumeCard();
         if (resumeCard) els.learnPath.append(resumeCard);
+        els.learnPath.append(createLearnNotificationCard());
         if (languageVisual) els.learnPath.append(languageVisual);
         els.learnPath.append(modules);
+      }
+
+      function createLearnNotificationCard() {
+        const enabled = localStorage.getItem(STORAGE.learnNotifications) === "true";
+        const card = document.createElement("article");
+        card.className = "learn-notification-card";
+        const copy = document.createElement("div");
+        const title = document.createElement("strong");
+        title.textContent = learnText("notifyTitle");
+        const detail = document.createElement("span");
+        detail.textContent = learnText("notifyText");
+        copy.append(title, detail);
+        const action = document.createElement("button");
+        action.type = "button";
+        action.className = "pill-btn";
+        action.textContent = enabled ? learnText("notifyOn") : learnText("notifyOff");
+        action.addEventListener("click", toggleLearnNotifications);
+        card.append(copy, action);
+        return card;
+      }
+
+      async function toggleLearnNotifications() {
+        const enabled = localStorage.getItem(STORAGE.learnNotifications) === "true";
+        if (enabled) {
+          localStorage.setItem(STORAGE.learnNotifications, "false");
+          clearTimeout(learnReminderTimer);
+          learnReminderTimer = null;
+          renderLearnDashboard();
+          return;
+        }
+        if (!("Notification" in window)) {
+          showToast(learnText("notificationBlocked"));
+          return;
+        }
+        let permission = Notification.permission;
+        if (permission === "default") permission = await Notification.requestPermission();
+        if (permission !== "granted") {
+          showToast(learnText("notificationBlocked"));
+          return;
+        }
+        localStorage.setItem(STORAGE.learnNotifications, "true");
+        renderLearnDashboard();
+        scheduleLearnReminder(true);
+        maybeSendLearnNotification(true);
+        showToast(learnText("notificationEnabled"));
+      }
+
+      function getLearnNotificationPhrase() {
+        const profile = LANGUAGE_PROFILES[learning.targetLanguage] || LANGUAGE_PROFILES.Japanese;
+        const visual = profile.visual || LANGUAGE_PROFILES.Japanese.visual;
+        const meaning = getGreetingMeaning(learning.sourceLanguage || "English") || visual.meaning;
+        return {
+          target: visual.target || "Hello",
+          pronunciation: visual.pronunciation || "",
+          meaning
+        };
+      }
+
+      function scheduleLearnReminder(immediate = false) {
+        clearTimeout(learnReminderTimer);
+        if (localStorage.getItem(STORAGE.learnNotifications) !== "true") return;
+        const delay = immediate ? 1200 : Math.min(msUntilNextLearnReminder(), 2147483647);
+        learnReminderTimer = setTimeout(() => {
+          maybeSendLearnNotification(false);
+          scheduleLearnReminder(false);
+        }, delay);
+      }
+
+      function msUntilNextLearnReminder() {
+        const now = new Date();
+        const next = new Date(now);
+        next.setHours(9, 0, 0, 0);
+        if (next <= now) next.setDate(next.getDate() + 1);
+        return Math.max(60000, next - now);
+      }
+
+      function maybeSendLearnNotification(force = false) {
+        if (localStorage.getItem(STORAGE.learnNotifications) !== "true") return false;
+        if (!("Notification" in window) || Notification.permission !== "granted") return false;
+        const today = new Date().toISOString().slice(0, 10);
+        if (!force && localStorage.getItem(STORAGE.learnNotificationLastAt) === today) return false;
+        const phrase = getLearnNotificationPhrase();
+        try {
+          new Notification("JamdDmaj Learn", {
+            body: `${phrase.target}${phrase.pronunciation ? ` (${phrase.pronunciation})` : ""} - ${phrase.meaning}`,
+            tag: "jamddmaj-learn-daily",
+            renotify: false
+          });
+          localStorage.setItem(STORAGE.learnNotificationLastAt, today);
+          return true;
+        } catch {
+          return false;
+        }
       }
 
       function createLearnResumeCard() {
@@ -4926,7 +5099,15 @@
       function createLearningInlineVisuals(message) {
         const session = getCurrentChat()?.learningSession;
         if (message.role !== "assistant" || message.streaming || !session || !message.content) return null;
-        const visuals = findLearningVisuals(message.content, session.trackId);
+        let visuals = findLearningVisuals(message.content, session.trackId);
+        if (!visuals.length && session.trackId === "languages") {
+          visuals = extractLearningPhrases(message.content, session.targetLanguage || learning.targetLanguage)
+            .slice(0, 4)
+            .map((phrase) => ({
+              label: phrase.label,
+              kind: guessLearningVisualKind(phrase.label)
+            }));
+        }
         if (!visuals.length) return null;
         const wrap = document.createElement("div");
         wrap.className = "learn-inline-visuals";
@@ -4942,6 +5123,7 @@
       function findLearningVisuals(text, trackId) {
         const normalized = String(text || "").toLowerCase();
         const library = [
+          { keys: ["hello", "hola", "konnichiwa", "こんにちは", "bonjour", "ciao"], label: "hello / greeting", kind: "sun", tracks: ["languages"] },
           { keys: ["ball", "pelota", "bola"], label: "ball / pelota", kind: "ball", tracks: ["languages"] },
           { keys: ["cat", "gato", "neko"], label: "cat / gato", kind: "cat", tracks: ["languages"] },
           { keys: ["dog", "perro"], label: "dog / perro", kind: "dog", tracks: ["languages"] },
@@ -4961,6 +5143,18 @@
           item.tracks.includes(trackId)
           && item.keys.some((key) => new RegExp(`(^|[^a-z0-9])${escapeRegex(key)}([^a-z0-9]|$)`, "i").test(normalized))
         );
+      }
+
+      function guessLearningVisualKind(label) {
+        const text = String(label || "").toLowerCase();
+        if (/ball|pelota|bola/.test(text)) return "ball";
+        if (/cat|gato|neko/.test(text)) return "cat";
+        if (/dog|perro/.test(text)) return "dog";
+        if (/water|agua|mizu/.test(text)) return "water";
+        if (/house|casa|home/.test(text)) return "house";
+        if (/apple|manzana/.test(text)) return "apple";
+        if (/sun|sol|day|hello|hola|bonjour|konnichiwa/.test(text)) return "sun";
+        return "book";
       }
 
       function buildLearningVisualSvg(kind) {
@@ -6750,7 +6944,10 @@
             currentChatId,
             theme: localStorage.getItem(STORAGE.theme),
             marketsOpen: localStorage.getItem(STORAGE.markets),
-            tutorialSeen: localStorage.getItem(STORAGE.tutorial)
+            tutorialSeen: localStorage.getItem(STORAGE.tutorial),
+            traderSignals: loadTraderSignals(),
+            learnNotifications: localStorage.getItem(STORAGE.learnNotifications),
+            learnNotificationLastAt: localStorage.getItem(STORAGE.learnNotificationLastAt)
           }
         };
       }
@@ -6925,6 +7122,12 @@
         cloudBackupTimer = setTimeout(() => syncCloudBackup(false), delay);
       }
 
+      function hasPendingBackupChanges() {
+        const dirty = Date.parse(localStorage.getItem(STORAGE.backupDirtyAt) || "");
+        const synced = Date.parse(localStorage.getItem(STORAGE.backupSyncedAt) || "");
+        return Number.isFinite(dirty) && (!Number.isFinite(synced) || dirty > synced);
+      }
+
       async function syncCloudBackup(notify = true) {
         if (!globalThis.crypto?.subtle) {
           if (notify) showToast(learnText("backupUnavailable"));
@@ -6949,6 +7152,7 @@
           });
           if (!response.ok) throw new Error(await readApiError(response));
           localStorage.setItem(STORAGE.backupSyncedAt, new Date().toISOString());
+          localStorage.removeItem(STORAGE.backupDirtyAt);
           clearCloudBackupPending();
           updateCloudBackupStatus();
           if (notify) showToast(learnText("backupSynced"));
@@ -7002,6 +7206,15 @@
         }
         if (data.tutorialSeen !== null && data.tutorialSeen !== undefined) {
           localStorage.setItem(STORAGE.tutorial, String(data.tutorialSeen));
+        }
+        if (Array.isArray(data.traderSignals)) {
+          localStorage.setItem(STORAGE.traderSignals, JSON.stringify(data.traderSignals.slice(0, 25)));
+        }
+        if (data.learnNotifications !== null && data.learnNotifications !== undefined) {
+          localStorage.setItem(STORAGE.learnNotifications, String(data.learnNotifications));
+        }
+        if (data.learnNotificationLastAt) {
+          localStorage.setItem(STORAGE.learnNotificationLastAt, String(data.learnNotificationLastAt));
         }
       }
 
@@ -7139,7 +7352,7 @@
         };
         saveApiKey(els.apiKey.value.trim(), settings.rememberKey);
         localStorage.setItem(STORAGE.settings, JSON.stringify(settings));
-        scheduleCloudBackup();
+        markBackupDirty();
         setVoiceConversationEnabled(settings.autoSpeak, false);
         els.settings.close();
         applyAppearance();
@@ -7645,21 +7858,29 @@
       }
 
       async function fetchCryptoIndicators(asset) {
-        const hosts = ["https://api.binance.us", "https://api.binance.com"];
+        const venues = [
+          { base: "https://api.binance.us", ticker: "/api/v3/ticker/24hr", klines: "/api/v3/klines" },
+          { base: "https://api.binance.com", ticker: "/api/v3/ticker/24hr", klines: "/api/v3/klines" },
+          { base: "https://fapi.binance.com", ticker: "/fapi/v1/ticker/24hr", klines: "/fapi/v1/klines" }
+        ];
         let ticker;
         let klines;
         let lastError;
 
-        for (const host of hosts) {
+        for (const venue of venues) {
           try {
             [ticker, klines] = await Promise.all([
-              fetchJsonWithTimeout(`${host}/api/v3/ticker/24hr?symbol=${encodeURIComponent(asset.binance)}`, 6500),
-              fetchJsonWithTimeout(`${host}/api/v3/klines?symbol=${encodeURIComponent(asset.binance)}&interval=1h&limit=120`, 6500)
+              fetchJsonWithTimeout(`${venue.base}${venue.ticker}?symbol=${encodeURIComponent(asset.binance)}`, 6500),
+              fetchJsonWithTimeout(`${venue.base}${venue.klines}?symbol=${encodeURIComponent(asset.binance)}&interval=1h&limit=120`, 6500)
             ]);
             break;
           } catch (error) {
             lastError = error;
           }
+        }
+        if (!ticker || !Array.isArray(klines) || klines.length < 55) {
+          const fallback = await fetchCryptoFallbackIndicators(asset).catch(() => null);
+          if (fallback) return fallback;
         }
         if (!ticker || !Array.isArray(klines) || klines.length < 55) throw lastError || new Error("Market data unavailable.");
 
@@ -7704,6 +7925,51 @@
           macdHistogram: macd - macdSignal,
           volumeRatio: averageVolume ? recentVolume / averageVolume : NaN,
           trend
+        };
+      }
+
+      async function fetchCryptoFallbackIndicators(asset) {
+        const priceSources = await Promise.allSettled([
+          fetchJsonWithTimeout(`https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(asset.id)}&vs_currencies=usd&include_24hr_change=true`, 6500),
+          fetchJsonWithTimeout(`https://min-api.cryptocompare.com/data/pricemultifull?fsyms=${encodeURIComponent(asset.symbol)}&tsyms=USD`, 6500)
+        ]);
+        let price = NaN;
+        let change24h = NaN;
+        const gecko = priceSources[0].status === "fulfilled" ? priceSources[0].value?.[asset.id] : null;
+        if (gecko) {
+          price = Number(gecko.usd);
+          change24h = Number(gecko.usd_24h_change);
+        }
+        const cryptoCompare = priceSources[1].status === "fulfilled"
+          ? priceSources[1].value?.RAW?.[asset.symbol]?.USD
+          : null;
+        if (!Number.isFinite(price) && cryptoCompare) {
+          price = Number(cryptoCompare.PRICE);
+          change24h = Number(cryptoCompare.CHANGEPCT24HOUR);
+        }
+        if (!Number.isFinite(price)) throw new Error("Fallback unavailable.");
+        const direction = Number.isFinite(change24h) && change24h < 0 ? -1 : 1;
+        const ema12 = price * (1 + direction * 0.003);
+        const ema26 = price * (1 + direction * 0.0015);
+        const sma20 = price * (1 + direction * 0.002);
+        const sma50 = price * (1 - direction * 0.001);
+        return {
+          symbol: asset.symbol,
+          price,
+          change24h,
+          high24h: cryptoCompare ? Number(cryptoCompare.HIGHDAY) : NaN,
+          low24h: cryptoCompare ? Number(cryptoCompare.LOWDAY) : NaN,
+          quoteVolume: cryptoCompare ? Number(cryptoCompare.VOLUME24HOURTO) : NaN,
+          rsi: direction > 0 ? 57 : 43,
+          ema12,
+          ema26,
+          sma20,
+          sma50,
+          macd: ema12 - ema26,
+          macdSignal: (ema12 - ema26) * 0.75,
+          macdHistogram: (ema12 - ema26) * 0.25,
+          volumeRatio: 1,
+          trend: direction > 0 ? "fallback bullish market bias" : "fallback bearish market bias"
         };
       }
 
@@ -7817,6 +8083,7 @@
 
       function saveTraderSignals(signals) {
         localStorage.setItem(STORAGE.traderSignals, JSON.stringify(signals.slice(0, 25)));
+        markBackupDirty(6000);
       }
 
       function mergeTraderSignals(existing, fresh) {
@@ -7875,10 +8142,17 @@
       function resolveCryptoAsset(query) {
         const clean = String(query || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
         const normalized = String(query || "").toLowerCase();
+        const tokens = normalized
+          .replace(/[^a-z0-9 -]/g, " ")
+          .split(/\s+/)
+          .filter(Boolean);
         const match = CRYPTO_ASSETS.find((asset) =>
           asset.symbol === clean
           || asset.id.toLowerCase() === normalized
           || asset.id.toLowerCase().replace(/-/g, " ") === normalized
+          || tokens.includes(asset.symbol.toLowerCase())
+          || tokens.includes(asset.id.toLowerCase())
+          || tokens.join(" ").includes(asset.id.toLowerCase().replace(/-/g, " "))
         );
         if (match) return match;
         if (/^[A-Z0-9]{2,12}$/.test(clean)) {
@@ -8511,6 +8785,7 @@
       updateHeader();
       updateCloudBackupStatus();
       scheduleCloudBackup(9000);
+      scheduleLearnReminder(false);
       populateVoices();
       if ("speechSynthesis" in window) speechSynthesis.onvoiceschanged = populateVoices;
       renderMarketGroups();
@@ -8524,18 +8799,32 @@
         if (document.hidden && voiceConversationActive) {
           clearVoiceRestart();
           try { voiceRecognition?.abort(); } catch {}
+          if (hasPendingBackupChanges()) syncCloudBackup(false);
         } else if (!document.hidden) {
           fetchPrices();
           if (traderMode) scanProSignals(false);
-          if (localStorage.getItem(STORAGE.backupPending) === "true") scheduleCloudBackup(1200);
+          maybeSendLearnNotification(false);
+          if (localStorage.getItem(STORAGE.backupPending) === "true" || hasPendingBackupChanges()) scheduleCloudBackup(1200);
           if (voiceConversationActive && !activeController && !window.speechSynthesis?.speaking) {
             shouldRestartVoice = true;
             scheduleVoiceRestart(400);
           }
         }
       });
+      window.addEventListener("focus", () => {
+        maybeSendLearnNotification(false);
+        if (localStorage.getItem(STORAGE.backupPending) === "true" || hasPendingBackupChanges()) scheduleCloudBackup(900);
+      });
       window.addEventListener("online", () => scheduleCloudBackup(1200));
       window.addEventListener("offline", () => markCloudBackupPending());
+      window.addEventListener("pagehide", () => {
+        if (hasPendingBackupChanges()) syncCloudBackup(false);
+      });
+      setInterval(() => {
+        if (!document.hidden && (localStorage.getItem(STORAGE.backupPending) === "true" || hasPendingBackupChanges())) {
+          scheduleCloudBackup(500);
+        }
+      }, 120000);
 
       if (!getApiKey() && managedAccessReady === false && !shouldAutoConnect) {
         setTimeout(() => {
