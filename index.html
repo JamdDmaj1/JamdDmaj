@@ -565,30 +565,6 @@
       justify-content: flex-end;
     }
 
-    .trader-manual {
-      display: flex;
-      justify-content: flex-end;
-      margin-top: -6px;
-    }
-
-    .trader-search {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      width: min(100%, 560px);
-      max-width: 100%;
-    }
-
-    .trader-search input {
-      flex: 1 1 180px;
-      min-height: 44px;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      padding: 0 14px;
-      background: rgba(255, 255, 255, 0.055);
-      color: var(--text);
-    }
-
     @media (min-width: 780px) {
       .trader-hero {
         grid-template-columns: minmax(0, 1fr) auto;
@@ -600,10 +576,7 @@
         padding: 14px;
       }
 
-      .trader-actions,
-      .trader-search,
-      .trader-search input,
-      .trader-search .pill-btn {
+      .trader-actions {
         width: 100%;
       }
 
@@ -2566,12 +2539,6 @@
             </div>
           </div>
           <div id="traderStatus" class="backup-status">Tap Scan now. Hidden access: tap the JamdDmaj AI name 5 times.</div>
-          <div class="trader-manual">
-            <div class="trader-search">
-              <input id="traderSearchInput" placeholder="Analyze any crypto, e.g. BTC, SOL, SUI, RENDER" autocomplete="off">
-              <button class="pill-btn" id="analyzeCryptoBtn" type="button">Analyze</button>
-            </div>
-          </div>
           <div id="signalList" class="trader-signals"></div>
         </div>
       </section>
@@ -2987,7 +2954,7 @@
       const MANAGED_API_URL = `${WEB_APP_URL}api/chat`;
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
-      const APP_VERSION = "1.15.0";
+      const APP_VERSION = "1.16.0";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
       const FREE_LIVE_API_URL = `${WEB_APP_URL}api/live`;
       const LEARN_TEXT = {
@@ -3810,7 +3777,6 @@
         traderView: document.getElementById("traderView"),
         traderStatus: document.getElementById("traderStatus"),
         signalList: document.getElementById("signalList"),
-        traderSearch: document.getElementById("traderSearchInput"),
         marketsButton: document.getElementById("marketsBtn"),
         voiceModeButton: document.getElementById("voiceModeBtn"),
         voiceStatus: document.getElementById("voiceStatus"),
@@ -8173,54 +8139,6 @@
         });
       }
 
-      async function analyzeCryptoSearch() {
-        const query = els.traderSearch.value.trim();
-        if (!query) return;
-        els.traderStatus.textContent = `Analyzing ${query.toUpperCase()} with live market data...`;
-        try {
-          const asset = resolveCryptoAsset(query);
-          const [data, fundamentalContext] = await Promise.all([
-            fetchCryptoIndicators(asset),
-            fetchFreeWebContext(`${asset.symbol} crypto news today fundamentals catalyst`)
-          ]);
-          const signal = buildProSignal(data, true, fundamentalContext);
-          if (!signal) throw new Error("No usable data");
-          const merged = mergeTraderSignals(updateTrackedSignals(loadTraderSignals(), [data]), [signal]);
-          saveTraderSignals(merged);
-          renderProSignals(merged.slice(0, 10));
-          els.traderStatus.textContent = `Manual analysis ready for ${signal.symbol}. Live data can be delayed by exchange/source.`;
-        } catch {
-          els.traderStatus.textContent = `I could not analyze "${query}". Try the symbol, like BTC, SOL, RENDER, PEPE, or XRP.`;
-        }
-      }
-
-      function resolveCryptoAsset(query) {
-        const clean = String(query || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
-        const normalized = String(query || "").toLowerCase();
-        const tokens = normalized
-          .replace(/[^a-z0-9 -]/g, " ")
-          .split(/\s+/)
-          .filter(Boolean);
-        const match = CRYPTO_ASSETS.find((asset) =>
-          asset.symbol === clean
-          || asset.id.toLowerCase() === normalized
-          || asset.id.toLowerCase().replace(/-/g, " ") === normalized
-          || tokens.includes(asset.symbol.toLowerCase())
-          || tokens.includes(asset.id.toLowerCase())
-          || tokens.join(" ").includes(asset.id.toLowerCase().replace(/-/g, " "))
-        );
-        if (match) return match;
-        if (/^[A-Z0-9]{2,12}$/.test(clean)) {
-          return {
-            symbol: clean,
-            id: clean.toLowerCase(),
-            binance: `${clean}USDT`,
-            category: "Manual search"
-          };
-        }
-        throw new Error("Unknown crypto");
-      }
-
       function renderProSignals(signals) {
         els.signalList.replaceChildren();
         const stamp = new Date().toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
@@ -8601,10 +8519,6 @@
       });
       document.getElementById("marketsBtn").addEventListener("click", toggleMarkets);
       document.getElementById("scanSignalsBtn").addEventListener("click", () => scanProSignals(true));
-      document.getElementById("analyzeCryptoBtn").addEventListener("click", analyzeCryptoSearch);
-      els.traderSearch.addEventListener("keydown", (event) => {
-        if (event.key === "Enter") analyzeCryptoSearch();
-      });
       document.getElementById("exitTraderBtn").addEventListener("click", exitTraderMode);
       document.getElementById("brandSecretTap").addEventListener("click", () => {
         traderSecretTaps += 1;
