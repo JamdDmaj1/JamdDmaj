@@ -521,14 +521,10 @@
 
     .trader-hero {
       display: grid;
-      grid-template-columns: 1fr;
+      grid-template-columns: minmax(0, 1fr) auto;
       gap: 16px;
       align-items: center;
       padding: clamp(18px, 4vw, 30px);
-    }
-
-    .trader-hero > * {
-      min-width: 0;
     }
 
     .trader-hero small,
@@ -549,7 +545,6 @@
     .signal-card p {
       margin: 0;
       color: var(--muted);
-      max-width: 62ch;
     }
 
     .trader-actions,
@@ -558,44 +553,6 @@
       display: flex;
       flex-wrap: wrap;
       gap: 10px;
-      align-items: center;
-    }
-
-    .trader-actions {
-      justify-content: flex-end;
-    }
-
-    @media (min-width: 780px) {
-      .trader-hero {
-        grid-template-columns: minmax(0, 1fr) auto;
-      }
-    }
-
-    @media (max-width: 620px) {
-      .trader-view {
-        padding: 14px;
-      }
-
-      .trader-actions {
-        width: 100%;
-      }
-
-      .trader-actions {
-        align-items: stretch;
-        justify-content: flex-start;
-      }
-
-      .trader-hero h2 {
-        font-size: clamp(2rem, 12vw, 3rem);
-      }
-
-      .learn-notification-card {
-        grid-template-columns: 1fr;
-      }
-
-      .learn-notification-card .pill-btn {
-        width: 100%;
-      }
     }
 
     .signal-card {
@@ -663,39 +620,6 @@
       font-weight: 750;
     }
 
-    .signal-outcome {
-      margin-top: 12px;
-      border-radius: 16px;
-      padding: 10px 12px;
-      background: rgba(255, 255, 255, 0.055);
-      color: var(--muted);
-      font-weight: 750;
-    }
-
-    .signal-outcome.hit {
-      color: #34d399;
-      background: rgba(52, 211, 153, 0.1);
-    }
-
-    .signal-outcome.stopped {
-      color: #fb7185;
-      background: rgba(251, 113, 133, 0.1);
-    }
-
-    .signal-tech {
-      margin-top: 12px;
-      border: 1px solid var(--line);
-      border-radius: 16px;
-      padding: 10px 12px;
-      background: rgba(0, 0, 0, 0.12);
-    }
-
-    .signal-tech summary {
-      cursor: pointer;
-      color: var(--accent-2);
-      font-weight: 900;
-    }
-
     .learn-resume-card {
       display: grid;
       gap: 10px;
@@ -735,6 +659,16 @@
       margin-top: 4px;
       color: var(--muted);
       font-size: 0.76rem;
+    }
+
+    @media (max-width: 620px) {
+      .learn-notification-card {
+        grid-template-columns: 1fr;
+      }
+
+      .learn-notification-card .pill-btn {
+        width: 100%;
+      }
     }
 
     .learn-inline-visuals {
@@ -2954,7 +2888,7 @@
       const MANAGED_API_URL = `${WEB_APP_URL}api/chat`;
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
-      const APP_VERSION = "1.16.0";
+      const APP_VERSION = "1.17.0";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
       const FREE_LIVE_API_URL = `${WEB_APP_URL}api/live`;
       const LEARN_TEXT = {
@@ -4231,9 +4165,7 @@
         learning.activeLesson = null;
         closeSidebar();
         renderAll();
-        const cachedSignals = loadTraderSignals();
-        if (cachedSignals.length) renderProSignals(cachedSignals);
-        else scanProSignals();
+        if (!els.signalList.children.length) scanProSignals();
         clearInterval(traderScanTimer);
         traderScanTimer = setInterval(() => {
           if (traderMode && !document.hidden) scanProSignals(false);
@@ -6922,7 +6854,6 @@
             theme: localStorage.getItem(STORAGE.theme),
             marketsOpen: localStorage.getItem(STORAGE.markets),
             tutorialSeen: localStorage.getItem(STORAGE.tutorial),
-            traderSignals: loadTraderSignals(),
             learnNotifications: localStorage.getItem(STORAGE.learnNotifications),
             learnNotificationLastAt: localStorage.getItem(STORAGE.learnNotificationLastAt)
           }
@@ -7183,9 +7114,6 @@
         }
         if (data.tutorialSeen !== null && data.tutorialSeen !== undefined) {
           localStorage.setItem(STORAGE.tutorial, String(data.tutorialSeen));
-        }
-        if (Array.isArray(data.traderSignals)) {
-          localStorage.setItem(STORAGE.traderSignals, JSON.stringify(data.traderSignals.slice(0, 25)));
         }
         if (data.learnNotifications !== null && data.learnNotifications !== undefined) {
           localStorage.setItem(STORAGE.learnNotifications, String(data.learnNotifications));
@@ -7999,25 +7927,22 @@
         const universe = CRYPTO_ASSETS.filter((asset) =>
           ["BTC", "ETH", "SOL", "BNB", "XRP", "ADA", "AVAX", "DOGE", "LINK", "SUI", "NEAR", "PEPE"].includes(asset.symbol)
         );
-        const marketData = (await Promise.all(universe.map(async (asset) => {
+        const results = await Promise.all(universe.map(async (asset) => {
           try {
-            return await fetchCryptoIndicators(asset);
+            const data = await fetchCryptoIndicators(asset);
+            return buildProSignal(data);
           } catch {
             return null;
           }
-        }))).filter(Boolean);
-        const tracked = updateTrackedSignals(loadTraderSignals(), marketData);
-        const signals = marketData
-          .map((data) => buildProSignal(data))
+        }));
+        const signals = results
           .filter(Boolean)
           .sort((a, b) => b.score - a.score)
           .slice(0, 6);
-        const merged = mergeTraderSignals(tracked, signals);
-        saveTraderSignals(merged);
-        renderProSignals(merged.slice(0, 10));
+        renderProSignals(signals);
       }
 
-      function buildProSignal(data, force = false, fundamentalContext = "") {
+      function buildProSignal(data) {
         const longScore = [
           data.trend.includes("bullish") ? 2 : 0,
           data.macdHistogram > 0 ? 1 : 0,
@@ -8034,8 +7959,7 @@
         ].reduce((sum, value) => sum + value, 0);
         const side = longScore >= shortScore ? "LONG" : "SHORT";
         const score = Math.max(longScore, shortScore);
-        if (!force && score < 4) return null;
-        if (!Number.isFinite(data.price) || data.price <= 0) return null;
+        if (score < 4 || !Number.isFinite(data.price) || data.price <= 0) return null;
         const volatility = Math.max(0.006, Math.min(0.035, Math.abs(data.change24h || 0) / 100 / 2));
         const entry = data.price;
         const direction = side === "LONG" ? 1 : -1;
@@ -8044,11 +7968,8 @@
         const tp2Distance = stopDistance * 1.8;
         const tp3Distance = stopDistance * 2.6;
         const validUntil = new Date(Date.now() + 90 * 60 * 1000);
-        const createdAt = new Date();
         return {
-          id: `${data.symbol}-${side}-${Math.round(entry * 100000)}-${Date.now()}`,
           symbol: `${data.symbol}/USDT PERP`,
-          baseSymbol: data.symbol,
           side,
           score,
           confidence: score >= 6 ? "A" : score === 5 ? "B" : "C",
@@ -8058,85 +7979,15 @@
           tp2: entry * (1 + direction * tp2Distance),
           tp3: entry * (1 + direction * tp3Distance),
           validUntil,
-          createdAt,
-          status: "active",
-          lastPrice: entry,
+          createdAt: new Date(),
           reasons: [
             data.trend,
             `RSI ${formatIndicator(data.rsi)}`,
             `MACD hist ${formatIndicator(data.macdHistogram)}`,
             `24h ${formatSignedPercent(data.change24h)}`,
             `Volume ${formatIndicator(data.volumeRatio)}x`
-          ],
-          technical: buildSignalThesis(data, side, score, fundamentalContext)
+          ]
         };
-      }
-
-      function buildSignalThesis(data, side, score, fundamentalContext = "") {
-        const bias = side === "LONG" ? "bullish continuation or bounce" : "bearish continuation or rejection";
-        return [
-          `Bias: ${bias}. Score ${score}/6 from trend alignment, momentum, RSI zone, 24h direction, and volume expansion.`,
-          `Trend: ${data.trend}. EMA12 ${formatCompactNumber(data.ema12)}, EMA26 ${formatCompactNumber(data.ema26)}, SMA20 ${formatCompactNumber(data.sma20)}, SMA50 ${formatCompactNumber(data.sma50)}.`,
-          `Momentum: RSI(14) ${formatIndicator(data.rsi)}, MACD ${formatIndicator(data.macd)}, signal ${formatIndicator(data.macdSignal)}, histogram ${formatIndicator(data.macdHistogram)}.`,
-          `Market activity: 24h change ${formatSignedPercent(data.change24h)}, high ${formatCompactNumber(data.high24h)}, low ${formatCompactNumber(data.low24h)}, quote volume ${formatCompactNumber(data.quoteVolume)}, volume ratio ${formatIndicator(data.volumeRatio)}x.`,
-          fundamentalContext ? `Fundamental/live context: ${fundamentalContext.slice(0, 900)}` : "Fundamental/live context: no major live headline block was available in this scan."
-        ].join("\n");
-      }
-
-      function loadTraderSignals() {
-        return loadJson(STORAGE.traderSignals, []).map(normalizeStoredSignal).filter(Boolean).slice(0, 25);
-      }
-
-      function normalizeStoredSignal(signal) {
-        if (!signal?.symbol || !Number.isFinite(Number(signal.entry))) return null;
-        return {
-          ...signal,
-          entry: Number(signal.entry),
-          tp1: Number(signal.tp1),
-          tp2: Number(signal.tp2),
-          tp3: Number(signal.tp3),
-          sl: Number(signal.sl),
-          score: Number(signal.score) || 0,
-          createdAt: signal.createdAt || new Date().toISOString(),
-          validUntil: signal.validUntil || new Date(Date.now() + 90 * 60 * 1000).toISOString()
-        };
-      }
-
-      function saveTraderSignals(signals) {
-        localStorage.setItem(STORAGE.traderSignals, JSON.stringify(signals.slice(0, 25)));
-        markBackupDirty(6000);
-      }
-
-      function mergeTraderSignals(existing, fresh) {
-        const key = (signal) => `${signal.baseSymbol || signal.symbol}:${signal.side}`;
-        const activeFreshKeys = new Set(fresh.map(key));
-        const kept = existing.filter((signal) => signal.status !== "active" || !activeFreshKeys.has(key(signal)));
-        return [...fresh, ...kept].sort((a, b) => {
-          const statusScore = (signal) => signal.status === "active" ? 2 : signal.status?.startsWith("tp") ? 1 : 0;
-          return statusScore(b) - statusScore(a) || new Date(b.createdAt) - new Date(a.createdAt);
-        });
-      }
-
-      function updateTrackedSignals(signals, marketDataList) {
-        const priceMap = new Map(marketDataList.map((data) => [data.symbol, data.price]));
-        return signals.map((signal) => {
-          if (signal.status !== "active") return signal;
-          const price = priceMap.get(signal.baseSymbol);
-          if (!Number.isFinite(price)) return signal;
-          signal.lastPrice = price;
-          const long = signal.side === "LONG";
-          const hitTp3 = long ? price >= signal.tp3 : price <= signal.tp3;
-          const hitTp2 = long ? price >= signal.tp2 : price <= signal.tp2;
-          const hitTp1 = long ? price >= signal.tp1 : price <= signal.tp1;
-          const hitSl = long ? price <= signal.sl : price >= signal.sl;
-          const expired = Date.now() > new Date(signal.validUntil).getTime();
-          if (hitTp3 || hitTp2 || hitTp1 || hitSl || expired) {
-            signal.status = hitTp3 ? "tp3" : hitTp2 ? "tp2" : hitTp1 ? "tp1" : hitSl ? "sl" : "expired";
-            signal.closedAt = new Date().toISOString();
-            signal.elapsedMinutes = Math.max(1, Math.round((new Date(signal.closedAt) - new Date(signal.createdAt)) / 60000));
-          }
-          return signal;
-        });
       }
 
       function renderProSignals(signals) {
@@ -8151,9 +8002,7 @@
           const top = document.createElement("div");
           top.className = "signal-top";
           const title = document.createElement("div");
-          const createdAt = new Date(signal.createdAt);
-          const validUntil = new Date(signal.validUntil);
-          title.innerHTML = `<small>${signal.confidence}-grade setup · ${signal.status || "active"}</small><h3>${signal.symbol}</h3><p>Created ${createdAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} · Valid until ${validUntil.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</p>`;
+          title.innerHTML = `<small>${signal.confidence}-grade setup</small><h3>${signal.symbol}</h3><p>Created ${signal.createdAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} - Valid until ${signal.validUntil.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</p>`;
           const badge = document.createElement("span");
           badge.className = `signal-badge ${signal.side.toLowerCase()}`;
           badge.textContent = signal.side;
@@ -8182,33 +8031,9 @@
           const note = document.createElement("p");
           note.style.marginTop = "14px";
           note.textContent = "Educational futures signal, not financial advice. Confirm liquidity, funding, news, and your own risk before doing anything.";
-          const outcome = document.createElement("div");
-          outcome.className = `signal-outcome ${signal.status?.startsWith("tp") ? "hit" : signal.status === "sl" ? "stopped" : ""}`;
-          outcome.textContent = describeSignalOutcome(signal);
-          const tech = document.createElement("details");
-          tech.className = "signal-tech";
-          const summary = document.createElement("summary");
-          summary.textContent = "Why this setup? Technical + context";
-          const thesis = document.createElement("p");
-          thesis.style.whiteSpace = "pre-wrap";
-          thesis.textContent = signal.technical || signal.reasons.join("\n");
-          tech.append(summary, thesis);
-          card.append(top, grid, reasons, outcome, tech, note);
+          card.append(top, grid, reasons, note);
           els.signalList.append(card);
         });
-      }
-
-      function describeSignalOutcome(signal) {
-        if (signal.status === "tp3" || signal.status === "tp2" || signal.status === "tp1") {
-          return `Trade update: ${signal.status.toUpperCase()} touched in about ${signal.elapsedMinutes || "?"} min. Last checked price: ${formatPrice(signal.lastPrice)}.`;
-        }
-        if (signal.status === "sl") {
-          return `Trade update: SL touched in about ${signal.elapsedMinutes || "?"} min. Last checked price: ${formatPrice(signal.lastPrice)}.`;
-        }
-        if (signal.status === "expired") {
-          return `Trade update: setup expired without confirmed TP/SL. Last checked price: ${formatPrice(signal.lastPrice)}.`;
-        }
-        return `Active: waiting for TP/SL confirmation. Last checked price: ${formatPrice(signal.lastPrice || signal.entry)}.`;
       }
 
       function calculateSma(values, period) {
