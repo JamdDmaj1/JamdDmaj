@@ -492,6 +492,7 @@
     }
 
     .trader-view {
+      position: relative;
       height: min(100%, calc(var(--viewport-height, 100dvh) - 96px));
       overflow: auto;
       padding: clamp(16px, 3vw, 28px);
@@ -500,11 +501,30 @@
         radial-gradient(circle at 85% 5%, rgba(139, 92, 246, 0.16), transparent 24rem);
     }
 
+    .trader-view::before {
+      content: "";
+      position: fixed;
+      inset: 96px 0 0;
+      pointer-events: none;
+      opacity: 0;
+      background:
+        linear-gradient(115deg, transparent 0 32%, rgba(34, 211, 238, 0.14) 45%, transparent 58%),
+        radial-gradient(circle at 50% 0%, rgba(52, 211, 153, 0.16), transparent 22rem);
+      transform: translateX(-22%);
+      z-index: 0;
+    }
+
+    body.trader-mode .trader-view::before {
+      animation: traderSweep 1150ms cubic-bezier(.2, .8, .2, 1) both;
+    }
+
     .trader-view.is-hidden {
       display: none;
     }
 
     .trader-shell {
+      position: relative;
+      z-index: 1;
       display: grid;
       gap: 18px;
       max-width: 1120px;
@@ -525,6 +545,14 @@
       gap: 16px;
       align-items: center;
       padding: clamp(18px, 4vw, 30px);
+    }
+
+    body.trader-mode .trader-hero {
+      animation: traderHeroIn 520ms cubic-bezier(.2, .8, .2, 1) both;
+    }
+
+    body.trader-mode .signal-card {
+      animation: signalRise 480ms cubic-bezier(.2, .8, .2, 1) both;
     }
 
     .trader-hero small,
@@ -553,6 +581,36 @@
       display: flex;
       flex-wrap: wrap;
       gap: 10px;
+    }
+
+    .trader-token-search {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: -8px;
+    }
+
+    .trader-token-search input {
+      width: min(220px, 58vw);
+      min-height: 38px;
+      border: 1px solid rgba(139, 92, 246, 0.28);
+      border-radius: 999px;
+      padding: 0 13px;
+      background: rgba(255, 255, 255, 0.045);
+      color: var(--text);
+      font-size: 0.82rem;
+      outline: none;
+    }
+
+    .trader-token-search input:focus {
+      border-color: rgba(34, 211, 238, 0.62);
+      box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.08);
+    }
+
+    .trader-token-search .pill-btn {
+      min-height: 38px;
+      padding: 0 14px;
+      font-size: 0.78rem;
     }
 
     .signal-card {
@@ -605,6 +663,14 @@
       margin-top: 3px;
       color: var(--text);
       font-size: 1rem;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.18;
+      overflow-wrap: anywhere;
+    }
+
+    .signal-grid b.tiny-price {
+      font-size: clamp(0.78rem, 2vw, 0.92rem);
+      letter-spacing: -0.01em;
     }
 
     .signal-reasons {
@@ -618,6 +684,70 @@
       color: color-mix(in srgb, var(--accent-2) 78%, white);
       font-size: 0.78rem;
       font-weight: 750;
+    }
+
+    .signal-category {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      margin-top: 8px;
+      border: 1px solid rgba(34, 211, 238, 0.22);
+      border-radius: 999px;
+      padding: 5px 9px;
+      color: var(--accent-2);
+      background: rgba(34, 211, 238, 0.08);
+      font-size: 0.7rem;
+      font-weight: 850;
+      letter-spacing: 0.04em;
+    }
+
+    .signal-why {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border: 1px solid rgba(34, 211, 238, 0.14);
+      border-radius: 14px;
+      background: rgba(34, 211, 238, 0.055);
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.45;
+    }
+
+    @keyframes traderSweep {
+      0% { opacity: 0; transform: translateX(-30%); }
+      20% { opacity: 1; }
+      100% { opacity: 0; transform: translateX(34%); }
+    }
+
+    @keyframes traderHeroIn {
+      from { opacity: 0; transform: translateY(14px) scale(0.985); box-shadow: 0 0 0 rgba(34, 211, 238, 0); }
+      to { opacity: 1; transform: translateY(0) scale(1); box-shadow: 0 22px 70px rgba(0, 0, 0, 0.28), 0 0 42px rgba(34, 211, 238, 0.08); }
+    }
+
+    @keyframes signalRise {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .release-list {
+      display: grid;
+      gap: 9px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .release-list li {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--muted);
+    }
+
+    .release-list li strong {
+      display: block;
+      color: var(--text);
+      margin-bottom: 2px;
     }
 
     .learn-resume-card {
@@ -2463,9 +2593,9 @@
         <div class="trader-shell">
           <div class="trader-hero">
             <div>
-              <small>JamdDmaj Pro Signals</small>
-              <h2>Crypto futures scanner</h2>
-              <p>Educational setups with entry, TP, SL, validity window, momentum, trend, RSI, MACD, volume, and risk notes. No automatic order execution.</p>
+              <small id="traderEyebrow">JamdDmaj Pro Signals</small>
+              <h2 id="traderHeroTitle">Crypto futures scanner</h2>
+              <p id="traderHeroText">Educational setups with entry, TP, SL, validity window, momentum, trend, RSI, MACD, volume, and risk notes. No automatic order execution.</p>
             </div>
             <div class="trader-actions">
               <button class="pill-btn" id="scanSignalsBtn" type="button">Scan now</button>
@@ -2473,6 +2603,10 @@
             </div>
           </div>
           <div id="traderStatus" class="backup-status">Tap Scan now. Hidden access: tap the JamdDmaj AI name 5 times.</div>
+          <div class="trader-token-search" role="search" aria-label="Search token trade setup">
+            <input id="traderTokenInput" type="text" inputmode="text" autocomplete="off" placeholder="Token/stock, e.g. XRP or NVDA">
+            <button class="pill-btn" id="searchTradeBtn" type="button">Trade</button>
+          </div>
           <div id="signalList" class="trader-signals"></div>
         </div>
       </section>
@@ -2877,6 +3011,22 @@
     </div>
   </aside>
 
+  <dialog id="releaseDialog">
+    <form method="dialog">
+      <div class="dialog-head">
+        <h2 id="releaseTitle">What's new</h2>
+        <button class="icon-btn" value="close" aria-label="Close release notes" type="submit">Ã—</button>
+      </div>
+      <div class="dialog-body">
+        <p id="releaseIntro" style="margin:0;color:var(--muted)">JamdDmaj was updated.</p>
+        <ul class="release-list" id="releaseList"></ul>
+      </div>
+      <div class="dialog-actions">
+        <button class="pill-btn" id="releaseCloseBtn" value="close" type="submit">Got it</button>
+      </div>
+    </form>
+  </dialog>
+
   <div class="toast" id="toast" role="status"></div>
 
   <script>
@@ -2888,9 +3038,143 @@
       const MANAGED_API_URL = `${WEB_APP_URL}api/chat`;
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
-      const APP_VERSION = "1.17.0";
+      const APP_VERSION = "1.20.0";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
       const FREE_LIVE_API_URL = `${WEB_APP_URL}api/live`;
+      const RELEASE_NOTES = {
+        normal: {
+          en: {
+            title: "What's new in JamdDmaj AI",
+            intro: "This update improves the normal app experience.",
+            button: "Got it",
+            items: [
+              ["Cleaner updates", "You will now see a short summary when the app changes."],
+              ["Better market support", "Market data and tiny prices are easier to read."],
+              ["More stability", "Mobile refreshes should feel smoother."]
+            ]
+          },
+          es: {
+            title: "Novedades de JamdDmaj AI",
+            intro: "Esta actualizacion mejora la experiencia normal de la app.",
+            button: "Entendido",
+            items: [
+              ["Actualizaciones claras", "Ahora veras un resumen corto cuando la app cambie."],
+              ["Mejor soporte de mercados", "Los datos de mercado y precios pequenos se leen mejor."],
+              ["Mas estabilidad", "Las recargas en movil deberian sentirse mas suaves."]
+            ]
+          }
+        },
+        pro: {
+          en: {
+            title: "JamdDmaj Pro Signals update",
+            intro: "Hidden Pro mode was upgraded separately.",
+            button: "Enter Pro",
+            items: [
+              ["More markets", "Manual search now understands many more crypto tokens, stocks, and ETFs."],
+              ["Cleaner trade cards", "Calls show category tags, better tiny prices, and clearer reasons."],
+              ["Pro entry feel", "Trade mode now opens with a stronger scanner-style animation."]
+            ]
+          },
+          es: {
+            title: "Actualizacion de JamdDmaj Pro Signals",
+            intro: "El modo Pro oculto fue mejorado por separado.",
+            button: "Entrar al Pro",
+            items: [
+              ["Mas mercados", "La busqueda manual entiende muchos mas tokens, acciones y ETFs."],
+              ["Tarjetas mas claras", "Las calls muestran categoria, precios pequenos mejor ordenados y razones claras."],
+              ["Entrada mas pro", "Trade abre con una animacion mas fuerte tipo scanner."]
+            ]
+          }
+        }
+      };
+      const TRADE_TEXT = {
+        en: {
+          eyebrow: "JamdDmaj Pro Signals",
+          title: "Crypto futures scanner",
+          hero: "Educational setups with entry, TP, SL, validity window, momentum, trend, RSI, MACD, volume, and risk notes. No automatic order execution.",
+          scan: "Scan now",
+          back: "Back",
+          ready: "Tap Scan now. Hidden access: tap the JamdDmaj AI name 5 times.",
+          searchPlaceholder: "Token/stock, e.g. XRP or NVDA",
+          searchButton: "Trade",
+          scanning: "Scanning live futures-style setups...",
+          searching: "Searching {query} setup across live markets...",
+          manualScan: "Manual scan: {symbol}. Confirm liquidity/news before using it.",
+          noData: "No clean live data for \"{query}\" right now. Try BTC, XRP, SOL, PEPE, NVDA, TSLA, SPY, or QQQ.",
+          lastScan: "Last scan: {stamp}. Educational scanner only. Risk max 1% per idea.",
+          noSetups: "Last scan: {stamp}. No clean A/B setups right now. Waiting is also a pro move.",
+          grade: "{grade}-grade setup",
+          created: "Created {time} - Valid until {valid}",
+          entry: "Entry",
+          tp1: "TP 1",
+          tp2: "TP 2",
+          tp3: "TP 3",
+          sl: "SL",
+          score: "Score",
+          move: "Move",
+          note: "Educational signal, not financial advice. Confirm liquidity, funding/news, and your own risk before doing anything.",
+          whyLong: "Why long",
+          whyShort: "Why short",
+          requestedLow: "This is a requested setup, so confidence is lower than the automatic scanner.",
+          passes: "This passes the pro scanner threshold.",
+          categories: {
+            "Payments and stores of value": "Payments / store of value",
+            "Layer 1 networks": "Layer 1",
+            "Layer 2 scaling": "Layer 2",
+            "Exchange tokens": "Exchange token",
+            "DeFi and governance": "DeFi / governance",
+            "AI, data and infrastructure": "AI / data",
+            "Gaming and culture": "Gaming / culture",
+            "Community and meme coins": "Community / meme",
+            "Stock market": "Stock market",
+            "ETF": "ETF",
+            "Manual search": "Manual search"
+          }
+        },
+        es: {
+          eyebrow: "JamdDmaj Pro Signals",
+          title: "Scanner de futuros crypto",
+          hero: "Setups educativos con entrada, TP, SL, ventana de validez, momentum, tendencia, RSI, MACD, volumen y notas de riesgo. No ejecuta ordenes automaticas.",
+          scan: "Escanear",
+          back: "Volver",
+          ready: "Toca Escanear. Acceso oculto: toca el nombre JamdDmaj AI 5 veces.",
+          searchPlaceholder: "Token/accion, ej. XRP o NVDA",
+          searchButton: "Trade",
+          scanning: "Escaneando setups en vivo estilo futuros...",
+          searching: "Buscando setup de {query} en mercados en vivo...",
+          manualScan: "Escaneo manual: {symbol}. Confirma liquidez/noticias antes de usarlo.",
+          noData: "No hay datos limpios en vivo para \"{query}\" ahora. Prueba BTC, XRP, SOL, PEPE, NVDA, TSLA, SPY o QQQ.",
+          lastScan: "Ultimo escaneo: {stamp}. Scanner educativo. Riesgo maximo 1% por idea.",
+          noSetups: "Ultimo escaneo: {stamp}. No hay setups A/B limpios ahora. Esperar tambien es de pro.",
+          grade: "Setup grado {grade}",
+          created: "Creado {time} - Valido hasta {valid}",
+          entry: "Entrada",
+          tp1: "TP 1",
+          tp2: "TP 2",
+          tp3: "TP 3",
+          sl: "SL",
+          score: "Puntaje",
+          move: "Mov.",
+          note: "Senal educativa, no es consejo financiero. Confirma liquidez, funding/noticias y tu propio riesgo antes de hacer algo.",
+          whyLong: "Por que long",
+          whyShort: "Por que short",
+          requestedLow: "Este setup fue pedido manualmente, asi que la confianza es menor que en el scanner automatico.",
+          passes: "Este setup pasa el filtro del scanner pro.",
+          categories: {
+            "Payments and stores of value": "Pagos / reserva de valor",
+            "Layer 1 networks": "Layer 1",
+            "Layer 2 scaling": "Layer 2",
+            "Exchange tokens": "Token de exchange",
+            "DeFi and governance": "DeFi / gobernanza",
+            "AI, data and infrastructure": "IA / datos",
+            "Gaming and culture": "Gaming / cultura",
+            "Community and meme coins": "Comunidad / meme",
+            "Stock market": "Bolsa",
+            "ETF": "ETF",
+            "Manual search": "Busqueda manual"
+          }
+        }
+      };
       const LEARN_TEXT = {
         en: {
           heroTitle: "Learn something you can use.", heroText: "Guided paths, personal explanations, exercises, and practice with a tutor that adapts to your level.",
@@ -3170,6 +3454,105 @@
         walmart: "WMT",
         coca: "KO"
       };
+      const STOCK_ASSETS = [
+        { symbol: "NVDA", aliases: ["nvidia", "nvidea"] },
+        { symbol: "AAPL", aliases: ["apple"] },
+        { symbol: "MSFT", aliases: ["microsoft"] },
+        { symbol: "TSLA", aliases: ["tesla"] },
+        { symbol: "AMZN", aliases: ["amazon"] },
+        { symbol: "GOOGL", aliases: ["google", "alphabet"] },
+        { symbol: "GOOG", aliases: ["google class c"] },
+        { symbol: "META", aliases: ["facebook", "meta"] },
+        { symbol: "AMD", aliases: ["advanced micro devices"] },
+        { symbol: "NFLX", aliases: ["netflix"] },
+        { symbol: "AVGO", aliases: ["broadcom"] },
+        { symbol: "ARM", aliases: ["arm holdings"] },
+        { symbol: "PLTR", aliases: ["palantir"] },
+        { symbol: "SMCI", aliases: ["super micro"] },
+        { symbol: "TSM", aliases: ["taiwan semiconductor"] },
+        { symbol: "MU", aliases: ["micron"] },
+        { symbol: "INTC", aliases: ["intel"] },
+        { symbol: "QCOM", aliases: ["qualcomm"] },
+        { symbol: "ORCL", aliases: ["oracle"] },
+        { symbol: "CRM", aliases: ["salesforce"] },
+        { symbol: "SHOP", aliases: ["shopify"] },
+        { symbol: "COIN", aliases: ["coinbase"] },
+        { symbol: "HOOD", aliases: ["robinhood"] },
+        { symbol: "MSTR", aliases: ["microstrategy", "strategy"] },
+        { symbol: "MARA", aliases: ["marathon digital"] },
+        { symbol: "RIOT", aliases: ["riot platforms"] },
+        { symbol: "JPM", aliases: ["jpmorgan", "jp morgan"] },
+        { symbol: "BAC", aliases: ["bank of america"] },
+        { symbol: "C", aliases: ["citigroup", "citi"] },
+        { symbol: "WFC", aliases: ["wells fargo"] },
+        { symbol: "GS", aliases: ["goldman sachs"] },
+        { symbol: "MS", aliases: ["morgan stanley"] },
+        { symbol: "V", aliases: ["visa"] },
+        { symbol: "MA", aliases: ["mastercard"] },
+        { symbol: "PYPL", aliases: ["paypal"] },
+        { symbol: "DIS", aliases: ["disney"] },
+        { symbol: "KO", aliases: ["coca cola", "coca"] },
+        { symbol: "PEP", aliases: ["pepsi", "pepsico"] },
+        { symbol: "NKE", aliases: ["nike"] },
+        { symbol: "WMT", aliases: ["walmart"] },
+        { symbol: "COST", aliases: ["costco"] },
+        { symbol: "HD", aliases: ["home depot"] },
+        { symbol: "MCD", aliases: ["mcdonalds", "mcdonald's"] },
+        { symbol: "SBUX", aliases: ["starbucks"] },
+        { symbol: "UBER", aliases: ["uber"] },
+        { symbol: "ABNB", aliases: ["airbnb"] },
+        { symbol: "RBLX", aliases: ["roblox"] },
+        { symbol: "SNOW", aliases: ["snowflake"] },
+        { symbol: "NET", aliases: ["cloudflare"] },
+        { symbol: "DDOG", aliases: ["datadog"] },
+        { symbol: "CRWD", aliases: ["crowdstrike"] },
+        { symbol: "PANW", aliases: ["palo alto networks"] },
+        { symbol: "ZS", aliases: ["zscaler"] },
+        { symbol: "NOW", aliases: ["servicenow"] },
+        { symbol: "ADBE", aliases: ["adobe"] },
+        { symbol: "IBM", aliases: ["ibm"] },
+        { symbol: "DELL", aliases: ["dell"] },
+        { symbol: "HPE", aliases: ["hewlett packard enterprise"] },
+        { symbol: "GM", aliases: ["general motors"] },
+        { symbol: "F", aliases: ["ford"] },
+        { symbol: "RIVN", aliases: ["rivian"] },
+        { symbol: "LCID", aliases: ["lucid"] },
+        { symbol: "XOM", aliases: ["exxon", "exxon mobil"] },
+        { symbol: "CVX", aliases: ["chevron"] },
+        { symbol: "OXY", aliases: ["occidental petroleum"] },
+        { symbol: "MPC", aliases: ["marathon petroleum"] },
+        { symbol: "CAT", aliases: ["caterpillar"] },
+        { symbol: "BA", aliases: ["boeing"] },
+        { symbol: "GE", aliases: ["general electric"] },
+        { symbol: "LMT", aliases: ["lockheed martin"] },
+        { symbol: "RTX", aliases: ["rtx", "raytheon"] },
+        { symbol: "UNH", aliases: ["unitedhealth"] },
+        { symbol: "LLY", aliases: ["eli lilly"] },
+        { symbol: "NVO", aliases: ["novo nordisk"] },
+        { symbol: "PFE", aliases: ["pfizer"] },
+        { symbol: "MRNA", aliases: ["moderna"] },
+        { symbol: "JNJ", aliases: ["johnson and johnson"] },
+        { symbol: "T", aliases: ["at&t", "att"] },
+        { symbol: "VZ", aliases: ["verizon"] },
+        { symbol: "TMUS", aliases: ["t mobile", "tmobile"] },
+        { symbol: "SPY", aliases: ["s&p 500", "sp500", "spy etf"] },
+        { symbol: "QQQ", aliases: ["nasdaq 100", "qqq etf"] },
+        { symbol: "IWM", aliases: ["russell 2000"] },
+        { symbol: "DIA", aliases: ["dow jones", "dow"] },
+        { symbol: "VTI", aliases: ["total stock market"] },
+        { symbol: "VOO", aliases: ["vanguard s&p 500"] },
+        { symbol: "TQQQ", aliases: ["triple qqq", "leveraged nasdaq"] },
+        { symbol: "SQQQ", aliases: ["short qqq", "inverse nasdaq"] },
+        { symbol: "XLK", aliases: ["technology etf"] },
+        { symbol: "XLF", aliases: ["financial etf"] },
+        { symbol: "XLE", aliases: ["energy etf"] },
+        { symbol: "XLV", aliases: ["healthcare etf"] },
+        { symbol: "XLY", aliases: ["consumer discretionary etf"] },
+        { symbol: "ARKK", aliases: ["ark innovation"] },
+        { symbol: "GLD", aliases: ["gold etf"] },
+        { symbol: "SLV", aliases: ["silver etf"] },
+        { symbol: "USO", aliases: ["oil etf"] }
+      ];
       const LEARNING_TRACKS = [
         {
           id: "languages",
@@ -3387,17 +3770,44 @@
         { symbol: "APT", id: "aptos", binance: "APTUSDT", category: "Layer 1 networks" },
         { symbol: "ATOM", id: "cosmos", binance: "ATOMUSDT", category: "Layer 1 networks" },
         { symbol: "HBAR", id: "hedera-hashgraph", binance: "HBARUSDT", category: "Layer 1 networks" },
+        { symbol: "ICP", id: "internet-computer", binance: "ICPUSDT", category: "Layer 1 networks" },
+        { symbol: "ETC", id: "ethereum-classic", binance: "ETCUSDT", category: "Layer 1 networks" },
+        { symbol: "VET", id: "vechain", binance: "VETUSDT", category: "Layer 1 networks" },
+        { symbol: "ALGO", id: "algorand", binance: "ALGOUSDT", category: "Layer 1 networks" },
+        { symbol: "EGLD", id: "elrond-erd-2", binance: "EGLDUSDT", category: "Layer 1 networks" },
+        { symbol: "KAVA", id: "kava", binance: "KAVAUSDT", category: "Layer 1 networks" },
+        { symbol: "SEI", id: "sei-network", binance: "SEIUSDT", category: "Layer 1 networks" },
+        { symbol: "INJ", id: "injective-protocol", binance: "INJUSDT", category: "Layer 1 networks" },
+        { symbol: "TIA", id: "celestia", binance: "TIAUSDT", category: "Layer 1 networks" },
+        { symbol: "JUP", id: "jupiter-exchange-solana", binance: "JUPUSDT", category: "Layer 1 networks" },
+        { symbol: "PYTH", id: "pyth-network", binance: "PYTHUSDT", category: "Layer 1 networks" },
+        { symbol: "STX", id: "blockstack", binance: "STXUSDT", category: "Layer 1 networks" },
+        { symbol: "RUNE", id: "thorchain", binance: "RUNEUSDT", category: "Layer 1 networks" },
+        { symbol: "KAS", id: "kaspa", binance: "KASUSDT", category: "Layer 1 networks" },
+        { symbol: "IOTA", id: "iota", binance: "IOTAUSDT", category: "Layer 1 networks" },
+        { symbol: "ROSE", id: "oasis-network", binance: "ROSEUSDT", category: "Layer 1 networks" },
+        { symbol: "ZEC", id: "zcash", binance: "ZECUSDT", category: "Layer 1 networks" },
+        { symbol: "DASH", id: "dash", binance: "DASHUSDT", category: "Layer 1 networks" },
+        { symbol: "XMR", id: "monero", binance: "XMRUSDT", category: "Layer 1 networks" },
+        { symbol: "QNT", id: "quant-network", binance: "QNTUSDT", category: "Layer 1 networks" },
         { symbol: "POL", id: "polygon-ecosystem-token", binance: "POLUSDT", category: "Layer 2 scaling" },
         { symbol: "ARB", id: "arbitrum", binance: "ARBUSDT", category: "Layer 2 scaling" },
         { symbol: "OP", id: "optimism", binance: "OPUSDT", category: "Layer 2 scaling" },
         { symbol: "IMX", id: "immutable-x", binance: "IMXUSDT", category: "Layer 2 scaling" },
         { symbol: "MNT", id: "mantle", binance: "MNTUSDT", category: "Layer 2 scaling" },
         { symbol: "STRK", id: "starknet", binance: "STRKUSDT", category: "Layer 2 scaling" },
+        { symbol: "ZK", id: "zksync", binance: "ZKUSDT", category: "Layer 2 scaling" },
+        { symbol: "ZRO", id: "layerzero", binance: "ZROUSDT", category: "Layer 2 scaling" },
+        { symbol: "METIS", id: "metis-token", binance: "METISUSDT", category: "Layer 2 scaling" },
+        { symbol: "BLAST", id: "blast", binance: "BLASTUSDT", category: "Layer 2 scaling" },
         { symbol: "OKB", id: "okb", binance: "OKBUSDT", category: "Exchange tokens" },
         { symbol: "CRO", id: "crypto-com-chain", binance: "CROUSDT", category: "Exchange tokens" },
         { symbol: "LEO", id: "leo-token", binance: "LEOUSDT", category: "Exchange tokens" },
         { symbol: "KCS", id: "kucoin-shares", binance: "KCSUSDT", category: "Exchange tokens" },
         { symbol: "GT", id: "gatechain-token", binance: "GTUSDT", category: "Exchange tokens" },
+        { symbol: "BGB", id: "bitget-token", binance: "BGBUSDT", category: "Exchange tokens" },
+        { symbol: "MX", id: "mx-token", binance: "MXUSDT", category: "Exchange tokens" },
+        { symbol: "WOO", id: "woo-network", binance: "WOOUSDT", category: "Exchange tokens" },
         { symbol: "UNI", id: "uniswap", binance: "UNIUSDT", category: "DeFi and governance" },
         { symbol: "AAVE", id: "aave", binance: "AAVEUSDT", category: "DeFi and governance" },
         { symbol: "MKR", id: "maker", binance: "MKRUSDT", category: "DeFi and governance" },
@@ -3405,18 +3815,82 @@
         { symbol: "LDO", id: "lido-dao", binance: "LDOUSDT", category: "DeFi and governance" },
         { symbol: "COMP", id: "compound-governance-token", binance: "COMPUSDT", category: "DeFi and governance" },
         { symbol: "CAKE", id: "pancakeswap-token", binance: "CAKEUSDT", category: "DeFi and governance" },
+        { symbol: "ONDO", id: "ondo-finance", binance: "ONDOUSDT", category: "DeFi and governance" },
+        { symbol: "PENDLE", id: "pendle", binance: "PENDLEUSDT", category: "DeFi and governance" },
+        { symbol: "ENA", id: "ethena", binance: "ENAUSDT", category: "DeFi and governance" },
+        { symbol: "JTO", id: "jito-governance-token", binance: "JTOUSDT", category: "DeFi and governance" },
+        { symbol: "SNX", id: "havven", binance: "SNXUSDT", category: "DeFi and governance" },
+        { symbol: "DYDX", id: "dydx-chain", binance: "DYDXUSDT", category: "DeFi and governance" },
+        { symbol: "1INCH", id: "1inch", binance: "1INCHUSDT", category: "DeFi and governance" },
+        { symbol: "RPL", id: "rocket-pool", binance: "RPLUSDT", category: "DeFi and governance" },
+        { symbol: "FXS", id: "frax-share", binance: "FXSUSDT", category: "DeFi and governance" },
+        { symbol: "GMX", id: "gmx", binance: "GMXUSDT", category: "DeFi and governance" },
+        { symbol: "RAY", id: "raydium", binance: "RAYUSDT", category: "DeFi and governance" },
+        { symbol: "JOE", id: "joe", binance: "JOEUSDT", category: "DeFi and governance" },
+        { symbol: "JST", id: "just", binance: "JSTUSDT", category: "DeFi and governance" },
+        { symbol: "SUSHI", id: "sushi", binance: "SUSHIUSDT", category: "DeFi and governance" },
+        { symbol: "BAL", id: "balancer", binance: "BALUSDT", category: "DeFi and governance" },
+        { symbol: "YFI", id: "yearn-finance", binance: "YFIUSDT", category: "DeFi and governance" },
+        { symbol: "ZRX", id: "0x", binance: "ZRXUSDT", category: "DeFi and governance" },
+        { symbol: "AEVO", id: "aevo-exchange", binance: "AEVOUSDT", category: "DeFi and governance" },
         { symbol: "LINK", id: "chainlink", binance: "LINKUSDT", category: "AI, data and infrastructure" },
         { symbol: "FET", id: "fetch-ai", binance: "FETUSDT", category: "AI, data and infrastructure" },
         { symbol: "RENDER", id: "render-token", binance: "RENDERUSDT", category: "AI, data and infrastructure" },
         { symbol: "TAO", id: "bittensor", binance: "TAOUSDT", category: "AI, data and infrastructure" },
         { symbol: "GRT", id: "the-graph", binance: "GRTUSDT", category: "AI, data and infrastructure" },
         { symbol: "FIL", id: "filecoin", binance: "FILUSDT", category: "AI, data and infrastructure" },
+        { symbol: "W", id: "wormhole", binance: "WUSDT", category: "AI, data and infrastructure" },
+        { symbol: "ARKM", id: "arkham", binance: "ARKMUSDT", category: "AI, data and infrastructure" },
+        { symbol: "WLD", id: "worldcoin-wld", binance: "WLDUSDT", category: "AI, data and infrastructure" },
+        { symbol: "JASMY", id: "jasmycoin", binance: "JASMYUSDT", category: "AI, data and infrastructure" },
+        { symbol: "AIOZ", id: "aioz-network", binance: "AIOZUSDT", category: "AI, data and infrastructure" },
+        { symbol: "AKT", id: "akash-network", binance: "AKTUSDT", category: "AI, data and infrastructure" },
+        { symbol: "AR", id: "arweave", binance: "ARUSDT", category: "AI, data and infrastructure" },
+        { symbol: "FTM", id: "fantom", binance: "FTMUSDT", category: "AI, data and infrastructure" },
+        { symbol: "HYPE", id: "hyperliquid", binance: "HYPEUSDT", category: "AI, data and infrastructure" },
+        { symbol: "PENGU", id: "pudgy-penguins", binance: "PENGUUSDT", category: "AI, data and infrastructure" },
+        { symbol: "IO", id: "io", binance: "IOUSDT", category: "AI, data and infrastructure" },
+        { symbol: "GRASS", id: "grass", binance: "GRASSUSDT", category: "AI, data and infrastructure" },
+        { symbol: "VIRTUAL", id: "virtual-protocol", binance: "VIRTUALUSDT", category: "AI, data and infrastructure" },
+        { symbol: "COOKIE", id: "cookie", binance: "COOKIEUSDT", category: "AI, data and infrastructure" },
+        { symbol: "PHA", id: "pha", binance: "PHAUSDT", category: "AI, data and infrastructure" },
+        { symbol: "OCEAN", id: "ocean-protocol", binance: "OCEANUSDT", category: "AI, data and infrastructure" },
+        { symbol: "NMR", id: "numeraire", binance: "NMRUSDT", category: "AI, data and infrastructure" },
+        { symbol: "SAND", id: "the-sandbox", binance: "SANDUSDT", category: "Gaming and culture" },
+        { symbol: "MANA", id: "decentraland", binance: "MANAUSDT", category: "Gaming and culture" },
+        { symbol: "GALA", id: "gala", binance: "GALAUSDT", category: "Gaming and culture" },
+        { symbol: "AXS", id: "axie-infinity", binance: "AXSUSDT", category: "Gaming and culture" },
+        { symbol: "APE", id: "apecoin", binance: "APEUSDT", category: "Gaming and culture" },
+        { symbol: "CHZ", id: "chiliz", binance: "CHZUSDT", category: "Gaming and culture" },
+        { symbol: "ENJ", id: "enjincoin", binance: "ENJUSDT", category: "Gaming and culture" },
+        { symbol: "ILV", id: "illuvium", binance: "ILVUSDT", category: "Gaming and culture" },
+        { symbol: "PIXEL", id: "pixels", binance: "PIXELUSDT", category: "Gaming and culture" },
+        { symbol: "PORTAL", id: "portal-2", binance: "PORTALUSDT", category: "Gaming and culture" },
+        { symbol: "GMT", id: "stepn", binance: "GMTUSDT", category: "Gaming and culture" },
+        { symbol: "YGG", id: "yield-guild-games", binance: "YGGUSDT", category: "Gaming and culture" },
+        { symbol: "BEAM", id: "beam-2", binance: "BEAMUSDT", category: "Gaming and culture" },
         { symbol: "DOGE", id: "dogecoin", binance: "DOGEUSDT", category: "Community and meme coins" },
         { symbol: "SHIB", id: "shiba-inu", binance: "SHIBUSDT", category: "Community and meme coins" },
         { symbol: "PEPE", id: "pepe", binance: "PEPEUSDT", category: "Community and meme coins" },
         { symbol: "BONK", id: "bonk", binance: "BONKUSDT", category: "Community and meme coins" },
         { symbol: "WIF", id: "dogwifcoin", binance: "WIFUSDT", category: "Community and meme coins" },
-        { symbol: "FLOKI", id: "floki", binance: "FLOKIUSDT", category: "Community and meme coins" }
+        { symbol: "FLOKI", id: "floki", binance: "FLOKIUSDT", category: "Community and meme coins" },
+        { symbol: "TURBO", id: "turbo", binance: "TURBOUSDT", category: "Community and meme coins" },
+        { symbol: "MEME", id: "memecoin-2", binance: "MEMEUSDT", category: "Community and meme coins" },
+        { symbol: "BRETT", id: "based-brett", binance: "BRETTUSDT", category: "Community and meme coins" },
+        { symbol: "POPCAT", id: "popcat", binance: "POPCATUSDT", category: "Community and meme coins" },
+        { symbol: "MEW", id: "cat-in-a-dogs-world", binance: "MEWUSDT", category: "Community and meme coins" },
+        { symbol: "PNUT", id: "peanut-the-squirrel", binance: "PNUTUSDT", category: "Community and meme coins" },
+        { symbol: "MOG", id: "mog-coin", binance: "MOGUSDT", category: "Community and meme coins" },
+        { symbol: "TRUMP", id: "official-trump", binance: "TRUMPUSDT", category: "Community and meme coins" },
+        { symbol: "FARTCOIN", id: "fartcoin", binance: "FARTCOINUSDT", category: "Community and meme coins" },
+        { symbol: "BOME", id: "book-of-meme", binance: "BOMEUSDT", category: "Community and meme coins" },
+        { symbol: "NOT", id: "notcoin", binance: "NOTUSDT", category: "Community and meme coins" },
+        { symbol: "DOGS", id: "dogs-2", binance: "DOGSUSDT", category: "Community and meme coins" },
+        { symbol: "NEIRO", id: "neiro-3", binance: "NEIROUSDT", category: "Community and meme coins" },
+        { symbol: "ACT", id: "act-i-the-ai-prophecy", binance: "ACTUSDT", category: "Community and meme coins" },
+        { symbol: "GOAT", id: "goatseus-maximus", binance: "GOATUSDT", category: "Community and meme coins" },
+        { symbol: "FWOG", id: "fwog", binance: "FWOGUSDT", category: "Community and meme coins" }
       ];
       const STORAGE = {
         chats: "jamdV2Chats",
@@ -3438,10 +3912,13 @@
         backupPending: "jamdV3BackupPending",
         backupRetryCount: "jamdV3BackupRetryCount",
         traderSignals: "jamdV3TraderSignals",
+        traderOpen: "jamdV3TraderOpen",
         learnLastSession: "jamdV3LearnLastSession",
         learnNotifications: "jamdV3LearnNotifications",
         learnNotificationLastAt: "jamdV3LearnNotificationLastAt",
-        backupDirtyAt: "jamdV3BackupDirtyAt"
+        backupDirtyAt: "jamdV3BackupDirtyAt",
+        releaseSeen: "jamdV3ReleaseSeen",
+        proReleaseSeen: "jamdV3ProReleaseSeen"
       };
 
       const DEFAULT_SETTINGS = {
@@ -3709,8 +4186,17 @@
         plusMenu: document.getElementById("plusMenu"),
         ticker: document.getElementById("ticker"),
         traderView: document.getElementById("traderView"),
+        traderEyebrow: document.getElementById("traderEyebrow"),
+        traderHeroTitle: document.getElementById("traderHeroTitle"),
+        traderHeroText: document.getElementById("traderHeroText"),
         traderStatus: document.getElementById("traderStatus"),
         signalList: document.getElementById("signalList"),
+        traderTokenInput: document.getElementById("traderTokenInput"),
+        releaseDialog: document.getElementById("releaseDialog"),
+        releaseTitle: document.getElementById("releaseTitle"),
+        releaseIntro: document.getElementById("releaseIntro"),
+        releaseList: document.getElementById("releaseList"),
+        releaseCloseBtn: document.getElementById("releaseCloseBtn"),
         marketsButton: document.getElementById("marketsBtn"),
         voiceModeButton: document.getElementById("voiceModeBtn"),
         voiceStatus: document.getElementById("voiceStatus"),
@@ -3985,6 +4471,8 @@
 
       function newChat() {
         if (activeController) activeController.abort();
+        traderMode = false;
+        localStorage.setItem(STORAGE.traderOpen, "false");
         learning.mode = "chat";
         learning.activeLesson = null;
         persistLearning();
@@ -4000,6 +4488,8 @@
 
       function selectChat(id) {
         if (activeController) activeController.abort();
+        traderMode = false;
+        localStorage.setItem(STORAGE.traderOpen, "false");
         currentChatId = id;
         localStorage.setItem(STORAGE.current, id);
         const selectedChat = chats.find((chat) => chat.id === id);
@@ -4102,6 +4592,7 @@
       function enterLearnDashboard() {
         if (activeController) activeController.abort();
         traderMode = false;
+        localStorage.setItem(STORAGE.traderOpen, "false");
         learning.mode = "dashboard";
         persistLearning();
         closeSidebar();
@@ -4110,6 +4601,7 @@
 
       function exitLearnMode() {
         traderMode = false;
+        localStorage.setItem(STORAGE.traderOpen, "false");
         learning.mode = "chat";
         learning.activeLesson = null;
         persistLearning();
@@ -4148,7 +4640,9 @@
       }
 
       function renderTraderMode() {
+        updateTraderCopy();
         els.traderView.classList.toggle("is-hidden", !traderMode);
+        document.body.classList.toggle("trader-mode", traderMode);
         if (traderMode) {
           document.body.classList.remove("learn-mode");
           els.learnView.classList.add("is-hidden");
@@ -4161,11 +4655,13 @@
 
       function enterTraderMode() {
         traderMode = true;
+        localStorage.setItem(STORAGE.traderOpen, "true");
         learning.mode = "chat";
         learning.activeLesson = null;
         closeSidebar();
         renderAll();
         if (!els.signalList.children.length) scanProSignals();
+        maybeShowProReleaseNotes();
         clearInterval(traderScanTimer);
         traderScanTimer = setInterval(() => {
           if (traderMode && !document.hidden) scanProSignals(false);
@@ -4174,6 +4670,7 @@
 
       function exitTraderMode() {
         traderMode = false;
+        localStorage.setItem(STORAGE.traderOpen, "false");
         clearInterval(traderScanTimer);
         traderScanTimer = null;
         renderAll();
@@ -5210,7 +5707,10 @@
 
       function updateHeader() {
         const chat = ensureCurrentChat();
-        if (learning.mode === "dashboard") {
+        if (traderMode) {
+          els.title.textContent = "JamdDmaj Pro";
+          els.modelLabel.textContent = `v${APP_VERSION} · ${tradeText("eyebrow")}`;
+        } else if (learning.mode === "dashboard") {
           els.title.textContent = "JamdDmaj Learn";
           els.modelLabel.textContent = `v${APP_VERSION} · JamdDmaj Learn`;
         } else {
@@ -5243,6 +5743,77 @@
           ? (navigator.language || "en").slice(0, 2).toLowerCase()
           : settings.language;
         return UI_TEXT[requested] ? requested : "en";
+      }
+
+      function tradeText(key, replacements = {}) {
+        const language = resolvedLanguage();
+        const pack = TRADE_TEXT[language] || TRADE_TEXT.en;
+        const value = key.includes(".")
+          ? key.split(".").reduce((current, part) => current?.[part], pack)
+          : pack[key];
+        let text = value ?? TRADE_TEXT.en[key] ?? key;
+        Object.entries(replacements).forEach(([name, replacement]) => {
+          text = String(text).replaceAll(`{${name}}`, replacement);
+        });
+        return text;
+      }
+
+      function tradeCategoryText(category) {
+        const language = resolvedLanguage();
+        const pack = TRADE_TEXT[language] || TRADE_TEXT.en;
+        return pack.categories?.[category] || TRADE_TEXT.en.categories?.[category] || category || tradeText("categories.Manual search");
+      }
+
+      function updateTraderCopy() {
+        els.traderEyebrow.textContent = tradeText("eyebrow");
+        els.traderHeroTitle.textContent = tradeText("title");
+        els.traderHeroText.textContent = tradeText("hero");
+        document.getElementById("scanSignalsBtn").textContent = tradeText("scan");
+        document.getElementById("exitTraderBtn").textContent = tradeText("back");
+        document.getElementById("searchTradeBtn").textContent = tradeText("searchButton");
+        els.traderTokenInput.placeholder = tradeText("searchPlaceholder");
+        if (!els.signalList.children.length) els.traderStatus.textContent = tradeText("ready");
+      }
+
+      function releaseCopy(kind) {
+        const language = resolvedLanguage();
+        return RELEASE_NOTES[kind]?.[language] || RELEASE_NOTES[kind]?.en || RELEASE_NOTES.normal.en;
+      }
+
+      function showReleaseNotes(kind = "normal") {
+        const copy = releaseCopy(kind);
+        els.releaseTitle.textContent = copy.title;
+        els.releaseIntro.textContent = copy.intro;
+        els.releaseCloseBtn.textContent = copy.button;
+        els.releaseList.replaceChildren();
+        copy.items.forEach(([title, body]) => {
+          const item = document.createElement("li");
+          item.innerHTML = `<strong>${title}</strong>${body}`;
+          els.releaseList.append(item);
+        });
+        if (!els.releaseDialog.open) els.releaseDialog.showModal();
+      }
+
+      function maybeShowNormalReleaseNotes() {
+        const key = `${APP_VERSION}:normal`;
+        if (localStorage.getItem(STORAGE.releaseSeen) === key) return;
+        setTimeout(() => {
+          if (!traderMode && !els.settings.open && !els.tutorial.open) {
+            localStorage.setItem(STORAGE.releaseSeen, key);
+            showReleaseNotes("normal");
+          }
+        }, 1100);
+      }
+
+      function maybeShowProReleaseNotes() {
+        const key = `${APP_VERSION}:pro`;
+        if (localStorage.getItem(STORAGE.proReleaseSeen) === key) return;
+        setTimeout(() => {
+          if (traderMode && !els.releaseDialog.open) {
+            localStorage.setItem(STORAGE.proReleaseSeen, key);
+            showReleaseNotes("pro");
+          }
+        }, 450);
       }
 
       function voiceStatusCopy(state) {
@@ -6740,6 +7311,12 @@
       }
 
       function toggleMarkets() {
+        if (traderMode) {
+          traderMode = false;
+          localStorage.setItem(STORAGE.traderOpen, "false");
+          clearInterval(traderScanTimer);
+          traderScanTimer = null;
+        }
         if (learning.mode !== "chat") {
           learning.mode = "chat";
           learning.activeLesson = null;
@@ -7762,6 +8339,79 @@
         throw lastError || new Error("Stock quote unavailable.");
       }
 
+      function getStockTradeCategory(symbol) {
+        const etfs = new Set(["SPY", "QQQ", "IWM", "DIA", "VTI", "VOO", "TQQQ", "SQQQ", "XLK", "XLF", "XLE", "XLV", "XLY", "ARKK", "GLD", "SLV", "USO"]);
+        return etfs.has(String(symbol || "").toUpperCase()) ? "ETF" : "Stock market";
+      }
+
+      async function fetchStockTradeIndicators(symbol) {
+        let lastError;
+        for (const host of ["https://query1.finance.yahoo.com", "https://query2.finance.yahoo.com"]) {
+          try {
+            const data = await fetchJsonWithTimeout(
+              `${host}/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=6mo`,
+              7500
+            );
+            const result = data?.chart?.result?.[0];
+            const meta = result?.meta;
+            const quote = result?.indicators?.quote?.[0] || {};
+            if (!meta) throw new Error("No stock chart returned.");
+            const closes = (quote.close || []).map(Number).filter(Number.isFinite);
+            const volumes = (quote.volume || []).map(Number).filter(Number.isFinite);
+            if (closes.length < 55) throw new Error("Not enough stock candles.");
+            const price = Number(meta.regularMarketPrice ?? closes.at(-1));
+            const previousClose = Number(meta.chartPreviousClose ?? meta.previousClose ?? closes.at(-2));
+            if (!Number.isFinite(price) || price <= 0) throw new Error("No stock price returned.");
+            const ema12Series = calculateEmaSeries(closes, 12);
+            const ema26Series = calculateEmaSeries(closes, 26);
+            const macdSeries = closes.map((_, index) => (
+              Number.isFinite(ema12Series[index]) && Number.isFinite(ema26Series[index])
+                ? ema12Series[index] - ema26Series[index]
+                : NaN
+            ));
+            const validMacd = macdSeries.filter(Number.isFinite);
+            const signalSeries = calculateEmaSeries(validMacd, 9).filter(Number.isFinite);
+            const macd = validMacd.at(-1);
+            const macdSignal = signalSeries.at(-1);
+            const sma20 = calculateSma(closes, 20);
+            const sma50 = calculateSma(closes, 50);
+            const recentVolume = volumes.at(-1);
+            const averageVolume = calculateSma(volumes.slice(0, -1), 20);
+            const change24h = Number.isFinite(previousClose) && previousClose !== 0
+              ? ((price - previousClose) / previousClose) * 100
+              : NaN;
+            const trend = price > sma20 && sma20 > sma50
+              ? "bullish alignment"
+              : price < sma20 && sma20 < sma50
+                ? "bearish alignment"
+                : "mixed or sideways alignment";
+            return {
+              symbol: String(meta.symbol || symbol).toUpperCase(),
+              marketType: "stock",
+              category: getStockTradeCategory(symbol),
+              price,
+              change24h,
+              high24h: Number(meta.regularMarketDayHigh),
+              low24h: Number(meta.regularMarketDayLow),
+              quoteVolume: Number(meta.regularMarketVolume),
+              rsi: calculateRsi(closes, 14),
+              ema12: ema12Series.at(-1),
+              ema26: ema26Series.at(-1),
+              sma20,
+              sma50,
+              macd,
+              macdSignal,
+              macdHistogram: macd - macdSignal,
+              volumeRatio: averageVolume ? recentVolume / averageVolume : NaN,
+              trend
+            };
+          } catch (error) {
+            lastError = error;
+          }
+        }
+        throw lastError || new Error("Stock trade data unavailable.");
+      }
+
       async function fetchCryptoIndicators(asset) {
         const venues = [
           { base: "https://api.binance.us", ticker: "/api/v3/ticker/24hr", klines: "/api/v3/klines" },
@@ -7815,6 +8465,7 @@
 
         return {
           symbol: asset.symbol,
+          category: asset.category,
           price,
           change24h: Number(ticker.priceChangePercent),
           high24h: Number(ticker.highPrice),
@@ -7864,6 +8515,7 @@
         const sma50 = price * (1 - direction * 0.001);
         return {
           symbol: asset.symbol,
+          category: asset.category,
           price,
           change24h,
           high24h: cryptoCompare ? Number(cryptoCompare.HIGHDAY) : NaN,
@@ -7904,6 +8556,7 @@
         const macd = ema12 - ema26;
         return {
           symbol: asset.symbol,
+          category: asset.category,
           price,
           change24h,
           high24h: price * 1.018,
@@ -7923,9 +8576,9 @@
       }
 
       async function scanProSignals(notify = true) {
-        if (notify) els.traderStatus.textContent = "Scanning live futures-style setups...";
+        if (notify) els.traderStatus.textContent = tradeText("scanning");
         const universe = CRYPTO_ASSETS.filter((asset) =>
-          ["BTC", "ETH", "SOL", "BNB", "XRP", "ADA", "AVAX", "DOGE", "LINK", "SUI", "NEAR", "PEPE"].includes(asset.symbol)
+          ["BTC", "ETH", "SOL", "BNB", "XRP", "ADA", "AVAX", "DOGE", "LINK", "SUI", "NEAR", "PEPE", "INJ", "SEI", "TIA", "JUP", "WLD", "ONDO", "PENDLE", "RENDER", "FET", "HBAR", "DOT", "LTC", "TRX", "SHIB", "ARB", "OP", "UNI", "AAVE", "MKR", "WIF", "BONK", "FLOKI", "TAO", "ICP"].includes(asset.symbol)
         );
         const results = await Promise.all(universe.map(async (asset) => {
           try {
@@ -7942,37 +8595,158 @@
         renderProSignals(signals);
       }
 
-      function buildProSignal(data) {
+      async function searchTokenTrade() {
+        const query = els.traderTokenInput.value.trim();
+        if (!query) return;
+        els.traderStatus.textContent = tradeText("searching", { query: query.toUpperCase() });
+        try {
+          const instrument = resolveTradeInstrument(query);
+          const data = instrument.type === "stock"
+            ? await fetchStockTradeIndicators(instrument.symbol)
+            : await fetchCryptoIndicators(instrument.asset);
+          const signal = buildProSignal(data, true);
+          if (!signal) throw new Error("No setup");
+          renderProSignals([signal]);
+          els.traderStatus.textContent = tradeText("manualScan", { symbol: signal.symbol });
+        } catch {
+          els.traderStatus.textContent = tradeText("noData", { query });
+        }
+      }
+
+      function resolveTradeInstrument(query) {
+        const crypto = resolveTradeAsset(query, false);
+        if (crypto) return { type: "crypto", asset: crypto };
+        const stock = resolveStockTradeAsset(query);
+        if (stock) return { type: "stock", symbol: stock.symbol };
+        return { type: "crypto", asset: resolveTradeAsset(query, true) };
+      }
+
+      function resolveStockTradeAsset(query) {
+        const raw = String(query || "").trim();
+        const clean = raw.toUpperCase().replace(/[^A-Z]/g, "");
+        const normalized = raw
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase()
+          .replace(/[^a-z0-9 -]/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+        const aliasSymbol = STOCK_ALIASES[normalized];
+        return STOCK_ASSETS.find((asset) =>
+          asset.symbol === clean
+          || asset.symbol === aliasSymbol
+          || asset.aliases.some((alias) => alias === normalized || normalized.includes(alias))
+        ) || null;
+      }
+
+      function resolveTradeAsset(query, allowGeneric = true) {
+        const raw = String(query || "").trim();
+        const clean = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
+        const normalized = raw
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase()
+          .replace(/[^a-z0-9 -]/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+        const tokens = normalized.split(" ").filter(Boolean);
+        const aliases = {
+          bitcoin: "BTC",
+          ethereum: "ETH",
+          ether: "ETH",
+          solana: "SOL",
+          ripple: "XRP",
+          cardano: "ADA",
+          dogecoin: "DOGE",
+          "binance coin": "BNB",
+          chainlink: "LINK",
+          avalanche: "AVAX",
+          near: "NEAR",
+          sui: "SUI",
+          pepe: "PEPE",
+          render: "RENDER",
+          injective: "INJ",
+          celestia: "TIA",
+          jupiter: "JUP",
+          worldcoin: "WLD",
+          hyperliquid: "HYPE",
+          kaspa: "KAS",
+          arbitrum: "ARB",
+          optimism: "OP",
+          uniswap: "UNI",
+          "official trump": "TRUMP"
+        };
+        const aliasSymbol = aliases[normalized];
+        const match = CRYPTO_ASSETS.find((asset) =>
+          asset.symbol === clean
+          || asset.symbol === aliasSymbol
+          || asset.id.toLowerCase() === normalized
+          || asset.id.toLowerCase().replace(/-/g, " ") === normalized
+          || tokens.includes(asset.symbol.toLowerCase())
+          || tokens.includes(asset.id.toLowerCase())
+          || tokens.join(" ").includes(asset.id.toLowerCase().replace(/-/g, " "))
+        );
+        if (match) return match;
+        if (!allowGeneric) return null;
+        if (/^[A-Z0-9]{2,15}$/.test(clean)) {
+          return {
+            symbol: clean,
+            id: clean.toLowerCase(),
+            binance: `${clean}USDT`,
+            category: "Manual search"
+          };
+        }
+        throw new Error("Unknown token");
+      }
+
+      function buildProSignal(data, force = false) {
+        const bullishTrend = data.trend.includes("bullish");
+        const bearishTrend = data.trend.includes("bearish");
+        const priceAboveShort = data.price > data.ema12 && data.price > data.sma20;
+        const priceBelowShort = data.price < data.ema12 && data.price < data.sma20;
+        const emaBullish = data.ema12 > data.ema26;
+        const emaBearish = data.ema12 < data.ema26;
+        const volumeStrong = !Number.isFinite(data.volumeRatio) || data.volumeRatio > 1.02;
         const longScore = [
-          data.trend.includes("bullish") ? 2 : 0,
+          bullishTrend ? 2 : 0,
+          emaBullish ? 1 : 0,
+          priceAboveShort ? 1 : 0,
           data.macdHistogram > 0 ? 1 : 0,
-          data.rsi > 45 && data.rsi < 68 ? 1 : 0,
+          data.rsi > 42 && data.rsi < 70 ? 1 : 0,
           data.change24h > 0 ? 1 : 0,
-          data.volumeRatio > 1.05 ? 1 : 0
+          volumeStrong ? 1 : 0
         ].reduce((sum, value) => sum + value, 0);
         const shortScore = [
-          data.trend.includes("bearish") ? 2 : 0,
+          bearishTrend ? 2 : 0,
+          emaBearish ? 1 : 0,
+          priceBelowShort ? 1 : 0,
           data.macdHistogram < 0 ? 1 : 0,
-          data.rsi < 55 && data.rsi > 32 ? 1 : 0,
+          data.rsi < 58 && data.rsi > 30 ? 1 : 0,
           data.change24h < 0 ? 1 : 0,
-          data.volumeRatio > 1.05 ? 1 : 0
+          volumeStrong ? 1 : 0
         ].reduce((sum, value) => sum + value, 0);
         const side = longScore >= shortScore ? "LONG" : "SHORT";
         const score = Math.max(longScore, shortScore);
-        if (score < 4 || !Number.isFinite(data.price) || data.price <= 0) return null;
-        const volatility = Math.max(0.006, Math.min(0.035, Math.abs(data.change24h || 0) / 100 / 2));
+        if (!force && score < 5) return null;
+        if (!Number.isFinite(data.price) || data.price <= 0) return null;
+        const marketType = data.marketType || "crypto";
+        const volatilityFloor = marketType === "stock" ? 0.004 : 0.006;
+        const volatilityCeiling = marketType === "stock" ? 0.026 : 0.035;
+        const volatility = Math.max(volatilityFloor, Math.min(volatilityCeiling, Math.abs(data.change24h || 0) / 100 / 2));
         const entry = data.price;
         const direction = side === "LONG" ? 1 : -1;
-        const stopDistance = volatility * 1.25;
+        const stopDistance = volatility * (score >= 7 ? 1.15 : 1.3);
         const tp1Distance = stopDistance * 1.1;
         const tp2Distance = stopDistance * 1.8;
         const tp3Distance = stopDistance * 2.6;
-        const validUntil = new Date(Date.now() + 90 * 60 * 1000);
+        const validUntil = new Date(Date.now() + (marketType === "stock" ? 6 * 60 : 90) * 60 * 1000);
         return {
-          symbol: `${data.symbol}/USDT PERP`,
+          symbol: marketType === "stock" ? `${data.symbol} STOCK` : `${data.symbol}/USDT PERP`,
+          category: data.category || (marketType === "stock" ? "Stock market" : "Manual search"),
           side,
           score,
-          confidence: score >= 6 ? "A" : score === 5 ? "B" : "C",
+          maxScore: 8,
+          confidence: score >= 7 ? "A" : score >= 5 ? "B" : "C",
           entry,
           sl: entry * (1 - direction * stopDistance),
           tp1: entry * (1 + direction * tp1Distance),
@@ -7981,28 +8755,65 @@
           validUntil,
           createdAt: new Date(),
           reasons: [
-            data.trend,
+            translateTradeTrend(data.trend),
             `RSI ${formatIndicator(data.rsi)}`,
             `MACD hist ${formatIndicator(data.macdHistogram)}`,
-            `24h ${formatSignedPercent(data.change24h)}`,
+            `${marketType === "stock" ? tradeText("move") : "24h"} ${formatSignedPercent(data.change24h)}`,
+            `EMA ${emaBullish ? "bullish" : emaBearish ? "bearish" : "flat"}`,
             `Volume ${formatIndicator(data.volumeRatio)}x`
-          ]
+          ],
+          summary: buildTradeReason(data, side, score, force)
         };
+      }
+
+      function buildTradeReason(data, side, score, forced) {
+        const directionText = side === "LONG" ? tradeText("whyLong") : tradeText("whyShort");
+        const trendText = translateTradeTrend(data.trend);
+        const momentum = Number.isFinite(data.macdHistogram)
+          ? (data.macdHistogram >= 0
+            ? (resolvedLanguage() === "es" ? "momentum MACD positivo" : "positive MACD momentum")
+            : (resolvedLanguage() === "es" ? "momentum MACD negativo" : "negative MACD momentum"))
+          : (resolvedLanguage() === "es" ? "datos MACD limitados" : "limited MACD data");
+        const rsiText = Number.isFinite(data.rsi) ? `RSI ${formatIndicator(data.rsi)}` : (resolvedLanguage() === "es" ? "RSI no disponible" : "RSI unavailable");
+        const volumeText = Number.isFinite(data.volumeRatio)
+          ? (resolvedLanguage() === "es" ? `volumen ${formatIndicator(data.volumeRatio)}x vs promedio` : `volume ${formatIndicator(data.volumeRatio)}x vs average`)
+          : (resolvedLanguage() === "es" ? "volumen no disponible" : "volume unavailable");
+        const structure = Number.isFinite(data.sma20) && Number.isFinite(data.sma50)
+          ? (resolvedLanguage() === "es"
+            ? `precio vs SMA20/SMA50 esta ${data.price > data.sma20 && data.sma20 > data.sma50 ? "a favor" : data.price < data.sma20 && data.sma20 < data.sma50 ? "bajista" : "mixto"}`
+            : `price vs SMA20/SMA50 is ${data.price > data.sma20 && data.sma20 > data.sma50 ? "supportive" : data.price < data.sma20 && data.sma20 < data.sma50 ? "bearish" : "mixed"}`)
+          : (resolvedLanguage() === "es" ? "datos de estructura limitados" : "structure data is limited");
+        const quality = forced && score < 5
+          ? tradeText("requestedLow")
+          : tradeText("passes");
+        return `${directionText}: ${trendText}, ${momentum}, ${rsiText}, ${volumeText}, ${structure}. ${quality}`;
+      }
+
+      function translateTradeTrend(trend) {
+        const value = String(trend || "");
+        if (resolvedLanguage() !== "es") return value || "mixed trend";
+        if (value.includes("bullish")) return "alineacion alcista";
+        if (value.includes("bearish")) return "alineacion bajista";
+        if (value.includes("cached")) return "sesgo de cache";
+        if (value.includes("fallback")) return "sesgo por datos alternos";
+        return "alineacion mixta o lateral";
       }
 
       function renderProSignals(signals) {
         els.signalList.replaceChildren();
         const stamp = new Date().toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
         els.traderStatus.textContent = signals.length
-          ? `Last scan: ${stamp}. Educational scanner only. Risk max 1% per idea.`
-          : `Last scan: ${stamp}. No clean A/B setups right now. Waiting is also a pro move.`;
+          ? tradeText("lastScan", { stamp })
+          : tradeText("noSetups", { stamp });
         signals.forEach((signal) => {
           const card = document.createElement("article");
           card.className = "signal-card";
           const top = document.createElement("div");
           top.className = "signal-top";
           const title = document.createElement("div");
-          title.innerHTML = `<small>${signal.confidence}-grade setup</small><h3>${signal.symbol}</h3><p>Created ${signal.createdAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} - Valid until ${signal.validUntil.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</p>`;
+          const createdTime = signal.createdAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+          const validTime = signal.validUntil.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+          title.innerHTML = `<small>${tradeText("grade", { grade: signal.confidence })}</small><h3>${signal.symbol}</h3><span class="signal-category">${tradeCategoryText(signal.category)}</span><p>${tradeText("created", { time: createdTime, valid: validTime })}</p>`;
           const badge = document.createElement("span");
           badge.className = `signal-badge ${signal.side.toLowerCase()}`;
           badge.textContent = signal.side;
@@ -8010,15 +8821,15 @@
           const grid = document.createElement("div");
           grid.className = "signal-grid";
           [
-            ["Entry", formatPrice(signal.entry)],
-            ["TP 1", formatPrice(signal.tp1)],
-            ["TP 2", formatPrice(signal.tp2)],
-            ["TP 3", formatPrice(signal.tp3)],
-            ["SL", formatPrice(signal.sl)],
-            ["Score", `${signal.score}/6`]
+            [tradeText("entry"), formatPrice(signal.entry)],
+            [tradeText("tp1"), formatPrice(signal.tp1)],
+            [tradeText("tp2"), formatPrice(signal.tp2)],
+            [tradeText("tp3"), formatPrice(signal.tp3)],
+            [tradeText("sl"), formatPrice(signal.sl)],
+            [tradeText("score"), `${signal.score}/${signal.maxScore || 8}`]
           ].forEach(([label, value]) => {
             const item = document.createElement("span");
-            item.innerHTML = `${label}<b>${value}</b>`;
+            item.innerHTML = `${label}<b class="${String(value).length > 12 ? "tiny-price" : ""}">${value}</b>`;
             grid.append(item);
           });
           const reasons = document.createElement("div");
@@ -8030,8 +8841,11 @@
           });
           const note = document.createElement("p");
           note.style.marginTop = "14px";
-          note.textContent = "Educational futures signal, not financial advice. Confirm liquidity, funding, news, and your own risk before doing anything.";
-          card.append(top, grid, reasons, note);
+          note.textContent = tradeText("note");
+          const why = document.createElement("p");
+          why.className = "signal-why";
+          why.textContent = signal.summary || signal.reasons.join(", ");
+          card.append(top, grid, reasons, why, note);
           els.signalList.append(card);
         });
       }
@@ -8096,11 +8910,37 @@
 
       function formatPrice(value) {
         if (!Number.isFinite(value)) return "--";
+        const absolute = Math.abs(value);
+        const sign = value < 0 ? "-" : "";
+        const maximumFractionDigits = absolute >= 1000
+          ? 2
+          : absolute >= 1
+            ? 4
+            : absolute >= 0.01
+              ? 6
+              : absolute >= 0.0001
+                ? 8
+                : absolute >= 0.000001
+                  ? 10
+                  : absolute >= 0.000000001
+                    ? 12
+                    : 14;
+        if (absolute > 0 && absolute < 0.01) {
+          return `${sign}$${trimFixedDecimal(absolute, maximumFractionDigits)}`;
+        }
         return new Intl.NumberFormat("en-US", {
           style: "currency",
           currency: "USD",
-          maximumFractionDigits: value < 1 ? 4 : 2
+          minimumFractionDigits: absolute >= 1 ? 2 : 0,
+          maximumFractionDigits
         }).format(value);
+      }
+
+      function trimFixedDecimal(value, digits) {
+        const fixed = value.toFixed(digits);
+        if (!fixed.includes(".")) return fixed;
+        const trimmed = fixed.replace(/0+$/, "");
+        return trimmed.endsWith(".") ? `${trimmed}0` : trimmed;
       }
 
       function initVoiceInput() {
@@ -8344,6 +9184,10 @@
       });
       document.getElementById("marketsBtn").addEventListener("click", toggleMarkets);
       document.getElementById("scanSignalsBtn").addEventListener("click", () => scanProSignals(true));
+      document.getElementById("searchTradeBtn").addEventListener("click", searchTokenTrade);
+      els.traderTokenInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") searchTokenTrade();
+      });
       document.getElementById("exitTraderBtn").addEventListener("click", exitTraderMode);
       document.getElementById("brandSecretTap").addEventListener("click", () => {
         traderSecretTaps += 1;
@@ -8570,6 +9414,7 @@
       if (localStorage.getItem(STORAGE.markets) === "true") {
         els.ticker.classList.remove("is-hidden");
       }
+      traderMode = localStorage.getItem(STORAGE.traderOpen) === "true";
       ensureCurrentChat();
       renderAll();
       applyAppearance();
@@ -8596,6 +9441,10 @@
           if (hasPendingBackupChanges()) syncCloudBackup(false);
         } else if (!document.hidden) {
           fetchPrices();
+          if (localStorage.getItem(STORAGE.traderOpen) === "true" && !traderMode) {
+            traderMode = true;
+            renderAll();
+          }
           if (traderMode) scanProSignals(false);
           maybeSendLearnNotification(false);
           if (localStorage.getItem(STORAGE.backupPending) === "true" || hasPendingBackupChanges()) scheduleCloudBackup(1200);
@@ -8606,6 +9455,10 @@
         }
       });
       window.addEventListener("focus", () => {
+        if (localStorage.getItem(STORAGE.traderOpen) === "true" && !traderMode) {
+          traderMode = true;
+          renderAll();
+        }
         maybeSendLearnNotification(false);
         if (localStorage.getItem(STORAGE.backupPending) === "true" || hasPendingBackupChanges()) scheduleCloudBackup(900);
       });
@@ -8632,6 +9485,7 @@
           if (!els.settings.open) openTutorial();
         }, 850);
       }
+      maybeShowNormalReleaseNotes();
     })();
   </script>
 </body>
