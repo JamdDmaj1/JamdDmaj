@@ -1575,20 +1575,54 @@
     }
 
     .youtube-player {
-      position: relative;
-      overflow: hidden;
+      display: grid;
+      gap: 10px;
       width: min(640px, 100%);
-      aspect-ratio: 16 / 9;
       margin: 12px 0 4px;
       border: 1px solid var(--line);
       border-radius: 14px;
-      background: #000;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.045);
     }
 
-    .youtube-player iframe {
+    .youtube-thumb {
+      position: relative;
+      overflow: hidden;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      border-radius: 12px;
+      background: #000;
+      cursor: pointer;
+    }
+
+    .youtube-thumb img {
       width: 100%;
       height: 100%;
-      border: 0;
+      object-fit: cover;
+      display: block;
+    }
+
+    .youtube-play {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      color: white;
+      font-size: clamp(2.5rem, 10vw, 4.4rem);
+      text-shadow: 0 8px 30px rgba(0, 0, 0, 0.55);
+      background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.2));
+    }
+
+    .youtube-player p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    .youtube-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
     }
 
     .copy-code {
@@ -3038,7 +3072,7 @@
       const MANAGED_API_URL = `${WEB_APP_URL}api/chat`;
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
-      const APP_VERSION = "1.20.0";
+      const APP_VERSION = "1.21.0";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
       const FREE_LIVE_API_URL = `${WEB_APP_URL}api/live`;
       const RELEASE_NOTES = {
@@ -3048,9 +3082,9 @@
             intro: "This update improves the normal app experience.",
             button: "Got it",
             items: [
-              ["Cleaner updates", "You will now see a short summary when the app changes."],
-              ["Better market support", "Market data and tiny prices are easier to read."],
-              ["More stability", "Mobile refreshes should feel smoother."]
+              ["Local memory", "JamdDmaj can use previous chats on this device when you ask what you discussed before."],
+              ["Better YouTube links", "Video results now open directly instead of showing the blocked embedded login screen."],
+              ["Cleaner chart analysis", "Market screenshots get educational analysis instead of raw safety labels."]
             ]
           },
           es: {
@@ -3058,9 +3092,9 @@
             intro: "Esta actualizacion mejora la experiencia normal de la app.",
             button: "Entendido",
             items: [
-              ["Actualizaciones claras", "Ahora veras un resumen corto cuando la app cambie."],
-              ["Mejor soporte de mercados", "Los datos de mercado y precios pequenos se leen mejor."],
-              ["Mas estabilidad", "Las recargas en movil deberian sentirse mas suaves."]
+              ["Memoria local", "JamdDmaj puede usar chats anteriores de este dispositivo cuando preguntes que hablaron antes."],
+              ["Mejores links de YouTube", "Los videos ahora se abren directo para evitar la pantalla bloqueada de login dentro del reproductor."],
+              ["Analisis de graficos mas limpio", "Las capturas de mercado reciben analisis educativo en vez de etiquetas de seguridad crudas."]
             ]
           }
         },
@@ -5675,17 +5709,37 @@
       function appendYouTubePlayer(target, value) {
         const videoId = getYouTubeVideoId(value);
         if (!videoId) return;
+        const url = `https://www.youtube.com/watch?v=${videoId}`;
         const player = document.createElement("div");
         player.className = "youtube-player";
-        const frame = document.createElement("iframe");
-        frame.src = `https://www.youtube-nocookie.com/embed/${videoId}?playsinline=1&rel=0&origin=${encodeURIComponent(location.origin)}`;
-        frame.title = "YouTube video player";
-        frame.loading = "lazy";
-        frame.referrerPolicy = "strict-origin-when-cross-origin";
-        frame.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
-        frame.allowFullscreen = true;
-        player.append(frame);
+        const thumb = document.createElement("button");
+        thumb.type = "button";
+        thumb.className = "youtube-thumb";
+        thumb.innerHTML = `<img src="https://i.ytimg.com/vi/${videoId}/hqdefault.jpg" alt="YouTube video thumbnail" loading="lazy"><span class="youtube-play">▶</span>`;
+        thumb.addEventListener("click", () => openExternalUrl(url));
+        const note = document.createElement("p");
+        note.textContent = resolvedLanguage() === "es"
+          ? "YouTube a veces bloquea el reproductor dentro de apps. Toca para abrirlo directo y reproducirlo sin error de login."
+          : "YouTube sometimes blocks embedded playback inside apps. Tap to open it directly and avoid the sign-in error.";
+        const actions = document.createElement("div");
+        actions.className = "youtube-actions";
+        actions.append(
+          makeMiniButton(resolvedLanguage() === "es" ? "Abrir video" : "Open video", () => openExternalUrl(url)),
+          makeMiniButton(resolvedLanguage() === "es" ? "Copiar link" : "Copy link", () => copyText(url))
+        );
+        player.append(thumb, note, actions);
         target.append(player);
+      }
+
+      async function openExternalUrl(url) {
+        const browser = getNativePlugin("Browser");
+        if (isNativeApp() && browser) {
+          try {
+            await browser.open({ url });
+            return;
+          } catch {}
+        }
+        window.open(url, "_blank", "noopener");
       }
 
       function getYouTubeVideoId(value) {
@@ -6566,13 +6620,11 @@
         }
         activeController = new AbortController();
         try {
-          const recentUserContext = chat.messages
-            .filter((message) => !message.streaming && message.content)
-            .slice(-6)
-            .map((message) => `${message.role}: ${message.content}`)
-            .join("\n");
-          const freeLiveContext = await buildFreeLiveContext(recentUserContext);
-          const directLiveAnswer = buildDirectLiveAnswer(latestFreeLiveLookup);
+          const currentUserRequest = userMessage.content;
+          const freeLiveContext = await buildFreeLiveContext(currentUserRequest);
+          const directLiveAnswer = shouldUseDirectLiveAnswer(currentUserRequest)
+            ? buildDirectLiveAnswer(latestFreeLiveLookup)
+            : "";
           if (directLiveAnswer) {
             assistantMessage.content = directLiveAnswer;
             assistantMessage.streaming = false;
@@ -6700,9 +6752,11 @@
 
       function cleanProviderOutput(value) {
         return String(value || "")
+          .replace(/^\s*safety\s+categories\s*:\s*.*$/gim, "")
           .replace(/^\s*(user|prompt)\s+safety\s*:\s*(safe|unsafe)\s*$/gim, "")
           .replace(/^\s*(response|assistant|output)\s+safety\s*:\s*(safe|unsafe)\s*$/gim, "")
           .replace(/^\s*(safety|moderation)\s*(classification|result)?\s*:\s*(safe|unsafe)\s*$/gim, "")
+          .replace(/^\s*(unauthorized advice|needs caution|financial advice)\s*[,.;:-]*\s*$/gim, "")
           .replace(/\n{3,}/g, "\n\n")
           .trim();
       }
@@ -6710,6 +6764,8 @@
       function isUsableAssistantContent(value) {
         const clean = String(value || "").trim();
         if (clean.length < 2) return false;
+        if (/^safety\s+categories\s*:/i.test(clean)) return false;
+        if (/^(unauthorized advice|needs caution|financial advice)(,\s*(unauthorized advice|needs caution|financial advice))*$/i.test(clean)) return false;
         return !/^(safe|unsafe|approved|blocked|null|none)[.!]?$/i.test(clean);
       }
 
@@ -6748,6 +6804,7 @@
             ? "Use live web search for current events, prices, schedules, public figures, laws, products, or anything likely to have changed. Clearly distinguish live facts from inference."
             : "Do not claim general live web access. You may use any verified live data block supplied directly by the app; otherwise clearly state when knowledge may be outdated."
         }`;
+        const practicalAnalysisInstruction = "For charts, markets, trading, screenshots, or technical analysis, you may provide educational analysis, likely scenarios, levels, invalidation points, and risk notes. Do not present it as guaranteed profit, do not claim to be a licensed advisor, and do not output moderation labels such as Safety Categories, Unauthorized Advice, or Needs Caution. If the user asks for a professional-style view, give a professional educational view with uncertainty and clear reasoning.";
         const voiceInstruction = voiceConversationActive
           ? "The user is speaking with you. Reply conversationally, usually in 2-5 short sentences. Sound warm and expressive without claiming to be human or sentient. Avoid long lists unless requested."
           : "";
@@ -6767,9 +6824,10 @@
         const verifiedContext = freeLiveContext
           ? `\n\nVerified free live data supplied by the app:\n${freeLiveContext}\nUse these exact values when relevant. State the source and timestamp. Do not say you lack current market access, current web access, or YouTube access when this block contains the requested information. If the block includes a YouTube URL, include that direct URL in your answer so the app can show the embedded player. Never tell the user to search manually when the needed result is present. Never present technical indicators as certainty or personalized financial advice.`
           : "";
+        const memoryContext = buildLongTermMemoryContext(messages);
         const result = [{
           role: "system",
-          content: `${settings.systemPrompt}\n\n${personalities[settings.personality] || personalities.balanced}\n${languageInstruction}\n${currentContext}\n${lengthInstruction}\n${voiceInstruction}\n${learningInstruction}${verifiedContext}`
+          content: `${settings.systemPrompt}\n\n${personalities[settings.personality] || personalities.balanced}\n${languageInstruction}\n${currentContext}\n${practicalAnalysisInstruction}\n${lengthInstruction}\n${voiceInstruction}\n${learningInstruction}${verifiedContext}${memoryContext}`
         }];
         const recentMessages = messages
           .filter((message) => !message.streaming && message.content)
@@ -6792,6 +6850,34 @@
             }
         });
         return result;
+      }
+
+      function buildLongTermMemoryContext(currentMessages) {
+        const latestUser = [...currentMessages].reverse().find((message) => message.role === "user" && !message.streaming)?.content || "";
+        const wantsMemory = /\b(te acuerdas|recuerdas|ayer|antes|anterior|platicamos|hablamos|remember|yesterday|last time|previous|earlier)\b/i.test(latestUser);
+        const current = getCurrentChat();
+        const previousChats = chats
+          .filter((chat) => chat.id !== current?.id && Array.isArray(chat.messages) && chat.messages.length)
+          .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+          .slice(0, wantsMemory ? 8 : 3);
+        if (!previousChats.length) return "";
+        const lines = previousChats.map((chat) => {
+          const date = new Date(chat.updatedAt || chat.createdAt || Date.now()).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+          const snippets = chat.messages
+            .filter((message) => !message.streaming && message.content)
+            .slice(-4)
+            .map((message) => `${message.role}: ${stripMemoryText(message.content)}`)
+            .join(" | ");
+          return `- ${chat.title || "Untitled"} (${date}): ${snippets}`;
+        });
+        return `\n\nLong-term local memory from this device:\n${lines.join("\n")}\nUse this memory when the user asks what you discussed before. Be honest if the exact detail is not present. Do not say you have no record when this memory block contains relevant prior context.`;
+      }
+
+      function stripMemoryText(value) {
+        return String(value || "")
+          .replace(/```[\s\S]*?```/g, "[code]")
+          .replace(/\s+/g, " ")
+          .slice(0, 360);
       }
 
       async function consumeStream(stream, onToken) {
@@ -8266,6 +8352,16 @@
           .replace(/[\u0300-\u036f]/g, "")
           .toLowerCase();
         return /\b(ultimo|ultima|last|latest|reciente|recent|hoy|today|ayer|yesterday|manana|tomorrow|noticia|news|actual|current|ahora|now|youtube|video|canal|channel|precio|price)\b/.test(normalized);
+      }
+
+      function shouldUseDirectLiveAnswer(text) {
+        const normalized = String(text || "")
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase();
+        const asksVideo = /\b(youtube|youtu\.be|video|videos|canal|channel)\b/.test(normalized);
+        const asksLatest = /\b(ultimo|ultima|last|latest|reciente|recent|newest|nuevo|nueva|mandame|manda|send|link|enlace)\b/.test(normalized);
+        return asksVideo && asksLatest;
       }
 
       async function fetchFreeWebContext(text) {
