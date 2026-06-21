@@ -613,6 +613,47 @@
       font-size: 0.78rem;
     }
 
+    .trader-telegram {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      border: 1px solid rgba(34, 211, 238, 0.18);
+      border-radius: 18px;
+      padding: 12px 14px;
+      background: rgba(8, 145, 178, 0.07);
+    }
+
+    .trader-telegram-copy {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+    }
+
+    .trader-telegram-copy span {
+      color: var(--muted);
+      font-size: 0.76rem;
+    }
+
+    .trader-telegram-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+
+    .trader-telegram .pill-btn {
+      min-height: 36px;
+      padding: 0 11px;
+      font-size: 0.74rem;
+    }
+
+    .trader-telegram .pill-btn.active {
+      border-color: rgba(52, 211, 153, 0.55);
+      color: #6ee7b7;
+      background: rgba(52, 211, 153, 0.1);
+    }
+
     .signal-card {
       padding: 18px;
     }
@@ -2641,6 +2682,17 @@
             <input id="traderTokenInput" type="text" inputmode="text" autocomplete="off" placeholder="Token/stock, e.g. XRP or NVDA">
             <button class="pill-btn" id="searchTradeBtn" type="button">Trade</button>
           </div>
+          <div class="trader-telegram">
+            <div class="trader-telegram-copy">
+              <strong id="telegramAlertsTitle">Telegram alerts</strong>
+              <span id="telegramAlertsStatus">Off. Configure Vercel, then enable alerts.</span>
+            </div>
+            <div class="trader-telegram-actions">
+              <button class="pill-btn" id="copyTelegramDeviceBtn" type="button">Copy device ID</button>
+              <button class="pill-btn" id="testTelegramBtn" type="button">Test</button>
+              <button class="pill-btn" id="toggleTelegramBtn" type="button">Enable</button>
+            </div>
+          </div>
           <div id="signalList" class="trader-signals"></div>
         </div>
       </section>
@@ -3072,9 +3124,10 @@
       const MANAGED_API_URL = `${WEB_APP_URL}api/chat`;
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
-      const APP_VERSION = "1.21.0";
+      const APP_VERSION = "1.22.0";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
       const FREE_LIVE_API_URL = `${WEB_APP_URL}api/live`;
+      const TELEGRAM_API_URL = `${WEB_APP_URL}api/telegram`;
       const RELEASE_NOTES = {
         normal: {
           en: {
@@ -3104,9 +3157,9 @@
             intro: "Hidden Pro mode was upgraded separately.",
             button: "Enter Pro",
             items: [
-              ["More markets", "Manual search now understands many more crypto tokens, stocks, and ETFs."],
-              ["Cleaner trade cards", "Calls show category tags, better tiny prices, and clearer reasons."],
-              ["Pro entry feel", "Trade mode now opens with a stronger scanner-style animation."]
+              ["Telegram alerts", "New A/B scanner calls can be delivered to your private Telegram chat."],
+              ["Private configuration", "The bot token and chat ID stay protected in Vercel, never inside the APK."],
+              ["Duplicate protection", "The server avoids sending the same symbol and direction every minute."]
             ]
           },
           es: {
@@ -3114,9 +3167,9 @@
             intro: "El modo Pro oculto fue mejorado por separado.",
             button: "Entrar al Pro",
             items: [
-              ["Mas mercados", "La busqueda manual entiende muchos mas tokens, acciones y ETFs."],
-              ["Tarjetas mas claras", "Las calls muestran categoria, precios pequenos mejor ordenados y razones claras."],
-              ["Entrada mas pro", "Trade abre con una animacion mas fuerte tipo scanner."]
+              ["Alertas de Telegram", "Las calls A/B nuevas del scanner pueden llegar a tu chat privado de Telegram."],
+              ["Configuracion privada", "El token del bot y chat ID quedan protegidos en Vercel, nunca dentro del APK."],
+              ["Sin duplicados", "El servidor evita mandar el mismo simbolo y direccion cada minuto."]
             ]
           }
         }
@@ -3131,6 +3184,13 @@
           ready: "Tap Scan now. Hidden access: tap the JamdDmaj AI name 5 times.",
           searchPlaceholder: "Token/stock, e.g. XRP or NVDA",
           searchButton: "Trade",
+          telegramTitle: "Telegram alerts",
+          telegramOff: "Off. Configure Vercel, then enable alerts.",
+          telegramOn: "On. New scanner calls will be sent automatically.",
+          telegramCopy: "Copy device ID",
+          telegramTest: "Test",
+          telegramEnable: "Enable",
+          telegramDisable: "Disable",
           scanning: "Scanning live futures-style setups...",
           searching: "Searching {query} setup across live markets...",
           manualScan: "Manual scan: {symbol}. Confirm liquidity/news before using it.",
@@ -3174,6 +3234,13 @@
           ready: "Toca Escanear. Acceso oculto: toca el nombre JamdDmaj AI 5 veces.",
           searchPlaceholder: "Token/accion, ej. XRP o NVDA",
           searchButton: "Trade",
+          telegramTitle: "Alertas de Telegram",
+          telegramOff: "Apagadas. Configura Vercel y luego activalas.",
+          telegramOn: "Activas. Las calls nuevas se enviaran automaticamente.",
+          telegramCopy: "Copiar ID",
+          telegramTest: "Probar",
+          telegramEnable: "Activar",
+          telegramDisable: "Desactivar",
           scanning: "Escaneando setups en vivo estilo futuros...",
           searching: "Buscando setup de {query} en mercados en vivo...",
           manualScan: "Escaneo manual: {symbol}. Confirma liquidez/noticias antes de usarlo.",
@@ -3952,7 +4019,8 @@
         learnNotificationLastAt: "jamdV3LearnNotificationLastAt",
         backupDirtyAt: "jamdV3BackupDirtyAt",
         releaseSeen: "jamdV3ReleaseSeen",
-        proReleaseSeen: "jamdV3ProReleaseSeen"
+        proReleaseSeen: "jamdV3ProReleaseSeen",
+        telegramAlerts: "jamdV3TelegramAlerts"
       };
 
       const DEFAULT_SETTINGS = {
@@ -4226,6 +4294,9 @@
         traderStatus: document.getElementById("traderStatus"),
         signalList: document.getElementById("signalList"),
         traderTokenInput: document.getElementById("traderTokenInput"),
+        telegramAlertsTitle: document.getElementById("telegramAlertsTitle"),
+        telegramAlertsStatus: document.getElementById("telegramAlertsStatus"),
+        toggleTelegramButton: document.getElementById("toggleTelegramBtn"),
         releaseDialog: document.getElementById("releaseDialog"),
         releaseTitle: document.getElementById("releaseTitle"),
         releaseIntro: document.getElementById("releaseIntro"),
@@ -5741,7 +5812,6 @@
         }
         window.open(url, "_blank", "noopener");
       }
-
       function getYouTubeVideoId(value) {
         try {
           const url = new URL(value);
@@ -5826,7 +5896,89 @@
         document.getElementById("exitTraderBtn").textContent = tradeText("back");
         document.getElementById("searchTradeBtn").textContent = tradeText("searchButton");
         els.traderTokenInput.placeholder = tradeText("searchPlaceholder");
+        updateTelegramAlertsUi();
         if (!els.signalList.children.length) els.traderStatus.textContent = tradeText("ready");
+      }
+
+      function telegramAlertsEnabled() {
+        return localStorage.getItem(STORAGE.telegramAlerts) === "true";
+      }
+
+      function updateTelegramAlertsUi(detail = "") {
+        const enabled = telegramAlertsEnabled();
+        els.telegramAlertsTitle.textContent = tradeText("telegramTitle");
+        els.telegramAlertsStatus.textContent = detail || tradeText(enabled ? "telegramOn" : "telegramOff");
+        els.toggleTelegramButton.textContent = tradeText(enabled ? "telegramDisable" : "telegramEnable");
+        els.toggleTelegramButton.classList.toggle("active", enabled);
+        document.getElementById("copyTelegramDeviceBtn").textContent = tradeText("telegramCopy");
+        document.getElementById("testTelegramBtn").textContent = tradeText("telegramTest");
+      }
+
+      async function callTelegramApi(body) {
+        const response = await fetch(TELEGRAM_API_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-JamdDmaj-Device": getDeviceId(),
+            "X-JamdDmaj-Version": APP_VERSION
+          },
+          body: JSON.stringify(body)
+        });
+        let data = {};
+        try { data = await response.json(); } catch {}
+        if (!response.ok) throw new Error(data?.error?.message || `Telegram error ${response.status}`);
+        return data;
+      }
+
+      async function testTelegramAlerts(showSuccess = true) {
+        updateTelegramAlertsUi(resolvedLanguage() === "es" ? "Enviando prueba..." : "Sending test...");
+        try {
+          await callTelegramApi({ action: "test" });
+          if (showSuccess) showToast(resolvedLanguage() === "es" ? "Prueba enviada a Telegram." : "Telegram test sent.");
+          updateTelegramAlertsUi(resolvedLanguage() === "es" ? "Telegram conectado correctamente." : "Telegram connected successfully.");
+          return true;
+        } catch (error) {
+          updateTelegramAlertsUi(error.message || tradeText("telegramOff"));
+          showToast(error.message || "Telegram is unavailable.");
+          return false;
+        }
+      }
+
+      async function toggleTelegramAlerts() {
+        if (telegramAlertsEnabled()) {
+          localStorage.setItem(STORAGE.telegramAlerts, "false");
+          updateTelegramAlertsUi();
+          return;
+        }
+        const connected = await testTelegramAlerts(false);
+        if (!connected) return;
+        localStorage.setItem(STORAGE.telegramAlerts, "true");
+        updateTelegramAlertsUi();
+        showToast(resolvedLanguage() === "es" ? "Alertas automaticas activadas." : "Automatic alerts enabled.");
+      }
+
+      async function pushTelegramSignals(signals) {
+        if (!telegramAlertsEnabled() || !traderMode || !signals.length) return;
+        const selected = signals.filter((signal) => signal.score >= 5).slice(0, 3);
+        if (!selected.length) return;
+        const results = await Promise.allSettled(selected.map((signal) => callTelegramApi({
+          action: "signal",
+          signal: {
+            ...signal,
+            category: tradeCategoryText(signal.category),
+            createdAt: signal.createdAt?.toISOString?.() || signal.createdAt,
+            validUntil: signal.validUntil?.toISOString?.() || signal.validUntil
+          }
+        })));
+        const sent = results.filter((result) => result.status === "fulfilled" && result.value?.sent).length;
+        const failure = results.find((result) => result.status === "rejected");
+        if (failure) {
+          updateTelegramAlertsUi(failure.reason?.message || "Telegram error");
+        } else if (sent) {
+          updateTelegramAlertsUi(resolvedLanguage() === "es" ? `${sent} call nueva enviada.` : `${sent} new call sent.`);
+        } else {
+          updateTelegramAlertsUi();
+        }
       }
 
       function releaseCopy(kind) {
@@ -6879,7 +7031,6 @@
           .replace(/\s+/g, " ")
           .slice(0, 360);
       }
-
       async function consumeStream(stream, onToken) {
         const reader = stream.getReader();
         const decoder = new TextDecoder();
@@ -8363,7 +8514,6 @@
         const asksLatest = /\b(ultimo|ultima|last|latest|reciente|recent|newest|nuevo|nueva|mandame|manda|send|link|enlace)\b/.test(normalized);
         return asksVideo && asksLatest;
       }
-
       async function fetchFreeWebContext(text) {
         try {
           latestFreeLiveLookup = null;
@@ -8689,6 +8839,7 @@
           .sort((a, b) => b.score - a.score)
           .slice(0, 6);
         renderProSignals(signals);
+        pushTelegramSignals(signals);
       }
 
       async function searchTokenTrade() {
@@ -9284,6 +9435,14 @@
       els.traderTokenInput.addEventListener("keydown", (event) => {
         if (event.key === "Enter") searchTokenTrade();
       });
+      document.getElementById("copyTelegramDeviceBtn").addEventListener("click", async () => {
+        await copyText(getDeviceId());
+        showToast(resolvedLanguage() === "es"
+          ? "ID copiado. Pegalo en JAMDDMAJ_TELEGRAM_DEVICE_ID de Vercel."
+          : "Device ID copied. Add it to JAMDDMAJ_TELEGRAM_DEVICE_ID in Vercel.");
+      });
+      document.getElementById("testTelegramBtn").addEventListener("click", () => testTelegramAlerts(true));
+      document.getElementById("toggleTelegramBtn").addEventListener("click", toggleTelegramAlerts);
       document.getElementById("exitTraderBtn").addEventListener("click", exitTraderMode);
       document.getElementById("brandSecretTap").addEventListener("click", () => {
         traderSecretTaps += 1;
