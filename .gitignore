@@ -1,4 +1,7 @@
 node_modules/
+.android-signing/
+*.jks
+*.keystore
 www/
 .npm-cache/
 .gradle/

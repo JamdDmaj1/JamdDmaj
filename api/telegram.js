@@ -35,6 +35,9 @@ export default async function handler(request) {
 
   try {
     const input = await request.json();
+    if (input?.action === "status") {
+      return jsonResponse(request, { ok: true, configured: true, authorized: true });
+    }
     if (input?.action === "test") {
       const deviceHash = await hashIdentifier(deviceId);
       const allowed = await claimOnce(`jamd:telegram:test:${deviceHash}`, 20);
@@ -42,10 +45,10 @@ export default async function handler(request) {
         return jsonResponse(request, { ok: true, sent: false, duplicate: true });
       }
       await sendTelegram(botToken, chatId, [
-        "JamdDmaj Pro Signals conectado",
+        "✅ <b>JamdDmaj Pro Signals conectado</b>",
         "",
-        "Las alertas de Trade ya pueden llegar a este chat.",
-        `Hora: ${new Date().toISOString()}`
+        "Las alertas de Trade ya pueden llegar a este canal.",
+        `🕒 ${formatDate(new Date().toISOString())}`
       ].join("\n"));
       return jsonResponse(request, { ok: true, sent: true });
     }
@@ -61,10 +64,14 @@ export default async function handler(request) {
       return jsonResponse(request, { ok: true, sent: false, lowScore: true });
     }
 
-    const signature = await hashIdentifier(`${signal.symbol}:${signal.side}`);
-    const claimed = await claimOnce(`jamd:telegram:signal:${signature}`, 4500);
-    if (!claimed) {
-      return jsonResponse(request, { ok: true, sent: false, duplicate: true });
+    const force = input?.force === true;
+    if (!force) {
+      const cooldownMinutes = clampCooldown(input?.cooldownMinutes);
+      const signature = await hashIdentifier(`${chatId}:${signal.symbol}:${signal.side}`);
+      const claimed = await claimOnce(`jamd:telegram:signal:${signature}`, cooldownMinutes * 60);
+      if (!claimed) {
+        return jsonResponse(request, { ok: true, sent: false, duplicate: true });
+      }
     }
 
     await sendTelegram(botToken, chatId, formatSignal(signal));
@@ -88,6 +95,7 @@ async function sendTelegram(token, chatId, text) {
     body: JSON.stringify({
       chat_id: chatId,
       text: String(text).slice(0, 4000),
+      parse_mode: "HTML",
       disable_web_page_preview: true
     })
   });
@@ -132,24 +140,51 @@ function sanitizeSignal(value) {
 }
 
 function formatSignal(signal) {
+  const sideEmoji = signal.side === "LONG" ? "🟢" : "🔴";
   return [
-    `JamdDmaj Pro Signal - ${signal.confidence}`,
+    `🔥 <b>JAMD DMAJ PRO SIGNAL · ${escapeHtml(signal.confidence)}</b>`,
     "",
-    `${signal.symbol} | ${signal.side}`,
-    `Categoria: ${signal.category}`,
-    `Entrada: ${formatPrice(signal.entry)}`,
-    `TP1: ${formatPrice(signal.tp1)}`,
-    `TP2: ${formatPrice(signal.tp2)}`,
-    `TP3: ${formatPrice(signal.tp3)}`,
-    `SL: ${formatPrice(signal.sl)}`,
-    `Score: ${signal.score}/${signal.maxScore}`,
-    signal.createdAt ? `Creada: ${signal.createdAt}` : "",
-    signal.validUntil ? `Valida hasta: ${signal.validUntil}` : "",
+    `${sideEmoji} <b>${escapeHtml(signal.side)}</b>`,
+    `📊 <code>${escapeHtml(signal.symbol)}</code>`,
+    `🏷️ ${escapeHtml(signal.category)}`,
     "",
-    signal.summary || "Confirma liquidez, noticias y tu propio riesgo.",
+    `💰 <b>Entrada:</b> <code>${formatPrice(signal.entry)}</code>`,
+    `🎯 <b>TP1:</b> <code>${formatPrice(signal.tp1)}</code>`,
+    `🎯 <b>TP2:</b> <code>${formatPrice(signal.tp2)}</code>`,
+    `🎯 <b>TP3:</b> <code>${formatPrice(signal.tp3)}</code>`,
+    `🛑 <b>SL:</b> <code>${formatPrice(signal.sl)}</code>`,
+    `⭐ <b>Score:</b> ${signal.score}/${signal.maxScore}`,
+    signal.createdAt ? `🕒 <b>Creada:</b> ${formatDate(signal.createdAt)}` : "",
+    signal.validUntil ? `⏳ <b>Valida hasta:</b> ${formatDate(signal.validUntil)}` : "",
     "",
-    "Senal educativa. No ejecuta ordenes automaticamente."
+    `🧠 <b>Motivo:</b>\n${escapeHtml(signal.summary || "Confirma liquidez, noticias y tu propio riesgo.")}`,
+    "",
+    "⚠️ <i>Senal educativa. No ejecuta ordenes automaticamente.</i>"
   ].filter(Boolean).join("\n");
+}
+
+function formatDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return escapeHtml(String(value));
+  return date.toLocaleString("es-US", {
+    timeZone: "America/New_York",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  });
+}
+
+function clampCooldown(value) {
+  const minutes = Number(value);
+  return [5, 15, 30, 75].includes(minutes) ? minutes : 75;
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 function formatPrice(value) {
