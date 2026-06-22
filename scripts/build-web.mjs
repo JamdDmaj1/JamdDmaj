@@ -6,6 +6,7 @@ const output = resolve(root, "www");
 const assets = [
   "index.html",
   "oauth-mobile.html",
+  "google-mobile.html",
   "manifest.json",
   "icon-72.png",
   "icon-96.png",

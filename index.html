@@ -1353,6 +1353,45 @@
       font-size: 0.76rem;
     }
 
+    .settings-nav {
+      position: sticky;
+      top: -1px;
+      z-index: 4;
+      display: flex;
+      gap: 7px;
+      margin: 0 -4px 14px;
+      padding: 8px 4px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      background: color-mix(in srgb, var(--panel-solid) 94%, transparent);
+      backdrop-filter: blur(16px);
+    }
+
+    .settings-nav::-webkit-scrollbar {
+      display: none;
+    }
+
+    .settings-nav button {
+      flex: 0 0 auto;
+      min-height: 38px;
+      padding: 0 13px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--panel-2);
+      color: var(--muted);
+      font: inherit;
+      font-size: 0.74rem;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .settings-nav button:hover,
+    .settings-nav button:focus-visible {
+      border-color: color-mix(in srgb, var(--accent) 60%, var(--line));
+      color: var(--text);
+      outline: none;
+    }
+
     .data-actions,
     .social-links {
       display: flex;
@@ -3074,6 +3113,14 @@
           <p>Normal chat works automatically. Connecting a personal OpenRouter account is optional and enables personal limits and paid image generation.</p>
           <button class="pill-btn connect-btn" id="connectOpenRouterBtn" type="button">Connect personal OpenRouter</button>
         </div>
+        <nav class="settings-nav" id="settingsNav" aria-label="Settings sections">
+          <button type="button" data-settings-target="languageInput">AI</button>
+          <button type="button" data-settings-target="themeModeInput">Appearance</button>
+          <button type="button" data-settings-target="accountSection">Account</button>
+          <button type="button" data-settings-target="memorySection">Memory</button>
+          <button type="button" data-settings-target="dataSection">Backup</button>
+          <button type="button" data-settings-target="updatesSection">Updates</button>
+        </nav>
         <div class="settings-grid">
           <div class="field">
             <label for="languageInput">Interface language</label>
@@ -3311,7 +3358,7 @@
             <button class="pill-btn" id="checkUpdatesBtn" type="button">Check for updates</button>
             <a class="social-link is-hidden" id="downloadUpdateBtn" href="#" target="_blank" rel="noopener noreferrer">Open update</a>
           </div>
-          <div class="backup-status" id="appUpdateStatus">Installed version: 1.25.0</div>
+          <div class="backup-status" id="appUpdateStatus">Installed version: 1.27.0</div>
         </section>
       </div>
       <div class="dialog-actions">
@@ -3435,7 +3482,8 @@
       const MANAGED_API_URL = `${WEB_APP_URL}api/chat`;
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
-      const APP_VERSION = "1.25.0";
+      const MOBILE_GOOGLE_URL = "jamddmaj://google";
+      const APP_VERSION = "1.27.0";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
       const FREE_LIVE_API_URL = `${WEB_APP_URL}api/live`;
       const TELEGRAM_API_URL = `${WEB_APP_URL}api/telegram`;
@@ -4326,6 +4374,8 @@
         markets: "jamdV2MarketsOpen",
         costProfile: "jamdV2CostProfile",
         oauthVerifier: "jamdV2OauthVerifier",
+        googleOAuthState: "jamdV4GoogleOauthState",
+        googleOAuthVerifier: "jamdV4GoogleOauthVerifier",
         projects: "jamdV2Projects",
         settingsCoach: "jamdV2SettingsCoachSeen",
         idleNudge: "jamdV2IdleNudgeDismissed",
@@ -4337,6 +4387,7 @@
         backupRetryCount: "jamdV3BackupRetryCount",
         traderSignals: "jamdV3TraderSignals",
         traderOpen: "jamdV3TraderOpen",
+        traderScanCursor: "jamdV5TraderScanCursor",
         learnLastSession: "jamdV3LearnLastSession",
         learnNotifications: "jamdV3LearnNotifications",
         learnNotificationLastAt: "jamdV3LearnNotificationLastAt",
@@ -6396,10 +6447,12 @@
         const stats = state.stats || {};
         document.getElementById("proServerTitle").textContent = spanish ? "Escaner servidor 24/7" : "24/7 server scanner";
         document.getElementById("proServerStatus").textContent = enabled
-          ? (spanish ? "Activo. Funciona aunque cierres la app." : "Active. It runs even when the app is closed.")
+          ? (spanish
+            ? `Activo. Rota automaticamente por ${status.universeSize || "todos los"} mercados liquidos.`
+            : `Active. Automatically rotating through ${status.universeSize || "all"} liquid markets.`)
           : (spanish ? "Pausado. Activalo cuando quieras iniciar el monitoreo." : "Paused. Enable it to start monitoring.");
         document.getElementById("proServerLastRun").textContent = status.lastRunAt
-          ? `${spanish ? "Ultimo ciclo" : "Last cycle"}: ${new Date(status.lastRunAt).toLocaleString()} - ${status.assetsRead || 0} ${spanish ? "mercados" : "markets"}`
+          ? `${spanish ? "Ultimo ciclo" : "Last cycle"}: ${new Date(status.lastRunAt).toLocaleString()} - ${status.assetsRead || 0}/${status.universeSize || 0} ${spanish ? "mercados" : "markets"} - ${spanish ? "vuelta" : "rotation"} ~${status.fullRotationMinutes || 0} min`
           : (spanish ? "Aun no hay ciclos registrados." : "No server cycle recorded yet.");
         const toggle = document.getElementById("toggleProServerBtn");
         toggle.textContent = enabled
@@ -7279,7 +7332,18 @@
       }
 
       async function handleNativeOAuthUrl(url) {
-        if (!url?.startsWith(MOBILE_OAUTH_URL)) return;
+        if (!url) return;
+        if (url.startsWith(MOBILE_GOOGLE_URL)) {
+          const callback = new URL(url);
+          const ticket = callback.searchParams.get("ticket");
+          const state = callback.searchParams.get("state");
+          try {
+            await getNativePlugin("Browser")?.close();
+          } catch {}
+          if (ticket && state) await finishGoogleMobileSignIn(ticket, state);
+          return;
+        }
+        if (!url.startsWith(MOBILE_OAUTH_URL)) return;
         const code = new URL(url).searchParams.get("code");
         if (!code) return;
         try {
@@ -8443,6 +8507,12 @@
 
       function updateSyncAccountUi(text = "") {
         const spanish = resolvedLanguage() === "es";
+        const navLabels = spanish
+          ? ["IA", "Apariencia", "Cuenta", "Memoria", "Respaldo", "Actualizaciones"]
+          : ["AI", "Appearance", "Account", "Memory", "Backup", "Updates"];
+        document.querySelectorAll("#settingsNav button").forEach((button, index) => {
+          button.textContent = navLabels[index] || button.textContent;
+        });
         const code = getRecoveryCode(false);
         document.getElementById("syncAccountTitle").textContent = spanish ? "Cuenta y progreso" : "Account and progress";
         document.getElementById("syncAccountText").textContent = spanish
@@ -8528,6 +8598,10 @@
         const status = document.getElementById("socialAccountStatus");
         status.textContent = spanish ? "Abriendo Google..." : "Opening Google...";
         try {
+          if (isNativeApp() && getNativePlugin("Browser")) {
+            await startGoogleMobileSignIn(status, spanish);
+            return;
+          }
           await loadGoogleIdentityScript();
           const client = google.accounts.oauth2.initTokenClient({
             client_id: googleAccountConfig.google.clientId,
@@ -8549,6 +8623,52 @@
         }
       }
 
+      async function startGoogleMobileSignIn(status, spanish) {
+        if (!crypto.subtle) throw new Error(spanish ? "Este dispositivo no permite un acceso seguro." : "Secure sign-in is unavailable on this device.");
+        const verifier = toBase64Url(crypto.getRandomValues(new Uint8Array(48)));
+        const challengeBytes = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier)));
+        const challenge = toBase64Url(challengeBytes);
+        const state = toBase64Url(crypto.getRandomValues(new Uint8Array(24)));
+        localStorage.setItem(STORAGE.googleOAuthVerifier, verifier);
+        localStorage.setItem(STORAGE.googleOAuthState, state);
+        status.textContent = spanish ? "Continua con Google en el navegador y volveras automaticamente." : "Continue with Google in the browser. You will return automatically.";
+        const url = `${WEB_APP_URL}google-mobile.html?state=${encodeURIComponent(state)}&challenge=${encodeURIComponent(challenge)}`;
+        await getNativePlugin("Browser").open({ url });
+      }
+
+      async function finishGoogleMobileSignIn(ticket, state) {
+        const spanish = resolvedLanguage() === "es";
+        const status = document.getElementById("socialAccountStatus");
+        const expectedState = localStorage.getItem(STORAGE.googleOAuthState) || "";
+        const verifier = localStorage.getItem(STORAGE.googleOAuthVerifier) || "";
+        if (!expectedState || state !== expectedState || !verifier) {
+          status.textContent = spanish ? "El acceso movil expiro. Intentalo de nuevo." : "The mobile sign-in expired. Please try again.";
+          return;
+        }
+        status.textContent = spanish ? "Protegiendo tu perfil..." : "Securing your profile...";
+        try {
+          const currentCode = getRecoveryCode(true);
+          const response = await fetch(ACCOUNT_API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "googleMobileFinish",
+              ticket,
+              verifier,
+              recoveryCode: currentCode
+            })
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(data?.error?.message || `Google account ${response.status}`);
+          await applyGoogleAccountResponse(data, currentCode, status, spanish);
+        } catch (error) {
+          status.textContent = error.message || (spanish ? "No se pudo completar Google." : "Google sign-in could not be completed.");
+        } finally {
+          localStorage.removeItem(STORAGE.googleOAuthState);
+          localStorage.removeItem(STORAGE.googleOAuthVerifier);
+        }
+      }
+
       async function finishGoogleSignIn(accessToken) {
         const spanish = resolvedLanguage() === "es";
         const status = document.getElementById("socialAccountStatus");
@@ -8562,20 +8682,24 @@
           });
           const data = await response.json().catch(() => ({}));
           if (!response.ok) throw new Error(data?.error?.message || `Google account ${response.status}`);
-          if (!data.linked || !data.recoveryCode) throw new Error(spanish ? "No se pudo vincular el perfil." : "The profile could not be linked.");
-          accountProfile = data.profile;
-          localStorage.setItem(STORAGE.accountProfile, JSON.stringify(accountProfile));
-          localStorage.setItem(STORAGE.recoveryCode, normalizeRecoveryCode(data.recoveryCode));
-          if (normalizeRecoveryCode(data.recoveryCode) !== normalizeRecoveryCode(currentCode)) {
-            status.textContent = spanish ? "Restaurando progreso de Google..." : "Restoring Google progress...";
-            await restoreCloudBackupWithCode(normalizeRecoveryCode(data.recoveryCode));
-          } else {
-            await syncCloudBackup(false);
-            updateSyncAccountUi(spanish ? "Google vinculado y progreso protegido." : "Google linked and progress protected.");
-            initGoogleAccount();
-          }
+          await applyGoogleAccountResponse(data, currentCode, status, spanish);
         } catch (error) {
           status.textContent = error.message;
+        }
+      }
+
+      async function applyGoogleAccountResponse(data, currentCode, status, spanish) {
+        if (!data.linked || !data.recoveryCode) throw new Error(spanish ? "No se pudo vincular el perfil." : "The profile could not be linked.");
+        accountProfile = data.profile;
+        localStorage.setItem(STORAGE.accountProfile, JSON.stringify(accountProfile));
+        localStorage.setItem(STORAGE.recoveryCode, normalizeRecoveryCode(data.recoveryCode));
+        if (normalizeRecoveryCode(data.recoveryCode) !== normalizeRecoveryCode(currentCode)) {
+          status.textContent = spanish ? "Restaurando progreso de Google..." : "Restoring Google progress...";
+          await restoreCloudBackupWithCode(normalizeRecoveryCode(data.recoveryCode));
+        } else {
+          await syncCloudBackup(false);
+          updateSyncAccountUi(spanish ? "Google vinculado y progreso protegido." : "Google linked and progress protected.");
+          await initGoogleAccount();
         }
       }
 
@@ -9552,7 +9676,7 @@
           try {
             [ticker, klines] = await Promise.all([
               fetchJsonWithTimeout(`${venue.base}${venue.ticker}?symbol=${encodeURIComponent(asset.binance)}`, 6500),
-              fetchJsonWithTimeout(`${venue.base}${venue.klines}?symbol=${encodeURIComponent(asset.binance)}&interval=1h&limit=120`, 6500)
+              fetchJsonWithTimeout(`${venue.base}${venue.klines}?symbol=${encodeURIComponent(asset.binance)}&interval=1h&limit=240`, 6500)
             ]);
             break;
           } catch (error) {
@@ -9566,6 +9690,8 @@
         if (!ticker || !Array.isArray(klines) || klines.length < 55) throw lastError || new Error("Market data unavailable.");
 
         const closes = klines.map((item) => Number(item[4])).filter(Number.isFinite);
+        const highs = klines.map((item) => Number(item[2])).filter(Number.isFinite);
+        const lows = klines.map((item) => Number(item[3])).filter(Number.isFinite);
         const volumes = klines.map((item) => Number(item[5])).filter(Number.isFinite);
         const ema12Series = calculateEmaSeries(closes, 12);
         const ema26Series = calculateEmaSeries(closes, 26);
@@ -9588,6 +9714,15 @@
           : price < sma20 && sma20 < sma50
             ? "bearish alignment"
             : "mixed or sideways alignment";
+        const higherCloses = closes.filter((_, index) => (index + 1) % 4 === 0);
+        const higherSma20 = calculateSma(higherCloses, 20);
+        const higherSma50 = calculateSma(higherCloses, 50);
+        const higherPrice = higherCloses.at(-1);
+        const higherTrend = higherPrice > higherSma20 && higherSma20 > higherSma50
+          ? "bullish 4h alignment"
+          : higherPrice < higherSma20 && higherSma20 < higherSma50
+            ? "bearish 4h alignment"
+            : "mixed 4h alignment";
 
         return {
           symbol: asset.symbol,
@@ -9606,6 +9741,9 @@
           macdSignal,
           macdHistogram: macd - macdSignal,
           volumeRatio: averageVolume ? recentVolume / averageVolume : NaN,
+          atrPercent: calculateAtr(highs, lows, closes, 14) / price,
+          higherTrend,
+          higherRsi: calculateRsi(higherCloses, 14),
           trend
         };
       }
@@ -9703,9 +9841,33 @@
 
       async function scanProSignals(notify = true, sendAlerts = true) {
         if (notify) els.traderStatus.textContent = tradeText("scanning");
-        const universe = CRYPTO_ASSETS.filter((asset) =>
-          ["BTC", "ETH", "SOL", "BNB", "XRP", "ADA", "AVAX", "DOGE", "LINK", "SUI", "NEAR", "PEPE", "INJ", "SEI", "TIA", "JUP", "WLD", "ONDO", "PENDLE", "RENDER", "FET", "HBAR", "DOT", "LTC", "TRX", "SHIB", "ARB", "OP", "UNI", "AAVE", "MKR", "WIF", "BONK", "FLOKI", "TAO", "ICP"].includes(asset.symbol)
-        );
+        if (telegramOwnerAuthorized) {
+          try {
+            proServerState = await callProApi({ action: "run" });
+            renderProServerState(proServerState);
+            const rawSignals = proServerState.result?.signals?.length
+              ? proServerState.result.signals
+              : (proServerState.open || []).slice(0, 6);
+            const signals = rawSignals.map((signal) => ({
+              ...signal,
+              createdAt: new Date(signal.createdAt),
+              validUntil: new Date(signal.validUntil)
+            }));
+            lastProSignals = signals;
+            renderProSignals(signals);
+            const status = proServerState.result || proServerState.status || {};
+            els.traderStatus.textContent = resolvedLanguage() === "es"
+              ? `Ciclo profesional: ${status.assetsRead || 0} analizados de ${status.universeSize || 0} mercados liquidos. La rotacion completa continua 24/7.`
+              : `Pro cycle: ${status.assetsRead || 0} scanned from ${status.universeSize || 0} liquid markets. Full rotation continues 24/7.`;
+            return;
+          } catch {
+            // Use the on-device rotating batch if the private server is temporarily unavailable.
+          }
+        }
+        const batchSize = Math.min(28, CRYPTO_ASSETS.length);
+        const cursor = Math.max(0, Number(localStorage.getItem(STORAGE.traderScanCursor)) || 0) % CRYPTO_ASSETS.length;
+        const universe = Array.from({ length: batchSize }, (_, offset) => CRYPTO_ASSETS[(cursor + offset) % CRYPTO_ASSETS.length]);
+        localStorage.setItem(STORAGE.traderScanCursor, String((cursor + batchSize) % CRYPTO_ASSETS.length));
         const results = await Promise.all(universe.map(async (asset) => {
           try {
             const data = await fetchCryptoIndicators(asset);
@@ -9720,6 +9882,9 @@
           .slice(0, 6);
         lastProSignals = signals;
         renderProSignals(signals);
+        els.traderStatus.textContent = resolvedLanguage() === "es"
+          ? `Lote local: ${universe.length} de ${CRYPTO_ASSETS.length} criptos. El siguiente escaneo continua la rotacion.`
+          : `Local batch: ${universe.length} of ${CRYPTO_ASSETS.length} crypto assets. The next scan continues the rotation.`;
         if (sendAlerts) pushTelegramSignals(signals);
       }
 
@@ -9830,6 +9995,8 @@
       function buildProSignal(data, force = false) {
         const bullishTrend = data.trend.includes("bullish");
         const bearishTrend = data.trend.includes("bearish");
+        const higherBullish = String(data.higherTrend || "").includes("bullish");
+        const higherBearish = String(data.higherTrend || "").includes("bearish");
         const priceAboveShort = data.price > data.ema12 && data.price > data.sma20;
         const priceBelowShort = data.price < data.ema12 && data.price < data.sma20;
         const emaBullish = data.ema12 > data.ema26;
@@ -9837,6 +10004,7 @@
         const volumeStrong = !Number.isFinite(data.volumeRatio) || data.volumeRatio > 1.02;
         const longScore = [
           bullishTrend ? 2 : 0,
+          higherBullish ? 2 : 0,
           emaBullish ? 1 : 0,
           priceAboveShort ? 1 : 0,
           data.macdHistogram > 0 ? 1 : 0,
@@ -9846,6 +10014,7 @@
         ].reduce((sum, value) => sum + value, 0);
         const shortScore = [
           bearishTrend ? 2 : 0,
+          higherBearish ? 2 : 0,
           emaBearish ? 1 : 0,
           priceBelowShort ? 1 : 0,
           data.macdHistogram < 0 ? 1 : 0,
@@ -9855,12 +10024,16 @@
         ].reduce((sum, value) => sum + value, 0);
         const side = longScore >= shortScore ? "LONG" : "SHORT";
         const score = Math.max(longScore, shortScore);
-        if (!force && score < 5) return null;
-        if (!Number.isFinite(data.price) || data.price <= 0) return null;
         const marketType = data.marketType || "crypto";
+        const higherAligned = marketType === "stock" || (side === "LONG" ? higherBullish : higherBearish);
+        if (!force && (score < 7 || !higherAligned)) return null;
+        if (!Number.isFinite(data.price) || data.price <= 0) return null;
         const volatilityFloor = marketType === "stock" ? 0.004 : 0.006;
         const volatilityCeiling = marketType === "stock" ? 0.026 : 0.035;
-        const volatility = Math.max(volatilityFloor, Math.min(volatilityCeiling, Math.abs(data.change24h || 0) / 100 / 2));
+        const observedVolatility = Number.isFinite(data.atrPercent)
+          ? data.atrPercent
+          : Math.abs(data.change24h || 0) / 100 / 2;
+        const volatility = Math.max(volatilityFloor, Math.min(volatilityCeiling, observedVolatility));
         const entry = data.price;
         const direction = side === "LONG" ? 1 : -1;
         const stopDistance = volatility * (score >= 7 ? 1.15 : 1.3);
@@ -9873,8 +10046,8 @@
           category: data.category || (marketType === "stock" ? "Stock market" : "Manual search"),
           side,
           score,
-          maxScore: 8,
-          confidence: score >= 7 ? "A" : score >= 5 ? "B" : "C",
+          maxScore: 10,
+          confidence: score >= 9 ? "A" : score >= 7 ? "B" : "C",
           entry,
           sl: entry * (1 - direction * stopDistance),
           tp1: entry * (1 + direction * tp1Distance),
@@ -9884,6 +10057,7 @@
           createdAt: new Date(),
           reasons: [
             translateTradeTrend(data.trend),
+            data.higherTrend || (marketType === "stock" ? "Daily timeframe" : "4h unavailable"),
             `RSI ${formatIndicator(data.rsi)}`,
             `MACD hist ${formatIndicator(data.macdHistogram)}`,
             `${marketType === "stock" ? tradeText("move") : "24h"} ${formatSignedPercent(data.change24h)}`,
@@ -9897,6 +10071,9 @@
       function buildTradeReason(data, side, score, forced) {
         const directionText = side === "LONG" ? tradeText("whyLong") : tradeText("whyShort");
         const trendText = translateTradeTrend(data.trend);
+        const higherText = data.higherTrend
+          ? `${resolvedLanguage() === "es" ? "confirmacion" : "confirmation"} ${data.higherTrend}`
+          : (resolvedLanguage() === "es" ? "sin confirmacion 4h" : "without 4h confirmation");
         const momentum = Number.isFinite(data.macdHistogram)
           ? (data.macdHistogram >= 0
             ? (resolvedLanguage() === "es" ? "momentum MACD positivo" : "positive MACD momentum")
@@ -9911,10 +10088,10 @@
             ? `precio vs SMA20/SMA50 esta ${data.price > data.sma20 && data.sma20 > data.sma50 ? "a favor" : data.price < data.sma20 && data.sma20 < data.sma50 ? "bajista" : "mixto"}`
             : `price vs SMA20/SMA50 is ${data.price > data.sma20 && data.sma20 > data.sma50 ? "supportive" : data.price < data.sma20 && data.sma20 < data.sma50 ? "bearish" : "mixed"}`)
           : (resolvedLanguage() === "es" ? "datos de estructura limitados" : "structure data is limited");
-        const quality = forced && score < 5
+        const quality = forced && score < 7
           ? tradeText("requestedLow")
           : tradeText("passes");
-        return `${directionText}: ${trendText}, ${momentum}, ${rsiText}, ${volumeText}, ${structure}. ${quality}`;
+        return `${directionText}: ${trendText}, ${higherText}, ${momentum}, ${rsiText}, ${volumeText}, ${structure}. ${quality}`;
       }
 
       function translateTradeTrend(trend) {
@@ -10009,6 +10186,16 @@
         if (averageLoss === 0) return 100;
         const relativeStrength = averageGain / averageLoss;
         return 100 - (100 / (1 + relativeStrength));
+      }
+
+      function calculateAtr(highs, lows, closes, period) {
+        if (highs.length !== lows.length || lows.length !== closes.length || closes.length <= period) return NaN;
+        const ranges = highs.slice(1).map((high, index) => Math.max(
+          high - lows[index + 1],
+          Math.abs(high - closes[index]),
+          Math.abs(lows[index + 1] - closes[index])
+        ));
+        return calculateSma(ranges, period);
       }
 
       function formatCompactNumber(value) {
@@ -10393,6 +10580,12 @@
       document.getElementById("restoreSyncAccountBtn").addEventListener("click", restoreCloudBackup);
       document.getElementById("checkUpdatesBtn").addEventListener("click", () => checkForAppUpdate(true));
       document.getElementById("googleSignInBtn").addEventListener("click", startGoogleSignIn);
+      document.getElementById("settingsNav").addEventListener("click", (event) => {
+        const button = event.target.closest("[data-settings-target]");
+        if (!button) return;
+        const target = document.getElementById(button.dataset.settingsTarget);
+        target?.scrollIntoView({ behavior: settings.animations === false ? "auto" : "smooth", block: "start" });
+      });
       document.getElementById("addMemoryBtn").addEventListener("click", () => {
         const input = document.getElementById("memoryInput");
         if (addExplicitMemory(input.value)) input.value = "";

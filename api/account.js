@@ -20,17 +20,70 @@ export default async function handler(request) {
   }
   try {
     const input = await request.json();
-    if (input?.action !== "google") {
+    const action = String(input?.action || "");
+    if (!['google', 'googleMobileStart', 'googleMobileFinish'].includes(action)) {
       return jsonResponse(request, { error: { message: "Invalid account action." } }, 400);
     }
-    const credential = String(input.credential || "").trim();
-    const accessToken = String(input.accessToken || "").trim();
-    if ((!credential && !accessToken) || credential.length > 10000 || accessToken.length > 10000) {
-      return jsonResponse(request, { error: { message: "Invalid Google credential." } }, 400);
+
+    if (action === "googleMobileStart") {
+      const accessToken = String(input.accessToken || "").trim();
+      const state = normalizeOAuthValue(input.state, 16, 128);
+      const challenge = normalizeOAuthValue(input.challenge, 32, 128);
+      if (!accessToken || accessToken.length > 10000 || !state || !challenge) {
+        return jsonResponse(request, { error: { message: "Invalid mobile Google request." } }, 400);
+      }
+      const identity = await verifyGoogleAccessToken(accessToken, clientId);
+      const ticket = randomUrlToken(32);
+      const ticketHash = await hashIdentifier(`google-ticket:${ticket}`);
+      await redisRequest("pipeline", [[
+        "SET",
+        `jamd:account:ticket:${ticketHash}`,
+        JSON.stringify({ ...identity, challenge }),
+        "EX",
+        300
+      ]]);
+      return jsonResponse(request, { ok: true, ticket, state });
     }
-    const identity = accessToken
-      ? await verifyGoogleAccessToken(accessToken, clientId)
-      : await verifyGoogleCredential(credential, clientId);
+
+    let identity;
+    if (action === "googleMobileFinish") {
+      const ticket = normalizeOAuthValue(input.ticket, 32, 128);
+      const verifier = normalizeOAuthValue(input.verifier, 32, 160);
+      if (!ticket || !verifier) {
+        return jsonResponse(request, { error: { message: "Invalid mobile Google callback." } }, 400);
+      }
+      const ticketHash = await hashIdentifier(`google-ticket:${ticket}`);
+      const response = await redisRequest("pipeline", [["GETDEL", `jamd:account:ticket:${ticketHash}`]]);
+      const ticketData = parseJson(response?.[0]?.result);
+      if (!ticketData?.sub || !ticketData?.challenge) {
+        return jsonResponse(request, { error: { message: "This Google sign-in expired. Please try again." } }, 401);
+      }
+      const challenge = await sha256Base64Url(verifier);
+      if (challenge !== ticketData.challenge) {
+        return jsonResponse(request, { error: { message: "This Google sign-in could not be verified." } }, 401);
+      }
+      identity = ticketData;
+    } else {
+      const credential = String(input.credential || "").trim();
+      const accessToken = String(input.accessToken || "").trim();
+      if ((!credential && !accessToken) || credential.length > 10000 || accessToken.length > 10000) {
+        return jsonResponse(request, { error: { message: "Invalid Google credential." } }, 400);
+      }
+      identity = accessToken
+        ? await verifyGoogleAccessToken(accessToken, clientId)
+        : await verifyGoogleCredential(credential, clientId);
+    }
+
+    const result = await linkGoogleProfile(input, identity, accountSecret);
+    return jsonResponse(request, result);
+  } catch (error) {
+    return jsonResponse(request, {
+      error: { message: error?.message || "Google sign-in could not be completed." }
+    }, Number(error?.status) || 401);
+  }
+}
+
+async function linkGoogleProfile(input, identity, accountSecret) {
     const accountHash = await hashIdentifier(`google:${identity.sub}`);
     const key = `jamd:account:google:${accountHash}`;
     const response = await redisRequest("pipeline", [["GET", key]]);
@@ -58,7 +111,7 @@ export default async function handler(request) {
       linked = true;
     }
 
-    return jsonResponse(request, {
+    return {
       ok: true,
       linked,
       needsProfile: !linked,
@@ -69,12 +122,7 @@ export default async function handler(request) {
         name: identity.name,
         picture: identity.picture
       }
-    });
-  } catch (error) {
-    return jsonResponse(request, {
-      error: { message: error?.message || "Google sign-in could not be completed." }
-    }, Number(error?.status) || 401);
-  }
+    };
 }
 
 async function verifyGoogleCredential(credential, clientId) {
@@ -142,6 +190,23 @@ async function accountKey(secret) {
 function normalizeRecoveryCode(value) {
   const code = String(value || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
   return /^[A-Z0-9]{20}$/.test(code) ? code : "";
+}
+
+function normalizeOAuthValue(value, minimum, maximum) {
+  const clean = String(value || "").trim();
+  return clean.length >= minimum && clean.length <= maximum && /^[A-Za-z0-9_-]+$/.test(clean)
+    ? clean
+    : "";
+}
+
+function randomUrlToken(length) {
+  const bytes = crypto.getRandomValues(new Uint8Array(length));
+  return toBase64(bytes).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+async function sha256Base64Url(value) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return toBase64(new Uint8Array(digest)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
 function toBase64(bytes) {
