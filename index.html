@@ -688,6 +688,158 @@
       background: rgba(52, 211, 153, 0.1);
     }
 
+    .trader-server .pill-btn.active {
+      border-color: rgba(52, 211, 153, 0.55);
+      color: #6ee7b7;
+      background: rgba(52, 211, 153, 0.1);
+    }
+
+    .trader-server {
+      display: grid;
+      gap: 12px;
+      padding: 15px;
+      border: 1px solid rgba(52, 211, 153, 0.24);
+      border-radius: 20px;
+      background: linear-gradient(135deg, rgba(6, 78, 59, 0.14), rgba(8, 145, 178, 0.07));
+    }
+
+    .trader-server.is-hidden {
+      display: none;
+    }
+
+    .trader-server-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .trader-server-copy {
+      display: grid;
+      gap: 3px;
+    }
+
+    .trader-server-copy small,
+    .trader-server-copy span,
+    .pro-history-empty {
+      color: var(--muted);
+      font-size: 0.72rem;
+    }
+
+    .trader-server-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+
+    .pro-stat-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .pro-stat {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.035);
+    }
+
+    .pro-stat span {
+      color: var(--muted);
+      font-size: 0.66rem;
+    }
+
+    .pro-stat strong {
+      font-size: 1rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .pro-history {
+      display: grid;
+      gap: 7px;
+      max-height: 260px;
+      overflow: auto;
+    }
+
+    .pro-history-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 10px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: rgba(255, 255, 255, 0.025);
+      font-size: 0.72rem;
+    }
+
+    .pro-history-row b {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .pro-history-row span {
+      color: var(--muted);
+    }
+
+    .pro-status-pill {
+      padding: 4px 7px;
+      border-radius: 999px;
+      color: #cbd5e1;
+      background: rgba(148, 163, 184, 0.12);
+      font-size: 0.64rem;
+      font-weight: 850;
+    }
+
+    .pro-status-pill.win,
+    .pro-status-pill.open {
+      color: #6ee7b7;
+      background: rgba(52, 211, 153, 0.12);
+    }
+
+    .pro-status-pill.loss {
+      color: #fda4af;
+      background: rgba(251, 113, 133, 0.12);
+    }
+
+    .memory-list {
+      display: grid;
+      gap: 7px;
+    }
+
+    .memory-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: var(--panel-solid);
+      color: var(--text);
+      font-size: 0.76rem;
+    }
+
+    .memory-row button {
+      border: 0;
+      background: transparent;
+      color: #fb7185;
+      cursor: pointer;
+      font-weight: 800;
+    }
+
+    @media (max-width: 620px) {
+      .pro-stat-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
     .signal-card {
       padding: 18px;
     }
@@ -1714,6 +1866,18 @@
       background: rgba(255, 255, 255, 0.025);
       font-size: 0.74rem;
       font-weight: 750;
+      font-family: inherit;
+    }
+
+    button.account-provider {
+      cursor: pointer;
+    }
+
+    button.account-provider.ready {
+      border-style: solid;
+      border-color: rgba(96, 165, 250, 0.5);
+      color: #bfdbfe;
+      background: rgba(59, 130, 246, 0.1);
     }
 
     .copy-code {
@@ -2768,6 +2932,29 @@
               </label>
             </div>
           </div>
+          <div class="trader-server is-hidden" id="traderServerPanel">
+            <div class="trader-server-head">
+              <div class="trader-server-copy">
+                <strong id="proServerTitle">24/7 server scanner</strong>
+                <span id="proServerStatus">Checking the private server...</span>
+                <small id="proServerLastRun">No server cycle recorded yet.</small>
+              </div>
+              <div class="trader-server-actions">
+                <button class="pill-btn" id="toggleProServerBtn" type="button">Enable 24/7</button>
+                <button class="pill-btn" id="runProServerBtn" type="button">Run server now</button>
+                <button class="pill-btn" id="refreshProServerBtn" type="button">Refresh</button>
+              </div>
+            </div>
+            <div class="pro-stat-grid">
+              <div class="pro-stat"><span>Open calls</span><strong id="proStatOpen">0</strong></div>
+              <div class="pro-stat"><span>TP3 wins</span><strong id="proStatWins">0</strong></div>
+              <div class="pro-stat"><span>Stop losses</span><strong id="proStatLosses">0</strong></div>
+              <div class="pro-stat"><span>Verified win rate</span><strong id="proStatWinRate">0%</strong></div>
+            </div>
+            <div class="pro-history" id="proHistoryList">
+              <span class="pro-history-empty">The verified history will appear after the server runs.</span>
+            </div>
+          </div>
           <div id="signalList" class="trader-signals"></div>
         </div>
       </section>
@@ -3051,11 +3238,27 @@
             <button class="pill-btn" id="restoreSyncAccountBtn" type="button">Restore progress</button>
           </div>
           <div class="backup-status" id="syncAccountStatus"></div>
-          <div class="account-provider-list" aria-label="Future social account providers">
-            <span class="account-provider">Google · next</span>
-            <span class="account-provider">X · next</span>
-            <span class="account-provider">Telegram · next</span>
+          <div class="account-provider-list" aria-label="Account providers">
+            <button class="account-provider" id="googleSignInBtn" type="button">Google · checking</button>
+            <span class="account-provider">X · planned</span>
+            <span class="account-provider">Telegram · planned</span>
           </div>
+          <div class="backup-status" id="socialAccountStatus">Google account linking requires owner configuration.</div>
+        </section>
+        <section class="settings-section" id="memorySection">
+          <div>
+            <h3 id="memorySectionTitle">Memory you control</h3>
+            <p id="memorySectionText">Save important preferences or facts. You can review and delete every memory at any time.</p>
+          </div>
+          <div class="field">
+            <label for="memoryInput">What should JamdDmaj remember?</label>
+            <textarea id="memoryInput" rows="2" maxlength="500" placeholder="Example: I prefer short answers in Spanish."></textarea>
+          </div>
+          <div class="data-actions">
+            <button class="pill-btn" id="addMemoryBtn" type="button">Remember this</button>
+            <button class="pill-btn" id="clearMemoriesBtn" type="button">Forget all</button>
+          </div>
+          <div class="memory-list" id="memoryList"></div>
         </section>
         <section class="settings-section" id="dataSection">
           <div>
@@ -3098,6 +3301,17 @@
             <a class="social-link" href="https://youtube.com/@jamddmaj" target="_blank" rel="noopener noreferrer">YouTube</a>
             <a class="social-link" href="https://github.com/JamdDmaj1/JamdDmaj" target="_blank" rel="noopener noreferrer">GitHub</a>
           </div>
+        </section>
+        <section class="settings-section" id="updatesSection">
+          <div>
+            <h3 id="updatesSectionTitle">App updates</h3>
+            <p id="updatesSectionText">Check the signed official release without deleting the installed app.</p>
+          </div>
+          <div class="data-actions">
+            <button class="pill-btn" id="checkUpdatesBtn" type="button">Check for updates</button>
+            <a class="social-link is-hidden" id="downloadUpdateBtn" href="#" target="_blank" rel="noopener noreferrer">Open update</a>
+          </div>
+          <div class="backup-status" id="appUpdateStatus">Installed version: 1.25.0</div>
         </section>
       </div>
       <div class="dialog-actions">
@@ -3221,10 +3435,12 @@
       const MANAGED_API_URL = `${WEB_APP_URL}api/chat`;
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
-      const APP_VERSION = "1.24.0";
+      const APP_VERSION = "1.25.0";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
       const FREE_LIVE_API_URL = `${WEB_APP_URL}api/live`;
       const TELEGRAM_API_URL = `${WEB_APP_URL}api/telegram`;
+      const PRO_API_URL = `${WEB_APP_URL}api/pro`;
+      const ACCOUNT_API_URL = `${WEB_APP_URL}api/account`;
       const RELEASE_NOTES = {
         normal: {
           en: {
@@ -3232,9 +3448,10 @@
             intro: "This update improves the normal app experience.",
             button: "Got it",
             items: [
-              ["Safer updates", "Permanent Android signing allows future APKs to install over the current signed version."],
-              ["Account foundation", "JamdDmaj Sync ID protects chats, projects, settings, and Learn progress."],
-              ["Prepare update", "One button synchronizes progress and copies the private Sync ID before reinstalling."]
+              ["Memory you control", "Approve, review, and delete the facts JamdDmaj remembers."],
+              ["Google account", "Optional Google linking can recover the encrypted JamdDmaj Sync profile."],
+              ["Daily Learn reminders", "Android can schedule rotating practice notifications while the app is closed."],
+              ["Signed update checker", "Check and open official signed releases directly from Settings."]
             ]
           },
           es: {
@@ -3242,9 +3459,10 @@
             intro: "Esta actualizacion mejora la experiencia normal de la app.",
             button: "Entendido",
             items: [
-              ["Actualizaciones seguras", "La firma permanente permite instalar futuros APK encima de la version firmada actual."],
-              ["Base de cuenta", "JamdDmaj Sync ID protege chats, proyectos, ajustes y progreso de Learn."],
-              ["Preparar actualizacion", "Un boton sincroniza el progreso y copia el Sync ID privado antes de reinstalar."]
+              ["Memoria bajo tu control", "Aprueba, revisa y elimina lo que JamdDmaj recuerda."],
+              ["Cuenta de Google", "Google puede vincularse para recuperar el perfil cifrado de JamdDmaj Sync."],
+              ["Recordatorios de Learn", "Android programa practicas rotativas aunque la app este cerrada."],
+              ["Actualizador firmado", "Comprueba y abre versiones oficiales desde Ajustes."]
             ]
           }
         },
@@ -3254,9 +3472,9 @@
             intro: "Hidden Pro mode was upgraded separately.",
             button: "Enter Pro",
             items: [
-              ["Owner-only Telegram", "Telegram controls stay hidden unless Vercel authorizes the current device."],
-              ["Server protection", "Other clients cannot send tests, alerts, or manual signals to your channel."],
-              ["Existing controls preserved", "Frequency, quality, cooldown, and Send now remain available to the owner."]
+              ["24/7 server scanner", "GitHub and Vercel can scan even when every app and browser is closed."],
+              ["Verified outcomes", "TP, SL, expiration, and ambiguous candles are tracked in Upstash."],
+              ["Private control panel", "Run, pause, refresh, and review verified statistics from the authorized device."]
             ]
           },
           es: {
@@ -3264,9 +3482,9 @@
             intro: "El modo Pro oculto fue mejorado por separado.",
             button: "Entrar al Pro",
             items: [
-              ["Telegram solo propietario", "Los controles quedan ocultos salvo que Vercel autorice el dispositivo actual."],
-              ["Proteccion de servidor", "Otros clientes no pueden mandar pruebas, alertas ni señales manuales a tu canal."],
-              ["Controles conservados", "Frecuencia, calidad, cooldown y Enviar ahora siguen disponibles para el propietario."]
+              ["Escaner servidor 24/7", "GitHub y Vercel analizan aunque todas las apps y navegadores esten cerrados."],
+              ["Resultados verificados", "TP, SL, expiracion y velas ambiguas quedan registrados en Upstash."],
+              ["Panel privado", "Ejecuta, pausa, actualiza y revisa estadisticas desde el dispositivo autorizado."]
             ]
           }
         }
@@ -4128,7 +4346,9 @@
         telegramAlerts: "jamdV3TelegramAlerts",
         telegramScanMinutes: "jamdV3TelegramScanMinutes",
         telegramMinScore: "jamdV3TelegramMinScore",
-        telegramCooldownMinutes: "jamdV3TelegramCooldownMinutes"
+        telegramCooldownMinutes: "jamdV3TelegramCooldownMinutes",
+        memories: "jamdV4ExplicitMemories",
+        accountProfile: "jamdV4AccountProfile"
       };
 
       const DEFAULT_SETTINGS = {
@@ -4484,14 +4704,20 @@
       let pendingProjectChatId = null;
       let placementQuiz = null;
       let managedAccessReady = null;
+      let latestAppStatus = null;
+      let googleAccountConfig = null;
+      let accountProfile = loadJson(STORAGE.accountProfile, null);
       let cloudBackupTimer = null;
       let cloudBackupInProgress = false;
       let latestFreeLiveLookup = null;
       let traderScanTimer = null;
       let lastProSignals = [];
       let telegramOwnerAuthorized = false;
+      let proServerState = null;
       let traderSecretTaps = 0;
       let traderMode = false;
+      let explicitMemories = loadJson(STORAGE.memories, []);
+      if (!Array.isArray(explicitMemories)) explicitMemories = [];
       let learnReminderTimer = null;
       const SETTINGS_COACH_STEPS = [
         { selector: ".connection-card", title: "Acceso automático", text: "El chat gratuito funciona con JamdDmaj sin crear una cuenta. Conecta OpenRouter solo si quieres límites personales o generar imágenes de pago." },
@@ -4500,7 +4726,10 @@
         { selector: "#accentInput", title: "Hazla tuya", text: "Personaliza colores, fuente, tamaño, esquinas, ancho y fondos. Los cambios se guardan en este dispositivo." },
         { selector: "#allowImagesInput", title: "Controla el gasto", text: "La generación de imágenes usa créditos. Déjala apagada para evitar cargos accidentales." },
         { selector: ".advanced-settings", title: "Opciones avanzadas", text: "Aquí quedan los modelos y la clave manual. La mayoría de usuarios no necesita tocar esta sección." },
+        { selector: "#accountSection", title: "Tu perfil cifrado", text: "JamdDmaj Sync protege tu progreso. Google puede vincularse sin exponer el código." },
+        { selector: "#memorySection", title: "Tú controlas la memoria", text: "Agrega preferencias importantes y elimina cualquier recuerdo cuando quieras." },
         { selector: "#dataSection", title: "Protege tus datos", text: "Exporta un respaldo completo antes de cambiar de teléfono o si Android exige desinstalar una versión antigua." },
+        { selector: "#updatesSection", title: "Actualizaciones firmadas", text: "Comprueba nuevas versiones e instálalas encima de la app actual para conservar tus datos." },
         { selector: "#socialSection", title: "Sigue a JamdDmaj", text: "Aquí encontrarás las redes oficiales, tutoriales y anuncios de nuevas versiones." }
       ];
       const SETTINGS_COACH_STEPS_EN = [
@@ -4510,7 +4739,10 @@
         { selector: "#accentInput", title: "Make it yours", text: "Customize colors, font, size, corners, width, and backgrounds. Changes stay on this device." },
         { selector: "#allowImagesInput", title: "Control spending", text: "Image generation uses credits. Leave it off to prevent accidental charges." },
         { selector: ".advanced-settings", title: "Advanced options", text: "Personal models and keys live here. Most people do not need to change this section." },
+        { selector: "#accountSection", title: "Your encrypted profile", text: "JamdDmaj Sync protects progress. Google can link to it without exposing the code." },
+        { selector: "#memorySection", title: "You control memory", text: "Add important preferences and remove any approved memory whenever you want." },
         { selector: "#dataSection", title: "Protect your data", text: "Export a full backup before changing phones or if Android requires removing an older build." },
+        { selector: "#updatesSection", title: "Signed updates", text: "Check official releases and install them over the current app to keep your data." },
         { selector: "#socialSection", title: "Follow JamdDmaj", text: "Find official social networks, tutorials, and new release announcements here." }
       ];
 
@@ -4969,6 +5201,7 @@
               }
               persistLearning();
               renderLearnDashboard();
+              if (localStorage.getItem(STORAGE.learnNotifications) === "true") scheduleNativeLearnNotification();
             }
           );
           const targetField = createLanguageField(
@@ -5051,17 +5284,42 @@
           localStorage.setItem(STORAGE.learnNotifications, "false");
           clearTimeout(learnReminderTimer);
           learnReminderTimer = null;
+          getNativePlugin("LearnNotifications")?.cancelDaily?.().catch(() => {});
           renderLearnDashboard();
           return;
         }
         localStorage.setItem(STORAGE.learnNotifications, "true");
-        if ("Notification" in window && Notification.permission === "default") {
+        const nativeScheduled = await scheduleNativeLearnNotification();
+        if (!nativeScheduled && "Notification" in window && Notification.permission === "default") {
           try { await Notification.requestPermission(); } catch {}
         }
         renderLearnDashboard();
         scheduleLearnReminder(true);
         maybeSendLearnNotification(true);
         showToast(learnText("notificationEnabled"));
+      }
+
+      async function scheduleNativeLearnNotification() {
+        const plugin = getNativePlugin("LearnNotifications");
+        if (!plugin?.scheduleDaily) return false;
+        try {
+          const permission = await plugin.requestNotificationPermission();
+          if (permission?.granted !== true) return false;
+          const profile = LANGUAGE_PROFILES[learning.targetLanguage] || LANGUAGE_PROFILES.Japanese;
+          const phrases = [
+            `${profile.visual.target}${profile.visual.pronunciation ? ` (${profile.visual.pronunciation})` : ""} - ${profile.visual.meaning}`,
+            ...profile.quiz.slice(0, 6).map((item) => `${item[1][item[2]]} - ${item[0]}`)
+          ];
+          await plugin.scheduleDaily({
+            hour: 9,
+            minute: 0,
+            title: `JamdDmaj Learn · ${learning.targetLanguage}`,
+            phrases
+          });
+          return true;
+        } catch {
+          return false;
+        }
       }
 
       function getLearnNotificationPhrase() {
@@ -6025,7 +6283,9 @@
 
       async function checkTelegramOwnerAccess() {
         const panel = document.getElementById("traderTelegramPanel");
+        const serverPanel = document.getElementById("traderServerPanel");
         panel.classList.add("is-hidden");
+        serverPanel.classList.add("is-hidden");
         telegramOwnerAuthorized = false;
         try {
           const data = await callTelegramApi({ action: "status" });
@@ -6034,7 +6294,152 @@
           telegramOwnerAuthorized = false;
         }
         panel.classList.toggle("is-hidden", !telegramOwnerAuthorized);
-        if (telegramOwnerAuthorized) updateTelegramAlertsUi();
+        serverPanel.classList.toggle("is-hidden", !telegramOwnerAuthorized);
+        if (telegramOwnerAuthorized) {
+          updateTelegramAlertsUi();
+          loadProServerState();
+        }
+      }
+
+      async function callProApi(body) {
+        const response = await fetch(PRO_API_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-JamdDmaj-Device": getDeviceId(),
+            "X-JamdDmaj-Version": APP_VERSION
+          },
+          body: JSON.stringify(body)
+        });
+        let data = {};
+        try { data = await response.json(); } catch {}
+        if (!response.ok) throw new Error(data?.error?.message || `Pro server error ${response.status}`);
+        return data;
+      }
+
+      async function loadProServerState(showActivity = false) {
+        if (!telegramOwnerAuthorized) return;
+        if (showActivity) document.getElementById("proServerStatus").textContent = resolvedLanguage() === "es"
+          ? "Actualizando estado del servidor..."
+          : "Refreshing server state...";
+        try {
+          proServerState = await callProApi({ action: "status" });
+          renderProServerState(proServerState);
+        } catch (error) {
+          document.getElementById("proServerStatus").textContent = error.message;
+        }
+      }
+
+      async function toggleProServer() {
+        if (!telegramOwnerAuthorized) return;
+        const enabled = proServerState?.config?.enabled === true;
+        document.getElementById("proServerStatus").textContent = resolvedLanguage() === "es"
+          ? "Guardando configuracion 24/7..."
+          : "Saving 24/7 configuration...";
+        try {
+          proServerState = await callProApi({
+            action: "config",
+            config: {
+              enabled: !enabled,
+              quality: getTelegramMinScore() === 7 ? "A" : "AB",
+              cooldownMinutes: getTelegramCooldownMinutes(),
+              maxSignalsPerRun: 3
+            }
+          });
+          renderProServerState(proServerState);
+        } catch (error) {
+          document.getElementById("proServerStatus").textContent = error.message;
+        }
+      }
+
+      async function syncProServerConfig() {
+        if (!telegramOwnerAuthorized || !proServerState) return;
+        try {
+          proServerState = await callProApi({
+            action: "config",
+            config: {
+              enabled: proServerState.config?.enabled === true,
+              quality: getTelegramMinScore() === 7 ? "A" : "AB",
+              cooldownMinutes: getTelegramCooldownMinutes(),
+              maxSignalsPerRun: proServerState.config?.maxSignalsPerRun || 3
+            }
+          });
+          renderProServerState(proServerState);
+        } catch (error) {
+          document.getElementById("proServerStatus").textContent = error.message;
+        }
+      }
+
+      async function runProServerNow() {
+        if (!telegramOwnerAuthorized) return;
+        const button = document.getElementById("runProServerBtn");
+        button.disabled = true;
+        document.getElementById("proServerStatus").textContent = resolvedLanguage() === "es"
+          ? "El servidor esta analizando mercados..."
+          : "The server is analyzing markets...";
+        try {
+          proServerState = await callProApi({ action: "run" });
+          renderProServerState(proServerState);
+          showToast(resolvedLanguage() === "es" ? "Ciclo del servidor completado." : "Server cycle completed.");
+        } catch (error) {
+          document.getElementById("proServerStatus").textContent = error.message;
+        } finally {
+          button.disabled = false;
+        }
+      }
+
+      function renderProServerState(state) {
+        if (!state) return;
+        const spanish = resolvedLanguage() === "es";
+        const enabled = state.config?.enabled === true;
+        const status = state.status || {};
+        const stats = state.stats || {};
+        document.getElementById("proServerTitle").textContent = spanish ? "Escaner servidor 24/7" : "24/7 server scanner";
+        document.getElementById("proServerStatus").textContent = enabled
+          ? (spanish ? "Activo. Funciona aunque cierres la app." : "Active. It runs even when the app is closed.")
+          : (spanish ? "Pausado. Activalo cuando quieras iniciar el monitoreo." : "Paused. Enable it to start monitoring.");
+        document.getElementById("proServerLastRun").textContent = status.lastRunAt
+          ? `${spanish ? "Ultimo ciclo" : "Last cycle"}: ${new Date(status.lastRunAt).toLocaleString()} - ${status.assetsRead || 0} ${spanish ? "mercados" : "markets"}`
+          : (spanish ? "Aun no hay ciclos registrados." : "No server cycle recorded yet.");
+        const toggle = document.getElementById("toggleProServerBtn");
+        toggle.textContent = enabled
+          ? (spanish ? "Pausar 24/7" : "Pause 24/7")
+          : (spanish ? "Activar 24/7" : "Enable 24/7");
+        toggle.classList.toggle("active", enabled);
+        document.getElementById("runProServerBtn").textContent = spanish ? "Ejecutar ahora" : "Run server now";
+        document.getElementById("refreshProServerBtn").textContent = spanish ? "Actualizar" : "Refresh";
+        document.getElementById("proStatOpen").textContent = String(stats.open || 0);
+        document.getElementById("proStatWins").textContent = String(stats.wins || 0);
+        document.getElementById("proStatLosses").textContent = String(stats.losses || 0);
+        document.getElementById("proStatWinRate").textContent = `${Number(stats.winRate || 0).toFixed(1)}%`;
+        renderProServerHistory(state.history || []);
+      }
+
+      function renderProServerHistory(history) {
+        const list = document.getElementById("proHistoryList");
+        list.replaceChildren();
+        if (!history.length) {
+          const empty = document.createElement("span");
+          empty.className = "pro-history-empty";
+          empty.textContent = resolvedLanguage() === "es"
+            ? "El historial verificado aparecera despues del primer ciclo."
+            : "Verified history will appear after the first cycle.";
+          list.append(empty);
+          return;
+        }
+        history.slice(0, 20).forEach((signal) => {
+          const row = document.createElement("div");
+          row.className = "pro-history-row";
+          const title = document.createElement("b");
+          title.textContent = `${signal.symbol} ${signal.side}`;
+          const time = document.createElement("span");
+          time.textContent = new Date(signal.createdAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" });
+          const status = document.createElement("span");
+          status.className = `pro-status-pill ${String(signal.status || "open").toLowerCase()}`;
+          status.textContent = signal.status || "OPEN";
+          row.append(title, time, status);
+          list.append(row);
+        });
       }
 
       function getTelegramScanMinutes() {
@@ -6626,6 +7031,8 @@
           });
           const data = response.ok ? await response.json() : {};
           managedAccessReady = Boolean(data.ready);
+          latestAppStatus = data;
+          renderAppUpdateStatus(data);
         } catch {
           managedAccessReady = false;
         } finally {
@@ -6633,6 +7040,52 @@
         }
         updateConnectionStatus();
         return managedAccessReady;
+      }
+
+      async function checkForAppUpdate(announce = true) {
+        const status = document.getElementById("appUpdateStatus");
+        if (status) status.textContent = resolvedLanguage() === "es" ? "Buscando actualizaciones..." : "Checking for updates...";
+        try {
+          const response = await fetch(`${MANAGED_STATUS_URL}?t=${Date.now()}`, { cache: "no-store" });
+          if (!response.ok) throw new Error(`Update check ${response.status}`);
+          latestAppStatus = await response.json();
+          renderAppUpdateStatus(latestAppStatus, announce);
+        } catch {
+          if (status) status.textContent = resolvedLanguage() === "es"
+            ? `Version instalada: ${APP_VERSION}. No se pudo consultar el servidor.`
+            : `Installed version: ${APP_VERSION}. The server could not be reached.`;
+        }
+      }
+
+      function renderAppUpdateStatus(data, announce = false) {
+        const status = document.getElementById("appUpdateStatus");
+        const button = document.getElementById("downloadUpdateBtn");
+        if (!status || !button) return;
+        const spanish = resolvedLanguage() === "es";
+        const latest = String(data?.latestVersion || data?.version || APP_VERSION);
+        const available = compareVersions(latest, APP_VERSION) > 0;
+        status.textContent = available
+          ? (spanish ? `Nueva version ${latest} disponible. Instala encima de la actual.` : `Version ${latest} is available. Install it over the current app.`)
+          : (spanish ? `Tienes la version mas reciente (${APP_VERSION}).` : `You have the latest version (${APP_VERSION}).`);
+        const url = String(data?.apkUrl || "").trim();
+        button.classList.toggle("is-hidden", !available || !url);
+        if (available && url) button.href = url;
+        button.textContent = spanish ? "Abrir actualizacion" : "Open update";
+        document.getElementById("checkUpdatesBtn").textContent = spanish ? "Buscar actualizaciones" : "Check for updates";
+        document.getElementById("updatesSectionTitle").textContent = spanish ? "Actualizaciones de la app" : "App updates";
+        document.getElementById("updatesSectionText").textContent = spanish
+          ? "Comprueba la version oficial firmada sin borrar la app instalada."
+          : "Check the signed official release without deleting the installed app.";
+        if (available && announce) showToast(spanish ? `JamdDmaj ${latest} esta disponible.` : `JamdDmaj ${latest} is available.`);
+      }
+
+      function compareVersions(left, right) {
+        const a = String(left).split(".").map((part) => Number.parseInt(part, 10) || 0);
+        const b = String(right).split(".").map((part) => Number.parseInt(part, 10) || 0);
+        for (let index = 0; index < Math.max(a.length, b.length); index += 1) {
+          if ((a[index] || 0) !== (b[index] || 0)) return (a[index] || 0) - (b[index] || 0);
+        }
+        return 0;
       }
 
       function updateConnectionStatus() {
@@ -6890,6 +7343,7 @@
 
         const prompt = els.prompt.value.trim();
         if (!prompt && !pendingImages.length && !pendingTextFiles.length) return;
+        captureMemoryIntent(prompt);
         if (imageGenerationMode) {
           if (!settings.allowPaidImages) {
             addAssistantNotice("Image generation is turned off to protect your credits. Open Settings and enable “Allow paid image generation,” then try again. Normal chat can still use the free model.");
@@ -7192,7 +7646,10 @@
           .filter((chat) => chat.id !== current?.id && Array.isArray(chat.messages) && chat.messages.length)
           .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
           .slice(0, wantsMemory ? 8 : 3);
-        if (!previousChats.length) return "";
+        const savedMemories = explicitMemories
+          .filter((item) => item && item.text)
+          .slice(-20)
+          .map((item) => `- ${stripMemoryText(item.text)}`);
         const lines = previousChats.map((chat) => {
           const date = new Date(chat.updatedAt || chat.createdAt || Date.now()).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
           const snippets = chat.messages
@@ -7202,7 +7659,75 @@
             .join(" | ");
           return `- ${chat.title || "Untitled"} (${date}): ${snippets}`;
         });
-        return `\n\nLong-term local memory from this device:\n${lines.join("\n")}\nUse this memory when the user asks what you discussed before. Be honest if the exact detail is not present. Do not say you have no record when this memory block contains relevant prior context.`;
+        if (!savedMemories.length && !lines.length) return "";
+        const sections = [];
+        if (savedMemories.length) sections.push(`User-approved memories:\n${savedMemories.join("\n")}`);
+        if (lines.length) sections.push(`Recent conversation memory:\n${lines.join("\n")}`);
+        return `\n\nLong-term memory from this JamdDmaj profile:\n${sections.join("\n\n")}\nUse relevant memory naturally. The user can inspect and delete approved memories. Be honest if an exact detail is absent.`;
+      }
+
+      function saveExplicitMemories() {
+        explicitMemories = explicitMemories
+          .filter((item) => item && String(item.text || "").trim())
+          .slice(-40);
+        localStorage.setItem(STORAGE.memories, JSON.stringify(explicitMemories));
+        markBackupDirty();
+        renderMemorySettings();
+      }
+
+      function addExplicitMemory(value, quiet = false) {
+        const text = String(value || "").replace(/\s+/g, " ").trim().slice(0, 500);
+        if (text.length < 3) return false;
+        const duplicate = explicitMemories.some((item) => item.text.toLowerCase() === text.toLowerCase());
+        if (duplicate) return false;
+        explicitMemories.push({
+          id: globalThis.crypto?.randomUUID?.() || `memory-${Date.now()}`,
+          text,
+          createdAt: new Date().toISOString()
+        });
+        saveExplicitMemories();
+        if (!quiet) showToast(resolvedLanguage() === "es" ? "Memoria guardada." : "Memory saved.");
+        return true;
+      }
+
+      function captureMemoryIntent(text) {
+        const match = String(text || "").match(/^(?:recuerda que|quiero que recuerdes que|remember that|please remember that)\s+(.{3,500})$/i);
+        if (match?.[1]) addExplicitMemory(match[1], true);
+      }
+
+      function renderMemorySettings() {
+        const list = document.getElementById("memoryList");
+        if (!list) return;
+        const spanish = resolvedLanguage() === "es";
+        document.getElementById("memorySectionTitle").textContent = spanish ? "Memoria bajo tu control" : "Memory you control";
+        document.getElementById("memorySectionText").textContent = spanish
+          ? "Guarda preferencias o datos importantes. Puedes revisar y borrar cada recuerdo."
+          : "Save important preferences or facts. You can review and delete every memory.";
+        document.getElementById("addMemoryBtn").textContent = spanish ? "Recordar esto" : "Remember this";
+        document.getElementById("clearMemoriesBtn").textContent = spanish ? "Olvidar todo" : "Forget all";
+        list.replaceChildren();
+        if (!explicitMemories.length) {
+          const empty = document.createElement("span");
+          empty.className = "backup-status";
+          empty.textContent = spanish ? "Todavia no hay recuerdos guardados." : "No approved memories yet.";
+          list.append(empty);
+          return;
+        }
+        [...explicitMemories].reverse().forEach((memory) => {
+          const row = document.createElement("div");
+          row.className = "memory-row";
+          const text = document.createElement("span");
+          text.textContent = memory.text;
+          const remove = document.createElement("button");
+          remove.type = "button";
+          remove.textContent = spanish ? "Borrar" : "Forget";
+          remove.addEventListener("click", () => {
+            explicitMemories = explicitMemories.filter((item) => item.id !== memory.id);
+            saveExplicitMemories();
+          });
+          row.append(text, remove);
+          list.append(row);
+        });
       }
 
       function stripMemoryText(value) {
@@ -7850,7 +8375,9 @@
             tutorialSeen: localStorage.getItem(STORAGE.tutorial),
             learnNotifications: localStorage.getItem(STORAGE.learnNotifications),
             learnNotificationLastAt: localStorage.getItem(STORAGE.learnNotificationLastAt),
-            deviceId: getDeviceId()
+            deviceId: getDeviceId(),
+            memories: explicitMemories,
+            accountProfile
           }
         };
       }
@@ -7955,6 +8482,116 @@
         showToast(saved
           ? (spanish ? "Actualizacion preparada." : "Update prepared.")
           : (spanish ? "Guarda el Sync ID antes de continuar." : "Save the Sync ID before continuing."));
+      }
+
+      async function initGoogleAccount() {
+        const button = document.getElementById("googleSignInBtn");
+        const status = document.getElementById("socialAccountStatus");
+        if (!button || !status) return;
+        const spanish = resolvedLanguage() === "es";
+        if (accountProfile?.email) {
+          button.textContent = `Google · ${accountProfile.email}`;
+          button.classList.add("ready");
+          status.textContent = spanish
+            ? "Cuenta vinculada. Tu Sync ID puede recuperarse con Google."
+            : "Account linked. Google can recover your Sync ID.";
+        }
+        try {
+          const response = await fetch(`${ACCOUNT_API_URL}?t=${Date.now()}`, { cache: "no-store" });
+          googleAccountConfig = response.ok ? await response.json() : null;
+          if (!googleAccountConfig?.google?.enabled) {
+            if (!accountProfile?.email) button.textContent = spanish ? "Google · falta configurar" : "Google · setup required";
+            status.textContent = spanish
+              ? "El propietario debe configurar GOOGLE_CLIENT_ID y JAMDDMAJ_ACCOUNT_SECRET en Vercel."
+              : "The owner must configure GOOGLE_CLIENT_ID and JAMDDMAJ_ACCOUNT_SECRET in Vercel.";
+            return;
+          }
+          button.classList.add("ready");
+          if (!accountProfile?.email) button.textContent = spanish ? "Continuar con Google" : "Continue with Google";
+          status.textContent = accountProfile?.email
+            ? status.textContent
+            : (spanish ? "Vincula Google a tu perfil cifrado." : "Link Google to your encrypted profile.");
+        } catch {
+          if (!accountProfile?.email) status.textContent = spanish ? "No se pudo comprobar Google." : "Google setup could not be checked.";
+        }
+      }
+
+      async function startGoogleSignIn() {
+        const spanish = resolvedLanguage() === "es";
+        if (!googleAccountConfig?.google?.enabled) {
+          await initGoogleAccount();
+          if (!googleAccountConfig?.google?.enabled) {
+            showToast(spanish ? "Google aun necesita configuracion en Vercel." : "Google still needs Vercel configuration.");
+            return;
+          }
+        }
+        const status = document.getElementById("socialAccountStatus");
+        status.textContent = spanish ? "Abriendo Google..." : "Opening Google...";
+        try {
+          await loadGoogleIdentityScript();
+          const client = google.accounts.oauth2.initTokenClient({
+            client_id: googleAccountConfig.google.clientId,
+            scope: "openid email profile",
+            callback: async (response) => {
+              if (!response?.access_token) {
+                status.textContent = spanish ? "Google no devolvio acceso." : "Google did not return access.";
+                return;
+              }
+              await finishGoogleSignIn(response.access_token);
+            },
+            error_callback: () => {
+              status.textContent = spanish ? "Se cancelo el acceso con Google." : "Google sign-in was cancelled.";
+            }
+          });
+          client.requestAccessToken({ prompt: accountProfile?.email ? "" : "consent" });
+        } catch (error) {
+          status.textContent = error.message || (spanish ? "No se pudo abrir Google." : "Google could not be opened.");
+        }
+      }
+
+      async function finishGoogleSignIn(accessToken) {
+        const spanish = resolvedLanguage() === "es";
+        const status = document.getElementById("socialAccountStatus");
+        status.textContent = spanish ? "Protegiendo tu perfil..." : "Securing your profile...";
+        try {
+          const currentCode = getRecoveryCode(true);
+          const response = await fetch(ACCOUNT_API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "google", accessToken, recoveryCode: currentCode })
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(data?.error?.message || `Google account ${response.status}`);
+          if (!data.linked || !data.recoveryCode) throw new Error(spanish ? "No se pudo vincular el perfil." : "The profile could not be linked.");
+          accountProfile = data.profile;
+          localStorage.setItem(STORAGE.accountProfile, JSON.stringify(accountProfile));
+          localStorage.setItem(STORAGE.recoveryCode, normalizeRecoveryCode(data.recoveryCode));
+          if (normalizeRecoveryCode(data.recoveryCode) !== normalizeRecoveryCode(currentCode)) {
+            status.textContent = spanish ? "Restaurando progreso de Google..." : "Restoring Google progress...";
+            await restoreCloudBackupWithCode(normalizeRecoveryCode(data.recoveryCode));
+          } else {
+            await syncCloudBackup(false);
+            updateSyncAccountUi(spanish ? "Google vinculado y progreso protegido." : "Google linked and progress protected.");
+            initGoogleAccount();
+          }
+        } catch (error) {
+          status.textContent = error.message;
+        }
+      }
+
+      function loadGoogleIdentityScript() {
+        if (globalThis.google?.accounts?.oauth2) return Promise.resolve();
+        if (loadGoogleIdentityScript.promise) return loadGoogleIdentityScript.promise;
+        loadGoogleIdentityScript.promise = new Promise((resolve, reject) => {
+          const script = document.createElement("script");
+          script.src = "https://accounts.google.com/gsi/client";
+          script.async = true;
+          script.defer = true;
+          script.onload = resolve;
+          script.onerror = () => reject(new Error("Google Identity could not load."));
+          document.head.append(script);
+        });
+        return loadGoogleIdentityScript.promise;
       }
 
       async function hashRecoveryCode(code) {
@@ -8119,6 +8756,10 @@
         const entered = window.prompt(learnText("enterRecoveryCode"), formatRecoveryCode(getRecoveryCode(false)));
         const code = normalizeRecoveryCode(entered);
         if (!code) return;
+        await restoreCloudBackupWithCode(code);
+      }
+
+      async function restoreCloudBackupWithCode(code, reload = true) {
         try {
           const response = await fetchBackupApi({
             action: "restore",
@@ -8130,10 +8771,12 @@
           applyBackupPayload(payload);
           localStorage.setItem(STORAGE.recoveryCode, code);
           showToast(learnText("backupRestoredCloud"));
-          setTimeout(() => location.reload(), 900);
+          if (reload) setTimeout(() => location.reload(), 900);
+          return true;
         } catch (error) {
           updateCloudBackupStatus(isNetworkError(error) ? learnText("backupPending") : error.message);
           showToast(isNetworkError(error) ? learnText("backupUnavailable") : learnText("invalidBackup"));
+          return false;
         }
       }
 
@@ -8159,6 +8802,12 @@
         }
         if (data.learnNotificationLastAt) {
           localStorage.setItem(STORAGE.learnNotificationLastAt, String(data.learnNotificationLastAt));
+        }
+        if (Array.isArray(data.memories)) {
+          localStorage.setItem(STORAGE.memories, JSON.stringify(data.memories.slice(-40)));
+        }
+        if (data.accountProfile?.provider) {
+          localStorage.setItem(STORAGE.accountProfile, JSON.stringify(data.accountProfile));
         }
         if (/^[a-zA-Z0-9_-]{16,100}$/.test(String(data.deviceId || ""))) {
           localStorage.setItem(STORAGE.deviceId, String(data.deviceId));
@@ -8208,6 +8857,9 @@
         els.voice.value = settings.voiceName;
         updateConnectionStatus();
         updateCloudBackupStatus();
+        renderMemorySettings();
+        renderAppUpdateStatus(latestAppStatus || { version: APP_VERSION });
+        initGoogleAccount();
         els.settings.showModal();
         if (focusSection) {
           setTimeout(() => document.getElementById(focusSection)?.scrollIntoView({
@@ -8730,7 +9382,7 @@
           .normalize("NFD")
           .replace(/[\u0300-\u036f]/g, "")
           .toLowerCase();
-        return /\b(ultimo|ultima|last|latest|reciente|recent|hoy|today|ayer|yesterday|manana|tomorrow|noticia|news|actual|current|ahora|now|youtube|video|canal|channel|precio|price)\b/.test(normalized);
+        return /\b(ultimo|ultima|last|latest|reciente|recent|hoy|today|ayer|yesterday|manana|tomorrow|noticia|news|actual|current|ahora|now|youtube|video|canal|channel|precio|price|busca|buscar|search|investiga|investigar|research|fuente|fuentes|source|sources|recomienda|recommend)\b/.test(normalized);
       }
 
       function shouldUseDirectLiveAnswer(text) {
@@ -9676,11 +10328,16 @@
       els.telegramQualitySelect.addEventListener("change", () => {
         localStorage.setItem(STORAGE.telegramMinScore, els.telegramQualitySelect.value);
         updateTelegramAlertsUi();
+        syncProServerConfig();
       });
       els.telegramCooldownSelect.addEventListener("change", () => {
         localStorage.setItem(STORAGE.telegramCooldownMinutes, els.telegramCooldownSelect.value);
         updateTelegramAlertsUi();
+        syncProServerConfig();
       });
+      document.getElementById("toggleProServerBtn").addEventListener("click", toggleProServer);
+      document.getElementById("runProServerBtn").addEventListener("click", runProServerNow);
+      document.getElementById("refreshProServerBtn").addEventListener("click", () => loadProServerState(true));
       document.getElementById("exitTraderBtn").addEventListener("click", exitTraderMode);
       document.getElementById("brandSecretTap").addEventListener("click", () => {
         traderSecretTaps += 1;
@@ -9734,6 +10391,21 @@
       document.getElementById("prepareUpdateBtn").addEventListener("click", prepareSafeUpdate);
       document.getElementById("copySyncIdBtn").addEventListener("click", copySyncAccountId);
       document.getElementById("restoreSyncAccountBtn").addEventListener("click", restoreCloudBackup);
+      document.getElementById("checkUpdatesBtn").addEventListener("click", () => checkForAppUpdate(true));
+      document.getElementById("googleSignInBtn").addEventListener("click", startGoogleSignIn);
+      document.getElementById("addMemoryBtn").addEventListener("click", () => {
+        const input = document.getElementById("memoryInput");
+        if (addExplicitMemory(input.value)) input.value = "";
+      });
+      document.getElementById("clearMemoriesBtn").addEventListener("click", () => {
+        if (!explicitMemories.length) return;
+        const message = resolvedLanguage() === "es"
+          ? "¿Borrar todos los recuerdos aprobados?"
+          : "Forget all approved memories?";
+        if (!confirm(message)) return;
+        explicitMemories = [];
+        saveExplicitMemories();
+      });
       document.getElementById("importBackupBtn").addEventListener("click", () => {
         document.getElementById("backupFileInput").click();
       });
@@ -9926,6 +10598,7 @@
       updateCloudBackupStatus();
       scheduleCloudBackup(9000);
       scheduleLearnReminder(false);
+      if (localStorage.getItem(STORAGE.learnNotifications) === "true") scheduleNativeLearnNotification();
       populateVoices();
       if ("speechSynthesis" in window) speechSynthesis.onvoiceschanged = populateVoices;
       renderMarketGroups();

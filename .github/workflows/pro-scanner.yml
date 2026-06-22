@@ -1,0 +1,28 @@
+name: JamdDmaj Pro Scanner
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/5 * * * *"
+
+concurrency:
+  group: jamddmaj-pro-scanner
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Run private server scanner
+        env:
+          CRON_SECRET: ${{ secrets.JAMDDMAJ_CRON_SECRET }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "Missing JAMDDMAJ_CRON_SECRET GitHub secret"
+            exit 1
+          fi
+          curl --fail-with-body --retry 2 --max-time 90 \
+            -X POST \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            https://jamd-dmaj.vercel.app/api/pro-cron

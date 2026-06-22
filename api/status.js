@@ -14,6 +14,17 @@ export default function handler(request) {
     mode: "managed-free-chat",
     backup: isServiceConfigured(),
     liveSearch: isServiceConfigured(),
-    version: "1.24.0"
+    proServer: Boolean(
+      process.env.UPSTASH_REDIS_REST_URL
+      && process.env.UPSTASH_REDIS_REST_TOKEN
+      && process.env.JAMDDMAJ_CRON_SECRET
+    ),
+    googleAccount: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.JAMDDMAJ_ACCOUNT_SECRET),
+    version: "1.25.0",
+    latestVersion: String(process.env.JAMDDMAJ_LATEST_VERSION || "1.25.0"),
+    apkUrl: String(
+      process.env.JAMDDMAJ_APK_URL
+      || "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk"
+    )
   });
 }

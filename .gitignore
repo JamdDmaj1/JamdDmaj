@@ -2,6 +2,7 @@ node_modules/
 .android-signing/
 *.jks
 *.keystore
+.server-secrets.txt
 www/
 .npm-cache/
 .gradle/

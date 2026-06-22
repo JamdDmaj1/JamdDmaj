@@ -85,7 +85,7 @@ function hasYouTubeIntent(query) {
 function shouldSearchWeb(query) {
   const text = normalizeText(query);
   return hasYouTubeIntent(query)
-    || /\b(ultimo|ultima|latest|reciente|recent|hoy|today|ayer|yesterday|manana|tomorrow|noticia|news|actual|current|ahora|now|precio|price)\b/.test(text);
+    || /\b(ultimo|ultima|latest|reciente|recent|hoy|today|ayer|yesterday|manana|tomorrow|noticia|news|actual|current|ahora|now|precio|price|busca|buscar|search|investiga|investigar|research|fuente|fuentes|source|sources|recomienda|recommend)\b/.test(text);
 }
 
 async function findLatestYouTubeVideo(query) {
