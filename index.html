@@ -798,7 +798,9 @@
     }
 
     .pro-status-pill.win,
-    .pro-status-pill.open {
+    .pro-status-pill.open,
+    .pro-status-pill.protected_win,
+    .pro-status-pill.partial_win {
       color: #6ee7b7;
       background: rgba(52, 211, 153, 0.12);
     }
@@ -807,6 +809,55 @@
       color: #fda4af;
       background: rgba(251, 113, 133, 0.12);
     }
+
+    .pro-news {
+      padding: 14px;
+      border: 1px solid rgba(34, 211, 238, 0.2);
+      border-radius: 18px;
+      background: rgba(8, 47, 73, 0.12);
+    }
+
+    .pro-news summary {
+      cursor: pointer;
+      font-weight: 850;
+    }
+
+    .pro-news-toolbar,
+    .pro-news-context {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .pro-news-context span {
+      padding: 7px 9px;
+      border-radius: 999px;
+      color: #67e8f9;
+      background: rgba(8, 145, 178, 0.13);
+      font-size: 0.7rem;
+      font-weight: 750;
+    }
+
+    .pro-news-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .pro-news-list a {
+      display: grid;
+      gap: 3px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      color: var(--text);
+      text-decoration: none;
+      background: rgba(255, 255, 255, 0.025);
+    }
+
+    .pro-news-list small { color: var(--muted); }
 
     .memory-list {
       display: grid;
@@ -2985,15 +3036,24 @@
               </div>
             </div>
             <div class="pro-stat-grid">
-              <div class="pro-stat"><span>Open calls</span><strong id="proStatOpen">0</strong></div>
-              <div class="pro-stat"><span>TP3 wins</span><strong id="proStatWins">0</strong></div>
-              <div class="pro-stat"><span>Stop losses</span><strong id="proStatLosses">0</strong></div>
-              <div class="pro-stat"><span>Verified win rate</span><strong id="proStatWinRate">0%</strong></div>
+              <div class="pro-stat"><span id="proStatOpenLabel">Open calls</span><strong id="proStatOpen">0</strong></div>
+              <div class="pro-stat"><span id="proStatWinsLabel">TP successes</span><strong id="proStatWins">0</strong></div>
+              <div class="pro-stat"><span id="proStatLossesLabel">Trend invalidations</span><strong id="proStatLosses">0</strong></div>
+              <div class="pro-stat"><span id="proStatWinRateLabel">Verified success rate</span><strong id="proStatWinRate">0%</strong></div>
             </div>
             <div class="pro-history" id="proHistoryList">
               <span class="pro-history-empty">The verified history will appear after the server runs.</span>
             </div>
           </div>
+          <details class="pro-news">
+            <summary id="proNewsTitle">Market and macro context</summary>
+            <div class="pro-news-toolbar">
+              <span class="backup-status" id="proNewsStatus">Open to load the latest context.</span>
+              <button class="pill-btn" id="refreshProNewsBtn" type="button">Refresh news</button>
+            </div>
+            <div class="pro-news-context" id="proNewsContext"></div>
+            <div class="pro-news-list" id="proNewsList"></div>
+          </details>
           <div id="signalList" class="trader-signals"></div>
         </div>
       </section>
@@ -3358,7 +3418,7 @@
             <button class="pill-btn" id="checkUpdatesBtn" type="button">Check for updates</button>
             <a class="social-link is-hidden" id="downloadUpdateBtn" href="#" target="_blank" rel="noopener noreferrer">Open update</a>
           </div>
-          <div class="backup-status" id="appUpdateStatus">Installed version: 1.27.0</div>
+          <div class="backup-status" id="appUpdateStatus">Installed version: 1.28.0</div>
         </section>
       </div>
       <div class="dialog-actions">
@@ -3483,11 +3543,12 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.27.0";
+      const APP_VERSION = "1.28.0";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
       const FREE_LIVE_API_URL = `${WEB_APP_URL}api/live`;
       const TELEGRAM_API_URL = `${WEB_APP_URL}api/telegram`;
       const PRO_API_URL = `${WEB_APP_URL}api/pro`;
+      const PRO_NEWS_API_URL = `${WEB_APP_URL}api/pro-news`;
       const ACCOUNT_API_URL = `${WEB_APP_URL}api/account`;
       const RELEASE_NOTES = {
         normal: {
@@ -3520,9 +3581,10 @@
             intro: "Hidden Pro mode was upgraded separately.",
             button: "Enter Pro",
             items: [
-              ["24/7 server scanner", "GitHub and Vercel can scan even when every app and browser is closed."],
-              ["Verified outcomes", "TP, SL, expiration, and ambiguous candles are tracked in Upstash."],
-              ["Private control panel", "Run, pause, refresh, and review verified statistics from the authorized device."]
+              ["Binance + Bitget universe", "The server rotates through a much larger liquid perpetual catalog without depending on one exchange."],
+              ["Stricter confirmations", "Volume is mandatory and market cap, 1h/4h trend, spread, liquidity, funding, momentum, RSI and MACD are checked."],
+              ["Profit protection", "Telegram suggests protection near +3% estimated ROE at 10x and reports confirmed trend reversals without noisy expiration messages."],
+              ["News and macro context", "A separate panel keeps headlines, sentiment and Bitcoin dominance available without crowding the signals."]
             ]
           },
           es: {
@@ -3530,9 +3592,10 @@
             intro: "El modo Pro oculto fue mejorado por separado.",
             button: "Entrar al Pro",
             items: [
-              ["Escaner servidor 24/7", "GitHub y Vercel analizan aunque todas las apps y navegadores esten cerrados."],
-              ["Resultados verificados", "TP, SL, expiracion y velas ambiguas quedan registrados en Upstash."],
-              ["Panel privado", "Ejecuta, pausa, actualiza y revisa estadisticas desde el dispositivo autorizado."]
+              ["Universo Binance + Bitget", "El servidor rota por un catalogo mucho mayor de perpetuos liquidos sin depender de un solo exchange."],
+              ["Confirmaciones mas estrictas", "El volumen es obligatorio y se revisan market cap, tendencia 1h/4h, spread, liquidez, funding, momentum, RSI y MACD."],
+              ["Proteccion de beneficio", "Telegram sugiere proteger cerca de +3% de ROE estimado a 10x y avisa reversiones confirmadas sin mensajes molestos de expiracion."],
+              ["Noticias y contexto macro", "Un panel separado muestra titulares, sentimiento y dominancia de Bitcoin sin llenar las calls."]
             ]
           }
         }
@@ -3541,7 +3604,7 @@
         en: {
           eyebrow: "JamdDmaj Pro Signals",
           title: "Crypto futures scanner",
-          hero: "Educational setups with entry, TP, SL, validity window, momentum, trend, RSI, MACD, volume, and risk notes. No automatic order execution.",
+          hero: "High-quality educational setups with targets, suggested invalidation, trend monitoring, market cap, liquidity, momentum, RSI, MACD, and volume. No automatic orders.",
           scan: "Scan now",
           back: "Back",
           ready: "Tap Scan now. Hidden access: tap the JamdDmaj AI name 5 times.",
@@ -3565,15 +3628,15 @@
           lastScan: "Last scan: {stamp}. Educational scanner only. Risk max 1% per idea.",
           noSetups: "Last scan: {stamp}. No clean A/B setups right now. Waiting is also a pro move.",
           grade: "{grade}-grade setup",
-          created: "Created {time} - Valid until {valid}",
+          created: "Created {time} - Monitored until {valid}",
           entry: "Entry",
           tp1: "TP 1",
           tp2: "TP 2",
           tp3: "TP 3",
-          sl: "SL",
+          sl: "Suggested invalidation",
           score: "Score",
           move: "Move",
-          note: "Educational signal, not financial advice. Confirm liquidity, funding/news, and your own risk before doing anything.",
+          note: "Educational monitoring only. The red level is suggested invalidation, not an order placed by JamdDmaj.",
           whyLong: "Why long",
           whyShort: "Why short",
           requestedLow: "This is a requested setup, so confidence is lower than the automatic scanner.",
@@ -3595,7 +3658,7 @@
         es: {
           eyebrow: "JamdDmaj Pro Signals",
           title: "Scanner de futuros crypto",
-          hero: "Setups educativos con entrada, TP, SL, ventana de validez, momentum, tendencia, RSI, MACD, volumen y notas de riesgo. No ejecuta ordenes automaticas.",
+          hero: "Setups educativos de alta calidad con objetivos, invalidacion sugerida, seguimiento de tendencia, market cap, liquidez, momentum, RSI, MACD y volumen. No ejecuta ordenes.",
           scan: "Escanear",
           back: "Volver",
           ready: "Toca Escanear. Acceso oculto: toca el nombre JamdDmaj AI 5 veces.",
@@ -3619,15 +3682,15 @@
           lastScan: "Ultimo escaneo: {stamp}. Scanner educativo. Riesgo maximo 1% por idea.",
           noSetups: "Ultimo escaneo: {stamp}. No hay setups A/B limpios ahora. Esperar tambien es de pro.",
           grade: "Setup grado {grade}",
-          created: "Creado {time} - Valido hasta {valid}",
+          created: "Creado {time} - Monitoreado hasta {valid}",
           entry: "Entrada",
           tp1: "TP 1",
           tp2: "TP 2",
           tp3: "TP 3",
-          sl: "SL",
+          sl: "Invalidacion sugerida",
           score: "Puntaje",
           move: "Mov.",
-          note: "Senal educativa, no es consejo financiero. Confirma liquidez, funding/noticias y tu propio riesgo antes de hacer algo.",
+          note: "Monitoreo educativo. El nivel rojo es una invalidacion sugerida, no una orden ejecutada por JamdDmaj.",
           whyLong: "Por que long",
           whyShort: "Por que short",
           requestedLow: "Este setup fue pedido manualmente, asi que la confianza es menor que en el scanner automatico.",
@@ -5162,6 +5225,7 @@
         closeSidebar();
         renderAll();
         checkTelegramOwnerAccess();
+        loadProNews();
         if (!els.signalList.children.length) scanProSignals();
         maybeShowProReleaseNotes();
         scheduleTraderScanner();
@@ -6381,6 +6445,61 @@
         }
       }
 
+      async function loadProNews(showActivity = false) {
+        const spanish = resolvedLanguage() === "es";
+        const status = document.getElementById("proNewsStatus");
+        if (showActivity) status.textContent = spanish ? "Actualizando contexto..." : "Refreshing context...";
+        try {
+          const response = await fetch(`${PRO_NEWS_API_URL}?t=${Date.now()}`, { cache: "no-store" });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data?.error?.message || `News ${response.status}`);
+          renderProNews(data);
+        } catch (error) {
+          status.textContent = spanish ? "El contexto de mercado no esta disponible ahora." : "Market context is unavailable right now.";
+        }
+      }
+
+      function renderProNews(data) {
+        const spanish = resolvedLanguage() === "es";
+        document.getElementById("proNewsTitle").textContent = spanish ? "Noticias y contexto macro" : "Market and macro context";
+        document.getElementById("refreshProNewsBtn").textContent = spanish ? "Actualizar noticias" : "Refresh news";
+        document.getElementById("proNewsStatus").textContent = data.updatedAt
+          ? `${spanish ? "Actualizado" : "Updated"}: ${new Date(data.updatedAt).toLocaleString()}`
+          : (spanish ? "Contexto disponible." : "Context available.");
+        const context = document.getElementById("proNewsContext");
+        context.replaceChildren();
+        const items = [
+          data.context?.fearGreed ? `${spanish ? "Miedo y codicia" : "Fear & Greed"}: ${data.context.fearGreed.value} (${data.context.fearGreed.label})` : "",
+          Number.isFinite(data.context?.bitcoinDominance) ? `BTC dominance: ${data.context.bitcoinDominance.toFixed(1)}%` : "",
+          Number.isFinite(data.context?.marketCapChange24h) ? `${spanish ? "Market cap 24h" : "24h market cap"}: ${data.context.marketCapChange24h >= 0 ? "+" : ""}${data.context.marketCapChange24h.toFixed(2)}%` : ""
+        ].filter(Boolean);
+        items.forEach((text) => {
+          const chip = document.createElement("span");
+          chip.textContent = text;
+          context.append(chip);
+        });
+        const list = document.getElementById("proNewsList");
+        list.replaceChildren();
+        (data.articles || []).slice(0, 10).forEach((article) => {
+          const link = document.createElement("a");
+          link.href = article.url;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          const title = document.createElement("b");
+          title.textContent = article.title;
+          const source = document.createElement("small");
+          source.textContent = [article.domain, article.publishedAt ? new Date(article.publishedAt).toLocaleString() : ""].filter(Boolean).join(" - ");
+          link.append(title, source);
+          list.append(link);
+        });
+        if (!list.children.length) {
+          const empty = document.createElement("span");
+          empty.className = "pro-history-empty";
+          empty.textContent = spanish ? "No hay titulares disponibles ahora." : "No headlines are available right now.";
+          list.append(empty);
+        }
+      }
+
       async function toggleProServer() {
         if (!telegramOwnerAuthorized) return;
         const enabled = proServerState?.config?.enabled === true;
@@ -6465,6 +6584,10 @@
         document.getElementById("proStatWins").textContent = String(stats.wins || 0);
         document.getElementById("proStatLosses").textContent = String(stats.losses || 0);
         document.getElementById("proStatWinRate").textContent = `${Number(stats.winRate || 0).toFixed(1)}%`;
+        document.getElementById("proStatOpenLabel").textContent = spanish ? "Calls abiertas" : "Open calls";
+        document.getElementById("proStatWinsLabel").textContent = spanish ? "Calls que tocaron TP" : "TP successes";
+        document.getElementById("proStatLossesLabel").textContent = spanish ? "Reversiones sin TP" : "Trend invalidations";
+        document.getElementById("proStatWinRateLabel").textContent = spanish ? "Tasa de exito verificada" : "Verified success rate";
         renderProServerHistory(state.history || []);
       }
 
@@ -10119,6 +10242,17 @@
           const createdTime = signal.createdAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
           const validTime = signal.validUntil.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
           title.innerHTML = `<small>${tradeText("grade", { grade: signal.confidence })}</small><h3>${signal.symbol}</h3><span class="signal-category">${tradeCategoryText(signal.category)}</span><p>${tradeText("created", { time: createdTime, valid: validTime })}</p>`;
+          if (signal.marketCap > 0 && signal.marketCap < 250000000) {
+            const warning = document.createElement("span");
+            warning.className = "signal-category";
+            warning.style.marginLeft = "6px";
+            warning.style.borderColor = "rgba(251, 113, 133, 0.5)";
+            warning.style.color = "#fda4af";
+            warning.textContent = signal.marketCap < 50000000
+              ? (resolvedLanguage() === "es" ? "MICRO CAP - RIESGO ALTO" : "MICRO CAP - HIGH RISK")
+              : (resolvedLanguage() === "es" ? "SMALL CAP - RIESGO ELEVADO" : "SMALL CAP - ELEVATED RISK");
+            title.append(warning);
+          }
           const badge = document.createElement("span");
           badge.className = `signal-badge ${signal.side.toLowerCase()}`;
           badge.textContent = signal.side;
@@ -10144,6 +10278,13 @@
             chip.textContent = reason;
             reasons.append(chip);
           });
+          if (signal.marketCap || signal.venue || signal.venues?.length) {
+            const marketChip = document.createElement("span");
+            const cap = signal.marketCap ? `$${formatCompactNumber(signal.marketCap)}` : (resolvedLanguage() === "es" ? "no disponible" : "unavailable");
+            const venues = (signal.venues || [signal.venue]).filter(Boolean).join(" + ");
+            marketChip.textContent = `Market cap ${cap}${venues ? ` - ${venues}` : ""}`;
+            reasons.append(marketChip);
+          }
           const note = document.createElement("p");
           note.style.marginTop = "14px";
           note.textContent = tradeText("note");
@@ -10525,6 +10666,7 @@
       document.getElementById("toggleProServerBtn").addEventListener("click", toggleProServer);
       document.getElementById("runProServerBtn").addEventListener("click", runProServerNow);
       document.getElementById("refreshProServerBtn").addEventListener("click", () => loadProServerState(true));
+      document.getElementById("refreshProNewsBtn").addEventListener("click", () => loadProNews(true));
       document.getElementById("exitTraderBtn").addEventListener("click", exitTraderMode);
       document.getElementById("brandSecretTap").addEventListener("click", () => {
         traderSecretTaps += 1;
