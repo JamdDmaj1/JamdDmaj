@@ -43,8 +43,8 @@ Google links the existing encrypted JamdDmaj Sync ID. The server stores only an 
 Commit and push normally, then create a version tag:
 
 ```powershell
-git tag v1.28.1
-git push origin v1.28.1
+git tag v1.28.2
+git push origin v1.28.2
 ```
 
 The `Publish Signed Android Release` workflow builds `JamdDmaj-AI.apk` with the permanent signing key and attaches it to a GitHub Release. The app checks the stable latest-release URL.

@@ -135,31 +135,39 @@ function sanitizeSignal(value) {
     tp3,
     createdAt: String(value?.createdAt || "").slice(0, 40),
     validUntil: String(value?.validUntil || "").slice(0, 40),
-    summary: String(value?.summary || "").replace(/\s+/g, " ").slice(0, 700)
+    summary: String(value?.summary || "").replace(/\s+/g, " ").slice(0, 700),
+    marketCap: Number(value?.marketCap) || 0,
+    marketCapRank: Number(value?.marketCapRank) || 0,
+    venue: String((Array.isArray(value?.venues) ? value.venues : [value?.venue]).filter(Boolean).join(" + ")).slice(0, 80)
   };
 }
 
 function formatSignal(signal) {
   const sideEmoji = signal.side === "LONG" ? "🟢" : "🔴";
+  const lowCapWarning = signal.marketCap > 0 && signal.marketCap < 250_000_000
+    ? `⚠️ <b>${signal.marketCap < 50_000_000 ? "MICRO CAP" : "SMALL CAP"}:</b> mayor riesgo de volatilidad y slippage.`
+    : "";
   return [
-    `🔥 <b>JAMD DMAJ PRO SIGNAL · ${escapeHtml(signal.confidence)}</b>`,
+    "🚀 <b>JamdDmaj Pro Signal</b>",
     "",
     `${sideEmoji} <b>${escapeHtml(signal.side)}</b>`,
     `📊 <code>${escapeHtml(signal.symbol)}</code>`,
-    `🏷️ ${escapeHtml(signal.category)}`,
+    `🏷️ ${escapeHtml(signal.category)} | ${escapeHtml(signal.confidence)} ${signal.score}/${signal.maxScore}`,
+    signal.venue ? `🏛️ Venue: ${escapeHtml(signal.venue)}` : "",
+    `📈 Market cap: ${signal.marketCap ? `$${formatCompact(signal.marketCap)}${signal.marketCapRank ? ` (#${signal.marketCapRank})` : ""}` : "no disponible"}`,
     "",
-    `💰 <b>Entrada:</b> <code>${formatPrice(signal.entry)}</code>`,
-    `🎯 <b>TP1:</b> <code>${formatPrice(signal.tp1)}</code>`,
-    `🎯 <b>TP2:</b> <code>${formatPrice(signal.tp2)}</code>`,
-    `🎯 <b>TP3:</b> <code>${formatPrice(signal.tp3)}</code>`,
-    `🛑 <b>SL:</b> <code>${formatPrice(signal.sl)}</code>`,
-    `⭐ <b>Score:</b> ${signal.score}/${signal.maxScore}`,
+    `🎯 <b>Entrada:</b> <code>${formatPrice(signal.entry)}</code>`,
+    `✅ <b>TP1:</b> <code>${formatPrice(signal.tp1)}</code>`,
+    `✅ <b>TP2:</b> <code>${formatPrice(signal.tp2)}</code>`,
+    `✅ <b>TP3:</b> <code>${formatPrice(signal.tp3)}</code>`,
+    `🚧 <b>Invalidacion sugerida:</b> <code>${formatPrice(signal.sl)}</code>`,
     signal.createdAt ? `🕒 <b>Creada:</b> ${formatDate(signal.createdAt)}` : "",
-    signal.validUntil ? `⏳ <b>Valida hasta:</b> ${formatDate(signal.validUntil)}` : "",
+    signal.validUntil ? `🔎 <b>Monitoreada hasta:</b> ${formatDate(signal.validUntil)}` : "",
+    lowCapWarning,
     "",
     `🧠 <b>Motivo:</b>\n${escapeHtml(signal.summary || "Confirma liquidez, noticias y tu propio riesgo.")}`,
     "",
-    "⚠️ <i>Senal educativa. No ejecuta ordenes automaticamente.</i>"
+    "⚠️ <i>Monitoreo educativo. JamdDmaj no coloca SL ni ejecuta ordenes automaticamente.</i>"
   ].filter(Boolean).join("\n");
 }
 
@@ -191,4 +199,8 @@ function formatPrice(value) {
   const absolute = Math.abs(value);
   const decimals = absolute >= 1000 ? 2 : absolute >= 1 ? 4 : absolute >= 0.01 ? 6 : absolute >= 0.0001 ? 8 : 12;
   return `$${value.toFixed(decimals).replace(/0+$/, "").replace(/\.$/, "")}`;
+}
+
+function formatCompact(value) {
+  return new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(value);
 }

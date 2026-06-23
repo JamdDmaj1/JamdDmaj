@@ -3418,7 +3418,7 @@
             <button class="pill-btn" id="checkUpdatesBtn" type="button">Check for updates</button>
             <a class="social-link is-hidden" id="downloadUpdateBtn" href="#" target="_blank" rel="noopener noreferrer">Open update</a>
           </div>
-          <div class="backup-status" id="appUpdateStatus">Installed version: 1.28.1</div>
+          <div class="backup-status" id="appUpdateStatus">Installed version: 1.28.2</div>
         </section>
       </div>
       <div class="dialog-actions">
@@ -3543,7 +3543,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.28.1";
+      const APP_VERSION = "1.28.2";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
       const FREE_LIVE_API_URL = `${WEB_APP_URL}api/live`;
       const TELEGRAM_API_URL = `${WEB_APP_URL}api/telegram`;
@@ -6698,6 +6698,7 @@
 
       async function pushTelegramSignals(signals, { force = false } = {}) {
         if (!telegramOwnerAuthorized || !telegramAlertsEnabled() || !traderMode || !signals.length) return;
+        if (!force && proServerState?.config?.enabled === true) return;
         const selected = signals.filter((signal) => signal.score >= getTelegramMinScore()).slice(0, 3);
         if (!selected.length) return;
         const results = await Promise.allSettled(selected.map((signal) => callTelegramApi({
