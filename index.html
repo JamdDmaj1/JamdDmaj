@@ -661,7 +661,8 @@
       font-weight: 750;
     }
 
-    .trader-alert-controls select {
+    .trader-alert-controls select,
+    .trader-alert-controls input {
       min-height: 36px;
       border: 1px solid var(--line);
       border-radius: 11px;
@@ -3020,7 +3021,28 @@
                   <option value="75">75 min</option>
                 </select>
               </label>
+              <label><span id="proPlannedUsdLabel">Planned position (USD)</span>
+                <input id="proPlannedUsdInput" type="number" min="5" max="100000" step="5" value="25">
+              </label>
+              <label><span id="proLeverageLabel">Planning leverage</span>
+                <select id="proLeverageSelect">
+                  <option value="2">2x</option>
+                  <option value="3">3x</option>
+                  <option value="5">5x</option>
+                  <option value="10" selected>10x</option>
+                  <option value="20">20x</option>
+                  <option value="25">25x</option>
+                  <option value="50">50x</option>
+                </select>
+              </label>
+              <label><span id="proTriggerRoeLabel">Suggest protection at ROE %</span>
+                <input id="proTriggerRoeInput" type="number" min="0.5" max="50" step="0.5" value="4">
+              </label>
+              <label><span id="proLockRoeLabel">Protect approximately ROE %</span>
+                <input id="proLockRoeInput" type="number" min="0.1" max="40" step="0.5" value="2">
+              </label>
             </div>
+            <small id="proExecutionNotice">Planning and alerts only. JamdDmaj does not place orders or hold Bitget API keys.</small>
           </div>
           <div class="trader-server is-hidden" id="traderServerPanel">
             <div class="trader-server-head">
@@ -3418,7 +3440,7 @@
             <button class="pill-btn" id="checkUpdatesBtn" type="button">Check for updates</button>
             <a class="social-link is-hidden" id="downloadUpdateBtn" href="#" target="_blank" rel="noopener noreferrer">Open update</a>
           </div>
-          <div class="backup-status" id="appUpdateStatus">Installed version: 1.28.2</div>
+          <div class="backup-status" id="appUpdateStatus">Installed version: 1.29.0</div>
         </section>
       </div>
       <div class="dialog-actions">
@@ -3543,7 +3565,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.28.2";
+      const APP_VERSION = "1.29.0";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
       const FREE_LIVE_API_URL = `${WEB_APP_URL}api/live`;
       const TELEGRAM_API_URL = `${WEB_APP_URL}api/telegram`;
@@ -3581,10 +3603,10 @@
             intro: "Hidden Pro mode was upgraded separately.",
             button: "Enter Pro",
             items: [
-              ["Binance + Bitget universe", "The server rotates through a much larger liquid perpetual catalog without depending on one exchange."],
-              ["Stricter confirmations", "Volume is mandatory and market cap, 1h/4h trend, spread, liquidity, funding, momentum, RSI and MACD are checked."],
-              ["Profit protection", "Telegram suggests protection near +3% estimated ROE at 10x and reports confirmed trend reversals without noisy expiration messages."],
-              ["News and macro context", "A separate panel keeps headlines, sentiment and Bitcoin dominance available without crowding the signals."]
+              ["Visible 24/7 heartbeat", "Telegram confirms hourly that the server is scanning even with every app and browser closed."],
+              ["Stronger confirmations", "ADX trend strength joins volume, market cap, 1h/4h trend, spread, liquidity, funding, momentum, RSI and MACD."],
+              ["Configurable planning", "Set a hypothetical USD amount, leverage, protection trigger and protected ROE without giving JamdDmaj trading permissions."],
+              ["4% to 2% protection", "At +4% estimated ROE or TP1, Telegram suggests protecting approximately +2% before fees."]
             ]
           },
           es: {
@@ -3592,10 +3614,10 @@
             intro: "El modo Pro oculto fue mejorado por separado.",
             button: "Entrar al Pro",
             items: [
-              ["Universo Binance + Bitget", "El servidor rota por un catalogo mucho mayor de perpetuos liquidos sin depender de un solo exchange."],
-              ["Confirmaciones mas estrictas", "El volumen es obligatorio y se revisan market cap, tendencia 1h/4h, spread, liquidez, funding, momentum, RSI y MACD."],
-              ["Proteccion de beneficio", "Telegram sugiere proteger cerca de +3% de ROE estimado a 10x y avisa reversiones confirmadas sin mensajes molestos de expiracion."],
-              ["Noticias y contexto macro", "Un panel separado muestra titulares, sentimiento y dominancia de Bitcoin sin llenar las calls."]
+              ["Latido 24/7 visible", "Telegram confirma cada hora que el servidor sigue escaneando aunque todas las apps y navegadores esten cerrados."],
+              ["Confirmaciones mas fuertes", "ADX se suma a volumen, market cap, tendencia 1h/4h, spread, liquidez, funding, momentum, RSI y MACD."],
+              ["Plan configurable", "Configura dolares hipoteticos, apalancamiento, activacion y proteccion sin entregar permisos de trading a JamdDmaj."],
+              ["Proteccion 4% a 2%", "Al llegar a +4% de ROE estimado o TP1, Telegram sugiere proteger aproximadamente +2% antes de comisiones."]
             ]
           }
         }
@@ -6531,7 +6553,11 @@
               enabled: proServerState.config?.enabled === true,
               quality: getTelegramMinScore() === 7 ? "A" : "AB",
               cooldownMinutes: getTelegramCooldownMinutes(),
-              maxSignalsPerRun: proServerState.config?.maxSignalsPerRun || 3
+              maxSignalsPerRun: proServerState.config?.maxSignalsPerRun || 3,
+              plannedUsd: Number(document.getElementById("proPlannedUsdInput").value) || 25,
+              leverage: Number(document.getElementById("proLeverageSelect").value) || 10,
+              protectionTriggerRoe: Number(document.getElementById("proTriggerRoeInput").value) || 4,
+              protectionLockRoe: Number(document.getElementById("proLockRoeInput").value) || 2
             }
           });
           renderProServerState(proServerState);
@@ -6587,6 +6613,17 @@
         document.getElementById("proStatWins").textContent = String(stats.wins || 0);
         document.getElementById("proStatLosses").textContent = String(stats.losses || 0);
         document.getElementById("proStatWinRate").textContent = `${Number(stats.winRate || 0).toFixed(1)}%`;
+        document.getElementById("proPlannedUsdInput").value = String(state.config?.plannedUsd || 25);
+        document.getElementById("proLeverageSelect").value = String(state.config?.leverage || 10);
+        document.getElementById("proTriggerRoeInput").value = String(state.config?.protectionTriggerRoe || 4);
+        document.getElementById("proLockRoeInput").value = String(state.config?.protectionLockRoe || 2);
+        document.getElementById("proPlannedUsdLabel").textContent = spanish ? "Plan de posicion (USD)" : "Planned position (USD)";
+        document.getElementById("proLeverageLabel").textContent = spanish ? "Apalancamiento del plan" : "Planning leverage";
+        document.getElementById("proTriggerRoeLabel").textContent = spanish ? "Sugerir proteccion al ROE %" : "Suggest protection at ROE %";
+        document.getElementById("proLockRoeLabel").textContent = spanish ? "Proteger aproximadamente ROE %" : "Protect approximately ROE %";
+        document.getElementById("proExecutionNotice").textContent = spanish
+          ? "Solo plan y alertas. JamdDmaj no coloca ordenes ni guarda claves API de Bitget."
+          : "Planning and alerts only. JamdDmaj does not place orders or hold Bitget API keys.";
         document.getElementById("proStatOpenLabel").textContent = spanish ? "Calls abiertas" : "Open calls";
         document.getElementById("proStatWinsLabel").textContent = spanish ? "Calls que tocaron TP" : "TP successes";
         document.getElementById("proStatLossesLabel").textContent = spanish ? "Reversiones sin TP" : "Trend invalidations";
@@ -10666,6 +10703,9 @@
         localStorage.setItem(STORAGE.telegramCooldownMinutes, els.telegramCooldownSelect.value);
         updateTelegramAlertsUi();
         syncProServerConfig();
+      });
+      ["proPlannedUsdInput", "proLeverageSelect", "proTriggerRoeInput", "proLockRoeInput"].forEach((id) => {
+        document.getElementById(id).addEventListener("change", syncProServerConfig);
       });
       document.getElementById("toggleProServerBtn").addEventListener("click", toggleProServer);
       document.getElementById("runProServerBtn").addEventListener("click", runProServerNow);

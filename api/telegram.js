@@ -138,7 +138,11 @@ function sanitizeSignal(value) {
     summary: String(value?.summary || "").replace(/\s+/g, " ").slice(0, 700),
     marketCap: Number(value?.marketCap) || 0,
     marketCapRank: Number(value?.marketCapRank) || 0,
-    venue: String((Array.isArray(value?.venues) ? value.venues : [value?.venue]).filter(Boolean).join(" + ")).slice(0, 80)
+    venue: String((Array.isArray(value?.venues) ? value.venues : [value?.venue]).filter(Boolean).join(" + ")).slice(0, 80),
+    plannedUsd: Number(value?.plannedUsd) || 25,
+    leverage: Number(value?.leverage) || 10,
+    protectionTriggerRoe: Number(value?.protectionTriggerRoe) || 4,
+    protectionLockRoe: Number(value?.protectionLockRoe) || 2
   };
 }
 
@@ -155,6 +159,7 @@ function formatSignal(signal) {
     `🏷️ ${escapeHtml(signal.category)} | ${escapeHtml(signal.confidence)} ${signal.score}/${signal.maxScore}`,
     signal.venue ? `🏛️ Venue: ${escapeHtml(signal.venue)}` : "",
     `📈 Market cap: ${signal.marketCap ? `$${formatCompact(signal.marketCap)}${signal.marketCapRank ? ` (#${signal.marketCapRank})` : ""}` : "no disponible"}`,
+    `💵 Plan: $${signal.plannedUsd.toFixed(2)} a ${signal.leverage}x (no ejecutado)`,
     "",
     `🎯 <b>Entrada:</b> <code>${formatPrice(signal.entry)}</code>`,
     `✅ <b>TP1:</b> <code>${formatPrice(signal.tp1)}</code>`,

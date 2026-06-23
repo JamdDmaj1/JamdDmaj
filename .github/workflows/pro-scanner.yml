@@ -3,7 +3,7 @@ name: JamdDmaj Pro Scanner
 on:
   workflow_dispatch:
   schedule:
-    - cron: "*/5 * * * *"
+    - cron: "3-58/5 * * * *"
 
 concurrency:
   group: jamddmaj-pro-scanner
