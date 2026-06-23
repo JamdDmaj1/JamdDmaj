@@ -17,12 +17,19 @@ jobs:
       - name: Run private server scanner
         env:
           CRON_SECRET: ${{ secrets.JAMDDMAJ_CRON_SECRET }}
+        shell: bash
         run: |
+          set -euo pipefail
           if [ -z "$CRON_SECRET" ]; then
             echo "Missing JAMDDMAJ_CRON_SECRET GitHub secret"
             exit 1
           fi
-          curl --fail-with-body --retry 2 --max-time 90 \
+          response=$(curl --fail-with-body --retry 2 --max-time 120 \
             -X POST \
             -H "Authorization: Bearer $CRON_SECRET" \
-            https://jamd-dmaj.vercel.app/api/pro-cron
+            "https://jamd-dmaj.vercel.app/api/pro-cron?force=1")
+          echo "$response"
+          if ! echo "$response" | grep -q '"ok":true'; then
+            echo "The Pro server did not confirm a completed cycle."
+            exit 1
+          fi

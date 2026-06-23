@@ -16,7 +16,9 @@ export default async function handler(request) {
     return jsonResponse(request, { error: { message: "Unauthorized scanner request." } }, 401);
   }
   try {
-    const result = await runProCycle();
+    const url = new URL(request.url);
+    const force = url.searchParams.get("force") === "1";
+    const result = await runProCycle({ force });
     return jsonResponse(request, result);
   } catch (error) {
     return jsonResponse(request, {

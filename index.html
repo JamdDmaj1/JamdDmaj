@@ -3418,7 +3418,7 @@
             <button class="pill-btn" id="checkUpdatesBtn" type="button">Check for updates</button>
             <a class="social-link is-hidden" id="downloadUpdateBtn" href="#" target="_blank" rel="noopener noreferrer">Open update</a>
           </div>
-          <div class="backup-status" id="appUpdateStatus">Installed version: 1.28.0</div>
+          <div class="backup-status" id="appUpdateStatus">Installed version: 1.28.1</div>
         </section>
       </div>
       <div class="dialog-actions">
@@ -3543,7 +3543,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.28.0";
+      const APP_VERSION = "1.28.1";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
       const FREE_LIVE_API_URL = `${WEB_APP_URL}api/live`;
       const TELEGRAM_API_URL = `${WEB_APP_URL}api/telegram`;
@@ -6570,8 +6570,11 @@
             ? `Activo. Rota automaticamente por ${status.universeSize || "todos los"} mercados liquidos.`
             : `Active. Automatically rotating through ${status.universeSize || "all"} liquid markets.`)
           : (spanish ? "Pausado. Activalo cuando quieras iniciar el monitoreo." : "Paused. Enable it to start monitoring.");
+        const telegramRun = status.telegram
+          ? ` - Telegram: ${status.telegram.configured ? `${status.telegram.sent || 0} ${spanish ? "enviados" : "sent"}, ${status.telegram.errors || 0} ${spanish ? "errores" : "errors"}` : (spanish ? "sin configurar" : "not configured")}`
+          : "";
         document.getElementById("proServerLastRun").textContent = status.lastRunAt
-          ? `${spanish ? "Ultimo ciclo" : "Last cycle"}: ${new Date(status.lastRunAt).toLocaleString()} - ${status.assetsRead || 0}/${status.universeSize || 0} ${spanish ? "mercados" : "markets"} - ${spanish ? "vuelta" : "rotation"} ~${status.fullRotationMinutes || 0} min`
+          ? `${spanish ? "Ultimo ciclo" : "Last cycle"}: ${new Date(status.lastRunAt).toLocaleString()} - ${status.assetsRead || 0}/${status.universeSize || 0} ${spanish ? "mercados" : "markets"} - ${spanish ? "vuelta" : "rotation"} ~${status.fullRotationMinutes || 0} min${telegramRun}`
           : (spanish ? "Aun no hay ciclos registrados." : "No server cycle recorded yet.");
         const toggle = document.getElementById("toggleProServerBtn");
         toggle.textContent = enabled
