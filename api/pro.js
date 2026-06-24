@@ -1,5 +1,6 @@
 import { corsHeaders, jsonResponse } from "../lib/server.js";
-import { getProServerState, runProCycle, saveProServerConfig } from "../lib/pro-signals.js";
+import { getProServerState, resetPaperPortfolio, runProCycle, saveProServerConfig } from "../lib/pro-signals.js";
+import { runProBacktest } from "../lib/pro-backtest.js";
 
 export const config = { runtime: "edge" };
 
@@ -30,6 +31,16 @@ export default async function handler(request) {
       const state = await getProServerState();
       return jsonResponse(request, { ok: true, result, ...publicState(state) });
     }
+    if (input?.action === "paperReset") {
+      const paper = await resetPaperPortfolio();
+      const state = await getProServerState();
+      return jsonResponse(request, { ...publicState(state), paper });
+    }
+    if (input?.action === "backtest") {
+      const backtest = await runProBacktest({ force: input?.force === true });
+      const state = await getProServerState();
+      return jsonResponse(request, { ...publicState(state), backtest });
+    }
     return jsonResponse(request, { error: { message: "Invalid action." } }, 400);
   } catch (error) {
     return jsonResponse(request, {
@@ -56,6 +67,7 @@ function publicState(state) {
     status: state.status,
     stats: state.stats,
     open: state.open.slice(0, 30),
-    history: state.history.slice(0, 80)
+    history: state.history.slice(0, 80),
+    paper: state.paper
   };
 }
