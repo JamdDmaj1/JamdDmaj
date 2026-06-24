@@ -811,6 +811,18 @@
       background: rgba(251, 113, 133, 0.12);
     }
 
+    .pro-status-pill.invalidated,
+    .pro-status-pill.reversal {
+      color: #fda4af;
+      background: rgba(251, 113, 133, 0.12);
+    }
+
+    .pro-status-pill.ambiguous,
+    .pro-status-pill.stale {
+      color: #fbbf24;
+      background: rgba(251, 191, 36, 0.12);
+    }
+
     .pro-news {
       padding: 14px;
       border: 1px solid rgba(34, 211, 238, 0.2);
@@ -1438,10 +1450,19 @@
     }
 
     .settings-nav button:hover,
-    .settings-nav button:focus-visible {
+    .settings-nav button:focus-visible,
+    .settings-nav button.active {
       border-color: color-mix(in srgb, var(--accent) 60%, var(--line));
       color: var(--text);
       outline: none;
+    }
+
+    .settings-nav button.active {
+      background: var(--accent-soft);
+    }
+
+    .settings-panel-hidden {
+      display: none !important;
     }
 
     .data-actions,
@@ -2496,10 +2517,16 @@
     }
 
     .dialog-actions {
+      position: sticky;
+      bottom: 0;
+      z-index: 8;
       display: flex;
       justify-content: flex-end;
       gap: 8px;
       padding: 14px 20px 20px;
+      border-top: 1px solid var(--line);
+      background: color-mix(in srgb, var(--panel-solid) 96%, transparent);
+      backdrop-filter: blur(16px);
     }
 
     .tutorial-grid {
@@ -2727,7 +2754,36 @@
       }
 
       .top-actions {
-        max-width: 66vw;
+        min-width: 0;
+        max-width: none;
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+
+      .top-actions::-webkit-scrollbar {
+        display: none;
+      }
+
+      .conversation-heading {
+        flex: 0 1 116px;
+      }
+
+      .top-actions .pill-btn {
+        min-height: 42px;
+        padding-inline: 10px;
+      }
+
+      .ticker:not(.is-hidden) {
+        position: fixed;
+        top: calc(64px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
+        right: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 38;
+        max-height: none;
+        overflow-y: auto;
+        background: var(--bg);
+        overscroll-behavior: contain;
       }
 
       .top-actions .pill-btn:not(#learnBtn):not(#marketsBtn):not(#topThemeBtn):not(#topSettingsBtn) {
@@ -3009,8 +3065,8 @@
               </label>
               <label><span id="telegramQualityLabel">Minimum quality</span>
                 <select id="telegramQualitySelect">
-                  <option value="7">A only</option>
-                  <option value="5">A + B</option>
+                  <option value="A">A only</option>
+                  <option value="AB">A + B</option>
                 </select>
               </label>
               <label><span id="telegramCooldownLabel">Repeat cooldown</span>
@@ -3080,6 +3136,9 @@
             </div>
             <label class="trader-server-copy"><span id="paperBalanceLabel">Starting paper balance (USD)</span>
               <input id="paperStartingBalanceInput" type="number" min="100" max="1000000" step="100" value="1000">
+            </label>
+            <label class="trader-server-copy"><span id="paperRiskLabel">Maximum simulated risk per call (%)</span>
+              <input id="paperRiskPercentInput" type="number" min="0.1" max="5" step="0.1" value="0.5">
             </label>
             <div class="pro-stat-grid">
               <div class="pro-stat"><span id="paperEquityLabel">Equity</span><strong id="paperEquity">$1,000</strong></div>
@@ -3228,18 +3287,19 @@
         <button class="icon-btn" value="cancel" aria-label="Close settings" type="submit">×</button>
       </div>
       <div class="dialog-body">
-        <div class="connection-card">
+        <div class="connection-card is-hidden" id="connectionCard">
           <strong id="connectionStatus">JamdDmaj automatic access</strong>
           <p>Normal chat works automatically. Connecting a personal OpenRouter account is optional and enables personal limits and paid image generation.</p>
           <button class="pill-btn connect-btn" id="connectOpenRouterBtn" type="button">Connect personal OpenRouter</button>
         </div>
         <nav class="settings-nav" id="settingsNav" aria-label="Settings sections">
-          <button type="button" data-settings-target="languageInput">AI</button>
-          <button type="button" data-settings-target="themeModeInput">Appearance</button>
-          <button type="button" data-settings-target="accountSection">Account</button>
-          <button type="button" data-settings-target="memorySection">Memory</button>
-          <button type="button" data-settings-target="dataSection">Backup</button>
-          <button type="button" data-settings-target="updatesSection">Updates</button>
+          <button type="button" data-settings-panel="ai">AI</button>
+          <button type="button" data-settings-panel="appearance">Appearance</button>
+          <button type="button" data-settings-panel="account">Account</button>
+          <button type="button" data-settings-panel="memory">Memory</button>
+          <button type="button" data-settings-panel="backup">Backup</button>
+          <button type="button" data-settings-panel="social">Social</button>
+          <button type="button" data-settings-panel="updates">Updates</button>
         </nav>
         <div class="settings-grid">
           <div class="field">
@@ -3478,7 +3538,7 @@
             <button class="pill-btn" id="checkUpdatesBtn" type="button">Check for updates</button>
             <a class="social-link is-hidden" id="downloadUpdateBtn" href="#" target="_blank" rel="noopener noreferrer">Open update</a>
           </div>
-          <div class="backup-status" id="appUpdateStatus">Installed version: 1.30.0</div>
+          <div class="backup-status" id="appUpdateStatus">Installed version: 1.31.0</div>
         </section>
       </div>
       <div class="dialog-actions">
@@ -3603,7 +3663,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.30.0";
+      const APP_VERSION = "1.31.0";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
       const FREE_LIVE_API_URL = `${WEB_APP_URL}api/live`;
       const TELEGRAM_API_URL = `${WEB_APP_URL}api/telegram`;
@@ -3617,10 +3677,10 @@
             intro: "This update improves the normal app experience.",
             button: "Got it",
             items: [
-              ["Memory you control", "Approve, review, and delete the facts JamdDmaj remembers."],
-              ["Google account", "Optional Google linking can recover the encrypted JamdDmaj Sync profile."],
-              ["Daily Learn reminders", "Android can schedule rotating practice notifications while the app is closed."],
-              ["Signed update checker", "Check and open official signed releases directly from Settings."]
+              ["Simpler Settings", "Clear tabs replace the long settings page and sensitive recovery codes stay masked."],
+              ["Automatic access", "Regular users no longer see or need an OpenRouter account connection."],
+              ["Cleaner mobile layout", "Header controls and live Markets use the phone screen more effectively."],
+              ["One profile everywhere", "Google-linked JamdDmaj Sync continues protecting chats, settings and Learn progress."]
             ]
           },
           es: {
@@ -3628,10 +3688,10 @@
             intro: "Esta actualizacion mejora la experiencia normal de la app.",
             button: "Entendido",
             items: [
-              ["Memoria bajo tu control", "Aprueba, revisa y elimina lo que JamdDmaj recuerda."],
-              ["Cuenta de Google", "Google puede vincularse para recuperar el perfil cifrado de JamdDmaj Sync."],
-              ["Recordatorios de Learn", "Android programa practicas rotativas aunque la app este cerrada."],
-              ["Actualizador firmado", "Comprueba y abre versiones oficiales desde Ajustes."]
+              ["Ajustes mas simples", "Las pestañas reemplazan la pagina larga y los codigos privados quedan ocultos."],
+              ["Acceso automatico", "Los usuarios normales ya no ven ni necesitan una cuenta de OpenRouter."],
+              ["Mejor espacio movil", "Los controles superiores y Mercados aprovechan mejor la pantalla."],
+              ["Un perfil en todas partes", "JamdDmaj Sync vinculado con Google protege chats, ajustes y progreso de Learn."]
             ]
           }
         },
@@ -3641,10 +3701,10 @@
             intro: "Hidden Pro mode was upgraded separately.",
             button: "Enter Pro",
             items: [
-              ["Automatic paper trading", "Server calls create simulated positions with margin, leverage, fees, PnL, equity and drawdown without real funds."],
-              ["Walk-forward backtesting", "Recent Bitget candles test entries without looking into future candles and report results by token."],
-              ["Independent watchdog", "A second scheduled workflow detects scanner inactivity, attempts recovery and alerts Telegram."],
-              ["Risk-first validation", "Paper results and backtests expose weaknesses before any consideration of live execution."]
+              ["Honest outcomes", "Confirmed invalidations, partial wins and ambiguous candles are tracked separately."],
+              ["Risk-sized paper trades", "Position size follows a configurable account-risk percentage and invalidation distance."],
+              ["Clean Telegram alerts", "Server locks and persistent deduplication prevent repeated calls and events."],
+              ["Nightly validation", "A scheduled walk-forward backtest reviews recent Bitget behavior without the app open."]
             ]
           },
           es: {
@@ -3652,10 +3712,10 @@
             intro: "El modo Pro oculto fue mejorado por separado.",
             button: "Entrar al Pro",
             items: [
-              ["Paper trading automatico", "Las calls del servidor crean posiciones simuladas con margen, leverage, comisiones, PnL, equity y drawdown sin dinero real."],
-              ["Backtesting walk-forward", "Velas recientes de Bitget prueban entradas sin mirar datos futuros y muestran resultados por token."],
-              ["Watchdog independiente", "Un segundo workflow detecta inactividad, intenta recuperar el scanner y avisa Telegram."],
-              ["Validacion antes del riesgo", "La cuenta demo y los backtests muestran debilidades antes de considerar ejecucion real."]
+              ["Resultados honestos", "Invalidaciones confirmadas, victorias parciales y velas ambiguas se registran por separado."],
+              ["Paper trading por riesgo", "El tamaño de posicion usa un porcentaje configurable y la distancia de invalidacion."],
+              ["Telegram sin duplicados", "El bloqueo del servidor evita calls y eventos repetidos entre ciclos."],
+              ["Validacion nocturna", "Un backtest programado revisa Bitget aunque la app este cerrada."]
             ]
           }
         }
@@ -3788,7 +3848,7 @@
           dataTitle: "Data and backup", dataText: "JamdDmaj saves local data on this device and can also keep an encrypted cloud backup with your recovery code.",
           exportBackup: "Export file backup", importBackup: "Restore file", updates: "Updates:", updateText: "Install the new APK over the current app. Do not uninstall it. Your local information stays in place.",
           cloudBackup: "Encrypted cloud backup", cloudBackupText: "Save conversations, projects, settings, and Learn progress automatically. Keep your recovery code somewhere private.",
-          syncBackup: "Sync now", showCode: "Show recovery code", restoreCloud: "Restore with code", backupCodeLabel: "Recovery code", backupCodeHelp: "Save this code. If the app is deleted, this code restores your encrypted backup.",
+          syncBackup: "Sync now", showCode: "Copy recovery code", restoreCloud: "Restore with code", backupCodeLabel: "Recovery code", backupCodeHelp: "Save this code. If the app is deleted, this code restores your encrypted backup.",
           backupSynced: "Cloud backup saved.", backupRestoredCloud: "Cloud backup restored. JamdDmaj will reload now.", backupUnavailable: "Cloud backup is unavailable right now.", backupPending: "Backup pending. JamdDmaj will retry automatically.", backupOffline: "No internet connection. Backup will sync when you are online.", enterRecoveryCode: "Enter your JamdDmaj recovery code:",
           chatNetworkError: "I could not reach the JamdDmaj server. Check your internet connection or wait a moment if Vercel is redeploying, then try again.",
           socialTitle: "JamdDmaj official networks", socialText: "Follow updates, tutorials, demonstrations, and new releases.",
@@ -6506,6 +6566,7 @@
         try {
           proServerState = await callProApi({ action: "status" });
           renderProServerState(proServerState);
+          if (proServerState.backtest) renderBacktest(proServerState.backtest);
         } catch (error) {
           document.getElementById("proServerStatus").textContent = error.message;
         }
@@ -6577,7 +6638,7 @@
             action: "config",
             config: {
               enabled: !enabled,
-              quality: getTelegramMinScore() === 7 ? "A" : "AB",
+               quality: getTelegramQuality(),
               cooldownMinutes: getTelegramCooldownMinutes(),
               maxSignalsPerRun: 3
             }
@@ -6595,7 +6656,7 @@
             action: "config",
             config: {
               enabled: proServerState.config?.enabled === true,
-              quality: getTelegramMinScore() === 7 ? "A" : "AB",
+               quality: getTelegramQuality(),
               cooldownMinutes: getTelegramCooldownMinutes(),
               maxSignalsPerRun: proServerState.config?.maxSignalsPerRun || 3,
               plannedUsd: Number(document.getElementById("proPlannedUsdInput").value) || 25,
@@ -6603,7 +6664,8 @@
               protectionTriggerRoe: Number(document.getElementById("proTriggerRoeInput").value) || 4,
               protectionLockRoe: Number(document.getElementById("proLockRoeInput").value) || 2,
               paperEnabled: proServerState.config?.paperEnabled !== false,
-              paperStartingBalance: Number(document.getElementById("paperStartingBalanceInput").value) || 1000
+               paperStartingBalance: Number(document.getElementById("paperStartingBalanceInput").value) || 1000,
+               paperRiskPercent: Number(document.getElementById("paperRiskPercentInput").value) || 0.5
             }
           });
           renderProServerState(proServerState);
@@ -6645,8 +6707,11 @@
         const telegramRun = status.telegram
           ? ` - Telegram: ${status.telegram.configured ? `${status.telegram.sent || 0} ${spanish ? "enviados" : "sent"}, ${status.telegram.errors || 0} ${spanish ? "errores" : "errors"}` : (spanish ? "sin configurar" : "not configured")}`
           : "";
-        document.getElementById("proServerLastRun").textContent = status.lastRunAt
-          ? `${spanish ? "Ultimo ciclo" : "Last cycle"}: ${new Date(status.lastRunAt).toLocaleString()} - ${status.assetsRead || 0}/${status.universeSize || 0} ${spanish ? "mercados" : "markets"} - ${spanish ? "vuelta" : "rotation"} ~${status.fullRotationMinutes || 0} min${telegramRun}`
+         const auditSummary = stats.ambiguous || stats.stale
+           ? ` - ${stats.ambiguous || 0} ${spanish ? "ambiguas" : "ambiguous"}, ${stats.stale || 0} ${spanish ? "sin resolver" : "unresolved"}`
+           : "";
+         document.getElementById("proServerLastRun").textContent = status.lastRunAt
+           ? `${spanish ? "Ultimo ciclo" : "Last cycle"}: ${new Date(status.lastRunAt).toLocaleString()} - ${status.assetsRead || 0}/${status.universeSize || 0} ${spanish ? "mercados" : "markets"} - ${spanish ? "vuelta" : "rotation"} ~${status.fullRotationMinutes || 0} min${auditSummary}${telegramRun}`
           : (spanish ? "Aun no hay ciclos registrados." : "No server cycle recorded yet.");
         const toggle = document.getElementById("toggleProServerBtn");
         toggle.textContent = enabled
@@ -6672,8 +6737,8 @@
           : "Planning and alerts only. JamdDmaj does not place orders or hold Bitget API keys.";
         document.getElementById("proStatOpenLabel").textContent = spanish ? "Calls abiertas" : "Open calls";
         document.getElementById("proStatWinsLabel").textContent = spanish ? "Calls que tocaron TP" : "TP successes";
-        document.getElementById("proStatLossesLabel").textContent = spanish ? "Reversiones sin TP" : "Trend invalidations";
-        document.getElementById("proStatWinRateLabel").textContent = spanish ? "Tasa de exito verificada" : "Verified success rate";
+         document.getElementById("proStatLossesLabel").textContent = spanish ? "Invalidaciones confirmadas" : "Confirmed invalidations";
+         document.getElementById("proStatWinRateLabel").textContent = spanish ? "Tasa decidida verificada" : "Verified decided win rate";
         renderPaperTrading(state.paper || {}, state.config || {}, spanish);
         renderProServerHistory(state.history || []);
       }
@@ -6688,8 +6753,10 @@
           ? (spanish ? "Pausar simulacion" : "Pause simulation")
           : (spanish ? "Activar simulacion" : "Enable simulation");
         document.getElementById("resetPaperTradingBtn").textContent = spanish ? "Reiniciar cuenta demo" : "Reset paper account";
-        document.getElementById("paperBalanceLabel").textContent = spanish ? "Balance demo inicial (USD)" : "Starting paper balance (USD)";
-        document.getElementById("paperStartingBalanceInput").value = String(config.paperStartingBalance || paper.startingBalance || 1000);
+         document.getElementById("paperBalanceLabel").textContent = spanish ? "Balance demo inicial (USD)" : "Starting paper balance (USD)";
+         document.getElementById("paperStartingBalanceInput").value = String(config.paperStartingBalance || paper.startingBalance || 1000);
+         document.getElementById("paperRiskLabel").textContent = spanish ? "Riesgo simulado maximo por call (%)" : "Maximum simulated risk per call (%)";
+         document.getElementById("paperRiskPercentInput").value = String(config.paperRiskPercent || 0.5);
         document.getElementById("paperEquityLabel").textContent = spanish ? "Equity demo" : "Paper equity";
         document.getElementById("paperPnlLabel").textContent = spanish ? "PnL realizado" : "Realized PnL";
         document.getElementById("paperWinRateLabel").textContent = spanish ? "Aciertos demo" : "Paper win rate";
@@ -6820,8 +6887,11 @@
         return [1, 2, 5, 10].includes(value) ? value : 1;
       }
 
-      function getTelegramMinScore() {
-        return Number(localStorage.getItem(STORAGE.telegramMinScore) || 5) === 7 ? 7 : 5;
+      function getTelegramQuality() {
+        const value = String(localStorage.getItem(STORAGE.telegramMinScore) || "AB").toUpperCase();
+        if (value === "7") return "A";
+        if (value === "5") return "AB";
+        return value === "A" ? "A" : "AB";
       }
 
       function getTelegramCooldownMinutes() {
@@ -6842,7 +6912,7 @@
         document.getElementById("telegramQualityLabel").textContent = tradeText("telegramQuality");
         document.getElementById("telegramCooldownLabel").textContent = tradeText("telegramCooldown");
         els.telegramFrequencySelect.value = String(getTelegramScanMinutes());
-        els.telegramQualitySelect.value = String(getTelegramMinScore());
+        els.telegramQualitySelect.value = getTelegramQuality();
         els.telegramCooldownSelect.value = String(getTelegramCooldownMinutes());
       }
 
@@ -6893,7 +6963,8 @@
       async function pushTelegramSignals(signals, { force = false } = {}) {
         if (!telegramOwnerAuthorized || !telegramAlertsEnabled() || !traderMode || !signals.length) return;
         if (!force && proServerState?.config?.enabled === true) return;
-        const selected = signals.filter((signal) => signal.score >= getTelegramMinScore()).slice(0, 3);
+        const minimumScore = getTelegramQuality() === "A" ? 12 : 10;
+        const selected = signals.filter((signal) => signal.score >= minimumScore).slice(0, 3);
         if (!selected.length) return;
         const results = await Promise.allSettled(selected.map((signal) => callTelegramApi({
           action: "signal",
@@ -7464,6 +7535,7 @@
 
       function updateConnectionStatus() {
         const button = document.getElementById("connectOpenRouterBtn");
+        const card = document.getElementById("connectionCard");
         const spanish = resolvedLanguage() === "es";
         if (getApiKey()) {
           els.connectionStatus.textContent = spanish
@@ -7487,6 +7559,8 @@
             ? "Conectar OpenRouter personal"
             : "Connect personal OpenRouter";
         }
+        card?.classList.add("is-hidden");
+        document.querySelector(".advanced-settings")?.classList.add("is-hidden");
       }
 
       function getChatTransport() {
@@ -8801,6 +8875,11 @@
         return clean.match(/.{1,4}/g)?.join("-") || "";
       }
 
+      function maskedRecoveryCode(value) {
+        const clean = normalizeRecoveryCode(value);
+        return clean ? `••••-••••-••••-••••-${clean.slice(-4)}` : "";
+      }
+
       function getRecoveryCode(create = true) {
         let code = normalizeRecoveryCode(localStorage.getItem(STORAGE.recoveryCode));
         if (code || !create) return code;
@@ -8815,7 +8894,7 @@
         const codeElement = document.getElementById("backupRecoveryCode");
         const status = document.getElementById("cloudBackupStatus");
         const code = getRecoveryCode(false);
-        if (codeElement) codeElement.textContent = code ? formatRecoveryCode(code) : "Not created yet";
+        if (codeElement) codeElement.textContent = code ? maskedRecoveryCode(code) : "Not created yet";
         if (status) {
           const synced = localStorage.getItem(STORAGE.backupSyncedAt);
           const pending = localStorage.getItem(STORAGE.backupPending) === "true";
@@ -8829,8 +8908,8 @@
       function updateSyncAccountUi(text = "") {
         const spanish = resolvedLanguage() === "es";
         const navLabels = spanish
-          ? ["IA", "Apariencia", "Cuenta", "Memoria", "Respaldo", "Actualizaciones"]
-          : ["AI", "Appearance", "Account", "Memory", "Backup", "Updates"];
+          ? ["IA", "Apariencia", "Cuenta", "Memoria", "Respaldo", "Redes", "Actualizaciones"]
+          : ["AI", "Appearance", "Account", "Memory", "Backup", "Social", "Updates"];
         document.querySelectorAll("#settingsNav button").forEach((button, index) => {
           button.textContent = navLabels[index] || button.textContent;
         });
@@ -8840,11 +8919,11 @@
           ? "Tu JamdDmaj Sync ID protege chats, proyectos, ajustes y progreso de Learn. Luego podras vincular Google, X o Telegram a este perfil."
           : "Your JamdDmaj Sync ID protects chats, projects, settings, and Learn progress. Google, X, or Telegram can link to this profile later.";
         document.getElementById("syncIdLabel").textContent = "JamdDmaj Sync ID";
-        document.getElementById("syncAccountId").textContent = code ? formatRecoveryCode(code) : (spanish ? "Aun no creado" : "Not created yet");
+        document.getElementById("syncAccountId").textContent = code ? maskedRecoveryCode(code) : (spanish ? "Aun no creado" : "Not created yet");
         document.getElementById("syncAccountHelp").textContent = spanish
           ? "Mantenlo privado. Restaura tu progreso cifrado despues de reinstalar."
           : "Keep it private. It restores your encrypted progress after reinstalling.";
-        document.getElementById("prepareUpdateBtn").textContent = spanish ? "Preparar actualizacion" : "Prepare update";
+        document.getElementById("prepareUpdateBtn").textContent = spanish ? "Respaldar antes de actualizar" : "Back up before updating";
         document.getElementById("copySyncIdBtn").textContent = spanish ? "Copiar Sync ID" : "Copy Sync ID";
         document.getElementById("restoreSyncAccountBtn").textContent = spanish ? "Restaurar progreso" : "Restore progress";
         const synced = localStorage.getItem(STORAGE.backupSyncedAt);
@@ -9272,6 +9351,60 @@
         }
       }
 
+      function initializeSettingsPanels() {
+        if (document.querySelector("[data-settings-panel-content]")) return;
+        const markControl = (id, panel) => {
+          const control = document.getElementById(id);
+          const container = control?.closest(".field, .check-row, .advanced-settings");
+          if (container) container.dataset.settingsPanelContent = panel;
+        };
+        [
+          "languageInput", "personalityInput", "voiceInput", "voiceStyleInput",
+          "responseLengthInput", "creativityInput", "systemPromptInput", "autoSpeakInput",
+          "liveWebInput", "allowImagesInput"
+        ].forEach((id) => markControl(id, "ai"));
+        [
+          "accentInput", "backgroundInput", "themeModeInput", "fontInput", "fontSizeInput",
+          "radiusInput", "messageWidthInput", "userBubbleInput", "assistantBubbleInput",
+          "avatarInput", "compactInput", "animationsInput"
+        ].forEach((id) => markControl(id, "appearance"));
+        document.querySelector(".advanced-settings")?.setAttribute("data-settings-panel-content", "ai");
+        const sections = {
+          accountSection: "account",
+          memorySection: "memory",
+          dataSection: "backup",
+          socialSection: "social",
+          updatesSection: "updates"
+        };
+        Object.entries(sections).forEach(([id, panel]) => {
+          document.getElementById(id)?.setAttribute("data-settings-panel-content", panel);
+        });
+      }
+
+      function showSettingsPanel(panel = "ai") {
+        initializeSettingsPanels();
+        document.querySelectorAll("[data-settings-panel-content]").forEach((element) => {
+          element.classList.toggle("settings-panel-hidden", element.dataset.settingsPanelContent !== panel);
+        });
+        document.querySelectorAll("#settingsNav [data-settings-panel]").forEach((button) => {
+          const active = button.dataset.settingsPanel === panel;
+          button.classList.toggle("active", active);
+          button.setAttribute("aria-selected", String(active));
+        });
+        document.querySelector("#settingsDialog .dialog-body")?.scrollTo({ top: 0, behavior: "auto" });
+      }
+
+      function settingsPanelForFocus(focusSection) {
+        return {
+          accountSection: "account",
+          memorySection: "memory",
+          dataSection: "backup",
+          socialSection: "social",
+          updatesSection: "updates",
+          themeModeInput: "appearance"
+        }[focusSection] || "ai";
+      }
+
       function openSettings(focusSection = "") {
         els.apiKey.value = getApiKey();
         els.rememberKey.checked = settings.rememberKey;
@@ -9306,12 +9439,7 @@
         renderAppUpdateStatus(latestAppStatus || { version: APP_VERSION });
         initGoogleAccount();
         els.settings.showModal();
-        if (focusSection) {
-          setTimeout(() => document.getElementById(focusSection)?.scrollIntoView({
-            block: "center",
-            behavior: "smooth"
-          }), 160);
-        }
+        showSettingsPanel(settingsPanelForFocus(focusSection));
         if (localStorage.getItem(STORAGE.settingsCoach) !== "true") {
           settingsCoachIndex = 0;
           setTimeout(showSettingsCoachStep, 180);
@@ -9332,6 +9460,8 @@
           showSettingsCoachStep();
           return;
         }
+        const targetPanel = target.closest("[data-settings-panel-content]")?.dataset.settingsPanelContent;
+        if (targetPanel) showSettingsPanel(targetPanel);
         target.scrollIntoView({ block: "center", behavior: "smooth" });
         setTimeout(() => {
           target.classList.add("coach-highlight");
@@ -10181,8 +10311,13 @@
               ? `Ciclo profesional: ${status.assetsRead || 0} analizados de ${status.universeSize || 0} mercados liquidos. La rotacion completa continua 24/7.`
               : `Pro cycle: ${status.assetsRead || 0} scanned from ${status.universeSize || 0} liquid markets. Full rotation continues 24/7.`;
             return;
-          } catch {
-            // Use the on-device rotating batch if the private server is temporarily unavailable.
+          } catch (error) {
+            lastProSignals = [];
+            renderProSignals([]);
+            els.traderStatus.textContent = resolvedLanguage() === "es"
+              ? `El motor profesional del servidor no respondio. No se mostraran señales locales diferentes. ${error.message || ""}`
+              : `The professional server engine did not respond. Different local signals will not be shown. ${error.message || ""}`;
+            return;
           }
         }
         const batchSize = Math.min(28, CRYPTO_ASSETS.length);
@@ -10323,6 +10458,10 @@
         const emaBullish = data.ema12 > data.ema26;
         const emaBearish = data.ema12 < data.ema26;
         const volumeStrong = !Number.isFinite(data.volumeRatio) || data.volumeRatio > 1.02;
+        const bullishStructure = data.price > data.sma20 && data.sma20 > data.sma50;
+        const bearishStructure = data.price < data.sma20 && data.sma20 < data.sma50;
+        const liquidEnough = data.marketType === "stock" || !Number.isFinite(data.quoteVolume) || data.quoteVolume >= 3000000;
+        const volatilitySane = !Number.isFinite(data.atrPercent) || (data.atrPercent >= 0.003 && data.atrPercent <= 0.05);
         const longScore = [
           bullishTrend ? 2 : 0,
           higherBullish ? 2 : 0,
@@ -10331,7 +10470,10 @@
           data.macdHistogram > 0 ? 1 : 0,
           data.rsi > 42 && data.rsi < 70 ? 1 : 0,
           data.change24h > 0 ? 1 : 0,
-          volumeStrong ? 1 : 0
+          volumeStrong ? 1 : 0,
+          bullishStructure ? 1 : 0,
+          liquidEnough ? 1 : 0,
+          volatilitySane ? 1 : 0
         ].reduce((sum, value) => sum + value, 0);
         const shortScore = [
           bearishTrend ? 2 : 0,
@@ -10341,13 +10483,16 @@
           data.macdHistogram < 0 ? 1 : 0,
           data.rsi < 58 && data.rsi > 30 ? 1 : 0,
           data.change24h < 0 ? 1 : 0,
-          volumeStrong ? 1 : 0
+          volumeStrong ? 1 : 0,
+          bearishStructure ? 1 : 0,
+          liquidEnough ? 1 : 0,
+          volatilitySane ? 1 : 0
         ].reduce((sum, value) => sum + value, 0);
         const side = longScore >= shortScore ? "LONG" : "SHORT";
         const score = Math.max(longScore, shortScore);
         const marketType = data.marketType || "crypto";
         const higherAligned = marketType === "stock" || (side === "LONG" ? higherBullish : higherBearish);
-        if (!force && (score < 7 || !higherAligned)) return null;
+        if (!force && (score < 10 || !higherAligned || !liquidEnough || !volatilitySane)) return null;
         if (!Number.isFinite(data.price) || data.price <= 0) return null;
         const volatilityFloor = marketType === "stock" ? 0.004 : 0.006;
         const volatilityCeiling = marketType === "stock" ? 0.026 : 0.035;
@@ -10357,7 +10502,7 @@
         const volatility = Math.max(volatilityFloor, Math.min(volatilityCeiling, observedVolatility));
         const entry = data.price;
         const direction = side === "LONG" ? 1 : -1;
-        const stopDistance = volatility * (score >= 7 ? 1.15 : 1.3);
+        const stopDistance = volatility * (score >= 10 ? 1.15 : 1.3);
         const tp1Distance = stopDistance * 1.1;
         const tp2Distance = stopDistance * 1.8;
         const tp3Distance = stopDistance * 2.6;
@@ -10367,8 +10512,8 @@
           category: data.category || (marketType === "stock" ? "Stock market" : "Manual search"),
           side,
           score,
-          maxScore: 10,
-          confidence: score >= 9 ? "A" : score >= 7 ? "B" : "C",
+          maxScore: 13,
+          confidence: score >= 12 ? "A" : score >= 10 ? "B" : "C",
           entry,
           sl: entry * (1 - direction * stopDistance),
           tp1: entry * (1 + direction * tp1Distance),
@@ -10409,7 +10554,7 @@
             ? `precio vs SMA20/SMA50 esta ${data.price > data.sma20 && data.sma20 > data.sma50 ? "a favor" : data.price < data.sma20 && data.sma20 < data.sma50 ? "bajista" : "mixto"}`
             : `price vs SMA20/SMA50 is ${data.price > data.sma20 && data.sma20 > data.sma50 ? "supportive" : data.price < data.sma20 && data.sma20 < data.sma50 ? "bearish" : "mixed"}`)
           : (resolvedLanguage() === "es" ? "datos de estructura limitados" : "structure data is limited");
-        const quality = forced && score < 7
+        const quality = forced && score < 10
           ? tradeText("requestedLow")
           : tradeText("passes");
         return `${directionText}: ${trendText}, ${higherText}, ${momentum}, ${rsiText}, ${volumeText}, ${structure}. ${quality}`;
@@ -10861,7 +11006,7 @@
         updateTelegramAlertsUi();
         syncProServerConfig();
       });
-      ["proPlannedUsdInput", "proLeverageSelect", "proTriggerRoeInput", "proLockRoeInput", "paperStartingBalanceInput"].forEach((id) => {
+      ["proPlannedUsdInput", "proLeverageSelect", "proTriggerRoeInput", "proLockRoeInput", "paperStartingBalanceInput", "paperRiskPercentInput"].forEach((id) => {
         document.getElementById(id).addEventListener("change", syncProServerConfig);
       });
       document.getElementById("toggleProServerBtn").addEventListener("click", toggleProServer);
@@ -10927,10 +11072,9 @@
       document.getElementById("checkUpdatesBtn").addEventListener("click", () => checkForAppUpdate(true));
       document.getElementById("googleSignInBtn").addEventListener("click", startGoogleSignIn);
       document.getElementById("settingsNav").addEventListener("click", (event) => {
-        const button = event.target.closest("[data-settings-target]");
+        const button = event.target.closest("[data-settings-panel]");
         if (!button) return;
-        const target = document.getElementById(button.dataset.settingsTarget);
-        target?.scrollIntoView({ behavior: settings.animations === false ? "auto" : "smooth", block: "start" });
+        showSettingsPanel(button.dataset.settingsPanel);
       });
       document.getElementById("addMemoryBtn").addEventListener("click", () => {
         const input = document.getElementById("memoryInput");

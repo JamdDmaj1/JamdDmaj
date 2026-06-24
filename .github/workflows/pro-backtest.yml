@@ -1,0 +1,35 @@
+name: JamdDmaj Pro Nightly Backtest
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "27 5 * * *"
+
+concurrency:
+  group: jamddmaj-pro-backtest
+  cancel-in-progress: false
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Run private nightly walk-forward test
+        env:
+          CRON_SECRET: ${{ secrets.JAMDDMAJ_CRON_SECRET }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "$CRON_SECRET" ]; then
+            echo "Missing JAMDDMAJ_CRON_SECRET GitHub secret"
+            exit 1
+          fi
+          response=$(curl --fail-with-body --retry 2 --max-time 360 \
+            -X POST \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            https://jamd-dmaj.vercel.app/api/pro-backtest-cron)
+          echo "$response"
+          if ! echo "$response" | grep -q '"ok":true'; then
+            echo "The Pro backtest did not confirm completion."
+            exit 1
+          fi

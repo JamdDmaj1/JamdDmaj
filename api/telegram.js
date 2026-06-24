@@ -125,7 +125,7 @@ function sanitizeSignal(value) {
     symbol,
     side,
     score,
-    maxScore: Number(value?.maxScore) || 8,
+    maxScore: Number(value?.maxScore) || 13,
     confidence: String(value?.confidence || "C").slice(0, 2),
     category: String(value?.category || "Market").slice(0, 80),
     entry,

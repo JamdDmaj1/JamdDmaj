@@ -1,4 +1,4 @@
-# JamdDmaj v1.30 server setup
+# JamdDmaj v1.31 server setup
 
 ## 1. Create private secrets
 
@@ -44,8 +44,8 @@ Google links the existing encrypted JamdDmaj Sync ID. The server stores only an 
 Commit and push normally, then create a version tag:
 
 ```powershell
-git tag v1.30.0
-git push origin v1.30.0
+git tag v1.31.0
+git push origin v1.31.0
 ```
 
 The `Publish Signed Android Release` workflow builds `JamdDmaj-AI.apk` with the permanent signing key and attaches it to a GitHub Release. The app checks the stable latest-release URL.

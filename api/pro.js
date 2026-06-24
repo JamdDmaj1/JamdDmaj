@@ -1,6 +1,6 @@
 import { corsHeaders, jsonResponse } from "../lib/server.js";
 import { getProServerState, resetPaperPortfolio, runProCycle, saveProServerConfig } from "../lib/pro-signals.js";
-import { runProBacktest } from "../lib/pro-backtest.js";
+import { getCachedProBacktest, runProBacktest } from "../lib/pro-backtest.js";
 
 export const config = { runtime: "edge" };
 
@@ -19,7 +19,8 @@ export default async function handler(request) {
     const input = await request.json();
     if (input?.action === "status" || input?.action === "history") {
       const state = await getProServerState();
-      return jsonResponse(request, publicState(state));
+      const backtest = await getCachedProBacktest();
+      return jsonResponse(request, { ...publicState(state), backtest });
     }
     if (input?.action === "config") {
       const config = await saveProServerConfig(input.config);
