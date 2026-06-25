@@ -1,4 +1,4 @@
-# JamdDmaj v1.31 server setup
+# JamdDmaj v1.32 server setup
 
 ## 1. Create private secrets
 
@@ -28,6 +28,25 @@ After deployment, open the private Pro mode on the authorized device. The 24/7 s
 
 The scanner requests a private Vercel cycle about every five minutes. The independent watchdog checks every 15 minutes and attempts a recovery if no recent cycle is found. Both workflows reuse the same `JAMDDMAJ_CRON_SECRET`; no new secret is required. Calls, monitoring results, and paper-trading data are stored in Upstash. Confirmed alerts are sent to the configured Telegram channel.
 
+## 2b. Optional Bitget executor on the VPS
+
+Live Bitget execution is not stored in the app, Vercel, or GitHub. The VPS can run `scripts/bitget-executor.mjs` with local-only environment variables.
+
+Start with:
+
+```bash
+JAMDDMAJ_BITGET_MODE=dry-run
+```
+
+Only after dry-run testing, switch to live by setting both:
+
+```bash
+JAMDDMAJ_BITGET_MODE=live
+JAMDDMAJ_LIVE_CONFIRM=I_ACCEPT_REAL_RISK
+```
+
+Full setup is in `BITGET-LIVE-SETUP.md`.
+
 ## 3. Configure Google account linking
 
 Create a Google OAuth 2.0 Web application in Google Cloud Console.
@@ -44,8 +63,8 @@ Google links the existing encrypted JamdDmaj Sync ID. The server stores only an 
 Commit and push normally, then create a version tag:
 
 ```powershell
-git tag v1.31.0
-git push origin v1.31.0
+git tag v1.32.0
+git push origin v1.32.0
 ```
 
 The `Publish Signed Android Release` workflow builds `JamdDmaj-AI.apk` with the permanent signing key and attaches it to a GitHub Release. The app checks the stable latest-release URL.
