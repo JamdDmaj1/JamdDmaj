@@ -3289,8 +3289,8 @@
       <div class="dialog-body">
         <div class="connection-card is-hidden" id="connectionCard">
           <strong id="connectionStatus">JamdDmaj automatic access</strong>
-          <p>Normal chat works automatically. Connecting a personal OpenRouter account is optional and enables personal limits and paid image generation.</p>
-          <button class="pill-btn connect-btn" id="connectOpenRouterBtn" type="button">Connect personal OpenRouter</button>
+          <p>Normal chat works automatically with JamdDmaj. Personal OpenRouter is only for advanced users who want their own limits or paid images.</p>
+          <button class="pill-btn connect-btn" id="connectOpenRouterBtn" type="button">Advanced: personal OpenRouter</button>
         </div>
         <nav class="settings-nav" id="settingsNav" aria-label="Settings sections">
           <button type="button" data-settings-panel="ai">AI</button>
@@ -3538,7 +3538,7 @@
             <button class="pill-btn" id="checkUpdatesBtn" type="button">Check for updates</button>
             <a class="social-link is-hidden" id="downloadUpdateBtn" href="#" target="_blank" rel="noopener noreferrer">Open update</a>
           </div>
-          <div class="backup-status" id="appUpdateStatus">Installed version: 1.32.0</div>
+          <div class="backup-status" id="appUpdateStatus">Installed version: 1.33.0</div>
         </section>
       </div>
       <div class="dialog-actions">
@@ -3663,7 +3663,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.32.0";
+      const APP_VERSION = "1.33.0";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
       const FREE_LIVE_API_URL = `${WEB_APP_URL}api/live`;
       const TELEGRAM_API_URL = `${WEB_APP_URL}api/telegram`;
@@ -3703,7 +3703,8 @@
             items: [
               ["Honest outcomes", "Confirmed invalidations, partial wins and ambiguous candles are tracked separately."],
               ["Risk-sized paper trades", "Position size follows a configurable account-risk percentage and invalidation distance."],
-              ["Clean Telegram alerts", "Server locks and persistent deduplication prevent repeated calls and events."],
+              ["Linked Telegram events", "TP, protection and reversal alerts now reply to the original trade message when Telegram provides a message ID."],
+              ["Cleaner Telegram alerts", "Server locks and persistent deduplication prevent repeated calls and events."],
               ["Nightly validation", "A scheduled walk-forward backtest reviews recent Bitget behavior without the app open."]
             ]
           },
@@ -3714,6 +3715,7 @@
             items: [
               ["Resultados honestos", "Invalidaciones confirmadas, victorias parciales y velas ambiguas se registran por separado."],
               ["Paper trading por riesgo", "El tamaño de posicion usa un porcentaje configurable y la distancia de invalidacion."],
+              ["Eventos enlazados en Telegram", "Los TP, protecciones y cambios de tendencia ahora responden al mensaje original del trade cuando Telegram entrega un ID."],
               ["Telegram sin duplicados", "El bloqueo del servidor evita calls y eventos repetidos entre ciclos."],
               ["Validacion nocturna", "Un backtest programado revisa Bitget aunque la app este cerrada."]
             ]
@@ -4635,7 +4637,7 @@
           deleteProjectConfirm: "Delete this saved project?", storageFull: "Storage is full",
           attachImages: "Attach images", attachText: "Attach a text file", startVoice: "Start voice conversation",
           openMarkets: "Open live markets", imageMode: "Image generation mode - uses paid image credits", exit: "Exit",
-          aiSettings: "AI settings", connectionHelp: "Free chat uses JamdDmaj automatic access. A personal OpenRouter connection is optional and is required only for personal usage limits or paid images.",
+          aiSettings: "AI settings", connectionHelp: "Free chat uses JamdDmaj automatic access. Personal OpenRouter is an advanced option only for your own limits or paid images.",
           interfaceLanguage: "Interface language", personality: "AI personality", voice: "Voice", voiceStyle: "Voice style",
           responseLength: "Response length", creativity: "Creativity",
           accent: "Accent color", background: "Background", font: "Interface font", textSize: "Text size",
@@ -4661,7 +4663,7 @@
           deleteProjectConfirm: "¿Borrar este proyecto guardado?", storageFull: "El almacenamiento está lleno",
           attachImages: "Adjuntar imágenes", attachText: "Adjuntar archivo de texto", startVoice: "Iniciar conversación por voz",
           openMarkets: "Abrir mercados en vivo", imageMode: "Modo de generación de imágenes - usa créditos de pago", exit: "Salir",
-          aiSettings: "Ajustes de la IA", connectionHelp: "El chat gratuito usa el acceso automático de JamdDmaj. La conexión personal con OpenRouter es opcional y solo se necesita para límites propios o imágenes de pago.",
+          aiSettings: "Ajustes de la IA", connectionHelp: "El chat gratuito usa el acceso automatico de JamdDmaj. OpenRouter personal es una opcion avanzada solo para limites propios o imagenes de pago.",
           interfaceLanguage: "Idioma de la interfaz", personality: "Personalidad de la IA", voice: "Voz", voiceStyle: "Estilo de voz",
           responseLength: "Longitud de respuesta", creativity: "Creatividad",
           accent: "Color principal", background: "Fondo", font: "Fuente de la interfaz", textSize: "Tamaño del texto",
@@ -4954,7 +4956,7 @@
       if (!Array.isArray(explicitMemories)) explicitMemories = [];
       let learnReminderTimer = null;
       const SETTINGS_COACH_STEPS = [
-        { selector: ".connection-card", title: "Acceso automático", text: "El chat gratuito funciona con JamdDmaj sin crear una cuenta. Conecta OpenRouter solo si quieres límites personales o generar imágenes de pago." },
+        { selector: ".connection-card", title: "Acceso automatico", text: "El chat normal funciona con JamdDmaj sin crear una cuenta. OpenRouter personal queda solo como opcion avanzada." },
         { selector: "#languageInput", title: "Idioma automático", text: "Cambia la interfaz. El chat además detecta por separado el idioma de cada mensaje." },
         { selector: "#personalityInput", title: "Elige cómo responde", text: "Puedes hacerla más directa, didáctica, técnica, creativa o motivadora." },
         { selector: "#accentInput", title: "Hazla tuya", text: "Personaliza colores, fuente, tamaño, esquinas, ancho y fondos. Los cambios se guardan en este dispositivo." },
@@ -4967,7 +4969,7 @@
         { selector: "#socialSection", title: "Sigue a JamdDmaj", text: "Aquí encontrarás las redes oficiales, tutoriales y anuncios de nuevas versiones." }
       ];
       const SETTINGS_COACH_STEPS_EN = [
-        { selector: ".connection-card", title: "Automatic access", text: "Free chat works through JamdDmaj without creating an account. Connect OpenRouter only for personal limits or paid images." },
+        { selector: ".connection-card", title: "Automatic access", text: "Normal chat works through JamdDmaj without creating an account. Personal OpenRouter stays as an advanced option only." },
         { selector: "#languageInput", title: "Interface language", text: "Change the interface language. Chat separately detects the language of each message." },
         { selector: "#personalityInput", title: "Choose how it responds", text: "Make JamdDmaj direct, patient, technical, creative, or motivating." },
         { selector: "#accentInput", title: "Make it yours", text: "Customize colors, font, size, corners, width, and backgrounds. Changes stay on this device." },
@@ -7303,7 +7305,7 @@
           ? "Un recorrido rápido por las herramientas incluidas en esta página."
           : "A quick tour of the tools built into this page.";
         const cards = spanish ? [
-          ["Chat automático", "Empieza a conversar sin crear una cuenta de OpenRouter. El acceso personal queda como opción avanzada."],
+          ["Chat automatico", "Empieza a conversar sin crear una cuenta de OpenRouter. El acceso personal queda como opcion avanzada."],
           ["Visión", "Adjunta hasta tres imágenes y pídele a la IA que las analice o explique."],
           ["Crear imágenes", "Usa el botón de diamante para entrar al modo económico de generación visual."],
           ["Conversación por voz", "Activa Voz para dictar y escuchar las respuestas de la IA."],
@@ -7556,8 +7558,8 @@
         }
         if (button) {
           button.textContent = spanish
-            ? "Conectar OpenRouter personal"
-            : "Connect personal OpenRouter";
+            ? "Avanzado: OpenRouter personal"
+            : "Advanced: personal OpenRouter";
         }
         card?.classList.add("is-hidden");
         document.querySelector(".advanced-settings")?.classList.add("is-hidden");
