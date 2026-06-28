@@ -3123,13 +3123,13 @@
               <span class="pro-history-empty">The verified history will appear after the server runs.</span>
             </div>
           </div>
-          <div class="trader-server is-hidden" id="paperTradingPanel">
+          <div class="trader-server" id="paperTradingPanel">
             <div class="trader-server-head">
               <div class="trader-server-copy">
                 <strong id="paperTradingTitle">Paper trading</strong>
                 <span id="paperTradingStatus">Automatic simulation using server signals. No real money.</span>
               </div>
-              <div class="trader-server-actions">
+              <div class="trader-server-actions trader-owner-only">
                 <button class="pill-btn" id="togglePaperTradingBtn" type="button">Pause simulation</button>
                 <button class="pill-btn" id="resetPaperTradingBtn" type="button">Reset paper account</button>
               </div>
@@ -3140,6 +3140,15 @@
             <label class="trader-server-copy"><span id="paperRiskLabel">Maximum simulated risk per call (%)</span>
               <input id="paperRiskPercentInput" type="number" min="0.1" max="5" step="0.1" value="0.5">
             </label>
+            <label class="trader-server-copy"><span id="paperLeverageLabel">Simulation leverage</span>
+              <select id="paperLeverageSelect">
+                <option value="3">3x</option>
+                <option value="5">5x</option>
+                <option value="10" selected>10x</option>
+                <option value="20">20x</option>
+              </select>
+            </label>
+            <p class="trader-note" id="paperTpPlanText">TP plan: TP1 closes 70%, TP2 closes half of the rest, TP3 closes everything left. After TP1, the remainder is protected around +10% ROE.</p>
             <div class="pro-stat-grid">
               <div class="pro-stat"><span id="paperEquityLabel">Equity</span><strong id="paperEquity">$1,000</strong></div>
               <div class="pro-stat"><span id="paperPnlLabel">Realized PnL</span><strong id="paperPnl">$0</strong></div>
@@ -3538,7 +3547,7 @@
             <button class="pill-btn" id="checkUpdatesBtn" type="button">Check for updates</button>
             <a class="social-link is-hidden" id="downloadUpdateBtn" href="#" target="_blank" rel="noopener noreferrer">Open update</a>
           </div>
-          <div class="backup-status" id="appUpdateStatus">Installed version: 1.33.0</div>
+          <div class="backup-status" id="appUpdateStatus">Installed version: 1.34.0</div>
         </section>
       </div>
       <div class="dialog-actions">
@@ -3663,7 +3672,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.33.0";
+      const APP_VERSION = "1.34.0";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
       const FREE_LIVE_API_URL = `${WEB_APP_URL}api/live`;
       const TELEGRAM_API_URL = `${WEB_APP_URL}api/telegram`;
@@ -6521,12 +6530,11 @@
       async function checkTelegramOwnerAccess() {
         const panel = document.getElementById("traderTelegramPanel");
         const serverPanel = document.getElementById("traderServerPanel");
-        const paperPanel = document.getElementById("paperTradingPanel");
         const backtestPanel = document.getElementById("backtestPanel");
         panel.classList.add("is-hidden");
         serverPanel.classList.add("is-hidden");
-        paperPanel.classList.add("is-hidden");
         backtestPanel.classList.add("is-hidden");
+        document.querySelectorAll(".trader-owner-only").forEach((node) => node.classList.add("is-hidden"));
         telegramOwnerAuthorized = false;
         try {
           const data = await callTelegramApi({ action: "status" });
@@ -6536,8 +6544,8 @@
         }
         panel.classList.toggle("is-hidden", !telegramOwnerAuthorized);
         serverPanel.classList.toggle("is-hidden", !telegramOwnerAuthorized);
-        paperPanel.classList.toggle("is-hidden", !telegramOwnerAuthorized);
         backtestPanel.classList.toggle("is-hidden", !telegramOwnerAuthorized);
+        document.querySelectorAll(".trader-owner-only").forEach((node) => node.classList.toggle("is-hidden", !telegramOwnerAuthorized));
         if (telegramOwnerAuthorized) {
           updateTelegramAlertsUi();
           loadProServerState();
@@ -6667,7 +6675,8 @@
               protectionLockRoe: Number(document.getElementById("proLockRoeInput").value) || 2,
               paperEnabled: proServerState.config?.paperEnabled !== false,
                paperStartingBalance: Number(document.getElementById("paperStartingBalanceInput").value) || 1000,
-               paperRiskPercent: Number(document.getElementById("paperRiskPercentInput").value) || 0.5
+               paperRiskPercent: Number(document.getElementById("paperRiskPercentInput").value) || 0.5,
+               paperLeverage: Number(document.getElementById("paperLeverageSelect")?.value) || 10
             }
           });
           renderProServerState(proServerState);
@@ -6759,7 +6768,14 @@
          document.getElementById("paperStartingBalanceInput").value = String(config.paperStartingBalance || paper.startingBalance || 1000);
          document.getElementById("paperRiskLabel").textContent = spanish ? "Riesgo simulado maximo por call (%)" : "Maximum simulated risk per call (%)";
          document.getElementById("paperRiskPercentInput").value = String(config.paperRiskPercent || 0.5);
-        document.getElementById("paperEquityLabel").textContent = spanish ? "Equity demo" : "Paper equity";
+         document.getElementById("paperLeverageLabel").textContent = spanish ? "Apalancamiento demo" : "Simulation leverage";
+         const paperLeverageSelect = document.getElementById("paperLeverageSelect");
+         if (paperLeverageSelect) paperLeverageSelect.value = String(config.paperLeverage || config.leverage || 10);
+         const paperTpPlan = document.getElementById("paperTpPlanText");
+         if (paperTpPlan) paperTpPlan.textContent = spanish
+           ? "Plan TP: TP1 cierra 70%, TP2 cierra la mitad restante y TP3 cierra todo. Despues de TP1, el restante se protege cerca de +10% ROE."
+           : "TP plan: TP1 closes 70%, TP2 closes half of the rest, and TP3 closes everything left. After TP1, the remainder is protected around +10% ROE.";
+         document.getElementById("paperEquityLabel").textContent = spanish ? "Equity demo" : "Paper equity";
         document.getElementById("paperPnlLabel").textContent = spanish ? "PnL realizado" : "Realized PnL";
         document.getElementById("paperWinRateLabel").textContent = spanish ? "Aciertos demo" : "Paper win rate";
         document.getElementById("paperDrawdownLabel").textContent = "Max drawdown";
@@ -11008,7 +11024,7 @@
         updateTelegramAlertsUi();
         syncProServerConfig();
       });
-      ["proPlannedUsdInput", "proLeverageSelect", "proTriggerRoeInput", "proLockRoeInput", "paperStartingBalanceInput", "paperRiskPercentInput"].forEach((id) => {
+      ["proPlannedUsdInput", "proLeverageSelect", "proTriggerRoeInput", "proLockRoeInput", "paperStartingBalanceInput", "paperRiskPercentInput", "paperLeverageSelect"].forEach((id) => {
         document.getElementById(id).addEventListener("change", syncProServerConfig);
       });
       document.getElementById("toggleProServerBtn").addEventListener("click", toggleProServer);
