@@ -69,6 +69,7 @@ function publicState(state) {
     stats: state.stats,
     open: state.open.slice(0, 30),
     history: state.history.slice(0, 80),
-    paper: state.paper
+    paper: state.paper,
+    executor: state.executor
   };
 }

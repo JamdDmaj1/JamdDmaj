@@ -26,11 +26,16 @@ const settings = {
   maxNewOrdersPerRun: clampInt(process.env.JAMDDMAJ_MAX_NEW_ORDERS_PER_RUN, 1, 5, 1),
   minScore: clampInt(process.env.JAMDDMAJ_MIN_LIVE_SCORE, 8, 13, 10),
   allowMeme: String(process.env.JAMDDMAJ_ALLOW_MEME_LIVE || "false").toLowerCase() === "true",
-  minLiquidityUsd: clampNumber(process.env.JAMDDMAJ_MIN_LIVE_LIQUIDITY_USD, 0, 1_000_000_000, 3_000_000)
+  minLiquidityUsd: clampNumber(process.env.JAMDDMAJ_MIN_LIVE_LIQUIDITY_USD, 0, 1_000_000_000, 3_000_000),
+  maxDailyLossUsd: clampNumber(process.env.JAMDDMAJ_MAX_DAILY_LOSS_USD, 1, 100000, 25),
+  maxDailyLossPercent: clampNumber(process.env.JAMDDMAJ_MAX_DAILY_LOSS_PERCENT, 0.1, 50, 3),
+  maxConsecutiveLosses: clampInt(process.env.JAMDDMAJ_MAX_CONSECUTIVE_LOSSES, 1, 20, 2),
+  maxTradesPerDay: clampInt(process.env.JAMDDMAJ_MAX_TRADES_PER_DAY, 1, 100, 3)
 };
 
-main().catch((error) => {
+main().catch(async (error) => {
   console.error(`${LOG_PREFIX} fatal ${error?.message || error}`);
+  await reportExecutorStatus({ ok: false, lastError: error?.message || String(error) }).catch(() => {});
   process.exitCode = 1;
 });
 
@@ -45,22 +50,40 @@ async function main() {
   const scan = await runScanner();
   const signals = Array.isArray(scan?.signals) ? scan.signals : [];
   const events = Array.isArray(scan?.events) ? scan.events : [];
+  const policy = normalizeExecutorPolicy(scan?.executor);
 
   console.log(`${LOG_PREFIX} scan ok. newSignals=${signals.length} events=${events.length} mode=${settings.mode}`);
 
   const candidates = signals
-    .filter((signal) => isExecutableSignal(signal, state))
+    .filter((signal) => isExecutableSignal(signal, state, policy))
     .slice(0, settings.maxNewOrdersPerRun);
 
-  if (settings.mode === "off") {
-    console.log(`${LOG_PREFIX} execution off. candidates=${candidates.length}`);
+  if (settings.mode === "off" || policy.livePaused) {
+    const reason = policy.livePaused ? "remote live pause is active" : "execution off";
+    console.log(`${LOG_PREFIX} ${reason}. candidates=${candidates.length}`);
+    state.lastAction = reason;
+    state.updatedAt = new Date().toISOString();
     writeJson(STATE_PATH, state);
+    await reportExecutorStatus(statusPayload(state, { ok: true, livePaused: policy.livePaused, lastAction: reason }));
     return;
   }
 
   if (!candidates.length) {
     console.log(`${LOG_PREFIX} no executable candidates after filters.`);
+    state.lastAction = "no executable candidates after filters";
+    state.updatedAt = new Date().toISOString();
     writeJson(STATE_PATH, state);
+    await reportExecutorStatus(statusPayload(state, { ok: true, livePaused: policy.livePaused }));
+    return;
+  }
+
+  const riskBlock = dailyRiskBlock(state, policy);
+  if (riskBlock) {
+    console.log(`${LOG_PREFIX} risk block: ${riskBlock}`);
+    state.lastAction = `risk block: ${riskBlock}`;
+    state.updatedAt = new Date().toISOString();
+    writeJson(STATE_PATH, state);
+    await reportExecutorStatus(statusPayload(state, { ok: true, livePaused: true, lastAction: state.lastAction }));
     return;
   }
 
@@ -69,10 +92,17 @@ async function main() {
   }
 
   const contracts = settings.mode === "live" ? await getContracts() : new Map();
+  const livePositions = settings.mode === "live" ? await reconcileBitgetPositions(state) : [];
   for (const signal of candidates) {
-    const openCount = state.orders.filter((order) => order.status === "OPEN").length;
+    const openCount = settings.mode === "live"
+      ? livePositions.length
+      : state.orders.filter((order) => order.status === "OPEN" || order.status === "DRY_RUN").length;
     if (openCount >= settings.maxOpen) {
       console.log(`${LOG_PREFIX} max open reached (${openCount}/${settings.maxOpen}).`);
+      break;
+    }
+    if (dailyRiskBlock(state, policy)) {
+      console.log(`${LOG_PREFIX} daily risk limit reached during run.`);
       break;
     }
 
@@ -85,18 +115,25 @@ async function main() {
 
     if (settings.mode === "dry-run") {
       state.orders.unshift(createStateOrder(signal, plan, "DRY_RUN"));
+      state.lastAction = `dry-run ${signal.pair} ${signal.side}`;
       console.log(`${LOG_PREFIX} dry-run ${signal.pair} ${signal.side} margin=$${plan.marginUsd} notional=$${plan.notionalUsd} size=${plan.size}`);
       continue;
     }
 
+    await prepareBitgetLeverage(plan).catch((error) => {
+      console.warn(`${LOG_PREFIX} leverage setup warning ${plan.pair}: ${error?.message || error}`);
+    });
     const placed = await placeMarketOrder(plan);
     state.orders.unshift(createStateOrder(signal, plan, "OPEN", placed));
+    incrementDailyTrades(state);
+    state.lastAction = `LIVE order sent ${signal.pair} ${signal.side}`;
     console.log(`${LOG_PREFIX} LIVE order sent ${signal.pair} ${signal.side} clientOid=${plan.clientOid}`);
   }
 
   state.updatedAt = new Date().toISOString();
   state.orders = state.orders.slice(0, 250);
   writeJson(STATE_PATH, state);
+  await reportExecutorStatus(statusPayload(state, { ok: true, livePaused: policy.livePaused }));
 }
 
 async function runScanner() {
@@ -116,10 +153,10 @@ async function runScanner() {
   return body;
 }
 
-function isExecutableSignal(signal, state) {
+function isExecutableSignal(signal, state, policy = {}) {
   if (!signal || !signal.id || !signal.pair || !signal.side) return false;
   if (state.seen[signal.id]) return false;
-  if (Number(signal.score) < settings.minScore) return false;
+  if (Number(signal.score) < Math.max(settings.minScore, Number(policy.minScore) || 0)) return false;
   if (!settings.allowMeme && /meme/i.test(String(signal.category || ""))) return false;
   const liquidity = Number(signal.quoteVolume || signal.liquidityUsd || 0);
   if (liquidity && liquidity < settings.minLiquidityUsd) return false;
@@ -154,6 +191,8 @@ function buildOrderPlan(signal, contracts) {
     leverage,
     notionalUsd,
     price,
+    sl: Number(signal.sl),
+    tp1: Number(signal.tp1),
     size: String(size),
     clientOid: `jamd-${String(signal.id).replace(/[^a-zA-Z0-9-]/g, "").slice(0, 40)}`
   };
@@ -181,11 +220,54 @@ async function placeMarketOrder(plan) {
     orderType: "market",
     clientOid: plan.clientOid
   };
+  if (Number.isFinite(plan.sl) && plan.sl > 0) body.presetStopLossPrice = formatBitgetPrice(plan.sl);
+  if (Number.isFinite(plan.tp1) && plan.tp1 > 0) body.presetStopSurplusPrice = formatBitgetPrice(plan.tp1);
   const result = await bitgetRequest("POST", "/api/v2/mix/order/place-order", body);
   if (result?.code !== "00000") {
     throw new Error(`Bitget rejected ${plan.pair}: ${result?.msg || JSON.stringify(result)}`);
   }
   return result;
+}
+
+async function prepareBitgetLeverage(plan) {
+  const body = {
+    symbol: plan.symbol,
+    productType: settings.productType,
+    marginCoin: settings.marginCoin,
+    leverage: String(plan.leverage),
+    holdSide: plan.side === "buy" ? "long" : "short"
+  };
+  const result = await bitgetRequest("POST", "/api/v2/mix/account/set-leverage", body);
+  if (result?.code && result.code !== "00000") {
+    throw new Error(result?.msg || `Bitget leverage ${result.code}`);
+  }
+}
+
+async function reconcileBitgetPositions(state) {
+  const result = await bitgetRequest("GET", `/api/v2/mix/position/all-position?productType=${encodeURIComponent(settings.productType)}&marginCoin=${encodeURIComponent(settings.marginCoin)}`);
+  if (result?.code && result.code !== "00000") {
+    throw new Error(`Bitget positions rejected: ${result?.msg || result.code}`);
+  }
+  const positions = (Array.isArray(result?.data) ? result.data : [])
+    .filter((item) => Math.abs(Number(item.total || item.available || item.size || 0)) > 0);
+  const liveSymbols = new Set(positions.map((item) => String(item.symbol || "")));
+  for (const order of state.orders) {
+    if (order.status !== "OPEN" || !order.symbol) continue;
+    if (!liveSymbols.has(order.symbol)) {
+      order.status = "CLOSED_UNKNOWN";
+      order.closedAt = new Date().toISOString();
+    }
+  }
+  state.bitgetSynced = true;
+  state.remotePositions = positions.slice(0, 20).map((item) => ({
+    symbol: item.symbol,
+    holdSide: item.holdSide,
+    total: item.total,
+    unrealizedPL: item.unrealizedPL,
+    marginSize: item.marginSize
+  }));
+  state.liveUnrealizedPnl = positions.reduce((sum, item) => sum + (Number(item.unrealizedPL) || 0), 0);
+  return positions;
 }
 
 async function bitgetRequest(method, requestPath, body) {
@@ -203,7 +285,7 @@ async function bitgetRequest(method, requestPath, body) {
       "Content-Type": "application/json",
       locale: "en-US"
     },
-    body: payload
+    ...(payload ? { body: payload } : {})
   });
   const text = await response.text();
   try {
@@ -229,6 +311,7 @@ function createStateOrder(signal, plan, status, response = null) {
   return {
     id: signal.id,
     pair: signal.pair,
+    symbol: plan.symbol,
     side: signal.side,
     status,
     clientOid: plan.clientOid,
@@ -248,13 +331,98 @@ function rememberSkip(state, signal, reason) {
 function pruneState(state) {
   state.orders = Array.isArray(state.orders) ? state.orders : [];
   state.seen = state.seen && typeof state.seen === "object" ? state.seen : {};
+  state.daily = normalizeDailyState(state.daily);
   for (const order of state.orders) {
     if (order?.id) state.seen[order.id] = state.seen[order.id] || { orderedAt: order.createdAt || new Date().toISOString() };
   }
 }
 
 function createExecutorState() {
-  return { version: 1, updatedAt: null, seen: {}, orders: [] };
+  return { version: 2, updatedAt: null, seen: {}, orders: [], daily: normalizeDailyState({}) };
+}
+
+async function reportExecutorStatus(payload) {
+  if (!settings.cronSecret) return;
+  await fetch(`${settings.appUrl}/api/pro-executor`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${settings.cronSecret}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  }).catch(() => {});
+}
+
+function statusPayload(state, overrides = {}) {
+  const daily = normalizeDailyState(state.daily);
+  return {
+    mode: settings.mode,
+    ok: overrides.ok === true,
+    livePaused: overrides.livePaused === true,
+    lastRunAt: new Date().toISOString(),
+    openCount: state.orders.filter((order) => order.status === "OPEN").length,
+    dailyRealizedPnl: daily.realizedPnl,
+    liveUnrealizedPnl: Number(state.liveUnrealizedPnl || 0),
+    dailyTrades: daily.trades,
+    consecutiveLosses: daily.consecutiveLosses,
+    lastAction: overrides.lastAction || state.lastAction || "",
+    lastError: overrides.lastError || "",
+    bitgetSynced: state.bitgetSynced === true
+  };
+}
+
+function normalizeExecutorPolicy(value = {}) {
+  return {
+    livePaused: value?.livePaused === true,
+    minScore: clampInt(value?.minScore, 8, 13, settings.minScore),
+    maxDailyLossUsd: clampNumber(value?.maxDailyLossUsd, 1, 100000, settings.maxDailyLossUsd),
+    maxDailyLossPercent: clampNumber(value?.maxDailyLossPercent, 0.1, 50, settings.maxDailyLossPercent),
+    maxConsecutiveLosses: clampInt(value?.maxConsecutiveLosses, 1, 20, settings.maxConsecutiveLosses),
+    maxTradesPerDay: clampInt(value?.maxTradesPerDay, 1, 100, settings.maxTradesPerDay)
+  };
+}
+
+function normalizeDailyState(value = {}) {
+  const today = new Date().toISOString().slice(0, 10);
+  if (value.day !== today) {
+    return { day: today, trades: 0, realizedPnl: 0, consecutiveLosses: 0 };
+  }
+  return {
+    day: today,
+    trades: Number(value.trades || 0),
+    realizedPnl: Number(value.realizedPnl || 0),
+    consecutiveLosses: Number(value.consecutiveLosses || 0)
+  };
+}
+
+function incrementDailyTrades(state) {
+  state.daily = normalizeDailyState(state.daily);
+  state.daily.trades += 1;
+}
+
+function dailyRiskBlock(state, policy) {
+  state.daily = normalizeDailyState(state.daily);
+  const daily = state.daily;
+  const startingBalance = Number(process.env.JAMDDMAJ_LIVE_RISK_BALANCE_USD || 0);
+  const percentLossLimit = startingBalance > 0
+    ? -(startingBalance * (Number(policy.maxDailyLossPercent) || settings.maxDailyLossPercent) / 100)
+    : -Infinity;
+  const usdLossLimit = -(Number(policy.maxDailyLossUsd) || settings.maxDailyLossUsd);
+  const lossLimit = Math.max(usdLossLimit, percentLossLimit);
+  const combinedPnl = daily.realizedPnl + Math.min(0, Number(state.liveUnrealizedPnl || 0));
+  if (combinedPnl <= lossLimit) return `daily/live loss ${combinedPnl} <= ${lossLimit}`;
+  if (daily.consecutiveLosses >= (Number(policy.maxConsecutiveLosses) || settings.maxConsecutiveLosses)) return "consecutive loss limit";
+  if (daily.trades >= (Number(policy.maxTradesPerDay) || settings.maxTradesPerDay)) return "daily trade limit";
+  return "";
+}
+
+function formatBitgetPrice(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number <= 0) return "";
+  if (number >= 100) return number.toFixed(2);
+  if (number >= 1) return number.toFixed(4);
+  if (number >= 0.01) return number.toFixed(6);
+  return number.toFixed(10).replace(/0+$/, "").replace(/\.$/, "");
 }
 
 function loadDotEnv(filePath) {

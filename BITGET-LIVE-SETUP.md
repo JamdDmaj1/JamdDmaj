@@ -47,6 +47,11 @@ JAMDDMAJ_MAX_NEW_ORDERS_PER_RUN=1
 JAMDDMAJ_MIN_LIVE_SCORE=10
 JAMDDMAJ_MIN_LIVE_LIQUIDITY_USD=3000000
 JAMDDMAJ_ALLOW_MEME_LIVE=false
+JAMDDMAJ_MAX_DAILY_LOSS_USD=25
+JAMDDMAJ_MAX_DAILY_LOSS_PERCENT=3
+JAMDDMAJ_MAX_CONSECUTIVE_LOSSES=2
+JAMDDMAJ_MAX_TRADES_PER_DAY=3
+JAMDDMAJ_LIVE_RISK_BALANCE_USD=1000
 ```
 
 Do not paste these values into Vercel, GitHub, screenshots, chat, or the app.
@@ -61,6 +66,7 @@ cat /opt/jamddmaj-scanner/executor-state.json
 ```
 
 In `dry-run`, it will scan and log order candidates, but it will not send any Bitget order.
+It also reports a heartbeat to `/api/pro-executor` so the owner panel can show the VPS mode and last run.
 
 ## 4. Replace the cron command
 
@@ -94,6 +100,8 @@ Keep these safeguards first:
 - `JAMDDMAJ_ALLOW_MEME_LIVE=false`
 
 Watch the first order from Bitget manually. Do not raise size until dry-run and paper results are consistent.
+
+The owner panel can pause new live entries remotely. This does not close existing Bitget positions; it stops the VPS from opening new entries on future cycles.
 
 ## Emergency stop
 

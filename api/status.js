@@ -20,8 +20,8 @@ export default function handler(request) {
       && process.env.JAMDDMAJ_CRON_SECRET
     ),
     googleAccount: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.JAMDDMAJ_ACCOUNT_SECRET),
-    version: "1.33.0",
-    latestVersion: String(process.env.JAMDDMAJ_LATEST_VERSION || "1.33.0"),
+    version: "1.35.0",
+    latestVersion: String(process.env.JAMDDMAJ_LATEST_VERSION || "1.35.0"),
     apkUrl: String(
       process.env.JAMDDMAJ_APK_URL
       || "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk"

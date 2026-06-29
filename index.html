@@ -695,6 +695,12 @@
       background: rgba(52, 211, 153, 0.1);
     }
 
+    .trader-server .pill-btn.danger {
+      border-color: rgba(251, 113, 133, 0.55);
+      color: #fda4af;
+      background: rgba(251, 113, 133, 0.1);
+    }
+
     .trader-server {
       display: grid;
       gap: 12px;
@@ -871,6 +877,20 @@
     }
 
     .pro-news-list small { color: var(--muted); }
+
+    .pro-news-brief {
+      display: grid;
+      gap: 6px;
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 0.76rem;
+      line-height: 1.45;
+    }
+
+    .pro-news-impact {
+      color: #bae6fd;
+      font-weight: 800;
+    }
 
     .memory-list {
       display: grid;
@@ -3106,12 +3126,28 @@
                 <strong id="proServerTitle">24/7 server scanner</strong>
                 <span id="proServerStatus">Checking the private server...</span>
                 <small id="proServerLastRun">No server cycle recorded yet.</small>
+                <small id="proExecutorStatus">Executor: waiting for VPS heartbeat.</small>
               </div>
               <div class="trader-server-actions">
+                <button class="pill-btn danger" id="pauseLiveExecutorBtn" type="button">Pause live</button>
                 <button class="pill-btn" id="toggleProServerBtn" type="button">Enable 24/7</button>
                 <button class="pill-btn" id="runProServerBtn" type="button">Run server now</button>
                 <button class="pill-btn" id="refreshProServerBtn" type="button">Refresh</button>
               </div>
+            </div>
+            <div class="trader-alert-controls">
+              <label><span id="maxDailyLossUsdLabel">Max daily loss (USD)</span>
+                <input id="maxDailyLossUsdInput" type="number" min="1" max="100000" step="1" value="25">
+              </label>
+              <label><span id="maxDailyLossPercentLabel">Max daily loss (%)</span>
+                <input id="maxDailyLossPercentInput" type="number" min="0.1" max="50" step="0.1" value="3">
+              </label>
+              <label><span id="maxConsecutiveLossesLabel">Max consecutive losses</span>
+                <input id="maxConsecutiveLossesInput" type="number" min="1" max="20" step="1" value="2">
+              </label>
+              <label><span id="maxTradesPerDayLabel">Max trades/day</span>
+                <input id="maxTradesPerDayInput" type="number" min="1" max="100" step="1" value="3">
+              </label>
             </div>
             <div class="pro-stat-grid">
               <div class="pro-stat"><span id="proStatOpenLabel">Open calls</span><strong id="proStatOpen">0</strong></div>
@@ -3123,7 +3159,7 @@
               <span class="pro-history-empty">The verified history will appear after the server runs.</span>
             </div>
           </div>
-          <div class="trader-server is-hidden" id="paperTradingPanel">
+          <div class="trader-server" id="paperTradingPanel">
             <div class="trader-server-head">
               <div class="trader-server-copy">
                 <strong id="paperTradingTitle">Paper trading</strong>
@@ -3140,6 +3176,15 @@
             <label class="trader-server-copy"><span id="paperRiskLabel">Maximum simulated risk per call (%)</span>
               <input id="paperRiskPercentInput" type="number" min="0.1" max="5" step="0.1" value="0.5">
             </label>
+            <label class="trader-server-copy"><span id="paperLeverageLabel">Simulation leverage</span>
+              <select id="paperLeverageSelect">
+                <option value="3">3x</option>
+                <option value="5">5x</option>
+                <option value="10" selected>10x</option>
+                <option value="20">20x</option>
+              </select>
+            </label>
+            <p class="trader-note" id="paperTpPlanText">TP plan: TP1 closes 70%, TP2 closes half of the rest, TP3 closes everything left. After TP1, the remainder is protected around +10% ROE.</p>
             <div class="pro-stat-grid">
               <div class="pro-stat"><span id="paperEquityLabel">Equity</span><strong id="paperEquity">$1,000</strong></div>
               <div class="pro-stat"><span id="paperPnlLabel">Realized PnL</span><strong id="paperPnl">$0</strong></div>
@@ -3171,6 +3216,7 @@
               <button class="pill-btn" id="refreshProNewsBtn" type="button">Refresh news</button>
             </div>
             <div class="pro-news-context" id="proNewsContext"></div>
+            <div class="pro-news-brief" id="proNewsBrief"></div>
             <div class="pro-news-list" id="proNewsList"></div>
           </details>
           <div id="signalList" class="trader-signals"></div>
@@ -3538,7 +3584,7 @@
             <button class="pill-btn" id="checkUpdatesBtn" type="button">Check for updates</button>
             <a class="social-link is-hidden" id="downloadUpdateBtn" href="#" target="_blank" rel="noopener noreferrer">Open update</a>
           </div>
-          <div class="backup-status" id="appUpdateStatus">Installed version: 1.33.0</div>
+          <div class="backup-status" id="appUpdateStatus">Installed version: 1.35.0</div>
         </section>
       </div>
       <div class="dialog-actions">
@@ -3663,7 +3709,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.33.0";
+      const APP_VERSION = "1.35.0";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
       const FREE_LIVE_API_URL = `${WEB_APP_URL}api/live`;
       const TELEGRAM_API_URL = `${WEB_APP_URL}api/telegram`;
@@ -3698,14 +3744,14 @@
         pro: {
           en: {
             title: "JamdDmaj Pro Signals update",
-            intro: "Hidden Pro mode was upgraded separately.",
+            intro: "Hidden Pro mode now has stronger live safeguards and better context.",
             button: "Enter Pro",
             items: [
-              ["Honest outcomes", "Confirmed invalidations, partial wins and ambiguous candles are tracked separately."],
-              ["Risk-sized paper trades", "Position size follows a configurable account-risk percentage and invalidation distance."],
-              ["Linked Telegram events", "TP, protection and reversal alerts now reply to the original trade message when Telegram provides a message ID."],
-              ["Cleaner Telegram alerts", "Server locks and persistent deduplication prevent repeated calls and events."],
-              ["Nightly validation", "A scheduled walk-forward backtest reviews recent Bitget behavior without the app open."]
+              ["Live pause", "The owner panel can pause VPS live entries without exposing Bitget keys."],
+              ["Daily risk limits", "The executor receives max daily loss, max trades and consecutive-loss limits."],
+              ["Client demo paper", "Non-owner Pro users can start a local paper simulation without touching the server."],
+              ["Private code locked", "The 7-tap device code only works after owner authorization."],
+              ["Better market context", "News now groups catalysts, trending tokens, regime and headline impact."]
             ]
           },
           es: {
@@ -4583,6 +4629,7 @@
         telegramScanMinutes: "jamdV3TelegramScanMinutes",
         telegramMinScore: "jamdV3TelegramMinScore",
         telegramCooldownMinutes: "jamdV3TelegramCooldownMinutes",
+        publicPaper: "jamdV5PublicPaper",
         memories: "jamdV4ExplicitMemories",
         accountProfile: "jamdV4AccountProfile"
       };
@@ -5339,14 +5386,14 @@
         }
       }
 
-      function enterTraderMode() {
+      async function enterTraderMode() {
         traderMode = true;
         localStorage.setItem(STORAGE.traderOpen, "true");
         learning.mode = "chat";
         learning.activeLesson = null;
         closeSidebar();
         renderAll();
-        checkTelegramOwnerAccess();
+        await checkTelegramOwnerAccess();
         loadProNews();
         if (!els.signalList.children.length) scanProSignals();
         maybeShowProReleaseNotes();
@@ -6521,12 +6568,11 @@
       async function checkTelegramOwnerAccess() {
         const panel = document.getElementById("traderTelegramPanel");
         const serverPanel = document.getElementById("traderServerPanel");
-        const paperPanel = document.getElementById("paperTradingPanel");
         const backtestPanel = document.getElementById("backtestPanel");
         panel.classList.add("is-hidden");
         serverPanel.classList.add("is-hidden");
-        paperPanel.classList.add("is-hidden");
         backtestPanel.classList.add("is-hidden");
+        document.querySelectorAll(".trader-owner-only").forEach((node) => node.classList.add("is-hidden"));
         telegramOwnerAuthorized = false;
         try {
           const data = await callTelegramApi({ action: "status" });
@@ -6536,11 +6582,13 @@
         }
         panel.classList.toggle("is-hidden", !telegramOwnerAuthorized);
         serverPanel.classList.toggle("is-hidden", !telegramOwnerAuthorized);
-        paperPanel.classList.toggle("is-hidden", !telegramOwnerAuthorized);
         backtestPanel.classList.toggle("is-hidden", !telegramOwnerAuthorized);
+        document.querySelectorAll(".trader-owner-only").forEach((node) => node.classList.toggle("is-hidden", !telegramOwnerAuthorized));
         if (telegramOwnerAuthorized) {
           updateTelegramAlertsUi();
           loadProServerState();
+        } else {
+          renderPublicPaperState();
         }
       }
 
@@ -6598,14 +6646,29 @@
         const context = document.getElementById("proNewsContext");
         context.replaceChildren();
         const items = [
+          data.context?.regime ? `${spanish ? "Regimen" : "Regime"}: ${data.context.regime}` : "",
           data.context?.fearGreed ? `${spanish ? "Miedo y codicia" : "Fear & Greed"}: ${data.context.fearGreed.value} (${data.context.fearGreed.label})` : "",
           Number.isFinite(data.context?.bitcoinDominance) ? `BTC dominance: ${data.context.bitcoinDominance.toFixed(1)}%` : "",
-          Number.isFinite(data.context?.marketCapChange24h) ? `${spanish ? "Market cap 24h" : "24h market cap"}: ${data.context.marketCapChange24h >= 0 ? "+" : ""}${data.context.marketCapChange24h.toFixed(2)}%` : ""
+          Number.isFinite(data.context?.marketCapChange24h) ? `${spanish ? "Market cap 24h" : "24h market cap"}: ${data.context.marketCapChange24h >= 0 ? "+" : ""}${data.context.marketCapChange24h.toFixed(2)}%` : "",
+          data.context?.trending?.length ? `${spanish ? "Tendencia" : "Trending"}: ${data.context.trending.slice(0, 4).map((item) => item.symbol).join(", ")}` : ""
         ].filter(Boolean);
         items.forEach((text) => {
           const chip = document.createElement("span");
           chip.textContent = text;
           context.append(chip);
+        });
+        const brief = document.getElementById("proNewsBrief");
+        brief.replaceChildren();
+        (data.brief || []).forEach((line, index) => {
+          const item = document.createElement(index === 1 ? "strong" : "span");
+          item.className = index === 1 ? "pro-news-impact" : "";
+          item.textContent = line;
+          brief.append(item);
+        });
+        (data.catalysts || []).slice(0, 4).forEach((catalyst) => {
+          const item = document.createElement("span");
+          item.textContent = `${catalyst.theme}: ${catalyst.impact} (${catalyst.count}) - ${catalyst.sample}`;
+          brief.append(item);
         });
         const list = document.getElementById("proNewsList");
         list.replaceChildren();
@@ -6617,7 +6680,7 @@
           const title = document.createElement("b");
           title.textContent = article.title;
           const source = document.createElement("small");
-          source.textContent = [article.domain, article.publishedAt ? new Date(article.publishedAt).toLocaleString() : ""].filter(Boolean).join(" - ");
+          source.textContent = [article.theme, article.impact, article.domain, article.publishedAt ? new Date(article.publishedAt).toLocaleString() : ""].filter(Boolean).join(" - ");
           link.append(title, source);
           list.append(link);
         });
@@ -6652,7 +6715,10 @@
       }
 
       async function syncProServerConfig() {
-        if (!telegramOwnerAuthorized || !proServerState) return;
+        if (!telegramOwnerAuthorized || !proServerState) {
+          syncPublicPaperConfig();
+          return;
+        }
         try {
           proServerState = await callProApi({
             action: "config",
@@ -6667,10 +6733,40 @@
               protectionLockRoe: Number(document.getElementById("proLockRoeInput").value) || 2,
               paperEnabled: proServerState.config?.paperEnabled !== false,
                paperStartingBalance: Number(document.getElementById("paperStartingBalanceInput").value) || 1000,
-               paperRiskPercent: Number(document.getElementById("paperRiskPercentInput").value) || 0.5
+               paperRiskPercent: Number(document.getElementById("paperRiskPercentInput").value) || 0.5,
+               paperLeverage: Number(document.getElementById("paperLeverageSelect")?.value) || 10,
+              livePaused: proServerState.config?.livePaused === true,
+              maxDailyLossUsd: Number(document.getElementById("maxDailyLossUsdInput")?.value) || 25,
+              maxDailyLossPercent: Number(document.getElementById("maxDailyLossPercentInput")?.value) || 3,
+              maxConsecutiveLosses: Number(document.getElementById("maxConsecutiveLossesInput")?.value) || 2,
+              maxTradesPerDay: Number(document.getElementById("maxTradesPerDayInput")?.value) || 3
             }
           });
           renderProServerState(proServerState);
+        } catch (error) {
+          document.getElementById("proServerStatus").textContent = error.message;
+        }
+      }
+
+      async function toggleLiveExecutorPause() {
+        if (!telegramOwnerAuthorized || !proServerState) return;
+        const spanish = resolvedLanguage() === "es";
+        const paused = proServerState.config?.livePaused === true;
+        document.getElementById("proServerStatus").textContent = paused
+          ? (spanish ? "Reactivando live del VPS..." : "Resuming VPS live mode...")
+          : (spanish ? "Pausando live del VPS..." : "Pausing VPS live mode...");
+        try {
+          proServerState = await callProApi({
+            action: "config",
+            config: {
+              ...proServerState.config,
+              livePaused: !paused
+            }
+          });
+          renderProServerState(proServerState);
+          showToast(!paused
+            ? (spanish ? "Live pausado. El VPS no abrira nuevas entradas." : "Live paused. The VPS will not open new entries.")
+            : (spanish ? "Live reactivado con los limites actuales." : "Live resumed with current limits."));
         } catch (error) {
           document.getElementById("proServerStatus").textContent = error.message;
         }
@@ -6734,9 +6830,24 @@
         document.getElementById("proLeverageLabel").textContent = spanish ? "Apalancamiento del plan" : "Planning leverage";
         document.getElementById("proTriggerRoeLabel").textContent = spanish ? "Sugerir proteccion al ROE %" : "Suggest protection at ROE %";
         document.getElementById("proLockRoeLabel").textContent = spanish ? "Proteger aproximadamente ROE %" : "Protect approximately ROE %";
+        document.getElementById("maxDailyLossUsdInput").value = String(state.config?.maxDailyLossUsd || 25);
+        document.getElementById("maxDailyLossPercentInput").value = String(state.config?.maxDailyLossPercent || 3);
+        document.getElementById("maxConsecutiveLossesInput").value = String(state.config?.maxConsecutiveLosses || 2);
+        document.getElementById("maxTradesPerDayInput").value = String(state.config?.maxTradesPerDay || 3);
+        document.getElementById("maxDailyLossUsdLabel").textContent = spanish ? "Perdida diaria max. (USD)" : "Max daily loss (USD)";
+        document.getElementById("maxDailyLossPercentLabel").textContent = spanish ? "Perdida diaria max. (%)" : "Max daily loss (%)";
+        document.getElementById("maxConsecutiveLossesLabel").textContent = spanish ? "Perdidas seguidas max." : "Max consecutive losses";
+        document.getElementById("maxTradesPerDayLabel").textContent = spanish ? "Trades max. por dia" : "Max trades/day";
+        const pauseButton = document.getElementById("pauseLiveExecutorBtn");
+        const livePaused = state.config?.livePaused === true;
+        pauseButton.textContent = livePaused ? (spanish ? "Reactivar live" : "Resume live") : (spanish ? "Pausar live" : "Pause live");
+        pauseButton.classList.toggle("active", livePaused);
+        const executor = state.executor || {};
+        const executorStamp = executor.lastRunAt ? new Date(executor.lastRunAt).toLocaleString() : (spanish ? "sin heartbeat" : "no heartbeat");
+        document.getElementById("proExecutorStatus").textContent = `${spanish ? "Executor" : "Executor"}: ${(executor.mode || "unknown").toUpperCase()} - ${executorStamp}${executor.livePaused ? ` - ${spanish ? "pausado" : "paused"}` : ""}${executor.lastError ? ` - ${executor.lastError}` : ""}`;
         document.getElementById("proExecutionNotice").textContent = spanish
-          ? "Solo plan y alertas. JamdDmaj no coloca ordenes ni guarda claves API de Bitget."
-          : "Planning and alerts only. JamdDmaj does not place orders or hold Bitget API keys.";
+          ? "Live se pausa desde aqui; las claves de Bitget siguen solo en el VPS."
+          : "Live can be paused here; Bitget keys still stay only on the VPS.";
         document.getElementById("proStatOpenLabel").textContent = spanish ? "Calls abiertas" : "Open calls";
         document.getElementById("proStatWinsLabel").textContent = spanish ? "Calls que tocaron TP" : "TP successes";
          document.getElementById("proStatLossesLabel").textContent = spanish ? "Invalidaciones confirmadas" : "Confirmed invalidations";
@@ -6759,7 +6870,14 @@
          document.getElementById("paperStartingBalanceInput").value = String(config.paperStartingBalance || paper.startingBalance || 1000);
          document.getElementById("paperRiskLabel").textContent = spanish ? "Riesgo simulado maximo por call (%)" : "Maximum simulated risk per call (%)";
          document.getElementById("paperRiskPercentInput").value = String(config.paperRiskPercent || 0.5);
-        document.getElementById("paperEquityLabel").textContent = spanish ? "Equity demo" : "Paper equity";
+         document.getElementById("paperLeverageLabel").textContent = spanish ? "Apalancamiento demo" : "Simulation leverage";
+         const paperLeverageSelect = document.getElementById("paperLeverageSelect");
+         if (paperLeverageSelect) paperLeverageSelect.value = String(config.paperLeverage || config.leverage || 10);
+         const paperTpPlan = document.getElementById("paperTpPlanText");
+         if (paperTpPlan) paperTpPlan.textContent = spanish
+           ? "Plan TP: TP1 cierra 70%, TP2 cierra la mitad restante y TP3 cierra todo. Despues de TP1, el restante se protege cerca de +10% ROE."
+           : "TP plan: TP1 closes 70%, TP2 closes half of the rest, and TP3 closes everything left. After TP1, the remainder is protected around +10% ROE.";
+         document.getElementById("paperEquityLabel").textContent = spanish ? "Equity demo" : "Paper equity";
         document.getElementById("paperPnlLabel").textContent = spanish ? "PnL realizado" : "Realized PnL";
         document.getElementById("paperWinRateLabel").textContent = spanish ? "Aciertos demo" : "Paper win rate";
         document.getElementById("paperDrawdownLabel").textContent = "Max drawdown";
@@ -6798,13 +6916,132 @@
         return `${prefix}$${Math.abs(number).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
       }
 
+      function publicPaperConfig() {
+        return {
+          paperEnabled: loadPublicPaper().enabled !== false,
+          paperStartingBalance: Number(document.getElementById("paperStartingBalanceInput")?.value) || 1000,
+          paperRiskPercent: Number(document.getElementById("paperRiskPercentInput")?.value) || 0.5,
+          paperLeverage: Number(document.getElementById("paperLeverageSelect")?.value) || 10,
+          leverage: Number(document.getElementById("paperLeverageSelect")?.value) || 10
+        };
+      }
+
+      function createPublicPaperPortfolio(config = {}) {
+        const startingBalance = Math.max(100, Number(config.paperStartingBalance) || 1000);
+        return {
+          enabled: config.paperEnabled !== false,
+          startingBalance,
+          balance: startingBalance,
+          equity: startingBalance,
+          realizedPnl: 0,
+          unrealizedPnl: 0,
+          maxDrawdownPercent: 0,
+          winRate: 0,
+          open: [],
+          closed: [],
+          updatedAt: new Date().toISOString()
+        };
+      }
+
+      function loadPublicPaper() {
+        const saved = loadJson(STORAGE.publicPaper, null);
+        if (!saved || !Array.isArray(saved.open) || !Array.isArray(saved.closed)) return createPublicPaperPortfolio({});
+        return {
+          ...createPublicPaperPortfolio(saved),
+          ...saved,
+          open: saved.open.slice(0, 50),
+          closed: saved.closed.slice(0, 100)
+        };
+      }
+
+      function savePublicPaper(paper) {
+        localStorage.setItem(STORAGE.publicPaper, JSON.stringify({ ...paper, updatedAt: new Date().toISOString() }));
+      }
+
+      function syncPublicPaperConfig() {
+        const paper = loadPublicPaper();
+        const config = publicPaperConfig();
+        paper.enabled = config.paperEnabled;
+        if (!paper.open.length && !paper.closed.length && Number(config.paperStartingBalance) !== Number(paper.startingBalance)) {
+          paper.startingBalance = Number(config.paperStartingBalance) || 1000;
+          paper.balance = paper.startingBalance;
+          paper.equity = paper.startingBalance;
+        }
+        savePublicPaper(paper);
+        renderPublicPaperState();
+      }
+
+      function renderPublicPaperState() {
+        if (telegramOwnerAuthorized) return;
+        const paper = loadPublicPaper();
+        renderPaperTrading(paper, publicPaperConfig(), resolvedLanguage() === "es");
+      }
+
+      function addPublicPaperSignals(signals = []) {
+        if (telegramOwnerAuthorized || !signals.length) return;
+        const paper = loadPublicPaper();
+        const config = publicPaperConfig();
+        paper.enabled = config.paperEnabled;
+        if (!paper.enabled) {
+          savePublicPaper(paper);
+          renderPublicPaperState();
+          return;
+        }
+        let available = Math.max(0, Number(paper.equity || paper.balance || paper.startingBalance) - paper.open.reduce((sum, item) => sum + (Number(item.marginUsd) || 0), 0));
+        signals.forEach((signal) => {
+          if (paper.open.some((item) => item.signalId === signal.id || item.symbol === signal.symbol)) return;
+          const leverage = Math.max(1, Number(config.paperLeverage) || 10);
+          const entry = Number(signal.entry);
+          const stopDistance = Math.abs((Number(signal.sl) - entry) / entry);
+          if (!Number.isFinite(entry) || entry <= 0 || !Number.isFinite(stopDistance) || stopDistance <= 0) return;
+          const riskBudget = Number(paper.equity || paper.balance || paper.startingBalance) * (Number(config.paperRiskPercent) || 0.5) / 100;
+          const marginUsd = Math.min(Number(signal.plannedUsd) || 25, riskBudget / stopDistance / leverage, available);
+          if (marginUsd < 5) return;
+          const notionalUsd = marginUsd * leverage;
+          paper.open.unshift({
+            signalId: signal.id,
+            symbol: signal.symbol,
+            pair: signal.pair || signal.symbol,
+            side: signal.side,
+            entry,
+            currentPrice: entry,
+            marginUsd,
+            leverage,
+            notionalUsd,
+            status: "OPEN",
+            openedAt: new Date().toISOString(),
+            unrealizedPnl: 0,
+            roePercent: 0
+          });
+          available -= marginUsd;
+        });
+        paper.equity = Number(paper.balance || paper.startingBalance);
+        paper.updatedAt = new Date().toISOString();
+        savePublicPaper(paper);
+        renderPublicPaperState();
+      }
+
       async function togglePaperTrading() {
+        if (!telegramOwnerAuthorized) {
+          const paper = loadPublicPaper();
+          paper.enabled = paper.enabled === false;
+          savePublicPaper(paper);
+          renderPublicPaperState();
+          return;
+        }
         if (!proServerState) return;
         proServerState.config.paperEnabled = proServerState.config.paperEnabled === false;
         await syncProServerConfig();
       }
 
       async function resetPaperTrading() {
+        if (!telegramOwnerAuthorized) {
+          const spanish = resolvedLanguage() === "es";
+          if (!confirm(spanish ? "Reiniciar la simulacion local?" : "Reset the local simulation?")) return;
+          savePublicPaper(createPublicPaperPortfolio(publicPaperConfig()));
+          renderPublicPaperState();
+          return;
+        }
         if (!telegramOwnerAuthorized) return;
         const spanish = resolvedLanguage() === "es";
         if (!confirm(spanish ? "Reiniciar toda la cuenta demo y sus estadisticas?" : "Reset the entire paper account and its statistics?")) return;
@@ -10340,6 +10577,7 @@
           .slice(0, 6);
         lastProSignals = signals;
         renderProSignals(signals);
+        addPublicPaperSignals(signals);
         els.traderStatus.textContent = resolvedLanguage() === "es"
           ? `Lote local: ${universe.length} de ${CRYPTO_ASSETS.length} criptos. El siguiente escaneo continua la rotacion.`
           : `Local batch: ${universe.length} of ${CRYPTO_ASSETS.length} crypto assets. The next scan continues the rotation.`;
@@ -10358,6 +10596,7 @@
           const signal = buildProSignal(data, true);
           if (!signal) throw new Error("No setup");
           renderProSignals([signal]);
+          addPublicPaperSignals([signal]);
           els.traderStatus.textContent = tradeText("manualScan", { symbol: signal.symbol });
         } catch {
           els.traderStatus.textContent = tradeText("noData", { query });
@@ -11008,9 +11247,10 @@
         updateTelegramAlertsUi();
         syncProServerConfig();
       });
-      ["proPlannedUsdInput", "proLeverageSelect", "proTriggerRoeInput", "proLockRoeInput", "paperStartingBalanceInput", "paperRiskPercentInput"].forEach((id) => {
+      ["proPlannedUsdInput", "proLeverageSelect", "proTriggerRoeInput", "proLockRoeInput", "paperStartingBalanceInput", "paperRiskPercentInput", "paperLeverageSelect", "maxDailyLossUsdInput", "maxDailyLossPercentInput", "maxConsecutiveLossesInput", "maxTradesPerDayInput"].forEach((id) => {
         document.getElementById(id).addEventListener("change", syncProServerConfig);
       });
+      document.getElementById("pauseLiveExecutorBtn").addEventListener("click", toggleLiveExecutorPause);
       document.getElementById("toggleProServerBtn").addEventListener("click", toggleProServer);
       document.getElementById("runProServerBtn").addEventListener("click", runProServerNow);
       document.getElementById("refreshProServerBtn").addEventListener("click", () => loadProServerState(true));
@@ -11025,7 +11265,13 @@
         document.getElementById("brandSecretTap")._tapTimer = setTimeout(() => { traderSecretTaps = 0; }, 1800);
         if (traderMode && traderSecretTaps >= 7) {
           traderSecretTaps = 0;
-          copyTelegramOwnerDeviceId();
+          if (telegramOwnerAuthorized) {
+            copyTelegramOwnerDeviceId();
+          } else {
+            showToast(resolvedLanguage() === "es"
+              ? "Codigo privado disponible solo en el dispositivo autorizado."
+              : "Private code is available only on the authorized device.");
+          }
           return;
         }
         if (!traderMode && traderSecretTaps >= 5) {
