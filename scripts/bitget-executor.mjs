@@ -51,17 +51,25 @@ async function main() {
   const signals = Array.isArray(scan?.signals) ? scan.signals : [];
   const events = Array.isArray(scan?.events) ? scan.events : [];
   const policy = normalizeExecutorPolicy(scan?.executor);
+  const decisions = createDecisionSummary(signals, events);
 
   console.log(`${LOG_PREFIX} scan ok. newSignals=${signals.length} events=${events.length} mode=${settings.mode}`);
 
-  const candidates = signals
-    .filter((signal) => isExecutableSignal(signal, state, policy))
-    .slice(0, settings.maxNewOrdersPerRun);
+  const executable = [];
+  for (const signal of signals) {
+    const decision = executableDecision(signal, state, policy);
+    if (decision.ok) executable.push(signal);
+    else recordRejection(decisions, decision.reason, signal);
+  }
+  decisions.executableSignals = executable.length;
+  const candidates = executable.slice(0, settings.maxNewOrdersPerRun);
+  state.lastDecisionSummary = decisions;
 
   if (settings.mode === "off" || policy.livePaused) {
     const reason = policy.livePaused ? "remote live pause is active" : "execution off";
     console.log(`${LOG_PREFIX} ${reason}. candidates=${candidates.length}`);
     state.lastAction = reason;
+    recordRejection(decisions, reason, candidates[0] || null);
     state.updatedAt = new Date().toISOString();
     writeJson(STATE_PATH, state);
     await reportExecutorStatus(statusPayload(state, { ok: true, livePaused: policy.livePaused, lastAction: reason }));
@@ -81,6 +89,7 @@ async function main() {
   if (riskBlock) {
     console.log(`${LOG_PREFIX} risk block: ${riskBlock}`);
     state.lastAction = `risk block: ${riskBlock}`;
+    recordRejection(decisions, state.lastAction, candidates[0] || null);
     state.updatedAt = new Date().toISOString();
     writeJson(STATE_PATH, state);
     await reportExecutorStatus(statusPayload(state, { ok: true, livePaused: true, lastAction: state.lastAction }));
@@ -99,22 +108,26 @@ async function main() {
       : state.orders.filter((order) => order.status === "OPEN" || order.status === "DRY_RUN").length;
     if (openCount >= settings.maxOpen) {
       console.log(`${LOG_PREFIX} max open reached (${openCount}/${settings.maxOpen}).`);
+      recordRejection(decisions, `max open reached (${openCount}/${settings.maxOpen})`, signal);
       break;
     }
     if (dailyRiskBlock(state, policy)) {
       console.log(`${LOG_PREFIX} daily risk limit reached during run.`);
+      recordRejection(decisions, "daily risk limit reached during run", signal);
       break;
     }
 
     const plan = buildOrderPlan(signal, contracts);
     if (!plan.ok) {
       rememberSkip(state, signal, plan.reason);
+      recordRejection(decisions, plan.reason, signal);
       console.log(`${LOG_PREFIX} skip ${signal.pair}: ${plan.reason}`);
       continue;
     }
 
     if (settings.mode === "dry-run") {
       state.orders.unshift(createStateOrder(signal, plan, "DRY_RUN"));
+      state.lastDryRunSignal = compactOrder(state.orders[0]);
       state.lastAction = `dry-run ${signal.pair} ${signal.side}`;
       console.log(`${LOG_PREFIX} dry-run ${signal.pair} ${signal.side} margin=$${plan.marginUsd} notional=$${plan.notionalUsd} size=${plan.size}`);
       continue;
@@ -125,6 +138,7 @@ async function main() {
     });
     const placed = await placeMarketOrder(plan);
     state.orders.unshift(createStateOrder(signal, plan, "OPEN", placed));
+    state.lastLiveSignal = compactOrder(state.orders[0]);
     incrementDailyTrades(state);
     state.lastAction = `LIVE order sent ${signal.pair} ${signal.side}`;
     console.log(`${LOG_PREFIX} LIVE order sent ${signal.pair} ${signal.side} clientOid=${plan.clientOid}`);
@@ -153,15 +167,17 @@ async function runScanner() {
   return body;
 }
 
-function isExecutableSignal(signal, state, policy = {}) {
-  if (!signal || !signal.id || !signal.pair || !signal.side) return false;
-  if (state.seen[signal.id]) return false;
-  if (Number(signal.score) < Math.max(settings.minScore, Number(policy.minScore) || 0)) return false;
-  if (!settings.allowMeme && /meme/i.test(String(signal.category || ""))) return false;
+function executableDecision(signal, state, policy = {}) {
+  if (!signal) return { ok: false, reason: "missing signal" };
+  if (!signal.id || !signal.pair || !signal.side) return { ok: false, reason: "missing id/pair/side" };
+  if (state.seen[signal.id]) return { ok: false, reason: "already seen" };
+  const minScore = Math.max(settings.minScore, Number(policy.minScore) || 0);
+  if (Number(signal.score) < minScore) return { ok: false, reason: `score below ${minScore}` };
+  if (!settings.allowMeme && /meme/i.test(String(signal.category || ""))) return { ok: false, reason: "meme live disabled" };
   const liquidity = Number(signal.quoteVolume || signal.liquidityUsd || 0);
-  if (liquidity && liquidity < settings.minLiquidityUsd) return false;
-  if (!["LONG", "SHORT"].includes(String(signal.side).toUpperCase())) return false;
-  return true;
+  if (liquidity && liquidity < settings.minLiquidityUsd) return { ok: false, reason: `liquidity below ${settings.minLiquidityUsd}` };
+  if (!["LONG", "SHORT"].includes(String(signal.side).toUpperCase())) return { ok: false, reason: "invalid side" };
+  return { ok: true, reason: "passed executor filters" };
 }
 
 function buildOrderPlan(signal, contracts) {
@@ -319,8 +335,24 @@ function createStateOrder(signal, plan, status, response = null) {
     leverage: plan.leverage,
     notionalUsd: plan.notionalUsd,
     size: plan.size,
+    entry: plan.price,
+    tp1: plan.tp1,
+    sl: plan.sl,
+    exitPlan: buildExitPlan(signal, plan),
     response,
     createdAt: new Date().toISOString()
+  };
+}
+
+function buildExitPlan(signal, plan) {
+  return {
+    ready: true,
+    entryOnly: settings.allowEntryOnly,
+    tp1: Number(plan.tp1) || null,
+    sl: Number(plan.sl) || null,
+    note: settings.allowEntryOnly
+      ? "Entry-only live guard is active; monitor TP/SL before enabling full exits."
+      : "TP1/SL are planned and positions are reconciled; full automatic exits remain guarded."
   };
 }
 
@@ -338,7 +370,7 @@ function pruneState(state) {
 }
 
 function createExecutorState() {
-  return { version: 2, updatedAt: null, seen: {}, orders: [], daily: normalizeDailyState({}) };
+  return { version: 3, updatedAt: null, seen: {}, orders: [], daily: normalizeDailyState({}), lastDecisionSummary: createDecisionSummary([], []) };
 }
 
 async function reportExecutorStatus(payload) {
@@ -367,7 +399,61 @@ function statusPayload(state, overrides = {}) {
     consecutiveLosses: daily.consecutiveLosses,
     lastAction: overrides.lastAction || state.lastAction || "",
     lastError: overrides.lastError || "",
-    bitgetSynced: state.bitgetSynced === true
+    bitgetSynced: state.bitgetSynced === true,
+    decisions: state.lastDecisionSummary || createDecisionSummary([], []),
+    recentOrders: state.orders.slice(0, 8).map(compactOrder),
+    remotePositions: Array.isArray(state.remotePositions) ? state.remotePositions.slice(0, 8) : [],
+    lastDryRunSignal: state.lastDryRunSignal || null,
+    lastLiveSignal: state.lastLiveSignal || null,
+    exitManager: {
+      ready: true,
+      entryOnly: settings.allowEntryOnly,
+      note: "Prepared TP1/SL planning and position reconciliation. Full automatic close manager remains guarded."
+    }
+  };
+}
+
+function createDecisionSummary(signals, events) {
+  return {
+    totalSignals: Array.isArray(signals) ? signals.length : 0,
+    totalEvents: Array.isArray(events) ? events.length : 0,
+    executableSignals: 0,
+    rejected: {},
+    examples: [],
+    updatedAt: new Date().toISOString()
+  };
+}
+
+function recordRejection(summary, reason, signal = null) {
+  if (!summary) return;
+  const key = String(reason || "unknown").slice(0, 120);
+  summary.rejected[key] = (summary.rejected[key] || 0) + 1;
+  if (signal && summary.examples.length < 6) {
+    summary.examples.push({
+      pair: signal.pair || signal.symbol || "",
+      side: signal.side || "",
+      score: Number(signal.score || 0),
+      reason: key
+    });
+  }
+}
+
+function compactOrder(order) {
+  if (!order) return null;
+  return {
+    id: order.id || "",
+    pair: order.pair || "",
+    symbol: order.symbol || "",
+    side: order.side || "",
+    status: order.status || "",
+    marginUsd: Number(order.marginUsd || 0),
+    notionalUsd: Number(order.notionalUsd || 0),
+    size: order.size || "",
+    entry: Number(order.entry || 0),
+    tp1: Number(order.tp1 || 0),
+    sl: Number(order.sl || 0),
+    createdAt: order.createdAt || "",
+    exitPlanReady: order.exitPlan?.ready === true
   };
 }
 

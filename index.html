@@ -795,6 +795,34 @@
       color: var(--muted);
     }
 
+    .pro-health-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .pro-health-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+      padding: 9px 10px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: rgba(255, 255, 255, 0.025);
+      font-size: 0.72rem;
+    }
+
+    .pro-health-row b {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .pro-health-row span {
+      color: var(--muted);
+      text-align: right;
+    }
+
     .pro-status-pill {
       padding: 4px 7px;
       border-radius: 999px;
@@ -3155,6 +3183,15 @@
               <div class="pro-stat"><span id="proStatLossesLabel">Trend invalidations</span><strong id="proStatLosses">0</strong></div>
               <div class="pro-stat"><span id="proStatWinRateLabel">Verified success rate</span><strong id="proStatWinRate">0%</strong></div>
             </div>
+            <div class="pro-stat-grid">
+              <div class="pro-stat"><span id="executorModeLabel">Executor mode</span><strong id="executorMode">UNKNOWN</strong></div>
+              <div class="pro-stat"><span id="executorSignalsLabel">Executable signals</span><strong id="executorSignals">0/0</strong></div>
+              <div class="pro-stat"><span id="executorRejectedLabel">Rejected</span><strong id="executorRejected">0</strong></div>
+              <div class="pro-stat"><span id="executorBitgetLabel">Bitget sync</span><strong id="executorBitget">No</strong></div>
+            </div>
+            <div class="pro-health-list" id="executorHealthList">
+              <span class="pro-history-empty">Executor details will appear after the VPS heartbeat.</span>
+            </div>
             <div class="pro-history" id="proHistoryList">
               <span class="pro-history-empty">The verified history will appear after the server runs.</span>
             </div>
@@ -3165,7 +3202,7 @@
                 <strong id="paperTradingTitle">Paper trading</strong>
                 <span id="paperTradingStatus">Automatic simulation using server signals. No real money.</span>
               </div>
-              <div class="trader-server-actions trader-owner-only">
+              <div class="trader-server-actions">
                 <button class="pill-btn" id="togglePaperTradingBtn" type="button">Pause simulation</button>
                 <button class="pill-btn" id="resetPaperTradingBtn" type="button">Reset paper account</button>
               </div>
@@ -3584,7 +3621,7 @@
             <button class="pill-btn" id="checkUpdatesBtn" type="button">Check for updates</button>
             <a class="social-link is-hidden" id="downloadUpdateBtn" href="#" target="_blank" rel="noopener noreferrer">Open update</a>
           </div>
-          <div class="backup-status" id="appUpdateStatus">Installed version: 1.35.0</div>
+          <div class="backup-status" id="appUpdateStatus">Installed version: 1.36.0</div>
         </section>
       </div>
       <div class="dialog-actions">
@@ -3709,7 +3746,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.35.0";
+      const APP_VERSION = "1.36.0";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
       const FREE_LIVE_API_URL = `${WEB_APP_URL}api/live`;
       const TELEGRAM_API_URL = `${WEB_APP_URL}api/telegram`;
@@ -6845,6 +6882,7 @@
         const executor = state.executor || {};
         const executorStamp = executor.lastRunAt ? new Date(executor.lastRunAt).toLocaleString() : (spanish ? "sin heartbeat" : "no heartbeat");
         document.getElementById("proExecutorStatus").textContent = `${spanish ? "Executor" : "Executor"}: ${(executor.mode || "unknown").toUpperCase()} - ${executorStamp}${executor.livePaused ? ` - ${spanish ? "pausado" : "paused"}` : ""}${executor.lastError ? ` - ${executor.lastError}` : ""}`;
+        renderExecutorHealth(executor, spanish);
         document.getElementById("proExecutionNotice").textContent = spanish
           ? "Live se pausa desde aqui; las claves de Bitget siguen solo en el VPS."
           : "Live can be paused here; Bitget keys still stay only on the VPS.";
@@ -6854,6 +6892,57 @@
          document.getElementById("proStatWinRateLabel").textContent = spanish ? "Tasa decidida verificada" : "Verified decided win rate";
         renderPaperTrading(state.paper || {}, state.config || {}, spanish);
         renderProServerHistory(state.history || []);
+      }
+
+      function renderExecutorHealth(executor = {}, spanish = resolvedLanguage() === "es") {
+        const decisions = executor.decisions || {};
+        const rejectedTotal = Object.values(decisions.rejected || {}).reduce((sum, value) => sum + (Number(value) || 0), 0);
+        document.getElementById("executorModeLabel").textContent = spanish ? "Modo executor" : "Executor mode";
+        document.getElementById("executorSignalsLabel").textContent = spanish ? "Ejecutables" : "Executable";
+        document.getElementById("executorRejectedLabel").textContent = spanish ? "Rechazadas" : "Rejected";
+        document.getElementById("executorBitgetLabel").textContent = "Bitget";
+        document.getElementById("executorMode").textContent = String(executor.mode || "unknown").toUpperCase();
+        document.getElementById("executorSignals").textContent = `${Number(decisions.executableSignals || 0)}/${Number(decisions.totalSignals || 0)}`;
+        document.getElementById("executorRejected").textContent = String(rejectedTotal);
+        document.getElementById("executorBitget").textContent = executor.bitgetSynced ? (spanish ? "Si" : "Yes") : (spanish ? "Pend." : "Pend.");
+        const list = document.getElementById("executorHealthList");
+        list.replaceChildren();
+        const rows = [];
+        if (executor.lastAction) rows.push([spanish ? "Ultima accion" : "Last action", executor.lastAction]);
+        if (executor.lastError) rows.push([spanish ? "Ultimo error" : "Last error", executor.lastError]);
+        if (executor.lastDryRunSignal) {
+          rows.push([spanish ? "Ultima dry-run" : "Last dry-run", `${executor.lastDryRunSignal.pair} ${executor.lastDryRunSignal.side} $${Number(executor.lastDryRunSignal.marginUsd || 0).toFixed(2)}`]);
+        }
+        const topReject = Object.entries(decisions.rejected || {}).sort((a, b) => Number(b[1]) - Number(a[1]))[0];
+        if (topReject) rows.push([spanish ? "Filtro principal" : "Top filter", `${topReject[0]} (${topReject[1]})`]);
+        (decisions.examples || []).slice(0, 3).forEach((item) => {
+          rows.push([item.pair || (spanish ? "Rechazada" : "Rejected"), `${item.reason}${item.score ? ` · ${item.score}` : ""}`]);
+        });
+        if (executor.exitManager?.ready) {
+          rows.push([spanish ? "Exit manager" : "Exit manager", executor.exitManager.entryOnly
+            ? (spanish ? "Preparado, entrada solamente" : "Ready, entry-only")
+            : (spanish ? "Preparado" : "Ready")]);
+        }
+        (executor.recentOrders || []).slice(0, 3).forEach((order) => {
+          rows.push([`${order.pair || order.symbol} ${order.side}`, `${order.status} · $${Number(order.marginUsd || 0).toFixed(2)}${order.exitPlanReady ? " · TP/SL" : ""}`]);
+        });
+        if (!rows.length) {
+          const empty = document.createElement("span");
+          empty.className = "pro-history-empty";
+          empty.textContent = spanish ? "Los detalles del executor apareceran despues del heartbeat del VPS." : "Executor details will appear after the VPS heartbeat.";
+          list.append(empty);
+          return;
+        }
+        rows.slice(0, 9).forEach(([label, value]) => {
+          const row = document.createElement("div");
+          row.className = "pro-health-row";
+          const title = document.createElement("b");
+          title.textContent = label;
+          const detail = document.createElement("span");
+          detail.textContent = value;
+          row.append(title, detail);
+          list.append(row);
+        });
       }
 
       function renderPaperTrading(paper, config, spanish) {

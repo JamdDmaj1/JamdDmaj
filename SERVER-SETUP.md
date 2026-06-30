@@ -28,6 +28,7 @@ After deployment, open the private Pro mode on the authorized device. The 24/7 s
 
 The scanner requests a private Vercel cycle about every five minutes. The independent watchdog checks every 15 minutes and attempts a recovery if no recent cycle is found. Both workflows reuse the same `JAMDDMAJ_CRON_SECRET`; no new secret is required. Calls, monitoring results, and paper-trading data are stored in Upstash. Confirmed alerts are sent to the configured Telegram channel.
 The VPS executor can also report heartbeat status to `/api/pro-executor` with the same `JAMDDMAJ_CRON_SECRET`, letting the owner panel show dry-run/live/off state and last activity.
+In v1.36, that heartbeat also powers the executor health panel and optional throttled dry-run Telegram summaries.
 
 ## 2b. Optional Bitget executor on the VPS
 

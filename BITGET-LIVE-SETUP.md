@@ -67,6 +67,7 @@ cat /opt/jamddmaj-scanner/executor-state.json
 
 In `dry-run`, it will scan and log order candidates, but it will not send any Bitget order.
 It also reports a heartbeat to `/api/pro-executor` so the owner panel can show the VPS mode and last run.
+The heartbeat includes rejection reasons, recent dry-run orders, Bitget sync status, and exit-plan readiness. Vercel may send throttled Telegram summaries for useful dry-run cycles.
 
 ## 4. Replace the cron command
 
@@ -102,6 +103,7 @@ Keep these safeguards first:
 Watch the first order from Bitget manually. Do not raise size until dry-run and paper results are consistent.
 
 The owner panel can pause new live entries remotely. This does not close existing Bitget positions; it stops the VPS from opening new entries on future cycles.
+Before live, confirm the owner panel shows `Executor: DRY-RUN`, no recent executor errors, and rejection reasons that make sense for the current market.
 
 ## Emergency stop
 
