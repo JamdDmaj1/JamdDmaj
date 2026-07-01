@@ -3621,7 +3621,7 @@
             <button class="pill-btn" id="checkUpdatesBtn" type="button">Check for updates</button>
             <a class="social-link is-hidden" id="downloadUpdateBtn" href="#" target="_blank" rel="noopener noreferrer">Open update</a>
           </div>
-          <div class="backup-status" id="appUpdateStatus">Installed version: 1.36.0</div>
+          <div class="backup-status" id="appUpdateStatus">Installed version: 1.36.1</div>
         </section>
       </div>
       <div class="dialog-actions">
@@ -3746,7 +3746,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.36.0";
+      const APP_VERSION = "1.36.1";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
       const FREE_LIVE_API_URL = `${WEB_APP_URL}api/live`;
       const TELEGRAM_API_URL = `${WEB_APP_URL}api/telegram`;
@@ -3781,10 +3781,10 @@
         pro: {
           en: {
             title: "JamdDmaj Pro Signals update",
-            intro: "Hidden Pro mode now has stronger live safeguards and better context.",
+            intro: "Hidden Pro mode now rejects weak trades more aggressively in hostile markets.",
             button: "Enter Pro",
             items: [
-              ["Live pause", "The owner panel can pause VPS live entries without exposing Bitget keys."],
+              ["Regime gate", "Extreme Fear and risk-off markets now force stricter scoring before Telegram or Bitget."],
               ["Daily risk limits", "The executor receives max daily loss, max trades and consecutive-loss limits."],
               ["Client demo paper", "Non-owner Pro users can start a local paper simulation without touching the server."],
               ["Private code locked", "The 7-tap device code only works after owner authorization."],
@@ -3793,10 +3793,10 @@
           },
           es: {
             title: "Actualizacion de JamdDmaj Pro Signals",
-            intro: "El modo Pro oculto fue mejorado por separado.",
+            intro: "El modo Pro oculto ahora filtra mejor antes de mandar senales.",
             button: "Entrar al Pro",
             items: [
-              ["Resultados honestos", "Invalidaciones confirmadas, victorias parciales y velas ambiguas se registran por separado."],
+              ["Filtro de regimen", "Miedo extremo y mercados risk-off endurecen el score antes de Telegram o Bitget."],
               ["Paper trading por riesgo", "El tamaño de posicion usa un porcentaje configurable y la distancia de invalidacion."],
               ["Eventos enlazados en Telegram", "Los TP, protecciones y cambios de tendencia ahora responden al mensaje original del trade cuando Telegram entrega un ID."],
               ["Telegram sin duplicados", "El bloqueo del servidor evita calls y eventos repetidos entre ciclos."],
@@ -6907,7 +6907,16 @@
         document.getElementById("executorBitget").textContent = executor.bitgetSynced ? (spanish ? "Si" : "Yes") : (spanish ? "Pend." : "Pend.");
         const list = document.getElementById("executorHealthList");
         list.replaceChildren();
-        const rows = [];
+                const rows = [];
+        const gate = executor.marketGate || decisions.marketGate || {};
+        if (gate.regime || gate.riskOff || gate.extremeFear) {
+          const gateText = [
+            gate.regime || "n/a",
+            gate.fearGreed ? `${spanish ? "miedo" : "fear"} ${gate.fearGreed}` : "",
+            gate.strictMinScore ? `${spanish ? "score min." : "min score"} ${gate.strictMinScore}` : ""
+          ].filter(Boolean).join(" | ");
+          rows.push([spanish ? "Filtro regimen" : "Regime gate", gateText]);
+        }
         if (executor.lastAction) rows.push([spanish ? "Ultima accion" : "Last action", executor.lastAction]);
         if (executor.lastError) rows.push([spanish ? "Ultimo error" : "Last error", executor.lastError]);
         if (executor.lastDryRunSignal) {
@@ -6987,7 +6996,11 @@
           pnl.textContent = `${position.status === "OPEN" ? "OPEN" : position.status} ${formatPaperMoney(value || 0, true)}`;
           const roe = document.createElement("span");
           roe.className = `pro-status-pill ${Number(value) >= 0 ? "win" : "loss"}`;
-          roe.textContent = `${Number(position.roePercent || 0).toFixed(2)}%`;
+                    if (position.dataQuality === "price_check") {
+            roe.textContent = spanish ? "REVISAR" : "CHECK";
+          } else {
+            roe.textContent = `${Number(position.roePercent || 0).toFixed(2)}%`;
+          }
           row.append(title, pnl, roe);
           list.append(row);
         });

@@ -24,7 +24,10 @@ const settings = {
   maxOpen: clampInt(process.env.JAMDDMAJ_MAX_LIVE_OPEN, 1, 10, 1),
   maxMarginUsd: clampNumber(process.env.JAMDDMAJ_MAX_LIVE_MARGIN_USD, 5, 1000, 5),
   maxNewOrdersPerRun: clampInt(process.env.JAMDDMAJ_MAX_NEW_ORDERS_PER_RUN, 1, 5, 1),
-  minScore: clampInt(process.env.JAMDDMAJ_MIN_LIVE_SCORE, 8, 13, 10),
+  minScore: clampInt(process.env.JAMDDMAJ_MIN_LIVE_SCORE, 8, 20, 14),
+  strictRegimeMinScore: clampInt(process.env.JAMDDMAJ_STRICT_REGIME_MIN_SCORE, 8, 20, 16),
+  defensiveMaxLeverage: clampInt(process.env.JAMDDMAJ_DEFENSIVE_MAX_LEVERAGE, 1, 20, 5),
+  defensiveMaxMarginUsd: clampNumber(process.env.JAMDDMAJ_DEFENSIVE_MAX_MARGIN_USD, 1, 1000, 3),
   allowMeme: String(process.env.JAMDDMAJ_ALLOW_MEME_LIVE || "false").toLowerCase() === "true",
   minLiquidityUsd: clampNumber(process.env.JAMDDMAJ_MIN_LIVE_LIQUIDITY_USD, 0, 1_000_000_000, 3_000_000),
   maxDailyLossUsd: clampNumber(process.env.JAMDDMAJ_MAX_DAILY_LOSS_USD, 1, 100000, 25),
@@ -51,13 +54,16 @@ async function main() {
   const signals = Array.isArray(scan?.signals) ? scan.signals : [];
   const events = Array.isArray(scan?.events) ? scan.events : [];
   const policy = normalizeExecutorPolicy(scan?.executor);
+  const marketContext = await fetchMarketContext();
   const decisions = createDecisionSummary(signals, events);
+  decisions.marketGate = summarizeMarketGate(marketContext, policy);
+  state.lastMarketGate = decisions.marketGate;
 
   console.log(`${LOG_PREFIX} scan ok. newSignals=${signals.length} events=${events.length} mode=${settings.mode}`);
 
   const executable = [];
   for (const signal of signals) {
-    const decision = executableDecision(signal, state, policy);
+    const decision = executableDecision(signal, state, policy, marketContext);
     if (decision.ok) executable.push(signal);
     else recordRejection(decisions, decision.reason, signal);
   }
@@ -117,7 +123,7 @@ async function main() {
       break;
     }
 
-    const plan = buildOrderPlan(signal, contracts);
+    const plan = buildOrderPlan(signal, contracts, marketContext);
     if (!plan.ok) {
       rememberSkip(state, signal, plan.reason);
       recordRejection(decisions, plan.reason, signal);
@@ -167,27 +173,95 @@ async function runScanner() {
   return body;
 }
 
-function executableDecision(signal, state, policy = {}) {
+async function fetchMarketContext() {
+  try {
+    const response = await fetch(`${settings.appUrl}/api/pro-news`, {
+      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.36.1" }
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok || body?.error) return null;
+    return body?.context || null;
+  } catch {
+    return null;
+  }
+}
+
+function summarizeMarketGate(context = {}, policy = {}) {
+  const fearGreed = Number(context?.fearGreed?.value);
+  const marketCapChange24h = Number(context?.marketCapChange24h);
+  const bitcoinDominance = Number(context?.bitcoinDominance);
+  const regime = String(context?.regime || "unknown");
+  const riskOff = /risk-off/i.test(regime)
+    || (Number.isFinite(fearGreed) && fearGreed <= 30)
+    || (Number.isFinite(marketCapChange24h) && marketCapChange24h <= -1);
+  const extremeFear = Number.isFinite(fearGreed) && fearGreed <= 20;
+  const strictMinScore = riskOff
+    ? Math.max(settings.minScore, settings.strictRegimeMinScore, Number(policy.strictRegimeMinScore) || 0)
+    : Math.max(settings.minScore, Number(policy.minScore) || 0);
+  return {
+    regime,
+    fearGreed: Number.isFinite(fearGreed) ? fearGreed : null,
+    marketCapChange24h: Number.isFinite(marketCapChange24h) ? marketCapChange24h : null,
+    bitcoinDominance: Number.isFinite(bitcoinDominance) ? bitcoinDominance : null,
+    riskOff,
+    extremeFear,
+    strictMinScore,
+    defensiveMaxLeverage: riskOff ? settings.defensiveMaxLeverage : null,
+    defensiveMaxMarginUsd: riskOff ? settings.defensiveMaxMarginUsd : null,
+    updatedAt: new Date().toISOString()
+  };
+}
+
+function marketGateDecision(signal, gate) {
+  const side = String(signal.side || "").toUpperCase();
+  const base = String(signal.baseSymbol || signal.pair || signal.symbol || "").replace(/[^A-Z0-9]/gi, "").replace(/USDT.*$/i, "").toUpperCase();
+  const coreAsset = ["BTC", "ETH"].includes(base);
+  const score = Number(signal.score || 0);
+  const liquidity = Number(signal.quoteVolume || signal.liquidity24h || 0);
+  const riskFlags = Array.isArray(signal.riskFlags) ? signal.riskFlags : [];
+  const category = String(signal.category || "");
+  if (!gate?.riskOff) return { ok: true, reason: "market gate passed" };
+  if (gate.extremeFear && side === "LONG" && !coreAsset) {
+    return { ok: false, reason: "extreme fear blocks non-core longs" };
+  }
+  if (side === "LONG" && !coreAsset && score < gate.strictMinScore + 1) {
+    return { ok: false, reason: `risk-off long needs score ${gate.strictMinScore + 1}` };
+  }
+  if (/meme/i.test(category) || riskFlags.includes("MARKET_CAP_UNAVAILABLE")) {
+    return { ok: false, reason: "risk-off blocks meme/unknown-cap assets" };
+  }
+  if (liquidity && liquidity < settings.minLiquidityUsd * 2) {
+    return { ok: false, reason: `risk-off liquidity below ${settings.minLiquidityUsd * 2}` };
+  }
+  return { ok: true, reason: "market gate passed" };
+}
+
+function executableDecision(signal, state, policy = {}, marketContext = null) {
   if (!signal) return { ok: false, reason: "missing signal" };
   if (!signal.id || !signal.pair || !signal.side) return { ok: false, reason: "missing id/pair/side" };
   if (state.seen[signal.id]) return { ok: false, reason: "already seen" };
-  const minScore = Math.max(settings.minScore, Number(policy.minScore) || 0);
+  const gate = summarizeMarketGate(marketContext, policy);
+  const minScore = gate.strictMinScore;
   if (Number(signal.score) < minScore) return { ok: false, reason: `score below ${minScore}` };
   if (!settings.allowMeme && /meme/i.test(String(signal.category || ""))) return { ok: false, reason: "meme live disabled" };
-  const liquidity = Number(signal.quoteVolume || signal.liquidityUsd || 0);
+  const liquidity = Number(signal.quoteVolume || signal.liquidityUsd || signal.liquidity24h || 0);
   if (liquidity && liquidity < settings.minLiquidityUsd) return { ok: false, reason: `liquidity below ${settings.minLiquidityUsd}` };
   if (!["LONG", "SHORT"].includes(String(signal.side).toUpperCase())) return { ok: false, reason: "invalid side" };
-  return { ok: true, reason: "passed executor filters" };
+  const gateDecision = marketGateDecision(signal, gate);
+  if (!gateDecision.ok) return gateDecision;
+  return { ok: true, reason: gate.riskOff ? "passed strict regime filters" : "passed executor filters" };
 }
-
-function buildOrderPlan(signal, contracts) {
+function buildOrderPlan(signal, contracts, marketContext = null) {
   const symbol = String(signal.symbol || signal.pair || "").replace("/", "").replace(" PERP", "").replace("USDTUSDT", "USDT");
   const price = Number(signal.entry || signal.currentPrice || signal.lastPrice);
   if (!symbol.endsWith("USDT")) return { ok: false, reason: "only USDT futures are allowed" };
   if (!Number.isFinite(price) || price <= 0) return { ok: false, reason: "missing price" };
 
-  const marginUsd = Math.min(Number(signal.plannedUsd) || settings.maxMarginUsd, settings.maxMarginUsd);
-  const leverage = clampInt(signal.leverage, 1, 50, 10);
+  const gate = summarizeMarketGate(marketContext, {});
+  const marginCap = gate.riskOff ? Math.min(settings.maxMarginUsd, gate.defensiveMaxMarginUsd || settings.maxMarginUsd) : settings.maxMarginUsd;
+  const leverageCap = gate.riskOff ? Math.min(50, gate.defensiveMaxLeverage || 5) : 50;
+  const marginUsd = Math.min(Number(signal.plannedUsd) || marginCap, marginCap);
+  const leverage = clampInt(signal.leverage, 1, leverageCap, Math.min(10, leverageCap));
   const notionalUsd = roundMoney(marginUsd * leverage);
   const rawSize = notionalUsd / price;
   const contract = contracts.get(symbol);
@@ -400,7 +474,8 @@ function statusPayload(state, overrides = {}) {
     lastAction: overrides.lastAction || state.lastAction || "",
     lastError: overrides.lastError || "",
     bitgetSynced: state.bitgetSynced === true,
-    decisions: state.lastDecisionSummary || createDecisionSummary([], []),
+        decisions: state.lastDecisionSummary || createDecisionSummary([], []),
+    marketGate: state.lastMarketGate || summarizeMarketGate(null, {}),
     recentOrders: state.orders.slice(0, 8).map(compactOrder),
     remotePositions: Array.isArray(state.remotePositions) ? state.remotePositions.slice(0, 8) : [],
     lastDryRunSignal: state.lastDryRunSignal || null,
@@ -417,7 +492,8 @@ function createDecisionSummary(signals, events) {
   return {
     totalSignals: Array.isArray(signals) ? signals.length : 0,
     totalEvents: Array.isArray(events) ? events.length : 0,
-    executableSignals: 0,
+        executableSignals: 0,
+    marketGate: summarizeMarketGate(null, {}),
     rejected: {},
     examples: [],
     updatedAt: new Date().toISOString()
@@ -460,7 +536,8 @@ function compactOrder(order) {
 function normalizeExecutorPolicy(value = {}) {
   return {
     livePaused: value?.livePaused === true,
-    minScore: clampInt(value?.minScore, 8, 13, settings.minScore),
+        minScore: clampInt(value?.minScore, 8, 20, settings.minScore),
+    strictRegimeMinScore: clampInt(value?.strictRegimeMinScore, 8, 20, settings.strictRegimeMinScore),
     maxDailyLossUsd: clampNumber(value?.maxDailyLossUsd, 1, 100000, settings.maxDailyLossUsd),
     maxDailyLossPercent: clampNumber(value?.maxDailyLossPercent, 0.1, 50, settings.maxDailyLossPercent),
     maxConsecutiveLosses: clampInt(value?.maxConsecutiveLosses, 1, 20, settings.maxConsecutiveLosses),
