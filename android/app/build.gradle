@@ -1,4 +1,4 @@
-﻿apply plugin: 'com.android.application'
+apply plugin: 'com.android.application'
 
 def releaseKeystoreFile = System.getenv("JAMDDMAJ_KEYSTORE_FILE")
 def releaseKeystorePassword = System.getenv("JAMDDMAJ_KEYSTORE_PASSWORD")
@@ -13,7 +13,7 @@ android {
         applicationId "com.jamddmaj.ai"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 53
+        versionCode 56
         versionName "1.36.6"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
