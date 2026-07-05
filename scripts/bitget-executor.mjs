@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -225,8 +225,8 @@ function summarizeMarketGate(context = {}, policy = {}) {
     || (Number.isFinite(marketCapChange24h) && marketCapChange24h <= -1);
   const extremeFear = Number.isFinite(fearGreed) && fearGreed <= 20;
   const strictMinScore = riskOff
-    ? Math.max(settings.minScore, settings.strictRegimeMinScore, Number(policy.strictRegimeMinScore) || 0)
-    : Math.max(settings.minScore, Number(policy.minScore) || 0);
+    ? Math.max(settings.minScore, settings.strictRegimeMinScore)
+    : settings.minScore;
   return {
     regime,
     fearGreed: Number.isFinite(fearGreed) ? fearGreed : null,
