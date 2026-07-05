@@ -24,6 +24,7 @@ const settings = {
   maxOpen: clampInt(process.env.JAMDDMAJ_MAX_LIVE_OPEN, 1, 10, 1),
   maxMarginUsd: clampNumber(process.env.JAMDDMAJ_MAX_LIVE_MARGIN_USD, 5, 1000, 5),
   maxNewOrdersPerRun: clampInt(process.env.JAMDDMAJ_MAX_NEW_ORDERS_PER_RUN, 1, 5, 1),
+  recentOpenMinutes: clampInt(process.env.JAMDDMAJ_RECENT_OPEN_MINUTES, 1, 120, 20),
   minScore: clampInt(process.env.JAMDDMAJ_MIN_LIVE_SCORE, 8, 20, 14),
   strictRegimeMinScore: clampInt(process.env.JAMDDMAJ_STRICT_REGIME_MIN_SCORE, 8, 20, 16),
   defensiveMaxLeverage: clampInt(process.env.JAMDDMAJ_DEFENSIVE_MAX_LEVERAGE, 1, 20, 5),
@@ -51,21 +52,29 @@ async function main() {
   pruneState(state);
 
   const scan = await runScanner();
-  const signals = Array.isArray(scan?.signals) ? scan.signals : [];
+  const newSignals = Array.isArray(scan?.signals) ? scan.signals : [];
+  const recentOpen = selectRecentOpenSignals(scan?.openSignals || scan?.open || [], settings.recentOpenMinutes);
+  const signals = mergeSignalSources(newSignals, recentOpen);
   const events = Array.isArray(scan?.events) ? scan.events : [];
   const policy = normalizeExecutorPolicy(scan?.executor);
   const marketContext = await fetchMarketContext();
   const decisions = createDecisionSummary(signals, events);
+  decisions.newSignals = newSignals.length;
+  decisions.recentOpenSignals = recentOpen.length;
   decisions.marketGate = summarizeMarketGate(marketContext, policy);
   state.lastMarketGate = decisions.marketGate;
 
-  console.log(`${LOG_PREFIX} scan ok. newSignals=${signals.length} events=${events.length} mode=${settings.mode}`);
+  console.log(`${LOG_PREFIX} scan ok. newSignals=${newSignals.length} recentOpen=${recentOpen.length} totalSignals=${signals.length} events=${events.length} mode=${settings.mode}`);
 
   const executable = [];
   for (const signal of signals) {
     const decision = executableDecision(signal, state, policy, marketContext);
-    if (decision.ok) executable.push(signal);
-    else recordRejection(decisions, decision.reason, signal);
+    if (decision.ok) {
+      executable.push(signal);
+    } else {
+      recordRejection(decisions, decision.reason, signal);
+      console.log(`${LOG_PREFIX} reject ${signal?.pair || signal?.symbol || "unknown"} ${signal?.side || ""}: ${decision.reason}`);
+    }
   }
   decisions.executableSignals = executable.length;
   const candidates = executable.slice(0, settings.maxNewOrdersPerRun);
@@ -173,10 +182,30 @@ async function runScanner() {
   return body;
 }
 
+function selectRecentOpenSignals(openSignals, minutes) {
+  if (!Array.isArray(openSignals)) return [];
+  const cutoff = Date.now() - (Number(minutes) || 20) * 60000;
+  return openSignals
+    .filter((signal) => signal && signal.status === "OPEN")
+    .filter((signal) => {
+      const created = Date.parse(signal.createdAt || "");
+      return Number.isFinite(created) && created >= cutoff;
+    })
+    .map((signal) => ({ ...signal, executorSource: "recent-open" }));
+}
+
+function mergeSignalSources(newSignals, recentOpen) {
+  const merged = new Map();
+  for (const signal of [...(Array.isArray(newSignals) ? newSignals : []), ...(Array.isArray(recentOpen) ? recentOpen : [])]) {
+    if (!signal?.id) continue;
+    if (!merged.has(signal.id)) merged.set(signal.id, signal);
+  }
+  return [...merged.values()];
+}
 async function fetchMarketContext() {
   try {
     const response = await fetch(`${settings.appUrl}/api/pro-news`, {
-      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.36.1" }
+      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.36.3" }
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok || body?.error) return null;
@@ -491,6 +520,8 @@ function statusPayload(state, overrides = {}) {
 function createDecisionSummary(signals, events) {
   return {
     totalSignals: Array.isArray(signals) ? signals.length : 0,
+    newSignals: 0,
+    recentOpenSignals: 0,
     totalEvents: Array.isArray(events) ? events.length : 0,
         executableSignals: 0,
     marketGate: summarizeMarketGate(null, {}),
