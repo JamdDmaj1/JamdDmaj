@@ -205,7 +205,7 @@ function mergeSignalSources(newSignals, recentOpen) {
 async function fetchMarketContext() {
   try {
     const response = await fetch(`${settings.appUrl}/api/pro-news`, {
-      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.36.3" }
+      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.36.4" }
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok || body?.error) return null;
@@ -280,9 +280,29 @@ function executableDecision(signal, state, policy = {}, marketContext = null) {
   if (!gateDecision.ok) return gateDecision;
   return { ok: true, reason: gate.riskOff ? "passed strict regime filters" : "passed executor filters" };
 }
+function bitgetSymbolForSignal(signal = {}) {
+  const raw = String(
+    signal.bitgetPair
+    || signal.pair
+    || signal.symbol
+    || ""
+  ).toUpperCase();
+  return raw
+    .replace(/\s*PERP\b/g, "")
+    .replace(/[^A-Z0-9]/g, "")
+    .replace(/USDTUSDT$/g, "USDT");
+}
+
+function exchangePrice(value, multiplier = 1) {
+  const number = Number(value);
+  const scale = Number(multiplier) || 1;
+  return Number.isFinite(number) && number > 0 ? number * scale : number;
+}
 function buildOrderPlan(signal, contracts, marketContext = null) {
-  const symbol = String(signal.symbol || signal.pair || "").replace("/", "").replace(" PERP", "").replace("USDTUSDT", "USDT");
-  const price = Number(signal.entry || signal.currentPrice || signal.lastPrice);
+  const symbol = bitgetSymbolForSignal(signal);
+  const displayPrice = Number(signal.entry || signal.currentPrice || signal.lastPrice);
+  const multiplier = clampNumber(signal.contractMultiplier, 1, 1_000_000, 1);
+  const price = exchangePrice(displayPrice, multiplier);
   if (!symbol.endsWith("USDT")) return { ok: false, reason: "only USDT futures are allowed" };
   if (!Number.isFinite(price) || price <= 0) return { ok: false, reason: "missing price" };
 
@@ -294,6 +314,7 @@ function buildOrderPlan(signal, contracts, marketContext = null) {
   const notionalUsd = roundMoney(marginUsd * leverage);
   const rawSize = notionalUsd / price;
   const contract = contracts.get(symbol);
+  if (settings.mode === "live" && !contract) return { ok: false, reason: `Bitget contract not found ${symbol}` };
   const volumePlace = contract ? clampInt(contract.volumePlace, 0, 12, 4) : 4;
   const minTradeNum = Number(contract?.minTradeNum || 0);
   const size = floorToPlace(rawSize, volumePlace);
@@ -310,8 +331,8 @@ function buildOrderPlan(signal, contracts, marketContext = null) {
     leverage,
     notionalUsd,
     price,
-    sl: Number(signal.sl),
-    tp1: Number(signal.tp1),
+    sl: exchangePrice(Number(signal.sl), multiplier),
+    tp1: exchangePrice(Number(signal.tp1), multiplier),
     size: String(size),
     clientOid: `jamd-${String(signal.id).replace(/[^a-zA-Z0-9-]/g, "").slice(0, 40)}`
   };
@@ -439,6 +460,8 @@ function createStateOrder(signal, plan, status, response = null) {
     notionalUsd: plan.notionalUsd,
     size: plan.size,
     entry: plan.price,
+    displayEntry: Number(signal.entry || 0),
+    contractMultiplier: Number(signal.contractMultiplier || 1),
     tp1: plan.tp1,
     sl: plan.sl,
     exitPlan: buildExitPlan(signal, plan),
