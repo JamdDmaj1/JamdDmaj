@@ -1,4 +1,4 @@
-﻿import { corsHeaders, isServiceConfigured, jsonResponse } from "../lib/server.js";
+import { corsHeaders, isServiceConfigured, jsonResponse } from "../lib/server.js";
 
 export const config = { runtime: "edge" };
 
@@ -7,7 +7,7 @@ export default function handler(request) {
     return new Response(null, { status: 204, headers: corsHeaders(request) });
   }
   if (request.method !== "GET") {
-    return jsonResponse(request, { error: { message: "MÃ©todo no permitido." } }, 405);
+    return jsonResponse(request, { error: { message: "Método no permitido." } }, 405);
   }
   return jsonResponse(request, {
     ready: isServiceConfigured(),
@@ -20,8 +20,8 @@ export default function handler(request) {
       && process.env.JAMDDMAJ_CRON_SECRET
     ),
     googleAccount: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.JAMDDMAJ_ACCOUNT_SECRET),
-    version: "1.36.6",
-    latestVersion: String(process.env.JAMDDMAJ_LATEST_VERSION || "1.36.6"),
+    version: "1.36.7",
+    latestVersion: String(process.env.JAMDDMAJ_LATEST_VERSION || "1.36.7"),
     apkUrl: String(
       process.env.JAMDDMAJ_APK_URL
       || "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk"

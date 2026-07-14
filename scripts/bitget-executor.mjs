@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env node
+#!/usr/bin/env node
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -225,8 +225,8 @@ function summarizeMarketGate(context = {}, policy = {}) {
     || (Number.isFinite(marketCapChange24h) && marketCapChange24h <= -1);
   const extremeFear = Number.isFinite(fearGreed) && fearGreed <= 20;
   const strictMinScore = riskOff
-    ? Math.max(settings.minScore, settings.strictRegimeMinScore)
-    : settings.minScore;
+    ? Math.max(settings.minScore, settings.strictRegimeMinScore, Number(policy.strictRegimeMinScore) || 0)
+    : Math.max(settings.minScore, Number(policy.minScore) || 0);
   return {
     regime,
     fearGreed: Number.isFinite(fearGreed) ? fearGreed : null,
@@ -298,22 +298,6 @@ function exchangePrice(value, multiplier = 1) {
   const scale = Number(multiplier) || 1;
   return Number.isFinite(number) && number > 0 ? number * scale : number;
 }
-
-function bitgetPriceStep(contract) {
-  const place = clampInt(contract?.pricePlace, 0, 12, 4);
-  const endStep = Number(contract?.priceEndStep || 1);
-  const step = (Number.isFinite(endStep) && endStep > 0 ? endStep : 1) * (10 ** -place);
-  return Number.isFinite(step) && step > 0 ? step : 10 ** -place;
-}
-
-function roundBitgetPrice(value, contract) {
-  const number = Number(value);
-  if (!Number.isFinite(number) || number <= 0) return number;
-  const place = clampInt(contract?.pricePlace, 0, 12, 8);
-  const step = bitgetPriceStep(contract);
-  const rounded = Math.round(number / step) * step;
-  return Number(rounded.toFixed(place));
-}
 function buildOrderPlan(signal, contracts, marketContext = null) {
   const symbol = bitgetSymbolForSignal(signal);
   const displayPrice = Number(signal.entry || signal.currentPrice || signal.lastPrice);
@@ -333,9 +317,6 @@ function buildOrderPlan(signal, contracts, marketContext = null) {
   if (settings.mode === "live" && !contract) return { ok: false, reason: `Bitget contract not found ${symbol}` };
   const volumePlace = contract ? clampInt(contract.volumePlace, 0, 12, 4) : 4;
   const minTradeNum = Number(contract?.minTradeNum || 0);
-  const roundedPrice = roundBitgetPrice(price, contract);
-  const roundedSl = roundBitgetPrice(exchangePrice(Number(signal.sl), multiplier), contract);
-  const roundedTp1 = roundBitgetPrice(exchangePrice(Number(signal.tp1), multiplier), contract);
   const size = floorToPlace(rawSize, volumePlace);
   if (!Number.isFinite(size) || size <= 0) return { ok: false, reason: "calculated size is too small" };
   if (minTradeNum && size < minTradeNum) return { ok: false, reason: `size below Bitget minimum ${minTradeNum}` };
@@ -349,9 +330,9 @@ function buildOrderPlan(signal, contracts, marketContext = null) {
     marginUsd: roundMoney(marginUsd),
     leverage,
     notionalUsd,
-    price: roundedPrice,
-    sl: roundedSl,
-    tp1: roundedTp1,
+    price,
+    sl: exchangePrice(Number(signal.sl), multiplier),
+    tp1: exchangePrice(Number(signal.tp1), multiplier),
     size: String(size),
     clientOid: `jamd-${String(signal.id).replace(/[^a-zA-Z0-9-]/g, "").slice(0, 40)}`
   };
@@ -655,9 +636,10 @@ function dailyRiskBlock(state, policy) {
 function formatBitgetPrice(value) {
   const number = Number(value);
   if (!Number.isFinite(number) || number <= 0) return "";
-  return String(number).includes("e")
-    ? number.toFixed(12).replace(/0+$/, "").replace(/\.$/, "")
-    : String(number);
+  if (number >= 100) return number.toFixed(2);
+  if (number >= 1) return number.toFixed(4);
+  if (number >= 0.01) return number.toFixed(6);
+  return number.toFixed(10).replace(/0+$/, "").replace(/\.$/, "");
 }
 
 function loadDotEnv(filePath) {
