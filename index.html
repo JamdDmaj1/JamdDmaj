@@ -6882,7 +6882,7 @@
         const executor = state.executor || {};
         const executorStamp = executor.lastRunAt ? new Date(executor.lastRunAt).toLocaleString() : (spanish ? "sin heartbeat" : "no heartbeat");
         document.getElementById("proExecutorStatus").textContent = `${spanish ? "Executor" : "Executor"}: ${(executor.mode || "unknown").toUpperCase()} - ${executorStamp}${executor.livePaused ? ` - ${spanish ? "pausado" : "paused"}` : ""}${executor.lastError ? ` - ${executor.lastError}` : ""}`;
-        renderExecutorHealth(executor, spanish);
+        renderExecutorHealth(executor, spanish, state.learning || {});
         document.getElementById("proExecutionNotice").textContent = spanish
           ? "Live se pausa desde aqui; las claves de Bitget siguen solo en el VPS."
           : "Live can be paused here; Bitget keys still stay only on the VPS.";
@@ -6894,7 +6894,7 @@
         renderProServerHistory(state.history || []);
       }
 
-      function renderExecutorHealth(executor = {}, spanish = resolvedLanguage() === "es") {
+      function renderExecutorHealth(executor = {}, spanish = resolvedLanguage() === "es", learningState = {}) {
         const decisions = executor.decisions || {};
         const rejectedTotal = Object.values(decisions.rejected || {}).reduce((sum, value) => sum + (Number(value) || 0), 0);
         document.getElementById("executorModeLabel").textContent = spanish ? "Modo executor" : "Executor mode";
@@ -6909,6 +6909,18 @@
         list.replaceChildren();
                 const rows = [];
         const gate = executor.marketGate || decisions.marketGate || {};
+        const learning = learningState.summary || learningState || {};
+        if (learning.samples || learning.decided) {
+          const learningStatus = learning.ready
+            ? (spanish ? "Activo" : "Active")
+            : (spanish ? "Calentando" : "Warming up");
+          rows.push([spanish ? "Modo aprendizaje" : "Learning mode", `${learningStatus} - ${Number(learning.decided || learning.samples || 0)} muestras - WR ${Number(learning.winRate || 0).toFixed(1)}%`]);
+          rows.push([spanish ? "Scores Pro" : "Pro scores", `Telegram ${Number(learning.telegramMinScore || 11)}+ - Bitget ${Number(learning.bitgetMinScore || 12)}+`]);
+        }
+        const cooldown = Array.isArray(learning.cooldown) ? learning.cooldown[0] : null;
+        if (cooldown) {
+          rows.push([spanish ? "Cooldown automatico" : "Auto cooldown", `${cooldown.key} - ${Number(cooldown.winRate || 0).toFixed(1)}% - ${Number(cooldown.recentLosses || 0)} recientes`]);
+        }
         if (gate.regime || gate.riskOff || gate.extremeFear) {
           const gateText = [
             gate.regime || "n/a",
@@ -6942,7 +6954,7 @@
           list.append(empty);
           return;
         }
-        rows.slice(0, 9).forEach(([label, value]) => {
+        rows.slice(0, 12).forEach(([label, value]) => {
           const row = document.createElement("div");
           row.className = "pro-health-row";
           const title = document.createElement("b");
