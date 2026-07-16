@@ -52,19 +52,22 @@ async function main() {
   pruneState(state);
 
   const scan = await runScanner();
+  const executorTest = await fetchExecutorTestSignal().catch(() => null);
+  const manualSignals = executorTest?.signal ? [{ ...executorTest.signal, executorSource: "manual-test", manualTest: true }] : [];
   const newSignals = Array.isArray(scan?.signals) ? scan.signals : [];
   const recentOpen = selectRecentOpenSignals(scan?.openSignals || scan?.open || [], settings.recentOpenMinutes);
-  const signals = mergeSignalSources(newSignals, recentOpen);
+  const signals = mergeSignalSources([...manualSignals, ...newSignals], recentOpen);
   const events = Array.isArray(scan?.events) ? scan.events : [];
   const policy = normalizeExecutorPolicy(scan?.executor);
   const marketContext = await fetchMarketContext();
   const decisions = createDecisionSummary(signals, events);
   decisions.newSignals = newSignals.length;
+  decisions.manualTestSignals = manualSignals.length;
   decisions.recentOpenSignals = recentOpen.length;
   decisions.marketGate = summarizeMarketGate(marketContext, policy);
   state.lastMarketGate = decisions.marketGate;
 
-  console.log(`${LOG_PREFIX} scan ok. newSignals=${newSignals.length} recentOpen=${recentOpen.length} totalSignals=${signals.length} events=${events.length} mode=${settings.mode}`);
+  console.log(`${LOG_PREFIX} scan ok. manualTest=${manualSignals.length} newSignals=${newSignals.length} recentOpen=${recentOpen.length} totalSignals=${signals.length} events=${events.length} mode=${settings.mode}`);
 
   const executable = [];
   for (const signal of signals) {
@@ -202,6 +205,16 @@ function mergeSignalSources(newSignals, recentOpen) {
   }
   return [...merged.values()];
 }
+async function fetchExecutorTestSignal() {
+  const response = await fetch(`${settings.appUrl}/api/pro-executor-test`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${settings.cronSecret}` }
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok || body?.error) return null;
+  return body?.executorTest || null;
+}
+
 async function fetchMarketContext() {
   try {
     const response = await fetch(`${settings.appUrl}/api/pro-news`, {
@@ -271,7 +284,11 @@ function executableDecision(signal, state, policy = {}, marketContext = null) {
   if (state.seen[signal.id]) return { ok: false, reason: "already seen" };
   const gate = summarizeMarketGate(marketContext, policy);
   const minScore = gate.strictMinScore;
-  if (Number(signal.score) < minScore) return { ok: false, reason: `score below ${minScore}` };
+  if (signal.manualTest === true) {
+    if (Number(signal.score || 0) < 8) return { ok: false, reason: "manual test score below 8" };
+  } else if (Number(signal.score) < minScore) {
+    return { ok: false, reason: `score below ${minScore}` };
+  }
   if (!settings.allowMeme && /meme/i.test(String(signal.category || ""))) return { ok: false, reason: "meme live disabled" };
   const liquidity = Number(signal.quoteVolume || signal.liquidityUsd || signal.liquidity24h || 0);
   if (liquidity && liquidity < settings.minLiquidityUsd) return { ok: false, reason: `liquidity below ${settings.minLiquidityUsd}` };
@@ -454,6 +471,8 @@ function createStateOrder(signal, plan, status, response = null) {
     symbol: plan.symbol,
     side: signal.side,
     status,
+    source: signal.manualTest ? "manual-test" : (signal.executorSource || "scan"),
+    manualTest: signal.manualTest === true,
     clientOid: plan.clientOid,
     marginUsd: plan.marginUsd,
     leverage: plan.leverage,
@@ -545,6 +564,7 @@ function createDecisionSummary(signals, events) {
     totalSignals: Array.isArray(signals) ? signals.length : 0,
     newSignals: 0,
     recentOpenSignals: 0,
+    manualTestSignals: 0,
     totalEvents: Array.isArray(events) ? events.length : 0,
         executableSignals: 0,
     marketGate: summarizeMarketGate(null, {}),

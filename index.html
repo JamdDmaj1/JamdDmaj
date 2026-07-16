@@ -3160,6 +3160,7 @@
                 <button class="pill-btn danger" id="pauseLiveExecutorBtn" type="button">Pause live</button>
                 <button class="pill-btn" id="toggleProServerBtn" type="button">Enable 24/7</button>
                 <button class="pill-btn" id="runProServerBtn" type="button">Run server now</button>
+                <button class="pill-btn" id="queueBitgetTestBtn" type="button">Test Bitget</button>
                 <button class="pill-btn" id="refreshProServerBtn" type="button">Refresh</button>
               </div>
             </div>
@@ -6809,6 +6810,28 @@
         }
       }
 
+      async function queueBitgetExecutorTest() {
+        if (!telegramOwnerAuthorized) return;
+        const button = document.getElementById("queueBitgetTestBtn");
+        const spanish = resolvedLanguage() === "es";
+        button.disabled = true;
+        document.getElementById("proServerStatus").textContent = spanish
+          ? "Preparando prueba pequena para el VPS..."
+          : "Preparing a small VPS test...";
+        try {
+          proServerState = await callProApi({ action: "executorTest" });
+          renderProServerState(proServerState);
+          const pair = proServerState.executorTest?.signal?.pair || proServerState.executorTest?.signal?.symbol || "";
+          showToast(spanish
+            ? `Prueba Bitget pendiente para ${pair}. El VPS la tomara en el proximo ciclo.`
+            : `Bitget test queued for ${pair}. The VPS will pick it up next cycle.`);
+        } catch (error) {
+          document.getElementById("proServerStatus").textContent = error.message;
+        } finally {
+          button.disabled = false;
+        }
+      }
+
       async function runProServerNow() {
         if (!telegramOwnerAuthorized) return;
         const button = document.getElementById("runProServerBtn");
@@ -6854,6 +6877,7 @@
           : (spanish ? "Activar 24/7" : "Enable 24/7");
         toggle.classList.toggle("active", enabled);
         document.getElementById("runProServerBtn").textContent = spanish ? "Ejecutar ahora" : "Run server now";
+        document.getElementById("queueBitgetTestBtn").textContent = spanish ? "Probar Bitget" : "Test Bitget";
         document.getElementById("refreshProServerBtn").textContent = spanish ? "Actualizar" : "Refresh";
         document.getElementById("proStatOpen").textContent = String(stats.open || 0);
         document.getElementById("proStatWins").textContent = String(stats.wins || 0);
@@ -6880,9 +6904,10 @@
         pauseButton.textContent = livePaused ? (spanish ? "Reactivar live" : "Resume live") : (spanish ? "Pausar live" : "Pause live");
         pauseButton.classList.toggle("active", livePaused);
         const executor = state.executor || {};
+        const executorTest = state.executorTest || null;
         const executorStamp = executor.lastRunAt ? new Date(executor.lastRunAt).toLocaleString() : (spanish ? "sin heartbeat" : "no heartbeat");
         document.getElementById("proExecutorStatus").textContent = `${spanish ? "Executor" : "Executor"}: ${(executor.mode || "unknown").toUpperCase()} - ${executorStamp}${executor.livePaused ? ` - ${spanish ? "pausado" : "paused"}` : ""}${executor.lastError ? ` - ${executor.lastError}` : ""}`;
-        renderExecutorHealth(executor, spanish, state.learning || {});
+        renderExecutorHealth(executor, spanish, state.learning || {}, executorTest);
         document.getElementById("proExecutionNotice").textContent = spanish
           ? "Live se pausa desde aqui; las claves de Bitget siguen solo en el VPS."
           : "Live can be paused here; Bitget keys still stay only on the VPS.";
@@ -6894,7 +6919,7 @@
         renderProServerHistory(state.history || []);
       }
 
-      function renderExecutorHealth(executor = {}, spanish = resolvedLanguage() === "es", learningState = {}) {
+      function renderExecutorHealth(executor = {}, spanish = resolvedLanguage() === "es", learningState = {}, executorTest = null) {
         const decisions = executor.decisions || {};
         const rejectedTotal = Object.values(decisions.rejected || {}).reduce((sum, value) => sum + (Number(value) || 0), 0);
         document.getElementById("executorModeLabel").textContent = spanish ? "Modo executor" : "Executor mode";
@@ -6920,6 +6945,10 @@
         const cooldown = Array.isArray(learning.cooldown) ? learning.cooldown[0] : null;
         if (cooldown) {
           rows.push([spanish ? "Cooldown automatico" : "Auto cooldown", `${cooldown.key} - ${Number(cooldown.winRate || 0).toFixed(1)}% - ${Number(cooldown.recentLosses || 0)} recientes`]);
+        }
+        if (executorTest?.signal) {
+          const expires = executorTest.expiresAt ? new Date(executorTest.expiresAt).toLocaleTimeString() : "";
+          rows.push([spanish ? "Prueba Bitget" : "Bitget test", `${executorTest.signal.pair || executorTest.signal.symbol} ${executorTest.signal.side || ""} - USD ${Number(executorTest.signal.plannedUsd || 0).toFixed(2)} - ${spanish ? "pendiente VPS" : "pending VPS"}${expires ? ` - ${expires}` : ""}`]);
         }
         if (gate.regime || gate.riskOff || gate.extremeFear) {
           const gateText = [
@@ -11367,6 +11396,7 @@
       document.getElementById("pauseLiveExecutorBtn").addEventListener("click", toggleLiveExecutorPause);
       document.getElementById("toggleProServerBtn").addEventListener("click", toggleProServer);
       document.getElementById("runProServerBtn").addEventListener("click", runProServerNow);
+      document.getElementById("queueBitgetTestBtn").addEventListener("click", queueBitgetExecutorTest);
       document.getElementById("refreshProServerBtn").addEventListener("click", () => loadProServerState(true));
       document.getElementById("togglePaperTradingBtn").addEventListener("click", togglePaperTrading);
       document.getElementById("resetPaperTradingBtn").addEventListener("click", resetPaperTrading);

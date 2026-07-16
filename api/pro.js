@@ -1,5 +1,5 @@
 import { corsHeaders, jsonResponse } from "../lib/server.js";
-import { getProServerState, resetPaperPortfolio, runProCycle, saveProServerConfig } from "../lib/pro-signals.js";
+import { getProServerState, queueExecutorTestSignal, resetPaperPortfolio, runProCycle, saveProServerConfig } from "../lib/pro-signals.js";
 import { getCachedProBacktest, runProBacktest } from "../lib/pro-backtest.js";
 
 export const config = { runtime: "edge" };
@@ -31,6 +31,11 @@ export default async function handler(request) {
       const result = await runProCycle({ force: true });
       const state = await getProServerState();
       return jsonResponse(request, { ok: true, result, ...publicState(state) });
+    }
+    if (input?.action === "executorTest") {
+      const executorTest = await queueExecutorTestSignal(input || {});
+      const state = await getProServerState();
+      return jsonResponse(request, { ok: true, executorTest, ...publicState(state) });
     }
     if (input?.action === "paperReset") {
       const paper = await resetPaperPortfolio();
@@ -70,6 +75,7 @@ function publicState(state) {
     open: state.open.slice(0, 30),
     history: state.history.slice(0, 80),
     paper: state.paper,
-    executor: state.executor
+    executor: state.executor,
+    executorTest: state.executorTest
   };
 }
