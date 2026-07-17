@@ -3169,7 +3169,7 @@
                 <input id="maxDailyLossUsdInput" type="number" min="1" max="100000" step="1" value="25">
               </label>
               <label><span id="maxDailyLossPercentLabel">Max daily loss (%)</span>
-                <input id="maxDailyLossPercentInput" type="number" min="0.1" max="50" step="0.1" value="3">
+                <input id="maxDailyLossPercentInput" type="number" min="0.1" max="100" step="0.1" value="3">
               </label>
               <label><span id="maxConsecutiveLossesLabel">Max consecutive losses</span>
                 <input id="maxConsecutiveLossesInput" type="number" min="1" max="20" step="1" value="2">
@@ -3622,7 +3622,7 @@
             <button class="pill-btn" id="checkUpdatesBtn" type="button">Check for updates</button>
             <a class="social-link is-hidden" id="downloadUpdateBtn" href="#" target="_blank" rel="noopener noreferrer">Open update</a>
           </div>
-          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.0</div>
+          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.1</div>
         </section>
       </div>
       <div class="dialog-actions">
@@ -3747,7 +3747,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.37.0";
+      const APP_VERSION = "1.37.1";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
       const FREE_LIVE_API_URL = `${WEB_APP_URL}api/live`;
       const TELEGRAM_API_URL = `${WEB_APP_URL}api/telegram`;

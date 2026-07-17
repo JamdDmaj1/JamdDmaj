@@ -32,7 +32,7 @@ const settings = {
   allowMeme: String(process.env.JAMDDMAJ_ALLOW_MEME_LIVE || "false").toLowerCase() === "true",
   minLiquidityUsd: clampNumber(process.env.JAMDDMAJ_MIN_LIVE_LIQUIDITY_USD, 0, 1_000_000_000, 3_000_000),
   maxDailyLossUsd: clampNumber(process.env.JAMDDMAJ_MAX_DAILY_LOSS_USD, 1, 100000, 25),
-  maxDailyLossPercent: clampNumber(process.env.JAMDDMAJ_MAX_DAILY_LOSS_PERCENT, 0.1, 50, 3),
+  maxDailyLossPercent: clampNumber(process.env.JAMDDMAJ_MAX_DAILY_LOSS_PERCENT, 0.1, 100, 3),
   maxConsecutiveLosses: clampInt(process.env.JAMDDMAJ_MAX_CONSECUTIVE_LOSSES, 1, 20, 2),
   maxTradesPerDay: clampInt(process.env.JAMDDMAJ_MAX_TRADES_PER_DAY, 1, 100, 3)
 };
@@ -613,7 +613,7 @@ function normalizeExecutorPolicy(value = {}) {
         minScore: clampInt(value?.minScore, 8, 20, settings.minScore),
     strictRegimeMinScore: clampInt(value?.strictRegimeMinScore, 8, 20, settings.strictRegimeMinScore),
     maxDailyLossUsd: clampNumber(value?.maxDailyLossUsd, 1, 100000, settings.maxDailyLossUsd),
-    maxDailyLossPercent: clampNumber(value?.maxDailyLossPercent, 0.1, 50, settings.maxDailyLossPercent),
+    maxDailyLossPercent: clampNumber(value?.maxDailyLossPercent, 0.1, 100, settings.maxDailyLossPercent),
     maxConsecutiveLosses: clampInt(value?.maxConsecutiveLosses, 1, 20, settings.maxConsecutiveLosses),
     maxTradesPerDay: clampInt(value?.maxTradesPerDay, 1, 100, settings.maxTradesPerDay)
   };
