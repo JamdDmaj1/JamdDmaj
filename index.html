@@ -3622,7 +3622,7 @@
             <button class="pill-btn" id="checkUpdatesBtn" type="button">Check for updates</button>
             <a class="social-link is-hidden" id="downloadUpdateBtn" href="#" target="_blank" rel="noopener noreferrer">Open update</a>
           </div>
-          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.4</div>
+          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.5</div>
         </section>
       </div>
       <div class="dialog-actions">
@@ -3747,7 +3747,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.37.4";
+      const APP_VERSION = "1.37.5";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
       const FREE_LIVE_API_URL = `${WEB_APP_URL}api/live`;
       const TELEGRAM_API_URL = `${WEB_APP_URL}api/telegram`;
@@ -6975,13 +6975,19 @@
         (decisions.examples || []).slice(0, 3).forEach((item) => {
           rows.push([item.pair || (spanish ? "Rechazada" : "Rejected"), `${item.reason}${item.score ? ` · ${item.score}` : ""}`]);
         });
-        if (executor.exitManager?.ready) {
-          rows.push([spanish ? "Exit manager" : "Exit manager", executor.exitManager.entryOnly
-            ? (spanish ? "Preparado, entrada solamente" : "Ready, entry-only")
-            : (spanish ? "Preparado" : "Ready")]);
+        if (executor.exitManager?.ready || executor.exitManager?.enabled || executor.exitManager?.lastAction) {
+          const exit = executor.exitManager;
+          const exitLabel = exit.enabled
+            ? `${spanish ? "Activo" : "Active"} | +${Number(exit.protectionTriggerRoe || 10).toFixed(0)}% -> ${Number(exit.protectionLockRoe || 2).toFixed(0)}% ROE`
+            : (exit.entryOnly ? (spanish ? "Preparado, entrada solamente" : "Ready, entry-only") : (spanish ? "Preparado" : "Ready"));
+          rows.push([spanish ? "Exit manager" : "Exit manager", exitLabel]);
+          if (exit.lastAction) rows.push([spanish ? "Proteccion auto" : "Auto protection", exit.lastAction]);
         }
         (executor.recentOrders || []).slice(0, 3).forEach((order) => {
-          rows.push([`${order.pair || order.symbol} ${order.side}`, `${order.status} · $${Number(order.marginUsd || 0).toFixed(2)}${order.exitPlanReady ? " · TP/SL" : ""}`]);
+          const protectionText = order.protectionActive
+            ? ` | ${spanish ? "protegido" : "protected"} ${Number(order.currentRoe || 0).toFixed(1)}% ROE`
+            : (order.exitReason ? ` | ${order.exitReason}` : "");
+          rows.push([`${order.pair || order.symbol} ${order.side}`, `${order.status} | ${Number(order.marginUsd || 0).toFixed(2)}${order.exitPlanReady ? " | TP/SL" : ""}${protectionText}`]);
         });
         if (!rows.length) {
           const empty = document.createElement("span");

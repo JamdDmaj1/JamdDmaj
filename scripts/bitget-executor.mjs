@@ -18,6 +18,10 @@ const settings = {
   apiSecret: String(process.env.BITGET_API_SECRET || "").trim(),
   passphrase: String(process.env.BITGET_PASSPHRASE || "").trim(),
   allowEntryOnly: String(process.env.JAMDDMAJ_LIVE_ENTRY_ONLY || "false").toLowerCase() === "true",
+  exitManagerEnabled: String(process.env.JAMDDMAJ_EXIT_MANAGER || "false").toLowerCase() === "true",
+  exitProtectionTriggerRoe: clampNumber(process.env.JAMDDMAJ_EXIT_PROTECTION_TRIGGER_ROE, 1, 100, 10),
+  exitProtectionLockRoe: clampNumber(process.env.JAMDDMAJ_EXIT_PROTECTION_LOCK_ROE, 0.1, 50, 2),
+  exitCloseOnReversal: String(process.env.JAMDDMAJ_EXIT_CLOSE_ON_REVERSAL || "true").toLowerCase() !== "false",
   productType: String(process.env.BITGET_PRODUCT_TYPE || "USDT-FUTURES").trim(),
   marginCoin: String(process.env.BITGET_MARGIN_COIN || "USDT").trim(),
   marginMode: String(process.env.BITGET_MARGIN_MODE || "isolated").trim(),
@@ -92,6 +96,12 @@ async function main() {
   decisions.executableSignals = executable.length;
   const candidates = executable.slice(0, Number(policy.maxNewOrdersPerRun) || settings.maxNewOrdersPerRun);
   state.lastDecisionSummary = decisions;
+  let livePositions = [];
+  if (settings.mode === "live" && settings.exitManagerEnabled) {
+    validateLiveSecrets();
+    livePositions = await reconcileBitgetPositions(state);
+    await manageLiveExits(state, livePositions, events);
+  }
 
   if (settings.mode === "off" || policy.livePaused) {
     const reason = policy.livePaused ? "remote live pause is active" : "execution off";
@@ -106,7 +116,7 @@ async function main() {
 
   if (!candidates.length) {
     console.log(`${LOG_PREFIX} no executable candidates after filters.`);
-    state.lastAction = "no executable candidates after filters";
+    if (!state.lastAction || !String(state.lastAction).startsWith("exit manager")) state.lastAction = "no executable candidates after filters";
     state.updatedAt = new Date().toISOString();
     writeJson(STATE_PATH, state);
     await reportExecutorStatus(statusPayload(state, { ok: true, livePaused: policy.livePaused }));
@@ -117,7 +127,7 @@ async function main() {
     validateLiveSecrets();
   }
 
-  const livePositions = settings.mode === "live" ? await reconcileBitgetPositions(state) : [];
+  if (settings.mode === "live" && !livePositions.length) livePositions = await reconcileBitgetPositions(state);
   const riskBlock = dailyRiskBlock(state, policy);
   if (riskBlock) {
     console.log(`${LOG_PREFIX} risk block: ${riskBlock}`);
@@ -586,10 +596,96 @@ function buildExitPlan(signal, plan) {
     entryOnly: settings.allowEntryOnly,
     tp1: Number(plan.tp1) || null,
     sl: Number(plan.sl) || null,
+    protectionTriggerRoe: settings.exitProtectionTriggerRoe,
+    protectionLockRoe: settings.exitProtectionLockRoe,
     note: settings.allowEntryOnly
       ? "Entry-only live guard is active; monitor TP/SL before enabling full exits."
       : "TP1/SL are planned and positions are reconciled; full automatic exits remain guarded."
   };
+}
+
+async function manageLiveExits(state, positions, events = []) {
+  if (!settings.exitManagerEnabled || settings.mode !== "live") return;
+  const exitTypes = new Set(["REVERSAL", "REVERSAL_PROFIT", "INVALIDATED", "SL"]);
+  const exitEvents = (Array.isArray(events) ? events : []).filter((event) => exitTypes.has(String(event?.type || "")));
+  for (const order of state.orders.filter((item) => item?.status === "OPEN" && item.symbol)) {
+    const position = findMatchingPosition(order, positions);
+    if (!position) continue;
+    const roe = positionRoe(position, order);
+    if (Number.isFinite(roe)) {
+      order.currentRoe = Number(roe.toFixed(2));
+      order.maxRoe = Math.max(Number(order.maxRoe || -999), order.currentRoe);
+      if (!order.protectionActive && order.currentRoe >= settings.exitProtectionTriggerRoe) {
+        order.protectionActive = true;
+        order.protectionActivatedAt = new Date().toISOString();
+        state.lastExitAction = `exit manager protected ${order.pair || order.symbol} at ${order.currentRoe}% ROE`;
+        console.log(`${LOG_PREFIX} ${state.lastExitAction}`);
+      }
+      if (order.protectionActive && order.currentRoe <= settings.exitProtectionLockRoe) {
+        try {
+          await closeLivePosition(order, "protected ROE lock", position);
+          state.lastExitAction = `exit manager closed ${order.pair || order.symbol}: protected ROE lock`;
+          state.lastAction = state.lastExitAction;
+        } catch (error) {
+          state.lastExitAction = `exit manager close failed ${order.pair || order.symbol}: ${error?.message || error}`;
+          state.lastAction = state.lastExitAction;
+          console.warn(`${LOG_PREFIX} ${state.lastExitAction}`);
+        }
+        continue;
+      }
+    }
+    const event = exitEvents.find((item) => eventMatchesOrder(item, order));
+    if (settings.exitCloseOnReversal && event) {
+      try {
+        await closeLivePosition(order, `server ${event.type}`, position);
+        state.lastExitAction = `exit manager closed ${order.pair || order.symbol}: server ${event.type}`;
+        state.lastAction = state.lastExitAction;
+      } catch (error) {
+        state.lastExitAction = `exit manager close failed ${order.pair || order.symbol}: ${error?.message || error}`;
+        state.lastAction = state.lastExitAction;
+        console.warn(`${LOG_PREFIX} ${state.lastExitAction}`);
+      }
+    }
+  }
+}
+
+function findMatchingPosition(order, positions) {
+  const wantedHold = order.side === "LONG" ? "long" : order.side === "SHORT" ? "short" : "";
+  return (Array.isArray(positions) ? positions : []).find((item) => (
+    String(item.symbol || "") === String(order.symbol || "")
+    && (!wantedHold || !item.holdSide || String(item.holdSide).toLowerCase() === wantedHold)
+  )) || null;
+}
+
+function positionRoe(position, order) {
+  const pnl = Number(position.unrealizedPL || position.unrealizedPnl || 0);
+  const margin = Number(position.marginSize || position.margin || order.marginUsd || 0);
+  return margin > 0 ? (pnl / margin) * 100 : NaN;
+}
+
+function eventMatchesOrder(event, order) {
+  const signal = event?.signal || {};
+  const eventId = String(signal.id || "");
+  const eventPair = String(signal.pair || signal.symbol || "").replace(/[^A-Z0-9]/gi, "").toUpperCase();
+  const orderPair = String(order.pair || order.symbol || "").replace(/[^A-Z0-9]/gi, "").toUpperCase();
+  return (eventId && eventId === String(order.id || "")) || (eventPair && orderPair && eventPair === orderPair);
+}
+
+async function closeLivePosition(order, reason, position = {}) {
+  const holdSide = String(position.holdSide || (order.side === "LONG" ? "long" : "short")).toLowerCase();
+  const body = {
+    symbol: order.symbol,
+    productType: settings.productType,
+    holdSide
+  };
+  const result = await bitgetRequest("POST", "/api/v2/mix/order/close-positions", body);
+  if (result?.code && result.code !== "00000") throw new Error(`Bitget close rejected ${order.pair || order.symbol}: ${result?.msg || result.code}`);
+  order.status = "CLOSED_BY_EXIT_MANAGER";
+  order.exitReason = reason;
+  order.closedAt = new Date().toISOString();
+  order.closeResponse = result;
+  console.log(`${LOG_PREFIX} exit manager closed ${order.pair || order.symbol}: ${reason}`);
+  return result;
 }
 
 function rememberSkip(state, signal, reason) {
@@ -645,8 +741,15 @@ function statusPayload(state, overrides = {}) {
     lastLiveSignal: state.lastLiveSignal || null,
     exitManager: {
       ready: true,
+      enabled: settings.exitManagerEnabled,
       entryOnly: settings.allowEntryOnly,
-      note: "Prepared TP1/SL planning and position reconciliation. Full automatic close manager remains guarded."
+      protectionTriggerRoe: settings.exitProtectionTriggerRoe,
+      protectionLockRoe: settings.exitProtectionLockRoe,
+      closeOnReversal: settings.exitCloseOnReversal,
+      lastAction: state.lastExitAction || "",
+      note: settings.exitManagerEnabled
+        ? "Automatic protection and reversal exits are enabled on the VPS."
+        : "Prepared TP1/SL planning and position reconciliation. Automatic close manager is opt-in."
     }
   };
 }
@@ -694,6 +797,10 @@ function compactOrder(order) {
     entry: Number(order.entry || 0),
     tp1: Number(order.tp1 || 0),
     sl: Number(order.sl || 0),
+    currentRoe: Number(order.currentRoe || 0),
+    maxRoe: Number(order.maxRoe || 0),
+    protectionActive: order.protectionActive === true,
+    exitReason: order.exitReason || "",
     createdAt: order.createdAt || "",
     exitPlanReady: order.exitPlan?.ready === true
   };

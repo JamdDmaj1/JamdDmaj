@@ -4,6 +4,7 @@ import { redisRequest } from "../lib/server.js";
 
 const EXECUTOR_LEARNING_PREFIX = "jamd:pro:executor:learning:";
 const EXECUTOR_LIVE_ALERT_PREFIX = "jamd:pro:executor:telegram:live:";
+const EXECUTOR_EXIT_ALERT_PREFIX = "jamd:pro:executor:telegram:exit:";
 const EXECUTOR_DAILY_PIN_PREFIX = "jamd:pro:executor:telegram:daily-pin:";
 
 export const config = { runtime: "edge" };
@@ -26,6 +27,7 @@ export default async function handler(request) {
     const enrichedInput = executorLearning ? { ...input, executorLearning } : input;
     const status = await saveExecutorHeartbeat(enrichedInput);
     await maybeSendLiveOrderAlert(enrichedInput).catch(() => {});
+    await maybeSendExitManagerAlert(enrichedInput).catch(() => {});
     await maybeSendPinnedDailyLearning(enrichedInput, executorLearning).catch(() => {});
     await maybeSendDryRunSummary(enrichedInput).catch(() => {});
     return jsonResponse(request, { ok: true, status });
@@ -46,6 +48,18 @@ async function maybeSendLiveOrderAlert(input) {
   const claimed = await redisRequest("pipeline", [["SET", `${EXECUTOR_LIVE_ALERT_PREFIX}${orderKey}`, new Date().toISOString(), "NX", "EX", 2592000]]);
   if (claimed?.[0]?.result !== "OK") return;
   await sendTelegram(token, chatId, formatLiveOrderMessage(input, order));
+}
+
+async function maybeSendExitManagerAlert(input) {
+  const token = String(process.env.TELEGRAM_BOT_TOKEN || "").trim();
+  const chatId = String(process.env.TELEGRAM_CHAT_ID || "").trim();
+  if (!token || !chatId || String(input?.mode || "").toLowerCase() !== "live") return;
+  const action = String(input?.exitManager?.lastAction || input?.lastAction || "").trim();
+  if (!/^exit manager (protected|closed|close failed)/i.test(action)) return;
+  const key = action.replace(/[^a-zA-Z0-9:_-]/g, "_").slice(0, 180);
+  const claimed = await redisRequest("pipeline", [["SET", EXECUTOR_EXIT_ALERT_PREFIX + key, new Date().toISOString(), "NX", "EX", 604800]]);
+  if (claimed?.[0]?.result !== "OK") return;
+  await sendTelegram(token, chatId, formatExitManagerMessage(input, action));
 }
 
 async function maybeSendPinnedDailyLearning(input, learning) {
@@ -197,6 +211,19 @@ async function pinTelegramMessage(token, chatId, messageId) {
 
 function telegramMessageId(payload) {
   return Number(payload?.result?.message_id || payload?.message_id || 0) || null;
+}
+
+function formatExitManagerMessage(input, action) {
+  const exit = input?.exitManager || {};
+  const recent = Array.isArray(input?.recentOrders) ? input.recentOrders.find((order) => action.includes(order.pair || order.symbol || "")) : null;
+  return [
+    "<b>JamdDmaj Bitget exit manager</b>",
+    "Action: " + escapeHtml(action),
+    recent ? "Trade: <b>" + escapeHtml(recent.pair || recent.symbol) + "</b> " + escapeHtml(recent.side || "") : "",
+    Number(recent?.currentRoe || 0) ? "Current ROE: " + Number(recent.currentRoe || 0).toFixed(2) + "% | Max ROE: " + Number(recent.maxRoe || 0).toFixed(2) + "%" : "",
+    exit.enabled ? "Protection: +" + Number(exit.protectionTriggerRoe || 10).toFixed(0) + "% -> " + Number(exit.protectionLockRoe || 2).toFixed(0) + "% ROE" : "",
+    "This is an automatic VPS protection/exit decision. Check Bitget after any close-failed alert."
+  ].filter(Boolean).join("\n");
 }
 
 function formatLiveOrderMessage(input, order) {
