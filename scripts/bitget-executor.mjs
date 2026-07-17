@@ -165,12 +165,21 @@ async function main() {
     await prepareBitgetLeverage(plan).catch((error) => {
       console.warn(`${LOG_PREFIX} leverage setup warning ${plan.pair}: ${error?.message || error}`);
     });
-    const placed = await placeMarketOrder(plan);
-    state.orders.unshift(createStateOrder(signal, plan, "OPEN", placed));
-    state.lastLiveSignal = compactOrder(state.orders[0]);
-    incrementDailyTrades(state);
-    state.lastAction = `LIVE order sent ${signal.pair} ${signal.side}`;
-    console.log(`${LOG_PREFIX} LIVE order sent ${signal.pair} ${signal.side} clientOid=${plan.clientOid}`);
+    try {
+      const placed = await placeMarketOrder(plan);
+      state.orders.unshift(createStateOrder(signal, plan, "OPEN", placed));
+      state.lastLiveSignal = compactOrder(state.orders[0]);
+      incrementDailyTrades(state);
+      state.lastAction = `LIVE order sent ${signal.pair} ${signal.side}`;
+      console.log(`${LOG_PREFIX} LIVE order sent ${signal.pair} ${signal.side} clientOid=${plan.clientOid}`);
+    } catch (error) {
+      const reason = error?.message || String(error);
+      rememberSkip(state, signal, reason);
+      recordRejection(decisions, reason, signal);
+      state.lastAction = reason;
+      console.warn(`${LOG_PREFIX} reject ${plan.pair}: ${reason}`);
+      continue;
+    }
   }
 
   state.updatedAt = new Date().toISOString();
@@ -345,6 +354,8 @@ function buildOrderPlan(signal, contracts, marketContext = null, accountRisk = n
   const contract = contracts.get(symbol);
   if (settings.mode === "live" && !contract) return { ok: false, reason: `Bitget contract not found ${symbol}` };
   const volumePlace = contract ? clampInt(contract.volumePlace, 0, 12, 4) : 4;
+  const pricePlace = contract ? clampInt(contract.pricePlace, 0, 12, 4) : 4;
+  const priceEndStep = contract ? clampNumber(contract.priceEndStep, 1, 1000000, 1) : 1;
   const minTradeNum = Number(contract?.minTradeNum || 0);
   const size = floorToPlace(rawSize, volumePlace);
   if (!Number.isFinite(size) || size <= 0) return { ok: false, reason: "calculated size is too small" };
@@ -362,6 +373,8 @@ function buildOrderPlan(signal, contracts, marketContext = null, accountRisk = n
     price,
     sl: exchangePrice(Number(signal.sl), multiplier),
     tp1: exchangePrice(Number(signal.tp1), multiplier),
+    pricePlace,
+    priceEndStep,
     size: String(size),
     clientOid: `jamd-${String(signal.id).replace(/[^a-zA-Z0-9-]/g, "").slice(0, 40)}`
   };
@@ -389,8 +402,8 @@ async function placeMarketOrder(plan) {
     orderType: "market",
     clientOid: plan.clientOid
   };
-  if (Number.isFinite(plan.sl) && plan.sl > 0) body.presetStopLossPrice = formatBitgetPrice(plan.sl);
-  if (Number.isFinite(plan.tp1) && plan.tp1 > 0) body.presetStopSurplusPrice = formatBitgetPrice(plan.tp1);
+  if (Number.isFinite(plan.sl) && plan.sl > 0) body.presetStopLossPrice = formatBitgetPrice(plan.sl, plan.pricePlace, plan.priceEndStep);
+  if (Number.isFinite(plan.tp1) && plan.tp1 > 0) body.presetStopSurplusPrice = formatBitgetPrice(plan.tp1, plan.pricePlace, plan.priceEndStep);
   const result = await bitgetRequest("POST", "/api/v2/mix/order/place-order", body);
   if (result?.code !== "00000") {
     throw new Error(`Bitget rejected ${plan.pair}: ${result?.msg || JSON.stringify(result)}`);
@@ -732,13 +745,21 @@ function dailyRiskBlock(state, policy) {
   return "";
 }
 
-function formatBitgetPrice(value) {
+function formatBitgetPrice(value, pricePlace = null, priceEndStep = 1) {
   const number = Number(value);
   if (!Number.isFinite(number) || number <= 0) return "";
-  if (number >= 100) return number.toFixed(2);
-  if (number >= 1) return number.toFixed(4);
-  if (number >= 0.01) return number.toFixed(6);
-  return number.toFixed(10).replace(/0+$/, "").replace(/\.$/, "");
+  const places = Number.isFinite(Number(pricePlace)) ? clampInt(pricePlace, 0, 12, 4) : inferredPricePlaces(number);
+  const stepUnits = Math.max(1, Number(priceEndStep) || 1);
+  const tick = stepUnits / (10 ** places);
+  const rounded = Math.round(number / tick) * tick;
+  return rounded.toFixed(places).replace(/0+$/, "").replace(/\.$/, "");
+}
+
+function inferredPricePlaces(number) {
+  if (number >= 100) return 2;
+  if (number >= 1) return 4;
+  if (number >= 0.01) return 6;
+  return 10;
 }
 
 function loadDotEnv(filePath) {
