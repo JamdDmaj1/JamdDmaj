@@ -12,6 +12,8 @@ loadDotEnv(ENV_PATH);
 const settings = {
   appUrl: cleanUrl(process.env.JAMDDMAJ_URL || "https://jamd-dmaj.vercel.app"),
   cronSecret: String(process.env.JAMDDMAJ_CRON_SECRET || "").trim(),
+  clientConnector: String(process.env.JAMDDMAJ_CLIENT_CONNECTOR || "false").toLowerCase() === "true",
+  clientFeedToken: String(process.env.JAMDDMAJ_CLIENT_FEED_TOKEN || "").trim(),
   mode: normalizeMode(process.env.JAMDDMAJ_BITGET_MODE),
   confirmation: String(process.env.JAMDDMAJ_LIVE_CONFIRM || "").trim(),
   apiKey: String(process.env.BITGET_API_KEY || "").trim(),
@@ -52,8 +54,8 @@ main().catch(async (error) => {
 });
 
 async function main() {
-  if (!settings.cronSecret) {
-    throw new Error("JAMDDMAJ_CRON_SECRET is required.");
+  if (!settings.cronSecret && !settings.clientConnector) {
+    throw new Error("JAMDDMAJ_CRON_SECRET is required unless JAMDDMAJ_CLIENT_CONNECTOR=true is set.");
   }
 
   const state = readJson(STATE_PATH, createExecutorState());
@@ -199,6 +201,7 @@ async function main() {
 }
 
 async function runScanner() {
+  if (settings.clientConnector) return fetchClientFeed();
   const response = await fetch(`${settings.appUrl}/api/pro-cron`, {
     headers: { Authorization: `Bearer ${settings.cronSecret}` }
   });
@@ -211,6 +214,22 @@ async function runScanner() {
   }
   if (!response.ok || body?.error) {
     throw new Error(body?.error?.message || body?.message || `scanner returned ${response.status}`);
+  }
+  return body;
+}
+
+async function fetchClientFeed() {
+  const headers = settings.clientFeedToken ? { "X-JamdDmaj-Client-Token": settings.clientFeedToken } : {};
+  const response = await fetch(`${settings.appUrl}/api/pro-client-feed`, { headers });
+  const text = await response.text();
+  let body;
+  try {
+    body = text ? JSON.parse(text) : {};
+  } catch {
+    body = { raw: text };
+  }
+  if (!response.ok || body?.error) {
+    throw new Error(body?.error?.message || body?.message || `client feed returned ${response.status}`);
   }
   return body;
 }
@@ -236,6 +255,7 @@ function mergeSignalSources(newSignals, recentOpen) {
   return [...merged.values()];
 }
 async function fetchExecutorTestSignal() {
+  if (settings.clientConnector || !settings.cronSecret) return null;
   const response = await fetch(`${settings.appUrl}/api/pro-executor-test`, {
     method: "POST",
     headers: { Authorization: `Bearer ${settings.cronSecret}` }
@@ -721,6 +741,7 @@ function statusPayload(state, overrides = {}) {
   const daily = normalizeDailyState(state.daily);
   return {
     mode: settings.mode,
+    clientConnector: settings.clientConnector,
     ok: overrides.ok === true,
     livePaused: overrides.livePaused === true,
     lastRunAt: new Date().toISOString(),

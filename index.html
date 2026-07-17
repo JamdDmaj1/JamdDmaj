@@ -3148,6 +3148,43 @@
             </div>
             <small id="proExecutionNotice">Planning and alerts only. JamdDmaj does not place orders or hold Bitget API keys.</small>
           </div>
+          <div class="trader-server client-bitget-card is-hidden" id="clientBitgetConnectorPanel">
+            <div class="trader-server-head">
+              <div class="trader-server-copy">
+                <strong id="clientBitgetTitle">Client Bitget connector</strong>
+                <span id="clientBitgetSubtitle">Paste Bitget API data to prepare a private connector. Keys are not uploaded to JamdDmaj Cloud.</span>
+                <small id="clientBitgetSafety">Use restricted API keys, start in dry-run, then enable live with small size.</small>
+              </div>
+            </div>
+            <div class="trader-alert-controls client-bitget-grid">
+              <label><span id="clientBitgetApiKeyLabel">API key</span>
+                <input id="clientBitgetApiKeyInput" type="password" autocomplete="off" spellcheck="false" placeholder="Bitget API key">
+              </label>
+              <label><span id="clientBitgetSecretLabel">API secret</span>
+                <input id="clientBitgetSecretInput" type="password" autocomplete="off" spellcheck="false" placeholder="Bitget API secret">
+              </label>
+              <label><span id="clientBitgetPassphraseLabel">Passphrase</span>
+                <input id="clientBitgetPassphraseInput" type="password" autocomplete="off" spellcheck="false" placeholder="Bitget passphrase">
+              </label>
+              <label><span id="clientBitgetModeLabel">Start mode</span>
+                <select id="clientBitgetModeSelect">
+                  <option value="dry-run" selected>Dry-run</option>
+                  <option value="live">Live</option>
+                </select>
+              </label>
+              <label><span id="clientBitgetMarginLabel">Max margin per trade</span>
+                <input id="clientBitgetMarginInput" type="number" min="1" max="1000" step="1" value="5">
+              </label>
+              <label><span id="clientBitgetRiskLabel">Auto risk per trade (%)</span>
+                <input id="clientBitgetRiskInput" type="number" min="0.1" max="10" step="0.1" value="3">
+              </label>
+            </div>
+            <div class="trader-server-actions">
+              <button class="pill-btn" id="buildClientBitgetBtn" type="button">Prepare connector</button>
+              <button class="pill-btn" id="clearClientBitgetBtn" type="button">Clear keys</button>
+            </div>
+            <div class="backup-status" id="clientBitgetStatus">Nothing is saved yet. The setup text is generated locally on this device.</div>
+          </div>
           <div class="trader-server is-hidden" id="traderServerPanel">
             <div class="trader-server-head">
               <div class="trader-server-copy">
@@ -3622,7 +3659,7 @@
             <button class="pill-btn" id="checkUpdatesBtn" type="button">Check for updates</button>
             <a class="social-link is-hidden" id="downloadUpdateBtn" href="#" target="_blank" rel="noopener noreferrer">Open update</a>
           </div>
-          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.5</div>
+          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.6</div>
         </section>
       </div>
       <div class="dialog-actions">
@@ -3747,7 +3784,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.37.5";
+      const APP_VERSION = "1.37.6";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
       const FREE_LIVE_API_URL = `${WEB_APP_URL}api/live`;
       const TELEGRAM_API_URL = `${WEB_APP_URL}api/telegram`;
@@ -6810,6 +6847,85 @@
         }
       }
 
+      function renderClientBitgetConnectorText(spanish = resolvedLanguage() === "es") {
+        const panel = document.getElementById("clientBitgetConnectorPanel");
+        if (panel) panel.classList.toggle("is-hidden", !traderMode);
+        document.getElementById("clientBitgetTitle").textContent = spanish ? "Conector Bitget para clientes" : "Client Bitget connector";
+        document.getElementById("clientBitgetSubtitle").textContent = spanish
+          ? "Pega los datos de Bitget y la app prepara un conector privado. Las claves no se suben a JamdDmaj Cloud."
+          : "Paste Bitget API data and the app prepares a private connector. Keys are not uploaded to JamdDmaj Cloud.";
+        document.getElementById("clientBitgetSafety").textContent = spanish
+          ? "Usa permisos limitados, empieza en dry-run y luego activa live con tamano pequeno."
+          : "Use restricted permissions, start in dry-run, then enable live with small size.";
+        document.getElementById("clientBitgetModeLabel").textContent = spanish ? "Modo inicial" : "Start mode";
+        document.getElementById("clientBitgetMarginLabel").textContent = spanish ? "Margen max. por trade" : "Max margin per trade";
+        document.getElementById("clientBitgetRiskLabel").textContent = spanish ? "Auto riesgo por trade (%)" : "Auto risk per trade (%)";
+        document.getElementById("buildClientBitgetBtn").textContent = spanish ? "Preparar conector" : "Prepare connector";
+        document.getElementById("clearClientBitgetBtn").textContent = spanish ? "Borrar claves" : "Clear keys";
+      }
+
+      async function buildClientBitgetConnector() {
+        const spanish = resolvedLanguage() === "es";
+        const apiKey = document.getElementById("clientBitgetApiKeyInput").value.trim();
+        const apiSecret = document.getElementById("clientBitgetSecretInput").value.trim();
+        const passphrase = document.getElementById("clientBitgetPassphraseInput").value.trim();
+        if (!apiKey || !apiSecret || !passphrase) {
+          showToast(spanish ? "Faltan API key, secret o passphrase." : "API key, secret, or passphrase is missing.");
+          return;
+        }
+        const mode = document.getElementById("clientBitgetModeSelect").value === "live" ? "live" : "dry-run";
+        const margin = Math.max(1, Math.min(1000, Number(document.getElementById("clientBitgetMarginInput").value) || 5));
+        const risk = Math.max(0.1, Math.min(10, Number(document.getElementById("clientBitgetRiskInput").value) || 3));
+        const envText = [
+          "# JamdDmaj client Bitget connector - private VPS only",
+          "# Keep this file private. Do not paste these keys in support chats.",
+          "JAMDDMAJ_URL=https://jamd-dmaj.vercel.app",
+          "JAMDDMAJ_CLIENT_CONNECTOR=true",
+          "JAMDDMAJ_BITGET_MODE=" + mode,
+          "JAMDDMAJ_LIVE_ENTRY_ONLY=true",
+          "JAMDDMAJ_LIVE_CONFIRM=" + (mode === "live" ? "I_ACCEPT_REAL_RISK" : ""),
+          "BITGET_API_KEY=" + sanitizeEnvValue(apiKey),
+          "BITGET_API_SECRET=" + sanitizeEnvValue(apiSecret),
+          "BITGET_PASSPHRASE=" + sanitizeEnvValue(passphrase),
+          "BITGET_PRODUCT_TYPE=USDT-FUTURES",
+          "BITGET_MARGIN_COIN=USDT",
+          "BITGET_MARGIN_MODE=crossed",
+          "JAMDDMAJ_AUTO_RISK=true",
+          "JAMDDMAJ_AUTO_RISK_PER_TRADE_PERCENT=" + risk,
+          "JAMDDMAJ_MAX_LIVE_MARGIN_USD=" + margin,
+          "JAMDDMAJ_MAX_LIVE_OPEN=2",
+          "JAMDDMAJ_MAX_NEW_ORDERS_PER_RUN=1",
+          "JAMDDMAJ_MIN_LIVE_SCORE=10",
+          "JAMDDMAJ_STRICT_REGIME_MIN_SCORE=10",
+          "JAMDDMAJ_EXIT_MANAGER=true",
+          "JAMDDMAJ_EXIT_PROTECTION_TRIGGER_ROE=10",
+          "JAMDDMAJ_EXIT_PROTECTION_LOCK_ROE=2",
+          "JAMDDMAJ_EXIT_CLOSE_ON_REVERSAL=true",
+          "JAMDDMAJ_MAX_DAILY_LOSS_USD=25",
+          "JAMDDMAJ_MAX_DAILY_LOSS_PERCENT=3",
+          "JAMDDMAJ_MAX_CONSECUTIVE_LOSSES=2",
+          "JAMDDMAJ_MAX_TRADES_PER_DAY=3",
+          ""
+        ].join("\n");
+        await copyText(envText);
+        document.getElementById("clientBitgetStatus").textContent = spanish
+          ? "Configuracion copiada. Pegala solo en el VPS/conector privado del cliente. No se guardo en JamdDmaj Cloud."
+          : "Setup copied. Paste it only into the customer's private VPS/connector. Nothing was saved to JamdDmaj Cloud.";
+      }
+
+      function clearClientBitgetConnector() {
+        ["clientBitgetApiKeyInput", "clientBitgetSecretInput", "clientBitgetPassphraseInput"].forEach((id) => {
+          document.getElementById(id).value = "";
+        });
+        document.getElementById("clientBitgetStatus").textContent = resolvedLanguage() === "es"
+          ? "Claves borradas de la pantalla. Nada se guardo en la app."
+          : "Keys cleared from the screen. Nothing was saved in the app.";
+      }
+
+      function sanitizeEnvValue(value) {
+        return String(value || "").replace(/[\r\n]/g, "").trim();
+      }
+
       async function queueBitgetExecutorTest() {
         if (!telegramOwnerAuthorized) return;
         const button = document.getElementById("queueBitgetTestBtn");
@@ -6879,6 +6995,7 @@
         document.getElementById("runProServerBtn").textContent = spanish ? "Ejecutar ahora" : "Run server now";
         document.getElementById("queueBitgetTestBtn").textContent = spanish ? "Probar Bitget" : "Test Bitget";
         document.getElementById("refreshProServerBtn").textContent = spanish ? "Actualizar" : "Refresh";
+        renderClientBitgetConnectorText(spanish);
         document.getElementById("proStatOpen").textContent = String(stats.open || 0);
         document.getElementById("proStatWins").textContent = String(stats.wins || 0);
         document.getElementById("proStatLosses").textContent = String(stats.losses || 0);
@@ -6933,6 +7050,7 @@
         const list = document.getElementById("executorHealthList");
         list.replaceChildren();
                 const rows = [];
+        if (executor.clientConnector) rows.push([spanish ? "Conector cliente" : "Client connector", spanish ? "Activo sin guardar claves en JamdDmaj Cloud" : "Active without storing keys in JamdDmaj Cloud"]);
         const gate = executor.marketGate || decisions.marketGate || {};
         const learning = learningState.summary || learningState || {};
         if (learning.samples || learning.decided) {
@@ -11410,6 +11528,8 @@
       document.getElementById("toggleProServerBtn").addEventListener("click", toggleProServer);
       document.getElementById("runProServerBtn").addEventListener("click", runProServerNow);
       document.getElementById("queueBitgetTestBtn").addEventListener("click", queueBitgetExecutorTest);
+      document.getElementById("buildClientBitgetBtn").addEventListener("click", buildClientBitgetConnector);
+      document.getElementById("clearClientBitgetBtn").addEventListener("click", clearClientBitgetConnector);
       document.getElementById("refreshProServerBtn").addEventListener("click", () => loadProServerState(true));
       document.getElementById("togglePaperTradingBtn").addEventListener("click", togglePaperTrading);
       document.getElementById("resetPaperTradingBtn").addEventListener("click", resetPaperTrading);
