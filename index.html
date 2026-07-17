@@ -3622,7 +3622,7 @@
             <button class="pill-btn" id="checkUpdatesBtn" type="button">Check for updates</button>
             <a class="social-link is-hidden" id="downloadUpdateBtn" href="#" target="_blank" rel="noopener noreferrer">Open update</a>
           </div>
-          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.1</div>
+          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.2</div>
         </section>
       </div>
       <div class="dialog-actions">
@@ -3747,7 +3747,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.37.1";
+      const APP_VERSION = "1.37.2";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
       const FREE_LIVE_API_URL = `${WEB_APP_URL}api/live`;
       const TELEGRAM_API_URL = `${WEB_APP_URL}api/telegram`;
@@ -6957,6 +6957,10 @@
             gate.strictMinScore ? `${spanish ? "score min." : "min score"} ${gate.strictMinScore}` : ""
           ].filter(Boolean).join(" | ");
           rows.push([spanish ? "Filtro regimen" : "Regime gate", gateText]);
+        }
+        if (executor.accountRisk?.enabled) {
+          const risk = executor.accountRisk;
+          rows.push([spanish ? "Auto risk" : "Auto risk", `equity ${Number(risk.equity || 0).toFixed(2)} | ${spanish ? "por trade" : "per trade"} ${Number(risk.marginCapUsd || 0).toFixed(2)} | trades ${Number(risk.maxTradesPerDay || 0)}`]);
         }
         if (executor.lastAction) rows.push([spanish ? "Ultima accion" : "Last action", executor.lastAction]);
         if (executor.lastError) rows.push([spanish ? "Ultimo error" : "Last error", executor.lastError]);

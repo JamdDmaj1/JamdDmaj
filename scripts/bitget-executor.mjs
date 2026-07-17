@@ -24,6 +24,10 @@ const settings = {
   maxOpen: clampInt(process.env.JAMDDMAJ_MAX_LIVE_OPEN, 1, 10, 1),
   maxMarginUsd: clampNumber(process.env.JAMDDMAJ_MAX_LIVE_MARGIN_USD, 5, 1000, 5),
   maxNewOrdersPerRun: clampInt(process.env.JAMDDMAJ_MAX_NEW_ORDERS_PER_RUN, 1, 5, 1),
+  autoRisk: String(process.env.JAMDDMAJ_AUTO_RISK || "true").toLowerCase() !== "false",
+  autoRiskPerTradePercent: clampNumber(process.env.JAMDDMAJ_AUTO_RISK_PER_TRADE_PERCENT, 0.1, 10, 3),
+  autoRiskMinMarginUsd: clampNumber(process.env.JAMDDMAJ_AUTO_RISK_MIN_MARGIN_USD, 1, 1000, 5),
+  autoRiskReservePercent: clampNumber(process.env.JAMDDMAJ_AUTO_RISK_RESERVE_PERCENT, 0, 80, 20),
   recentOpenMinutes: clampInt(process.env.JAMDDMAJ_RECENT_OPEN_MINUTES, 1, 120, 20),
   minScore: clampInt(process.env.JAMDDMAJ_MIN_LIVE_SCORE, 8, 20, 14),
   strictRegimeMinScore: clampInt(process.env.JAMDDMAJ_STRICT_REGIME_MIN_SCORE, 8, 20, 16),
@@ -59,6 +63,12 @@ async function main() {
   const signals = mergeSignalSources([...manualSignals, ...newSignals], recentOpen);
   const events = Array.isArray(scan?.events) ? scan.events : [];
   const policy = normalizeExecutorPolicy(scan?.executor);
+  const accountRisk = settings.mode === "live" ? await fetchBitgetAccountRisk().catch((error) => {
+    console.warn(`${LOG_PREFIX} account risk warning: ${error?.message || error}`);
+    return null;
+  }) : null;
+  applyAutoRiskPolicy(policy, accountRisk);
+  state.accountRisk = accountRisk || null;
   const marketContext = await fetchMarketContext();
   const decisions = createDecisionSummary(signals, events);
   decisions.newSignals = newSignals.length;
@@ -80,7 +90,7 @@ async function main() {
     }
   }
   decisions.executableSignals = executable.length;
-  const candidates = executable.slice(0, settings.maxNewOrdersPerRun);
+  const candidates = executable.slice(0, Number(policy.maxNewOrdersPerRun) || settings.maxNewOrdersPerRun);
   state.lastDecisionSummary = decisions;
 
   if (settings.mode === "off" || policy.livePaused) {
@@ -103,6 +113,11 @@ async function main() {
     return;
   }
 
+  if (settings.mode === "live") {
+    validateLiveSecrets();
+  }
+
+  const livePositions = settings.mode === "live" ? await reconcileBitgetPositions(state) : [];
   const riskBlock = dailyRiskBlock(state, policy);
   if (riskBlock) {
     console.log(`${LOG_PREFIX} risk block: ${riskBlock}`);
@@ -114,19 +129,15 @@ async function main() {
     return;
   }
 
-  if (settings.mode === "live") {
-    validateLiveSecrets();
-  }
-
   const contracts = settings.mode === "live" ? await getContracts() : new Map();
-  const livePositions = settings.mode === "live" ? await reconcileBitgetPositions(state) : [];
   for (const signal of candidates) {
     const openCount = settings.mode === "live"
       ? livePositions.length
       : state.orders.filter((order) => order.status === "OPEN" || order.status === "DRY_RUN").length;
-    if (openCount >= settings.maxOpen) {
-      console.log(`${LOG_PREFIX} max open reached (${openCount}/${settings.maxOpen}).`);
-      recordRejection(decisions, `max open reached (${openCount}/${settings.maxOpen})`, signal);
+    const maxOpenLimit = Number(policy.maxOpen) || settings.maxOpen;
+    if (openCount >= maxOpenLimit) {
+      console.log(`${LOG_PREFIX} max open reached (${openCount}/${maxOpenLimit}).`);
+      recordRejection(decisions, `max open reached (${openCount}/${maxOpenLimit})`, signal);
       break;
     }
     if (dailyRiskBlock(state, policy)) {
@@ -135,7 +146,7 @@ async function main() {
       break;
     }
 
-    const plan = buildOrderPlan(signal, contracts, marketContext);
+    const plan = buildOrderPlan(signal, contracts, marketContext, accountRisk);
     if (!plan.ok) {
       rememberSkip(state, signal, plan.reason);
       recordRejection(decisions, plan.reason, signal);
@@ -315,7 +326,7 @@ function exchangePrice(value, multiplier = 1) {
   const scale = Number(multiplier) || 1;
   return Number.isFinite(number) && number > 0 ? number * scale : number;
 }
-function buildOrderPlan(signal, contracts, marketContext = null) {
+function buildOrderPlan(signal, contracts, marketContext = null, accountRisk = null) {
   const symbol = bitgetSymbolForSignal(signal);
   const displayPrice = Number(signal.entry || signal.currentPrice || signal.lastPrice);
   const multiplier = clampNumber(signal.contractMultiplier, 1, 1_000_000, 1);
@@ -324,7 +335,8 @@ function buildOrderPlan(signal, contracts, marketContext = null) {
   if (!Number.isFinite(price) || price <= 0) return { ok: false, reason: "missing price" };
 
   const gate = summarizeMarketGate(marketContext, {});
-  const marginCap = gate.riskOff ? Math.min(settings.maxMarginUsd, gate.defensiveMaxMarginUsd || settings.maxMarginUsd) : settings.maxMarginUsd;
+  const manualCap = gate.riskOff ? Math.min(settings.maxMarginUsd, gate.defensiveMaxMarginUsd || settings.maxMarginUsd) : settings.maxMarginUsd;
+  const marginCap = Math.min(manualCap, autoRiskMarginCap(accountRisk, manualCap));
   const leverageCap = gate.riskOff ? Math.min(50, gate.defensiveMaxLeverage || 5) : 50;
   const marginUsd = Math.min(Number(signal.plannedUsd) || marginCap, marginCap);
   const leverage = clampInt(signal.leverage, 1, leverageCap, Math.min(10, leverageCap));
@@ -398,6 +410,72 @@ async function prepareBitgetLeverage(plan) {
   if (result?.code && result.code !== "00000") {
     throw new Error(result?.msg || `Bitget leverage ${result.code}`);
   }
+}
+
+async function fetchBitgetAccountRisk() {
+  if (!settings.autoRisk) return null;
+  validateLiveSecrets();
+  const result = await bitgetRequest("GET", `/api/v2/mix/account/accounts?productType=${encodeURIComponent(settings.productType)}`);
+  if (result?.code && result.code !== "00000") {
+    throw new Error(`Bitget account rejected: ${result?.msg || result.code}`);
+  }
+  const rows = Array.isArray(result?.data) ? result.data : [];
+  const account = rows.find((item) => String(item.marginCoin || item.marginCoinName || "").toUpperCase() === settings.marginCoin.toUpperCase()) || rows[0] || null;
+  if (!account) return null;
+  const equity = firstFiniteNumber(account.accountEquity, account.equity, account.marginBalance, account.usdtEquity, account.crossedEquity);
+  const modeAvailable = settings.marginMode.toLowerCase().startsWith("cross")
+    ? account.crossedMaxAvailable
+    : account.isolatedMaxAvailable;
+  const available = firstFiniteNumber(modeAvailable, account.available, account.availableBalance, account.availableMargin, account.crossedMaxAvailable, account.isolatedMaxAvailable);
+  if (!Number.isFinite(equity) || equity <= 0) return null;
+  const reserve = Math.max(0, Math.min(equity, equity * settings.autoRiskReservePercent / 100));
+  const availableBase = Number.isFinite(available) && available > 0 ? available : equity;
+  const spendable = Math.max(0, Math.min(availableBase, equity - reserve));
+  const marginCap = roundMoney(Math.max(settings.autoRiskMinMarginUsd, spendable * settings.autoRiskPerTradePercent / 100));
+  const maxOpenByEquity = Math.max(1, Math.min(settings.maxOpen, Math.floor(spendable / Math.max(settings.autoRiskMinMarginUsd, marginCap)) || 1));
+  const maxTradesByEquity = equity < 100 ? 2 : equity < 500 ? 3 : equity < 2000 ? 5 : 8;
+  return {
+    enabled: true,
+    source: "bitget-account",
+    marginCoin: String(account.marginCoin || settings.marginCoin),
+    equity: roundMoney(equity),
+    available: Number.isFinite(available) ? roundMoney(available) : null,
+    spendable: roundMoney(spendable),
+    reservePercent: settings.autoRiskReservePercent,
+    perTradePercent: settings.autoRiskPerTradePercent,
+    marginCapUsd: marginCap,
+    maxOpenByEquity,
+    maxTradesByEquity,
+    updatedAt: new Date().toISOString()
+  };
+}
+
+function applyAutoRiskPolicy(policy, accountRisk) {
+  if (!accountRisk?.enabled || !Number.isFinite(Number(accountRisk.equity))) return policy;
+  const equity = Number(accountRisk.equity);
+  const maxDailyLossPercent = Number(policy.maxDailyLossPercent) || settings.maxDailyLossPercent;
+  policy.maxDailyLossUsd = roundMoney(Math.max(1, equity * maxDailyLossPercent / 100));
+  policy.maxOpen = Math.max(1, Math.min(settings.maxOpen, Number(accountRisk.maxOpenByEquity) || settings.maxOpen));
+  policy.maxNewOrdersPerRun = Math.max(1, Math.min(settings.maxNewOrdersPerRun, policy.maxOpen));
+  policy.maxTradesPerDay = Math.max(1, Math.min(Number(policy.maxTradesPerDay) || settings.maxTradesPerDay, Number(accountRisk.maxTradesByEquity) || settings.maxTradesPerDay));
+  accountRisk.maxTradesPerDay = policy.maxTradesPerDay;
+  policy.autoRisk = accountRisk;
+  return policy;
+}
+
+function autoRiskMarginCap(accountRisk, fallbackCap) {
+  if (!accountRisk?.enabled) return fallbackCap;
+  const cap = Number(accountRisk.marginCapUsd);
+  if (!Number.isFinite(cap) || cap <= 0) return fallbackCap;
+  return Math.min(fallbackCap, cap);
+}
+
+function firstFiniteNumber(...values) {
+  for (const value of values) {
+    const number = Number(value);
+    if (Number.isFinite(number)) return number;
+  }
+  return NaN;
 }
 
 async function reconcileBitgetPositions(state) {
@@ -549,6 +627,7 @@ function statusPayload(state, overrides = {}) {
     marketGate: state.lastMarketGate || summarizeMarketGate(null, {}),
     recentOrders: state.orders.slice(0, 8).map(compactOrder),
     remotePositions: Array.isArray(state.remotePositions) ? state.remotePositions.slice(0, 8) : [],
+    accountRisk: state.accountRisk || null,
     lastDryRunSignal: state.lastDryRunSignal || null,
     lastLiveSignal: state.lastLiveSignal || null,
     exitManager: {
