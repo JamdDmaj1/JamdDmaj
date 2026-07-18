@@ -29,6 +29,7 @@ const settings = {
   marginMode: String(process.env.BITGET_MARGIN_MODE || "isolated").trim(),
   maxOpen: clampInt(process.env.JAMDDMAJ_MAX_LIVE_OPEN, 1, 10, 1),
   maxMarginUsd: clampNumber(process.env.JAMDDMAJ_MAX_LIVE_MARGIN_USD, 5, 1000, 5),
+  fixedMarginUsd: clampNumber(process.env.JAMDDMAJ_FIXED_MARGIN_USD, 0, 1000, 0),
   maxNewOrdersPerRun: clampInt(process.env.JAMDDMAJ_MAX_NEW_ORDERS_PER_RUN, 1, 5, 1),
   autoRisk: String(process.env.JAMDDMAJ_AUTO_RISK || "true").toLowerCase() !== "false",
   autoRiskPerTradePercent: clampNumber(process.env.JAMDDMAJ_AUTO_RISK_PER_TRADE_PERCENT, 0.1, 10, 3),
@@ -377,7 +378,8 @@ function buildOrderPlan(signal, contracts, marketContext = null, accountRisk = n
   const manualCap = gate.riskOff ? Math.min(settings.maxMarginUsd, gate.defensiveMaxMarginUsd || settings.maxMarginUsd) : settings.maxMarginUsd;
   const marginCap = Math.min(manualCap, autoRiskMarginCap(accountRisk, manualCap));
   const leverageCap = gate.riskOff ? Math.min(50, gate.defensiveMaxLeverage || 5) : 50;
-  const marginUsd = Math.min(Number(signal.plannedUsd) || marginCap, marginCap);
+  const requestedMarginUsd = settings.fixedMarginUsd > 0 ? settings.fixedMarginUsd : Number(signal.plannedUsd);
+  const marginUsd = Math.min(requestedMarginUsd || marginCap, marginCap);
   const leverage = clampInt(signal.leverage, 1, leverageCap, Math.min(10, leverageCap));
   const notionalUsd = roundMoney(marginUsd * leverage);
   const rawSize = notionalUsd / price;
