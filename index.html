@@ -3257,6 +3257,12 @@
               <div class="pro-stat"><span id="executorRejectedLabel">Rejected</span><strong id="executorRejected">0</strong></div>
               <div class="pro-stat"><span id="executorBitgetLabel">Bitget sync</span><strong id="executorBitget">No</strong></div>
             </div>
+            <div class="pro-stat-grid">
+              <div class="pro-stat"><span id="executorBitgetOpenLabel">Bitget open</span><strong id="executorBitgetOpen">0/0</strong></div>
+              <div class="pro-stat"><span id="executorUnrealizedLabel">Floating PnL</span><strong id="executorUnrealized">$0.00</strong></div>
+              <div class="pro-stat"><span id="executorDailyTradesLabel">Trades today</span><strong id="executorDailyTrades">0</strong></div>
+              <div class="pro-stat"><span id="executorDailyPnlLabel">Realized today</span><strong id="executorDailyPnl">$0.00</strong></div>
+            </div>
             <div class="pro-health-list" id="executorHealthList">
               <span class="pro-history-empty">Executor details will appear after the VPS heartbeat.</span>
             </div>
@@ -3689,7 +3695,7 @@
             <button class="pill-btn" id="checkUpdatesBtn" type="button">Check for updates</button>
             <a class="social-link is-hidden" id="downloadUpdateBtn" href="#" target="_blank" rel="noopener noreferrer">Open update</a>
           </div>
-          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.12</div>
+          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.13</div>
         </section>
       </div>
       <div class="dialog-actions">
@@ -3814,7 +3820,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.37.12";
+      const APP_VERSION = "1.37.13";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
       const FREE_LIVE_API_URL = `${WEB_APP_URL}api/live`;
       const TELEGRAM_API_URL = `${WEB_APP_URL}api/telegram`;
@@ -7146,73 +7152,74 @@
       function renderExecutorHealth(executor = {}, spanish = resolvedLanguage() === "es", learningState = {}, executorTest = null) {
         const decisions = executor.decisions || {};
         const rejectedTotal = Object.values(decisions.rejected || {}).reduce((sum, value) => sum + (Number(value) || 0), 0);
+        const remotePositions = Array.isArray(executor.remotePositions) ? executor.remotePositions : [];
+        const maxOpen = Number((proServerState?.config || {}).maxLiveOpen || 0) || Number(executor.accountRisk?.maxOpenByEquity || 0) || 0;
+        const openDetected = Number(executor.openCount || remotePositions.length || 0);
         document.getElementById("executorModeLabel").textContent = spanish ? "Modo executor" : "Executor mode";
         document.getElementById("executorSignalsLabel").textContent = spanish ? "Ejecutables" : "Executable";
         document.getElementById("executorRejectedLabel").textContent = spanish ? "Rechazadas" : "Rejected";
         document.getElementById("executorBitgetLabel").textContent = "Bitget";
+        document.getElementById("executorBitgetOpenLabel").textContent = spanish ? "Posiciones Bitget" : "Bitget positions";
+        document.getElementById("executorUnrealizedLabel").textContent = spanish ? "PnL flotante" : "Floating PnL";
+        document.getElementById("executorDailyTradesLabel").textContent = spanish ? "Trades hoy" : "Trades today";
+        document.getElementById("executorDailyPnlLabel").textContent = spanish ? "Realizado hoy" : "Realized today";
         document.getElementById("executorMode").textContent = String(executor.mode || "unknown").toUpperCase();
-        document.getElementById("executorSignals").textContent = `${Number(decisions.executableSignals || 0)}/${Number(decisions.totalSignals || 0)}`;
+        document.getElementById("executorSignals").textContent = String(Number(decisions.executableSignals || 0)) + "/" + String(Number(decisions.totalSignals || 0));
         document.getElementById("executorRejected").textContent = String(rejectedTotal);
         document.getElementById("executorBitget").textContent = executor.bitgetSynced ? (spanish ? "Si" : "Yes") : (spanish ? "Pend." : "Pend.");
+        document.getElementById("executorBitgetOpen").textContent = String(openDetected) + "/" + (maxOpen || "?");
+        document.getElementById("executorUnrealized").textContent = formatSignedUsd(executor.liveUnrealizedPnl || 0);
+        document.getElementById("executorDailyTrades").textContent = String(Number(executor.dailyTrades || 0));
+        document.getElementById("executorDailyPnl").textContent = formatSignedUsd(executor.dailyRealizedPnl || 0);
         const list = document.getElementById("executorHealthList");
         list.replaceChildren();
-                const rows = [];
+        const rows = [];
+        rows.push([spanish ? "Diagnostico" : "Diagnosis", describeExecutorDiagnosis(executor, decisions, spanish)]);
+        if (executor.bitgetSynced) rows.push([spanish ? "Bitget real" : "Real Bitget", String(openDetected) + " " + (spanish ? "abiertas detectadas" : "open detected") + (maxOpen ? " / max " + maxOpen : "")]);
         if (executor.clientConnector) rows.push([spanish ? "Conector cliente" : "Client connector", spanish ? "Activo sin guardar claves en JamdDmaj Cloud" : "Active without storing keys in JamdDmaj Cloud"]);
         const gate = executor.marketGate || decisions.marketGate || {};
         const learning = learningState.summary || learningState || {};
         if (learning.samples || learning.decided) {
-          const learningStatus = learning.ready
-            ? (spanish ? "Activo" : "Active")
-            : (spanish ? "Calentando" : "Warming up");
-          rows.push([spanish ? "Modo aprendizaje" : "Learning mode", `${learningStatus} - ${Number(learning.decided || learning.samples || 0)} muestras - WR ${Number(learning.winRate || 0).toFixed(1)}%`]);
-          rows.push([spanish ? "Scores Pro" : "Pro scores", `Telegram ${Number(learning.telegramMinScore || 11)}+ - Bitget ${Number(learning.bitgetMinScore || 12)}+`]);
+          const learningStatus = learning.ready ? (spanish ? "Activo" : "Active") : (spanish ? "Calentando" : "Warming up");
+          rows.push([spanish ? "Modo aprendizaje" : "Learning mode", learningStatus + " - " + Number(learning.decided || learning.samples || 0) + " muestras - WR " + Number(learning.winRate || 0).toFixed(1) + "%"]);
+          rows.push([spanish ? "Scores Pro" : "Pro scores", "Telegram " + Number(learning.telegramMinScore || 11) + "+ - Bitget " + Number(learning.bitgetMinScore || 12) + "+"]);
         }
         const cooldown = Array.isArray(learning.cooldown) ? learning.cooldown[0] : null;
-        if (cooldown) {
-          rows.push([spanish ? "Cooldown automatico" : "Auto cooldown", `${cooldown.key} - ${Number(cooldown.winRate || 0).toFixed(1)}% - ${Number(cooldown.recentLosses || 0)} recientes`]);
-        }
+        if (cooldown) rows.push([spanish ? "Cooldown automatico" : "Auto cooldown", cooldown.key + " - " + Number(cooldown.winRate || 0).toFixed(1) + "% - " + Number(cooldown.recentLosses || 0) + " recientes"]);
         if (executorTest?.signal) {
           const expires = executorTest.expiresAt ? new Date(executorTest.expiresAt).toLocaleTimeString() : "";
-          rows.push([spanish ? "Prueba Bitget" : "Bitget test", `${executorTest.signal.pair || executorTest.signal.symbol} ${executorTest.signal.side || ""} - USD ${Number(executorTest.signal.plannedUsd || 0).toFixed(2)} - ${spanish ? "pendiente VPS" : "pending VPS"}${expires ? ` - ${expires}` : ""}`]);
+          rows.push([spanish ? "Prueba Bitget" : "Bitget test", (executorTest.signal.pair || executorTest.signal.symbol) + " " + (executorTest.signal.side || "") + " - USD " + Number(executorTest.signal.plannedUsd || 0).toFixed(2) + " - " + (spanish ? "pendiente VPS" : "pending VPS") + (expires ? " - " + expires : "")]);
         }
         if (gate.regime || gate.riskOff || gate.extremeFear) {
-          const gateText = [
-            gate.regime || "n/a",
-            gate.fearGreed ? `${spanish ? "miedo" : "fear"} ${gate.fearGreed}` : "",
-            gate.strictMinScore ? `${spanish ? "score min." : "min score"} ${gate.strictMinScore}` : ""
-          ].filter(Boolean).join(" | ");
+          const gateText = [gate.regime || "n/a", gate.fearGreed ? (spanish ? "miedo " : "fear ") + gate.fearGreed : "", gate.strictMinScore ? (spanish ? "score min. " : "min score ") + gate.strictMinScore : ""].filter(Boolean).join(" | ");
           rows.push([spanish ? "Filtro regimen" : "Regime gate", gateText]);
         }
         if (executor.accountRisk?.enabled) {
           const risk = executor.accountRisk;
-          rows.push([spanish ? "Auto risk" : "Auto risk", `equity ${Number(risk.equity || 0).toFixed(2)} | ${spanish ? "por trade" : "per trade"} ${Number(risk.marginCapUsd || 0).toFixed(2)} | trades ${Number(risk.maxTradesPerDay || 0)}`]);
+          rows.push([spanish ? "Auto risk" : "Auto risk", "equity " + Number(risk.equity || 0).toFixed(2) + " | " + (spanish ? "por trade" : "per trade") + " " + Number(risk.marginCapUsd || 0).toFixed(2) + " | trades " + Number(risk.maxTradesPerDay || 0)]);
         }
         if (executor.lastAction) rows.push([spanish ? "Ultima accion" : "Last action", executor.lastAction]);
         if (executor.lastError) rows.push([spanish ? "Ultimo error" : "Last error", executor.lastError]);
-        if (executor.executorLearning?.lesson) {
-          rows.push([spanish ? "Aprendizaje VPS" : "VPS learning", executor.executorLearning.lesson]);
-        }
-        if (executor.lastDryRunSignal) {
-          rows.push([spanish ? "Ultima dry-run" : "Last dry-run", `${executor.lastDryRunSignal.pair} ${executor.lastDryRunSignal.side} $${Number(executor.lastDryRunSignal.marginUsd || 0).toFixed(2)}`]);
-        }
         const topReject = Object.entries(decisions.rejected || {}).sort((a, b) => Number(b[1]) - Number(a[1]))[0];
-        if (topReject) rows.push([spanish ? "Filtro principal" : "Top filter", `${topReject[0]} (${topReject[1]})`]);
-        (decisions.examples || []).slice(0, 3).forEach((item) => {
-          rows.push([item.pair || (spanish ? "Rechazada" : "Rejected"), `${item.reason}${item.score ? ` · ${item.score}` : ""}`]);
-        });
+        if (topReject) rows.push([spanish ? "Filtro principal" : "Top filter", topReject[0] + " (" + topReject[1] + ")"]);
+        (decisions.examples || []).slice(0, 3).forEach((item) => rows.push([item.pair || (spanish ? "Rechazada" : "Rejected"), String(item.reason || "") + (item.score ? " | " + item.score : "")]));
         if (executor.exitManager?.ready || executor.exitManager?.enabled || executor.exitManager?.lastAction) {
           const exit = executor.exitManager;
-          const exitLabel = exit.enabled
-            ? `${spanish ? "Activo" : "Active"} | +${Number(exit.protectionTriggerRoe || 10).toFixed(0)}% -> ${Number(exit.protectionLockRoe || 2).toFixed(0)}% ROE`
-            : (exit.entryOnly ? (spanish ? "Preparado, entrada solamente" : "Ready, entry-only") : (spanish ? "Preparado" : "Ready"));
+          const exitLabel = exit.enabled ? (spanish ? "Activo" : "Active") + " | +" + Number(exit.protectionTriggerRoe || 10).toFixed(0) + "% -> " + Number(exit.protectionLockRoe || 2).toFixed(0) + "% ROE" : (exit.entryOnly ? (spanish ? "Preparado, entrada solamente" : "Ready, entry-only") : (spanish ? "Preparado" : "Ready"));
           rows.push([spanish ? "Exit manager" : "Exit manager", exitLabel]);
           if (exit.lastAction) rows.push([spanish ? "Proteccion auto" : "Auto protection", exit.lastAction]);
         }
+        remotePositions.slice(0, 5).forEach((position) => {
+          const symbol = String(position.symbol || position.pair || "Bitget");
+          const side = String(position.holdSide || position.side || "").toUpperCase();
+          const size = Number(position.total || position.size || position.available || 0);
+          const margin = Number(position.marginSize || position.margin || 0);
+          const pnl = Number(position.unrealizedPL || position.unrealizedPnl || 0);
+          rows.push([(symbol + " " + side).trim(), (spanish ? "tamano" : "size") + " " + formatExecutorCompactNumber(size) + " | " + (spanish ? "margen" : "margin") + " " + formatSignedUsd(margin, false) + " | PnL " + formatSignedUsd(pnl)]);
+        });
         (executor.recentOrders || []).slice(0, 3).forEach((order) => {
-          const protectionText = order.protectionActive
-            ? ` | ${spanish ? "protegido" : "protected"} ${Number(order.currentRoe || 0).toFixed(1)}% ROE`
-            : (order.exitReason ? ` | ${order.exitReason}` : "");
-          rows.push([`${order.pair || order.symbol} ${order.side}`, `${order.status} | ${Number(order.marginUsd || 0).toFixed(2)}${order.exitPlanReady ? " | TP/SL" : ""}${protectionText}`]);
+          const protectionText = order.protectionActive ? " | " + (spanish ? "protegido" : "protected") + " " + Number(order.currentRoe || 0).toFixed(1) + "% ROE" : (order.exitReason ? " | " + order.exitReason : "");
+          rows.push([(order.pair || order.symbol) + " " + order.side, order.status + " | " + Number(order.marginUsd || 0).toFixed(2) + (order.exitPlanReady ? " | TP/SL" : "") + protectionText]);
         });
         if (!rows.length) {
           const empty = document.createElement("span");
@@ -7221,7 +7228,7 @@
           list.append(empty);
           return;
         }
-        rows.slice(0, 12).forEach(([label, value]) => {
+        rows.slice(0, 16).forEach(([label, value]) => {
           const row = document.createElement("div");
           row.className = "pro-health-row";
           const title = document.createElement("b");
@@ -7233,6 +7240,36 @@
         });
       }
 
+      function describeExecutorDiagnosis(executor = {}, decisions = {}, spanish = resolvedLanguage() === "es") {
+        if (executor.lastError) return spanish ? "Error del VPS: " + executor.lastError : "VPS error: " + executor.lastError;
+        if (executor.livePaused) return spanish ? "Live esta pausado desde la app." : "Live is paused from the app.";
+        if (!executor.lastRunAt) return spanish ? "Esperando heartbeat del VPS." : "Waiting for VPS heartbeat.";
+        if (executor.bitgetSynced !== true) return spanish ? "VPS activo, esperando sincronizacion con Bitget." : "VPS active, waiting for Bitget sync.";
+        const total = Number(decisions.totalSignals || 0);
+        const executable = Number(decisions.executableSignals || 0);
+        const action = String(executor.lastAction || "").toLowerCase();
+        if (action.includes("max open")) return spanish ? "Max open alcanzado; cuando cierres una posicion puede abrir otra." : "Max open reached; when a position closes it can open another.";
+        if (action.includes("daily trade limit")) return spanish ? "Bloqueado por limite diario de trades." : "Blocked by daily trade limit.";
+        if (action.includes("daily/live loss")) return spanish ? "Bloqueado por limite de perdida diaria." : "Blocked by daily loss limit.";
+        if (action.includes("bitget rejected")) return spanish ? "Bitget rechazo la ultima orden; revisa simbolo, precio o tamano." : "Bitget rejected the last order; check symbol, price, or size.";
+        if (!total) return spanish ? "VPS listo, sin senales abiertas ejecutables ahora." : "VPS ready, no open executable signals right now.";
+        if (!executable) return spanish ? "Hay senales, pero los filtros las bloquearon." : "Signals exist, but filters blocked them.";
+        return spanish ? "Listo: hay senales ejecutables o el VPS puede actuar en el proximo ciclo." : "Ready: executable signals exist or the VPS can act next cycle.";
+      }
+
+      function formatSignedUsd(value, showSign = true) {
+        const number = Number(value || 0);
+        const sign = showSign && number > 0 ? "+" : "";
+        return sign + "$" + number.toFixed(2);
+      }
+
+      function formatExecutorCompactNumber(value) {
+        const number = Number(value || 0);
+        if (!Number.isFinite(number)) return "0";
+        if (Math.abs(number) >= 1000) return number.toFixed(0);
+        if (Math.abs(number) >= 1) return number.toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
+        return number.toFixed(6).replace(/0+$/, "").replace(/\.$/, "");
+      }
       function renderPaperTrading(paper, config, spanish) {
         const enabled = config.paperEnabled !== false;
         document.getElementById("paperTradingTitle").textContent = spanish ? "Paper trading automatico" : "Automatic paper trading";

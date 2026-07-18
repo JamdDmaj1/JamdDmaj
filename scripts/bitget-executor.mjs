@@ -272,7 +272,7 @@ async function fetchExecutorTestSignal() {
 async function fetchMarketContext() {
   try {
     const response = await fetch(`${settings.appUrl}/api/pro-news`, {
-      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.37.12" }
+      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.37.13" }
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok || body?.error) return null;
@@ -568,8 +568,13 @@ async function reconcileBitgetPositions(state) {
     symbol: item.symbol,
     holdSide: item.holdSide,
     total: item.total,
+    available: item.available,
     unrealizedPL: item.unrealizedPL,
-    marginSize: item.marginSize
+    marginSize: item.marginSize,
+    leverage: item.leverage,
+    marginMode: item.marginMode,
+    breakEvenPrice: item.breakEvenPrice,
+    markPrice: item.markPrice
   }));
   state.liveUnrealizedPnl = positions.reduce((sum, item) => sum + (Number(item.unrealizedPL) || 0), 0);
   return positions;
