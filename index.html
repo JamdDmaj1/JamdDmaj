@@ -3689,7 +3689,7 @@
             <button class="pill-btn" id="checkUpdatesBtn" type="button">Check for updates</button>
             <a class="social-link is-hidden" id="downloadUpdateBtn" href="#" target="_blank" rel="noopener noreferrer">Open update</a>
           </div>
-          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.10</div>
+          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.11</div>
         </section>
       </div>
       <div class="dialog-actions">
@@ -3814,7 +3814,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.37.10";
+      const APP_VERSION = "1.37.11";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
       const FREE_LIVE_API_URL = `${WEB_APP_URL}api/live`;
       const TELEGRAM_API_URL = `${WEB_APP_URL}api/telegram`;
@@ -6897,15 +6897,18 @@
         if (panel) panel.classList.toggle("is-hidden", !traderMode);
         document.getElementById("clientBitgetTitle").textContent = spanish ? "Conector Bitget para clientes" : "Client Bitget connector";
         document.getElementById("clientBitgetSubtitle").textContent = spanish
-          ? "Pega los datos de Bitget y la app prepara un conector privado. Las claves no se suben a JamdDmaj Cloud."
-          : "Paste Bitget API data and the app prepares a private connector. Keys are not uploaded to JamdDmaj Cloud.";
+          ? "Pega los datos de Bitget y copia un instalador privado para el VPS del cliente. Las claves no se suben a JamdDmaj Cloud."
+          : "Paste Bitget API data and copy a private installer for the customer's VPS. Keys are not uploaded to JamdDmaj Cloud.";
         document.getElementById("clientBitgetSafety").textContent = spanish
-          ? "Usa permisos limitados, empieza en dry-run y luego activa live con tamano pequeno."
-          : "Use restricted permissions, start in dry-run, then enable live with small size.";
+          ? "Pega el instalador una sola vez en DigitalOcean. El servicio queda automatico cada 30 segundos."
+          : "Paste the installer once in DigitalOcean. The service runs automatically every 30 seconds.";
+        document.getElementById("clientBitgetApiKeyLabel").textContent = "API key";
+        document.getElementById("clientBitgetSecretLabel").textContent = "API secret";
+        document.getElementById("clientBitgetPassphraseLabel").textContent = "Passphrase";
         document.getElementById("clientBitgetModeLabel").textContent = spanish ? "Modo inicial" : "Start mode";
         document.getElementById("clientBitgetMarginLabel").textContent = spanish ? "Margen max. por trade" : "Max margin per trade";
         document.getElementById("clientBitgetRiskLabel").textContent = spanish ? "Auto riesgo por trade (%)" : "Auto risk per trade (%)";
-        document.getElementById("buildClientBitgetBtn").textContent = spanish ? "Preparar conector" : "Prepare connector";
+        document.getElementById("buildClientBitgetBtn").textContent = spanish ? "Copiar instalador VPS" : "Copy VPS installer";
         document.getElementById("clearClientBitgetBtn").textContent = spanish ? "Borrar claves" : "Clear keys";
       }
 
@@ -6921,7 +6924,16 @@
         const mode = document.getElementById("clientBitgetModeSelect").value === "live" ? "live" : "dry-run";
         const margin = Math.max(1, Math.min(1000, Number(document.getElementById("clientBitgetMarginInput").value) || 5));
         const risk = Math.max(0.1, Math.min(10, Number(document.getElementById("clientBitgetRiskInput").value) || 3));
-        const envText = [
+        const envText = buildClientBitgetEnv({ apiKey, apiSecret, passphrase, mode, margin, risk });
+        const installer = buildClientBitgetInstaller(envText, mode);
+        await copyText(installer);
+        document.getElementById("clientBitgetStatus").textContent = spanish
+          ? "Instalador copiado. Pegalo una vez en el VPS del cliente como root; quedara automatico y privado."
+          : "Installer copied. Paste it once into the customer's VPS as root; it will run automatically and privately.";
+      }
+
+      function buildClientBitgetEnv({ apiKey, apiSecret, passphrase, mode, margin, risk }) {
+        return [
           "# JamdDmaj client Bitget connector - private VPS only",
           "# Keep this file private. Do not paste these keys in support chats.",
           "JAMDDMAJ_URL=https://jamd-dmaj.vercel.app",
@@ -6937,12 +6949,16 @@
           "BITGET_MARGIN_MODE=crossed",
           "JAMDDMAJ_AUTO_RISK=true",
           "JAMDDMAJ_AUTO_RISK_PER_TRADE_PERCENT=" + risk,
+          "JAMDDMAJ_AUTO_RISK_MIN_MARGIN_USD=5",
+          "JAMDDMAJ_AUTO_RISK_RESERVE_PERCENT=25",
           "JAMDDMAJ_MAX_LIVE_MARGIN_USD=" + margin,
           "JAMDDMAJ_FIXED_MARGIN_USD=" + margin,
-          "JAMDDMAJ_MAX_LIVE_OPEN=2",
+          "JAMDDMAJ_MAX_LIVE_OPEN=1",
           "JAMDDMAJ_MAX_NEW_ORDERS_PER_RUN=1",
           "JAMDDMAJ_MIN_LIVE_SCORE=10",
           "JAMDDMAJ_STRICT_REGIME_MIN_SCORE=10",
+          "JAMDDMAJ_MIN_LIVE_LIQUIDITY_USD=0",
+          "JAMDDMAJ_ALLOW_MEME_LIVE=true",
           "JAMDDMAJ_EXIT_MANAGER=true",
           "JAMDDMAJ_EXIT_PROTECTION_TRIGGER_ROE=10",
           "JAMDDMAJ_EXIT_PROTECTION_LOCK_ROE=2",
@@ -6950,13 +6966,42 @@
           "JAMDDMAJ_MAX_DAILY_LOSS_USD=25",
           "JAMDDMAJ_MAX_DAILY_LOSS_PERCENT=3",
           "JAMDDMAJ_MAX_CONSECUTIVE_LOSSES=2",
-          "JAMDDMAJ_MAX_TRADES_PER_DAY=3",
+          "JAMDDMAJ_MAX_TRADES_PER_DAY=100",
+          "JAMDDMAJ_LIVE_RISK_BALANCE_USD=1000",
+          "JAMDDMAJ_RECENT_OPEN_MINUTES=120",
           ""
         ].join("\n");
-        await copyText(envText);
-        document.getElementById("clientBitgetStatus").textContent = spanish
-          ? "Configuracion copiada. Pegala solo en el VPS/conector privado del cliente. No se guardo en JamdDmaj Cloud."
-          : "Setup copied. Paste it only into the customer's private VPS/connector. Nothing was saved to JamdDmaj Cloud.";
+      }
+
+      function buildClientBitgetInstaller(envText, mode) {
+        const envBase64 = toStandardBase64(envText);
+        const liveHint = mode === "live"
+          ? "echo 'LIVE mode enabled. The connector can place real Bitget orders.'"
+          : "echo 'Dry-run mode enabled. Edit /opt/jamddmaj-client-bitget/.env and set JAMDDMAJ_BITGET_MODE=live plus JAMDDMAJ_LIVE_CONFIRM=I_ACCEPT_REAL_RISK when ready.'";
+        return [
+          "#!/usr/bin/env bash",
+          "set -euo pipefail",
+          "APP_DIR=/opt/jamddmaj-client-bitget",
+          "ENV_FILE=/opt/jamddmaj-client-bitget/.env",
+          "mkdir -p /opt/jamddmaj-client-bitget",
+          "if [ -f /opt/jamddmaj-client-bitget/.env ]; then cp /opt/jamddmaj-client-bitget/.env /opt/jamddmaj-client-bitget/.env.backup.$(date +%Y%m%d%H%M%S); fi",
+          "printf '%s' '" + envBase64 + "' | base64 -d > /opt/jamddmaj-client-bitget/.env",
+          "chmod 600 /opt/jamddmaj-client-bitget/.env",
+          "curl -fsSL https://raw.githubusercontent.com/JamdDmaj1/JamdDmaj/main/scripts/install-vps-executor-service.sh -o /tmp/install-jamddmaj-executor.sh",
+          "chmod +x /tmp/install-jamddmaj-executor.sh",
+          "JAMDDMAJ_EXECUTOR_DIR=/opt/jamddmaj-client-bitget JAMDDMAJ_EXECUTOR_ENV=/opt/jamddmaj-client-bitget/.env JAMDDMAJ_EXECUTOR_INTERVAL_SECONDS=30 /tmp/install-jamddmaj-executor.sh",
+          liveHint,
+          "systemctl status jamddmaj-bitget-executor --no-pager",
+          "tail -n 30 /opt/jamddmaj-client-bitget/scanner.log",
+          ""
+        ].join("\n");
+      }
+
+      function toStandardBase64(value) {
+        const bytes = new TextEncoder().encode(String(value || ""));
+        let binary = "";
+        bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
+        return btoa(binary);
       }
 
       function clearClientBitgetConnector() {
