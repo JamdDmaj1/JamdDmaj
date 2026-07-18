@@ -319,7 +319,7 @@ function marketGateDecision(signal, gate) {
   if (side === "LONG" && !coreAsset && score < gate.strictMinScore + 1) {
     return { ok: false, reason: `risk-off long needs score ${gate.strictMinScore + 1}` };
   }
-  if (/meme/i.test(category) || riskFlags.includes("MARKET_CAP_UNAVAILABLE")) {
+  if (!settings.allowMeme && (/meme/i.test(category) || riskFlags.includes("MARKET_CAP_UNAVAILABLE"))) {
     return { ok: false, reason: "risk-off blocks meme/unknown-cap assets" };
   }
   if (liquidity && liquidity < settings.minLiquidityUsd * 2) {
