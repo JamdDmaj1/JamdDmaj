@@ -70,12 +70,18 @@ async function main() {
   const signals = mergeSignalSources([...manualSignals, ...newSignals], recentOpen);
   const events = Array.isArray(scan?.events) ? scan.events : [];
   const policy = normalizeExecutorPolicy(scan?.executor);
-  const accountRisk = settings.mode === "live" ? await fetchBitgetAccountRisk().catch((error) => {
+  state.effectivePolicy = policy;
+  const accountRisk = settings.mode === "live" ? await fetchBitgetAccountRisk(policy).catch((error) => {
     console.warn(`${LOG_PREFIX} account risk warning: ${error?.message || error}`);
     return null;
   }) : null;
   applyAutoRiskPolicy(policy, accountRisk);
   state.accountRisk = accountRisk || null;
+  let livePositions = [];
+  if (settings.mode === "live") {
+    validateLiveSecrets();
+    livePositions = await reconcileBitgetPositions(state);
+  }
   const marketContext = await fetchMarketContext();
   const decisions = createDecisionSummary(signals, events);
   decisions.newSignals = newSignals.length;
@@ -99,11 +105,8 @@ async function main() {
   decisions.executableSignals = executable.length;
   const candidates = executable.slice(0, Number(policy.maxNewOrdersPerRun) || settings.maxNewOrdersPerRun);
   state.lastDecisionSummary = decisions;
-  let livePositions = [];
-  if (settings.mode === "live" && settings.exitManagerEnabled) {
-    validateLiveSecrets();
-    livePositions = await reconcileBitgetPositions(state);
-    await manageLiveExits(state, livePositions, events);
+  if (settings.mode === "live" && isExitManagerEnabled(policy)) {
+    await manageLiveExits(state, livePositions, events, policy);
   }
 
   if (settings.mode === "off" || policy.livePaused) {
@@ -126,11 +129,7 @@ async function main() {
     return;
   }
 
-  if (settings.mode === "live") {
-    validateLiveSecrets();
-  }
 
-  if (settings.mode === "live" && !livePositions.length) livePositions = await reconcileBitgetPositions(state);
   const riskBlock = dailyRiskBlock(state, policy);
   if (riskBlock) {
     console.log(`${LOG_PREFIX} risk block: ${riskBlock}`);
@@ -159,7 +158,7 @@ async function main() {
       break;
     }
 
-    const plan = buildOrderPlan(signal, contracts, marketContext, accountRisk);
+    const plan = buildOrderPlan(signal, contracts, marketContext, policy, accountRisk);
     if (!plan.ok) {
       rememberSkip(state, signal, plan.reason);
       recordRejection(decisions, plan.reason, signal);
@@ -280,6 +279,12 @@ async function fetchMarketContext() {
 }
 
 function summarizeMarketGate(context = {}, policy = {}) {
+  const effectiveMinScore = clampInt(policy?.minScore, 8, 20, settings.minScore);
+  const effectiveStrictScore = clampInt(policy?.strictRegimeMinScore, 8, 20, settings.strictRegimeMinScore);
+  const effectiveLiquidity = clampNumber(policy?.minLiquidityUsd, 0, 1_000_000_000, settings.minLiquidityUsd);
+  const effectiveAllowMeme = policy?.allowMemeLive === undefined ? settings.allowMeme : policy.allowMemeLive === true;
+  const effectiveDefensiveLeverage = clampInt(policy?.defensiveMaxLeverage, 1, 20, settings.defensiveMaxLeverage);
+  const effectiveDefensiveMargin = clampNumber(policy?.defensiveMaxMarginUsd, 1, 1000, settings.defensiveMaxMarginUsd);
   const fearGreed = Number(context?.fearGreed?.value);
   const marketCapChange24h = Number(context?.marketCapChange24h);
   const bitcoinDominance = Number(context?.bitcoinDominance);
@@ -289,8 +294,8 @@ function summarizeMarketGate(context = {}, policy = {}) {
     || (Number.isFinite(marketCapChange24h) && marketCapChange24h <= -1);
   const extremeFear = Number.isFinite(fearGreed) && fearGreed <= 20;
   const strictMinScore = riskOff
-    ? Math.max(settings.minScore, settings.strictRegimeMinScore, Number(policy.strictRegimeMinScore) || 0)
-    : Math.max(settings.minScore, Number(policy.minScore) || 0);
+    ? Math.max(effectiveMinScore, effectiveStrictScore)
+    : effectiveMinScore;
   return {
     regime,
     fearGreed: Number.isFinite(fearGreed) ? fearGreed : null,
@@ -299,8 +304,10 @@ function summarizeMarketGate(context = {}, policy = {}) {
     riskOff,
     extremeFear,
     strictMinScore,
-    defensiveMaxLeverage: riskOff ? settings.defensiveMaxLeverage : null,
-    defensiveMaxMarginUsd: riskOff ? settings.defensiveMaxMarginUsd : null,
+    defensiveMaxLeverage: riskOff ? effectiveDefensiveLeverage : null,
+    defensiveMaxMarginUsd: riskOff ? effectiveDefensiveMargin : null,
+    allowMemeLive: effectiveAllowMeme,
+    minLiquidityUsd: effectiveLiquidity,
     updatedAt: new Date().toISOString()
   };
 }
@@ -320,11 +327,12 @@ function marketGateDecision(signal, gate) {
   if (side === "LONG" && !coreAsset && score < gate.strictMinScore + 1) {
     return { ok: false, reason: `risk-off long needs score ${gate.strictMinScore + 1}` };
   }
-  if (!settings.allowMeme && (/meme/i.test(category) || riskFlags.includes("MARKET_CAP_UNAVAILABLE"))) {
+  if (!gate.allowMemeLive && (/meme/i.test(category) || riskFlags.includes("MARKET_CAP_UNAVAILABLE"))) {
     return { ok: false, reason: "risk-off blocks meme/unknown-cap assets" };
   }
-  if (liquidity && liquidity < settings.minLiquidityUsd * 2) {
-    return { ok: false, reason: `risk-off liquidity below ${settings.minLiquidityUsd * 2}` };
+  const minLiquidity = Number(gate.minLiquidityUsd || settings.minLiquidityUsd);
+  if (liquidity && liquidity < minLiquidity * 2) {
+    return { ok: false, reason: `risk-off liquidity below ${minLiquidity * 2}` };
   }
   return { ok: true, reason: "market gate passed" };
 }
@@ -340,9 +348,10 @@ function executableDecision(signal, state, policy = {}, marketContext = null) {
   } else if (Number(signal.score) < minScore) {
     return { ok: false, reason: `score below ${minScore}` };
   }
-  if (!settings.allowMeme && /meme/i.test(String(signal.category || ""))) return { ok: false, reason: "meme live disabled" };
+  if (!gate.allowMemeLive && /meme/i.test(String(signal.category || ""))) return { ok: false, reason: "meme live disabled" };
   const liquidity = Number(signal.quoteVolume || signal.liquidityUsd || signal.liquidity24h || 0);
-  if (liquidity && liquidity < settings.minLiquidityUsd) return { ok: false, reason: `liquidity below ${settings.minLiquidityUsd}` };
+  const minLiquidity = Number(gate.minLiquidityUsd || settings.minLiquidityUsd);
+  if (liquidity && liquidity < minLiquidity) return { ok: false, reason: `liquidity below ${minLiquidity}` };
   if (!["LONG", "SHORT"].includes(String(signal.side).toUpperCase())) return { ok: false, reason: "invalid side" };
   const gateDecision = marketGateDecision(signal, gate);
   if (!gateDecision.ok) return gateDecision;
@@ -366,7 +375,7 @@ function exchangePrice(value, multiplier = 1) {
   const scale = Number(multiplier) || 1;
   return Number.isFinite(number) && number > 0 ? number * scale : number;
 }
-function buildOrderPlan(signal, contracts, marketContext = null, accountRisk = null) {
+function buildOrderPlan(signal, contracts, marketContext = null, policy = {}, accountRisk = null) {
   const symbol = bitgetSymbolForSignal(signal);
   const displayPrice = Number(signal.entry || signal.currentPrice || signal.lastPrice);
   const multiplier = clampNumber(signal.contractMultiplier, 1, 1_000_000, 1);
@@ -374,11 +383,13 @@ function buildOrderPlan(signal, contracts, marketContext = null, accountRisk = n
   if (!symbol.endsWith("USDT")) return { ok: false, reason: "only USDT futures are allowed" };
   if (!Number.isFinite(price) || price <= 0) return { ok: false, reason: "missing price" };
 
-  const gate = summarizeMarketGate(marketContext, {});
-  const manualCap = gate.riskOff ? Math.min(settings.maxMarginUsd, gate.defensiveMaxMarginUsd || settings.maxMarginUsd) : settings.maxMarginUsd;
+  const gate = summarizeMarketGate(marketContext, policy);
+  const maxMarginUsd = clampNumber(policy?.maxLiveMarginUsd || policy?.maxMarginUsd, 1, 1000, settings.maxMarginUsd);
+  const fixedMarginUsd = clampNumber(policy?.fixedMarginUsd, 0, 1000, settings.fixedMarginUsd);
+  const manualCap = gate.riskOff ? Math.min(maxMarginUsd, gate.defensiveMaxMarginUsd || maxMarginUsd) : maxMarginUsd;
   const marginCap = Math.min(manualCap, autoRiskMarginCap(accountRisk, manualCap));
   const leverageCap = gate.riskOff ? Math.min(50, gate.defensiveMaxLeverage || 5) : 50;
-  const requestedMarginUsd = settings.fixedMarginUsd > 0 ? settings.fixedMarginUsd : Number(signal.plannedUsd);
+  const requestedMarginUsd = fixedMarginUsd > 0 ? fixedMarginUsd : Number(signal.plannedUsd);
   const marginUsd = Math.min(requestedMarginUsd || marginCap, marginCap);
   const leverage = clampInt(signal.leverage, 1, leverageCap, Math.min(10, leverageCap));
   const notionalUsd = roundMoney(marginUsd * leverage);
@@ -408,7 +419,8 @@ function buildOrderPlan(signal, contracts, marketContext = null, accountRisk = n
     pricePlace,
     priceEndStep,
     size: String(size),
-    clientOid: `jamd-${String(signal.id).replace(/[^a-zA-Z0-9-]/g, "").slice(0, 40)}`
+    clientOid: `jamd-${String(signal.id).replace(/[^a-zA-Z0-9-]/g, "").slice(0, 40)}`,
+    policy
   };
 }
 
@@ -457,8 +469,8 @@ async function prepareBitgetLeverage(plan) {
   }
 }
 
-async function fetchBitgetAccountRisk() {
-  if (!settings.autoRisk) return null;
+async function fetchBitgetAccountRisk(policy = {}) {
+  if (!settings.autoRisk || policy?.autoRisk === false) return null;
   validateLiveSecrets();
   const result = await bitgetRequest("GET", `/api/v2/mix/account/accounts?productType=${encodeURIComponent(settings.productType)}`);
   if (result?.code && result.code !== "00000") {
@@ -473,11 +485,15 @@ async function fetchBitgetAccountRisk() {
     : account.isolatedMaxAvailable;
   const available = firstFiniteNumber(modeAvailable, account.available, account.availableBalance, account.availableMargin, account.crossedMaxAvailable, account.isolatedMaxAvailable);
   if (!Number.isFinite(equity) || equity <= 0) return null;
-  const reserve = Math.max(0, Math.min(equity, equity * settings.autoRiskReservePercent / 100));
+  const riskPercent = clampNumber(policy?.autoRiskPerTradePercent, 0.1, 10, settings.autoRiskPerTradePercent);
+  const reservePercent = clampNumber(policy?.autoRiskReservePercent, 0, 80, settings.autoRiskReservePercent);
+  const minMarginUsd = clampNumber(policy?.autoRiskMinMarginUsd, 1, 1000, settings.autoRiskMinMarginUsd);
+  const desiredMaxOpen = clampInt(policy?.maxOpen, 1, 10, settings.maxOpen);
+  const reserve = Math.max(0, Math.min(equity, equity * reservePercent / 100));
   const availableBase = Number.isFinite(available) && available > 0 ? available : equity;
   const spendable = Math.max(0, Math.min(availableBase, equity - reserve));
-  const marginCap = roundMoney(Math.max(settings.autoRiskMinMarginUsd, spendable * settings.autoRiskPerTradePercent / 100));
-  const maxOpenByEquity = Math.max(1, Math.min(settings.maxOpen, Math.floor(spendable / Math.max(settings.autoRiskMinMarginUsd, marginCap)) || 1));
+  const marginCap = roundMoney(Math.max(minMarginUsd, spendable * riskPercent / 100));
+  const maxOpenByEquity = Math.max(1, Math.min(desiredMaxOpen, Math.floor(spendable / Math.max(minMarginUsd, marginCap)) || 1));
   const maxTradesByEquity = equity < 100 ? 2 : equity < 500 ? 3 : equity < 2000 ? 5 : 8;
   return {
     enabled: true,
@@ -486,8 +502,8 @@ async function fetchBitgetAccountRisk() {
     equity: roundMoney(equity),
     available: Number.isFinite(available) ? roundMoney(available) : null,
     spendable: roundMoney(spendable),
-    reservePercent: settings.autoRiskReservePercent,
-    perTradePercent: settings.autoRiskPerTradePercent,
+    reservePercent,
+    perTradePercent: riskPercent,
     marginCapUsd: marginCap,
     maxOpenByEquity,
     maxTradesByEquity,
@@ -500,8 +516,10 @@ function applyAutoRiskPolicy(policy, accountRisk) {
   const equity = Number(accountRisk.equity);
   const maxDailyLossPercent = Number(policy.maxDailyLossPercent) || settings.maxDailyLossPercent;
   policy.maxDailyLossUsd = roundMoney(Math.max(1, equity * maxDailyLossPercent / 100));
-  policy.maxOpen = Math.max(1, Math.min(settings.maxOpen, Number(accountRisk.maxOpenByEquity) || settings.maxOpen));
-  policy.maxNewOrdersPerRun = Math.max(1, Math.min(settings.maxNewOrdersPerRun, policy.maxOpen));
+  const desiredMaxOpen = Number(policy.maxOpen) || settings.maxOpen;
+  const desiredPerRun = Number(policy.maxNewOrdersPerRun) || settings.maxNewOrdersPerRun;
+  policy.maxOpen = Math.max(1, Math.min(desiredMaxOpen, Number(accountRisk.maxOpenByEquity) || desiredMaxOpen));
+  policy.maxNewOrdersPerRun = Math.max(1, Math.min(desiredPerRun, policy.maxOpen));
   policy.maxTradesPerDay = Math.max(1, Math.min(Number(policy.maxTradesPerDay) || settings.maxTradesPerDay, Number(accountRisk.maxTradesByEquity) || settings.maxTradesPerDay));
   accountRisk.maxTradesPerDay = policy.maxTradesPerDay;
   policy.autoRisk = accountRisk;
@@ -539,6 +557,7 @@ async function reconcileBitgetPositions(state) {
     }
   }
   state.bitgetSynced = true;
+  state.liveOpenCount = positions.length;
   state.remotePositions = positions.slice(0, 20).map((item) => ({
     symbol: item.symbol,
     holdSide: item.holdSide,
@@ -606,28 +625,30 @@ function createStateOrder(signal, plan, status, response = null) {
     contractMultiplier: Number(signal.contractMultiplier || 1),
     tp1: plan.tp1,
     sl: plan.sl,
-    exitPlan: buildExitPlan(signal, plan),
+    exitPlan: buildExitPlan(signal, plan, plan.policy || {}),
     response,
     createdAt: new Date().toISOString()
   };
 }
 
-function buildExitPlan(signal, plan) {
+function buildExitPlan(signal, plan, policy = {}) {
+  const exit = effectiveExitSettings(policy);
   return {
     ready: true,
     entryOnly: settings.allowEntryOnly,
     tp1: Number(plan.tp1) || null,
     sl: Number(plan.sl) || null,
-    protectionTriggerRoe: settings.exitProtectionTriggerRoe,
-    protectionLockRoe: settings.exitProtectionLockRoe,
+    protectionTriggerRoe: exit.protectionTriggerRoe,
+    protectionLockRoe: exit.protectionLockRoe,
     note: settings.allowEntryOnly
       ? "Entry-only live guard is active; monitor TP/SL before enabling full exits."
       : "TP1/SL are planned and positions are reconciled; full automatic exits remain guarded."
   };
 }
 
-async function manageLiveExits(state, positions, events = []) {
-  if (!settings.exitManagerEnabled || settings.mode !== "live") return;
+async function manageLiveExits(state, positions, events = [], policy = {}) {
+  if (!isExitManagerEnabled(policy) || settings.mode !== "live") return;
+  const exit = effectiveExitSettings(policy);
   const exitTypes = new Set(["REVERSAL", "REVERSAL_PROFIT", "INVALIDATED", "SL"]);
   const exitEvents = (Array.isArray(events) ? events : []).filter((event) => exitTypes.has(String(event?.type || "")));
   for (const order of state.orders.filter((item) => item?.status === "OPEN" && item.symbol)) {
@@ -637,13 +658,13 @@ async function manageLiveExits(state, positions, events = []) {
     if (Number.isFinite(roe)) {
       order.currentRoe = Number(roe.toFixed(2));
       order.maxRoe = Math.max(Number(order.maxRoe || -999), order.currentRoe);
-      if (!order.protectionActive && order.currentRoe >= settings.exitProtectionTriggerRoe) {
+      if (!order.protectionActive && order.currentRoe >= exit.protectionTriggerRoe) {
         order.protectionActive = true;
         order.protectionActivatedAt = new Date().toISOString();
         state.lastExitAction = `exit manager protected ${order.pair || order.symbol} at ${order.currentRoe}% ROE`;
         console.log(`${LOG_PREFIX} ${state.lastExitAction}`);
       }
-      if (order.protectionActive && order.currentRoe <= settings.exitProtectionLockRoe) {
+      if (order.protectionActive && order.currentRoe <= exit.protectionLockRoe) {
         try {
           await closeLivePosition(order, "protected ROE lock", position);
           state.lastExitAction = `exit manager closed ${order.pair || order.symbol}: protected ROE lock`;
@@ -657,7 +678,7 @@ async function manageLiveExits(state, positions, events = []) {
       }
     }
     const event = exitEvents.find((item) => eventMatchesOrder(item, order));
-    if (settings.exitCloseOnReversal && event) {
+    if (exit.closeOnReversal && event) {
       try {
         await closeLivePosition(order, `server ${event.type}`, position);
         state.lastExitAction = `exit manager closed ${order.pair || order.symbol}: server ${event.type}`;
@@ -747,7 +768,7 @@ function statusPayload(state, overrides = {}) {
     ok: overrides.ok === true,
     livePaused: overrides.livePaused === true,
     lastRunAt: new Date().toISOString(),
-    openCount: state.orders.filter((order) => order.status === "OPEN").length,
+    openCount: state.bitgetSynced === true ? Number(state.liveOpenCount || 0) : state.orders.filter((order) => order.status === "OPEN").length,
     dailyRealizedPnl: daily.realizedPnl,
     liveUnrealizedPnl: Number(state.liveUnrealizedPnl || 0),
     dailyTrades: daily.trades,
@@ -764,13 +785,13 @@ function statusPayload(state, overrides = {}) {
     lastLiveSignal: state.lastLiveSignal || null,
     exitManager: {
       ready: true,
-      enabled: settings.exitManagerEnabled,
+      enabled: isExitManagerEnabled(state.effectivePolicy || {}),
       entryOnly: settings.allowEntryOnly,
-      protectionTriggerRoe: settings.exitProtectionTriggerRoe,
-      protectionLockRoe: settings.exitProtectionLockRoe,
-      closeOnReversal: settings.exitCloseOnReversal,
+      protectionTriggerRoe: effectiveExitSettings(state.effectivePolicy || {}).protectionTriggerRoe,
+      protectionLockRoe: effectiveExitSettings(state.effectivePolicy || {}).protectionLockRoe,
+      closeOnReversal: effectiveExitSettings(state.effectivePolicy || {}).closeOnReversal,
       lastAction: state.lastExitAction || "",
-      note: settings.exitManagerEnabled
+      note: isExitManagerEnabled(state.effectivePolicy || {})
         ? "Automatic protection and reversal exits are enabled on the VPS."
         : "Prepared TP1/SL planning and position reconciliation. Automatic close manager is opt-in."
     }
@@ -832,12 +853,36 @@ function compactOrder(order) {
 function normalizeExecutorPolicy(value = {}) {
   return {
     livePaused: value?.livePaused === true,
-        minScore: clampInt(value?.minScore, 8, 20, settings.minScore),
+    maxOpen: clampInt(value?.maxOpen, 1, 10, settings.maxOpen),
+    maxNewOrdersPerRun: clampInt(value?.maxNewOrdersPerRun, 1, 5, settings.maxNewOrdersPerRun),
+    maxLiveMarginUsd: clampNumber(value?.maxLiveMarginUsd || value?.maxMarginUsd, 1, 1000, settings.maxMarginUsd),
+    fixedMarginUsd: clampNumber(value?.fixedMarginUsd, 0, 1000, settings.fixedMarginUsd),
+    minScore: clampInt(value?.minScore, 8, 20, settings.minScore),
     strictRegimeMinScore: clampInt(value?.strictRegimeMinScore, 8, 20, settings.strictRegimeMinScore),
+    minLiquidityUsd: clampNumber(value?.minLiquidityUsd, 0, 1_000_000_000, settings.minLiquidityUsd),
+    allowMemeLive: value?.allowMemeLive === undefined ? settings.allowMeme : value.allowMemeLive === true,
+    defensiveMaxLeverage: clampInt(value?.defensiveMaxLeverage, 1, 20, settings.defensiveMaxLeverage),
+    defensiveMaxMarginUsd: clampNumber(value?.defensiveMaxMarginUsd, 1, 1000, settings.defensiveMaxMarginUsd),
+    exitManager: value?.exitManager === undefined ? settings.exitManagerEnabled : value.exitManager === true,
+    exitProtectionTriggerRoe: clampNumber(value?.exitProtectionTriggerRoe, 1, 100, settings.exitProtectionTriggerRoe),
+    exitProtectionLockRoe: clampNumber(value?.exitProtectionLockRoe, 0.1, 50, settings.exitProtectionLockRoe),
+    exitCloseOnReversal: value?.exitCloseOnReversal === undefined ? settings.exitCloseOnReversal : value.exitCloseOnReversal !== false,
     maxDailyLossUsd: clampNumber(value?.maxDailyLossUsd, 1, 100000, settings.maxDailyLossUsd),
     maxDailyLossPercent: clampNumber(value?.maxDailyLossPercent, 0.1, 100, settings.maxDailyLossPercent),
     maxConsecutiveLosses: clampInt(value?.maxConsecutiveLosses, 1, 20, settings.maxConsecutiveLosses),
     maxTradesPerDay: clampInt(value?.maxTradesPerDay, 1, 100, settings.maxTradesPerDay)
+  };
+}
+
+function isExitManagerEnabled(policy = {}) {
+  return policy?.exitManager === undefined ? settings.exitManagerEnabled : policy.exitManager === true;
+}
+
+function effectiveExitSettings(policy = {}) {
+  return {
+    protectionTriggerRoe: clampNumber(policy?.exitProtectionTriggerRoe, 1, 100, settings.exitProtectionTriggerRoe),
+    protectionLockRoe: clampNumber(policy?.exitProtectionLockRoe, 0.1, 50, settings.exitProtectionLockRoe),
+    closeOnReversal: policy?.exitCloseOnReversal === undefined ? settings.exitCloseOnReversal : policy.exitCloseOnReversal !== false
   };
 }
 

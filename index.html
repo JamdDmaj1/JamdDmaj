@@ -3214,6 +3214,36 @@
               <label><span id="maxTradesPerDayLabel">Max trades/day</span>
                 <input id="maxTradesPerDayInput" type="number" min="1" max="100" step="1" value="3">
               </label>
+              <label><span id="bitgetMaxOpenLabel">Max open on Bitget</span>
+                <input id="bitgetMaxOpenInput" type="number" min="1" max="10" step="1" value="1">
+              </label>
+              <label><span id="bitgetOrdersPerRunLabel">Orders per cycle</span>
+                <input id="bitgetOrdersPerRunInput" type="number" min="1" max="5" step="1" value="1">
+              </label>
+              <label><span id="bitgetFixedMarginLabel">Fixed Bitget margin (USD)</span>
+                <input id="bitgetFixedMarginInput" type="number" min="0" max="1000" step="1" value="10">
+              </label>
+              <label><span id="bitgetMaxMarginLabel">Max Bitget margin (USD)</span>
+                <input id="bitgetMaxMarginInput" type="number" min="1" max="1000" step="1" value="35">
+              </label>
+              <label><span id="bitgetMinScoreLabel">Min Bitget score</span>
+                <input id="bitgetMinScoreInput" type="number" min="8" max="20" step="1" value="10">
+              </label>
+              <label><span id="bitgetStrictScoreLabel">Risk-off min score</span>
+                <input id="bitgetStrictScoreInput" type="number" min="8" max="20" step="1" value="10">
+              </label>
+              <label><span id="bitgetAllowMemeLabel">Meme/unknown-cap live</span>
+                <select id="bitgetAllowMemeSelect">
+                  <option value="true" selected>Allow</option>
+                  <option value="false">Block</option>
+                </select>
+              </label>
+              <label><span id="bitgetExitManagerLabel">Auto protect exits</span>
+                <select id="bitgetExitManagerSelect">
+                  <option value="true" selected>On</option>
+                  <option value="false">Off</option>
+                </select>
+              </label>
             </div>
             <div class="pro-stat-grid">
               <div class="pro-stat"><span id="proStatOpenLabel">Open calls</span><strong id="proStatOpen">0</strong></div>
@@ -3659,7 +3689,7 @@
             <button class="pill-btn" id="checkUpdatesBtn" type="button">Check for updates</button>
             <a class="social-link is-hidden" id="downloadUpdateBtn" href="#" target="_blank" rel="noopener noreferrer">Open update</a>
           </div>
-          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.8</div>
+          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.9</div>
         </section>
       </div>
       <div class="dialog-actions">
@@ -3784,7 +3814,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.37.8";
+      const APP_VERSION = "1.37.9";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
       const FREE_LIVE_API_URL = `${WEB_APP_URL}api/live`;
       const TELEGRAM_API_URL = `${WEB_APP_URL}api/telegram`;
@@ -6777,10 +6807,11 @@
           proServerState = await callProApi({
             action: "config",
             config: {
+              ...(proServerState.config || {}),
               enabled: !enabled,
-               quality: getTelegramQuality(),
+              quality: getTelegramQuality(),
               cooldownMinutes: getTelegramCooldownMinutes(),
-              maxSignalsPerRun: 3
+              maxSignalsPerRun: proServerState.config?.maxSignalsPerRun || 3
             }
           });
           renderProServerState(proServerState);
@@ -6814,7 +6845,21 @@
               maxDailyLossUsd: Number(document.getElementById("maxDailyLossUsdInput")?.value) || 25,
               maxDailyLossPercent: Number(document.getElementById("maxDailyLossPercentInput")?.value) || 3,
               maxConsecutiveLosses: Number(document.getElementById("maxConsecutiveLossesInput")?.value) || 2,
-              maxTradesPerDay: Number(document.getElementById("maxTradesPerDayInput")?.value) || 3
+              maxTradesPerDay: Number(document.getElementById("maxTradesPerDayInput")?.value) || 3,
+              maxLiveOpen: Number(document.getElementById("bitgetMaxOpenInput")?.value) || 1,
+              maxNewOrdersPerRun: Number(document.getElementById("bitgetOrdersPerRunInput")?.value) || 1,
+              fixedMarginUsd: Number(document.getElementById("bitgetFixedMarginInput")?.value) || 0,
+              maxLiveMarginUsd: Number(document.getElementById("bitgetMaxMarginInput")?.value) || 35,
+              minLiveScore: Number(document.getElementById("bitgetMinScoreInput")?.value) || 10,
+              strictRegimeMinScore: Number(document.getElementById("bitgetStrictScoreInput")?.value) || 10,
+              minLiveLiquidityUsd: 0,
+              allowMemeLive: document.getElementById("bitgetAllowMemeSelect")?.value !== "false",
+              defensiveMaxLeverage: 10,
+              defensiveMaxMarginUsd: Number(document.getElementById("bitgetFixedMarginInput")?.value) || 10,
+              exitManager: document.getElementById("bitgetExitManagerSelect")?.value !== "false",
+              exitProtectionTriggerRoe: 10,
+              exitProtectionLockRoe: 2,
+              exitCloseOnReversal: true
             }
           });
           renderProServerState(proServerState);
@@ -6893,6 +6938,7 @@
           "JAMDDMAJ_AUTO_RISK=true",
           "JAMDDMAJ_AUTO_RISK_PER_TRADE_PERCENT=" + risk,
           "JAMDDMAJ_MAX_LIVE_MARGIN_USD=" + margin,
+          "JAMDDMAJ_FIXED_MARGIN_USD=" + margin,
           "JAMDDMAJ_MAX_LIVE_OPEN=2",
           "JAMDDMAJ_MAX_NEW_ORDERS_PER_RUN=1",
           "JAMDDMAJ_MIN_LIVE_SCORE=10",
@@ -7012,10 +7058,26 @@
         document.getElementById("maxDailyLossPercentInput").value = String(state.config?.maxDailyLossPercent || 3);
         document.getElementById("maxConsecutiveLossesInput").value = String(state.config?.maxConsecutiveLosses || 2);
         document.getElementById("maxTradesPerDayInput").value = String(state.config?.maxTradesPerDay || 3);
+        document.getElementById("bitgetMaxOpenInput").value = String(state.config?.maxLiveOpen || 1);
+        document.getElementById("bitgetOrdersPerRunInput").value = String(state.config?.maxNewOrdersPerRun || 1);
+        document.getElementById("bitgetFixedMarginInput").value = String(state.config?.fixedMarginUsd || 10);
+        document.getElementById("bitgetMaxMarginInput").value = String(state.config?.maxLiveMarginUsd || 35);
+        document.getElementById("bitgetMinScoreInput").value = String(state.config?.minLiveScore || 10);
+        document.getElementById("bitgetStrictScoreInput").value = String(state.config?.strictRegimeMinScore || 10);
+        document.getElementById("bitgetAllowMemeSelect").value = state.config?.allowMemeLive === false ? "false" : "true";
+        document.getElementById("bitgetExitManagerSelect").value = state.config?.exitManager === false ? "false" : "true";
         document.getElementById("maxDailyLossUsdLabel").textContent = spanish ? "Perdida diaria max. (USD)" : "Max daily loss (USD)";
         document.getElementById("maxDailyLossPercentLabel").textContent = spanish ? "Perdida diaria max. (%)" : "Max daily loss (%)";
         document.getElementById("maxConsecutiveLossesLabel").textContent = spanish ? "Perdidas seguidas max." : "Max consecutive losses";
         document.getElementById("maxTradesPerDayLabel").textContent = spanish ? "Trades max. por dia" : "Max trades/day";
+        document.getElementById("bitgetMaxOpenLabel").textContent = spanish ? "Trades abiertos max. en Bitget" : "Max open on Bitget";
+        document.getElementById("bitgetOrdersPerRunLabel").textContent = spanish ? "Ordenes max. por ciclo" : "Orders per cycle";
+        document.getElementById("bitgetFixedMarginLabel").textContent = spanish ? "Margen fijo Bitget (USD)" : "Fixed Bitget margin (USD)";
+        document.getElementById("bitgetMaxMarginLabel").textContent = spanish ? "Margen max. Bitget (USD)" : "Max Bitget margin (USD)";
+        document.getElementById("bitgetMinScoreLabel").textContent = spanish ? "Score minimo Bitget" : "Min Bitget score";
+        document.getElementById("bitgetStrictScoreLabel").textContent = spanish ? "Score min. risk-off" : "Risk-off min score";
+        document.getElementById("bitgetAllowMemeLabel").textContent = spanish ? "Meme/cap desconocida en live" : "Meme/unknown-cap live";
+        document.getElementById("bitgetExitManagerLabel").textContent = spanish ? "Proteccion automatica" : "Auto protect exits";
         const pauseButton = document.getElementById("pauseLiveExecutorBtn");
         const livePaused = state.config?.livePaused === true;
         pauseButton.textContent = livePaused ? (spanish ? "Reactivar live" : "Resume live") : (spanish ? "Pausar live" : "Pause live");
@@ -11521,7 +11583,7 @@
         updateTelegramAlertsUi();
         syncProServerConfig();
       });
-      ["proPlannedUsdInput", "proLeverageSelect", "proTriggerRoeInput", "proLockRoeInput", "paperStartingBalanceInput", "paperRiskPercentInput", "paperLeverageSelect", "maxDailyLossUsdInput", "maxDailyLossPercentInput", "maxConsecutiveLossesInput", "maxTradesPerDayInput"].forEach((id) => {
+      ["proPlannedUsdInput", "proLeverageSelect", "proTriggerRoeInput", "proLockRoeInput", "paperStartingBalanceInput", "paperRiskPercentInput", "paperLeverageSelect", "maxDailyLossUsdInput", "maxDailyLossPercentInput", "maxConsecutiveLossesInput", "maxTradesPerDayInput", "bitgetMaxOpenInput", "bitgetOrdersPerRunInput", "bitgetFixedMarginInput", "bitgetMaxMarginInput", "bitgetMinScoreInput", "bitgetStrictScoreInput", "bitgetAllowMemeSelect", "bitgetExitManagerSelect"].forEach((id) => {
         document.getElementById(id).addEventListener("change", syncProServerConfig);
       });
       document.getElementById("pauseLiveExecutorBtn").addEventListener("click", toggleLiveExecutorPause);
