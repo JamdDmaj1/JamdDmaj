@@ -236,14 +236,18 @@ async function fetchClientFeed() {
 
 function selectRecentOpenSignals(openSignals, minutes) {
   if (!Array.isArray(openSignals)) return [];
-  const cutoff = Date.now() - (Number(minutes) || 20) * 60000;
+  const now = Date.now();
+  const cutoff = now - (Number(minutes) || 20) * 60000;
   return openSignals
     .filter((signal) => signal && signal.status === "OPEN")
     .filter((signal) => {
-      const created = Date.parse(signal.createdAt || "");
-      return Number.isFinite(created) && created >= cutoff;
+      const monitoredUntil = Date.parse(signal.monitoredUntil || signal.validUntil || signal.expiresAt || "");
+      if (Number.isFinite(monitoredUntil) && monitoredUntil >= now) return true;
+      const created = Date.parse(signal.createdAt || signal.checkedAt || signal.updatedAt || "");
+      if (Number.isFinite(created) && created >= cutoff) return true;
+      return signal.executionAllowed === true && signal.bitgetEligible !== false;
     })
-    .map((signal) => ({ ...signal, executorSource: "recent-open" }));
+    .map((signal) => ({ ...signal, executorSource: "open-signal" }));
 }
 
 function mergeSignalSources(newSignals, recentOpen) {
@@ -268,7 +272,7 @@ async function fetchExecutorTestSignal() {
 async function fetchMarketContext() {
   try {
     const response = await fetch(`${settings.appUrl}/api/pro-news`, {
-      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.36.4" }
+      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.37.12" }
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok || body?.error) return null;
