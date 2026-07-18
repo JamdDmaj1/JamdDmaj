@@ -520,7 +520,9 @@ function applyAutoRiskPolicy(policy, accountRisk) {
   const desiredPerRun = Number(policy.maxNewOrdersPerRun) || settings.maxNewOrdersPerRun;
   policy.maxOpen = Math.max(1, Math.min(desiredMaxOpen, Number(accountRisk.maxOpenByEquity) || desiredMaxOpen));
   policy.maxNewOrdersPerRun = Math.max(1, Math.min(desiredPerRun, policy.maxOpen));
-  policy.maxTradesPerDay = Math.max(1, Math.min(Number(policy.maxTradesPerDay) || settings.maxTradesPerDay, Number(accountRisk.maxTradesByEquity) || settings.maxTradesPerDay));
+  const desiredMaxTrades = Number(policy.maxTradesPerDay) || settings.maxTradesPerDay;
+  policy.maxTradesPerDay = Math.max(1, desiredMaxTrades);
+  accountRisk.suggestedMaxTradesByEquity = accountRisk.maxTradesByEquity;
   accountRisk.maxTradesPerDay = policy.maxTradesPerDay;
   policy.autoRisk = accountRisk;
   return policy;
