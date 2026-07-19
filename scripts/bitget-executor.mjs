@@ -275,7 +275,7 @@ async function fetchExecutorTestSignal() {
 async function fetchMarketContext() {
   try {
     const response = await fetch(`${settings.appUrl}/api/pro-news`, {
-      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.37.22" }
+      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.37.23" }
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok || body?.error) return null;

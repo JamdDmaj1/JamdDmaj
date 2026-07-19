@@ -3811,7 +3811,7 @@
             <button class="pill-btn" id="checkUpdatesBtn" type="button">Check for updates</button>
             <button class="pill-btn is-hidden" id="downloadUpdateBtn" type="button">Download APK</button>
           </div>
-          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.22</div>
+          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.23</div>
         </section>
       </div>
       <div class="dialog-actions">
@@ -3936,7 +3936,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.37.22";
+      const APP_VERSION = "1.37.23";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -8371,10 +8371,12 @@
         const url = String(data?.apkUrl || data?.releaseUrl || DEFAULT_APK_URL).trim();
         status.textContent = available
           ? (spanish ? "Nueva version " + latest + " disponible. Toca Descargar APK e instalala encima." : "Version " + latest + " is available. Tap Download APK and install it over this app.")
-          : (spanish ? "Tienes la version mas reciente (" + APP_VERSION + ")." : "You have the latest version (" + APP_VERSION + ").");
-        button.classList.toggle("is-hidden", !available || !url);
-        button.dataset.updateUrl = available ? url : "";
-        button.textContent = spanish ? "Descargar APK" : "Download APK";
+          : (spanish ? "Tienes la version mas reciente (" + APP_VERSION + "). Puedes descargar el APK actual si necesitas reinstalar." : "You have the latest version (" + APP_VERSION + "). You can download the current APK if you need to reinstall.");
+        button.classList.toggle("is-hidden", !url);
+        button.dataset.updateUrl = url;
+        button.textContent = available
+          ? (spanish ? "Descargar APK" : "Download APK")
+          : (spanish ? "Descargar APK actual" : "Download current APK");
         document.getElementById("checkUpdatesBtn").textContent = spanish ? "Buscar actualizaciones" : "Check for updates";
         document.getElementById("updatesSectionTitle").textContent = spanish ? "Actualizaciones de la app" : "App updates";
         document.getElementById("updatesSectionText").textContent = spanish
@@ -8419,6 +8421,9 @@
       async function openAppUpdateDownload() {
         const settingsButton = document.getElementById("downloadUpdateBtn");
         const bannerButton = document.getElementById("appUpdateBannerDownload");
+        if (!latestAppStatus?.apkUrl && !settingsButton?.dataset.updateUrl && !bannerButton?.dataset.updateUrl) {
+          await checkForAppUpdate(false).catch(() => {});
+        }
         const url = String(bannerButton?.dataset.updateUrl || settingsButton?.dataset.updateUrl || latestAppStatus?.apkUrl || DEFAULT_APK_URL).trim();
         if (!url) return;
         showToast(resolvedLanguage() === "es" ? "Abriendo descarga oficial..." : "Opening official download...");
