@@ -276,7 +276,7 @@ async function fetchExecutorTestSignal() {
 async function fetchMarketContext() {
   try {
     const response = await fetch(`${settings.appUrl}/api/pro-news`, {
-      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.37.27" }
+      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.37.28" }
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok || body?.error) return null;
@@ -566,11 +566,15 @@ async function fetchBitgetAccountRisk(policy = {}) {
   const reservePercent = clampNumber(policy?.autoRiskReservePercent, 0, 80, settings.autoRiskReservePercent);
   const minMarginUsd = clampNumber(policy?.autoRiskMinMarginUsd, 1, 1000, settings.autoRiskMinMarginUsd);
   const desiredMaxOpen = clampInt(policy?.maxOpen, 1, 10, settings.maxOpen);
+  const fixedMarginUsd = clampNumber(policy?.fixedMarginUsd, 0, 1000, settings.fixedMarginUsd);
+  const maxLiveMarginUsd = clampNumber(policy?.maxLiveMarginUsd || policy?.maxMarginUsd, 1, 1000, settings.maxMarginUsd);
   const reserve = Math.max(0, Math.min(equity, equity * reservePercent / 100));
   const availableBase = Number.isFinite(available) && available > 0 ? available : equity;
-  const spendable = Math.max(0, Math.min(availableBase, equity - reserve));
-  const marginCap = roundMoney(Math.max(minMarginUsd, spendable * riskPercent / 100));
-  const maxOpenByEquity = Math.max(1, Math.min(desiredMaxOpen, Math.floor(spendable / Math.max(minMarginUsd, marginCap)) || 1));
+  const equitySpendable = Math.max(0, equity - reserve);
+  const spendable = Math.max(0, Math.min(availableBase, equitySpendable));
+  const marginCap = roundMoney(Math.max(minMarginUsd, equitySpendable * riskPercent / 100));
+  const positionBudgetUsd = Math.max(minMarginUsd, fixedMarginUsd > 0 ? fixedMarginUsd : maxLiveMarginUsd);
+  const maxOpenByEquity = Math.max(1, Math.min(desiredMaxOpen, Math.floor(equitySpendable / positionBudgetUsd) || 1));
   const maxTradesByEquity = equity < 100 ? 2 : equity < 500 ? 3 : equity < 2000 ? 5 : 8;
   return {
     enabled: true,
@@ -578,7 +582,9 @@ async function fetchBitgetAccountRisk(policy = {}) {
     marginCoin: String(account.marginCoin || settings.marginCoin),
     equity: roundMoney(equity),
     available: Number.isFinite(available) ? roundMoney(available) : null,
+    equitySpendable: roundMoney(equitySpendable),
     spendable: roundMoney(spendable),
+    positionBudgetUsd: roundMoney(positionBudgetUsd),
     reservePercent,
     perTradePercent: riskPercent,
     marginCapUsd: marginCap,
