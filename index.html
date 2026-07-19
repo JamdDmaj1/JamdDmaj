@@ -3811,7 +3811,7 @@
             <button class="pill-btn" id="checkUpdatesBtn" type="button">Check for updates</button>
             <button class="pill-btn is-hidden" id="downloadUpdateBtn" type="button">Download APK</button>
           </div>
-          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.26</div>
+          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.27</div>
         </section>
       </div>
       <div class="dialog-actions">
@@ -3936,7 +3936,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.37.26";
+      const APP_VERSION = "1.37.27";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -7192,6 +7192,7 @@
           ? "Preparando prueba pequena para el VPS..."
           : "Preparing a small VPS test...";
         try {
+          await syncProServerConfig();
           proServerState = await callProApi({ action: "executorTest" });
           renderProServerState(proServerState);
           const pair = proServerState.executorTest?.signal?.pair || proServerState.executorTest?.signal?.symbol || "";
@@ -7213,6 +7214,7 @@
           ? "El servidor esta analizando mercados..."
           : "The server is analyzing markets...";
         try {
+          await syncProServerConfig();
           proServerState = await callProApi({ action: "run" });
           renderProServerState(proServerState);
           showToast(resolvedLanguage() === "es" ? "Ciclo del servidor completado." : "Server cycle completed.");
@@ -7313,7 +7315,9 @@
         const decisions = executor.decisions || {};
         const rejectedTotal = Object.values(decisions.rejected || {}).reduce((sum, value) => sum + (Number(value) || 0), 0);
         const remotePositions = Array.isArray(executor.remotePositions) ? executor.remotePositions : [];
-        const maxOpen = Number((proServerState?.config || {}).maxLiveOpen || 0) || Number(executor.accountRisk?.maxOpenByEquity || 0) || 0;
+        const effectivePolicy = executor.effectivePolicy || {};
+        const maxOpen = Number(effectivePolicy.maxOpen || 0) || Number((proServerState?.config || {}).maxLiveOpen || 0) || Number(executor.accountRisk?.maxOpenByEquity || 0) || 0;
+        const configuredMaxOpen = Number((proServerState?.config || {}).maxLiveOpen || 0);
         const openDetected = Number(executor.openCount || remotePositions.length || 0);
         document.getElementById("executorModeLabel").textContent = spanish ? "Modo executor" : "Executor mode";
         document.getElementById("executorSignalsLabel").textContent = spanish ? "Ejecutables" : "Executable";
@@ -7336,6 +7340,7 @@
         const rows = [];
         rows.push([spanish ? "Diagnostico" : "Diagnosis", describeExecutorDiagnosis(executor, decisions, spanish)]);
         if (executor.bitgetSynced) rows.push([spanish ? "Bitget real" : "Real Bitget", String(openDetected) + " " + (spanish ? "abiertas detectadas" : "open detected") + (maxOpen ? " / max " + maxOpen : "")]);
+        if (configuredMaxOpen && maxOpen && configuredMaxOpen !== maxOpen) rows.push([spanish ? "Limite efectivo" : "Effective limit", (spanish ? "App " : "App ") + configuredMaxOpen + " -> VPS " + maxOpen]);
         if (executor.clientConnector) rows.push([spanish ? "Conector cliente" : "Client connector", spanish ? "Activo sin guardar claves en JamdDmaj Cloud" : "Active without storing keys in JamdDmaj Cloud"]);
         const gate = executor.marketGate || decisions.marketGate || {};
         const learning = learningState.summary || learningState || {};
@@ -11933,7 +11938,10 @@
       document.getElementById("queueBitgetTestBtn").addEventListener("click", queueBitgetExecutorTest);
       document.getElementById("buildClientBitgetBtn").addEventListener("click", buildClientBitgetConnector);
       document.getElementById("clearClientBitgetBtn").addEventListener("click", clearClientBitgetConnector);
-      document.getElementById("refreshProServerBtn").addEventListener("click", () => loadProServerState(true));
+      document.getElementById("refreshProServerBtn").addEventListener("click", async () => {
+        if (telegramOwnerAuthorized && proServerState) await syncProServerConfig();
+        await loadProServerState(true);
+      });
       document.getElementById("togglePaperTradingBtn").addEventListener("click", togglePaperTrading);
       document.getElementById("resetPaperTradingBtn").addEventListener("click", resetPaperTrading);
       document.getElementById("runBacktestBtn").addEventListener("click", runHistoricalBacktest);

@@ -94,7 +94,7 @@ async function main() {
   decisions.marketGate = summarizeMarketGate(marketContext, policy);
   state.lastMarketGate = decisions.marketGate;
 
-  console.log(`${LOG_PREFIX} scan ok. manualTest=${manualSignals.length} newSignals=${newSignals.length} recentOpen=${recentOpen.length} totalSignals=${signals.length} events=${events.length} mode=${settings.mode}`);
+  console.log(`${LOG_PREFIX} scan ok. manualTest=${manualSignals.length} newSignals=${newSignals.length} recentOpen=${recentOpen.length} totalSignals=${signals.length} events=${events.length} mode=${settings.mode} maxOpen=${policy.maxOpen} perRun=${policy.maxNewOrdersPerRun}`);
 
   const executable = [];
   for (const signal of signals) {
@@ -276,7 +276,7 @@ async function fetchExecutorTestSignal() {
 async function fetchMarketContext() {
   try {
     const response = await fetch(`${settings.appUrl}/api/pro-news`, {
-      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.37.26" }
+      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.37.27" }
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok || body?.error) return null;
@@ -949,6 +949,14 @@ function statusPayload(state, overrides = {}) {
     lastAction: overrides.lastAction || state.lastAction || "",
     lastError: overrides.lastError || "",
     bitgetSynced: state.bitgetSynced === true,
+    effectivePolicy: {
+      maxOpen: Number(state.effectivePolicy?.maxOpen || settings.maxOpen),
+      maxNewOrdersPerRun: Number(state.effectivePolicy?.maxNewOrdersPerRun || settings.maxNewOrdersPerRun),
+      maxLiveMarginUsd: Number(state.effectivePolicy?.maxLiveMarginUsd || settings.maxMarginUsd),
+      fixedMarginUsd: Number(state.effectivePolicy?.fixedMarginUsd || settings.fixedMarginUsd),
+      minScore: Number(state.effectivePolicy?.minScore || settings.minScore),
+      strictRegimeMinScore: Number(state.effectivePolicy?.strictRegimeMinScore || settings.strictRegimeMinScore)
+    },
         decisions: state.lastDecisionSummary || createDecisionSummary([], []),
     marketGate: state.lastMarketGate || summarizeMarketGate(null, {}),
     recentOrders: state.orders.slice(0, 8).map(compactOrder),
