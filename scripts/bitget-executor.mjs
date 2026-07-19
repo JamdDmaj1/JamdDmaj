@@ -272,7 +272,7 @@ async function fetchExecutorTestSignal() {
 async function fetchMarketContext() {
   try {
     const response = await fetch(`${settings.appUrl}/api/pro-news`, {
-      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.37.17" }
+      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.37.18" }
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok || body?.error) return null;
@@ -365,6 +365,10 @@ function executableDecision(signal, state, policy = {}, marketContext = null) {
 function seenSignalBlockReason(state, signal) {
   const seen = state.seen?.[signal.id];
   if (!seen) return "";
+  if (isDuplicateClientOidReason(seen.reason)) {
+    delete state.seen[signal.id];
+    return "";
+  }
   const signalSymbol = bitgetSymbolForSignal(signal);
   const liveSymbols = new Set(Array.isArray(state.liveSymbols) ? state.liveSymbols : []);
   if (seen.orderedAt) {
@@ -785,12 +789,23 @@ async function closeLivePosition(order, reason, position = {}) {
 }
 
 function rememberSkip(state, signal, reason) {
+  if (isDuplicateClientOidReason(reason)) {
+    delete state.seen[signal.id];
+    return;
+  }
   state.seen[signal.id] = { skippedAt: new Date().toISOString(), reason };
+}
+
+function isDuplicateClientOidReason(reason = "") {
+  return /duplicate\s+clientoid/i.test(String(reason));
 }
 
 function pruneState(state) {
   state.orders = Array.isArray(state.orders) ? state.orders : [];
   state.seen = state.seen && typeof state.seen === "object" ? state.seen : {};
+  for (const [id, seen] of Object.entries(state.seen)) {
+    if (isDuplicateClientOidReason(seen?.reason)) delete state.seen[id];
+  }
   state.daily = normalizeDailyState(state.daily);
   for (const order of state.orders) {
     if (order?.id) state.seen[order.id] = state.seen[order.id] || { orderedAt: order.createdAt || new Date().toISOString() };
