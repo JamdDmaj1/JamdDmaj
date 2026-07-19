@@ -272,7 +272,7 @@ async function fetchExecutorTestSignal() {
 async function fetchMarketContext() {
   try {
     const response = await fetch(`${settings.appUrl}/api/pro-news`, {
-      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.37.13" }
+      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.37.15" }
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok || body?.error) return null;
@@ -344,7 +344,8 @@ function marketGateDecision(signal, gate) {
 function executableDecision(signal, state, policy = {}, marketContext = null) {
   if (!signal) return { ok: false, reason: "missing signal" };
   if (!signal.id || !signal.pair || !signal.side) return { ok: false, reason: "missing id/pair/side" };
-  if (state.seen[signal.id]) return { ok: false, reason: "already seen" };
+  const seenBlock = seenSignalBlockReason(state, signal);
+  if (seenBlock) return { ok: false, reason: seenBlock };
   const gate = summarizeMarketGate(marketContext, policy);
   const minScore = gate.strictMinScore;
   if (signal.manualTest === true) {
@@ -361,6 +362,21 @@ function executableDecision(signal, state, policy = {}, marketContext = null) {
   if (!gateDecision.ok) return gateDecision;
   return { ok: true, reason: gate.riskOff ? "passed strict regime filters" : "passed executor filters" };
 }
+function seenSignalBlockReason(state, signal) {
+  const seen = state.seen?.[signal.id];
+  if (!seen) return "";
+  if (seen.orderedAt) return "already ordered";
+  const skippedAt = Date.parse(seen.skippedAt || "");
+  const retryMs = settings.retrySkippedMinutes * 60000;
+  const canRetry = signal.status === "OPEN" || signal.executorSource === "open-signal" || signal.executorSource === "manual-test";
+  if (canRetry && Number.isFinite(skippedAt) && Date.now() - skippedAt >= retryMs) {
+    delete state.seen[signal.id];
+    return "";
+  }
+  if (canRetry && Number.isFinite(skippedAt)) return `retry cooldown after ${seen.reason || "skip"}`;
+  return "already seen";
+}
+
 function bitgetSymbolForSignal(signal = {}) {
   const raw = String(
     signal.bitgetPair
@@ -560,6 +576,7 @@ async function reconcileBitgetPositions(state) {
     if (!liveSymbols.has(order.symbol)) {
       order.status = "CLOSED_UNKNOWN";
       order.closedAt = new Date().toISOString();
+      if (order.id) delete state.seen[order.id];
     }
   }
   state.bitgetSynced = true;
