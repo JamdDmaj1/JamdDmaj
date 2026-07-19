@@ -36,6 +36,9 @@ const settings = {
   autoRiskMinMarginUsd: clampNumber(process.env.JAMDDMAJ_AUTO_RISK_MIN_MARGIN_USD, 1, 1000, 5),
   autoRiskReservePercent: clampNumber(process.env.JAMDDMAJ_AUTO_RISK_RESERVE_PERCENT, 0, 80, 20),
   recentOpenMinutes: clampInt(process.env.JAMDDMAJ_RECENT_OPEN_MINUTES, 1, 120, 20),
+  maxExecutionSignalAgeMinutes: clampInt(process.env.JAMDDMAJ_MAX_EXECUTION_SIGNAL_AGE_MINUTES, 5, 240, 30),
+  manualTestMaxAgeMinutes: clampInt(process.env.JAMDDMAJ_MANUAL_TEST_MAX_AGE_MINUTES, 1, 30, 10),
+  retrySkippedMinutes: clampInt(process.env.JAMDDMAJ_RETRY_SKIPPED_MINUTES, 1, 120, 15),
   minScore: clampInt(process.env.JAMDDMAJ_MIN_LIVE_SCORE, 8, 20, 14),
   strictRegimeMinScore: clampInt(process.env.JAMDDMAJ_STRICT_REGIME_MIN_SCORE, 8, 20, 16),
   defensiveMaxLeverage: clampInt(process.env.JAMDDMAJ_DEFENSIVE_MAX_LEVERAGE, 1, 20, 5),
@@ -272,7 +275,7 @@ async function fetchExecutorTestSignal() {
 async function fetchMarketContext() {
   try {
     const response = await fetch(`${settings.appUrl}/api/pro-news`, {
-      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.37.20" }
+      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.37.21" }
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok || body?.error) return null;
@@ -341,9 +344,34 @@ function marketGateDecision(signal, gate) {
   return { ok: true, reason: "market gate passed" };
 }
 
+function executionFreshnessDecision(signal, policy = {}) {
+  const maxAgeMinutes = signal?.manualTest === true
+    ? settings.manualTestMaxAgeMinutes
+    : clampInt(policy?.maxExecutionSignalAgeMinutes, 5, 240, settings.maxExecutionSignalAgeMinutes);
+  const expiresAt = latestFiniteDate(signal?.validUntil, signal?.expiresAt, signal?.monitoredUntil);
+  if (Number.isFinite(expiresAt) && expiresAt < Date.now()) return { ok: false, reason: "stale signal expired" };
+  const startedAt = earliestFiniteDate(signal?.executorQueuedAt, signal?.createdAt, signal?.openedAt, signal?.telegramSentAt, signal?.detectedAt, signal?.receivedAt);
+  if (!Number.isFinite(startedAt)) return { ok: true, reason: "freshness unknown" };
+  const ageMinutes = (Date.now() - startedAt) / 60000;
+  if (ageMinutes > maxAgeMinutes) return { ok: false, reason: `stale signal older than ${maxAgeMinutes}m` };
+  return { ok: true, reason: "fresh signal" };
+}
+
+function earliestFiniteDate(...values) {
+  const stamps = values.map((value) => Date.parse(value || "")).filter(Number.isFinite);
+  return stamps.length ? Math.min(...stamps) : NaN;
+}
+
+function latestFiniteDate(...values) {
+  const stamps = values.map((value) => Date.parse(value || "")).filter(Number.isFinite);
+  return stamps.length ? Math.max(...stamps) : NaN;
+}
+
 function executableDecision(signal, state, policy = {}, marketContext = null) {
   if (!signal) return { ok: false, reason: "missing signal" };
   if (!signal.id || !signal.pair || !signal.side) return { ok: false, reason: "missing id/pair/side" };
+  const freshness = executionFreshnessDecision(signal, policy);
+  if (!freshness.ok) return freshness;
   const seenBlock = seenSignalBlockReason(state, signal);
   if (seenBlock) return { ok: false, reason: seenBlock };
   const gate = summarizeMarketGate(marketContext, policy);
@@ -928,6 +956,7 @@ function normalizeExecutorPolicy(value = {}) {
     minScore: clampInt(value?.minScore, 8, 20, settings.minScore),
     strictRegimeMinScore: clampInt(value?.strictRegimeMinScore, 8, 20, settings.strictRegimeMinScore),
     minLiquidityUsd: clampNumber(value?.minLiquidityUsd, 0, 1_000_000_000, settings.minLiquidityUsd),
+    maxExecutionSignalAgeMinutes: clampInt(value?.maxExecutionSignalAgeMinutes, 5, 240, settings.maxExecutionSignalAgeMinutes),
     allowMemeLive: value?.allowMemeLive === undefined ? settings.allowMeme : value.allowMemeLive === true,
     defensiveMaxLeverage: clampInt(value?.defensiveMaxLeverage, 1, 20, settings.defensiveMaxLeverage),
     defensiveMaxMarginUsd: clampNumber(value?.defensiveMaxMarginUsd, 1, 1000, settings.defensiveMaxMarginUsd),
