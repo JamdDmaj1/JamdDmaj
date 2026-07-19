@@ -3821,7 +3821,7 @@
             <button class="pill-btn" id="checkUpdatesBtn" type="button">Check for updates</button>
             <button class="pill-btn is-hidden" id="downloadUpdateBtn" type="button">Download APK</button>
           </div>
-          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.29</div>
+          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.30</div>
         </section>
       </div>
       <div class="dialog-actions">
@@ -3946,7 +3946,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.37.29";
+      const APP_VERSION = "1.37.30";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -7378,6 +7378,12 @@
         if (cooldown) rows.push([spanish ? "Cooldown automatico" : "Auto cooldown", cooldown.key + " - " + Number(cooldown.winRate || 0).toFixed(1) + "% - " + Number(cooldown.recentLosses || 0) + " recientes"]);
         const weakSymbol = Array.isArray(executor.symbolLearning) ? executor.symbolLearning.find((item) => item?.weakUntil) : null;
         if (weakSymbol) rows.push([spanish ? "Aprendizaje VPS" : "VPS learning", weakSymbol.symbol + " - WR " + Number(weakSymbol.winRate || 0).toFixed(1) + "% / " + Number(weakSymbol.samples || 0) + " muestras"]);
+        const weakCategory = Array.isArray(executor.categoryLearning) ? executor.categoryLearning.find((item) => item?.weakUntil) : null;
+        if (weakCategory) rows.push([spanish ? "Categoria fria" : "Cold category", String(weakCategory.category || "") + " - WR " + Number(weakCategory.winRate || 0).toFixed(1) + "% / " + Number(weakCategory.samples || 0)]);
+        const rejectedSymbol = Array.isArray(executor.rejectedSymbols) ? executor.rejectedSymbols[0] : null;
+        if (rejectedSymbol) rows.push([spanish ? "Cooldown Bitget" : "Bitget cooldown", String(rejectedSymbol.symbol || "") + " - " + String(rejectedSymbol.lastReason || "").slice(0, 80)]);
+        const topRanked = Array.isArray(decisions.topRanked) ? decisions.topRanked[0] : null;
+        if (topRanked) rows.push([spanish ? "Mejor candidata" : "Best candidate", String(topRanked.pair || "") + " " + String(topRanked.side || "") + " | rank " + Number(topRanked.rank || 0).toFixed(1) + " | score " + Number(topRanked.score || 0)]);
         if (executorTest?.signal) {
           const expires = executorTest.expiresAt ? new Date(executorTest.expiresAt).toLocaleTimeString() : "";
           rows.push([spanish ? "Prueba Bitget" : "Bitget test", (executorTest.signal.pair || executorTest.signal.symbol) + " " + (executorTest.signal.side || "") + " - USD " + Number(executorTest.signal.plannedUsd || 0).toFixed(2) + " - " + (spanish ? "pendiente VPS" : "pending VPS") + (expires ? " - " + expires : "")]);

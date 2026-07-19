@@ -42,6 +42,7 @@ const settings = {
   maxEntryDriftPercent: optionalPositiveNumber(process.env.JAMDDMAJ_MAX_ENTRY_DRIFT_PERCENT, 50),
   weakPatternCooldownHours: clampNumber(process.env.JAMDDMAJ_WEAK_PATTERN_COOLDOWN_HOURS, 1, 168, 12),
   learningMinSamples: clampInt(process.env.JAMDDMAJ_LEARNING_MIN_SAMPLES, 3, 100, 5),
+  rejectedSymbolCooldownMinutes: clampInt(process.env.JAMDDMAJ_REJECTED_SYMBOL_COOLDOWN_MINUTES, 5, 240, 20),
   manualTestMaxAgeMinutes: clampInt(process.env.JAMDDMAJ_MANUAL_TEST_MAX_AGE_MINUTES, 1, 30, 10),
   retrySkippedMinutes: clampInt(process.env.JAMDDMAJ_RETRY_SKIPPED_MINUTES, 1, 120, 15),
   minScore: clampInt(process.env.JAMDDMAJ_MIN_LIVE_SCORE, 8, 20, 14),
@@ -88,7 +89,7 @@ async function main() {
   let livePositions = [];
   if (settings.mode === "live") {
     validateLiveSecrets();
-    livePositions = await reconcileBitgetPositions(state);
+    livePositions = await reconcileBitgetPositions(state, policy);
   }
   const marketContext = await fetchMarketContext();
   const decisions = createDecisionSummary(signals, events);
@@ -106,14 +107,28 @@ async function main() {
   for (const signal of signals) {
     const decision = executableDecision(signal, state, policy, marketContext);
     if (decision.ok) {
-      executable.push(signal);
+      executable.push({
+        signal,
+        rank: rankExecutionSignal(signal, state, policy, marketContext, accountRisk),
+        reason: decision.reason
+      });
     } else {
       recordRejection(decisions, decision.reason, signal);
       console.log(`${LOG_PREFIX} reject ${signal?.pair || signal?.symbol || "unknown"} ${signal?.side || ""}: ${decision.reason}`);
     }
   }
   decisions.executableSignals = executable.length;
-  const candidates = executable.slice(0, Number(policy.maxNewOrdersPerRun) || settings.maxNewOrdersPerRun);
+  const rankedExecutable = sortRankedSignals(executable);
+  decisions.topRanked = rankedExecutable.slice(0, 5).map(({ signal, rank, reason }) => ({
+    pair: signal?.pair || signal?.symbol || "",
+    side: signal?.side || "",
+    score: Number(signal?.score || 0),
+    rank,
+    reason
+  }));
+  const candidates = rankedExecutable
+    .slice(0, Number(policy.maxNewOrdersPerRun) || settings.maxNewOrdersPerRun)
+    .map((item) => item.signal);
   state.lastDecisionSummary = decisions;
   if (settings.mode === "live" && isExitManagerEnabled(policy)) {
     await manageLiveExits(state, livePositions, events, policy);
@@ -152,14 +167,14 @@ async function main() {
   }
 
   const contracts = settings.mode === "live" ? await getContracts() : new Map();
+  let cycleOpenCount = settings.mode === "live"
+    ? livePositions.length
+    : state.orders.filter((order) => order.status === "OPEN" || order.status === "DRY_RUN").length;
   for (const signal of candidates) {
-    const openCount = settings.mode === "live"
-      ? livePositions.length
-      : state.orders.filter((order) => order.status === "OPEN" || order.status === "DRY_RUN").length;
     const maxOpenLimit = Number(policy.maxOpen) || settings.maxOpen;
-    if (openCount >= maxOpenLimit) {
-      console.log(`${LOG_PREFIX} max open reached (${openCount}/${maxOpenLimit}).`);
-      recordRejection(decisions, `max open reached (${openCount}/${maxOpenLimit})`, signal);
+    if (cycleOpenCount >= maxOpenLimit) {
+      console.log(`${LOG_PREFIX} max open reached (${cycleOpenCount}/${maxOpenLimit}).`);
+      recordRejection(decisions, `max open reached (${cycleOpenCount}/${maxOpenLimit})`, signal);
       break;
     }
     if (dailyRiskBlock(state, policy)) {
@@ -180,6 +195,7 @@ async function main() {
       state.orders.unshift(createStateOrder(signal, plan, "DRY_RUN"));
       state.lastDryRunSignal = compactOrder(state.orders[0]);
       state.lastAction = `dry-run ${signal.pair} ${signal.side}`;
+      cycleOpenCount += 1;
       console.log(`${LOG_PREFIX} dry-run ${signal.pair} ${signal.side} margin=$${plan.marginUsd} notional=$${plan.notionalUsd} size=${plan.size}`);
       continue;
     }
@@ -193,6 +209,7 @@ async function main() {
       state.lastLiveSignal = compactOrder(state.orders[0]);
       incrementDailyTrades(state);
       state.lastAction = `LIVE order sent ${signal.pair} ${signal.side}`;
+      cycleOpenCount += 1;
       console.log(`${LOG_PREFIX} LIVE order sent ${signal.pair} ${signal.side} clientOid=${plan.clientOid}`);
     } catch (error) {
       const reason = error?.message || String(error);
@@ -282,7 +299,7 @@ async function fetchExecutorTestSignal() {
 async function fetchMarketContext() {
   try {
     const response = await fetch(`${settings.appUrl}/api/pro-news`, {
-      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.37.29" }
+      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.37.30" }
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok || body?.error) return null;
@@ -379,6 +396,8 @@ function executableDecision(signal, state, policy = {}, marketContext = null) {
   if (!signal.id || !signal.pair || !signal.side) return { ok: false, reason: "missing id/pair/side" };
   const freshness = executionFreshnessDecision(signal, policy);
   if (!freshness.ok) return freshness;
+  const rejectionBlock = recentSymbolRejectionDecision(signal, state);
+  if (!rejectionBlock.ok) return rejectionBlock;
   const seenBlock = seenSignalBlockReason(state, signal);
   if (seenBlock) return { ok: false, reason: seenBlock };
   const gate = summarizeMarketGate(marketContext, policy);
@@ -397,9 +416,22 @@ function executableDecision(signal, state, policy = {}, marketContext = null) {
   if (!gateDecision.ok) return gateDecision;
   const weakDecision = weakPatternDecision(signal, state, policy);
   if (!weakDecision.ok) return weakDecision;
+  const categoryDecision = categoryLearningDecision(signal, state, policy);
+  if (!categoryDecision.ok) return categoryDecision;
   const timing = entryTimingDecision(signal, policy);
   if (!timing.ok) return timing;
   return { ok: true, reason: gate.riskOff ? "passed strict regime filters" : "passed executor filters" };
+}
+
+function recentSymbolRejectionDecision(signal, state) {
+  const symbol = bitgetSymbolForSignal(signal);
+  if (!symbol) return { ok: true, reason: "no symbol rejection history" };
+  const item = state.rejectedSymbols?.[symbol];
+  const blockedUntil = Date.parse(item?.blockedUntil || "");
+  if (Number.isFinite(blockedUntil) && blockedUntil > Date.now()) {
+    return { ok: false, reason: `recent Bitget rejection cooldown ${symbol}` };
+  }
+  return { ok: true, reason: "no recent Bitget rejection" };
 }
 function seenSignalBlockReason(state, signal) {
   const seen = state.seen?.[signal.id];
@@ -507,6 +539,16 @@ function signalLearningKey(signal = {}) {
   return symbol || String(signal.baseSymbol || signal.pair || signal.symbol || "unknown").replace(/[^A-Z0-9]/gi, "").toUpperCase();
 }
 
+function signalCategoryKey(signal = {}) {
+  const category = String(signal.category || signal.theme || "unknown")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "") || "unknown";
+  const side = String(signal.side || "ANY").toUpperCase();
+  return `${category}:${side}`;
+}
+
 function normalizeTraderProfile(value) {
   const profile = String(value || "balanced").trim().toLowerCase();
   return ["conservative", "balanced", "aggressive"].includes(profile) ? profile : "balanced";
@@ -559,10 +601,30 @@ function weakPatternDecision(signal, state, policy = {}) {
   return { ok: true, reason: "learned pattern passed" };
 }
 
+function categoryLearningDecision(signal, state, policy = {}) {
+  const profile = effectiveTraderProfile(policy);
+  const key = signalCategoryKey(signal);
+  const learning = state.categoryLearning?.[key];
+  if (!learning) return { ok: true, reason: "no category history" };
+  const weakUntil = Date.parse(learning.weakUntil || "");
+  if (Number.isFinite(weakUntil) && weakUntil > Date.now()) {
+    return { ok: false, reason: `weak learned category cooldown ${key}` };
+  }
+  const samples = Number(learning.samples || 0);
+  const winRate = Number(learning.winRate || 0);
+  const minSamples = Math.max(profile.weakMinSamples * 2, 8);
+  const weakRate = Math.max(20, profile.weakWinRateMin - 5);
+  if (samples >= minSamples && winRate > 0 && winRate < weakRate) {
+    learning.weakUntil = new Date(Date.now() + profile.cooldownHours * 3600000).toISOString();
+    return { ok: false, reason: `weak learned category ${key} ${winRate.toFixed(1)}%` };
+  }
+  return { ok: true, reason: "category learning passed" };
+}
+
 function learnFromOutcomeEvents(state, events, policy = {}) {
   state.symbolLearning = state.symbolLearning && typeof state.symbolLearning === "object" ? state.symbolLearning : {};
+  state.categoryLearning = state.categoryLearning && typeof state.categoryLearning === "object" ? state.categoryLearning : {};
   state.learnedEvents = state.learnedEvents && typeof state.learnedEvents === "object" ? state.learnedEvents : {};
-  const profile = effectiveTraderProfile(policy);
   for (const event of Array.isArray(events) ? events : []) {
     const signal = event?.signal || event || {};
     const outcome = outcomeFromEvent(event);
@@ -570,20 +632,111 @@ function learnFromOutcomeEvents(state, events, policy = {}) {
     const eventKey = String(event?.id || signal.id || `${signal.pair || signal.symbol}:${event?.type || ""}:${event?.closedAt || event?.createdAt || ""}`).slice(0, 180);
     if (!eventKey || state.learnedEvents[eventKey]) continue;
     state.learnedEvents[eventKey] = new Date().toISOString();
-    const key = signalLearningKey(signal);
-    const item = state.symbolLearning[key] || { symbol: key, wins: 0, losses: 0, samples: 0, winRate: 0 };
-    if (outcome === "win") item.wins += 1;
-    if (outcome === "loss") item.losses += 1;
-    item.samples = item.wins + item.losses;
-    item.winRate = item.samples ? (item.wins / item.samples) * 100 : 0;
-    item.lastOutcome = outcome;
-    item.lastOutcomeAt = new Date().toISOString();
-    if (item.samples >= profile.weakMinSamples && item.winRate < profile.weakWinRateMin) {
-      item.weakUntil = new Date(Date.now() + profile.cooldownHours * 3600000).toISOString();
-    }
-    state.symbolLearning[key] = item;
+    learnFromSignalOutcome(state, signal, outcome, policy, "server-event");
   }
   pruneLearningState(state);
+}
+
+function learnFromSignalOutcome(state, signal, outcome, policy = {}, source = "executor") {
+  if (!["win", "loss"].includes(outcome)) return;
+  state.symbolLearning = state.symbolLearning && typeof state.symbolLearning === "object" ? state.symbolLearning : {};
+  state.categoryLearning = state.categoryLearning && typeof state.categoryLearning === "object" ? state.categoryLearning : {};
+  const profile = effectiveTraderProfile(policy);
+  const symbolKey = signalLearningKey(signal);
+  const categoryKey = signalCategoryKey(signal);
+  updateLearningBucket(state.symbolLearning, symbolKey, { symbol: symbolKey }, outcome, profile, source);
+  updateLearningBucket(state.categoryLearning, categoryKey, { category: categoryKey }, outcome, profile, source, Math.max(profile.weakMinSamples * 2, 8), Math.max(20, profile.weakWinRateMin - 5));
+}
+
+function updateLearningBucket(store, key, base, outcome, profile, source, minSamples = profile.weakMinSamples, weakWinRateMin = profile.weakWinRateMin) {
+  if (!key) return;
+  const item = store[key] || { ...base, wins: 0, losses: 0, samples: 0, winRate: 0 };
+  if (outcome === "win") item.wins = Number(item.wins || 0) + 1;
+  if (outcome === "loss") item.losses = Number(item.losses || 0) + 1;
+  item.samples = Number(item.wins || 0) + Number(item.losses || 0);
+  item.winRate = item.samples ? (Number(item.wins || 0) / item.samples) * 100 : 0;
+  item.lastOutcome = outcome;
+  item.lastSource = source;
+  item.lastOutcomeAt = new Date().toISOString();
+  if (item.samples >= minSamples && item.winRate < weakWinRateMin) {
+    item.weakUntil = new Date(Date.now() + profile.cooldownHours * 3600000).toISOString();
+  }
+  store[key] = item;
+}
+
+function rankExecutionSignal(signal, state, policy = {}, marketContext = null, accountRisk = null) {
+  const profile = effectiveTraderProfile(policy);
+  const gate = summarizeMarketGate(marketContext, policy);
+  let rank = Number(signal.score || 0);
+  if (signal.manualTest === true) rank += 50;
+  rank += liquidityRankBonus(signal);
+  rank += marketAlignmentRank(signal, gate);
+  rank += learningRankBonus(state.symbolLearning?.[signalLearningKey(signal)]);
+  rank += learningRankBonus(state.categoryLearning?.[signalCategoryKey(signal)]) * 0.65;
+  rank -= entryDriftRankPenalty(signal, profile);
+  rank -= spreadRankPenalty(signal);
+  rank -= recentRejectionRankPenalty(signal, state);
+  if (accountRisk?.enabled && Number(accountRisk.marginCapUsd || 0) > 0) rank += 0.25;
+  return Number(rank.toFixed(2));
+}
+
+function sortRankedSignals(items = []) {
+  return [...items].sort((a, b) => (
+    Number(b.rank || 0) - Number(a.rank || 0)
+    || Number(b.signal?.score || 0) - Number(a.signal?.score || 0)
+    || String(b.signal?.createdAt || "").localeCompare(String(a.signal?.createdAt || ""))
+  ));
+}
+
+function liquidityRankBonus(signal = {}) {
+  const liquidity = Number(signal.quoteVolume || signal.liquidityUsd || signal.liquidity24h || 0);
+  if (!Number.isFinite(liquidity) || liquidity <= 0) return -0.4;
+  return Math.min(2.5, Math.max(0, Math.log10(liquidity / 1_000_000 + 1)));
+}
+
+function marketAlignmentRank(signal = {}, gate = {}) {
+  const side = String(signal.side || "").toUpperCase();
+  const base = signalLearningKey(signal);
+  const core = ["BTC", "ETH", "SOL", "BNB"].includes(base);
+  if (gate?.riskOff) {
+    if (side === "SHORT") return core ? 0.8 : 0.45;
+    return core ? 0.1 : -1.25;
+  }
+  if (/btc-led|risk-on/i.test(String(gate?.regime || "")) && side === "LONG") return core ? 0.75 : 0.35;
+  return 0;
+}
+
+function learningRankBonus(item = null) {
+  if (!item || !Number(item.samples || 0)) return 0;
+  const samples = Math.min(20, Number(item.samples || 0));
+  const winRate = Number(item.winRate || 0);
+  const centered = (winRate - 50) / 25;
+  return Math.max(-2.5, Math.min(2.5, centered * Math.log2(samples + 1)));
+}
+
+function entryDriftRankPenalty(signal = {}, profile = {}) {
+  const entry = Number(signal.entry);
+  const current = firstFiniteNumber(signal.currentPrice, signal.lastPrice, signal.markPrice, signal.entry);
+  if (!Number.isFinite(entry) || entry <= 0 || !Number.isFinite(current) || current <= 0) return 0.2;
+  const side = String(signal.side || "").toUpperCase();
+  const drift = side === "SHORT" ? ((entry - current) / entry) * 100 : ((current - entry) / entry) * 100;
+  if (drift <= 0) return 0;
+  const maxDrift = Number(profile.maxEntryDriftPercent || 1.2);
+  return Math.max(0, (drift / Math.max(0.1, maxDrift)) * 1.4);
+}
+
+function spreadRankPenalty(signal = {}) {
+  const spread = Number(signal.spreadPercent || signal.spread || 0);
+  if (!Number.isFinite(spread) || spread <= 0) return 0;
+  return Math.min(2, spread * 18);
+}
+
+function recentRejectionRankPenalty(signal = {}, state = {}) {
+  const symbol = bitgetSymbolForSignal(signal);
+  const item = symbol ? state.rejectedSymbols?.[symbol] : null;
+  if (!item) return 0;
+  const attempts = Number(item.attempts || 0);
+  return Math.min(4, attempts * 0.75);
 }
 
 function outcomeFromEvent(event = {}) {
@@ -598,6 +751,21 @@ function pruneLearningState(state) {
   state.learnedEvents = Object.fromEntries(learnedEntries.slice(0, 500));
   const learningEntries = Object.entries(state.symbolLearning || {}).sort((a, b) => String(b[1]?.lastOutcomeAt || "").localeCompare(String(a[1]?.lastOutcomeAt || "")));
   state.symbolLearning = Object.fromEntries(learningEntries.slice(0, 120));
+  const categoryEntries = Object.entries(state.categoryLearning || {}).sort((a, b) => String(b[1]?.lastOutcomeAt || "").localeCompare(String(a[1]?.lastOutcomeAt || "")));
+  state.categoryLearning = Object.fromEntries(categoryEntries.slice(0, 80));
+}
+
+function pruneRejectedSymbols(state) {
+  const now = Date.now();
+  const entries = Object.entries(state.rejectedSymbols || {})
+    .filter(([, item]) => {
+      const rejectedAt = Date.parse(item?.lastRejectedAt || "");
+      const blockedUntil = Date.parse(item?.blockedUntil || "");
+      if (Number.isFinite(blockedUntil) && blockedUntil > now) return true;
+      return Number.isFinite(rejectedAt) && now - rejectedAt < 6 * 3600000;
+    })
+    .sort((a, b) => String(b[1]?.lastRejectedAt || "").localeCompare(String(a[1]?.lastRejectedAt || "")));
+  state.rejectedSymbols = Object.fromEntries(entries.slice(0, 80));
 }
 
 async function getContracts() {
@@ -734,7 +902,7 @@ function firstFiniteNumber(...values) {
   return NaN;
 }
 
-async function reconcileBitgetPositions(state) {
+async function reconcileBitgetPositions(state, policy = {}) {
   const result = await bitgetRequest("GET", `/api/v2/mix/position/all-position?productType=${encodeURIComponent(settings.productType)}&marginCoin=${encodeURIComponent(settings.marginCoin)}`);
   if (result?.code && result.code !== "00000") {
     throw new Error(`Bitget positions rejected: ${result?.msg || result.code}`);
@@ -748,6 +916,8 @@ async function reconcileBitgetPositions(state) {
     if (!liveSymbols.has(order.symbol)) {
       order.status = "CLOSED_UNKNOWN";
       order.closedAt = new Date().toISOString();
+      const inferredOutcome = inferClosedOrderOutcome(order, policy);
+      if (inferredOutcome) learnFromSignalOutcome(state, order, inferredOutcome, policy, "bitget-position-sync");
       if (order.id) delete state.seen[order.id];
     }
   }
@@ -815,6 +985,10 @@ function createStateOrder(signal, plan, status, response = null) {
     status,
     source: signal.manualTest ? "manual-test" : (signal.executorSource || "scan"),
     manualTest: signal.manualTest === true,
+    category: signal.category || "",
+    score: Number(signal.score || 0),
+    rawScore: Number(signal.rawScore || signal.score || 0),
+    quoteVolume: Number(signal.quoteVolume || signal.liquidityUsd || signal.liquidity24h || 0),
     clientOid: plan.clientOid,
     marginUsd: plan.marginUsd,
     leverage: plan.leverage,
@@ -982,6 +1156,17 @@ function positionRoe(position, order) {
   return margin > 0 ? (pnl / margin) * 100 : NaN;
 }
 
+function inferClosedOrderOutcome(order = {}, policy = {}) {
+  const exit = effectiveExitSettings(policy);
+  const currentRoe = Number(order.currentRoe || 0);
+  const maxRoe = Number(order.maxRoe || 0);
+  if (order.protectionActive === true || maxRoe >= Number(exit.protectionTriggerRoe || settings.exitProtectionTriggerRoe)) return "win";
+  if (Number.isFinite(currentRoe) && currentRoe <= -1) return "loss";
+  if (/WIN|TP/i.test(String(order.status || order.exitReason || ""))) return "win";
+  if (/LOSS|SL|INVALID/i.test(String(order.status || order.exitReason || ""))) return "loss";
+  return "";
+}
+
 function eventMatchesOrder(event, order) {
   const signal = event?.signal || {};
   const eventId = String(signal.id || "");
@@ -1013,6 +1198,26 @@ function rememberSkip(state, signal, reason) {
     return;
   }
   state.seen[signal.id] = { skippedAt: new Date().toISOString(), reason };
+  rememberSymbolRejection(state, signal, reason);
+}
+
+function rememberSymbolRejection(state, signal, reason = "") {
+  if (!isCoolingRejection(reason)) return;
+  const symbol = bitgetSymbolForSignal(signal);
+  if (!symbol) return;
+  state.rejectedSymbols = state.rejectedSymbols && typeof state.rejectedSymbols === "object" ? state.rejectedSymbols : {};
+  const current = state.rejectedSymbols[symbol] || { symbol, attempts: 0 };
+  current.attempts = Number(current.attempts || 0) + 1;
+  current.lastReason = String(reason || "").slice(0, 180);
+  current.lastRejectedAt = new Date().toISOString();
+  if (current.attempts >= 2 || /bitget rejected|take profit price|should be|does not exist|price you enter/i.test(String(reason))) {
+    current.blockedUntil = new Date(Date.now() + settings.rejectedSymbolCooldownMinutes * 60000).toISOString();
+  }
+  state.rejectedSymbols[symbol] = current;
+}
+
+function isCoolingRejection(reason = "") {
+  return /bitget rejected|take profit price|price you enter|does not exist|contract not found|calculated size|size below/i.test(String(reason || ""));
 }
 
 function isDuplicateClientOidReason(reason = "") {
@@ -1027,7 +1232,10 @@ function pruneState(state) {
   }
   state.daily = normalizeDailyState(state.daily);
   state.symbolLearning = state.symbolLearning && typeof state.symbolLearning === "object" ? state.symbolLearning : {};
+  state.categoryLearning = state.categoryLearning && typeof state.categoryLearning === "object" ? state.categoryLearning : {};
   state.learnedEvents = state.learnedEvents && typeof state.learnedEvents === "object" ? state.learnedEvents : {};
+  state.rejectedSymbols = state.rejectedSymbols && typeof state.rejectedSymbols === "object" ? state.rejectedSymbols : {};
+  pruneRejectedSymbols(state);
   pruneLearningState(state);
   for (const order of state.orders) {
     if (order?.id) state.seen[order.id] = state.seen[order.id] || { orderedAt: order.createdAt || new Date().toISOString() };
@@ -1035,7 +1243,7 @@ function pruneState(state) {
 }
 
 function createExecutorState() {
-  return { version: 4, updatedAt: null, seen: {}, orders: [], daily: normalizeDailyState({}), symbolLearning: {}, learnedEvents: {}, lastDecisionSummary: createDecisionSummary([], []) };
+  return { version: 5, updatedAt: null, seen: {}, orders: [], daily: normalizeDailyState({}), symbolLearning: {}, categoryLearning: {}, rejectedSymbols: {}, learnedEvents: {}, lastDecisionSummary: createDecisionSummary([], []) };
 }
 
 async function reportExecutorStatus(payload) {
@@ -1078,6 +1286,8 @@ function statusPayload(state, overrides = {}) {
     },
         decisions: state.lastDecisionSummary || createDecisionSummary([], []),
     symbolLearning: compactSymbolLearning(state.symbolLearning),
+    categoryLearning: compactCategoryLearning(state.categoryLearning),
+    rejectedSymbols: compactRejectedSymbols(state.rejectedSymbols),
     marketGate: state.lastMarketGate || summarizeMarketGate(null, {}),
     recentOrders: state.orders.slice(0, 8).map(compactOrder),
     remotePositions: Array.isArray(state.remotePositions) ? state.remotePositions.slice(0, 8) : [],
@@ -1107,7 +1317,8 @@ function createDecisionSummary(signals, events) {
     recentOpenSignals: 0,
     manualTestSignals: 0,
     totalEvents: Array.isArray(events) ? events.length : 0,
-        executableSignals: 0,
+    executableSignals: 0,
+    topRanked: [],
     marketGate: summarizeMarketGate(null, {}),
     rejected: {},
     examples: [],
@@ -1124,6 +1335,30 @@ function compactSymbolLearning(value = {}) {
       samples: Number(item.samples || 0),
       winRate: Number(item.winRate || 0),
       weakUntil: item.weakUntil || null
+    }));
+}
+
+function compactCategoryLearning(value = {}) {
+  return Object.values(value || {})
+    .sort((a, b) => Number(b.samples || 0) - Number(a.samples || 0))
+    .slice(0, 8)
+    .map((item) => ({
+      category: item.category || "",
+      samples: Number(item.samples || 0),
+      winRate: Number(item.winRate || 0),
+      weakUntil: item.weakUntil || null
+    }));
+}
+
+function compactRejectedSymbols(value = {}) {
+  return Object.values(value || {})
+    .sort((a, b) => String(b.lastRejectedAt || "").localeCompare(String(a.lastRejectedAt || "")))
+    .slice(0, 8)
+    .map((item) => ({
+      symbol: item.symbol || "",
+      attempts: Number(item.attempts || 0),
+      lastReason: item.lastReason || "",
+      blockedUntil: item.blockedUntil || null
     }));
 }
 
