@@ -275,7 +275,7 @@ async function fetchExecutorTestSignal() {
 async function fetchMarketContext() {
   try {
     const response = await fetch(`${settings.appUrl}/api/pro-news`, {
-      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.37.24" }
+      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.37.25" }
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok || body?.error) return null;
@@ -764,7 +764,7 @@ async function manageLiveExits(state, positions, events = [], policy = {}) {
           console.warn(`${LOG_PREFIX} ${state.lastExitAction}`);
         }
       }
-      if (order.protectionActive && order.currentRoe <= exit.protectionLockRoe) {
+      if (order.protectionActive && order.currentRoe > 0 && order.currentRoe <= exit.protectionLockRoe) {
         try {
           await closeLivePosition(order, "protected ROE lock", position);
           state.lastExitAction = `exit manager closed ${order.pair || order.symbol}: protected ROE lock`;
@@ -775,6 +775,12 @@ async function manageLiveExits(state, positions, events = [], policy = {}) {
           console.warn(`${LOG_PREFIX} ${state.lastExitAction}`);
         }
         continue;
+      }
+      if (order.protectionActive && order.currentRoe <= 0 && order.lastNegativeProtectionSkipRoe !== order.currentRoe) {
+        order.lastNegativeProtectionSkipRoe = order.currentRoe;
+        state.lastExitAction = `exit manager skipped negative protected-lock close ${order.pair || order.symbol}: ${order.currentRoe}% ROE`;
+        state.lastAction = state.lastExitAction;
+        console.warn(`${LOG_PREFIX} ${state.lastExitAction}`);
       }
     }
     const event = exitEvents.find((item) => eventMatchesOrder(item, order));
