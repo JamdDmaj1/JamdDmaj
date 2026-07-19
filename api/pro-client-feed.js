@@ -36,6 +36,10 @@ export default async function handler(request) {
         minScore: Number(state.config?.minLiveScore || 10),
         strictRegimeMinScore: Number(state.config?.strictRegimeMinScore || state.config?.minLiveScore || 10),
         minLiquidityUsd: Number(state.config?.minLiveLiquidityUsd || 0),
+        traderProfile: normalizeTraderProfile(state.config?.traderProfile),
+        maxEntryDriftPercent: Number(state.config?.maxEntryDriftPercent || 1.2),
+        weakPatternCooldownHours: Number(state.config?.weakPatternCooldownHours || 12),
+        learningMinSamples: Number(state.config?.learningMinSamples || 5),
         allowMemeLive: state.config?.allowMemeLive !== false,
         defensiveMaxLeverage: Number(state.config?.defensiveMaxLeverage || 10),
         defensiveMaxMarginUsd: Number(state.config?.defensiveMaxMarginUsd || 10),
@@ -58,6 +62,11 @@ export default async function handler(request) {
       error: { message: error?.message || "Client connector feed unavailable." }
     }, 500);
   }
+}
+
+function normalizeTraderProfile(value) {
+  const profile = String(value || "balanced").trim().toLowerCase();
+  return ["conservative", "balanced", "aggressive"].includes(profile) ? profile : "balanced";
 }
 
 function safeSignal(signal = {}) {

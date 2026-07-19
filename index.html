@@ -3348,6 +3348,16 @@
               <label><span id="bitgetStrictScoreLabel">Risk-off min score</span>
                 <input id="bitgetStrictScoreInput" type="number" min="8" max="20" step="1" value="10">
               </label>
+              <label><span id="bitgetTraderProfileLabel">Trader profile</span>
+                <select id="bitgetTraderProfileSelect">
+                  <option value="balanced" selected>Balanced</option>
+                  <option value="conservative">Conservative</option>
+                  <option value="aggressive">Aggressive</option>
+                </select>
+              </label>
+              <label><span id="bitgetMaxDriftLabel">Max late entry move (%)</span>
+                <input id="bitgetMaxDriftInput" type="number" min="0.1" max="50" step="0.1" value="1.2">
+              </label>
               <label><span id="bitgetAllowMemeLabel">Meme/unknown-cap live</span>
                 <select id="bitgetAllowMemeSelect">
                   <option value="true" selected>Allow</option>
@@ -3811,7 +3821,7 @@
             <button class="pill-btn" id="checkUpdatesBtn" type="button">Check for updates</button>
             <button class="pill-btn is-hidden" id="downloadUpdateBtn" type="button">Download APK</button>
           </div>
-          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.28</div>
+          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.29</div>
         </section>
       </div>
       <div class="dialog-actions">
@@ -3936,7 +3946,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.37.28";
+      const APP_VERSION = "1.37.29";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -7018,6 +7028,10 @@
               minLiveScore: Number(document.getElementById("bitgetMinScoreInput")?.value) || 10,
               strictRegimeMinScore: Number(document.getElementById("bitgetStrictScoreInput")?.value) || 10,
               minLiveLiquidityUsd: 0,
+              traderProfile: document.getElementById("bitgetTraderProfileSelect")?.value || "balanced",
+              maxEntryDriftPercent: Number(document.getElementById("bitgetMaxDriftInput")?.value) || 1.2,
+              weakPatternCooldownHours: 12,
+              learningMinSamples: 5,
               allowMemeLive: document.getElementById("bitgetAllowMemeSelect")?.value !== "false",
               defensiveMaxLeverage: 10,
               defensiveMaxMarginUsd: Number(document.getElementById("bitgetFixedMarginInput")?.value) || 10,
@@ -7134,7 +7148,11 @@
           "JAMDDMAJ_MAX_TRADES_PER_DAY=100",
           "JAMDDMAJ_LIVE_RISK_BALANCE_USD=1000",
           "JAMDDMAJ_RECENT_OPEN_MINUTES=120",
-          "JAMDDMAJ_MAX_EXECUTION_SIGNAL_AGE_MINUTES=30",
+          "JAMDDMAJ_MAX_EXECUTION_SIGNAL_AGE_MINUTES=5",
+          "JAMDDMAJ_TRADER_PROFILE=balanced",
+          "JAMDDMAJ_MAX_ENTRY_DRIFT_PERCENT=1.2",
+          "JAMDDMAJ_WEAK_PATTERN_COOLDOWN_HOURS=12",
+          "JAMDDMAJ_LEARNING_MIN_SAMPLES=5",
           ""
         ].join("\n");
       }
@@ -7277,6 +7295,8 @@
         document.getElementById("bitgetMaxMarginInput").value = String(state.config?.maxLiveMarginUsd || 35);
         document.getElementById("bitgetMinScoreInput").value = String(state.config?.minLiveScore || 10);
         document.getElementById("bitgetStrictScoreInput").value = String(state.config?.strictRegimeMinScore || 10);
+        document.getElementById("bitgetTraderProfileSelect").value = state.config?.traderProfile || "balanced";
+        document.getElementById("bitgetMaxDriftInput").value = String(state.config?.maxEntryDriftPercent || 1.2);
         document.getElementById("bitgetAllowMemeSelect").value = state.config?.allowMemeLive === false ? "false" : "true";
         document.getElementById("bitgetExitManagerSelect").value = state.config?.exitManager === false ? "false" : "true";
         document.getElementById("maxDailyLossUsdLabel").textContent = spanish ? "Perdida diaria max. (USD)" : "Max daily loss (USD)";
@@ -7289,6 +7309,8 @@
         document.getElementById("bitgetMaxMarginLabel").textContent = spanish ? "Margen max. Bitget (USD)" : "Max Bitget margin (USD)";
         document.getElementById("bitgetMinScoreLabel").textContent = spanish ? "Score minimo Bitget" : "Min Bitget score";
         document.getElementById("bitgetStrictScoreLabel").textContent = spanish ? "Score min. risk-off" : "Risk-off min score";
+        document.getElementById("bitgetTraderProfileLabel").textContent = spanish ? "Perfil trader" : "Trader profile";
+        document.getElementById("bitgetMaxDriftLabel").textContent = spanish ? "Entrada tardia max. (%)" : "Max late entry move (%)";
         document.getElementById("bitgetAllowMemeLabel").textContent = spanish ? "Meme/cap desconocida en live" : "Meme/unknown-cap live";
         document.getElementById("bitgetExitManagerLabel").textContent = spanish ? "Proteccion automatica" : "Auto protect exits";
         const pauseButton = document.getElementById("pauseLiveExecutorBtn");
@@ -7341,6 +7363,9 @@
         rows.push([spanish ? "Diagnostico" : "Diagnosis", describeExecutorDiagnosis(executor, decisions, spanish)]);
         if (executor.bitgetSynced) rows.push([spanish ? "Bitget real" : "Real Bitget", String(openDetected) + " " + (spanish ? "abiertas detectadas" : "open detected") + (maxOpen ? " / max " + maxOpen : "")]);
         if (configuredMaxOpen && maxOpen && configuredMaxOpen !== maxOpen) rows.push([spanish ? "Limite efectivo" : "Effective limit", (spanish ? "App " : "App ") + configuredMaxOpen + " -> VPS " + maxOpen]);
+        if (effectivePolicy.traderProfile || effectivePolicy.maxEntryDriftPercent) {
+          rows.push([spanish ? "Autopiloto" : "Autopilot", String(effectivePolicy.traderProfile || "balanced") + " | " + (spanish ? "entrada tardia max. " : "max late entry ") + Number(effectivePolicy.maxEntryDriftPercent || 0).toFixed(1) + "%"]);
+        }
         if (executor.clientConnector) rows.push([spanish ? "Conector cliente" : "Client connector", spanish ? "Activo sin guardar claves en JamdDmaj Cloud" : "Active without storing keys in JamdDmaj Cloud"]);
         const gate = executor.marketGate || decisions.marketGate || {};
         const learning = learningState.summary || learningState || {};
@@ -7351,6 +7376,8 @@
         }
         const cooldown = Array.isArray(learning.cooldown) ? learning.cooldown[0] : null;
         if (cooldown) rows.push([spanish ? "Cooldown automatico" : "Auto cooldown", cooldown.key + " - " + Number(cooldown.winRate || 0).toFixed(1) + "% - " + Number(cooldown.recentLosses || 0) + " recientes"]);
+        const weakSymbol = Array.isArray(executor.symbolLearning) ? executor.symbolLearning.find((item) => item?.weakUntil) : null;
+        if (weakSymbol) rows.push([spanish ? "Aprendizaje VPS" : "VPS learning", weakSymbol.symbol + " - WR " + Number(weakSymbol.winRate || 0).toFixed(1) + "% / " + Number(weakSymbol.samples || 0) + " muestras"]);
         if (executorTest?.signal) {
           const expires = executorTest.expiresAt ? new Date(executorTest.expiresAt).toLocaleTimeString() : "";
           rows.push([spanish ? "Prueba Bitget" : "Bitget test", (executorTest.signal.pair || executorTest.signal.symbol) + " " + (executorTest.signal.side || "") + " - USD " + Number(executorTest.signal.plannedUsd || 0).toFixed(2) + " - " + (spanish ? "pendiente VPS" : "pending VPS") + (expires ? " - " + expires : "")]);
@@ -11929,7 +11956,7 @@
         updateTelegramAlertsUi();
         syncProServerConfig();
       });
-      ["proPlannedUsdInput", "proLeverageSelect", "proTriggerRoeInput", "proLockRoeInput", "paperStartingBalanceInput", "paperRiskPercentInput", "paperLeverageSelect", "maxDailyLossUsdInput", "maxDailyLossPercentInput", "maxConsecutiveLossesInput", "maxTradesPerDayInput", "bitgetMaxOpenInput", "bitgetOrdersPerRunInput", "bitgetFixedMarginInput", "bitgetMaxMarginInput", "bitgetMinScoreInput", "bitgetStrictScoreInput", "bitgetAllowMemeSelect", "bitgetExitManagerSelect"].forEach((id) => {
+      ["proPlannedUsdInput", "proLeverageSelect", "proTriggerRoeInput", "proLockRoeInput", "paperStartingBalanceInput", "paperRiskPercentInput", "paperLeverageSelect", "maxDailyLossUsdInput", "maxDailyLossPercentInput", "maxConsecutiveLossesInput", "maxTradesPerDayInput", "bitgetMaxOpenInput", "bitgetOrdersPerRunInput", "bitgetFixedMarginInput", "bitgetMaxMarginInput", "bitgetMinScoreInput", "bitgetStrictScoreInput", "bitgetTraderProfileSelect", "bitgetMaxDriftInput", "bitgetAllowMemeSelect", "bitgetExitManagerSelect"].forEach((id) => {
         document.getElementById(id).addEventListener("change", syncProServerConfig);
       });
       document.getElementById("pauseLiveExecutorBtn").addEventListener("click", toggleLiveExecutorPause);

@@ -38,6 +38,10 @@ const settings = {
   autoRiskReservePercent: clampNumber(process.env.JAMDDMAJ_AUTO_RISK_RESERVE_PERCENT, 0, 80, 20),
   recentOpenMinutes: clampInt(process.env.JAMDDMAJ_RECENT_OPEN_MINUTES, 1, 120, 20),
   maxExecutionSignalAgeMinutes: clampInt(process.env.JAMDDMAJ_MAX_EXECUTION_SIGNAL_AGE_MINUTES, 5, 240, 30),
+  traderProfile: normalizeTraderProfile(process.env.JAMDDMAJ_TRADER_PROFILE),
+  maxEntryDriftPercent: optionalPositiveNumber(process.env.JAMDDMAJ_MAX_ENTRY_DRIFT_PERCENT, 50),
+  weakPatternCooldownHours: clampNumber(process.env.JAMDDMAJ_WEAK_PATTERN_COOLDOWN_HOURS, 1, 168, 12),
+  learningMinSamples: clampInt(process.env.JAMDDMAJ_LEARNING_MIN_SAMPLES, 3, 100, 5),
   manualTestMaxAgeMinutes: clampInt(process.env.JAMDDMAJ_MANUAL_TEST_MAX_AGE_MINUTES, 1, 30, 10),
   retrySkippedMinutes: clampInt(process.env.JAMDDMAJ_RETRY_SKIPPED_MINUTES, 1, 120, 15),
   minScore: clampInt(process.env.JAMDDMAJ_MIN_LIVE_SCORE, 8, 20, 14),
@@ -92,6 +96,8 @@ async function main() {
   decisions.manualTestSignals = manualSignals.length;
   decisions.recentOpenSignals = recentOpen.length;
   decisions.marketGate = summarizeMarketGate(marketContext, policy);
+  decisions.traderProfile = effectiveTraderProfile(policy);
+  learnFromOutcomeEvents(state, events, policy);
   state.lastMarketGate = decisions.marketGate;
 
   console.log(`${LOG_PREFIX} scan ok. manualTest=${manualSignals.length} newSignals=${newSignals.length} recentOpen=${recentOpen.length} totalSignals=${signals.length} events=${events.length} mode=${settings.mode} maxOpen=${policy.maxOpen} perRun=${policy.maxNewOrdersPerRun}`);
@@ -276,7 +282,7 @@ async function fetchExecutorTestSignal() {
 async function fetchMarketContext() {
   try {
     const response = await fetch(`${settings.appUrl}/api/pro-news`, {
-      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.37.28" }
+      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.37.29" }
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok || body?.error) return null;
@@ -389,6 +395,10 @@ function executableDecision(signal, state, policy = {}, marketContext = null) {
   if (!["LONG", "SHORT"].includes(String(signal.side).toUpperCase())) return { ok: false, reason: "invalid side" };
   const gateDecision = marketGateDecision(signal, gate);
   if (!gateDecision.ok) return gateDecision;
+  const weakDecision = weakPatternDecision(signal, state, policy);
+  if (!weakDecision.ok) return weakDecision;
+  const timing = entryTimingDecision(signal, policy);
+  if (!timing.ok) return timing;
   return { ok: true, reason: gate.riskOff ? "passed strict regime filters" : "passed executor filters" };
 }
 function seenSignalBlockReason(state, signal) {
@@ -490,6 +500,104 @@ function makeClientOid(signal = {}) {
   const stamp = Date.now().toString(36);
   const random = crypto.randomBytes(3).toString("hex");
   return `jamd-${base}-${stamp}-${random}`.slice(0, 60);
+}
+
+function signalLearningKey(signal = {}) {
+  const symbol = bitgetSymbolForSignal(signal).replace(/USDT$/i, "");
+  return symbol || String(signal.baseSymbol || signal.pair || signal.symbol || "unknown").replace(/[^A-Z0-9]/gi, "").toUpperCase();
+}
+
+function normalizeTraderProfile(value) {
+  const profile = String(value || "balanced").trim().toLowerCase();
+  return ["conservative", "balanced", "aggressive"].includes(profile) ? profile : "balanced";
+}
+
+function effectiveTraderProfile(policy = {}) {
+  const name = normalizeTraderProfile(policy?.traderProfile || settings.traderProfile);
+  const presets = {
+    conservative: { name, label: "conservative", maxEntryDriftPercent: 0.7, weakWinRateMin: 48, weakMinSamples: 5, cooldownHours: 18 },
+    balanced: { name, label: "balanced", maxEntryDriftPercent: 1.2, weakWinRateMin: 42, weakMinSamples: 5, cooldownHours: 12 },
+    aggressive: { name, label: "aggressive", maxEntryDriftPercent: 2.0, weakWinRateMin: 35, weakMinSamples: 4, cooldownHours: 6 }
+  };
+  const preset = presets[name] || presets.balanced;
+  return {
+    ...preset,
+    maxEntryDriftPercent: optionalPositiveNumber(policy?.maxEntryDriftPercent, 50, settings.maxEntryDriftPercent ?? preset.maxEntryDriftPercent) || preset.maxEntryDriftPercent,
+    weakMinSamples: clampInt(policy?.learningMinSamples, 3, 100, settings.learningMinSamples || preset.weakMinSamples),
+    cooldownHours: clampNumber(policy?.weakPatternCooldownHours, 1, 168, settings.weakPatternCooldownHours || preset.cooldownHours)
+  };
+}
+
+function entryTimingDecision(signal, policy = {}) {
+  const profile = effectiveTraderProfile(policy);
+  const entry = Number(signal.entry);
+  const current = firstFiniteNumber(signal.currentPrice, signal.lastPrice, signal.markPrice, signal.entry);
+  if (!Number.isFinite(entry) || entry <= 0 || !Number.isFinite(current) || current <= 0) return { ok: true, reason: "entry timing unknown" };
+  const side = String(signal.side || "").toUpperCase();
+  const drift = side === "SHORT" ? ((entry - current) / entry) * 100 : ((current - entry) / entry) * 100;
+  if (drift > profile.maxEntryDriftPercent) {
+    return { ok: false, reason: `entry drift ${drift.toFixed(2)}% > ${profile.maxEntryDriftPercent}%` };
+  }
+  return { ok: true, reason: `entry drift ${drift.toFixed(2)}%` };
+}
+
+function weakPatternDecision(signal, state, policy = {}) {
+  const profile = effectiveTraderProfile(policy);
+  const key = signalLearningKey(signal);
+  const learning = state.symbolLearning?.[key];
+  if (!learning) return { ok: true, reason: "no weak-pattern history" };
+  const weakUntil = Date.parse(learning.weakUntil || "");
+  if (Number.isFinite(weakUntil) && weakUntil > Date.now()) {
+    return { ok: false, reason: `weak learned pattern cooldown ${key}` };
+  }
+  const samples = Number(learning.samples || 0);
+  const winRate = Number(learning.winRate || 0);
+  if (samples >= profile.weakMinSamples && winRate > 0 && winRate < profile.weakWinRateMin) {
+    learning.weakUntil = new Date(Date.now() + profile.cooldownHours * 3600000).toISOString();
+    return { ok: false, reason: `weak learned pattern ${key} ${winRate.toFixed(1)}%` };
+  }
+  return { ok: true, reason: "learned pattern passed" };
+}
+
+function learnFromOutcomeEvents(state, events, policy = {}) {
+  state.symbolLearning = state.symbolLearning && typeof state.symbolLearning === "object" ? state.symbolLearning : {};
+  state.learnedEvents = state.learnedEvents && typeof state.learnedEvents === "object" ? state.learnedEvents : {};
+  const profile = effectiveTraderProfile(policy);
+  for (const event of Array.isArray(events) ? events : []) {
+    const signal = event?.signal || event || {};
+    const outcome = outcomeFromEvent(event);
+    if (!outcome) continue;
+    const eventKey = String(event?.id || signal.id || `${signal.pair || signal.symbol}:${event?.type || ""}:${event?.closedAt || event?.createdAt || ""}`).slice(0, 180);
+    if (!eventKey || state.learnedEvents[eventKey]) continue;
+    state.learnedEvents[eventKey] = new Date().toISOString();
+    const key = signalLearningKey(signal);
+    const item = state.symbolLearning[key] || { symbol: key, wins: 0, losses: 0, samples: 0, winRate: 0 };
+    if (outcome === "win") item.wins += 1;
+    if (outcome === "loss") item.losses += 1;
+    item.samples = item.wins + item.losses;
+    item.winRate = item.samples ? (item.wins / item.samples) * 100 : 0;
+    item.lastOutcome = outcome;
+    item.lastOutcomeAt = new Date().toISOString();
+    if (item.samples >= profile.weakMinSamples && item.winRate < profile.weakWinRateMin) {
+      item.weakUntil = new Date(Date.now() + profile.cooldownHours * 3600000).toISOString();
+    }
+    state.symbolLearning[key] = item;
+  }
+  pruneLearningState(state);
+}
+
+function outcomeFromEvent(event = {}) {
+  const type = String(event.type || event.status || event.outcome || "").toUpperCase();
+  if (/(PROTECTED_WIN|TP|WIN)/.test(type)) return "win";
+  if (/(INVALIDATED|REVERSAL|SL|LOSS)/.test(type)) return "loss";
+  return null;
+}
+
+function pruneLearningState(state) {
+  const learnedEntries = Object.entries(state.learnedEvents || {}).sort((a, b) => String(b[1]).localeCompare(String(a[1])));
+  state.learnedEvents = Object.fromEntries(learnedEntries.slice(0, 500));
+  const learningEntries = Object.entries(state.symbolLearning || {}).sort((a, b) => String(b[1]?.lastOutcomeAt || "").localeCompare(String(a[1]?.lastOutcomeAt || "")));
+  state.symbolLearning = Object.fromEntries(learningEntries.slice(0, 120));
 }
 
 async function getContracts() {
@@ -918,13 +1026,16 @@ function pruneState(state) {
     if (isDuplicateClientOidReason(seen?.reason)) delete state.seen[id];
   }
   state.daily = normalizeDailyState(state.daily);
+  state.symbolLearning = state.symbolLearning && typeof state.symbolLearning === "object" ? state.symbolLearning : {};
+  state.learnedEvents = state.learnedEvents && typeof state.learnedEvents === "object" ? state.learnedEvents : {};
+  pruneLearningState(state);
   for (const order of state.orders) {
     if (order?.id) state.seen[order.id] = state.seen[order.id] || { orderedAt: order.createdAt || new Date().toISOString() };
   }
 }
 
 function createExecutorState() {
-  return { version: 3, updatedAt: null, seen: {}, orders: [], daily: normalizeDailyState({}), lastDecisionSummary: createDecisionSummary([], []) };
+  return { version: 4, updatedAt: null, seen: {}, orders: [], daily: normalizeDailyState({}), symbolLearning: {}, learnedEvents: {}, lastDecisionSummary: createDecisionSummary([], []) };
 }
 
 async function reportExecutorStatus(payload) {
@@ -961,9 +1072,12 @@ function statusPayload(state, overrides = {}) {
       maxLiveMarginUsd: Number(state.effectivePolicy?.maxLiveMarginUsd || settings.maxMarginUsd),
       fixedMarginUsd: Number(state.effectivePolicy?.fixedMarginUsd || settings.fixedMarginUsd),
       minScore: Number(state.effectivePolicy?.minScore || settings.minScore),
-      strictRegimeMinScore: Number(state.effectivePolicy?.strictRegimeMinScore || settings.strictRegimeMinScore)
+      strictRegimeMinScore: Number(state.effectivePolicy?.strictRegimeMinScore || settings.strictRegimeMinScore),
+      traderProfile: normalizeTraderProfile(state.effectivePolicy?.traderProfile || settings.traderProfile),
+      maxEntryDriftPercent: Number(state.effectivePolicy?.maxEntryDriftPercent || effectiveTraderProfile(state.effectivePolicy || {}).maxEntryDriftPercent)
     },
         decisions: state.lastDecisionSummary || createDecisionSummary([], []),
+    symbolLearning: compactSymbolLearning(state.symbolLearning),
     marketGate: state.lastMarketGate || summarizeMarketGate(null, {}),
     recentOrders: state.orders.slice(0, 8).map(compactOrder),
     remotePositions: Array.isArray(state.remotePositions) ? state.remotePositions.slice(0, 8) : [],
@@ -999,6 +1113,18 @@ function createDecisionSummary(signals, events) {
     examples: [],
     updatedAt: new Date().toISOString()
   };
+}
+
+function compactSymbolLearning(value = {}) {
+  return Object.values(value || {})
+    .sort((a, b) => Number(b.samples || 0) - Number(a.samples || 0))
+    .slice(0, 8)
+    .map((item) => ({
+      symbol: item.symbol || "",
+      samples: Number(item.samples || 0),
+      winRate: Number(item.winRate || 0),
+      weakUntil: item.weakUntil || null
+    }));
 }
 
 function recordRejection(summary, reason, signal = null) {
@@ -1049,6 +1175,10 @@ function normalizeExecutorPolicy(value = {}) {
     strictRegimeMinScore: clampInt(value?.strictRegimeMinScore, 8, 20, settings.strictRegimeMinScore),
     minLiquidityUsd: clampNumber(value?.minLiquidityUsd, 0, 1_000_000_000, settings.minLiquidityUsd),
     maxExecutionSignalAgeMinutes: clampInt(value?.maxExecutionSignalAgeMinutes, 5, 240, settings.maxExecutionSignalAgeMinutes),
+    traderProfile: normalizeTraderProfile(value?.traderProfile || settings.traderProfile),
+    maxEntryDriftPercent: optionalPositiveNumber(value?.maxEntryDriftPercent, 50, settings.maxEntryDriftPercent),
+    weakPatternCooldownHours: clampNumber(value?.weakPatternCooldownHours, 1, 168, settings.weakPatternCooldownHours),
+    learningMinSamples: clampInt(value?.learningMinSamples, 3, 100, settings.learningMinSamples),
     allowMemeLive: value?.allowMemeLive === undefined ? settings.allowMeme : value.allowMemeLive === true,
     defensiveMaxLeverage: clampInt(value?.defensiveMaxLeverage, 1, 20, settings.defensiveMaxLeverage),
     defensiveMaxMarginUsd: clampNumber(value?.defensiveMaxMarginUsd, 1, 1000, settings.defensiveMaxMarginUsd),
