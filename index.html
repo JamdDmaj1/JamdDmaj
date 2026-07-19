@@ -920,6 +920,54 @@
       font-weight: 800;
     }
 
+    .pro-news-decision {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .pro-news-card {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.035);
+    }
+
+    .pro-news-card span {
+      color: var(--muted);
+      font-size: 0.66rem;
+      font-weight: 800;
+    }
+
+    .pro-news-card strong {
+      font-size: 0.86rem;
+      line-height: 1.25;
+    }
+
+    .pro-news-card small {
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
+    .pro-news-section-title {
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 0.68rem;
+      font-weight: 850;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    @media (max-width: 680px) {
+      .pro-news-decision {
+        grid-template-columns: 1fr;
+      }
+    }
+
     .memory-list {
       display: grid;
       gap: 7px;
@@ -3093,8 +3141,8 @@
           </div>
           <div class="trader-telegram is-hidden" id="traderTelegramPanel">
             <div class="trader-telegram-copy">
-              <strong id="telegramAlertsTitle">Telegram alerts</strong>
-              <span id="telegramAlertsStatus">Off. Configure Vercel, then enable alerts.</span>
+              <strong id="telegramAlertsTitle">Legacy Telegram controls</strong>
+              <span id="telegramAlertsStatus">Hidden. Bitget automation is managed from the server scanner.</span>
             </div>
             <div class="trader-telegram-actions">
               <button class="pill-btn" id="copyTelegramDeviceBtn" type="button">Copy device ID</button>
@@ -3146,7 +3194,7 @@
                 <input id="proLockRoeInput" type="number" min="0.1" max="40" step="0.5" value="2">
               </label>
             </div>
-            <small id="proExecutionNotice">Planning and alerts only. JamdDmaj does not place orders or hold Bitget API keys.</small>
+            <small id="proExecutionNotice">Legacy controls are hidden from the main Pro workflow.</small>
           </div>
           <div class="trader-server client-bitget-card is-hidden" id="clientBitgetConnectorPanel">
             <div class="trader-server-head">
@@ -3695,7 +3743,7 @@
             <button class="pill-btn" id="checkUpdatesBtn" type="button">Check for updates</button>
             <button class="pill-btn is-hidden" id="downloadUpdateBtn" type="button">Download APK</button>
           </div>
-          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.18</div>
+          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.19</div>
         </section>
       </div>
       <div class="dialog-actions">
@@ -3820,7 +3868,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.37.18";
+      const APP_VERSION = "1.37.19";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -6693,7 +6741,7 @@
         } catch {
           telegramOwnerAuthorized = false;
         }
-        panel.classList.toggle("is-hidden", !telegramOwnerAuthorized);
+        panel.classList.add("is-hidden");
         serverPanel.classList.toggle("is-hidden", !telegramOwnerAuthorized);
         backtestPanel.classList.toggle("is-hidden", !telegramOwnerAuthorized);
         document.querySelectorAll(".trader-owner-only").forEach((node) => node.classList.toggle("is-hidden", !telegramOwnerAuthorized));
@@ -6751,8 +6799,8 @@
 
       function renderProNews(data) {
         const spanish = resolvedLanguage() === "es";
-        document.getElementById("proNewsTitle").textContent = spanish ? "Noticias y contexto macro" : "Market and macro context";
-        document.getElementById("refreshProNewsBtn").textContent = spanish ? "Actualizar noticias" : "Refresh news";
+        document.getElementById("proNewsTitle").textContent = spanish ? "Contexto de mercado para entradas" : "Market context for entries";
+        document.getElementById("refreshProNewsBtn").textContent = spanish ? "Actualizar contexto" : "Refresh context";
         document.getElementById("proNewsStatus").textContent = data.updatedAt
           ? `${spanish ? "Actualizado" : "Updated"}: ${new Date(data.updatedAt).toLocaleString()}`
           : (spanish ? "Contexto disponible." : "Context available.");
@@ -6760,6 +6808,7 @@
         context.replaceChildren();
         const items = [
           data.context?.regime ? `${spanish ? "Regimen" : "Regime"}: ${data.context.regime}` : "",
+          data.context?.bias ? `${spanish ? "Sesgo" : "Bias"}: ${data.context.bias.label}` : "",
           data.context?.fearGreed ? `${spanish ? "Miedo y codicia" : "Fear & Greed"}: ${data.context.fearGreed.value} (${data.context.fearGreed.label})` : "",
           Number.isFinite(data.context?.bitcoinDominance) ? `BTC dominance: ${data.context.bitcoinDominance.toFixed(1)}%` : "",
           Number.isFinite(data.context?.marketCapChange24h) ? `${spanish ? "Market cap 24h" : "24h market cap"}: ${data.context.marketCapChange24h >= 0 ? "+" : ""}${data.context.marketCapChange24h.toFixed(2)}%` : "",
@@ -6772,19 +6821,51 @@
         });
         const brief = document.getElementById("proNewsBrief");
         brief.replaceChildren();
+        const decision = document.createElement("div");
+        decision.className = "pro-news-decision";
+        const bias = data.context?.bias || {};
+        const biasCard = document.createElement("div");
+        biasCard.className = "pro-news-card";
+        biasCard.append(
+          makeTextNode("span", spanish ? "Lectura" : "Read"),
+          makeTextNode("strong", bias.label || (spanish ? "Mixto" : "Mixed")),
+          makeTextNode("small", bias.reason || (spanish ? "No hay una ventaja macro clara; prioriza calidad y confirmacion." : "No clear macro edge; prioritize quality and confirmation."))
+        );
+        const actionCard = document.createElement("div");
+        actionCard.className = "pro-news-card";
+        actionCard.append(
+          makeTextNode("span", spanish ? "Accion del bot" : "Bot action"),
+          makeTextNode("strong", bias.action || (spanish ? "Mantener filtros" : "Keep filters")),
+          makeTextNode("small", bias.executorHint || (spanish ? "Evitar entradas flojas; dejar pasar tokens sin confirmacion." : "Avoid weak entries; skip unconfirmed tokens."))
+        );
+        const riskCard = document.createElement("div");
+        riskCard.className = "pro-news-card";
+        riskCard.append(
+          makeTextNode("span", spanish ? "Riesgo" : "Risk"),
+          makeTextNode("strong", data.context?.riskLevel || (spanish ? "Normal" : "Normal")),
+          makeTextNode("small", (data.riskNotes || []).slice(0, 2).join(" | ") || (spanish ? "Sin alerta macro fuerte ahora." : "No strong macro alert right now."))
+        );
+        decision.append(biasCard, actionCard, riskCard);
+        brief.append(decision);
         (data.brief || []).forEach((line, index) => {
           const item = document.createElement(index === 1 ? "strong" : "span");
           item.className = index === 1 ? "pro-news-impact" : "";
           item.textContent = line;
           brief.append(item);
         });
+        if (data.catalysts?.length) brief.append(makeTextNode("div", spanish ? "Catalizadores dominantes" : "Dominant catalysts", "pro-news-section-title"));
         (data.catalysts || []).slice(0, 4).forEach((catalyst) => {
           const item = document.createElement("span");
           item.textContent = `${catalyst.theme}: ${catalyst.impact} (${catalyst.count}) - ${catalyst.sample}`;
           brief.append(item);
         });
+        if (data.watchlist?.length) {
+          brief.append(makeTextNode("div", spanish ? "Watchlist por contexto" : "Context watchlist", "pro-news-section-title"));
+          brief.append(makeTextNode("span", data.watchlist.slice(0, 8).join(", ")));
+        }
         const list = document.getElementById("proNewsList");
         list.replaceChildren();
+        if ((data.articles || []).length) list.append(makeTextNode("div", spanish ? "Titulares que pueden mover mercado" : "Headlines that may move markets", "pro-news-section-title"));
         (data.articles || []).slice(0, 10).forEach((article) => {
           const link = document.createElement("a");
           link.href = article.url;
@@ -6803,6 +6884,13 @@
           empty.textContent = spanish ? "No hay titulares disponibles ahora." : "No headlines are available right now.";
           list.append(empty);
         }
+      }
+
+      function makeTextNode(tag, text, className = "") {
+        const node = document.createElement(tag);
+        if (className) node.className = className;
+        node.textContent = text || "";
+        return node;
       }
 
       async function toggleProServer() {
@@ -6838,13 +6926,13 @@
             action: "config",
             config: {
               enabled: proServerState.config?.enabled === true,
-               quality: getTelegramQuality(),
-              cooldownMinutes: getTelegramCooldownMinutes(),
+              quality: proServerState.config?.quality || getTelegramQuality(),
+              cooldownMinutes: Number(proServerState.config?.cooldownMinutes || getTelegramCooldownMinutes()),
               maxSignalsPerRun: proServerState.config?.maxSignalsPerRun || 3,
-              plannedUsd: Number(document.getElementById("proPlannedUsdInput").value) || 25,
-              leverage: Number(document.getElementById("proLeverageSelect").value) || 10,
-              protectionTriggerRoe: Number(document.getElementById("proTriggerRoeInput").value) || 4,
-              protectionLockRoe: Number(document.getElementById("proLockRoeInput").value) || 2,
+              plannedUsd: Number(proServerState.config?.plannedUsd) || 25,
+              leverage: Number(proServerState.config?.leverage) || 10,
+              protectionTriggerRoe: Number(proServerState.config?.protectionTriggerRoe) || 10,
+              protectionLockRoe: Number(proServerState.config?.protectionLockRoe) || 2,
               paperEnabled: proServerState.config?.paperEnabled !== false,
                paperStartingBalance: Number(document.getElementById("paperStartingBalanceInput").value) || 1000,
                paperRiskPercent: Number(document.getElementById("paperRiskPercentInput").value) || 0.5,

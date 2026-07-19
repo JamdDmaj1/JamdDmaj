@@ -32,6 +32,9 @@ export default async function handler(request) {
     const bitcoinDominance = Number(global?.market_cap_percentage?.btc) || null;
     const fearValue = fear ? Number(fear.value) : null;
     const catalysts = buildCatalysts(articles);
+    const bias = buildMarketBias({ fearValue, marketCapChange24h, bitcoinDominance, catalysts });
+    const riskNotes = buildRiskNotes({ fearValue, marketCapChange24h, catalysts });
+    const watchlist = buildWatchlist({ trending, articles, catalysts });
     const payload = {
       ok: true,
       updatedAt: new Date().toISOString(),
@@ -41,10 +44,14 @@ export default async function handler(request) {
         marketCapChange24h,
         bitcoinDominance,
         regime: describeRegime({ fearValue, marketCapChange24h, bitcoinDominance }),
+        bias,
+        riskLevel: riskNotes.length >= 2 || bias.value === "defensive" ? "Elevated" : bias.value === "risk-on" ? "Constructive" : "Normal",
         trending
       },
       catalysts,
-      brief: buildBrief({ fearValue, fearLabel: fear?.value_classification, marketCapChange24h, bitcoinDominance, catalysts, trending }),
+      riskNotes,
+      watchlist,
+      brief: buildBrief({ fearValue, fearLabel: fear?.value_classification, marketCapChange24h, bitcoinDominance, catalysts, trending, bias }),
       articles
     };
     memoryCache = { savedAt: Date.now(), payload };
@@ -115,21 +122,86 @@ function describeRegime({ fearValue, marketCapChange24h, bitcoinDominance }) {
   return `${risk} / ${dominance}`;
 }
 
-function buildBrief({ fearValue, fearLabel, marketCapChange24h, bitcoinDominance, catalysts, trending }) {
+function buildMarketBias({ fearValue, marketCapChange24h, bitcoinDominance, catalysts }) {
+  const riskOffCatalysts = catalysts.reduce((sum, item) => sum + (item.impact === "risk-off" ? item.count : 0), 0);
+  const riskOnCatalysts = catalysts.reduce((sum, item) => sum + (item.impact === "risk-on" ? item.count : 0), 0);
+  if (Number(fearValue) <= 25 || Number(marketCapChange24h) <= -2 || riskOffCatalysts >= riskOnCatalysts + 2) {
+    return {
+      value: "defensive",
+      label: "Defensive / selective",
+      reason: "Fear, market-cap pressure, or negative catalysts are elevated.",
+      action: "Trade fewer setups",
+      executorHint: "Prefer high score, strong volume, tight spread, and confirmed trend."
+    };
+  }
+  if (Number(fearValue) >= 55 && Number(marketCapChange24h) >= 0.8 && riskOnCatalysts >= riskOffCatalysts) {
+    return {
+      value: "risk-on",
+      label: "Constructive / momentum",
+      reason: "Breadth and sentiment support stronger follow-through.",
+      action: "Allow clean momentum",
+      executorHint: "Favor fresh breakouts and tokens with strong liquidity confirmation."
+    };
+  }
+  if (Number(bitcoinDominance) >= 55) {
+    return {
+      value: "btc-led",
+      label: "BTC-led / selective alts",
+      reason: "BTC dominance is high, so smaller alts need stronger confirmation.",
+      action: "Prioritize quality",
+      executorHint: "Do not chase weak alt setups without score and liquidity support."
+    };
+  }
+  return {
+    value: "balanced",
+    label: "Balanced / wait for confirmation",
+    reason: "Macro and crypto headlines do not show a one-sided edge.",
+    action: "Keep normal filters",
+    executorHint: "Let the score gate choose; avoid lowering thresholds just to force trades."
+  };
+}
+
+function buildRiskNotes({ fearValue, marketCapChange24h, catalysts }) {
+  const notes = [];
+  if (Number(fearValue) <= 25) notes.push("Extreme fear can create fast reversals and wick risk.");
+  if (Number(marketCapChange24h) <= -2) notes.push("Total crypto market cap is under pressure over 24h.");
+  const security = catalysts.find((item) => item.theme === "Security" && item.impact !== "neutral");
+  const regulation = catalysts.find((item) => item.theme === "Regulation" && item.impact === "risk-off");
+  const derivatives = catalysts.find((item) => item.theme === "Derivatives" && item.impact !== "neutral");
+  if (security) notes.push("Security headlines are active; avoid exposed names without confirmation.");
+  if (regulation) notes.push("Regulation headlines lean risk-off; use stricter score gates.");
+  if (derivatives) notes.push("Derivatives headlines are active; expect liquidation-driven volatility.");
+  return notes.slice(0, 4);
+}
+
+function buildWatchlist({ trending, articles, catalysts }) {
+  const symbols = new Set();
+  trending.slice(0, 8).forEach((item) => symbols.add(item.symbol));
+  const text = articles.map((article) => article.title).join(" ").toUpperCase();
+  ["BTC", "ETH", "SOL", "XRP", "BNB", "DOGE", "LINK", "AVAX", "SUI", "ENA", "PEPE", "TRUMP"].forEach((symbol) => {
+    if (new RegExp(`\\b${symbol}\\b`).test(text)) symbols.add(symbol);
+  });
+  if (catalysts.some((item) => item.theme === "Bitcoin")) symbols.add("BTC");
+  if (catalysts.some((item) => item.theme === "Ethereum")) symbols.add("ETH");
+  return [...symbols].filter(Boolean).slice(0, 10);
+}
+
+function buildBrief({ fearValue, fearLabel, marketCapChange24h, bitcoinDominance, catalysts, trending, bias }) {
   const parts = [];
   if (Number.isFinite(fearValue)) parts.push(`Fear & Greed ${fearValue} (${fearLabel || "n/a"})`);
   if (Number.isFinite(marketCapChange24h)) parts.push(`crypto market cap 24h ${marketCapChange24h >= 0 ? "+" : ""}${marketCapChange24h.toFixed(2)}%`);
   if (Number.isFinite(bitcoinDominance)) parts.push(`BTC dominance ${bitcoinDominance.toFixed(1)}%`);
   const mainCatalyst = catalysts[0] ? `${catalysts[0].theme} headlines lean ${catalysts[0].impact}` : "headline signal is thin";
+  const biasLine = bias?.label ? `Execution bias: ${bias.label}. ${bias.executorHint}` : "";
   const hot = trending.length ? `Trending: ${trending.slice(0, 4).map((item) => item.symbol).join(", ")}` : "";
-  return [parts.join(" | "), mainCatalyst, hot].filter(Boolean);
+  return [parts.join(" | "), biasLine, mainCatalyst, hot].filter(Boolean);
 }
 
 async function fetchJson(url) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 7000);
   try {
-    const response = await fetch(url, { signal: controller.signal, headers: { "User-Agent": "JamdDmaj-Pro-News/1.28" } });
+    const response = await fetch(url, { signal: controller.signal, headers: { "User-Agent": "JamdDmaj-Pro-News/1.37.19" } });
     if (!response.ok) throw new Error(`News source ${response.status}`);
     return await response.json();
   } finally {
