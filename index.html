@@ -968,6 +968,63 @@
       }
     }
 
+    .app-update-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 10px var(--main-pad) 0;
+      padding: 12px 14px;
+      border: 1px solid rgba(52, 211, 153, 0.34);
+      border-radius: 16px;
+      background: linear-gradient(135deg, rgba(6, 78, 59, 0.28), rgba(8, 145, 178, 0.12));
+      box-shadow: 0 14px 36px rgba(0, 0, 0, 0.18);
+    }
+
+    .app-update-banner.is-hidden {
+      display: none;
+    }
+
+    .app-update-copy {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .app-update-copy strong {
+      font-size: 0.9rem;
+    }
+
+    .app-update-copy span {
+      color: var(--muted);
+      font-size: 0.74rem;
+      line-height: 1.4;
+    }
+
+    .app-update-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .app-update-actions .pill-btn {
+      min-height: 36px;
+      padding: 0 12px;
+      font-size: 0.74rem;
+    }
+
+    @media (max-width: 680px) {
+      .app-update-banner {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .app-update-actions {
+        justify-content: flex-start;
+      }
+    }
+
     .memory-list {
       display: grid;
       gap: 7px;
@@ -3113,6 +3170,17 @@
         </div>
       </header>
 
+      <div class="app-update-banner is-hidden" id="appUpdateBanner" role="status" aria-live="polite">
+        <div class="app-update-copy">
+          <strong id="appUpdateBannerTitle">Update available</strong>
+          <span id="appUpdateBannerText">A new signed APK is ready.</span>
+        </div>
+        <div class="app-update-actions">
+          <button class="pill-btn" id="appUpdateBannerDownload" type="button">Download update</button>
+          <button class="pill-btn" id="appUpdateBannerLater" type="button">Later</button>
+        </div>
+      </div>
+
       <div class="ticker is-hidden" id="ticker" aria-label="Live cryptocurrency prices">
         <div class="market-toolbar">
           <div><strong>Live crypto markets</strong> <span>Grouped by function</span></div>
@@ -3743,7 +3811,7 @@
             <button class="pill-btn" id="checkUpdatesBtn" type="button">Check for updates</button>
             <button class="pill-btn is-hidden" id="downloadUpdateBtn" type="button">Download APK</button>
           </div>
-          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.19</div>
+          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.20</div>
         </section>
       </div>
       <div class="dialog-actions">
@@ -3868,7 +3936,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.37.19";
+      const APP_VERSION = "1.37.20";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -5149,6 +5217,7 @@
       let placementQuiz = null;
       let managedAccessReady = null;
       let latestAppStatus = null;
+      let lastBackgroundUpdateCheckAt = 0;
       let googleAccountConfig = null;
       let accountProfile = loadJson(STORAGE.accountProfile, null);
       let cloudBackupTimer = null;
@@ -8235,6 +8304,7 @@
       }
 
       async function checkForAppUpdate(announce = true) {
+        lastBackgroundUpdateCheckAt = Date.now();
         const status = document.getElementById("appUpdateStatus");
         if (status) status.textContent = resolvedLanguage() === "es" ? "Buscando actualizaciones..." : "Checking for updates...";
         const serverData = await fetchAppUpdateStatus().catch(() => null);
@@ -8242,6 +8312,13 @@
         latestAppStatus = chooseNewestUpdateStatus(serverData, githubData) || serverData || githubData || { version: APP_VERSION };
         renderAppUpdateStatus(latestAppStatus, announce);
         if (!announce) maybeAnnounceBackgroundUpdate(latestAppStatus);
+      }
+
+      function scheduleBackgroundUpdateCheck(delay = 0) {
+        if (Date.now() - lastBackgroundUpdateCheckAt < 20 * 60 * 1000) return;
+        setTimeout(() => {
+          if (!document.hidden) checkForAppUpdate(false).catch(() => {});
+        }, delay);
       }
 
       async function fetchAppUpdateStatus() {
@@ -8302,7 +8379,29 @@
         document.getElementById("updatesSectionText").textContent = spanish
           ? "La app revisa GitHub automaticamente y descarga el APK oficial firmado sin borrar tus datos."
           : "The app checks GitHub automatically and downloads the official signed APK without deleting your data.";
+        renderMainUpdateBanner({ available, latest, url, data, spanish });
         if (available && announce) showToast(spanish ? "JamdDmaj " + latest + " esta disponible." : "JamdDmaj " + latest + " is available.");
+      }
+
+      function renderMainUpdateBanner({ available, latest, url, data, spanish = resolvedLanguage() === "es" }) {
+        const banner = document.getElementById("appUpdateBanner");
+        const title = document.getElementById("appUpdateBannerTitle");
+        const text = document.getElementById("appUpdateBannerText");
+        const download = document.getElementById("appUpdateBannerDownload");
+        const later = document.getElementById("appUpdateBannerLater");
+        if (!banner || !title || !text || !download || !later) return;
+        const dismissKey = "jamdDmajUpdateBannerDismissed:" + latest;
+        const hidden = !available || !url || localStorage.getItem(dismissKey) === "true";
+        banner.classList.toggle("is-hidden", hidden);
+        title.textContent = spanish ? `Nueva version ${latest}` : `New version ${latest}`;
+        text.textContent = spanish
+          ? "Descarga el APK oficial desde aqui e instalalo encima de la app actual. No desinstales la app."
+          : "Download the official APK here and install it over the current app. Do not uninstall the app.";
+        download.textContent = spanish ? "Descargar update" : "Download update";
+        later.textContent = spanish ? "Luego" : "Later";
+        download.dataset.updateUrl = available ? url : "";
+        download.dataset.releaseUrl = String(data?.releaseUrl || "");
+        later.dataset.dismissKey = dismissKey;
       }
 
       function maybeAnnounceBackgroundUpdate(data) {
@@ -8312,16 +8411,24 @@
         if (localStorage.getItem(key) === "true") return;
         localStorage.setItem(key, "true");
         showToast(resolvedLanguage() === "es"
-          ? "Nueva version " + latest + " disponible en Ajustes > Actualizaciones."
-          : "New version " + latest + " available in Settings > Updates.");
+          ? "Nueva version " + latest + " disponible. Usa el boton de update en la pantalla principal."
+          : "New version " + latest + " available. Use the update button on the main screen.");
       }
 
       async function openAppUpdateDownload() {
-        const button = document.getElementById("downloadUpdateBtn");
-        const url = String(button?.dataset.updateUrl || latestAppStatus?.apkUrl || DEFAULT_APK_URL).trim();
+        const settingsButton = document.getElementById("downloadUpdateBtn");
+        const bannerButton = document.getElementById("appUpdateBannerDownload");
+        const url = String(bannerButton?.dataset.updateUrl || settingsButton?.dataset.updateUrl || latestAppStatus?.apkUrl || DEFAULT_APK_URL).trim();
         if (!url) return;
         showToast(resolvedLanguage() === "es" ? "Abriendo descarga oficial..." : "Opening official download...");
         await openExternalUrl(url);
+      }
+
+      function dismissMainUpdateBanner() {
+        const later = document.getElementById("appUpdateBannerLater");
+        const key = later?.dataset.dismissKey;
+        if (key) localStorage.setItem(key, "true");
+        document.getElementById("appUpdateBanner")?.classList.add("is-hidden");
       }
 
       function compareVersions(left, right) {
@@ -11886,6 +11993,8 @@
       document.getElementById("restoreSyncAccountBtn").addEventListener("click", restoreCloudBackup);
       document.getElementById("checkUpdatesBtn").addEventListener("click", () => checkForAppUpdate(true));
       document.getElementById("downloadUpdateBtn").addEventListener("click", openAppUpdateDownload);
+      document.getElementById("appUpdateBannerDownload").addEventListener("click", openAppUpdateDownload);
+      document.getElementById("appUpdateBannerLater").addEventListener("click", dismissMainUpdateBanner);
       document.getElementById("googleSignInBtn").addEventListener("click", startGoogleSignIn);
       document.getElementById("settingsNav").addEventListener("click", (event) => {
         const button = event.target.closest("[data-settings-panel]");
@@ -12073,7 +12182,7 @@
       await initializeNativeOAuth();
       await finishOpenRouterConnection();
       await checkManagedAccess();
-      setTimeout(() => checkForAppUpdate(false), 1200);
+      scheduleBackgroundUpdateCheck(1200);
       const shouldAutoConnect = new URLSearchParams(location.search).get("connect") === "1";
       if (shouldAutoConnect && !getApiKey() && location.protocol !== "file:") {
         history.replaceState({}, document.title, location.pathname);
@@ -12115,6 +12224,7 @@
           if (hasPendingBackupChanges()) syncCloudBackup(false);
         } else if (!document.hidden) {
           fetchPrices();
+          scheduleBackgroundUpdateCheck(500);
           if (localStorage.getItem(STORAGE.traderOpen) === "true" && !traderMode) {
             traderMode = true;
             renderAll();
@@ -12129,6 +12239,7 @@
         }
       });
       window.addEventListener("focus", () => {
+        scheduleBackgroundUpdateCheck(700);
         if (localStorage.getItem(STORAGE.traderOpen) === "true" && !traderMode) {
           traderMode = true;
           renderAll();
