@@ -275,7 +275,7 @@ async function fetchExecutorTestSignal() {
 async function fetchMarketContext() {
   try {
     const response = await fetch(`${settings.appUrl}/api/pro-news`, {
-      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.37.23" }
+      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.37.24" }
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok || body?.error) return null;
@@ -706,6 +706,8 @@ function createStateOrder(signal, plan, status, response = null) {
     notionalUsd: plan.notionalUsd,
     size: plan.size,
     entry: plan.price,
+    pricePlace: plan.pricePlace,
+    priceEndStep: plan.priceEndStep,
     displayEntry: Number(signal.entry || 0),
     contractMultiplier: Number(signal.contractMultiplier || 1),
     tp1: plan.tp1,
@@ -743,11 +745,24 @@ async function manageLiveExits(state, positions, events = [], policy = {}) {
     if (Number.isFinite(roe)) {
       order.currentRoe = Number(roe.toFixed(2));
       order.maxRoe = Math.max(Number(order.maxRoe || -999), order.currentRoe);
-      if (!order.protectionActive && order.currentRoe >= exit.protectionTriggerRoe) {
-        order.protectionActive = true;
-        order.protectionActivatedAt = new Date().toISOString();
-        state.lastExitAction = `exit manager protected ${order.pair || order.symbol} at ${order.currentRoe}% ROE`;
-        console.log(`${LOG_PREFIX} ${state.lastExitAction}`);
+      if ((!order.protectionActive || !order.protectionBitgetConfirmedAt) && order.currentRoe >= exit.protectionTriggerRoe) {
+        try {
+          const protection = await placeProtectedStopLoss(order, position, exit);
+          order.protectionActive = true;
+          order.protectionActivatedAt = order.protectionActivatedAt || new Date().toISOString();
+          order.protectionBitgetConfirmedAt = new Date().toISOString();
+          order.protectionPrice = protection.price;
+          order.protectionResponse = protection.result;
+          state.lastExitAction = `exit manager protected ${order.pair || order.symbol} on Bitget at ${order.currentRoe}% ROE`;
+          state.lastAction = state.lastExitAction;
+          console.log(`${LOG_PREFIX} ${state.lastExitAction} price=${protection.price}`);
+        } catch (error) {
+          order.protectionActive = false;
+          order.protectionError = error?.message || String(error);
+          state.lastExitAction = `exit manager protection failed ${order.pair || order.symbol}: ${order.protectionError}`;
+          state.lastAction = state.lastExitAction;
+          console.warn(`${LOG_PREFIX} ${state.lastExitAction}`);
+        }
       }
       if (order.protectionActive && order.currentRoe <= exit.protectionLockRoe) {
         try {
@@ -775,6 +790,49 @@ async function manageLiveExits(state, positions, events = [], policy = {}) {
       }
     }
   }
+}
+
+async function placeProtectedStopLoss(order, position = {}, exit = {}) {
+  const price = protectedStopPrice(order, position, exit);
+  const holdSide = String(position.holdSide || (order.side === "LONG" ? "long" : "short")).toLowerCase();
+  const triggerPrice = formatBitgetPrice(price, order.pricePlace, order.priceEndStep);
+  if (!triggerPrice) throw new Error("missing protected stop price");
+  const body = {
+    marginCoin: settings.marginCoin,
+    productType: settings.productType,
+    symbol: order.symbol,
+    holdSide,
+    triggerType: "mark_price",
+    planType: "pos_loss",
+    stopLossTriggerPrice: triggerPrice,
+    stopLossExecutePrice: "0"
+  };
+  let result = await bitgetRequest("POST", "/api/v2/mix/order/place-pos-tpsl", body);
+  if (result?.code && result.code !== "00000") {
+    const fallback = {
+      marginCoin: settings.marginCoin,
+      productType: settings.productType,
+      symbol: order.symbol,
+      holdSide,
+      triggerType: "mark_price",
+      planType: "loss_plan",
+      triggerPrice,
+      executePrice: "0",
+      size: String(position.available || position.total || order.size || "")
+    };
+    result = await bitgetRequest("POST", "/api/v2/mix/order/place-tpsl-order", fallback);
+  }
+  if (result?.code && result.code !== "00000") throw new Error(`Bitget protection rejected ${order.pair || order.symbol}: ${result?.msg || result.code}`);
+  return { price: Number(triggerPrice), result };
+}
+
+function protectedStopPrice(order, position = {}, exit = {}) {
+  const entry = firstFiniteNumber(position.averageOpenPrice, position.openPriceAvg, position.openPrice, position.entryPrice, position.breakEvenPrice, order.entry);
+  const leverage = Math.max(1, firstFiniteNumber(position.leverage, order.leverage, 10));
+  const lockRoe = clampNumber(exit.protectionLockRoe, 0.1, 50, settings.exitProtectionLockRoe);
+  if (!Number.isFinite(entry) || entry <= 0) return NaN;
+  const move = lockRoe / 100 / leverage;
+  return order.side === "SHORT" ? entry * (1 - move) : entry * (1 + move);
 }
 
 function findMatchingPosition(order, positions) {
