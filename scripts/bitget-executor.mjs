@@ -272,7 +272,7 @@ async function fetchExecutorTestSignal() {
 async function fetchMarketContext() {
   try {
     const response = await fetch(`${settings.appUrl}/api/pro-news`, {
-      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.37.15" }
+      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.37.16" }
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok || body?.error) return null;
@@ -365,7 +365,15 @@ function executableDecision(signal, state, policy = {}, marketContext = null) {
 function seenSignalBlockReason(state, signal) {
   const seen = state.seen?.[signal.id];
   if (!seen) return "";
-  if (seen.orderedAt) return "already ordered";
+  const signalSymbol = bitgetSymbolForSignal(signal);
+  const liveSymbols = new Set(Array.isArray(state.liveSymbols) ? state.liveSymbols : []);
+  if (seen.orderedAt) {
+    if ((settings.mode === "live" || state.bitgetSynced === true) && signalSymbol && !liveSymbols.has(signalSymbol)) {
+      delete state.seen[signal.id];
+      return "";
+    }
+    return "already ordered";
+  }
   const skippedAt = Date.parse(seen.skippedAt || "");
   const retryMs = settings.retrySkippedMinutes * 60000;
   const canRetry = signal.status === "OPEN" || signal.executorSource === "open-signal" || signal.executorSource === "manual-test";
@@ -571,6 +579,7 @@ async function reconcileBitgetPositions(state) {
   const positions = (Array.isArray(result?.data) ? result.data : [])
     .filter((item) => Math.abs(Number(item.total || item.available || item.size || 0)) > 0);
   const liveSymbols = new Set(positions.map((item) => String(item.symbol || "")));
+  state.liveSymbols = [...liveSymbols];
   for (const order of state.orders) {
     if (order.status !== "OPEN" || !order.symbol) continue;
     if (!liveSymbols.has(order.symbol)) {
