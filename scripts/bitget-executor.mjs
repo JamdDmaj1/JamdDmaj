@@ -272,7 +272,7 @@ async function fetchExecutorTestSignal() {
 async function fetchMarketContext() {
   try {
     const response = await fetch(`${settings.appUrl}/api/pro-news`, {
-      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.37.16" }
+      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.37.17" }
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok || body?.error) return null;
@@ -447,9 +447,16 @@ function buildOrderPlan(signal, contracts, marketContext = null, policy = {}, ac
     pricePlace,
     priceEndStep,
     size: String(size),
-    clientOid: `jamd-${String(signal.id).replace(/[^a-zA-Z0-9-]/g, "").slice(0, 40)}`,
+    clientOid: makeClientOid(signal),
     policy
   };
+}
+
+function makeClientOid(signal = {}) {
+  const base = String(signal.id || signal.pair || signal.symbol || "sig").replace(/[^a-zA-Z0-9-]/g, "").slice(0, 26) || "sig";
+  const stamp = Date.now().toString(36);
+  const random = crypto.randomBytes(3).toString("hex");
+  return `jamd-${base}-${stamp}-${random}`.slice(0, 60);
 }
 
 async function getContracts() {
@@ -463,6 +470,19 @@ async function getContracts() {
 }
 
 async function placeMarketOrder(plan) {
+  let result = await submitMarketOrder(plan);
+  if (result?.code !== "00000" && /duplicate clientoid/i.test(String(result?.msg || ""))) {
+    plan.clientOid = makeClientOid({ id: plan.signalId, pair: plan.pair, symbol: plan.symbol });
+    console.warn(`${LOG_PREFIX} retrying ${plan.pair} with fresh clientOid after duplicate rejection`);
+    result = await submitMarketOrder(plan);
+  }
+  if (result?.code !== "00000") {
+    throw new Error(`Bitget rejected ${plan.pair}: ${result?.msg || JSON.stringify(result)}`);
+  }
+  return result;
+}
+
+async function submitMarketOrder(plan) {
   const body = {
     symbol: plan.symbol,
     productType: settings.productType,
@@ -476,11 +496,7 @@ async function placeMarketOrder(plan) {
   };
   if (Number.isFinite(plan.sl) && plan.sl > 0) body.presetStopLossPrice = formatBitgetPrice(plan.sl, plan.pricePlace, plan.priceEndStep);
   if (Number.isFinite(plan.tp1) && plan.tp1 > 0) body.presetStopSurplusPrice = formatBitgetPrice(plan.tp1, plan.pricePlace, plan.priceEndStep);
-  const result = await bitgetRequest("POST", "/api/v2/mix/order/place-order", body);
-  if (result?.code !== "00000") {
-    throw new Error(`Bitget rejected ${plan.pair}: ${result?.msg || JSON.stringify(result)}`);
-  }
-  return result;
+  return bitgetRequest("POST", "/api/v2/mix/order/place-order", body);
 }
 
 async function prepareBitgetLeverage(plan) {
