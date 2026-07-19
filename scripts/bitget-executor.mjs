@@ -23,6 +23,7 @@ const settings = {
   exitManagerEnabled: String(process.env.JAMDDMAJ_EXIT_MANAGER || "false").toLowerCase() === "true",
   exitProtectionTriggerRoe: clampNumber(process.env.JAMDDMAJ_EXIT_PROTECTION_TRIGGER_ROE, 1, 100, 10),
   exitProtectionLockRoe: clampNumber(process.env.JAMDDMAJ_EXIT_PROTECTION_LOCK_ROE, 0.1, 50, 2),
+  exitCloseAtRoe: optionalPositiveNumber(process.env.JAMDDMAJ_EXIT_CLOSE_AT_ROE, 500),
   exitCloseOnReversal: String(process.env.JAMDDMAJ_EXIT_CLOSE_ON_REVERSAL || "true").toLowerCase() !== "false",
   productType: String(process.env.BITGET_PRODUCT_TYPE || "USDT-FUTURES").trim(),
   marginCoin: String(process.env.BITGET_MARGIN_COIN || "USDT").trim(),
@@ -275,7 +276,7 @@ async function fetchExecutorTestSignal() {
 async function fetchMarketContext() {
   try {
     const response = await fetch(`${settings.appUrl}/api/pro-news`, {
-      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.37.25" }
+      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.37.26" }
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok || body?.error) return null;
@@ -745,6 +746,18 @@ async function manageLiveExits(state, positions, events = [], policy = {}) {
     if (Number.isFinite(roe)) {
       order.currentRoe = Number(roe.toFixed(2));
       order.maxRoe = Math.max(Number(order.maxRoe || -999), order.currentRoe);
+      if (exit.closeAtRoe > 0 && order.currentRoe >= exit.closeAtRoe) {
+        try {
+          await closeLivePosition(order, `ROE take profit ${exit.closeAtRoe}%`, position);
+          state.lastExitAction = `exit manager closed ${order.pair || order.symbol}: ROE take profit ${exit.closeAtRoe}%`;
+          state.lastAction = state.lastExitAction;
+          continue;
+        } catch (error) {
+          state.lastExitAction = `exit manager take-profit close failed ${order.pair || order.symbol}: ${error?.message || error}`;
+          state.lastAction = state.lastExitAction;
+          console.warn(`${LOG_PREFIX} ${state.lastExitAction}`);
+        }
+      }
       if ((!order.protectionActive || !order.protectionBitgetConfirmedAt) && order.currentRoe >= exit.protectionTriggerRoe) {
         try {
           const protection = await placeProtectedStopLoss(order, position, exit);
@@ -949,6 +962,7 @@ function statusPayload(state, overrides = {}) {
       entryOnly: settings.allowEntryOnly,
       protectionTriggerRoe: effectiveExitSettings(state.effectivePolicy || {}).protectionTriggerRoe,
       protectionLockRoe: effectiveExitSettings(state.effectivePolicy || {}).protectionLockRoe,
+      closeAtRoe: effectiveExitSettings(state.effectivePolicy || {}).closeAtRoe,
       closeOnReversal: effectiveExitSettings(state.effectivePolicy || {}).closeOnReversal,
       lastAction: state.lastExitAction || "",
       note: isExitManagerEnabled(state.effectivePolicy || {})
@@ -1043,6 +1057,7 @@ function effectiveExitSettings(policy = {}) {
   return {
     protectionTriggerRoe: clampNumber(policy?.exitProtectionTriggerRoe, 1, 100, settings.exitProtectionTriggerRoe),
     protectionLockRoe: clampNumber(policy?.exitProtectionLockRoe, 0.1, 50, settings.exitProtectionLockRoe),
+    closeAtRoe: optionalPositiveNumber(policy?.exitCloseAtRoe, 500, settings.exitCloseAtRoe),
     closeOnReversal: policy?.exitCloseOnReversal === undefined ? settings.exitCloseOnReversal : policy.exitCloseOnReversal !== false
   };
 }
@@ -1137,6 +1152,12 @@ function clampNumber(value, min, max, fallback) {
   const number = Number(value);
   if (!Number.isFinite(number)) return fallback;
   return Math.min(max, Math.max(min, number));
+}
+
+function optionalPositiveNumber(value, max, fallback = 0) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number <= 0) return fallback;
+  return Math.min(max, number);
 }
 
 function clampInt(value, min, max, fallback) {
