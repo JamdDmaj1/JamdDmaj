@@ -30,7 +30,7 @@ const settings = {
   maxOpen: clampInt(process.env.JAMDDMAJ_MAX_LIVE_OPEN, 1, 10, 1),
   maxMarginUsd: clampNumber(process.env.JAMDDMAJ_MAX_LIVE_MARGIN_USD, 5, 1000, 5),
   fixedMarginUsd: clampNumber(process.env.JAMDDMAJ_FIXED_MARGIN_USD, 0, 1000, 0),
-  maxNewOrdersPerRun: clampInt(process.env.JAMDDMAJ_MAX_NEW_ORDERS_PER_RUN, 1, 5, 1),
+  maxNewOrdersPerRun: clampInt(process.env.JAMDDMAJ_MAX_NEW_ORDERS_PER_RUN, 1, 10, 1),
   autoRisk: String(process.env.JAMDDMAJ_AUTO_RISK || "true").toLowerCase() !== "false",
   autoRiskPerTradePercent: clampNumber(process.env.JAMDDMAJ_AUTO_RISK_PER_TRADE_PERCENT, 0.1, 10, 3),
   autoRiskMinMarginUsd: clampNumber(process.env.JAMDDMAJ_AUTO_RISK_MIN_MARGIN_USD, 1, 1000, 5),
@@ -275,7 +275,7 @@ async function fetchExecutorTestSignal() {
 async function fetchMarketContext() {
   try {
     const response = await fetch(`${settings.appUrl}/api/pro-news`, {
-      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.37.21" }
+      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.37.22" }
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok || body?.error) return null;
@@ -949,8 +949,8 @@ function compactOrder(order) {
 function normalizeExecutorPolicy(value = {}) {
   return {
     livePaused: value?.livePaused === true,
-    maxOpen: clampInt(value?.maxOpen, 1, 10, settings.maxOpen),
-    maxNewOrdersPerRun: clampInt(value?.maxNewOrdersPerRun, 1, 5, settings.maxNewOrdersPerRun),
+    maxOpen: clampInt(value?.maxOpen ?? value?.maxLiveOpen, 1, 10, settings.maxOpen),
+    maxNewOrdersPerRun: clampInt(value?.maxNewOrdersPerRun, 1, 10, settings.maxNewOrdersPerRun),
     maxLiveMarginUsd: clampNumber(value?.maxLiveMarginUsd || value?.maxMarginUsd, 1, 1000, settings.maxMarginUsd),
     fixedMarginUsd: clampNumber(value?.fixedMarginUsd, 0, 1000, settings.fixedMarginUsd),
     minScore: clampInt(value?.minScore, 8, 20, settings.minScore),

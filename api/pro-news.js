@@ -201,7 +201,7 @@ async function fetchJson(url) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 7000);
   try {
-    const response = await fetch(url, { signal: controller.signal, headers: { "User-Agent": "JamdDmaj-Pro-News/1.37.21" } });
+    const response = await fetch(url, { signal: controller.signal, headers: { "User-Agent": "JamdDmaj-Pro-News/1.37.22" } });
     if (!response.ok) throw new Error(`News source ${response.status}`);
     return await response.json();
   } finally {
