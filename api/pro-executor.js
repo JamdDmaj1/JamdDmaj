@@ -115,12 +115,13 @@ async function updateExecutorLearning(input) {
   }
   previous.examples = previous.examples.slice(0, 12);
   previous.lesson = buildExecutorLesson(previous);
+  previous.selfImprovement = buildExecutorSelfImprovementPlan(input, previous);
   await redisRequest("pipeline", [["SET", key, JSON.stringify(previous), "EX", 604800]]);
   return compactExecutorLearning(previous);
 }
 
 function createExecutorLearning(day) {
-  return { day, runs: 0, liveOrders: 0, orderKeys: [], orders: [], rejections: {}, examples: [], lesson: "Collecting executor data.", updatedAt: new Date().toISOString() };
+  return { day, runs: 0, liveOrders: 0, orderKeys: [], orders: [], rejections: {}, examples: [], lesson: "Collecting executor data.", selfImprovement: [], updatedAt: new Date().toISOString() };
 }
 
 function compactExecutorLearning(value) {
@@ -132,6 +133,7 @@ function compactExecutorLearning(value) {
     topRejects: topRejects.map(([reason, count]) => ({ reason, count: Number(count || 0) })),
     examples: (value.examples || []).slice(0, 5),
     lesson: value.lesson || buildExecutorLesson(value),
+    selfImprovement: normalizeSelfImprovement(value.selfImprovement),
     updatedAt: value.updatedAt || null
   };
 }
@@ -145,6 +147,81 @@ function buildExecutorLesson(value) {
   if (reason.includes("daily") || reason.includes("loss")) return "Daily risk guard protected the account; reduce new entries until PnL recovers.";
   if (reason.includes("bitget rejected") || reason.includes("price")) return "Bitget validation rejected an order; precision/symbol rules should be reviewed before retrying that setup.";
   return `Main lesson: ${top[0]}`;
+}
+
+function buildExecutorSelfImprovementPlan(input, learning) {
+  const suggestions = [];
+  const rejected = learning?.rejections || input?.decisions?.rejected || {};
+  const topRejects = Object.entries(rejected).sort((a, b) => Number(b[1]) - Number(a[1]));
+  const topReason = String(topRejects[0]?.[0] || "").toLowerCase();
+  const executable = Number(input?.decisions?.executableSignals || 0);
+  const total = Number(input?.decisions?.totalSignals || 0);
+  const recentOpen = Number(input?.decisions?.recentOpenSignals || 0);
+  const realOpen = Number(input?.bitgetPositions?.open || input?.remotePositions?.open || 0);
+  const maxOpen = Number(input?.effectivePolicy?.maxOpen || input?.settings?.maxOpen || 0);
+  const marketGate = String(input?.marketGate?.regime || input?.marketGate?.label || "").toLowerCase();
+  const weakCategory = selectWeakLearning(input?.categoryLearning);
+  const weakSymbol = selectWeakLearning(input?.symbolLearning || input?.rejectedSymbols);
+
+  const add = (title, detail) => {
+    const key = `${title}:${detail}`.toLowerCase();
+    if (suggestions.some((item) => item.key === key)) return;
+    suggestions.push({ key, title: String(title).slice(0, 64), detail: String(detail).slice(0, 180) });
+  };
+
+  if (topReason.includes("stale signal")) {
+    add("Freshness", "Keep the 5 minute live window, but make the scanner prioritize brand-new Bitget-ready setups instead of recycling old Telegram calls.");
+  }
+  if (topReason.includes("already seen") || topReason.includes("already ordered") || topReason.includes("duplicate")) {
+    add("Dedup memory", "Do not reopen the same symbol-side after a Bitget rejection or manual close; wait for a new setup with a fresh id and fresh price.");
+  }
+  if (topReason.includes("take profit") || topReason.includes("current price") || topReason.includes("precision") || topReason.includes("multiple of")) {
+    add("Bitget validation", "Before sending an order, compare TP/SL against live mark price and round to Bitget tick size so rejected entries stop repeating.");
+  }
+  if (topReason.includes("risk-off") || marketGate.includes("risk-off")) {
+    add("Regime filter", "In risk-off, demand stronger confirmation for longs and favor cleaner shorts with liquidity, volume expansion, and low spread.");
+  }
+  if (topReason.includes("score below")) {
+    add("Score model", "Add one more confirmation input before live entries: volume acceleration, open interest change, or funding pressure.");
+  }
+  if (weakCategory) {
+    add("Weak category", `Cooldown ${weakCategory.label}; it is underperforming and should need extra confirmation before live entries.`);
+  }
+  if (weakSymbol) {
+    add("Weak symbol", `Reduce priority for ${weakSymbol.label}; recent learning says it has weak follow-through.`);
+  }
+  if (realOpen >= maxOpen && maxOpen > 0) {
+    add("Capacity", `Max open is doing its job (${realOpen}/${maxOpen}); only use new slots for fresh signals, not old queued calls.`);
+  }
+  if (!total && !recentOpen) {
+    add("Opportunity scan", "No executable signals reached the VPS; broaden the rotating Bitget universe or add a momentum breakout detector.");
+  }
+  if (executable > 0) {
+    add("Execution priority", "Executable signals existed today; rank them by freshness, spread, volume, learning score, and Bitget availability before ordering.");
+  }
+  if (!suggestions.length) {
+    add("Next experiment", "Test an open-interest plus funding acceleration indicator and compare its TP1 hit rate against the current score gate.");
+  }
+  return suggestions.slice(0, 5).map(({ title, detail }) => ({ title, detail }));
+}
+
+function selectWeakLearning(source) {
+  const rows = Array.isArray(source) ? source : Object.entries(source || {}).map(([label, value]) => ({ label, ...(value || {}) }));
+  return rows
+    .map((item) => ({
+      label: String(item.label || item.category || item.symbol || item.pair || item.key || "").slice(0, 48),
+      winRate: Number(item.winRate ?? item.rate ?? item.successRate ?? item.tpRate ?? 1),
+      samples: Number(item.samples ?? item.count ?? item.total ?? 0)
+    }))
+    .filter((item) => item.label && item.samples >= 5 && item.winRate <= 0.45)
+    .sort((a, b) => a.winRate - b.winRate || b.samples - a.samples)[0] || null;
+}
+
+function normalizeSelfImprovement(value) {
+  return (Array.isArray(value) ? value : []).slice(0, 5).map((item) => ({
+    title: String(item?.title || "").slice(0, 64),
+    detail: String(item?.detail || "").slice(0, 180)
+  })).filter((item) => item.title && item.detail);
 }
 
 async function maybeSendDryRunSummary(input) {
@@ -244,6 +321,7 @@ function formatLiveOrderMessage(input, order) {
 function formatExecutorDailyLearningMessage(input, learning) {
   const top = (learning.topRejects || []).slice(0, 4).map((item) => `${escapeHtml(item.reason)} (${Number(item.count || 0)})`);
   const examples = (learning.examples || []).slice(0, 3).map((item) => `${escapeHtml(item.pair)} ${escapeHtml(item.side)}: ${escapeHtml(item.reason)}`);
+  const improvements = normalizeSelfImprovement(learning.selfImprovement);
   return [
     "📌 <b>JamdDmaj Bitget daily learning</b>",
     `Day: ${escapeHtml(learning.day || dayKey())}`,
@@ -251,7 +329,9 @@ function formatExecutorDailyLearningMessage(input, learning) {
     top.length ? `Top filters: ${top.join(" | ")}` : "Top filters: none yet",
     examples.length ? `Examples: ${examples.join(" | ")}` : "",
     `Lesson: ${escapeHtml(learning.lesson || "Collecting data.")}`,
-    "Tomorrow the executor will keep using score gates, risk-off filters, account auto-risk, and learned weak-pattern cooldowns."
+    improvements.length ? "\n<b>AI self-improvement requests</b>" : "",
+    ...improvements.map((item, index) => `${index + 1}. <b>${escapeHtml(item.title)}</b>: ${escapeHtml(item.detail)}`),
+    "Tomorrow the executor will keep using fresh-signal limits, score gates, account risk, and the current profit-protection rules."
   ].filter(Boolean).join("\n");
 }
 
