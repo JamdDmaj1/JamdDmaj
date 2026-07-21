@@ -1273,15 +1273,29 @@ function createExecutorState() {
 }
 
 async function reportExecutorStatus(payload) {
-  if (!settings.cronSecret) return;
-  await fetch(`${settings.appUrl}/api/pro-executor`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${settings.cronSecret}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(payload)
-  }).catch(() => {});
+  if (!settings.cronSecret) {
+    console.log(`${LOG_PREFIX} heartbeat skipped: JAMDDMAJ_CRON_SECRET missing`);
+    return false;
+  }
+  try {
+    const response = await fetch(`${settings.appUrl}/api/pro-executor`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${settings.cronSecret}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      console.log(`${LOG_PREFIX} heartbeat failed: ${response.status} ${text.replace(/\s+/g, " ").slice(0, 220)}`);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.log(`${LOG_PREFIX} heartbeat failed: ${error?.message || error}`);
+    return false;
+  }
 }
 
 function statusPayload(state, overrides = {}) {
