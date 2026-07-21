@@ -99,6 +99,7 @@ async function main() {
   decisions.marketGate = summarizeMarketGate(marketContext, policy);
   decisions.traderProfile = effectiveTraderProfile(policy);
   learnFromOutcomeEvents(state, events, policy);
+  state.lastOutcomeEvents = compactOutcomeEvents(events);
   state.lastMarketGate = decisions.marketGate;
 
   console.log(`${LOG_PREFIX} scan ok. manualTest=${manualSignals.length} newSignals=${newSignals.length} recentOpen=${recentOpen.length} totalSignals=${signals.length} events=${events.length} mode=${settings.mode} maxOpen=${policy.maxOpen} perRun=${policy.maxNewOrdersPerRun}`);
@@ -299,7 +300,7 @@ async function fetchExecutorTestSignal() {
 async function fetchMarketContext() {
   try {
     const response = await fetch(`${settings.appUrl}/api/pro-news`, {
-      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.37.31" }
+      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.37.32" }
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok || body?.error) return null;
@@ -744,6 +745,31 @@ function outcomeFromEvent(event = {}) {
   if (/(PROTECTED_WIN|TP|WIN)/.test(type)) return "win";
   if (/(INVALIDATED|REVERSAL|SL|LOSS)/.test(type)) return "loss";
   return null;
+}
+
+function compactOutcomeEvents(events = []) {
+  return (Array.isArray(events) ? events : [])
+    .map((event) => {
+      const signal = event?.signal || event || {};
+      const outcome = outcomeFromEvent(event);
+      const type = String(event?.type || signal.status || event?.status || event?.outcome || "").slice(0, 40);
+      if (!outcome && !type) return null;
+      return {
+        id: String(event?.id || signal.id || `${signal.pair || signal.symbol}:${type}:${signal.closedAt || event?.closedAt || signal.createdAt || ""}`).slice(0, 180),
+        pair: String(signal.pair || signal.symbol || "").slice(0, 40),
+        side: String(signal.side || "").slice(0, 10),
+        type,
+        outcome: outcome || "",
+        score: Number(signal.score || 0),
+        category: String(signal.category || "").slice(0, 80),
+        entry: Number(signal.entry || 0),
+        closePrice: Number(signal.closePrice || 0),
+        createdAt: signal.createdAt || event?.createdAt || "",
+        closedAt: signal.closedAt || event?.closedAt || ""
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 20);
 }
 
 function pruneLearningState(state) {
@@ -1243,7 +1269,7 @@ function pruneState(state) {
 }
 
 function createExecutorState() {
-  return { version: 5, updatedAt: null, seen: {}, orders: [], daily: normalizeDailyState({}), symbolLearning: {}, categoryLearning: {}, rejectedSymbols: {}, learnedEvents: {}, lastDecisionSummary: createDecisionSummary([], []) };
+  return { version: 5, updatedAt: null, seen: {}, orders: [], daily: normalizeDailyState({}), symbolLearning: {}, categoryLearning: {}, rejectedSymbols: {}, learnedEvents: {}, lastOutcomeEvents: [], lastDecisionSummary: createDecisionSummary([], []) };
 }
 
 async function reportExecutorStatus(payload) {
@@ -1290,6 +1316,7 @@ function statusPayload(state, overrides = {}) {
     rejectedSymbols: compactRejectedSymbols(state.rejectedSymbols),
     marketGate: state.lastMarketGate || summarizeMarketGate(null, {}),
     recentOrders: state.orders.slice(0, 8).map(compactOrder),
+    recentOutcomeEvents: Array.isArray(state.lastOutcomeEvents) ? state.lastOutcomeEvents.slice(0, 12) : [],
     remotePositions: Array.isArray(state.remotePositions) ? state.remotePositions.slice(0, 8) : [],
     accountRisk: state.accountRisk || null,
     lastDryRunSignal: state.lastDryRunSignal || null,

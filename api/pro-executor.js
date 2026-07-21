@@ -114,6 +114,7 @@ async function updateExecutorLearning(input) {
     });
   }
   previous.examples = previous.examples.slice(0, 12);
+  applyOutcomeLearning(input, previous);
   previous.lesson = buildExecutorLesson(previous);
   previous.selfImprovement = buildExecutorSelfImprovementPlan(input, previous);
   await redisRequest("pipeline", [["SET", key, JSON.stringify(previous), "EX", 604800]]);
@@ -121,7 +122,26 @@ async function updateExecutorLearning(input) {
 }
 
 function createExecutorLearning(day) {
-  return { day, runs: 0, liveOrders: 0, orderKeys: [], orders: [], rejections: {}, examples: [], lesson: "Collecting executor data.", selfImprovement: [], updatedAt: new Date().toISOString() };
+  return {
+    day,
+    runs: 0,
+    liveOrders: 0,
+    orderKeys: [],
+    orders: [],
+    outcomeKeys: [],
+    wins: 0,
+    losses: 0,
+    slLosses: 0,
+    reversalLosses: 0,
+    profitGivebacks: 0,
+    lossReasons: {},
+    lossExamples: [],
+    rejections: {},
+    examples: [],
+    lesson: "Collecting executor data.",
+    selfImprovement: [],
+    updatedAt: new Date().toISOString()
+  };
 }
 
 function compactExecutorLearning(value) {
@@ -132,13 +152,132 @@ function compactExecutorLearning(value) {
     liveOrders: Number(value.liveOrders || 0),
     topRejects: topRejects.map(([reason, count]) => ({ reason, count: Number(count || 0) })),
     examples: (value.examples || []).slice(0, 5),
+    outcomes: compactOutcomeSummary(value),
     lesson: value.lesson || buildExecutorLesson(value),
     selfImprovement: normalizeSelfImprovement(value.selfImprovement),
     updatedAt: value.updatedAt || null
   };
 }
 
+function applyOutcomeLearning(input, previous) {
+  previous.outcomeKeys = Array.isArray(previous.outcomeKeys) ? previous.outcomeKeys : [];
+  previous.lossReasons = previous.lossReasons && typeof previous.lossReasons === "object" ? previous.lossReasons : {};
+  previous.lossExamples = Array.isArray(previous.lossExamples) ? previous.lossExamples : [];
+  for (const outcome of collectExecutorOutcomes(input)) {
+    const key = String(outcome.id || `${outcome.pair}:${outcome.side}:${outcome.type}:${outcome.closedAt || outcome.createdAt}`).slice(0, 180);
+    if (!key || previous.outcomeKeys.includes(key)) continue;
+    previous.outcomeKeys.push(key);
+    if (outcome.outcome === "win") {
+      previous.wins = Number(previous.wins || 0) + 1;
+      continue;
+    }
+    if (outcome.outcome !== "loss") continue;
+    previous.losses = Number(previous.losses || 0) + 1;
+    if (outcome.reason === "sl" || outcome.reason === "invalidation") previous.slLosses = Number(previous.slLosses || 0) + 1;
+    if (outcome.reason === "reversal") previous.reversalLosses = Number(previous.reversalLosses || 0) + 1;
+    if (outcome.reason === "profit-giveback") previous.profitGivebacks = Number(previous.profitGivebacks || 0) + 1;
+    previous.lossReasons[outcome.reason] = (Number(previous.lossReasons[outcome.reason]) || 0) + 1;
+    previous.lossExamples.unshift({
+      pair: String(outcome.pair || "").slice(0, 40),
+      side: String(outcome.side || "").slice(0, 12),
+      reason: String(outcome.reason || "loss").slice(0, 40),
+      score: Number(outcome.score || 0),
+      roe: Number(outcome.roe || 0),
+      maxRoe: Number(outcome.maxRoe || 0),
+      category: String(outcome.category || "").slice(0, 80)
+    });
+  }
+  previous.outcomeKeys = previous.outcomeKeys.slice(-300);
+  previous.lossExamples = previous.lossExamples.slice(0, 10);
+}
+
+function collectExecutorOutcomes(input) {
+  const outcomes = [];
+  for (const event of Array.isArray(input?.recentOutcomeEvents) ? input.recentOutcomeEvents : []) {
+    const type = String(event?.type || event?.status || event?.outcome || "").toLowerCase();
+    const outcome = String(event?.outcome || "").toLowerCase() || outcomeFromText(type);
+    if (!outcome) continue;
+    outcomes.push({
+      id: event?.id,
+      pair: event?.pair,
+      side: event?.side,
+      type,
+      outcome,
+      reason: lossReasonFromText(type, event),
+      score: Number(event?.score || 0),
+      category: event?.category || "",
+      createdAt: event?.createdAt || "",
+      closedAt: event?.closedAt || ""
+    });
+  }
+  for (const order of Array.isArray(input?.recentOrders) ? input.recentOrders : []) {
+    const status = String(order?.status || "").toLowerCase();
+    const exitReason = String(order?.exitReason || "").toLowerCase();
+    const text = `${status} ${exitReason}`;
+    const currentRoe = Number(order?.currentRoe || 0);
+    const maxRoe = Number(order?.maxRoe || 0);
+    const closed = /(closed|invalid|reversal|sl|loss|win|tp)/i.test(text);
+    if (!closed) continue;
+    const outcome = outcomeFromText(text) || (currentRoe < -0.5 ? "loss" : (currentRoe > 0.5 ? "win" : ""));
+    if (!outcome) continue;
+    outcomes.push({
+      id: order?.id || order?.clientOid || `${order?.pair || order?.symbol}:${status}:${order?.createdAt || ""}`,
+      pair: order?.pair || order?.symbol,
+      side: order?.side,
+      type: text,
+      outcome,
+      reason: lossReasonFromText(text, { currentRoe, maxRoe }),
+      score: Number(order?.score || 0),
+      roe: currentRoe,
+      maxRoe,
+      category: order?.category || "",
+      createdAt: order?.createdAt || "",
+      closedAt: order?.closedAt || ""
+    });
+  }
+  return outcomes;
+}
+
+function outcomeFromText(text) {
+  const value = String(text || "").toLowerCase();
+  if (/protected_win|partial_win|\btp\b|win|take profit/.test(value)) return "win";
+  if (/invalid|reversal|\bsl\b|stop|loss/.test(value)) return "loss";
+  return "";
+}
+
+function lossReasonFromText(text, item = {}) {
+  const value = String(text || "").toLowerCase();
+  const currentRoe = Number(item?.currentRoe || item?.roe || 0);
+  const maxRoe = Number(item?.maxRoe || 0);
+  if (/protected|lock/.test(value) && maxRoe >= 7 && currentRoe < 0) return "profit-giveback";
+  if (/reversal/.test(value)) return "reversal";
+  if (/invalid/.test(value)) return "invalidation";
+  if (/\bsl\b|stop/.test(value)) return "sl";
+  if (/closed_by_exit_manager/.test(value) && currentRoe < 0) return "negative-exit";
+  return "loss";
+}
+
+function compactOutcomeSummary(value) {
+  const topLossReasons = Object.entries(value.lossReasons || {})
+    .sort((a, b) => Number(b[1]) - Number(a[1]))
+    .slice(0, 4)
+    .map(([reason, count]) => ({ reason, count: Number(count || 0) }));
+  return {
+    wins: Number(value.wins || 0),
+    losses: Number(value.losses || 0),
+    slLosses: Number(value.slLosses || 0),
+    reversalLosses: Number(value.reversalLosses || 0),
+    profitGivebacks: Number(value.profitGivebacks || 0),
+    topLossReasons,
+    lossExamples: (Array.isArray(value.lossExamples) ? value.lossExamples : []).slice(0, 5)
+  };
+}
+
 function buildExecutorLesson(value) {
+  const outcomes = compactOutcomeSummary(value);
+  if (outcomes.slLosses >= 2) return "Multiple SL/invalidation losses today; require stronger trend, volume, and entry-price confirmation before live entries.";
+  if (outcomes.reversalLosses >= 2) return "Multiple reversal losses today; entries need stricter trend alignment and faster invalidation checks.";
+  if (outcomes.profitGivebacks >= 1) return "At least one trade gave back protected profit; review entry timing and avoid late momentum chases.";
   const top = Object.entries(value.rejections || {}).sort((a, b) => Number(b[1]) - Number(a[1]))[0];
   if (!top) return value.liveOrders ? "Entry automation is working; keep monitoring TP/SL behavior." : "No strong executor lesson yet.";
   const reason = String(top[0] || "").toLowerCase();
@@ -162,6 +301,7 @@ function buildExecutorSelfImprovementPlan(input, learning) {
   const marketGate = String(input?.marketGate?.regime || input?.marketGate?.label || "").toLowerCase();
   const weakCategory = selectWeakLearning(input?.categoryLearning);
   const weakSymbol = selectWeakLearning(input?.symbolLearning || input?.rejectedSymbols);
+  const outcomes = compactOutcomeSummary(learning || {});
 
   const add = (title, detail) => {
     const key = `${title}:${detail}`.toLowerCase();
@@ -171,6 +311,19 @@ function buildExecutorSelfImprovementPlan(input, learning) {
 
   if (topReason.includes("stale signal")) {
     add("Freshness", "Keep the 5 minute live window, but make the scanner prioritize brand-new Bitget-ready setups instead of recycling old Telegram calls.");
+  }
+  if (outcomes.slLosses >= 2) {
+    add("SL review", "Several trades hit SL/invalidation today; require stronger 4h trend alignment, volume expansion, and cleaner entry drift before live orders.");
+  }
+  if (outcomes.reversalLosses >= 2) {
+    add("Reversal filter", "Several trades reversed after entry; add a short-term momentum turn check before sending Bitget orders.");
+  }
+  if (outcomes.profitGivebacks >= 1) {
+    add("Profit giveback", "A trade gave back profit after being protected; inspect whether entries are too late or too close to exhaustion candles.");
+  }
+  if (outcomes.lossExamples.length) {
+    const sample = outcomes.lossExamples[0];
+    add("Loss sample", `${sample.pair} ${sample.side} ended as ${sample.reason}; compare its score, category, and trend context with today's winners.`);
   }
   if (topReason.includes("already seen") || topReason.includes("already ordered") || topReason.includes("duplicate")) {
     add("Dedup memory", "Do not reopen the same symbol-side after a Bitget rejection or manual close; wait for a new setup with a fresh id and fresh price.");
@@ -322,10 +475,17 @@ function formatExecutorDailyLearningMessage(input, learning) {
   const top = (learning.topRejects || []).slice(0, 4).map((item) => `${escapeHtml(item.reason)} (${Number(item.count || 0)})`);
   const examples = (learning.examples || []).slice(0, 3).map((item) => `${escapeHtml(item.pair)} ${escapeHtml(item.side)}: ${escapeHtml(item.reason)}`);
   const improvements = normalizeSelfImprovement(learning.selfImprovement);
+  const outcomes = learning.outcomes || {};
+  const lossExamples = (outcomes.lossExamples || []).slice(0, 3).map((item) => `${escapeHtml(item.pair)} ${escapeHtml(item.side)}: ${escapeHtml(item.reason)}`);
+  const lossReasons = (outcomes.topLossReasons || []).slice(0, 3).map((item) => `${escapeHtml(item.reason)} (${Number(item.count || 0)})`);
   return [
     "📌 <b>JamdDmaj Bitget daily learning</b>",
     `Day: ${escapeHtml(learning.day || dayKey())}`,
     `VPS runs: ${Number(learning.runs || 0)} | Live entries: ${Number(learning.liveOrders || 0)}`,
+    `Outcomes: wins ${Number(outcomes.wins || 0)} | losses ${Number(outcomes.losses || 0)} | SL ${Number(outcomes.slLosses || 0)} | reversal ${Number(outcomes.reversalLosses || 0)}`,
+    Number(outcomes.profitGivebacks || 0) ? `Profit givebacks: ${Number(outcomes.profitGivebacks || 0)}` : "",
+    lossReasons.length ? `Loss reasons: ${lossReasons.join(" | ")}` : "",
+    lossExamples.length ? `Loss examples: ${lossExamples.join(" | ")}` : "",
     top.length ? `Top filters: ${top.join(" | ")}` : "Top filters: none yet",
     examples.length ? `Examples: ${examples.join(" | ")}` : "",
     `Lesson: ${escapeHtml(learning.lesson || "Collecting data.")}`,
