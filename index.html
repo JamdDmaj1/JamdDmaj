@@ -3946,7 +3946,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.37.34";
+      const APP_VERSION = "1.37.35";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -6835,6 +6835,7 @@
       async function callProApi(body) {
         const response = await fetch(PRO_API_URL, {
           method: "POST",
+          cache: "no-store",
           headers: {
             "Content-Type": "application/json",
             "X-JamdDmaj-Device": getDeviceId(),
@@ -6855,11 +6856,43 @@
           : "Refreshing server state...";
         try {
           proServerState = await callProApi({ action: "status" });
+          await mergeExecutorHeartbeatFallback(proServerState);
           renderProServerState(proServerState);
           if (proServerState.backtest) renderBacktest(proServerState.backtest);
         } catch (error) {
+          const spanish = resolvedLanguage() === "es";
           document.getElementById("proServerStatus").textContent = error.message;
+          renderExecutorHealth({
+            mode: "unknown",
+            lastError: spanish
+              ? "La app no pudo leer el estado privado del VPS: " + error.message
+              : "The app could not read the private VPS state: " + error.message
+          }, spanish, {}, null);
         }
+      }
+
+      async function mergeExecutorHeartbeatFallback(state) {
+        if (!state) return state;
+        const current = state.executor || {};
+        if (current.lastRunAt && String(current.mode || "unknown").toLowerCase() !== "unknown") return state;
+        const fallback = await fetchAppUpdateStatus().catch(() => null);
+        const heartbeat = fallback?.proExecutorHeartbeat || null;
+        if (!heartbeat?.lastRunAt) return state;
+        const currentTime = Date.parse(current.lastRunAt || "") || 0;
+        const heartbeatTime = Date.parse(heartbeat.lastRunAt || heartbeat.receivedAt || "") || 0;
+        if (current.lastRunAt && currentTime > heartbeatTime) return state;
+        state.executor = {
+          ...current,
+          mode: heartbeat.mode || current.mode || "unknown",
+          ok: heartbeat.ok === true || current.ok === true,
+          livePaused: heartbeat.livePaused === true || current.livePaused === true,
+          lastRunAt: heartbeat.lastRunAt || current.lastRunAt || null,
+          receivedAt: heartbeat.receivedAt || current.receivedAt || null,
+          bitgetSynced: heartbeat.bitgetSynced === true || current.bitgetSynced === true,
+          lastAction: current.lastAction || (resolvedLanguage() === "es" ? "Heartbeat del VPS confirmado por Vercel." : "VPS heartbeat confirmed by Vercel."),
+          lastError: current.lastError || heartbeat.lastError || ""
+        };
+        return state;
       }
 
       async function loadProNews(showActivity = false) {

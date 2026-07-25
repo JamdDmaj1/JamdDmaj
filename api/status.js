@@ -1,8 +1,9 @@
 import { corsHeaders, isServiceConfigured, jsonResponse } from "../lib/server.js";
+import { getProServerState } from "../lib/pro-signals.js";
 
 export const config = { runtime: "edge" };
 
-const FALLBACK_VERSION = "1.37.34";
+const FALLBACK_VERSION = "1.37.35";
 const FALLBACK_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
 const GITHUB_LATEST_RELEASE_URL = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
 
@@ -15,6 +16,7 @@ export default async function handler(request) {
   }
 
   const release = await resolveLatestRelease();
+  const proExecutorHeartbeat = await getPublicExecutorHeartbeat();
   return jsonResponse(request, {
     ready: isServiceConfigured(),
     mode: "managed-free-chat",
@@ -31,8 +33,27 @@ export default async function handler(request) {
     apkUrl: release.apkUrl,
     releaseUrl: release.releaseUrl,
     releaseName: release.releaseName,
-    updateSource: release.source
+    updateSource: release.source,
+    proExecutorHeartbeat
   });
+}
+
+async function getPublicExecutorHeartbeat() {
+  try {
+    const state = await getProServerState();
+    const executor = state.executor || {};
+    return {
+      mode: executor.mode || "unknown",
+      ok: executor.ok === true,
+      livePaused: executor.livePaused === true,
+      lastRunAt: executor.lastRunAt || null,
+      receivedAt: executor.receivedAt || null,
+      bitgetSynced: executor.bitgetSynced === true,
+      lastError: executor.lastError ? "VPS reported an executor error." : ""
+    };
+  } catch {
+    return null;
+  }
 }
 
 async function resolveLatestRelease() {
