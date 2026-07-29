@@ -247,7 +247,8 @@ async function runScanner() {
 }
 
 async function fetchClientFeed() {
-  const headers = settings.clientFeedToken ? { "X-JamdDmaj-Client-Token": settings.clientFeedToken } : {};
+  const feedToken = settings.clientFeedToken || settings.cronSecret;
+  const headers = feedToken ? { "X-JamdDmaj-Client-Token": feedToken } : {};
   const response = await fetch(`${settings.appUrl}/api/pro-client-feed`, { headers });
   const text = await response.text();
   let body;
