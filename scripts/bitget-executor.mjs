@@ -349,7 +349,11 @@ function marketGateDecision(signal, gate) {
   const base = String(signal.baseSymbol || signal.pair || signal.symbol || "").replace(/[^A-Z0-9]/gi, "").replace(/USDT.*$/i, "").toUpperCase();
   const coreAsset = ["BTC", "ETH"].includes(base);
   const score = Number(signal.score || 0);
-  const liquidity = Number(signal.quoteVolume || signal.liquidity24h || 0);
+  const liquidity = Number(signal.quoteVolume || signal.liquidityUsd || signal.liquidity24h || 0);
+  const spread = Number(signal.spreadPercent || signal.spread || 0);
+  const volumeRatio = Number(signal.volumeRatio || 0);
+  const strength = Number(signal.adx || 0);
+  const momentumBreakout = signal.momentumBreakout === true || signal.setupType === "momentum-breakout";
   const riskFlags = Array.isArray(signal.riskFlags) ? signal.riskFlags : [];
   const category = String(signal.category || "");
   if (!gate?.riskOff) return { ok: true, reason: "market gate passed" };
@@ -365,6 +369,16 @@ function marketGateDecision(signal, gate) {
   const minLiquidity = Number(gate.minLiquidityUsd || settings.minLiquidityUsd);
   if (liquidity && liquidity < minLiquidity * 2) {
     return { ok: false, reason: `risk-off liquidity below ${minLiquidity * 2}` };
+  }
+  if (side === "LONG") {
+    if (volumeRatio > 0 && volumeRatio < 1.2) return { ok: false, reason: "risk-off long needs volume expansion 1.20x" };
+    if (spread > 0.002) return { ok: false, reason: "risk-off long spread above 0.20%" };
+    if (strength > 0 && strength < 22) return { ok: false, reason: "risk-off long ADX below 22" };
+    if (momentumBreakout && volumeRatio > 0 && volumeRatio < 1.35) return { ok: false, reason: "risk-off breakout needs volume expansion 1.35x" };
+  }
+  if (side === "SHORT") {
+    if (volumeRatio > 0 && volumeRatio < 1.05) return { ok: false, reason: "risk-off short needs confirmed volume" };
+    if (spread > 0.0025) return { ok: false, reason: "risk-off short spread above 0.25%" };
   }
   return { ok: true, reason: "market gate passed" };
 }
@@ -1015,6 +1029,14 @@ function createStateOrder(signal, plan, status, response = null) {
     score: Number(signal.score || 0),
     rawScore: Number(signal.rawScore || signal.score || 0),
     quoteVolume: Number(signal.quoteVolume || signal.liquidityUsd || signal.liquidity24h || 0),
+    spreadPercent: Number(signal.spreadPercent || 0),
+    volumeRatio: Number(signal.volumeRatio || 0),
+    adx: Number(signal.adx || 0),
+    momentum6h: Number(signal.momentum6h || 0),
+    trend: String(signal.trend || ""),
+    higherTrend: String(signal.higherTrend || ""),
+    setupType: String(signal.setupType || "trend-continuation"),
+    momentumBreakout: signal.momentumBreakout === true,
     clientOid: plan.clientOid,
     marginUsd: plan.marginUsd,
     leverage: plan.leverage,
