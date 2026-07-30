@@ -270,11 +270,8 @@ function selectRecentOpenSignals(openSignals, minutes) {
   return openSignals
     .filter((signal) => signal && signal.status === "OPEN")
     .filter((signal) => {
-      const monitoredUntil = Date.parse(signal.monitoredUntil || signal.validUntil || signal.expiresAt || "");
-      if (Number.isFinite(monitoredUntil) && monitoredUntil >= now) return true;
-      const created = Date.parse(signal.createdAt || signal.checkedAt || signal.updatedAt || "");
-      if (Number.isFinite(created) && created >= cutoff) return true;
-      return signal.executionAllowed === true && signal.bitgetEligible !== false;
+      const created = Date.parse(signal.createdAt || "");
+      return Number.isFinite(created) && created >= cutoff;
     })
     .map((signal) => ({ ...signal, executorSource: "open-signal" }));
 }

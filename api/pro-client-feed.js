@@ -11,7 +11,11 @@ export default async function handler(request) {
     return jsonResponse(request, { error: { message: "Method not allowed." } }, 405);
   }
   const url = new URL(request.url);
-  const configuredToken = String(process.env.JAMDDMAJ_CLIENT_FEED_TOKEN || "").trim();
+  const configuredToken = String(
+    process.env.JAMDDMAJ_CLIENT_FEED_TOKEN
+    || process.env.JAMDDMAJ_CRON_SECRET
+    || ""
+  ).trim();
   const providedToken = String(request.headers.get("x-jamddmaj-client-token") || url.searchParams.get("token") || "").trim();
   if (configuredToken && providedToken !== configuredToken) {
     return jsonResponse(request, { error: { message: "Unauthorized client connector feed." } }, 401);
@@ -19,7 +23,13 @@ export default async function handler(request) {
   try {
     const state = await getProServerState();
     const open = Array.isArray(state.open) ? state.open.slice(0, 40).map(safeSignal) : [];
-    const freshSignals = open.filter((signal) => signal.status === "OPEN").slice(0, 12);
+    const maxAgeMinutes = Math.max(5, Math.min(240, Number(state.config?.maxExecutionSignalAgeMinutes || 5)));
+    const executionCutoff = Date.now() - maxAgeMinutes * 60000;
+    const freshSignals = open
+      .filter((signal) => signal.status === "OPEN" && signal.bitgetEligible === true)
+      .filter((signal) => Number.isFinite(Date.parse(signal.createdAt || "")) && Date.parse(signal.createdAt) >= executionCutoff)
+      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+      .slice(0, 12);
     return jsonResponse(request, {
       ok: true,
       clientFeed: true,
