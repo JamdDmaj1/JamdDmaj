@@ -10,13 +10,12 @@ export default async function handler(request) {
   if (request.method !== "GET") {
     return jsonResponse(request, { error: { message: "Method not allowed." } }, 405);
   }
-  const url = new URL(request.url);
   const configuredToken = String(
     process.env.JAMDDMAJ_CLIENT_FEED_TOKEN
     || process.env.JAMDDMAJ_CRON_SECRET
     || ""
   ).trim();
-  const providedToken = String(request.headers.get("x-jamddmaj-client-token") || url.searchParams.get("token") || "").trim();
+  const providedToken = String(request.headers.get("x-jamddmaj-client-token") || "").trim();
   if (configuredToken && providedToken !== configuredToken) {
     return jsonResponse(request, { error: { message: "Unauthorized client connector feed." } }, 401);
   }

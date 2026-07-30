@@ -495,7 +495,7 @@ function formatExecutorDailyLearningMessage(input, learning) {
   ].filter(Boolean).join("\n");
 }
 
-function dayKey(date = new Date()) {
+export function dayKey(date = new Date()) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/New_York",
     year: "numeric",

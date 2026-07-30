@@ -5,6 +5,7 @@
   "type": "module",
   "description": "JamdDmaj AI mobile application",
   "scripts": {
+    "test": "node --test tests/*.test.mjs",
     "postinstall": "node scripts/prepare-plugins.mjs",
     "build:web": "node scripts/build-web.mjs",
     "mobile:sync": "npm run build:web && cap sync",
