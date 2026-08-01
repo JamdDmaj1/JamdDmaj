@@ -3,6 +3,7 @@ import test from "node:test";
 
 import proClientFeedHandler from "../api/pro-client-feed.js";
 import { dayKey } from "../api/pro-executor.js";
+import { dailyReportKey, shouldReuseRecentCycle } from "../lib/pro-signals.js";
 
 function signal(id, ageMs, bitgetEligible) {
   return {
@@ -73,7 +74,17 @@ test("the executor feed sends only fresh Bitget-ready signals", { concurrency: f
   }
 });
 
-test("daily learning uses the New York calendar date", () => {
+test("daily learning reports use the New York calendar date", () => {
   assert.equal(dayKey("2026-07-30T01:00:00.000Z"), "2026-07-29");
   assert.equal(dayKey("2026-07-30T05:00:00.000Z"), "2026-07-30");
+  assert.equal(dailyReportKey("2026-07-30T01:00:00.000Z"), "2026-07-29");
+  assert.equal(dailyReportKey("2026-07-30T05:00:00.000Z"), "2026-07-30");
+});
+
+test("recent server scans are reused unless a forced cycle is requested", () => {
+  const now = Date.parse("2026-08-01T00:00:00.000Z");
+  assert.equal(shouldReuseRecentCycle("2026-07-31T23:59:00.000Z", false, now), true);
+  assert.equal(shouldReuseRecentCycle("2026-07-31T23:55:00.000Z", false, now), false);
+  assert.equal(shouldReuseRecentCycle("2026-07-31T23:59:00.000Z", true, now), false);
+  assert.equal(shouldReuseRecentCycle("2026-08-01T00:01:00.000Z", false, now), false);
 });

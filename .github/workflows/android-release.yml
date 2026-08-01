@@ -36,6 +36,7 @@ jobs:
       - name: Install and synchronize
         run: |
           npm ci
+          npm test
           npm run mobile:sync
 
       - name: Restore permanent signing key
