@@ -2,7 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import chatHandler from "../api/chat.js";
-import { buildChartMessages, normalizeChartAnalysis } from "../api/chart-analysis.js";
+import {
+  buildChartMessages,
+  chartVisionModels,
+  hasSpecificChartEvidence,
+  normalizeChartAnalysis
+} from "../api/chart-analysis.js";
 import proClientFeedHandler from "../api/pro-client-feed.js";
 import { dayKey } from "../api/pro-executor.js";
 import { enforceRateLimits } from "../lib/server.js";
@@ -250,4 +255,43 @@ test("chart analysis defaults to no trade and computes market alignment safely",
   assert.equal(unclear.signal, "NO TRADE");
   assert.equal(unclear.marketAlignment, "NEUTRAL");
   assert.equal(unclear.entry, "Esperar confirmacion");
+  assert.doesNotMatch(unclear.summary, /```|\{"signal"/);
+});
+
+test("chart analysis rejects generic templates and accepts image-specific evidence", () => {
+  const generic = normalizeChartAnalysis(JSON.stringify({
+    signal: "NO TRADE",
+    confidence: 0,
+    asset: "AAVEUSDT",
+    timeframe: "1h",
+    chartTrend: "INCIERTA",
+    reasons: ["Direccion dominante calculada por el scanner: MIXTA"],
+    warnings: ["Captura aislada no confirma precio en vivo"],
+    summary: ""
+  }));
+  assert.equal(hasSpecificChartEvidence(generic), false);
+
+  const specific = normalizeChartAnalysis(JSON.stringify({
+    signal: "SHORT",
+    confidence: 71,
+    asset: "AAVEUSDT",
+    timeframe: "1h",
+    chartTrend: "BAJISTA",
+    pattern: "rechazo en resistencia",
+    visualEvidence: [
+      "El ultimo maximo queda debajo del maximo anterior.",
+      "La vela mas reciente rechaza la zona superior con mecha larga.",
+      "El volumen aumenta durante la vela bajista."
+    ],
+    reasons: ["La estructura muestra maximos y minimos descendentes."],
+    summary: "La captura muestra continuacion bajista mientras no recupere el ultimo maximo visible."
+  }));
+  assert.equal(hasSpecificChartEvidence(specific), true);
+});
+
+test("chart vision fallbacks remain free and include explicit image models", () => {
+  const models = chartVisionModels("paid/model,google/gemma-4-26b-a4b-it:free");
+  assert.equal(models[0], "google/gemma-4-26b-a4b-it:free");
+  assert.ok(models.every((model) => model.endsWith(":free") || model === "openrouter/free"));
+  assert.ok(models.some((model) => model.includes("gemma")));
 });

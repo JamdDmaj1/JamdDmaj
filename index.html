@@ -3995,7 +3995,7 @@
             <button class="pill-btn" id="checkUpdatesBtn" type="button">Check for updates</button>
             <button class="pill-btn is-hidden" id="downloadUpdateBtn" type="button">Download APK</button>
           </div>
-          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.37</div>
+          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.38</div>
         </section>
       </div>
       <div class="dialog-actions">
@@ -4122,7 +4122,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.37.37";
+      const APP_VERSION = "1.37.38";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -4168,7 +4168,7 @@
               ["Client demo paper", "Non-owner Pro users can start a local paper simulation without touching the server."],
               ["Private code locked", "The 7-tap device code only works after owner authorization."],
               ["Dominant direction", "The app and Telegram now show bullish, bearish or mixed market breadth, and whether each setup agrees with it."],
-              ["Chart analysis", "Upload a TradingView screenshot in Pro to receive LONG, SHORT or NO TRADE with visible levels and reasoning."]
+              ["Chart analysis", "Each TradingView screenshot now requires image-specific evidence and retries with another vision model when the first reading is generic."]
             ]
           },
           es: {
@@ -4181,7 +4181,7 @@
               ["Eventos enlazados en Telegram", "Los TP, protecciones y cambios de tendencia ahora responden al mensaje original del trade cuando Telegram entrega un ID."],
               ["Telegram sin duplicados", "El bloqueo del servidor evita calls y eventos repetidos entre ciclos."],
               ["Direccion dominante", "La app y Telegram muestran si el mercado esta alcista, bajista o mixto y si cada setup va a favor o en contra."],
-              ["Analisis de graficos", "Sube una captura de TradingView dentro de Pro y recibe LONG, SHORT o NO TRADE con niveles visibles y explicacion."]
+              ["Analisis de graficos", "Cada captura de TradingView exige evidencia especifica y prueba otro modelo visual cuando la primera lectura resulta generica."]
             ]
           }
         }
@@ -7667,9 +7667,13 @@
           const data = await response.json().catch(() => ({}));
           if (!response.ok || !data?.analysis) throw new Error(data?.error?.message || `Chart analysis ${response.status}`);
           renderChartAnalysis(data.analysis);
-          document.getElementById("chartAnalysisStatus").textContent = spanish
-            ? "Analisis terminado. Es educativo y no se envio ninguna orden."
-            : "Analysis complete. It is educational and no order was sent.";
+          document.getElementById("chartAnalysisStatus").textContent = data.analysis.analysisIncomplete
+            ? (spanish
+              ? "La IA no pudo extraer evidencia suficiente. Recorta la captura para mostrar principalmente el grafico."
+              : "The AI could not extract enough evidence. Crop the screenshot so the chart fills most of the image.")
+            : (spanish
+              ? "Analisis terminado. Es educativo y no se envio ninguna orden."
+              : "Analysis complete. It is educational and no order was sent.");
         } catch (error) {
           document.getElementById("chartAnalysisStatus").textContent = spanish
             ? `No pude analizarla: ${error.message || "error temporal"}`
@@ -7710,6 +7714,7 @@
           details.append(term, description);
         });
         result.append(title, summary, details);
+        appendChartList(result, spanish ? "Evidencia visual de esta captura" : "Visual evidence from this screenshot", analysis.visualEvidence);
         appendChartList(result, spanish ? "Razones" : "Reasons", analysis.reasons);
         appendChartList(result, spanish ? "Advertencias" : "Warnings", analysis.warnings);
         const safety = document.createElement("p");
