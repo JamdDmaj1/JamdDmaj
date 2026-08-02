@@ -5,6 +5,7 @@ const root = resolve(import.meta.dirname, "..");
 const output = resolve(root, "www");
 const assets = [
   "index.html",
+  "candlesticks.js",
   "oauth-mobile.html",
   "google-mobile.html",
   "manifest.json",

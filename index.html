@@ -3940,6 +3940,8 @@
     (async () => {
       "use strict";
 
+      const { analyzeCandlesticks, candlestickDecision } = await import("./candlesticks.js");
+
       const API_URL = "https://openrouter.ai/api/v1/chat/completions";
       const WEB_APP_URL = "https://jamd-dmaj.vercel.app/";
       const MANAGED_API_URL = `${WEB_APP_URL}api/chat`;
@@ -7715,17 +7717,21 @@
 
       function renderBacktest(result, spanish = resolvedLanguage() === "es") {
         if (!result) return;
+        const candleStudy = result.candlestickStudy;
+        const candleSummary = candleStudy?.decided
+          ? ` ${spanish ? "Filtro de velas" : "Candlestick filter"}: ${Number(candleStudy.winRate || 0).toFixed(1)}% | ${Number(candleStudy.expectancyRoe || 0).toFixed(2)}% ${spanish ? "expectativa" : "expectancy"} | ${Number(candleStudy.rejected || 0)} ${spanish ? "rechazadas" : "rejected"}.`
+          : "";
         document.getElementById("backtestTitle").textContent = spanish ? "Backtest walk-forward" : "Historical walk-forward test";
         document.getElementById("runBacktestBtn").textContent = spanish ? "Ejecutar backtest" : "Run backtest";
-        document.getElementById("backtestStatus").textContent = `${spanish ? "Completado" : "Completed"}: ${new Date(result.completedAt).toLocaleString()} - ${result.methodology}`;
+        document.getElementById("backtestStatus").textContent = `${spanish ? "Completado" : "Completed"}: ${new Date(result.completedAt).toLocaleString()} - ${result.methodology}${candleSummary}`;
         document.getElementById("backtestAssetsLabel").textContent = spanish ? "Activos" : "Assets";
         document.getElementById("backtestSamplesLabel").textContent = spanish ? "Muestras" : "Samples";
-        document.getElementById("backtestWinRateLabel").textContent = spanish ? "Tasa TP1" : "TP1 hit rate";
-        document.getElementById("backtestExpectancyLabel").textContent = spanish ? "Expectativa estimada" : "Estimated expectancy";
+        document.getElementById("backtestWinRateLabel").textContent = candleStudy?.decided ? (spanish ? "TP1 con velas" : "Candle-filtered TP1") : (spanish ? "Tasa TP1" : "TP1 hit rate");
+        document.getElementById("backtestExpectancyLabel").textContent = candleStudy?.decided ? (spanish ? "Expectativa con velas" : "Candle-filtered expectancy") : (spanish ? "Expectativa estimada" : "Estimated expectancy");
         document.getElementById("backtestAssets").textContent = String(result.assetsTested || 0);
         document.getElementById("backtestSamples").textContent = String(result.samples || 0);
-        document.getElementById("backtestWinRate").textContent = `${Number(result.winRate || 0).toFixed(1)}%`;
-        document.getElementById("backtestExpectancy").textContent = `${Number(result.expectancyRoe || 0).toFixed(2)}%`;
+        document.getElementById("backtestWinRate").textContent = `${Number(candleStudy?.winRate ?? result.winRate ?? 0).toFixed(1)}%`;
+        document.getElementById("backtestExpectancy").textContent = `${Number(candleStudy?.expectancyRoe ?? result.expectancyRoe ?? 0).toFixed(2)}%`;
         const list = document.getElementById("backtestSymbolList");
         list.replaceChildren();
         (result.perSymbol || []).sort((a, b) => b.winRate - a.winRate).forEach((item) => {
@@ -11044,8 +11050,19 @@
             const meta = result?.meta;
             const quote = result?.indicators?.quote?.[0] || {};
             if (!meta) throw new Error("No stock chart returned.");
-            const closes = (quote.close || []).map(Number).filter(Number.isFinite);
-            const volumes = (quote.volume || []).map(Number).filter(Number.isFinite);
+            const timestamps = result.timestamp || [];
+            const candles = (quote.close || []).map((close, index) => ({
+              time: Number(timestamps[index]) * 1000,
+              open: Number(quote.open?.[index]),
+              high: Number(quote.high?.[index]),
+              low: Number(quote.low?.[index]),
+              close: Number(close),
+              volume: Number(quote.volume?.[index])
+            })).filter((candle) => [candle.open, candle.high, candle.low, candle.close].every(Number.isFinite));
+            const closes = candles.map((candle) => candle.close);
+            const highs = candles.map((candle) => candle.high);
+            const lows = candles.map((candle) => candle.low);
+            const volumes = candles.map((candle) => candle.volume);
             if (closes.length < 55) throw new Error("Not enough stock candles.");
             const price = Number(meta.regularMarketPrice ?? closes.at(-1));
             const previousClose = Number(meta.chartPreviousClose ?? meta.previousClose ?? closes.at(-2));
@@ -11091,6 +11108,8 @@
               macdSignal,
               macdHistogram: macd - macdSignal,
               volumeRatio: averageVolume ? recentVolume / averageVolume : NaN,
+              atrPercent: calculateAtr(highs, lows, closes, 14) / price,
+              candlestick: analyzeCandlesticks(candles, { excludeLast: true }),
               trend
             };
           } catch (error) {
@@ -11127,10 +11146,18 @@
         }
         if (!ticker || !Array.isArray(klines) || klines.length < 55) throw lastError || new Error("Market data unavailable.");
 
-        const closes = klines.map((item) => Number(item[4])).filter(Number.isFinite);
-        const highs = klines.map((item) => Number(item[2])).filter(Number.isFinite);
-        const lows = klines.map((item) => Number(item[3])).filter(Number.isFinite);
-        const volumes = klines.map((item) => Number(item[5])).filter(Number.isFinite);
+        const candles = klines.map((item) => ({
+          time: Number(item[0]),
+          open: Number(item[1]),
+          high: Number(item[2]),
+          low: Number(item[3]),
+          close: Number(item[4]),
+          volume: Number(item[5])
+        })).filter((candle) => [candle.open, candle.high, candle.low, candle.close].every(Number.isFinite));
+        const closes = candles.map((candle) => candle.close);
+        const highs = candles.map((candle) => candle.high);
+        const lows = candles.map((candle) => candle.low);
+        const volumes = candles.map((candle) => candle.volume);
         const ema12Series = calculateEmaSeries(closes, 12);
         const ema26Series = calculateEmaSeries(closes, 26);
         const macdSeries = closes.map((_, index) => (
@@ -11182,6 +11209,7 @@
           atrPercent: calculateAtr(highs, lows, closes, 14) / price,
           higherTrend,
           higherRsi: calculateRsi(higherCloses, 14),
+          candlestick: analyzeCandlesticks(candles, { excludeLast: true }),
           trend
         };
       }
@@ -11451,6 +11479,8 @@
         const bearishStructure = data.price < data.sma20 && data.sma20 < data.sma50;
         const liquidEnough = data.marketType === "stock" || !Number.isFinite(data.quoteVolume) || data.quoteVolume >= 3000000;
         const volatilitySane = !Number.isFinite(data.atrPercent) || (data.atrPercent >= 0.003 && data.atrPercent <= 0.05);
+        const candleLong = candlestickDecision(data.candlestick, "LONG");
+        const candleShort = candlestickDecision(data.candlestick, "SHORT");
         const longScore = [
           bullishTrend ? 2 : 0,
           higherBullish ? 2 : 0,
@@ -11462,7 +11492,8 @@
           volumeStrong ? 1 : 0,
           bullishStructure ? 1 : 0,
           liquidEnough ? 1 : 0,
-          volatilitySane ? 1 : 0
+          volatilitySane ? 1 : 0,
+          candleLong.includes("confirmation") ? 1 : 0
         ].reduce((sum, value) => sum + value, 0);
         const shortScore = [
           bearishTrend ? 2 : 0,
@@ -11475,13 +11506,15 @@
           volumeStrong ? 1 : 0,
           bearishStructure ? 1 : 0,
           liquidEnough ? 1 : 0,
-          volatilitySane ? 1 : 0
+          volatilitySane ? 1 : 0,
+          candleShort.includes("confirmation") ? 1 : 0
         ].reduce((sum, value) => sum + value, 0);
         const side = longScore >= shortScore ? "LONG" : "SHORT";
         const score = Math.max(longScore, shortScore);
         const marketType = data.marketType || "crypto";
+        const candleContext = side === "LONG" ? candleLong : candleShort;
         const higherAligned = marketType === "stock" || (side === "LONG" ? higherBullish : higherBearish);
-        if (!force && (score < 10 || !higherAligned || !liquidEnough || !volatilitySane)) return null;
+        if (!force && (score < 10 || !higherAligned || !liquidEnough || !volatilitySane || candleContext === "strong-opposition")) return null;
         if (!Number.isFinite(data.price) || data.price <= 0) return null;
         const volatilityFloor = marketType === "stock" ? 0.004 : 0.006;
         const volatilityCeiling = marketType === "stock" ? 0.026 : 0.035;
@@ -11501,7 +11534,7 @@
           category: data.category || (marketType === "stock" ? "Stock market" : "Manual search"),
           side,
           score,
-          maxScore: 13,
+          maxScore: 14,
           confidence: score >= 12 ? "A" : score >= 10 ? "B" : "C",
           entry,
           sl: entry * (1 - direction * stopDistance),
@@ -11517,7 +11550,8 @@
             `MACD hist ${formatIndicator(data.macdHistogram)}`,
             `${marketType === "stock" ? tradeText("move") : "24h"} ${formatSignedPercent(data.change24h)}`,
             `EMA ${emaBullish ? "bullish" : emaBearish ? "bearish" : "flat"}`,
-            `Volume ${formatIndicator(data.volumeRatio)}x`
+            `Volume ${formatIndicator(data.volumeRatio)}x`,
+            `Candles ${candleContext}: ${(data.candlestick?.patterns || []).join(", ") || "none"}`
           ],
           summary: buildTradeReason(data, side, score, force)
         };
