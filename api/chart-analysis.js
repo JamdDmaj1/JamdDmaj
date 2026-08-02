@@ -128,11 +128,11 @@ export function chartVisionModels(value = "") {
     .split(",")
     .map((model) => model.trim())
     .filter((model) => /^[a-z0-9._-]+\/[a-z0-9._:-]+$/i.test(model))
-    .filter((model) => model.endsWith(":free"));
+    .filter((model) => model === "openrouter/free" || model.endsWith(":free"));
   return [...new Set([
     ...configured,
-    "nvidia/nemotron-nano-12b-v2-vl:free",
-    "google/gemma-4-31b-it:free"
+    "openrouter/free",
+    "nvidia/nemotron-nano-12b-v2-vl:free"
   ])].slice(0, 2);
 }
 

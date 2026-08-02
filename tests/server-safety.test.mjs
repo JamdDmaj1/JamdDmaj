@@ -290,7 +290,7 @@ test("chart analysis rejects generic templates and accepts image-specific eviden
 });
 
 test("chart vision fallbacks remain free and include explicit image models", () => {
-  assert.equal(chartVisionModels()[0], "nvidia/nemotron-nano-12b-v2-vl:free");
+  assert.equal(chartVisionModels()[0], "openrouter/free");
   const models = chartVisionModels("paid/model,google/gemma-4-26b-a4b-it:free");
   assert.equal(models[0], "google/gemma-4-26b-a4b-it:free");
   assert.ok(models.every((model) => model.endsWith(":free") || model === "openrouter/free"));
