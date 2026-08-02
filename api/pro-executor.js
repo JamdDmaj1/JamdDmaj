@@ -101,18 +101,24 @@ async function updateExecutorLearning(input) {
     }
   }
   const rejected = input?.decisions?.rejected || {};
-  for (const [reason, count] of Object.entries(rejected)) {
-    const keyReason = String(reason || "unknown").slice(0, 140);
-    previous.rejections[keyReason] = (Number(previous.rejections[keyReason]) || 0) + (Number(count) || 0);
+  const rejectionSnapshot = executorRejectionSnapshot(input);
+  previous.rejectionSnapshotKeys = Array.isArray(previous.rejectionSnapshotKeys) ? previous.rejectionSnapshotKeys : [];
+  if (!previous.rejectionSnapshotKeys.includes(rejectionSnapshot)) {
+    previous.rejectionSnapshotKeys.push(rejectionSnapshot);
+    for (const [reason, count] of Object.entries(rejected)) {
+      const keyReason = String(reason || "unknown").slice(0, 140);
+      previous.rejections[keyReason] = (Number(previous.rejections[keyReason]) || 0) + (Number(count) || 0);
+    }
+    for (const item of Array.isArray(input?.decisions?.examples) ? input.decisions.examples : []) {
+      previous.examples.unshift({
+        pair: String(item.pair || "").slice(0, 40),
+        side: String(item.side || "").slice(0, 12),
+        score: Number(item.score || 0),
+        reason: String(item.reason || "").slice(0, 140)
+      });
+    }
   }
-  for (const item of Array.isArray(input?.decisions?.examples) ? input.decisions.examples : []) {
-    previous.examples.unshift({
-      pair: String(item.pair || "").slice(0, 40),
-      side: String(item.side || "").slice(0, 12),
-      score: Number(item.score || 0),
-      reason: String(item.reason || "").slice(0, 140)
-    });
-  }
+  previous.rejectionSnapshotKeys = previous.rejectionSnapshotKeys.slice(-500);
   previous.examples = previous.examples.slice(0, 12);
   applyOutcomeLearning(input, previous);
   previous.lesson = buildExecutorLesson(previous);
@@ -136,6 +142,7 @@ function createExecutorLearning(day) {
     profitGivebacks: 0,
     lossReasons: {},
     lossExamples: [],
+    rejectionSnapshotKeys: [],
     rejections: {},
     examples: [],
     lesson: "Collecting executor data.",
@@ -495,6 +502,35 @@ function formatExecutorDailyLearningMessage(input, learning) {
     ...improvements.map((item, index) => `${index + 1}. <b>${escapeHtml(item.title)}</b>: ${escapeHtml(item.detail)}`),
     "Tomorrow the executor will keep using fresh-signal limits, score gates, account risk, and the current profit-protection rules."
   ].filter(Boolean).join("\n");
+}
+
+export function executorRejectionSnapshot(input = {}) {
+  const decisions = input?.decisions || {};
+  const rejected = Object.entries(decisions.rejected || {})
+    .map(([reason, count]) => [String(reason || "unknown").slice(0, 140), Number(count) || 0])
+    .sort((a, b) => a[0].localeCompare(b[0]));
+  const examples = (Array.isArray(decisions.examples) ? decisions.examples : [])
+    .map((item) => [
+      String(item?.pair || "").slice(0, 40),
+      String(item?.side || "").slice(0, 12),
+      Number(item?.score || 0),
+      String(item?.reason || "").slice(0, 140)
+    ])
+    .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+  const stable = JSON.stringify({
+    rejected,
+    examples,
+    totalSignals: Number(decisions.totalSignals || 0),
+    newSignals: Number(decisions.newSignals || 0),
+    recentOpenSignals: Number(decisions.recentOpenSignals || 0),
+    executableSignals: Number(decisions.executableSignals || 0)
+  });
+  let hash = 2166136261;
+  for (let index = 0; index < stable.length; index += 1) {
+    hash ^= stable.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
 }
 
 function formatExecutorMarketDirection(direction) {

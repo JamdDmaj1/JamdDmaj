@@ -9,7 +9,7 @@ import {
   normalizeChartAnalysis
 } from "../api/chart-analysis.js";
 import proClientFeedHandler from "../api/pro-client-feed.js";
-import { dayKey } from "../api/pro-executor.js";
+import { dayKey, executorRejectionSnapshot } from "../api/pro-executor.js";
 import { enforceRateLimits } from "../lib/server.js";
 import { calculateMarketDirection, dailyReportKey, shouldReuseRecentCycle } from "../lib/pro-signals.js";
 
@@ -95,6 +95,37 @@ test("recent server scans are reused unless a forced cycle is requested", () => 
   assert.equal(shouldReuseRecentCycle("2026-07-31T23:55:00.000Z", false, now), false);
   assert.equal(shouldReuseRecentCycle("2026-07-31T23:59:00.000Z", true, now), false);
   assert.equal(shouldReuseRecentCycle("2026-08-01T00:01:00.000Z", false, now), false);
+});
+
+test("executor learning deduplicates repeated rejection snapshots", () => {
+  const first = {
+    decisions: {
+      totalSignals: 2,
+      newSignals: 1,
+      recentOpenSignals: 1,
+      executableSignals: 0,
+      rejected: { "stale signal older than 5m": 2 },
+      examples: [
+        { pair: "BTCUSDT", side: "LONG", score: 8.1, reason: "stale signal older than 5m" },
+        { pair: "ETHUSDT", side: "SHORT", score: 7.9, reason: "stale signal older than 5m" }
+      ]
+    }
+  };
+  const reordered = {
+    decisions: {
+      ...first.decisions,
+      examples: [...first.decisions.examples].reverse()
+    }
+  };
+  const fresh = {
+    decisions: {
+      ...first.decisions,
+      newSignals: 2
+    }
+  };
+
+  assert.equal(executorRejectionSnapshot(first), executorRejectionSnapshot(reordered));
+  assert.notEqual(executorRejectionSnapshot(first), executorRejectionSnapshot(fresh));
 });
 
 test("rate limits use one atomic Redis script per request", { concurrency: false }, async () => {

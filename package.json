@@ -1,11 +1,12 @@
 {
   "name": "jamddmaj-ai",
-  "version": "1.37.40",
+  "version": "1.37.41",
   "private": true,
   "type": "module",
   "description": "JamdDmaj AI mobile application",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
+    "build": "npm run build:web",
     "postinstall": "node scripts/prepare-plugins.mjs",
     "build:web": "node scripts/build-web.mjs",
     "mobile:sync": "npm run build:web && cap sync",
