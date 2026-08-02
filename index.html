@@ -714,6 +714,61 @@
       display: none;
     }
 
+    .market-direction-card {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px 16px;
+      align-items: center;
+      padding: 16px 18px;
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      border-radius: 20px;
+      background: linear-gradient(135deg, rgba(71, 85, 105, 0.2), rgba(15, 23, 42, 0.74));
+    }
+
+    .market-direction-card.is-hidden {
+      display: none;
+    }
+
+    .market-direction-card[data-bias="bullish"] {
+      border-color: rgba(52, 211, 153, 0.5);
+      background: linear-gradient(135deg, rgba(5, 150, 105, 0.2), rgba(6, 78, 59, 0.1));
+    }
+
+    .market-direction-card[data-bias="bearish"] {
+      border-color: rgba(251, 113, 133, 0.5);
+      background: linear-gradient(135deg, rgba(190, 24, 93, 0.18), rgba(76, 5, 25, 0.1));
+    }
+
+    .market-direction-copy {
+      display: grid;
+      gap: 3px;
+    }
+
+    .market-direction-copy small {
+      color: var(--muted);
+      font-weight: 850;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .market-direction-copy strong {
+      font-size: clamp(1.25rem, 3vw, 2rem);
+    }
+
+    .market-direction-card[data-bias="bullish"] .market-direction-copy strong { color: #6ee7b7; }
+    .market-direction-card[data-bias="bearish"] .market-direction-copy strong { color: #fda4af; }
+
+    .market-direction-detail {
+      grid-column: 1 / -1;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .market-direction-score {
+      font-weight: 900;
+      font-size: 1rem;
+    }
+
     .trader-server-head {
       display: flex;
       align-items: center;
@@ -3203,6 +3258,14 @@
             </div>
           </div>
           <div id="traderStatus" class="backup-status">Tap Scan now. Hidden access: tap the JamdDmaj AI name 5 times.</div>
+          <div class="market-direction-card is-hidden" id="marketDirectionCard" data-bias="mixed" role="status" aria-live="polite">
+            <div class="market-direction-copy">
+              <small id="marketDirectionTitle">Dominant market direction</small>
+              <strong id="marketDirectionValue">MIXED / NO CLEAR DIRECTION</strong>
+            </div>
+            <span class="market-direction-score" id="marketDirectionScore">0</span>
+            <span class="market-direction-detail" id="marketDirectionDetail">Waiting for a complete liquid-market sample.</span>
+          </div>
           <div class="trader-token-search" role="search" aria-label="Search token trade setup">
             <input id="traderTokenInput" type="text" inputmode="text" autocomplete="off" placeholder="Token/stock, e.g. XRP or NVDA">
             <button class="pill-btn" id="searchTradeBtn" type="button">Trade</button>
@@ -3821,7 +3884,7 @@
             <button class="pill-btn" id="checkUpdatesBtn" type="button">Check for updates</button>
             <button class="pill-btn is-hidden" id="downloadUpdateBtn" type="button">Download APK</button>
           </div>
-          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.32</div>
+          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.36</div>
         </section>
       </div>
       <div class="dialog-actions">
@@ -3948,7 +4011,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.37.35";
+      const APP_VERSION = "1.37.36";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -3992,7 +4055,7 @@
               ["Daily risk limits", "The executor receives max daily loss, max trades and consecutive-loss limits."],
               ["Client demo paper", "Non-owner Pro users can start a local paper simulation without touching the server."],
               ["Private code locked", "The 7-tap device code only works after owner authorization."],
-              ["Better market context", "News now groups catalysts, trending tokens, regime and headline impact."]
+              ["Dominant direction", "The app and Telegram now show bullish, bearish or mixed market breadth, and whether each setup agrees with it."]
             ]
           },
           es: {
@@ -4004,7 +4067,7 @@
               ["Paper trading por riesgo", "El tamaño de posicion usa un porcentaje configurable y la distancia de invalidacion."],
               ["Eventos enlazados en Telegram", "Los TP, protecciones y cambios de tendencia ahora responden al mensaje original del trade cuando Telegram entrega un ID."],
               ["Telegram sin duplicados", "El bloqueo del servidor evita calls y eventos repetidos entre ciclos."],
-              ["Validacion nocturna", "Un backtest programado revisa Bitget aunque la app este cerrada."]
+              ["Direccion dominante", "La app y Telegram muestran si el mercado esta alcista, bajista o mixto y si cada setup va a favor o en contra."]
             ]
           }
         }
@@ -7284,6 +7347,7 @@
         const enabled = state.config?.enabled === true;
         const status = state.status || {};
         const stats = state.stats || {};
+        renderMarketDirection(status.marketDirection, spanish);
         document.getElementById("proServerTitle").textContent = spanish ? "Escaner servidor 24/7" : "24/7 server scanner";
         document.getElementById("proServerStatus").textContent = enabled
           ? (spanish
@@ -7366,6 +7430,27 @@
          document.getElementById("proStatWinRateLabel").textContent = spanish ? "Tasa decidida verificada" : "Verified decided win rate";
         renderPaperTrading(state.paper || {}, state.config || {}, spanish);
         renderProServerHistory(state.history || []);
+      }
+
+      function renderMarketDirection(direction, spanish = resolvedLanguage() === "es") {
+        const card = document.getElementById("marketDirectionCard");
+        if (!direction || !Number(direction.samples || 0)) {
+          card.classList.add("is-hidden");
+          return;
+        }
+        const bias = ["bullish", "bearish"].includes(direction.bias) ? direction.bias : "mixed";
+        const score = Number(direction.score || 0);
+        const guidance = bias === "bullish"
+          ? (spanish ? "Favorece configuraciones LONG; los SHORT van contra la direccion general." : "Favors LONG setups; SHORT setups run against the general direction.")
+          : bias === "bearish"
+            ? (spanish ? "Favorece configuraciones SHORT; los LONG van contra la direccion general." : "Favors SHORT setups; LONG setups run against the general direction.")
+            : (spanish ? "No favorece LONG ni SHORT hasta que aparezca una mayoria clara." : "Neither LONG nor SHORT is favored until a clear majority appears.");
+        card.dataset.bias = bias;
+        card.classList.remove("is-hidden");
+        document.getElementById("marketDirectionTitle").textContent = spanish ? "Direccion dominante del mercado" : "Dominant market direction";
+        document.getElementById("marketDirectionValue").textContent = direction.label || (spanish ? "MIXTA / SIN DIRECCION CLARA" : "MIXED / NO CLEAR DIRECTION");
+        document.getElementById("marketDirectionScore").textContent = `${score > 0 ? "+" : ""}${score.toFixed(1)}`;
+        document.getElementById("marketDirectionDetail").textContent = `${spanish ? "Amplitud" : "Breadth"}: ${Number(direction.bullishPercent || 0).toFixed(0)}% ${spanish ? "alcista" : "bullish"} / ${Number(direction.bearishPercent || 0).toFixed(0)}% ${spanish ? "bajista" : "bearish"} / ${Number(direction.mixedPercent || 0).toFixed(0)}% ${spanish ? "mixta" : "mixed"} - ${Number(direction.samples || 0)} ${spanish ? "mercados" : "markets"}. ${guidance}`;
       }
 
       function renderExecutorHealth(executor = {}, spanish = resolvedLanguage() === "es", learningState = {}, executorTest = null) {
@@ -11618,6 +11703,20 @@
               ? (resolvedLanguage() === "es" ? "MICRO CAP - RIESGO ALTO" : "MICRO CAP - HIGH RISK")
               : (resolvedLanguage() === "es" ? "SMALL CAP - RIESGO ELEVADO" : "SMALL CAP - ELEVATED RISK");
             title.append(warning);
+          }
+          if (signal.marketAlignment) {
+            const alignment = document.createElement("span");
+            alignment.className = "signal-category";
+            alignment.style.marginLeft = "6px";
+            const against = signal.marketAlignment === "counter-market";
+            alignment.style.borderColor = against ? "rgba(251, 113, 133, 0.5)" : "rgba(52, 211, 153, 0.5)";
+            alignment.style.color = against ? "#fda4af" : "#6ee7b7";
+            alignment.textContent = signal.marketAlignment === "with-market"
+              ? (resolvedLanguage() === "es" ? "A FAVOR DEL MERCADO" : "WITH MARKET")
+              : signal.marketAlignment === "counter-market"
+                ? (resolvedLanguage() === "es" ? "CONTRA EL MERCADO" : "COUNTER-MARKET")
+                : (resolvedLanguage() === "es" ? "MERCADO MIXTO" : "MIXED MARKET");
+            title.append(alignment);
           }
           const badge = document.createElement("span");
           badge.className = `signal-badge ${signal.side.toLowerCase()}`;

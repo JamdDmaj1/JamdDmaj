@@ -5,7 +5,7 @@ import chatHandler from "../api/chat.js";
 import proClientFeedHandler from "../api/pro-client-feed.js";
 import { dayKey } from "../api/pro-executor.js";
 import { enforceRateLimits } from "../lib/server.js";
-import { dailyReportKey, shouldReuseRecentCycle } from "../lib/pro-signals.js";
+import { calculateMarketDirection, dailyReportKey, shouldReuseRecentCycle } from "../lib/pro-signals.js";
 
 function signal(id, ageMs, bitgetEligible) {
   return {
@@ -155,4 +155,53 @@ test("invalid chat requests do not consume Redis quota", { concurrency: false },
     if (previousToken === undefined) delete process.env.UPSTASH_REDIS_REST_TOKEN;
     else process.env.UPSTASH_REDIS_REST_TOKEN = previousToken;
   }
+});
+
+test("market direction clearly separates bullish, bearish and mixed breadth", () => {
+  const market = (trend, higherTrend, momentum6h, change24h) => ({
+    price: 100,
+    quoteVolume: 50_000_000,
+    trend,
+    higherTrend,
+    momentum6h,
+    change24h
+  });
+  const bullish = calculateMarketDirection(Array.from({ length: 12 }, () => (
+    market("bullish alignment", "bullish 4h alignment", 1.2, 2.4)
+  )), null, Date.parse("2026-08-02T00:00:00.000Z"));
+  assert.equal(bullish.bias, "bullish");
+  assert.equal(bullish.label, "FUERTEMENTE ALCISTA");
+  assert.equal(bullish.bullishPercent, 100);
+
+  const bearish = calculateMarketDirection(Array.from({ length: 12 }, () => (
+    market("bearish alignment", "bearish 4h alignment", -1.2, -2.4)
+  )), null, Date.parse("2026-08-02T00:00:00.000Z"));
+  assert.equal(bearish.bias, "bearish");
+  assert.equal(bearish.label, "FUERTEMENTE BAJISTA");
+  assert.equal(bearish.bearishPercent, 100);
+
+  const mixed = calculateMarketDirection([
+    ...Array.from({ length: 6 }, () => market("bullish alignment", "bullish 4h alignment", 1, 2)),
+    ...Array.from({ length: 6 }, () => market("bearish alignment", "bearish 4h alignment", -1, -2))
+  ], null, Date.parse("2026-08-02T00:00:00.000Z"));
+  assert.equal(mixed.bias, "mixed");
+  assert.equal(mixed.label, "MIXTA / SIN DIRECCION CLARA");
+});
+
+test("market direction smoothing avoids an instant full reversal", () => {
+  const now = Date.parse("2026-08-02T00:30:00.000Z");
+  const bearishMarkets = Array.from({ length: 10 }, () => ({
+    price: 100,
+    quoteVolume: 50_000_000,
+    trend: "bearish alignment",
+    higherTrend: "bearish 4h alignment",
+    momentum6h: -2,
+    change24h: -4
+  }));
+  const direction = calculateMarketDirection(bearishMarkets, {
+    score: 60,
+    updatedAt: "2026-08-02T00:15:00.000Z"
+  }, now);
+  assert.equal(direction.bias, "mixed");
+  assert.ok(direction.currentScore < -90);
 });

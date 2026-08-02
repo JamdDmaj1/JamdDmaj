@@ -461,6 +461,7 @@ function formatLiveOrderMessage(input, order) {
   return [
     "🚨 <b>BITGET AUTO ENTRY EXECUTED</b>",
     `<b>${escapeHtml(order.pair || order.symbol)}</b> ${escapeHtml(order.side || "")}`,
+    order.marketDirectionLabel ? `Direccion dominante: <b>${escapeHtml(order.marketDirectionLabel)}</b> | score ${Number(order.marketDirectionScore || 0).toFixed(1)} | ${order.marketAlignment === "with-market" ? "A FAVOR" : order.marketAlignment === "counter-market" ? "CONTRA MERCADO" : "NEUTRAL"}` : "",
     `Mode: <code>${escapeHtml(String(input?.mode || "live").toUpperCase())}</code> | Source: ${escapeHtml(order.source || "executor")}`,
     `Margin: ${Number(order.marginUsd || 0).toFixed(2)} | Notional: ${Number(order.notionalUsd || 0).toFixed(2)}`,
     Number(order.entry || 0) ? `Entry ref: <code>${Number(order.entry).toPrecision(8)}</code>` : "",
@@ -482,6 +483,7 @@ function formatExecutorDailyLearningMessage(input, learning) {
     "📌 <b>JamdDmaj Bitget daily learning</b>",
     `Day: ${escapeHtml(learning.day || dayKey())}`,
     `VPS runs: ${Number(learning.runs || 0)} | Live entries: ${Number(learning.liveOrders || 0)}`,
+    formatExecutorMarketDirection(input?.marketDirection),
     `Outcomes: wins ${Number(outcomes.wins || 0)} | losses ${Number(outcomes.losses || 0)} | SL ${Number(outcomes.slLosses || 0)} | reversal ${Number(outcomes.reversalLosses || 0)}`,
     Number(outcomes.profitGivebacks || 0) ? `Profit givebacks: ${Number(outcomes.profitGivebacks || 0)}` : "",
     lossReasons.length ? `Loss reasons: ${lossReasons.join(" | ")}` : "",
@@ -493,6 +495,18 @@ function formatExecutorDailyLearningMessage(input, learning) {
     ...improvements.map((item, index) => `${index + 1}. <b>${escapeHtml(item.title)}</b>: ${escapeHtml(item.detail)}`),
     "Tomorrow the executor will keep using fresh-signal limits, score gates, account risk, and the current profit-protection rules."
   ].filter(Boolean).join("\n");
+}
+
+function formatExecutorMarketDirection(direction) {
+  if (!direction || !Number(direction.samples || 0)) return "";
+  const bias = String(direction.bias || "mixed").toLowerCase();
+  const icon = bias === "bullish" ? "🟢" : bias === "bearish" ? "🔴" : "🟡";
+  const guidance = bias === "bullish"
+    ? "favorece LONG; SHORT va contra mercado"
+    : bias === "bearish"
+      ? "favorece SHORT; LONG va contra mercado"
+      : "sin lado favorecido; exigir mas confirmacion";
+  return `${icon} Direccion dominante: <b>${escapeHtml(direction.label || "MIXTA / SIN DIRECCION CLARA")}</b> | score ${Number(direction.score || 0).toFixed(1)}\nAmplitud: ${Number(direction.bullishPercent || 0).toFixed(0)}% alcista / ${Number(direction.bearishPercent || 0).toFixed(0)}% bajista / ${Number(direction.mixedPercent || 0).toFixed(0)}% mixta | ${escapeHtml(guidance)}`;
 }
 
 export function dayKey(date = new Date()) {

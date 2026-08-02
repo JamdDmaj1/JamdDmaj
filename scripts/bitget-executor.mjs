@@ -78,6 +78,10 @@ async function main() {
   const recentOpen = selectRecentOpenSignals(scan?.openSignals || scan?.open || [], settings.recentOpenMinutes);
   const signals = mergeSignalSources([...manualSignals, ...newSignals], recentOpen);
   const events = Array.isArray(scan?.events) ? scan.events : [];
+  const latestMarketDirection = scan?.marketDirection
+    || signals.find((signal) => signal?.marketDirection)?.marketDirection
+    || null;
+  if (latestMarketDirection) state.lastMarketDirection = compactMarketDirection(latestMarketDirection);
   const policy = normalizeExecutorPolicy(scan?.executor);
   state.effectivePolicy = policy;
   const accountRisk = settings.mode === "live" ? await fetchBitgetAccountRisk(policy).catch((error) => {
@@ -298,7 +302,7 @@ async function fetchExecutorTestSignal() {
 async function fetchMarketContext() {
   try {
     const response = await fetch(`${settings.appUrl}/api/pro-news`, {
-      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.37.32" }
+      headers: { "User-Agent": "JamdDmaj-Pro-Executor/1.37.36" }
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok || body?.error) return null;
@@ -711,12 +715,15 @@ function marketAlignmentRank(signal = {}, gate = {}) {
   const side = String(signal.side || "").toUpperCase();
   const base = signalLearningKey(signal);
   const core = ["BTC", "ETH", "SOL", "BNB"].includes(base);
+  const directionBonus = signal.marketAlignment === "with-market"
+    ? 0.9
+    : signal.marketAlignment === "counter-market" ? -1.35 : 0;
   if (gate?.riskOff) {
-    if (side === "SHORT") return core ? 0.8 : 0.45;
-    return core ? 0.1 : -1.25;
+    if (side === "SHORT") return directionBonus + (core ? 0.8 : 0.45);
+    return directionBonus + (core ? 0.1 : -1.25);
   }
-  if (/btc-led|risk-on/i.test(String(gate?.regime || "")) && side === "LONG") return core ? 0.75 : 0.35;
-  return 0;
+  if (/btc-led|risk-on/i.test(String(gate?.regime || "")) && side === "LONG") return directionBonus + (core ? 0.75 : 0.35);
+  return directionBonus;
 }
 
 function learningRankBonus(item = null) {
@@ -1033,6 +1040,9 @@ function createStateOrder(signal, plan, status, response = null) {
     momentum6h: Number(signal.momentum6h || 0),
     trend: String(signal.trend || ""),
     higherTrend: String(signal.higherTrend || ""),
+    marketAlignment: String(signal.marketAlignment || "neutral-market"),
+    marketDirectionLabel: String(signal.marketDirection?.label || "MIXTA / SIN DIRECCION CLARA"),
+    marketDirectionScore: Number(signal.marketDirection?.score || 0),
     setupType: String(signal.setupType || "trend-continuation"),
     momentumBreakout: signal.momentumBreakout === true,
     clientOid: plan.clientOid,
@@ -1289,7 +1299,7 @@ function pruneState(state) {
 }
 
 function createExecutorState() {
-  return { version: 5, updatedAt: null, seen: {}, orders: [], daily: normalizeDailyState({}), symbolLearning: {}, categoryLearning: {}, rejectedSymbols: {}, learnedEvents: {}, lastOutcomeEvents: [], lastDecisionSummary: createDecisionSummary([], []) };
+  return { version: 5, updatedAt: null, seen: {}, orders: [], daily: normalizeDailyState({}), symbolLearning: {}, categoryLearning: {}, rejectedSymbols: {}, learnedEvents: {}, lastOutcomeEvents: [], lastDecisionSummary: createDecisionSummary([], []), lastMarketDirection: null };
 }
 
 async function reportExecutorStatus(payload) {
@@ -1349,6 +1359,7 @@ function statusPayload(state, overrides = {}) {
     categoryLearning: compactCategoryLearning(state.categoryLearning),
     rejectedSymbols: compactRejectedSymbols(state.rejectedSymbols),
     marketGate: state.lastMarketGate || summarizeMarketGate(null, {}),
+    marketDirection: compactMarketDirection(state.lastMarketDirection),
     recentOrders: state.orders.slice(0, 8).map(compactOrder),
     recentOutcomeEvents: Array.isArray(state.lastOutcomeEvents) ? state.lastOutcomeEvents.slice(0, 12) : [],
     remotePositions: Array.isArray(state.remotePositions) ? state.remotePositions.slice(0, 8) : [],
@@ -1368,6 +1379,24 @@ function statusPayload(state, overrides = {}) {
         ? "Automatic protection and reversal exits are enabled on the VPS."
         : "Prepared TP1/SL planning and position reconciliation. Automatic close manager is opt-in."
     }
+  };
+}
+
+function compactMarketDirection(value) {
+  if (!value || typeof value !== "object") return null;
+  const bias = ["bullish", "bearish", "mixed"].includes(String(value.bias || "").toLowerCase())
+    ? String(value.bias).toLowerCase()
+    : "mixed";
+  return {
+    bias,
+    strength: String(value.strength || "mixed").slice(0, 20),
+    label: String(value.label || "MIXTA / SIN DIRECCION CLARA").slice(0, 80),
+    score: Number(value.score || 0),
+    bullishPercent: Number(value.bullishPercent || 0),
+    bearishPercent: Number(value.bearishPercent || 0),
+    mixedPercent: Number(value.mixedPercent || 0),
+    samples: Number(value.samples || 0),
+    updatedAt: value.updatedAt || null
   };
 }
 
@@ -1455,6 +1484,9 @@ function compactOrder(order) {
     maxRoe: Number(order.maxRoe || 0),
     protectionActive: order.protectionActive === true,
     exitReason: order.exitReason || "",
+    marketAlignment: order.marketAlignment || "",
+    marketDirectionLabel: order.marketDirectionLabel || "",
+    marketDirectionScore: Number(order.marketDirectionScore || 0),
     createdAt: order.createdAt || "",
     exitPlanReady: order.exitPlan?.ready === true
   };
