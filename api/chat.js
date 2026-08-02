@@ -36,17 +36,22 @@ export default async function handler(request) {
   }
 
   try {
-    const usage = await enforceRateLimits(request, deviceId);
     const rawBody = await request.text();
     if (new TextEncoder().encode(rawBody).byteLength > MAX_BODY_BYTES) {
       return jsonResponse(request, { error: { message: "La solicitud es demasiado grande." } }, 413);
     }
-    const input = JSON.parse(rawBody);
+    let input;
+    try {
+      input = JSON.parse(rawBody);
+    } catch {
+      return jsonResponse(request, { error: { message: "La solicitud no contiene datos válidos." } }, 400);
+    }
     const messages = sanitizeMessages(input.messages);
     if (!messages.length) {
       return jsonResponse(request, { error: { message: "No se recibió ningún mensaje válido." } }, 400);
     }
 
+    const usage = await enforceRateLimits(request, deviceId);
     const configuredModel = String(process.env.JAMDDMAJ_OPENROUTER_MODEL || "openrouter/free").trim();
     const allowPaid = process.env.JAMDDMAJ_ALLOW_PAID_MODELS === "true";
     const model = allowPaid || configuredModel === "openrouter/free" || configuredModel.endsWith(":free")

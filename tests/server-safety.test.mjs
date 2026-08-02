@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import chatHandler from "../api/chat.js";
 import proClientFeedHandler from "../api/pro-client-feed.js";
 import { dayKey } from "../api/pro-executor.js";
+import { enforceRateLimits } from "../lib/server.js";
 import { dailyReportKey, shouldReuseRecentCycle } from "../lib/pro-signals.js";
 
 function signal(id, ageMs, bitgetEligible) {
@@ -87,4 +89,70 @@ test("recent server scans are reused unless a forced cycle is requested", () => 
   assert.equal(shouldReuseRecentCycle("2026-07-31T23:55:00.000Z", false, now), false);
   assert.equal(shouldReuseRecentCycle("2026-07-31T23:59:00.000Z", true, now), false);
   assert.equal(shouldReuseRecentCycle("2026-08-01T00:01:00.000Z", false, now), false);
+});
+
+test("rate limits use one atomic Redis script per request", { concurrency: false }, async () => {
+  const previousFetch = globalThis.fetch;
+  const previousUrl = process.env.UPSTASH_REDIS_REST_URL;
+  const previousToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+  const requests = [];
+  process.env.UPSTASH_REDIS_REST_URL = "https://redis.example.test";
+  process.env.UPSTASH_REDIS_REST_TOKEN = "test-token";
+  globalThis.fetch = async (url, options) => {
+    requests.push({ url, options });
+    return new Response(JSON.stringify([{ result: [1, 1, 1, 1, 1] }]), { status: 200 });
+  };
+  try {
+    const result = await enforceRateLimits(new Request("https://example.test/api/chat", {
+      headers: { "x-forwarded-for": "203.0.113.10" }
+    }), "test-device");
+    assert.equal(result.remaining, 79);
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].url, "https://redis.example.test/pipeline");
+    const body = JSON.parse(requests[0].options.body);
+    assert.equal(body.length, 1);
+    assert.equal(body[0][0], "EVAL");
+    assert.equal(body[0][2], 5);
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousUrl === undefined) delete process.env.UPSTASH_REDIS_REST_URL;
+    else process.env.UPSTASH_REDIS_REST_URL = previousUrl;
+    if (previousToken === undefined) delete process.env.UPSTASH_REDIS_REST_TOKEN;
+    else process.env.UPSTASH_REDIS_REST_TOKEN = previousToken;
+  }
+});
+
+test("invalid chat requests do not consume Redis quota", { concurrency: false }, async () => {
+  const previousFetch = globalThis.fetch;
+  const previousOpenRouter = process.env.OPENROUTER_API_KEY;
+  const previousUrl = process.env.UPSTASH_REDIS_REST_URL;
+  const previousToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+  let fetchCalls = 0;
+  process.env.OPENROUTER_API_KEY = "test-key";
+  process.env.UPSTASH_REDIS_REST_URL = "https://redis.example.test";
+  process.env.UPSTASH_REDIS_REST_TOKEN = "test-token";
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    throw new Error("Invalid input should not reach an external service");
+  };
+  try {
+    const response = await chatHandler(new Request("https://example.test/api/chat", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-jamddmaj-device": "test-device-00001"
+      },
+      body: "not-json"
+    }));
+    assert.equal(response.status, 400);
+    assert.equal(fetchCalls, 0);
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousOpenRouter === undefined) delete process.env.OPENROUTER_API_KEY;
+    else process.env.OPENROUTER_API_KEY = previousOpenRouter;
+    if (previousUrl === undefined) delete process.env.UPSTASH_REDIS_REST_URL;
+    else process.env.UPSTASH_REDIS_REST_URL = previousUrl;
+    if (previousToken === undefined) delete process.env.UPSTASH_REDIS_REST_TOKEN;
+    else process.env.UPSTASH_REDIS_REST_TOKEN = previousToken;
+  }
 });
