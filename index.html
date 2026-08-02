@@ -3995,7 +3995,7 @@
             <button class="pill-btn" id="checkUpdatesBtn" type="button">Check for updates</button>
             <button class="pill-btn is-hidden" id="downloadUpdateBtn" type="button">Download APK</button>
           </div>
-          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.38</div>
+          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.39</div>
         </section>
       </div>
       <div class="dialog-actions">
@@ -4122,7 +4122,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.37.38";
+      const APP_VERSION = "1.37.39";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -7650,22 +7650,37 @@
           ? "Leyendo estructura, velas, niveles y contexto del mercado..."
           : "Reading structure, candles, levels and market context...";
         try {
-          const response = await fetch(CHART_ANALYSIS_API_URL, {
-            method: "POST",
-            cache: "no-store",
-            headers: {
-              "Content-Type": "application/json",
-              "X-JamdDmaj-Device": getDeviceId(),
-              "X-JamdDmaj-Version": APP_VERSION
-            },
-            body: JSON.stringify({
-              image: pendingChartImage,
-              context: document.getElementById("chartContextInput").value.trim(),
-              marketDirection: latestMarketDirection
-            })
-          });
-          const data = await response.json().catch(() => ({}));
-          if (!response.ok || !data?.analysis) throw new Error(data?.error?.message || `Chart analysis ${response.status}`);
+          let data = null;
+          let lastError = null;
+          for (let attempt = 0; attempt < 2; attempt += 1) {
+            const response = await fetch(CHART_ANALYSIS_API_URL, {
+              method: "POST",
+              cache: "no-store",
+              headers: {
+                "Content-Type": "application/json",
+                "X-JamdDmaj-Device": getDeviceId(),
+                "X-JamdDmaj-Version": APP_VERSION
+              },
+              body: JSON.stringify({
+                image: pendingChartImage,
+                context: document.getElementById("chartContextInput").value.trim(),
+                marketDirection: latestMarketDirection,
+                attempt
+              })
+            });
+            const candidate = await response.json().catch(() => ({}));
+            if (response.ok && candidate?.analysis) {
+              data = candidate;
+              if (!candidate.analysis.analysisIncomplete || !candidate.canRetry) break;
+            } else {
+              lastError = new Error(candidate?.error?.message || `Chart analysis ${response.status}`);
+              if (!candidate?.canRetry || attempt === 1) break;
+            }
+            document.getElementById("chartAnalysisStatus").textContent = spanish
+              ? "La primera lectura fue generica. Probando otro modelo visual..."
+              : "The first reading was generic. Trying another vision model...";
+          }
+          if (!data?.analysis) throw lastError || new Error(spanish ? "Ningun modelo visual respondio." : "No vision model responded.");
           renderChartAnalysis(data.analysis);
           document.getElementById("chartAnalysisStatus").textContent = data.analysis.analysisIncomplete
             ? (spanish

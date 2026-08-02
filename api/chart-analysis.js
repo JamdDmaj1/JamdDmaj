@@ -33,34 +33,25 @@ export default async function handler(request) {
     const image = normalizeChartImage(input?.image);
     if (!image) return jsonResponse(request, { error: { message: "Adjunta una captura PNG, JPEG o WEBP valida." } }, 400);
     const context = String(input?.context || "").trim().slice(0, 500);
+    const attempt = Math.max(0, Math.min(1, Number.parseInt(input?.attempt, 10) || 0));
     const usage = await enforceRateLimits(request, deviceId);
     const state = await getProServerState().catch(() => ({}));
     const marketDirection = normalizeMarketDirection(state?.status?.marketDirection);
     const userHash = await hashIdentifier(deviceId);
     const models = chartVisionModels(process.env.JAMDDMAJ_CHART_VISION_MODELS);
-    let analysis = null;
-    let lastProviderError = "";
-    for (let index = 0; index < models.length; index += 1) {
-      const model = models[index];
-      const upstream = await requestChartVision({
-        model,
-        image,
-        context,
-        marketDirection,
-        userHash,
-        retry: index > 0
-      });
-      if (!upstream.ok) {
-        lastProviderError = upstream.error || `El proveedor visual respondio con error ${upstream.status}.`;
-        continue;
-      }
-      const candidate = normalizeChartAnalysis(upstream.content, marketDirection);
-      candidate.modelUsed = model;
-      candidate.analysisIncomplete = !hasSpecificChartEvidence(candidate);
-      analysis = candidate;
-      if (!candidate.analysisIncomplete) break;
-    }
-    if (!analysis) return jsonResponse(request, { error: { message: lastProviderError || "Ningun modelo visual respondio." } }, 502);
+    const model = models[Math.min(attempt, models.length - 1)];
+    const upstream = await requestChartVision({
+      model,
+      image,
+      context,
+      marketDirection,
+      userHash,
+      retry: attempt > 0
+    });
+    if (!upstream.ok) return jsonResponse(request, { error: { message: upstream.error || "El modelo visual no respondio." }, canRetry: attempt + 1 < models.length }, upstream.status || 502);
+    const analysis = normalizeChartAnalysis(upstream.content, marketDirection);
+    analysis.modelUsed = model;
+    analysis.analysisIncomplete = !hasSpecificChartEvidence(analysis);
     if (analysis.analysisIncomplete) {
       analysis.signal = "NO TRADE";
       analysis.confidence = 0;
@@ -70,7 +61,7 @@ export default async function handler(request) {
         "Analisis visual incompleto; no usar esta respuesta como setup."
       ])].slice(0, 4);
     }
-    return jsonResponse(request, { ok: true, analysis }, 200, {
+    return jsonResponse(request, { ok: true, analysis, canRetry: analysis.analysisIncomplete && attempt + 1 < models.length }, 200, {
       "X-JamdDmaj-Remaining": String(usage.remaining)
     });
   } catch (error) {
@@ -140,10 +131,9 @@ export function chartVisionModels(value = "") {
     .filter((model) => model.endsWith(":free"));
   return [...new Set([
     ...configured,
-    "google/gemma-4-31b-it:free",
     "nvidia/nemotron-nano-12b-v2-vl:free",
-    "openrouter/free"
-  ])].slice(0, 3);
+    "google/gemma-4-31b-it:free"
+  ])].slice(0, 2);
 }
 
 export function hasSpecificChartEvidence(analysis = {}) {
@@ -158,6 +148,8 @@ export function hasSpecificChartEvidence(analysis = {}) {
 }
 
 async function requestChartVision({ model, image, context, marketDirection, userHash, retry }) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 22000);
   try {
     const messages = buildChartMessages(image, context, marketDirection);
     if (retry) {
@@ -165,6 +157,7 @@ async function requestChartVision({ model, image, context, marketDirection, user
     }
     const response = await fetch(OPENROUTER_URL, {
       method: "POST",
+      signal: controller.signal,
       headers: {
         "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
@@ -192,7 +185,13 @@ async function requestChartVision({ model, image, context, marketDirection, user
     const data = await response.json();
     return { ok: true, status: response.status, content: extractAssistantText(data?.choices?.[0]?.message) };
   } catch (error) {
-    return { ok: false, status: 502, error: error?.message || "Fallo temporal del modelo visual." };
+    return {
+      ok: false,
+      status: 502,
+      error: error?.name === "AbortError" ? "El modelo visual tardo demasiado." : error?.message || "Fallo temporal del modelo visual."
+    };
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
