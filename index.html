@@ -769,6 +769,92 @@
       font-size: 1rem;
     }
 
+    .chart-analysis-panel {
+      display: grid;
+      gap: 14px;
+      padding: 18px;
+      border: 1px solid rgba(96, 165, 250, 0.35);
+      border-radius: 20px;
+      background: linear-gradient(145deg, rgba(30, 64, 175, 0.13), rgba(15, 23, 42, 0.76));
+    }
+
+    .chart-analysis-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      align-items: flex-start;
+    }
+
+    .chart-analysis-head div,
+    .chart-analysis-result {
+      display: grid;
+      gap: 5px;
+    }
+
+    .chart-analysis-head span,
+    .chart-analysis-status,
+    .chart-analysis-result p,
+    .chart-analysis-result li {
+      color: var(--muted);
+      font-size: 0.8rem;
+      line-height: 1.5;
+    }
+
+    .chart-analysis-controls {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 10px;
+    }
+
+    .chart-analysis-controls input {
+      min-width: 0;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 11px 13px;
+      background: rgba(15, 23, 42, 0.66);
+      color: var(--text);
+    }
+
+    .chart-preview {
+      display: grid;
+      grid-template-columns: minmax(0, 170px) 1fr;
+      gap: 14px;
+      align-items: center;
+    }
+
+    .chart-preview[hidden],
+    .chart-analysis-result[hidden] {
+      display: none;
+    }
+
+    .chart-preview img {
+      width: 100%;
+      max-height: 130px;
+      object-fit: cover;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+    }
+
+    .chart-analysis-result {
+      padding: 14px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: rgba(2, 6, 23, 0.38);
+    }
+
+    .chart-analysis-result[data-signal="LONG"] { border-color: rgba(52, 211, 153, 0.55); }
+    .chart-analysis-result[data-signal="SHORT"] { border-color: rgba(251, 113, 133, 0.55); }
+    .chart-analysis-result h3 { margin: 0; font-size: 1.2rem; }
+    .chart-analysis-result dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 5px 0; }
+    .chart-analysis-result dt { color: var(--muted); font-size: 0.75rem; }
+    .chart-analysis-result dd { margin: 0; font-size: 0.8rem; font-weight: 750; }
+    .chart-analysis-result ul { margin: 0; padding-left: 19px; }
+
+    @media (max-width: 680px) {
+      .chart-analysis-controls { grid-template-columns: 1fr; }
+      .chart-preview { grid-template-columns: 1fr; }
+    }
+
     .trader-server-head {
       display: flex;
       align-items: center;
@@ -3266,6 +3352,31 @@
             <span class="market-direction-score" id="marketDirectionScore">0</span>
             <span class="market-direction-detail" id="marketDirectionDetail">Waiting for a complete liquid-market sample.</span>
           </div>
+          <section class="chart-analysis-panel" aria-labelledby="chartAnalysisTitle">
+            <div class="chart-analysis-head">
+              <div>
+                <strong id="chartAnalysisTitle">Analizar grafico con IA</strong>
+                <span id="chartAnalysisSubtitle">Sube una captura de TradingView. Recibiras LONG, SHORT o NO TRADE con niveles y explicacion.</span>
+              </div>
+              <span aria-hidden="true">📊</span>
+            </div>
+            <div class="chart-analysis-controls">
+              <button class="pill-btn" id="selectChartBtn" type="button">Elegir captura</button>
+              <input id="chartContextInput" type="text" maxlength="500" autocomplete="off" placeholder="Opcional: BTCUSDT, 15m, que quieres revisar...">
+              <button class="pill-btn" id="analyzeChartBtn" type="button" disabled>Analizar señal</button>
+              <input id="chartImageInput" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+            </div>
+            <div class="chart-preview" id="chartPreview" hidden>
+              <img id="chartPreviewImage" alt="Captura del grafico seleccionada">
+              <div>
+                <strong id="chartPreviewReady">Captura lista</strong>
+                <p id="chartPreviewNote">La IA analizara solo lo visible y no ejecutara ninguna orden.</p>
+                <button class="pill-btn" id="removeChartBtn" type="button">Quitar</button>
+              </div>
+            </div>
+            <div class="chart-analysis-status" id="chartAnalysisStatus" aria-live="polite">No se enviara ninguna orden automaticamente.</div>
+            <article class="chart-analysis-result" id="chartAnalysisResult" data-signal="NO TRADE" hidden></article>
+          </section>
           <div class="trader-token-search" role="search" aria-label="Search token trade setup">
             <input id="traderTokenInput" type="text" inputmode="text" autocomplete="off" placeholder="Token/stock, e.g. XRP or NVDA">
             <button class="pill-btn" id="searchTradeBtn" type="button">Trade</button>
@@ -3884,7 +3995,7 @@
             <button class="pill-btn" id="checkUpdatesBtn" type="button">Check for updates</button>
             <button class="pill-btn is-hidden" id="downloadUpdateBtn" type="button">Download APK</button>
           </div>
-          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.36</div>
+          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.37</div>
         </section>
       </div>
       <div class="dialog-actions">
@@ -4011,7 +4122,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.37.36";
+      const APP_VERSION = "1.37.37";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -4019,6 +4130,7 @@
       const TELEGRAM_API_URL = `${WEB_APP_URL}api/telegram`;
       const PRO_API_URL = `${WEB_APP_URL}api/pro`;
       const PRO_NEWS_API_URL = `${WEB_APP_URL}api/pro-news`;
+      const CHART_ANALYSIS_API_URL = `${WEB_APP_URL}api/chart-analysis`;
       const ACCOUNT_API_URL = `${WEB_APP_URL}api/account`;
       const RELEASE_NOTES = {
         normal: {
@@ -4055,7 +4167,8 @@
               ["Daily risk limits", "The executor receives max daily loss, max trades and consecutive-loss limits."],
               ["Client demo paper", "Non-owner Pro users can start a local paper simulation without touching the server."],
               ["Private code locked", "The 7-tap device code only works after owner authorization."],
-              ["Dominant direction", "The app and Telegram now show bullish, bearish or mixed market breadth, and whether each setup agrees with it."]
+              ["Dominant direction", "The app and Telegram now show bullish, bearish or mixed market breadth, and whether each setup agrees with it."],
+              ["Chart analysis", "Upload a TradingView screenshot in Pro to receive LONG, SHORT or NO TRADE with visible levels and reasoning."]
             ]
           },
           es: {
@@ -4067,7 +4180,8 @@
               ["Paper trading por riesgo", "El tamaño de posicion usa un porcentaje configurable y la distancia de invalidacion."],
               ["Eventos enlazados en Telegram", "Los TP, protecciones y cambios de tendencia ahora responden al mensaje original del trade cuando Telegram entrega un ID."],
               ["Telegram sin duplicados", "El bloqueo del servidor evita calls y eventos repetidos entre ciclos."],
-              ["Direccion dominante", "La app y Telegram muestran si el mercado esta alcista, bajista o mixto y si cada setup va a favor o en contra."]
+              ["Direccion dominante", "La app y Telegram muestran si el mercado esta alcista, bajista o mixto y si cada setup va a favor o en contra."],
+              ["Analisis de graficos", "Sube una captura de TradingView dentro de Pro y recibe LONG, SHORT o NO TRADE con niveles visibles y explicacion."]
             ]
           }
         }
@@ -4082,6 +4196,15 @@
           ready: "Tap Scan now. Hidden access: tap the JamdDmaj AI name 5 times.",
           searchPlaceholder: "Token/stock, e.g. XRP or NVDA",
           searchButton: "Trade",
+          chartTitle: "AI chart analysis",
+          chartSubtitle: "Upload a TradingView screenshot. Get LONG, SHORT or NO TRADE with levels and reasoning.",
+          chartSelect: "Choose screenshot",
+          chartAnalyze: "Analyze signal",
+          chartContext: "Optional: BTCUSDT, 15m, what you want reviewed...",
+          chartReady: "Screenshot ready",
+          chartNote: "The AI analyzes only visible evidence and will not execute an order.",
+          chartRemove: "Remove",
+          chartIdle: "No order will be sent automatically.",
           telegramTitle: "Telegram alerts",
           telegramOff: "Off. Configure Vercel, then enable alerts.",
           telegramOn: "On. New scanner calls will be sent automatically.",
@@ -4136,6 +4259,15 @@
           ready: "Toca Escanear. Acceso oculto: toca el nombre JamdDmaj AI 5 veces.",
           searchPlaceholder: "Token/accion, ej. XRP o NVDA",
           searchButton: "Trade",
+          chartTitle: "Analizar grafico con IA",
+          chartSubtitle: "Sube una captura de TradingView. Recibiras LONG, SHORT o NO TRADE con niveles y explicacion.",
+          chartSelect: "Elegir captura",
+          chartAnalyze: "Analizar senal",
+          chartContext: "Opcional: BTCUSDT, 15m, que quieres revisar...",
+          chartReady: "Captura lista",
+          chartNote: "La IA analiza solo lo visible y no ejecutara ninguna orden.",
+          chartRemove: "Quitar",
+          chartIdle: "No se enviara ninguna orden automaticamente.",
           telegramTitle: "Alertas de Telegram",
           telegramOff: "Apagadas. Configura Vercel y luego activalas.",
           telegramOn: "Activas. Las calls nuevas se enviaran automaticamente.",
@@ -5300,6 +5432,9 @@
       let latestFreeLiveLookup = null;
       let traderScanTimer = null;
       let lastProSignals = [];
+      let pendingChartImage = "";
+      let chartAnalysisBusy = false;
+      let latestMarketDirection = null;
       let telegramOwnerAuthorized = false;
       let proServerState = null;
       let traderSecretTaps = 0;
@@ -6862,6 +6997,17 @@
         document.getElementById("exitTraderBtn").textContent = tradeText("back");
         document.getElementById("searchTradeBtn").textContent = tradeText("searchButton");
         els.traderTokenInput.placeholder = tradeText("searchPlaceholder");
+        document.getElementById("chartAnalysisTitle").textContent = tradeText("chartTitle");
+        document.getElementById("chartAnalysisSubtitle").textContent = tradeText("chartSubtitle");
+        document.getElementById("selectChartBtn").textContent = tradeText("chartSelect");
+        document.getElementById("analyzeChartBtn").textContent = chartAnalysisBusy
+          ? (resolvedLanguage() === "es" ? "Analizando..." : "Analyzing...")
+          : tradeText("chartAnalyze");
+        document.getElementById("chartContextInput").placeholder = tradeText("chartContext");
+        document.getElementById("chartPreviewReady").textContent = tradeText("chartReady");
+        document.getElementById("chartPreviewNote").textContent = tradeText("chartNote");
+        document.getElementById("removeChartBtn").textContent = tradeText("chartRemove");
+        if (!pendingChartImage && !chartAnalysisBusy) document.getElementById("chartAnalysisStatus").textContent = tradeText("chartIdle");
         updateTelegramAlertsUi();
         if (!els.signalList.children.length) els.traderStatus.textContent = tradeText("ready");
       }
@@ -7434,6 +7580,7 @@
 
       function renderMarketDirection(direction, spanish = resolvedLanguage() === "es") {
         const card = document.getElementById("marketDirectionCard");
+        latestMarketDirection = direction && Number(direction.samples || 0) ? direction : null;
         if (!direction || !Number(direction.samples || 0)) {
           card.classList.add("is-hidden");
           return;
@@ -7451,6 +7598,139 @@
         document.getElementById("marketDirectionValue").textContent = direction.label || (spanish ? "MIXTA / SIN DIRECCION CLARA" : "MIXED / NO CLEAR DIRECTION");
         document.getElementById("marketDirectionScore").textContent = `${score > 0 ? "+" : ""}${score.toFixed(1)}`;
         document.getElementById("marketDirectionDetail").textContent = `${spanish ? "Amplitud" : "Breadth"}: ${Number(direction.bullishPercent || 0).toFixed(0)}% ${spanish ? "alcista" : "bullish"} / ${Number(direction.bearishPercent || 0).toFixed(0)}% ${spanish ? "bajista" : "bearish"} / ${Number(direction.mixedPercent || 0).toFixed(0)}% ${spanish ? "mixta" : "mixed"} - ${Number(direction.samples || 0)} ${spanish ? "mercados" : "markets"}. ${guidance}`;
+      }
+
+      function clearChartSelection(resetResult = false) {
+        pendingChartImage = "";
+        document.getElementById("chartImageInput").value = "";
+        document.getElementById("chartPreview").hidden = true;
+        document.getElementById("chartPreviewImage").removeAttribute("src");
+        document.getElementById("analyzeChartBtn").disabled = true;
+        document.getElementById("chartAnalysisStatus").textContent = tradeText("chartIdle");
+        if (resetResult) document.getElementById("chartAnalysisResult").hidden = true;
+      }
+
+      async function selectChartImage(file) {
+        const spanish = resolvedLanguage() === "es";
+        if (!file || !/^image\/(png|jpeg|webp)$/.test(file.type)) {
+          showToast(spanish ? "Elige una captura PNG, JPEG o WEBP." : "Choose a PNG, JPEG or WEBP screenshot.");
+          return;
+        }
+        if (file.size > 12 * 1024 * 1024) {
+          showToast(spanish ? "La captura supera 12 MB." : "The screenshot is larger than 12 MB.");
+          return;
+        }
+        try {
+          const image = await compressImage(file, 1800, 0.88);
+          if (new TextEncoder().encode(image).byteLength > 3_300_000) {
+            showToast(spanish ? "La captura sigue siendo demasiado grande. Recortala y prueba otra vez." : "The screenshot is still too large. Crop it and try again.");
+            return;
+          }
+          pendingChartImage = image;
+          document.getElementById("chartPreviewImage").src = image;
+          document.getElementById("chartPreview").hidden = false;
+          document.getElementById("chartAnalysisResult").hidden = true;
+          document.getElementById("analyzeChartBtn").disabled = false;
+          document.getElementById("chartAnalysisStatus").textContent = spanish
+            ? "Captura preparada. Pulsa Analizar senal."
+            : "Screenshot prepared. Tap Analyze signal.";
+        } catch {
+          showToast(spanish ? "No pude leer esa captura." : "I could not read that screenshot.");
+        }
+      }
+
+      async function analyzeChartImage() {
+        if (!pendingChartImage || chartAnalysisBusy) return;
+        const spanish = resolvedLanguage() === "es";
+        chartAnalysisBusy = true;
+        const button = document.getElementById("analyzeChartBtn");
+        button.disabled = true;
+        button.textContent = spanish ? "Analizando..." : "Analyzing...";
+        document.getElementById("chartAnalysisStatus").textContent = spanish
+          ? "Leyendo estructura, velas, niveles y contexto del mercado..."
+          : "Reading structure, candles, levels and market context...";
+        try {
+          const response = await fetch(CHART_ANALYSIS_API_URL, {
+            method: "POST",
+            cache: "no-store",
+            headers: {
+              "Content-Type": "application/json",
+              "X-JamdDmaj-Device": getDeviceId(),
+              "X-JamdDmaj-Version": APP_VERSION
+            },
+            body: JSON.stringify({
+              image: pendingChartImage,
+              context: document.getElementById("chartContextInput").value.trim(),
+              marketDirection: latestMarketDirection
+            })
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok || !data?.analysis) throw new Error(data?.error?.message || `Chart analysis ${response.status}`);
+          renderChartAnalysis(data.analysis);
+          document.getElementById("chartAnalysisStatus").textContent = spanish
+            ? "Analisis terminado. Es educativo y no se envio ninguna orden."
+            : "Analysis complete. It is educational and no order was sent.";
+        } catch (error) {
+          document.getElementById("chartAnalysisStatus").textContent = spanish
+            ? `No pude analizarla: ${error.message || "error temporal"}`
+            : `I could not analyze it: ${error.message || "temporary error"}`;
+        } finally {
+          chartAnalysisBusy = false;
+          button.disabled = !pendingChartImage;
+          button.textContent = tradeText("chartAnalyze");
+        }
+      }
+
+      function renderChartAnalysis(analysis) {
+        const spanish = resolvedLanguage() === "es";
+        const result = document.getElementById("chartAnalysisResult");
+        result.replaceChildren();
+        result.dataset.signal = analysis.signal || "NO TRADE";
+        const title = document.createElement("h3");
+        title.textContent = `${analysis.signal || "NO TRADE"} - ${Number(analysis.confidence || 0).toFixed(0)}% ${spanish ? "confianza" : "confidence"}`;
+        const summary = document.createElement("p");
+        summary.textContent = analysis.summary || "";
+        const details = document.createElement("dl");
+        [
+          [spanish ? "Activo" : "Asset", analysis.asset],
+          [spanish ? "Temporalidad" : "Timeframe", analysis.timeframe],
+          [spanish ? "Tendencia visible" : "Visible trend", analysis.chartTrend],
+          [spanish ? "Direccion general" : "Overall direction", analysis.marketDirection?.label || (spanish ? "No disponible" : "Unavailable")],
+          [spanish ? "Alineacion" : "Alignment", analysis.marketAlignment],
+          [spanish ? "Patron" : "Pattern", analysis.pattern],
+          [spanish ? "Entrada" : "Entry", analysis.entry],
+          ["SL", analysis.stopLoss],
+          [spanish ? "Objetivos" : "Targets", (analysis.targets || []).join(" | ") || (spanish ? "No definidos" : "Not defined")],
+          [spanish ? "Invalidacion" : "Invalidation", analysis.invalidation]
+        ].forEach(([label, value]) => {
+          const term = document.createElement("dt");
+          const description = document.createElement("dd");
+          term.textContent = label;
+          description.textContent = value || "-";
+          details.append(term, description);
+        });
+        result.append(title, summary, details);
+        appendChartList(result, spanish ? "Razones" : "Reasons", analysis.reasons);
+        appendChartList(result, spanish ? "Advertencias" : "Warnings", analysis.warnings);
+        const safety = document.createElement("p");
+        safety.textContent = spanish
+          ? "Solo analisis de la captura. No ejecuta trades ni confirma precio en vivo."
+          : "Screenshot analysis only. It does not execute trades or confirm a live price.";
+        result.append(safety);
+        result.hidden = false;
+      }
+
+      function appendChartList(container, title, items) {
+        if (!Array.isArray(items) || !items.length) return;
+        const heading = document.createElement("strong");
+        heading.textContent = title;
+        const list = document.createElement("ul");
+        items.forEach((item) => {
+          const row = document.createElement("li");
+          row.textContent = item;
+          list.append(row);
+        });
+        container.append(heading, list);
       }
 
       function renderExecutorHealth(executor = {}, spanish = resolvedLanguage() === "es", learningState = {}, executorTest = null) {
@@ -8398,7 +8678,7 @@
         renderAttachments();
       }
 
-      function compressImage(file) {
+      function compressImage(file, maxSide = 1400, quality = 0.82) {
         return new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.onerror = reject;
@@ -8410,13 +8690,12 @@
             const image = new Image();
             image.onerror = reject;
             image.onload = () => {
-              const maxSide = 1400;
               const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
               const canvas = document.createElement("canvas");
               canvas.width = Math.max(1, Math.round(image.width * scale));
               canvas.height = Math.max(1, Math.round(image.height * scale));
               canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
-              resolve(canvas.toDataURL("image/jpeg", 0.82));
+              resolve(canvas.toDataURL("image/jpeg", quality));
             };
             image.src = String(reader.result);
           };
@@ -12106,6 +12385,10 @@
       document.getElementById("marketsBtn").addEventListener("click", toggleMarkets);
       document.getElementById("scanSignalsBtn").addEventListener("click", () => scanProSignals(true));
       document.getElementById("searchTradeBtn").addEventListener("click", searchTokenTrade);
+      document.getElementById("selectChartBtn").addEventListener("click", () => document.getElementById("chartImageInput").click());
+      document.getElementById("chartImageInput").addEventListener("change", (event) => selectChartImage(event.target.files?.[0]));
+      document.getElementById("analyzeChartBtn").addEventListener("click", analyzeChartImage);
+      document.getElementById("removeChartBtn").addEventListener("click", () => clearChartSelection(true));
       els.traderTokenInput.addEventListener("keydown", (event) => {
         if (event.key === "Enter") searchTokenTrade();
       });

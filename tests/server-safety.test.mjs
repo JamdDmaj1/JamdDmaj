@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import chatHandler from "../api/chat.js";
+import { buildChartMessages, normalizeChartAnalysis } from "../api/chart-analysis.js";
 import proClientFeedHandler from "../api/pro-client-feed.js";
 import { dayKey } from "../api/pro-executor.js";
 import { enforceRateLimits } from "../lib/server.js";
@@ -204,4 +205,49 @@ test("market direction smoothing avoids an instant full reversal", () => {
   }, now);
   assert.equal(direction.bias, "mixed");
   assert.ok(direction.currentScore < -90);
+});
+
+test("chart analysis prompt includes the screenshot and scanner direction", () => {
+  const messages = buildChartMessages("data:image/png;base64,AAAA", "BTCUSDT 15m", {
+    label: "ALCISTA",
+    score: 32,
+    bullishPercent: 65,
+    bearishPercent: 20,
+    samples: 20
+  });
+  assert.equal(messages.length, 2);
+  assert.equal(messages[1].content[1].type, "image_url");
+  assert.equal(messages[1].content[1].image_url.url, "data:image/png;base64,AAAA");
+  assert.match(messages[1].content[0].text, /ALCISTA/);
+  assert.match(messages[0].content, /Nunca inventes precios/);
+});
+
+test("chart analysis defaults to no trade and computes market alignment safely", () => {
+  const bullishDirection = {
+    bias: "bullish",
+    label: "ALCISTA",
+    score: 30,
+    bullishPercent: 60,
+    bearishPercent: 20,
+    samples: 20
+  };
+  const aligned = normalizeChartAnalysis(JSON.stringify({
+    signal: "LONG",
+    confidence: 76,
+    asset: "BTCUSDT",
+    timeframe: "15m",
+    chartTrend: "ALCISTA",
+    entry: "sobre 68000 con cierre",
+    stopLoss: "debajo de 67200",
+    targets: ["69000", "70000"],
+    reasons: ["estructura creciente"]
+  }), bullishDirection);
+  assert.equal(aligned.signal, "LONG");
+  assert.equal(aligned.marketAlignment, "A FAVOR");
+  assert.equal(aligned.noAutomaticExecution, true);
+
+  const unclear = normalizeChartAnalysis("The screenshot is unclear", bullishDirection);
+  assert.equal(unclear.signal, "NO TRADE");
+  assert.equal(unclear.marketAlignment, "NEUTRAL");
+  assert.equal(unclear.entry, "Esperar confirmacion");
 });
