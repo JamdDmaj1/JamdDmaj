@@ -17,7 +17,7 @@ import {
   recordAiSimulationOutcome
 } from "../scripts/bitget-executor.mjs";
 import { enforceRateLimits } from "../lib/server.js";
-import { calculateMarketDirection, dailyReportKey, shouldReuseRecentCycle } from "../lib/pro-signals.js";
+import { calculateMarketDirection, dailyReportKey, saveExecutorHeartbeat, shouldReuseRecentCycle } from "../lib/pro-signals.js";
 
 function signal(id, ageMs, bitgetEligible) {
   return {
@@ -214,6 +214,36 @@ test("daily learning compares winners against losses without changing strategy",
     counterMarketPercent: 50
   });
   assert.equal(comparison.losses.counterMarketPercent, 100);
+});
+
+test("executor heartbeat stores state and expiry in one Redis command", { concurrency: false }, async () => {
+  const previousFetch = globalThis.fetch;
+  const previousUrl = process.env.UPSTASH_REDIS_REST_URL;
+  const previousToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+  const requests = [];
+  process.env.UPSTASH_REDIS_REST_URL = "https://redis.example.test";
+  process.env.UPSTASH_REDIS_REST_TOKEN = "test-token";
+  globalThis.fetch = async (url, options) => {
+    requests.push({ url, options });
+    return new Response(JSON.stringify([{ result: "OK" }]), { status: 200 });
+  };
+  try {
+    const result = await saveExecutorHeartbeat({ mode: "dry-run", ok: true });
+    assert.equal(result.mode, "dry-run");
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].url, "https://redis.example.test/pipeline");
+    const body = JSON.parse(requests[0].options.body);
+    assert.equal(body.length, 1);
+    assert.equal(body[0][0], "SET");
+    assert.equal(body[0][3], "EX");
+    assert.equal(body[0][4], 21600);
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousUrl === undefined) delete process.env.UPSTASH_REDIS_REST_URL;
+    else process.env.UPSTASH_REDIS_REST_URL = previousUrl;
+    if (previousToken === undefined) delete process.env.UPSTASH_REDIS_REST_TOKEN;
+    else process.env.UPSTASH_REDIS_REST_TOKEN = previousToken;
+  }
 });
 
 test("rate limits use one atomic Redis script per request", { concurrency: false }, async () => {
