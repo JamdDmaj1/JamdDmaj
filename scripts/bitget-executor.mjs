@@ -2,6 +2,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 const ENV_PATH = process.env.JAMDDMAJ_EXECUTOR_ENV || "/opt/jamddmaj-scanner/.env";
 const STATE_PATH = process.env.JAMDDMAJ_EXECUTOR_STATE || "/opt/jamddmaj-scanner/executor-state.json";
@@ -57,11 +58,13 @@ const settings = {
   maxTradesPerDay: clampInt(process.env.JAMDDMAJ_MAX_TRADES_PER_DAY, 1, 100, 3)
 };
 
-main().catch(async (error) => {
-  console.error(`${LOG_PREFIX} fatal ${error?.message || error}`);
-  await reportExecutorStatus({ ok: false, lastError: error?.message || String(error) }).catch(() => {});
-  process.exitCode = 1;
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+  main().catch(async (error) => {
+    console.error(`${LOG_PREFIX} fatal ${error?.message || error}`);
+    await reportExecutorStatus({ ok: false, lastError: error?.message || String(error) }).catch(() => {});
+    process.exitCode = 1;
+  });
+}
 
 async function main() {
   if (!settings.cronSecret && !settings.clientConnector) {
@@ -109,8 +112,10 @@ async function main() {
   console.log(`${LOG_PREFIX} scan ok. manualTest=${manualSignals.length} newSignals=${newSignals.length} recentOpen=${recentOpen.length} totalSignals=${signals.length} events=${events.length} mode=${settings.mode} maxOpen=${policy.maxOpen} perRun=${policy.maxNewOrdersPerRun}`);
 
   const executable = [];
+  const baselineEvaluations = [];
   for (const signal of signals) {
     const decision = executableDecision(signal, state, policy, marketContext);
+    baselineEvaluations.push({ signal, decision });
     if (decision.ok) {
       executable.push({
         signal,
@@ -121,6 +126,12 @@ async function main() {
       recordRejection(decisions, decision.reason, signal);
       console.log(`${LOG_PREFIX} reject ${signal?.pair || signal?.symbol || "unknown"} ${signal?.side || ""}: ${decision.reason}`);
     }
+  }
+  if (isAiSimulationMode(settings.mode)) {
+    state.aiExperiment = recordAiSimulationCycle(state.aiExperiment, baselineEvaluations, state.categoryLearning);
+    decisions.aiExperiment = compactAiSimulationExperiment(state.aiExperiment, true);
+  } else {
+    decisions.aiExperiment = compactAiSimulationExperiment(state.aiExperiment, false);
   }
   decisions.executableSignals = executable.length;
   const rankedExecutable = sortRankedSignals(executable);
@@ -650,6 +661,13 @@ function learnFromOutcomeEvents(state, events, policy = {}) {
     if (!eventKey || state.learnedEvents[eventKey]) continue;
     state.learnedEvents[eventKey] = new Date().toISOString();
     learnFromSignalOutcome(state, signal, outcome, policy, "server-event");
+    if (isAiSimulationMode(settings.mode)) {
+      state.aiExperiment = recordAiSimulationOutcome(state.aiExperiment, {
+        key: eventKey,
+        signalId: signal.id,
+        outcome
+      });
+    }
   }
   pruneLearningState(state);
 }
@@ -726,6 +744,138 @@ function marketAlignmentRank(signal = {}, gate = {}) {
   return directionBonus;
 }
 
+export function evaluateAiSimulationVariant(signal = {}, baselineDecision = { ok: true }, categoryLearning = {}, now = Date.now()) {
+  if (!baselineDecision?.ok) return { ok: false, reason: `baseline rejected: ${baselineDecision?.reason || "unknown"}` };
+  const side = String(signal.side || "").toUpperCase();
+  const startedAt = earliestFiniteDate(signal.executorQueuedAt, signal.createdAt, signal.openedAt, signal.telegramSentAt, signal.detectedAt, signal.receivedAt);
+  if (!Number.isFinite(startedAt) || now - startedAt > 5 * 60000) {
+    return { ok: false, reason: "AI experiment freshness older than 5m" };
+  }
+  const expectedHigherTrend = side === "LONG" ? "bullish" : "bearish";
+  if (!String(signal.higherTrend || "").toLowerCase().includes(expectedHigherTrend)) {
+    return { ok: false, reason: `AI experiment needs ${expectedHigherTrend} 4h alignment` };
+  }
+  const counterMarket = String(signal.marketAlignment || "").toLowerCase() === "counter-market";
+  const volumeRatio = Number(signal.volumeRatio || 0);
+  const minimumVolume = counterMarket ? 1.35 : 1.2;
+  if (!Number.isFinite(volumeRatio) || volumeRatio < minimumVolume) {
+    return { ok: false, reason: `AI experiment volume below ${minimumVolume.toFixed(2)}x` };
+  }
+  const entry = Number(signal.entry);
+  const current = firstFiniteNumber(signal.currentPrice, signal.lastPrice, signal.markPrice, signal.entry);
+  if (Number.isFinite(entry) && entry > 0 && Number.isFinite(current) && current > 0) {
+    const drift = side === "SHORT" ? ((entry - current) / entry) * 100 : ((current - entry) / entry) * 100;
+    if (drift > 0.75) return { ok: false, reason: `AI experiment entry drift ${drift.toFixed(2)}% > 0.75%` };
+  }
+  const category = categoryLearning?.[signalCategoryKey(signal)];
+  if (Number(category?.samples || 0) >= 8 && Number(category?.winRate || 0) < 37) {
+    return { ok: false, reason: `AI experiment weak category ${signalCategoryKey(signal)}` };
+  }
+  if (counterMarket) {
+    if (Number(signal.score || 0) < 13.5) return { ok: false, reason: "AI experiment counter-market score below 13.5" };
+    if (Number(signal.adx || 0) < 25) return { ok: false, reason: "AI experiment counter-market ADX below 25" };
+    if (Number(signal.spreadPercent || signal.spread || 0) > 0.0015) {
+      return { ok: false, reason: "AI experiment counter-market spread above 0.15%" };
+    }
+  }
+  return {
+    ok: true,
+    reason: counterMarket
+      ? "AI experiment passed strict counter-market confirmation"
+      : "AI experiment passed trend, volume, freshness and drift confirmation"
+  };
+}
+
+export function isAiSimulationMode(mode) {
+  return String(mode || "").toLowerCase() === "dry-run";
+}
+
+export function recordAiSimulationCycle(current, evaluations = [], categoryLearning = {}, now = Date.now()) {
+  const state = normalizeAiSimulationExperiment(current);
+  for (const item of evaluations) {
+    const signal = item?.signal || {};
+    const id = String(signal.id || "").slice(0, 180);
+    if (!id || state.signals[id]) continue;
+    const baselineAccepted = item?.decision?.ok === true;
+    const aiDecision = evaluateAiSimulationVariant(signal, item?.decision, categoryLearning, now);
+    state.signals[id] = {
+      pair: String(signal.pair || signal.symbol || "").slice(0, 40),
+      side: String(signal.side || "").slice(0, 12),
+      category: signalCategoryKey(signal),
+      baselineAccepted,
+      aiAccepted: aiDecision.ok === true,
+      aiReason: String(aiDecision.reason || "").slice(0, 160),
+      createdAt: signal.createdAt || new Date(now).toISOString()
+    };
+    if (baselineAccepted) state.baseline.candidates += 1;
+    if (aiDecision.ok) state.ai.candidates += 1;
+    else state.rejections[aiDecision.reason] = Number(state.rejections[aiDecision.reason] || 0) + 1;
+  }
+  const recent = Object.entries(state.signals)
+    .sort((a, b) => String(b[1]?.createdAt || "").localeCompare(String(a[1]?.createdAt || "")))
+    .slice(0, 1500);
+  state.signals = Object.fromEntries(recent);
+  state.updatedAt = new Date(now).toISOString();
+  return state;
+}
+
+export function recordAiSimulationOutcome(current, value = {}) {
+  const state = normalizeAiSimulationExperiment(current);
+  const key = String(value.key || "").slice(0, 180);
+  const signal = state.signals[String(value.signalId || "")];
+  const outcome = String(value.outcome || "").toLowerCase();
+  if (!key || !signal || !["win", "loss"].includes(outcome) || state.outcomeKeys.includes(key)) return state;
+  state.outcomeKeys.push(key);
+  if (signal.baselineAccepted) state.baseline[outcome === "win" ? "wins" : "losses"] += 1;
+  if (signal.aiAccepted) state.ai[outcome === "win" ? "wins" : "losses"] += 1;
+  state.outcomeKeys = state.outcomeKeys.slice(-1500);
+  state.updatedAt = new Date().toISOString();
+  return state;
+}
+
+function normalizeAiSimulationExperiment(value = {}) {
+  value = value && typeof value === "object" ? value : {};
+  const bucket = (item = {}) => ({
+    candidates: Number(item.candidates || 0),
+    wins: Number(item.wins || 0),
+    losses: Number(item.losses || 0)
+  });
+  return {
+    version: 1,
+    baseline: bucket(value.baseline),
+    ai: bucket(value.ai),
+    signals: value.signals && typeof value.signals === "object" ? value.signals : {},
+    outcomeKeys: Array.isArray(value.outcomeKeys) ? value.outcomeKeys.slice(-1500) : [],
+    rejections: value.rejections && typeof value.rejections === "object" ? value.rejections : {},
+    updatedAt: value.updatedAt || null
+  };
+}
+
+function compactAiSimulationExperiment(value, enabled) {
+  const state = normalizeAiSimulationExperiment(value);
+  const summarize = (item) => {
+    const decided = item.wins + item.losses;
+    return {
+      candidates: item.candidates,
+      wins: item.wins,
+      losses: item.losses,
+      decided,
+      winRate: decided ? Number(((item.wins / decided) * 100).toFixed(1)) : 0
+    };
+  };
+  return {
+    enabled: enabled === true,
+    simulationOnly: true,
+    baseline: summarize(state.baseline),
+    ai: summarize(state.ai),
+    topRejections: Object.entries(state.rejections)
+      .sort((a, b) => Number(b[1]) - Number(a[1]))
+      .slice(0, 4)
+      .map(([reason, count]) => ({ reason, count: Number(count || 0) })),
+    updatedAt: state.updatedAt
+  };
+}
+
 function learningRankBonus(item = null) {
   if (!item || !Number(item.samples || 0)) return 0;
   const samples = Math.min(20, Number(item.samples || 0));
@@ -781,6 +931,10 @@ function compactOutcomeEvents(events = []) {
         outcome: outcome || "",
         score: Number(signal.score || 0),
         category: String(signal.category || "").slice(0, 80),
+        volumeRatio: Number(signal.volumeRatio || 0),
+        adx: Number(signal.adx || 0),
+        higherTrend: String(signal.higherTrend || "").slice(0, 80),
+        marketAlignment: String(signal.marketAlignment || "").slice(0, 30),
         entry: Number(signal.entry || 0),
         closePrice: Number(signal.closePrice || 0),
         createdAt: signal.createdAt || event?.createdAt || "",
@@ -1291,6 +1445,7 @@ function pruneState(state) {
   state.categoryLearning = state.categoryLearning && typeof state.categoryLearning === "object" ? state.categoryLearning : {};
   state.learnedEvents = state.learnedEvents && typeof state.learnedEvents === "object" ? state.learnedEvents : {};
   state.rejectedSymbols = state.rejectedSymbols && typeof state.rejectedSymbols === "object" ? state.rejectedSymbols : {};
+  state.aiExperiment = normalizeAiSimulationExperiment(state.aiExperiment);
   pruneRejectedSymbols(state);
   pruneLearningState(state);
   for (const order of state.orders) {
@@ -1299,7 +1454,7 @@ function pruneState(state) {
 }
 
 function createExecutorState() {
-  return { version: 5, updatedAt: null, seen: {}, orders: [], daily: normalizeDailyState({}), symbolLearning: {}, categoryLearning: {}, rejectedSymbols: {}, learnedEvents: {}, lastOutcomeEvents: [], lastDecisionSummary: createDecisionSummary([], []), lastMarketDirection: null };
+  return { version: 6, updatedAt: null, seen: {}, orders: [], daily: normalizeDailyState({}), symbolLearning: {}, categoryLearning: {}, rejectedSymbols: {}, learnedEvents: {}, lastOutcomeEvents: [], lastDecisionSummary: createDecisionSummary([], []), lastMarketDirection: null, aiExperiment: normalizeAiSimulationExperiment({}) };
 }
 
 async function reportExecutorStatus(payload) {
@@ -1354,7 +1509,8 @@ function statusPayload(state, overrides = {}) {
       traderProfile: normalizeTraderProfile(state.effectivePolicy?.traderProfile || settings.traderProfile),
       maxEntryDriftPercent: Number(state.effectivePolicy?.maxEntryDriftPercent || effectiveTraderProfile(state.effectivePolicy || {}).maxEntryDriftPercent)
     },
-        decisions: state.lastDecisionSummary || createDecisionSummary([], []),
+    decisions: state.lastDecisionSummary || createDecisionSummary([], []),
+    aiExperiment: compactAiSimulationExperiment(state.aiExperiment, isAiSimulationMode(settings.mode)),
     symbolLearning: compactSymbolLearning(state.symbolLearning),
     categoryLearning: compactCategoryLearning(state.categoryLearning),
     rejectedSymbols: compactRejectedSymbols(state.rejectedSymbols),
@@ -1484,6 +1640,11 @@ function compactOrder(order) {
     maxRoe: Number(order.maxRoe || 0),
     protectionActive: order.protectionActive === true,
     exitReason: order.exitReason || "",
+    score: Number(order.score || 0),
+    category: String(order.category || "").slice(0, 80),
+    volumeRatio: Number(order.volumeRatio || 0),
+    adx: Number(order.adx || 0),
+    higherTrend: String(order.higherTrend || "").slice(0, 80),
     marketAlignment: order.marketAlignment || "",
     marketDirectionLabel: order.marketDirectionLabel || "",
     marketDirectionScore: Number(order.marketDirectionScore || 0),

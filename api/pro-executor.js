@@ -84,7 +84,8 @@ async function updateExecutorLearning(input) {
   previous.runs += 1;
   previous.mode = String(input?.mode || previous.mode || "unknown").slice(0, 20);
   previous.updatedAt = new Date().toISOString();
-  const order = input?.lastLiveSignal;
+  const dryRun = String(input?.mode || "").toLowerCase() === "dry-run";
+  const order = dryRun ? input?.lastDryRunSignal : input?.lastLiveSignal;
   if (order?.pair || order?.symbol) {
     const orderKey = String(order.id || `${order.pair || order.symbol}:${order.side || ""}:${order.createdAt || ""}`).slice(0, 160);
     previous.orderKeys = Array.isArray(previous.orderKeys) ? previous.orderKeys : [];
@@ -142,6 +143,7 @@ function createExecutorLearning(day) {
     profitGivebacks: 0,
     lossReasons: {},
     lossExamples: [],
+    winExamples: [],
     rejectionSnapshotKeys: [],
     rejections: {},
     examples: [],
@@ -170,12 +172,14 @@ function applyOutcomeLearning(input, previous) {
   previous.outcomeKeys = Array.isArray(previous.outcomeKeys) ? previous.outcomeKeys : [];
   previous.lossReasons = previous.lossReasons && typeof previous.lossReasons === "object" ? previous.lossReasons : {};
   previous.lossExamples = Array.isArray(previous.lossExamples) ? previous.lossExamples : [];
+  previous.winExamples = Array.isArray(previous.winExamples) ? previous.winExamples : [];
   for (const outcome of collectExecutorOutcomes(input)) {
     const key = String(outcome.id || `${outcome.pair}:${outcome.side}:${outcome.type}:${outcome.closedAt || outcome.createdAt}`).slice(0, 180);
     if (!key || previous.outcomeKeys.includes(key)) continue;
     previous.outcomeKeys.push(key);
     if (outcome.outcome === "win") {
       previous.wins = Number(previous.wins || 0) + 1;
+      previous.winExamples.unshift(compactCohortExample(outcome));
       continue;
     }
     if (outcome.outcome !== "loss") continue;
@@ -184,18 +188,27 @@ function applyOutcomeLearning(input, previous) {
     if (outcome.reason === "reversal") previous.reversalLosses = Number(previous.reversalLosses || 0) + 1;
     if (outcome.reason === "profit-giveback") previous.profitGivebacks = Number(previous.profitGivebacks || 0) + 1;
     previous.lossReasons[outcome.reason] = (Number(previous.lossReasons[outcome.reason]) || 0) + 1;
-    previous.lossExamples.unshift({
-      pair: String(outcome.pair || "").slice(0, 40),
-      side: String(outcome.side || "").slice(0, 12),
-      reason: String(outcome.reason || "loss").slice(0, 40),
-      score: Number(outcome.score || 0),
-      roe: Number(outcome.roe || 0),
-      maxRoe: Number(outcome.maxRoe || 0),
-      category: String(outcome.category || "").slice(0, 80)
-    });
+    previous.lossExamples.unshift(compactCohortExample(outcome));
   }
   previous.outcomeKeys = previous.outcomeKeys.slice(-300);
   previous.lossExamples = previous.lossExamples.slice(0, 10);
+  previous.winExamples = previous.winExamples.slice(0, 10);
+}
+
+function compactCohortExample(outcome = {}) {
+  return {
+    pair: String(outcome.pair || "").slice(0, 40),
+    side: String(outcome.side || "").slice(0, 12),
+    reason: String(outcome.reason || outcome.outcome || "").slice(0, 40),
+    score: Number(outcome.score || 0),
+    roe: Number(outcome.roe || 0),
+    maxRoe: Number(outcome.maxRoe || 0),
+    category: String(outcome.category || "").slice(0, 80),
+    volumeRatio: Number(outcome.volumeRatio || 0),
+    adx: Number(outcome.adx || 0),
+    higherTrend: String(outcome.higherTrend || "").slice(0, 80),
+    marketAlignment: String(outcome.marketAlignment || "").slice(0, 30)
+  };
 }
 
 function collectExecutorOutcomes(input) {
@@ -213,6 +226,10 @@ function collectExecutorOutcomes(input) {
       reason: lossReasonFromText(type, event),
       score: Number(event?.score || 0),
       category: event?.category || "",
+      volumeRatio: Number(event?.volumeRatio || 0),
+      adx: Number(event?.adx || 0),
+      higherTrend: event?.higherTrend || "",
+      marketAlignment: event?.marketAlignment || "",
       createdAt: event?.createdAt || "",
       closedAt: event?.closedAt || ""
     });
@@ -238,6 +255,10 @@ function collectExecutorOutcomes(input) {
       roe: currentRoe,
       maxRoe,
       category: order?.category || "",
+      volumeRatio: Number(order?.volumeRatio || 0),
+      adx: Number(order?.adx || 0),
+      higherTrend: order?.higherTrend || "",
+      marketAlignment: order?.marketAlignment || "",
       createdAt: order?.createdAt || "",
       closedAt: order?.closedAt || ""
     });
@@ -276,7 +297,30 @@ function compactOutcomeSummary(value) {
     reversalLosses: Number(value.reversalLosses || 0),
     profitGivebacks: Number(value.profitGivebacks || 0),
     topLossReasons,
-    lossExamples: (Array.isArray(value.lossExamples) ? value.lossExamples : []).slice(0, 5)
+    lossExamples: (Array.isArray(value.lossExamples) ? value.lossExamples : []).slice(0, 5),
+    comparison: buildOutcomeCohortComparison(value)
+  };
+}
+
+export function buildOutcomeCohortComparison(value = {}) {
+  const summarize = (items) => {
+    const rows = (Array.isArray(items) ? items : []).slice(0, 10);
+    const average = (key) => rows.length
+      ? Number((rows.reduce((sum, item) => sum + Number(item?.[key] || 0), 0) / rows.length).toFixed(2))
+      : 0;
+    return {
+      samples: rows.length,
+      averageScore: average("score"),
+      averageVolumeRatio: average("volumeRatio"),
+      averageAdx: average("adx"),
+      counterMarketPercent: rows.length
+        ? Number(((rows.filter((item) => item?.marketAlignment === "counter-market").length / rows.length) * 100).toFixed(1))
+        : 0
+    };
+  };
+  return {
+    winners: summarize(value.winExamples),
+    losses: summarize(value.lossExamples)
   };
 }
 
@@ -317,10 +361,10 @@ function buildExecutorSelfImprovementPlan(input, learning) {
   };
 
   if (topReason.includes("stale signal")) {
-    add("Freshness", "Keep the 5 minute live window, but make the scanner prioritize brand-new Bitget-ready setups instead of recycling old Telegram calls.");
+    add("Freshness", "Track unique 5 minute candidates and compare the AI simulation variant against the baseline instead of counting recycled Telegram calls.");
   }
   if (outcomes.slLosses >= 2) {
-    add("SL review", "Several trades hit SL/invalidation today; require stronger 4h trend alignment, volume expansion, and cleaner entry drift before live orders.");
+    add("SL review", "Test stronger 4h alignment, volume expansion, and cleaner entry drift in the simulation-only A/B variant before considering any strategy change.");
   }
   if (outcomes.reversalLosses >= 2) {
     add("Reversal filter", "Several trades reversed after entry; add a short-term momentum turn check before sending Bitget orders.");
@@ -486,22 +530,44 @@ function formatExecutorDailyLearningMessage(input, learning) {
   const outcomes = learning.outcomes || {};
   const lossExamples = (outcomes.lossExamples || []).slice(0, 3).map((item) => `${escapeHtml(item.pair)} ${escapeHtml(item.side)}: ${escapeHtml(item.reason)}`);
   const lossReasons = (outcomes.topLossReasons || []).slice(0, 3).map((item) => `${escapeHtml(item.reason)} (${Number(item.count || 0)})`);
+  const dryRun = String(input?.mode || "").toLowerCase() === "dry-run";
   return [
     "📌 <b>JamdDmaj Bitget daily learning</b>",
     `Day: ${escapeHtml(learning.day || dayKey())}`,
-    `VPS runs: ${Number(learning.runs || 0)} | Live entries: ${Number(learning.liveOrders || 0)}`,
+    `VPS runs: ${Number(learning.runs || 0)} | ${dryRun ? "Simulated entries" : "Live entries"}: ${Number(learning.liveOrders || 0)}`,
     formatExecutorMarketDirection(input?.marketDirection),
     `Outcomes: wins ${Number(outcomes.wins || 0)} | losses ${Number(outcomes.losses || 0)} | SL ${Number(outcomes.slLosses || 0)} | reversal ${Number(outcomes.reversalLosses || 0)}`,
     Number(outcomes.profitGivebacks || 0) ? `Profit givebacks: ${Number(outcomes.profitGivebacks || 0)}` : "",
     lossReasons.length ? `Loss reasons: ${lossReasons.join(" | ")}` : "",
     lossExamples.length ? `Loss examples: ${lossExamples.join(" | ")}` : "",
+    formatOutcomeCohortComparison(outcomes.comparison),
     top.length ? `Top filters: ${top.join(" | ")}` : "Top filters: none yet",
     examples.length ? `Examples: ${examples.join(" | ")}` : "",
     `Lesson: ${escapeHtml(learning.lesson || "Collecting data.")}`,
+    formatAiSimulationExperiment(input?.aiExperiment),
     improvements.length ? "\n<b>AI self-improvement requests</b>" : "",
     ...improvements.map((item, index) => `${index + 1}. <b>${escapeHtml(item.title)}</b>: ${escapeHtml(item.detail)}`),
-    "Tomorrow the executor will keep using fresh-signal limits, score gates, account risk, and the current profit-protection rules."
+    dryRun
+      ? "Simulation only: no real order was sent. Tomorrow the executor will keep comparing the baseline with the AI variant."
+      : "Tomorrow the executor will keep using fresh-signal limits, score gates, account risk, and the current profit-protection rules."
   ].filter(Boolean).join("\n");
+}
+
+function formatOutcomeCohortComparison(value) {
+  const wins = value?.winners || {};
+  const losses = value?.losses || {};
+  if (!Number(wins.samples || 0) || !Number(losses.samples || 0)) return "";
+  return `Winner/loss comparison: score ${Number(wins.averageScore || 0).toFixed(1)}/${Number(losses.averageScore || 0).toFixed(1)} | volume ${Number(wins.averageVolumeRatio || 0).toFixed(2)}x/${Number(losses.averageVolumeRatio || 0).toFixed(2)}x | ADX ${Number(wins.averageAdx || 0).toFixed(1)}/${Number(losses.averageAdx || 0).toFixed(1)} | counter-market ${Number(wins.counterMarketPercent || 0).toFixed(0)}%/${Number(losses.counterMarketPercent || 0).toFixed(0)}%`;
+}
+
+function formatAiSimulationExperiment(value) {
+  if (!value?.enabled || value?.simulationOnly !== true) return "";
+  const baseline = value.baseline || {};
+  const ai = value.ai || {};
+  const top = Array.isArray(value.topRejections) && value.topRejections[0]
+    ? ` | top AI filter: ${escapeHtml(value.topRejections[0].reason)} (${Number(value.topRejections[0].count || 0)})`
+    : "";
+  return `Simulation A/B: baseline ${Number(baseline.candidates || 0)} candidates, ${Number(baseline.wins || 0)}W/${Number(baseline.losses || 0)}L (${Number(baseline.winRate || 0).toFixed(1)}%) | AI variant ${Number(ai.candidates || 0)} candidates, ${Number(ai.wins || 0)}W/${Number(ai.losses || 0)}L (${Number(ai.winRate || 0).toFixed(1)}%)${top}`;
 }
 
 export function executorRejectionSnapshot(input = {}) {

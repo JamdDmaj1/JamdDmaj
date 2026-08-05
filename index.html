@@ -3995,7 +3995,7 @@
             <button class="pill-btn" id="checkUpdatesBtn" type="button">Check for updates</button>
             <button class="pill-btn is-hidden" id="downloadUpdateBtn" type="button">Download APK</button>
           </div>
-          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.41</div>
+          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.42</div>
         </section>
       </div>
       <div class="dialog-actions">
@@ -4122,7 +4122,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.37.41";
+      const APP_VERSION = "1.37.42";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -7800,6 +7800,17 @@
         if (weakSymbol) rows.push([spanish ? "Aprendizaje VPS" : "VPS learning", weakSymbol.symbol + " - WR " + Number(weakSymbol.winRate || 0).toFixed(1) + "% / " + Number(weakSymbol.samples || 0) + " muestras"]);
         const weakCategory = Array.isArray(executor.categoryLearning) ? executor.categoryLearning.find((item) => item?.weakUntil) : null;
         if (weakCategory) rows.push([spanish ? "Categoria fria" : "Cold category", String(weakCategory.category || "") + " - WR " + Number(weakCategory.winRate || 0).toFixed(1) + "% / " + Number(weakCategory.samples || 0)]);
+        const aiExperiment = executor.aiExperiment;
+        if (aiExperiment?.enabled && aiExperiment?.simulationOnly) {
+          const baseline = aiExperiment.baseline || {};
+          const variant = aiExperiment.ai || {};
+          rows.push([
+            spanish ? "Experimento IA (simulado)" : "AI experiment (simulated)",
+            `base ${Number(baseline.candidates || 0)} | ${Number(baseline.wins || 0)}W/${Number(baseline.losses || 0)}L (${Number(baseline.winRate || 0).toFixed(1)}%) -> IA ${Number(variant.candidates || 0)} | ${Number(variant.wins || 0)}W/${Number(variant.losses || 0)}L (${Number(variant.winRate || 0).toFixed(1)}%)`
+          ]);
+          const aiReject = Array.isArray(aiExperiment.topRejections) ? aiExperiment.topRejections[0] : null;
+          if (aiReject) rows.push([spanish ? "Filtro IA principal" : "Top AI filter", String(aiReject.reason || "") + " (" + Number(aiReject.count || 0) + ")"]);
+        }
         const rejectedSymbol = Array.isArray(executor.rejectedSymbols) ? executor.rejectedSymbols[0] : null;
         if (rejectedSymbol) rows.push([spanish ? "Cooldown Bitget" : "Bitget cooldown", String(rejectedSymbol.symbol || "") + " - " + String(rejectedSymbol.lastReason || "").slice(0, 80)]);
         const topRanked = Array.isArray(decisions.topRanked) ? decisions.topRanked[0] : null;
@@ -8103,12 +8114,16 @@
       function renderBacktest(result, spanish = resolvedLanguage() === "es") {
         if (!result) return;
         const candleStudy = result.candlestickStudy;
+        const aiStudy = result.aiRecommendationStudy;
         const candleSummary = candleStudy?.decided
           ? ` ${spanish ? "Filtro de velas" : "Candlestick filter"}: ${Number(candleStudy.winRate || 0).toFixed(1)}% | ${Number(candleStudy.expectancyRoe || 0).toFixed(2)}% ${spanish ? "expectativa" : "expectancy"} | ${Number(candleStudy.rejected || 0)} ${spanish ? "rechazadas" : "rejected"}.`
           : "";
+        const aiSummary = aiStudy?.decided
+          ? ` ${spanish ? "Prueba IA simulada" : "Simulated AI study"}: ${Number(aiStudy.winRate || 0).toFixed(1)}% (${Number(aiStudy.winRateDelta || 0) >= 0 ? "+" : ""}${Number(aiStudy.winRateDelta || 0).toFixed(1)} pp) | ${Number(aiStudy.expectancyRoe || 0).toFixed(2)}% ${spanish ? "expectativa" : "expectancy"}.`
+          : "";
         document.getElementById("backtestTitle").textContent = spanish ? "Backtest walk-forward" : "Historical walk-forward test";
         document.getElementById("runBacktestBtn").textContent = spanish ? "Ejecutar backtest" : "Run backtest";
-        document.getElementById("backtestStatus").textContent = `${spanish ? "Completado" : "Completed"}: ${new Date(result.completedAt).toLocaleString()} - ${result.methodology}${candleSummary}`;
+        document.getElementById("backtestStatus").textContent = `${spanish ? "Completado" : "Completed"}: ${new Date(result.completedAt).toLocaleString()} - ${result.methodology}${candleSummary}${aiSummary}`;
         document.getElementById("backtestAssetsLabel").textContent = spanish ? "Activos" : "Assets";
         document.getElementById("backtestSamplesLabel").textContent = spanish ? "Muestras" : "Samples";
         document.getElementById("backtestWinRateLabel").textContent = candleStudy?.decided ? (spanish ? "TP1 con velas" : "Candle-filtered TP1") : (spanish ? "Tasa TP1" : "TP1 hit rate");
@@ -8119,6 +8134,19 @@
         document.getElementById("backtestExpectancy").textContent = `${Number(candleStudy?.expectancyRoe ?? result.expectancyRoe ?? 0).toFixed(2)}%`;
         const list = document.getElementById("backtestSymbolList");
         list.replaceChildren();
+        if (aiStudy?.decided) {
+          const experimentRow = document.createElement("div");
+          experimentRow.className = "pro-history-row";
+          const experimentLabel = document.createElement("b");
+          experimentLabel.textContent = spanish ? "IA simulada" : "Simulated AI";
+          const experimentSamples = document.createElement("span");
+          experimentSamples.textContent = `${Number(aiStudy.decided || 0)} ${spanish ? "decididos" : "decided"} | ${Number(aiStudy.rejected || 0)} ${spanish ? "filtrados" : "filtered"}`;
+          const experimentRate = document.createElement("span");
+          experimentRate.className = `pro-status-pill ${Number(aiStudy.expectancyDeltaRoe || 0) >= 0 ? "win" : "loss"}`;
+          experimentRate.textContent = `${Number(aiStudy.winRate || 0).toFixed(1)}% | ${Number(aiStudy.expectancyRoe || 0) >= 0 ? "+" : ""}${Number(aiStudy.expectancyRoe || 0).toFixed(2)}%`;
+          experimentRow.append(experimentLabel, experimentSamples, experimentRate);
+          list.append(experimentRow);
+        }
         (result.perSymbol || []).sort((a, b) => b.winRate - a.winRate).forEach((item) => {
           const row = document.createElement("div");
           row.className = "pro-history-row";

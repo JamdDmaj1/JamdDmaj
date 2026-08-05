@@ -9,7 +9,13 @@ import {
   normalizeChartAnalysis
 } from "../api/chart-analysis.js";
 import proClientFeedHandler from "../api/pro-client-feed.js";
-import { dayKey, executorRejectionSnapshot } from "../api/pro-executor.js";
+import { buildOutcomeCohortComparison, dayKey, executorRejectionSnapshot } from "../api/pro-executor.js";
+import {
+  evaluateAiSimulationVariant,
+  isAiSimulationMode,
+  recordAiSimulationCycle,
+  recordAiSimulationOutcome
+} from "../scripts/bitget-executor.mjs";
 import { enforceRateLimits } from "../lib/server.js";
 import { calculateMarketDirection, dailyReportKey, shouldReuseRecentCycle } from "../lib/pro-signals.js";
 
@@ -126,6 +132,88 @@ test("executor learning deduplicates repeated rejection snapshots", () => {
 
   assert.equal(executorRejectionSnapshot(first), executorRejectionSnapshot(reordered));
   assert.notEqual(executorRejectionSnapshot(first), executorRejectionSnapshot(fresh));
+});
+
+test("AI recommendations run only as a stricter simulation variant", () => {
+  const now = Date.parse("2026-08-04T20:00:00.000Z");
+  const aligned = {
+    id: "btc-long-1",
+    pair: "BTCUSDT",
+    side: "LONG",
+    score: 13,
+    createdAt: new Date(now - 60_000).toISOString(),
+    higherTrend: "bullish 4h alignment",
+    volumeRatio: 1.25,
+    entry: 100,
+    currentPrice: 100.2,
+    adx: 24,
+    spreadPercent: 0.0005,
+    category: "majors",
+    marketAlignment: "with-market"
+  };
+  const counter = {
+    ...aligned,
+    id: "btc-short-1",
+    side: "SHORT",
+    higherTrend: "bearish 4h alignment",
+    volumeRatio: 1.2,
+    marketAlignment: "counter-market"
+  };
+
+  assert.equal(evaluateAiSimulationVariant(aligned, { ok: true }, {}, now).ok, true);
+  assert.match(evaluateAiSimulationVariant(counter, { ok: true }, {}, now).reason, /volume below 1\.35x/);
+  assert.match(evaluateAiSimulationVariant(aligned, { ok: false, reason: "score below 14" }, {}, now).reason, /baseline rejected/);
+  assert.equal(isAiSimulationMode("dry-run"), true);
+  assert.equal(isAiSimulationMode("live"), false);
+  assert.equal(isAiSimulationMode("off"), false);
+});
+
+test("AI simulation A/B deduplicates candidates and outcomes", () => {
+  const now = Date.parse("2026-08-04T20:00:00.000Z");
+  const signal = {
+    id: "eth-long-1",
+    pair: "ETHUSDT",
+    side: "LONG",
+    score: 13,
+    createdAt: new Date(now - 30_000).toISOString(),
+    higherTrend: "bullish 4h alignment",
+    volumeRatio: 1.3,
+    entry: 3000,
+    currentPrice: 3001,
+    adx: 28,
+    spreadPercent: 0.0004,
+    category: "majors",
+    marketAlignment: "with-market"
+  };
+  let experiment = recordAiSimulationCycle(null, [{ signal, decision: { ok: true } }], {}, now);
+  experiment = recordAiSimulationCycle(experiment, [{ signal, decision: { ok: true } }], {}, now);
+  assert.equal(experiment.baseline.candidates, 1);
+  assert.equal(experiment.ai.candidates, 1);
+
+  experiment = recordAiSimulationOutcome(experiment, { key: "event-1", signalId: signal.id, outcome: "win" });
+  experiment = recordAiSimulationOutcome(experiment, { key: "event-1", signalId: signal.id, outcome: "win" });
+  assert.equal(experiment.baseline.wins, 1);
+  assert.equal(experiment.ai.wins, 1);
+});
+
+test("daily learning compares winners against losses without changing strategy", () => {
+  const comparison = buildOutcomeCohortComparison({
+    winExamples: [
+      { score: 13, volumeRatio: 1.5, adx: 28, marketAlignment: "with-market" },
+      { score: 12, volumeRatio: 1.3, adx: 24, marketAlignment: "counter-market" }
+    ],
+    lossExamples: [
+      { score: 11, volumeRatio: 1.1, adx: 19, marketAlignment: "counter-market" }
+    ]
+  });
+  assert.deepEqual(comparison.winners, {
+    samples: 2,
+    averageScore: 12.5,
+    averageVolumeRatio: 1.4,
+    averageAdx: 26,
+    counterMarketPercent: 50
+  });
+  assert.equal(comparison.losses.counterMarketPercent, 100);
 });
 
 test("rate limits use one atomic Redis script per request", { concurrency: false }, async () => {
