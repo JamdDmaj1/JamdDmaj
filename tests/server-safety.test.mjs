@@ -11,6 +11,13 @@ import {
 import proClientFeedHandler from "../api/pro-client-feed.js";
 import { buildOutcomeCohortComparison, dayKey, executorRejectionSnapshot } from "../api/pro-executor.js";
 import {
+  FAIR_LAUNCH_DEFAULTS,
+  assessFairLaunch,
+  buildFairLaunchManifest,
+  calculateFairLaunchVesting,
+  normalizeFairLaunchDraft
+} from "../lib/fair-launch.js";
+import {
   evaluateAiSimulationVariant,
   isAiSimulationMode,
   recordAiSimulationCycle,
@@ -244,6 +251,42 @@ test("executor heartbeat stores state and expiry in one Redis command", { concur
     if (previousToken === undefined) delete process.env.UPSTASH_REDIS_REST_TOKEN;
     else process.env.UPSTASH_REDIS_REST_TOKEN = previousToken;
   }
+});
+
+test("Fair Launch defaults enforce the requested anti-rug floor", () => {
+  const draft = normalizeFairLaunchDraft(FAIR_LAUNCH_DEFAULTS);
+  const assessment = assessFairLaunch(draft);
+  assert.equal(draft.creatorLockPercent, 85);
+  assert.equal(draft.earlyHolderCount, 2000);
+  assert.equal(draft.holderLockPercent, 85);
+  assert.equal(draft.cliffMonths, 24);
+  assert.equal(assessment.score, 100);
+  assert.equal(assessment.readyForAudit, true);
+});
+
+test("Fair Launch vesting keeps 85% locked for two years and releases gradually", () => {
+  assert.deepEqual(calculateFairLaunchVesting(FAIR_LAUNCH_DEFAULTS, 0), {
+    month: 0,
+    liquidPercent: 15,
+    lockedPercent: 85,
+    phase: "cliff"
+  });
+  assert.equal(calculateFairLaunchVesting(FAIR_LAUNCH_DEFAULTS, 24).liquidPercent, 15);
+  assert.equal(calculateFairLaunchVesting(FAIR_LAUNCH_DEFAULTS, 30).liquidPercent, 57.5);
+  assert.equal(calculateFairLaunchVesting(FAIR_LAUNCH_DEFAULTS, 36).liquidPercent, 100);
+});
+
+test("Fair Launch manifest cannot silently authorize a real deployment", () => {
+  const manifest = buildFairLaunchManifest({
+    ...FAIR_LAUNCH_DEFAULTS,
+    projectName: "<script>Bad</script>",
+    symbol: "jd maj!"
+  }, "2026-08-05T20:00:00.000Z");
+  assert.equal(manifest.simulationOnly, true);
+  assert.equal(manifest.releaseGate.automaticDeployment, false);
+  assert.equal(manifest.releaseGate.explicitMainnetApprovalRequired, true);
+  assert.equal(manifest.token.symbol, "JDMAJ");
+  assert.doesNotMatch(manifest.token.name, /[<>]/);
 });
 
 test("rate limits use one atomic Redis script per request", { concurrency: false }, async () => {

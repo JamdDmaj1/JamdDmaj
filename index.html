@@ -6,6 +6,7 @@
   <meta name="color-scheme" content="dark light">
   <meta name="description" content="JamdDmaj AI: private, local-first AI chat with vision, voice, image generation, and history.">
   <title>JamdDmaj AI</title>
+  <link rel="stylesheet" href="fair-launch.css">
   <style>
     :root {
       color-scheme: dark;
@@ -3080,7 +3081,7 @@
         overscroll-behavior: contain;
       }
 
-      .top-actions .pill-btn:not(#learnBtn):not(#marketsBtn):not(#topThemeBtn):not(#topSettingsBtn) {
+      .top-actions .pill-btn:not(#learnBtn):not(#marketsBtn):not(#fairLaunchBtn):not(#topThemeBtn):not(#topSettingsBtn) {
         display: none;
       }
 
@@ -3301,6 +3302,7 @@
         <div class="top-actions">
           <button class="pill-btn" id="learnBtn" type="button">Learn</button>
           <button class="pill-btn" id="marketsBtn" type="button">Markets</button>
+          <button class="pill-btn" id="fairLaunchBtn" type="button">Fair Launch</button>
           <button class="pill-btn" id="voiceModeBtn" type="button">Voice off</button>
           <button class="pill-btn" id="saveChatBtn" type="button">Save</button>
           <button class="pill-btn" id="renameChatBtn" type="button">Rename</button>
@@ -3329,6 +3331,111 @@
         </div>
         <div class="market-groups" id="marketGroups"></div>
       </div>
+
+      <section class="fair-launch-view is-hidden" id="fairLaunchView" aria-label="Fair Launch Lab" hidden>
+        <div class="fair-launch-shell">
+          <header class="fair-launch-hero">
+            <div>
+              <span class="fair-launch-kicker">JamdDmaj Fair Launch · laboratorio seguro</span>
+              <h1>Crea una economía de token difícil de manipular.</h1>
+              <p>Diseña el token, simula bloqueos y genera un manifiesto verificable. Esta fase no conecta billeteras, no cobra, no despliega contratos y no crea activos reales.</p>
+            </div>
+            <button class="pill-btn" id="exitFairLaunchBtn" type="button">Volver</button>
+          </header>
+
+          <div class="fair-launch-safety">
+            <div><strong>85% protegido</strong><span>Las compras del creador y de los primeros participantes elegibles quedan sujetas al bloqueo elegido.</span></div>
+            <div><strong>Liquidez bloqueada</strong><span>Los recibos de liquidez deben permanecer en un timelock verificable, no en la billetera del creador.</span></div>
+            <div><strong>Sin privilegios ocultos</strong><span>Suministro fijo, autoridad de emisión revocada, congelación desactivada y administración con multisig.</span></div>
+          </div>
+
+          <div class="fair-launch-grid">
+            <form class="fair-launch-panel" id="fairLaunchForm">
+              <h2>Diseño del lanzamiento</h2>
+              <p>Solana Token-2022 es el objetivo recomendado para el primer prototipo. Base se conserva como comparación arquitectónica.</p>
+
+              <fieldset class="fair-form-section">
+                <legend>1. Identidad y utilidad</legend>
+                <div class="fair-form-grid">
+                  <label>Nombre<input id="fairProjectName" maxlength="60" value="JamdDmaj"></label>
+                  <label>Símbolo<input id="fairSymbol" maxlength="10" value="JDMAJ"></label>
+                  <label class="wide">Utilidad real<textarea id="fairPurpose" maxlength="280">Utility token for the JamdDmaj ecosystem.</textarea></label>
+                  <label>Arquitectura objetivo
+                    <select id="fairNetwork">
+                      <option value="solana-token-2022">Solana Token-2022</option>
+                      <option value="base-erc20">Base ERC-20 (comparación)</option>
+                    </select>
+                  </label>
+                  <label>Suministro total<input id="fairSupply" type="number" min="1000000" max="1000000000000" step="1000000" value="1000000000"></label>
+                  <label>Decimales<input id="fairDecimals" type="number" min="0" max="18" value="9"></label>
+                  <label>Precio inicial simulado (USD)<input id="fairStartPrice" type="number" min="0.000000001" step="0.000001" value="0.001"></label>
+                </div>
+              </fieldset>
+
+              <fieldset class="fair-form-section">
+                <legend>2. Protección del creador y compradores iniciales</legend>
+                <div class="fair-form-grid">
+                  <label>Aporte simulado del creador (USD)<input id="fairCreatorContribution" type="number" min="0" step="100" value="1000"></label>
+                  <label>Compra del creador bloqueada (%)<input id="fairCreatorLock" type="number" min="0" max="100" step="1" value="85"></label>
+                  <label>Participantes iniciales protegidos<input id="fairHolderCount" type="number" min="0" max="100000" step="100" value="2000"></label>
+                  <label>Compra inicial bloqueada (%)<input id="fairHolderLock" type="number" min="0" max="100" step="1" value="85"></label>
+                  <label>Cliff sin desbloqueo (meses)<input id="fairCliffMonths" type="number" min="0" max="120" value="24"></label>
+                  <label>Liberación gradual posterior (meses)<input id="fairReleaseMonths" type="number" min="0" max="120" value="12"></label>
+                  <label>Bloqueo de liquidez (meses)<input id="fairLiquidityLock" type="number" min="0" max="120" value="24"></label>
+                  <label>Máximo por billetera al inicio (%)<input id="fairMaxWallet" type="number" min="0.01" max="100" step="0.1" value="1"></label>
+                </div>
+              </fieldset>
+
+              <fieldset class="fair-form-section">
+                <legend>3. Garantías obligatorias</legend>
+                <div class="fair-checkbox-grid">
+                  <label><input id="fairRevokeMint" type="checkbox" checked><span>Revocar autoridad de emisión después del suministro inicial.</span></label>
+                  <label><input id="fairDisableFreeze" type="checkbox" checked><span>Desactivar autoridad de congelación.</span></label>
+                  <label><input id="fairImmutableMetadata" type="checkbox" checked><span>Hacer inmutable la metadata después de revisión.</span></label>
+                  <label><input id="fairMultisig" type="checkbox" checked><span>Multisig con timelock para funciones administrativas.</span></label>
+                  <label><input id="fairAuditRequired" type="checkbox" checked><span>Auditoría externa obligatoria antes de mainnet.</span></label>
+                  <label><input id="fairAntiSybil" type="checkbox" checked><span>Elegibilidad anti-Sybil; una billetera no equivale a una persona.</span></label>
+                </div>
+              </fieldset>
+
+              <div class="fair-launch-actions">
+                <button class="pill-btn active" id="generateFairPlanBtn" type="button">Generar plan seguro</button>
+                <button class="pill-btn" id="downloadFairManifestBtn" type="button" disabled>Descargar manifiesto</button>
+                <button class="pill-btn" id="resetFairPlanBtn" type="button">Restablecer</button>
+              </div>
+              <p class="fair-launch-note" id="fairPlanStatus" role="status" aria-live="polite">Vista previa local: ningún dato se envía ni se firma.</p>
+            </form>
+
+            <aside class="fair-launch-panel">
+              <h2>Auditoría previa</h2>
+              <div class="fair-score-card">
+                <span class="fair-grade" id="fairSecurityGrade">A</span>
+                <div><strong id="fairSecurityScore">100/100</strong><span id="fairReadiness">Listo para revisión técnica, no para mainnet</span></div>
+              </div>
+              <div class="fair-launch-stats">
+                <div class="fair-launch-stat"><strong>Compra del creador</strong><span id="fairCreatorPreview">Calculando…</span></div>
+                <div class="fair-launch-stat"><strong>Protección comunitaria</strong><span id="fairHolderPreview">Calculando…</span></div>
+                <div class="fair-launch-stat"><strong>Liquidez</strong><span id="fairLiquidityPreview">Calculando…</span></div>
+              </div>
+
+              <h3>Controles comprobables</h3>
+              <ul class="fair-security-checks" id="fairSecurityChecks"></ul>
+
+              <div class="fair-vesting">
+                <h3>Simulador de desbloqueo</h3>
+                <input id="fairVestingMonth" type="range" min="0" max="48" value="0" aria-label="Mes del calendario de desbloqueo">
+                <div class="fair-vesting-labels"><span id="fairVestingMonthLabel">Mes 0</span><span id="fairLiquidPercent">15% líquido</span></div>
+                <div class="fair-vesting-track"><span id="fairVestingBar"></span></div>
+                <div class="fair-vesting-labels"><span>Liquidez disponible</span><span id="fairLockedPercent">85% bloqueado</span></div>
+              </div>
+
+              <h3>Prueba del diseño</h3>
+              <p class="fair-manifest-hash" id="fairManifestHash">Generando huella SHA-256…</p>
+              <p class="fair-launch-note"><strong>Importante:</strong> bloquear tokens no garantiza ganancias ni elimina todo fraude. El lanzamiento real requerirá testnet, auditoría independiente, revisión legal y tu autorización explícita.</p>
+            </aside>
+          </div>
+        </div>
+      </section>
 
       <section class="trader-view is-hidden" id="traderView" aria-label="JamdDmaj Pro Signals">
         <div class="trader-shell">
@@ -3995,7 +4102,7 @@
             <button class="pill-btn" id="checkUpdatesBtn" type="button">Check for updates</button>
             <button class="pill-btn is-hidden" id="downloadUpdateBtn" type="button">Download APK</button>
           </div>
-          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.42</div>
+          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.43</div>
         </section>
       </div>
       <div class="dialog-actions">
@@ -4027,6 +4134,7 @@
           <div class="tutorial-card"><strong>Create images</strong><span>Use the diamond button to switch into budget image-generation mode.</span></div>
           <div class="tutorial-card"><strong>Voice conversation</strong><span>Turn Voice on, dictate with the microphone, and hear AI replies aloud.</span></div>
           <div class="tutorial-card"><strong>Live markets</strong><span>Open Markets for frequently refreshed crypto prices from multiple sources.</span></div>
+          <div class="tutorial-card"><strong>Fair Launch Lab</strong><span>Design anti-rug token protections and export a simulated audit manifest without connecting a wallet.</span></div>
           <div class="tutorial-card"><strong>JamdDmaj Learn</strong><span>Choose a subject, take a placement test, set your learning language, and follow interactive lessons with saved progress.</span></div>
           <div class="tutorial-card"><strong>Keep your work</strong><span>Save, rename, revisit, or export conversations whenever you need them.</span></div>
         </div>
@@ -4122,7 +4230,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.37.42";
+      const APP_VERSION = "1.37.43";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -4139,6 +4247,7 @@
             intro: "This update improves the normal app experience.",
             button: "Got it",
             items: [
+              ["Fair Launch Lab", "Design token locks, liquidity protection, authority controls, and an auditable manifest without deploying a real token."],
               ["Simpler Settings", "Clear tabs replace the long settings page and sensitive recovery codes stay masked."],
               ["Automatic access", "Regular users no longer see or need an OpenRouter account connection."],
               ["Cleaner mobile layout", "Header controls and live Markets use the phone screen more effectively."],
@@ -4150,6 +4259,7 @@
             intro: "Esta actualizacion mejora la experiencia normal de la app.",
             button: "Entendido",
             items: [
+              ["Fair Launch Lab", "Diseña bloqueos, liquidez protegida, controles de autoridad y un manifiesto auditable sin desplegar un token real."],
               ["Ajustes mas simples", "Las pestañas reemplazan la pagina larga y los codigos privados quedan ocultos."],
               ["Acceso automatico", "Los usuarios normales ya no ven ni necesitan una cuenta de OpenRouter."],
               ["Mejor espacio movil", "Los controles superiores y Mercados aprovechan mejor la pantalla."],
@@ -8623,6 +8733,7 @@
           ["Create images", "Use the diamond button to enter budget image-generation mode."],
           ["Voice conversation", "Turn Voice on to dictate and hear AI responses aloud."],
           ["Live markets", "Open Markets for frequently refreshed prices from several sources."],
+          ["Fair Launch Lab", "Design anti-rug token protections and export a simulated manifest without connecting a wallet."],
           ["JamdDmaj Learn", "Choose a subject, configure your languages, take a placement test, and learn with visual exercises."],
           ["Keep your work", "Save projects, rename them, reopen them, or export conversations."]
         ];
@@ -12816,5 +12927,6 @@
       maybeShowNormalReleaseNotes();
     })();
   </script>
+  <script type="module" src="fair-launch-ui.js"></script>
 </body>
 </html>

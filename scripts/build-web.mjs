@@ -6,6 +6,8 @@ const output = resolve(root, "www");
 const assets = [
   "index.html",
   "candlesticks.js",
+  "fair-launch.css",
+  "fair-launch-ui.js",
   "oauth-mobile.html",
   "google-mobile.html",
   "manifest.json",
@@ -25,6 +27,9 @@ await emptyDirectory(output);
 for (const asset of assets) {
   await cp(resolve(root, asset), resolve(output, asset));
 }
+
+await mkdir(resolve(output, "lib"), { recursive: true });
+await cp(resolve(root, "lib", "fair-launch.js"), resolve(output, "lib", "fair-launch.js"));
 
 console.log(`Prepared ${assets.length} web assets in www.`);
 
