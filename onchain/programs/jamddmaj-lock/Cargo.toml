@@ -23,4 +23,5 @@ anchor-spl = { version = "0.31.1", features = ["token_2022"] }
 # select edition-2024-only cpufeatures 0.3, so keep the newest compatible line.
 blake3 = "=1.5.5"
 zeroize = "=1.8.1"
+zeroize_derive = "=1.4.2"
 proc-macro-crate = "=3.3.0"
