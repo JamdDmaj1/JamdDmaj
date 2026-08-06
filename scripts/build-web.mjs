@@ -30,6 +30,8 @@ for (const asset of assets) {
 
 await mkdir(resolve(output, "lib"), { recursive: true });
 await cp(resolve(root, "lib", "fair-launch.js"), resolve(output, "lib", "fair-launch.js"));
+await cp(resolve(root, "lib", "wallet-security.js"), resolve(output, "lib", "wallet-security.js"));
+await cp(resolve(root, "lib", "wallet-standard-registry.js"), resolve(output, "lib", "wallet-standard-registry.js"));
 
 console.log(`Prepared ${assets.length} web assets in www.`);
 

@@ -5,6 +5,13 @@ import {
   calculateFairLaunchVesting,
   normalizeFairLaunchDraft
 } from "./lib/fair-launch.js";
+import { getWalletRegistry } from "./lib/wallet-standard-registry.js";
+import {
+  getCompatibleSolanaWallets,
+  getSolanaAccount,
+  sanitizeWalletName,
+  shortenWalletAddress
+} from "./lib/wallet-security.js";
 
 (() => {
   const STORAGE_KEY = "jamdV1FairLaunchDraft";
@@ -17,6 +24,17 @@ import {
   let previousUi = null;
   let latestManifest = null;
   let latestManifestHash = "";
+  let compatibleWallets = [];
+  let connectedWallet = null;
+  let connectedAccount = null;
+  let removeWalletChangeListener = null;
+
+  const walletRegistry = getWalletRegistry();
+  const walletSelect = document.getElementById("fairWalletSelect");
+  const connectWalletButton = document.getElementById("fairConnectWalletBtn");
+  const disconnectWalletButton = document.getElementById("fairDisconnectWalletBtn");
+  const copyWalletButton = document.getElementById("fairCopyWalletBtn");
+  const walletStatus = document.getElementById("fairWalletStatus");
 
   const fields = {
     projectName: document.getElementById("fairProjectName"),
@@ -53,6 +71,13 @@ import {
 
   populateForm(loadDraft());
   updatePlan(false);
+  refreshWalletOptions();
+
+  walletRegistry.on("register", refreshWalletOptions);
+  walletRegistry.on("unregister", refreshWalletOptions);
+  connectWalletButton?.addEventListener("click", connectSelectedWallet);
+  disconnectWalletButton?.addEventListener("click", disconnectWallet);
+  copyWalletButton?.addEventListener("click", copyWalletAddress);
 
   launchButton.addEventListener("click", () => active ? exitFairLaunch(true) : enterFairLaunch());
   document.getElementById("exitFairLaunchBtn").addEventListener("click", () => exitFairLaunch(true));
@@ -236,5 +261,122 @@ import {
 
   function formatNumber(value) {
     return Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+  }
+
+  function refreshWalletOptions() {
+    if (!walletSelect) return;
+    compatibleWallets = getCompatibleSolanaWallets([...walletRegistry.get()]);
+    walletSelect.replaceChildren();
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = compatibleWallets.length
+      ? "Selecciona una wallet"
+      : "No se detectaron wallets compatibles";
+    walletSelect.append(placeholder);
+    compatibleWallets.forEach(({ name }, index) => {
+      const option = document.createElement("option");
+      option.value = String(index);
+      option.textContent = name;
+      walletSelect.append(option);
+    });
+    connectWalletButton.disabled = compatibleWallets.length === 0;
+  }
+
+  async function connectSelectedWallet() {
+    if (connectedWallet) return;
+    const selected = compatibleWallets[Number(walletSelect?.value)];
+    if (!selected || walletSelect?.value === "") {
+      setWalletStatus("Selecciona una wallet compatible primero.", "warning");
+      return;
+    }
+    connectWalletButton.disabled = true;
+    setWalletStatus(`Esperando autorización en ${selected.name}…`, "pending");
+    try {
+      const result = await selected.wallet.features["standard:connect"].connect();
+      const account = getSolanaAccount(result?.accounts || selected.wallet.accounts);
+      if (!account) throw new Error("La wallet no devolvió una cuenta de Solana válida.");
+      connectedWallet = selected.wallet;
+      connectedAccount = account;
+      subscribeToWalletChanges(selected.wallet);
+      renderWalletConnection();
+    } catch (error) {
+      connectedWallet = null;
+      connectedAccount = null;
+      const rejected = /reject|declin|cancel|denied|user/i.test(String(error?.message || error));
+      setWalletStatus(rejected
+        ? "Conexión cancelada. No se realizó ninguna acción."
+        : "No fue posible conectar esta wallet. Verifica que esté desbloqueada y vuelve a intentarlo.", "error");
+      connectWalletButton.disabled = false;
+    }
+  }
+
+  async function disconnectWallet() {
+    const wallet = connectedWallet;
+    clearWalletChangeListener();
+    connectedWallet = null;
+    connectedAccount = null;
+    try {
+      await wallet?.features?.["standard:disconnect"]?.disconnect?.();
+    } catch {
+      // Local state is still cleared when a provider cannot disconnect cleanly.
+    }
+    renderWalletConnection();
+    setWalletStatus("Wallet desconectada de JamdDmaj.", "success");
+  }
+
+  async function copyWalletAddress() {
+    if (!connectedAccount?.address || !navigator.clipboard?.writeText) return;
+    try {
+      await navigator.clipboard.writeText(connectedAccount.address);
+      setWalletStatus("Dirección copiada. No se copiaron claves ni datos privados.", "success");
+    } catch {
+      setWalletStatus("El navegador no permitió copiar la dirección.", "error");
+    }
+  }
+
+  function subscribeToWalletChanges(wallet) {
+    clearWalletChangeListener();
+    const events = wallet?.features?.["standard:events"];
+    if (!events?.on) return;
+    removeWalletChangeListener = events.on("change", ({ accounts }) => {
+      const account = getSolanaAccount(accounts);
+      if (!account) {
+        disconnectWallet();
+        return;
+      }
+      connectedAccount = account;
+      renderWalletConnection();
+    });
+  }
+
+  function clearWalletChangeListener() {
+    try {
+      removeWalletChangeListener?.();
+    } catch {
+      // Ignore provider cleanup errors.
+    }
+    removeWalletChangeListener = null;
+  }
+
+  function renderWalletConnection() {
+    const connected = Boolean(connectedWallet && connectedAccount);
+    if (walletSelect) walletSelect.disabled = connected;
+    if (connectWalletButton) {
+      connectWalletButton.hidden = connected;
+      connectWalletButton.disabled = !compatibleWallets.length;
+    }
+    if (disconnectWalletButton) disconnectWalletButton.hidden = !connected;
+    if (copyWalletButton) copyWalletButton.hidden = !connected;
+    document.getElementById("fairWalletName").textContent = connected ? sanitizeWalletName(connectedWallet.name) : "Sin conectar";
+    document.getElementById("fairWalletAddress").textContent = connected ? shortenWalletAddress(connectedAccount.address) : "Ninguna dirección compartida";
+    setWalletStatus(connected
+      ? "Conectada en modo identificación. JamdDmaj no puede mover fondos ni firmar por ti."
+      : "La conexión solo comparte tu dirección pública. Nunca escribas tu frase semilla aquí.", connected ? "success" : "neutral");
+  }
+
+  function setWalletStatus(message, state) {
+    if (!walletStatus) return;
+    walletStatus.textContent = message;
+    walletStatus.dataset.state = state;
   }
 })();

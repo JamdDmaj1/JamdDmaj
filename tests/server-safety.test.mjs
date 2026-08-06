@@ -18,6 +18,13 @@ import {
   normalizeFairLaunchDraft
 } from "../lib/fair-launch.js";
 import {
+  getCompatibleSolanaWallets,
+  getSolanaAccount,
+  sanitizeWalletName,
+  shortenWalletAddress
+} from "../lib/wallet-security.js";
+import { createWalletRegistry, walletEvent } from "../lib/wallet-standard-registry.js";
+import {
   evaluateAiSimulationVariant,
   isAiSimulationMode,
   recordAiSimulationCycle,
@@ -487,4 +494,40 @@ test("chart vision fallbacks remain free and include explicit image models", () 
   assert.equal(models[0], "google/gemma-4-26b-a4b-it:free");
   assert.ok(models.every((model) => model.endsWith(":free") || model === "openrouter/free"));
   assert.ok(models.some((model) => model.includes("gemma")));
+});
+
+test("wallet discovery accepts only Solana Wallet Standard providers", () => {
+  const connect = async () => ({ accounts: [] });
+  const wallets = getCompatibleSolanaWallets([
+    { name: "Phantom", chains: ["solana:mainnet"], features: { "standard:connect": { connect } } },
+    { name: "EVM only", chains: ["eip155:1"], features: { "standard:connect": { connect } } },
+    { name: "Missing connect", chains: ["solana:mainnet"], features: {} }
+  ]);
+  assert.equal(wallets.length, 1);
+  assert.equal(wallets[0].name, "Phantom");
+});
+
+test("wallet account validation rejects malformed or non-Solana addresses", () => {
+  const address = "9xQeWvG816bUx9EPjHmaT23yvVMbK4zZ7uQh7s9WfJpN";
+  assert.equal(getSolanaAccount([{ address, chains: ["solana:mainnet"] }])?.address, address);
+  assert.equal(getSolanaAccount([{ address: "not-an-address", chains: ["solana:mainnet"] }]), null);
+  assert.equal(getSolanaAccount([{ address, chains: ["eip155:1"] }]), null);
+});
+
+test("wallet labels are bounded and addresses are privacy shortened", () => {
+  assert.equal(sanitizeWalletName("Safe\u0000Wallet"), "Safe Wallet");
+  assert.equal(sanitizeWalletName("x".repeat(80)).length, 50);
+  assert.equal(shortenWalletAddress("12345678901234567890"), "123456…567890");
+});
+
+test("Wallet Standard registry discovers providers before and after app startup", () => {
+  const target = new EventTarget();
+  const earlyWallet = { name: "Early" };
+  const lateWallet = { name: "Late" };
+  target.addEventListener("wallet-standard:app-ready", (event) => event.detail.register(earlyWallet));
+  const registry = createWalletRegistry(target);
+  assert.deepEqual(registry.get(), [earlyWallet]);
+
+  target.dispatchEvent(walletEvent("wallet-standard:register-wallet", (api) => api.register(lateWallet)));
+  assert.deepEqual(registry.get(), [earlyWallet, lateWallet]);
 });

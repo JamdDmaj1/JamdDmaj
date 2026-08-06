@@ -3338,7 +3338,7 @@
             <div>
               <span class="fair-launch-kicker">JamdDmaj Fair Launch · laboratorio seguro</span>
               <h1>Crea una economía de token difícil de manipular.</h1>
-              <p>Diseña el token, simula bloqueos y genera un manifiesto verificable. Esta fase no conecta billeteras, no cobra, no despliega contratos y no crea activos reales.</p>
+              <p>Diseña el token, conecta una wallet Solana de forma no custodial y genera un manifiesto verificable. Esta fase no firma transacciones, no cobra, no despliega contratos y no crea activos reales.</p>
             </div>
             <button class="pill-btn" id="exitFairLaunchBtn" type="button">Volver</button>
           </header>
@@ -3348,6 +3348,29 @@
             <div><strong>Liquidez bloqueada</strong><span>Los recibos de liquidez deben permanecer en un timelock verificable, no en la billetera del creador.</span></div>
             <div><strong>Sin privilegios ocultos</strong><span>Suministro fijo, autoridad de emisión revocada, congelación desactivada y administración con multisig.</span></div>
           </div>
+
+          <section class="fair-wallet-card" aria-labelledby="fairWalletHeading">
+            <div>
+              <span class="fair-launch-kicker">Conexión no custodial</span>
+              <h2 id="fairWalletHeading">Enlaza tu wallet Solana</h2>
+              <p>Compatible con Wallet Standard: Phantom, Solflare, Backpack y otras wallets instaladas. JamdDmaj solo recibe tu dirección pública.</p>
+            </div>
+            <div class="fair-wallet-controls">
+              <label for="fairWalletSelect">Wallet detectada</label>
+              <select id="fairWalletSelect"><option value="">Buscando wallets…</option></select>
+              <div class="fair-launch-actions">
+                <button class="pill-btn active" id="fairConnectWalletBtn" type="button" disabled>Conectar wallet</button>
+                <button class="pill-btn" id="fairCopyWalletBtn" type="button" hidden>Copiar dirección</button>
+                <button class="pill-btn" id="fairDisconnectWalletBtn" type="button" hidden>Desconectar</button>
+              </div>
+            </div>
+            <div class="fair-wallet-identity">
+              <div><span>Estado</span><strong id="fairWalletName">Sin conectar</strong></div>
+              <div><span>Dirección pública</span><strong id="fairWalletAddress">Ninguna dirección compartida</strong></div>
+            </div>
+            <p class="fair-launch-note" id="fairWalletStatus" role="status" aria-live="polite">La conexión solo comparte tu dirección pública. Nunca escribas tu frase semilla aquí.</p>
+            <p class="fair-wallet-help">¿No aparece ninguna? Abre la web desde el navegador de tu wallet o instala una desde el <a href="https://solana.com/wallets" target="_blank" rel="noopener noreferrer">directorio oficial de Solana</a>.</p>
+          </section>
 
           <div class="fair-launch-grid">
             <form class="fair-launch-panel" id="fairLaunchForm">
@@ -4102,7 +4125,7 @@
             <button class="pill-btn" id="checkUpdatesBtn" type="button">Check for updates</button>
             <button class="pill-btn is-hidden" id="downloadUpdateBtn" type="button">Download APK</button>
           </div>
-          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.43</div>
+          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.44</div>
         </section>
       </div>
       <div class="dialog-actions">
@@ -4134,7 +4157,7 @@
           <div class="tutorial-card"><strong>Create images</strong><span>Use the diamond button to switch into budget image-generation mode.</span></div>
           <div class="tutorial-card"><strong>Voice conversation</strong><span>Turn Voice on, dictate with the microphone, and hear AI replies aloud.</span></div>
           <div class="tutorial-card"><strong>Live markets</strong><span>Open Markets for frequently refreshed crypto prices from multiple sources.</span></div>
-          <div class="tutorial-card"><strong>Fair Launch Lab</strong><span>Design anti-rug token protections and export a simulated audit manifest without connecting a wallet.</span></div>
+          <div class="tutorial-card"><strong>Fair Launch Lab</strong><span>Connect a Solana wallet safely, design anti-rug protections and export a simulated audit manifest.</span></div>
           <div class="tutorial-card"><strong>JamdDmaj Learn</strong><span>Choose a subject, take a placement test, set your learning language, and follow interactive lessons with saved progress.</span></div>
           <div class="tutorial-card"><strong>Keep your work</strong><span>Save, rename, revisit, or export conversations whenever you need them.</span></div>
         </div>
@@ -4230,7 +4253,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.37.43";
+      const APP_VERSION = "1.37.44";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -4247,6 +4270,7 @@
             intro: "This update improves the normal app experience.",
             button: "Got it",
             items: [
+              ["Solana wallet connection", "Connect a Wallet Standard account without sharing private keys or authorizing transactions."],
               ["Fair Launch Lab", "Design token locks, liquidity protection, authority controls, and an auditable manifest without deploying a real token."],
               ["Simpler Settings", "Clear tabs replace the long settings page and sensitive recovery codes stay masked."],
               ["Automatic access", "Regular users no longer see or need an OpenRouter account connection."],
@@ -4259,6 +4283,7 @@
             intro: "Esta actualizacion mejora la experiencia normal de la app.",
             button: "Entendido",
             items: [
+              ["Conexión de wallet Solana", "Conecta una cuenta Wallet Standard sin compartir claves privadas ni autorizar transacciones."],
               ["Fair Launch Lab", "Diseña bloqueos, liquidez protegida, controles de autoridad y un manifiesto auditable sin desplegar un token real."],
               ["Ajustes mas simples", "Las pestañas reemplazan la pagina larga y los codigos privados quedan ocultos."],
               ["Acceso automatico", "Los usuarios normales ya no ven ni necesitan una cuenta de OpenRouter."],
@@ -8733,7 +8758,7 @@
           ["Create images", "Use the diamond button to enter budget image-generation mode."],
           ["Voice conversation", "Turn Voice on to dictate and hear AI responses aloud."],
           ["Live markets", "Open Markets for frequently refreshed prices from several sources."],
-          ["Fair Launch Lab", "Design anti-rug token protections and export a simulated manifest without connecting a wallet."],
+          ["Fair Launch Lab", "Connect a Solana wallet safely, design anti-rug protections and export a simulated manifest."],
           ["JamdDmaj Learn", "Choose a subject, configure your languages, take a placement test, and learn with visual exercises."],
           ["Keep your work", "Save projects, rename them, reopen them, or export conversations."]
         ];

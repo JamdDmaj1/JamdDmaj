@@ -2,7 +2,15 @@
 
 ## Current phase: safe product simulator
 
-Version 1.37.43 adds a local Fair Launch Lab. It does not connect a wallet, accept funds, mint a token, deploy a contract, or authorize mainnet activity. Its output is a JSON design manifest with a SHA-256 fingerprint.
+Version 1.37.44 adds a non-custodial Wallet Standard connection to the local Fair Launch Lab. It may receive a selected public Solana address, but it does not persist wallet sessions, request signatures, accept funds, mint a token, deploy a contract, or authorize mainnet activity. Its output is a JSON design manifest with a SHA-256 fingerprint.
+
+## Wallet connection foundation
+
+- Uses Wallet Standard discovery rather than a Phantom-only integration.
+- Supports compatible injected wallets such as Phantom, Solflare and Backpack.
+- The current connection is identification-only: it requests an account address but never requests message or transaction signatures.
+- Addresses and wallet selections remain in memory and are not stored in JamdDmaj databases or local storage.
+- Mobile users without an injected provider are directed to the official Solana wallet directory; native deep-link signing remains out of scope until testnet transaction review is implemented.
 
 ## Recommended network target
 
