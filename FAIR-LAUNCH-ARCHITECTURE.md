@@ -1,6 +1,8 @@
 # JamdDmaj Fair Launch architecture
 
-## Current phase: safe product simulator
+## Current phase: protected Devnet product simulator
+
+Version 1.37.48 makes the JamdDmaj launch policy mandatory in every normalized draft, including drafts restored from local storage. The creator now uses a five-step flow, presents separate design, Devnet, audit and mainnet states, and shows a readable transaction summary before wallet approval. These controls harden the product experience; they do not replace the future on-chain vesting vault, liquidity locker, eligibility adapter or independent audit.
 
 Version 1.37.45 adds mobile wallet routes and an explicitly gated Solana Devnet Token-2022 prototype. A user may approve one Devnet transaction that creates a fixed-supply mint, sends the initial supply to the connected wallet, disables freeze authority and revokes mint authority. The app never receives a seed phrase or private wallet key, does not persist wallet sessions, does not accept payments and cannot authorize mainnet activity. The generated design manifest still includes a SHA-256 fingerprint.
 

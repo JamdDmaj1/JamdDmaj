@@ -46,6 +46,7 @@ await cp(resolve(root, "lib", "fair-launch.js"), resolve(output, "lib", "fair-la
 await cp(resolve(root, "lib", "wallet-security.js"), resolve(output, "lib", "wallet-security.js"));
 await cp(resolve(root, "lib", "wallet-standard-registry.js"), resolve(output, "lib", "wallet-standard-registry.js"));
 await cp(resolve(root, "lib", "fair-launch-boost.js"), resolve(output, "lib", "fair-launch-boost.js"));
+await cp(resolve(root, "lib", "fair-launch-locales.js"), resolve(output, "lib", "fair-launch-locales.js"));
 
 console.log(`Prepared ${assets.length} web assets in www.`);
 

@@ -6,6 +6,7 @@ import {
   normalizeFairLaunchDraft
 } from "./lib/fair-launch.js";
 import { buildBoostPlan } from "./lib/fair-launch-boost.js";
+import { fairLaunchText, resolveFairLaunchLocale } from "./lib/fair-launch-locales.js";
 import { createFixedSupplyTokenOnDevnet, validateDevnetTokenRequest } from "./lib/solana-devnet-token.js";
 import { getWalletRegistry } from "./lib/wallet-standard-registry.js";
 import {
@@ -38,6 +39,11 @@ registerMobileWalletAdapter();
   let connectedWallet = null;
   let connectedAccount = null;
   let removeWalletChangeListener = null;
+  let currentStep = 0;
+  let locale = resolveFairLaunchLocale(document.documentElement.lang);
+  let devnetVerified = false;
+  const stepPanels = [...form.querySelectorAll("[data-fair-step]")];
+  const stepButtons = [...form.querySelectorAll("[data-fair-step-target]")];
 
   const walletRegistry = getWalletRegistry();
   const walletSelect = document.getElementById("fairWalletSelect");
@@ -94,7 +100,16 @@ registerMobileWalletAdapter();
   copyWalletButton?.addEventListener("click", copyWalletAddress);
   createDevnetButton?.addEventListener("click", createDevnetToken);
   devnetConfirm?.addEventListener("change", updateDevnetReadiness);
+  document.getElementById("fairPrevStepBtn")?.addEventListener("click", () => showStep(currentStep - 1));
+  document.getElementById("fairNextStepBtn")?.addEventListener("click", () => showStep(currentStep + 1));
+  stepButtons.forEach((button) => button.addEventListener("click", () => showStep(Number(button.dataset.fairStepTarget))));
   configureMobileWalletLinks();
+  showStep(0, false);
+  applyFairLaunchLocale();
+  window.addEventListener("jamddmaj:languagechange", (event) => {
+    locale = resolveFairLaunchLocale(event.detail?.language || document.documentElement.lang);
+    applyFairLaunchLocale();
+  });
 
   launchButton.addEventListener("click", () => active ? exitFairLaunch(true) : enterFairLaunch());
   document.getElementById("exitFairLaunchBtn").addEventListener("click", () => exitFairLaunch(true));
@@ -210,11 +225,11 @@ registerMobileWalletAdapter();
     const creatorTokens = latestManifest.protection.creator.estimatedTokensAtStartingPrice;
     const creatorLocked = creatorTokens * (config.creatorLockPercent / 100);
 
-    document.getElementById("fairSecurityScore").textContent = `${assessment.score}/100`;
+    document.getElementById("fairSecurityScore").textContent = t("designScore", { score: assessment.score });
     document.getElementById("fairSecurityGrade").textContent = assessment.grade;
     document.getElementById("fairReadiness").textContent = assessment.readyForAudit
-      ? "Listo para revisión técnica, no para mainnet"
-      : `${assessment.blockers.length} bloqueo(s) antes de auditoría`;
+      ? t("designCompliant")
+      : `${assessment.blockers.length} bloqueo(s) antes de revisión`;
     document.getElementById("fairCreatorPreview").textContent = `${formatNumber(creatorLocked)} de ${formatNumber(creatorTokens)} ${config.symbol} bloqueados`;
     document.getElementById("fairHolderPreview").textContent = `${config.earlyHolderCount.toLocaleString()} participantes elegibles · ${config.holderLockPercent}% bloqueado`;
     document.getElementById("fairLiquidityPreview").textContent = `${config.liquidityLockMonths} meses · recibos LP bloqueados`;
@@ -240,7 +255,55 @@ registerMobileWalletAdapter();
       checklist.append(row);
     });
     renderVestingPreview();
+    renderTransactionPreview(config);
     updateDevnetReadiness();
+  }
+
+  function showStep(requestedStep, focus = true) {
+    const lastStep = Math.max(0, stepPanels.length - 1);
+    currentStep = Math.min(lastStep, Math.max(0, Number(requestedStep) || 0));
+    stepPanels.forEach((panel, index) => {
+      panel.hidden = index !== currentStep;
+    });
+    stepButtons.forEach((button, index) => {
+      if (index === currentStep) button.setAttribute("aria-current", "step");
+      else button.removeAttribute("aria-current");
+    });
+    const previous = document.getElementById("fairPrevStepBtn");
+    const next = document.getElementById("fairNextStepBtn");
+    if (previous) previous.disabled = currentStep === 0;
+    if (next) next.hidden = currentStep === lastStep;
+    const progress = document.getElementById("fairStepProgress");
+    if (progress) progress.textContent = t("progress", { current: currentStep + 1, total: stepPanels.length });
+    if (focus) {
+      stepPanels[currentStep]?.querySelector("input:not([disabled]), textarea, select, button")?.focus({ preventScroll: true });
+      stepPanels[currentStep]?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+
+  function renderTransactionPreview(config = readForm()) {
+    const supply = document.getElementById("fairTxSupply");
+    const recipient = document.getElementById("fairTxRecipient");
+    if (supply) supply.textContent = `${formatNumber(config.totalSupply)} ${config.symbol}`;
+    if (recipient) recipient.textContent = connectedAccount?.address
+      ? shortenWalletAddress(connectedAccount.address)
+      : t("walletNotConnected");
+  }
+
+  function applyFairLaunchLocale() {
+    launchView.querySelectorAll("[data-fl-key]").forEach((element) => {
+      if (element.id === "fairDevnetBadgeText" && devnetVerified) element.textContent = t("devnetVerified");
+      else element.textContent = t(element.dataset.flKey);
+    });
+    launchView.querySelectorAll("[data-fl-aria]").forEach((element) => {
+      element.setAttribute("aria-label", t(element.dataset.flAria));
+    });
+    showStep(currentStep, false);
+    renderTransactionPreview();
+  }
+
+  function t(key, variables) {
+    return fairLaunchText(locale, key, variables);
   }
 
   function readBoostPlan() {
@@ -434,6 +497,7 @@ registerMobileWalletAdapter();
     setWalletStatus(connected
       ? "Conectada en modo identificación. JamdDmaj no puede mover fondos ni firmar por ti."
       : "La conexión solo comparte tu dirección pública. Nunca escribas tu frase semilla aquí.", connected ? "success" : "neutral");
+    renderTransactionPreview();
     updateDevnetReadiness();
   }
 
@@ -486,6 +550,9 @@ registerMobileWalletAdapter();
       resultBox.append(title, details, mintLink, separator, transactionLink);
       resultBox.hidden = false;
       status.textContent = "Creación confirmada en Devnet. No se gastó dinero real.";
+      devnetVerified = true;
+      const badge = document.getElementById("fairDevnetBadgeText");
+      if (badge) badge.textContent = t("devnetVerified");
     } catch (error) {
       const message = String(error?.message || error);
       status.textContent = /reject|declin|cancel|denied|user/i.test(message)

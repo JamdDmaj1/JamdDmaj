@@ -26,6 +26,7 @@ import {
 } from "../lib/wallet-security.js";
 import { createWalletRegistry, walletEvent } from "../lib/wallet-standard-registry.js";
 import { buildBoostPlan, JDMAJ_BOOST_CATALOG } from "../lib/fair-launch-boost.js";
+import { FAIR_LAUNCH_LOCALES, FAIR_LAUNCH_LOCALE_KEYS } from "../lib/fair-launch-locales.js";
 import { validateDevnetTokenRequest } from "../lib/solana-devnet-token.js";
 import {
   evaluateAiSimulationVariant,
@@ -298,6 +299,64 @@ test("Fair Launch defaults enforce the requested anti-rug floor", () => {
   assert.equal(assessment.readyForAudit, true);
 });
 
+test("Fair Launch imported drafts cannot weaken mandatory JamdDmaj rules", () => {
+  const draft = normalizeFairLaunchDraft({
+    creatorLockPercent: 0,
+    earlyHolderCount: 1,
+    holderLockPercent: 10,
+    cliffMonths: 0,
+    releaseMonths: 0,
+    liquidityLockMonths: 1,
+    maxWalletPercent: 99,
+    revokeMintAuthority: false,
+    disableFreezeAuthority: false,
+    immutableMetadata: false,
+    multisigTimelock: false,
+    auditRequired: false,
+    antiSybilEligibility: false
+  });
+  assert.equal(draft.creatorLockPercent, 85);
+  assert.equal(draft.earlyHolderCount, 2_000);
+  assert.equal(draft.holderLockPercent, 85);
+  assert.equal(draft.cliffMonths, 24);
+  assert.equal(draft.releaseMonths, 12);
+  assert.equal(draft.liquidityLockMonths, 24);
+  assert.equal(draft.maxWalletPercent, 1);
+  assert.equal(draft.revokeMintAuthority, true);
+  assert.equal(draft.disableFreezeAuthority, true);
+  assert.equal(draft.immutableMetadata, true);
+  assert.equal(draft.multisigTimelock, true);
+  assert.equal(draft.auditRequired, true);
+  assert.equal(draft.antiSybilEligibility, true);
+});
+
+test("Fair Launch additions have complete locale parity", () => {
+  assert.deepEqual(Object.keys(FAIR_LAUNCH_LOCALES).sort(), ["ar", "de", "en", "es", "fr", "it", "ja", "ko", "pt", "zh"]);
+  for (const [locale, catalog] of Object.entries(FAIR_LAUNCH_LOCALES)) {
+    assert.deepEqual(Object.keys(catalog).sort(), [...FAIR_LAUNCH_LOCALE_KEYS].sort(), `${locale} locale keys differ`);
+    assert.ok(Object.values(catalog).every((value) => typeof value === "string" && value.trim()), `${locale} has an empty translation`);
+  }
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const usedKeys = [...html.matchAll(/data-fl-(?:key|aria)="([^"]+)"/g)].map((match) => match[1]);
+  assert.ok(usedKeys.length > 0);
+  usedKeys.forEach((key) => assert.ok(FAIR_LAUNCH_LOCALE_KEYS.includes(key), `Unknown Fair Launch locale key: ${key}`));
+});
+
+test("Fair Launch UI exposes a guided flow and non-disableable safety policy", () => {
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  assert.equal((html.match(/data-fair-step="[0-4]"/g) || []).length, 5);
+  assert.match(html, /id="fairCreatorLock"[^>]+min="85"[^>]+max="100"/);
+  assert.match(html, /id="fairHolderCount"[^>]+min="2000"/);
+  assert.match(html, /id="fairCliffMonths"[^>]+min="24"/);
+  assert.match(html, /id="fairMaxWallet"[^>]+max="1"/);
+  for (const id of ["fairRevokeMint", "fairDisableFreeze", "fairImmutableMetadata", "fairMultisig", "fairAuditRequired", "fairAntiSybil"]) {
+    assert.match(html, new RegExp(`id="${id}"[^>]+checked disabled`));
+  }
+  assert.match(html, /id="fairTransactionPreview"/);
+  assert.match(html, /Mainnet bloqueado/);
+  assert.match(html, /no auditado/);
+});
+
 test("Fair Launch vesting keeps 85% locked for two years and releases gradually", () => {
   assert.deepEqual(calculateFairLaunchVesting(FAIR_LAUNCH_DEFAULTS, 0), {
     month: 0,
@@ -317,6 +376,7 @@ test("Fair Launch manifest cannot silently authorize a real deployment", () => {
     symbol: "jd maj!"
   }, "2026-08-05T20:00:00.000Z");
   assert.equal(manifest.simulationOnly, true);
+  assert.equal(manifest.policy.mandatory, true);
   assert.equal(manifest.releaseGate.automaticDeployment, false);
   assert.equal(manifest.releaseGate.explicitMainnetApprovalRequired, true);
   assert.equal(manifest.token.symbol, "JDMAJ");
