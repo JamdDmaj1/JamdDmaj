@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import chatHandler from "../api/chat.js";
@@ -75,6 +76,19 @@ test("the official JamdDmaj domain is allowed without reflecting unknown origins
   }));
   assert.equal(official["Access-Control-Allow-Origin"], "https://www.jamddmaj.com");
   assert.equal(unknown["Access-Control-Allow-Origin"], "https://www.jamddmaj.com");
+});
+
+test("the official web app declares installability and baseline edge protections", () => {
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const manifest = JSON.parse(readFileSync(new URL("../manifest.json", import.meta.url), "utf8"));
+  const vercel = JSON.parse(readFileSync(new URL("../vercel.json", import.meta.url), "utf8"));
+  const headers = Object.fromEntries(vercel.headers[0].headers.map(({ key, value }) => [key, value]));
+  assert.match(html, /rel="manifest" href="\/manifest\.json"/);
+  assert.equal(manifest.id, "/");
+  assert.ok(manifest.shortcuts.some((shortcut) => shortcut.url === "/?view=fair-launch"));
+  assert.equal(headers["X-Frame-Options"], "DENY");
+  assert.equal(headers["X-Content-Type-Options"], "nosniff");
+  assert.match(headers["Content-Security-Policy"], /frame-ancestors 'none'/);
 });
 
 test("the executor feed rejects missing or URL-only credentials", { concurrency: false }, async () => {

@@ -11,6 +11,8 @@ const assets = [
   "oauth-mobile.html",
   "google-mobile.html",
   "manifest.json",
+  "robots.txt",
+  "sitemap.xml",
   "icon-72.png",
   "icon-96.png",
   "icon-128.png",

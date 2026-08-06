@@ -1,14 +1,27 @@
 {
   "name": "JamdDmaj AI",
   "short_name": "JamdDmaj",
+  "id": "/",
   "description": "Asistente AI con visión, memoria y generación de imágenes",
   "start_url": "/?utm_source=homescreen",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
   "theme_color": "#667eea",
   "background_color": "#0a0a0a",
   "orientation": "portrait",
   "lang": "es",
+  "categories": ["finance", "education", "productivity"],
+  "prefer_related_applications": false,
+  "shortcuts": [
+    {
+      "name": "Fair Launch Lab",
+      "short_name": "Fair Launch",
+      "description": "Diseña un lanzamiento Token-2022 seguro en Devnet.",
+      "url": "/?view=fair-launch",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ],
   "icons": [
     {
       "src": "icon-72.png",

@@ -146,7 +146,7 @@ registerMobileWalletAdapter();
     const title = document.getElementById("chatTitle");
     const model = document.getElementById("modelLabel");
     if (title) title.textContent = "Fair Launch Lab";
-    if (model) model.textContent = "Diseño anti-rug · simulación local";
+    if (model) model.textContent = "Diseño anti-rug · Devnet seguro";
     launchView.scrollTop = 0;
     updatePlan(false);
   }
