@@ -6,7 +6,9 @@ import {
   normalizeFairLaunchDraft
 } from "./lib/fair-launch.js";
 import { buildBoostPlan } from "./lib/fair-launch-boost.js";
+import { verifyFairLaunchOnDevnet } from "./lib/fair-launch-devnet-verifier.js";
 import { fairLaunchText, resolveFairLaunchLocale } from "./lib/fair-launch-locales.js";
+import { fairLaunchVerifierText } from "./lib/fair-launch-verifier-locales.js";
 import { createFixedSupplyTokenOnDevnet, validateDevnetTokenRequest } from "./lib/solana-devnet-token.js";
 import { getWalletRegistry } from "./lib/wallet-standard-registry.js";
 import {
@@ -53,6 +55,7 @@ registerMobileWalletAdapter();
   const walletStatus = document.getElementById("fairWalletStatus");
   const devnetConfirm = document.getElementById("fairDevnetConfirm");
   const createDevnetButton = document.getElementById("fairCreateDevnetTokenBtn");
+  const verifyDevnetButton = document.getElementById("fairVerifyDevnetBtn");
 
   const fields = {
     projectName: document.getElementById("fairProjectName"),
@@ -99,6 +102,7 @@ registerMobileWalletAdapter();
   disconnectWalletButton?.addEventListener("click", disconnectWallet);
   copyWalletButton?.addEventListener("click", copyWalletAddress);
   createDevnetButton?.addEventListener("click", createDevnetToken);
+  verifyDevnetButton?.addEventListener("click", verifyPublicDevnetPolicy);
   devnetConfirm?.addEventListener("change", updateDevnetReadiness);
   document.getElementById("fairPrevStepBtn")?.addEventListener("click", () => showStep(currentStep - 1));
   document.getElementById("fairNextStepBtn")?.addEventListener("click", () => showStep(currentStep + 1));
@@ -298,8 +302,55 @@ registerMobileWalletAdapter();
     launchView.querySelectorAll("[data-fl-aria]").forEach((element) => {
       element.setAttribute("aria-label", t(element.dataset.flAria));
     });
+    launchView.querySelectorAll("[data-fl-verify-key]").forEach((element) => {
+      element.textContent = fairLaunchVerifierText(locale, element.dataset.flVerifyKey);
+    });
     showStep(currentStep, false);
     renderTransactionPreview();
+  }
+
+  async function verifyPublicDevnetPolicy() {
+    const mintInput = document.getElementById("fairVerifyMint");
+    const policyInput = document.getElementById("fairVerifyPolicy");
+    const status = document.getElementById("fairVerifyStatus");
+    const checks = document.getElementById("fairVerifyChecks");
+    const explorer = document.getElementById("fairVerifyExplorer");
+    if (!verifyDevnetButton || !status || !checks || !explorer) return;
+
+    verifyDevnetButton.disabled = true;
+    checks.hidden = true;
+    checks.replaceChildren();
+    explorer.hidden = true;
+    status.dataset.state = "pending";
+    status.textContent = fairLaunchVerifierText(locale, "running");
+    try {
+      const result = await verifyFairLaunchOnDevnet({
+        mintAddress: mintInput?.value,
+        policyAddress: policyInput?.value
+      });
+      result.checks.forEach((item) => {
+        const row = document.createElement("li");
+        row.dataset.passed = String(item.passed);
+        const marker = document.createElement("span");
+        marker.textContent = item.passed ? "✓" : "!";
+        const label = document.createElement("span");
+        label.textContent = item.label;
+        row.append(marker, label);
+        checks.append(row);
+      });
+      checks.hidden = false;
+      status.dataset.state = result.verified ? "safe" : "error";
+      status.textContent = result.verified
+        ? fairLaunchVerifierText(locale, "success")
+        : `${fairLaunchVerifierText(locale, "failure")}: ${result.checks.filter((item) => !item.passed).length}`;
+      explorer.href = `https://explorer.solana.com/address/${encodeURIComponent(result.policyAddress)}?cluster=devnet`;
+      explorer.hidden = false;
+    } catch (error) {
+      status.dataset.state = "error";
+      status.textContent = `${fairLaunchVerifierText(locale, "failure")}: ${String(error?.message || error)}`;
+    } finally {
+      verifyDevnetButton.disabled = false;
+    }
   }
 
   function t(key, variables) {

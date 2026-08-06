@@ -3,7 +3,7 @@ import { getProServerState } from "../lib/pro-signals.js";
 
 export const config = { runtime: "edge" };
 
-const FALLBACK_VERSION = "1.37.48";
+const FALLBACK_VERSION = "1.37.49";
 const FALLBACK_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
 const GITHUB_LATEST_RELEASE_URL = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
 

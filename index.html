@@ -3531,6 +3531,17 @@
               <h3>Prueba del diseño</h3>
               <p class="fair-manifest-hash" id="fairManifestHash">Generando huella SHA-256…</p>
               <p class="fair-launch-note"><strong>Importante:</strong> bloquear tokens no garantiza ganancias ni elimina todo fraude. El lanzamiento real requerirá testnet, auditoría independiente, revisión legal y tu autorización explícita.</p>
+              <section class="fair-public-verifier" aria-labelledby="fairVerifierTitle">
+                <h3 id="fairVerifierTitle" data-fl-verify-key="title">Verificación pública en Devnet</h3>
+                <p data-fl-verify-key="description">Lee el mint y la política de protección directamente desde Solana. No requiere wallet ni firma.</p>
+                <label><span data-fl-verify-key="mintLabel">Dirección del mint Token-2022</span><input id="fairVerifyMint" type="text" autocomplete="off" spellcheck="false"></label>
+                <label><span data-fl-verify-key="policyLabel">Dirección de la política de protección</span><input id="fairVerifyPolicy" type="text" autocomplete="off" spellcheck="false"></label>
+                <button class="pill-btn" id="fairVerifyDevnetBtn" type="button" data-fl-verify-key="button">Verificar en Devnet</button>
+                <p class="fair-launch-note" id="fairVerifyStatus" role="status" aria-live="polite" data-fl-verify-key="idle">Escribe ambas direcciones Devnet cuando el lanzamiento protegido esté desplegado.</p>
+                <ul class="fair-security-checks" id="fairVerifyChecks" hidden></ul>
+                <a class="fair-verifier-link" id="fairVerifyExplorer" target="_blank" rel="noopener noreferrer" hidden>Ver en Solana Explorer</a>
+                <small data-fl-verify-key="disclaimer">Verificación técnica · no es auditoría ni aprobación legal</small>
+              </section>
             </aside>
           </div>
         </div>
@@ -4201,7 +4212,7 @@
             <button class="pill-btn" id="checkUpdatesBtn" type="button">Check for updates</button>
             <button class="pill-btn is-hidden" id="downloadUpdateBtn" type="button">Download APK</button>
           </div>
-          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.48</div>
+          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.49</div>
         </section>
       </div>
       <div class="dialog-actions">
@@ -4329,7 +4340,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.37.48";
+      const APP_VERSION = "1.37.49";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;

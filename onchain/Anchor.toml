@@ -1,0 +1,20 @@
+[toolchain]
+anchor_version = "0.31.1"
+solana_version = "2.1.0"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+jamddmaj_lock = "HvbiDNyHotAUYVqK3T2apCW5HEPbvWriK3hrPsPSaLKR"
+
+[programs.devnet]
+jamddmaj_lock = "HvbiDNyHotAUYVqK3T2apCW5HEPbvWriK3hrPsPSaLKR"
+
+[provider]
+cluster = "Localnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+test = "cargo test --workspace"

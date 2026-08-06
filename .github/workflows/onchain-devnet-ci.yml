@@ -1,0 +1,56 @@
+name: Fair Launch on-chain safety
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "onchain/**"
+      - "lib/fair-launch-devnet-verifier.js"
+      - "lib/fair-launch-eligibility.js"
+      - "lib/fair-launch-lock-model.js"
+      - "tests/fair-launch-onchain.test.mjs"
+      - ".github/workflows/onchain-devnet-ci.yml"
+  pull_request:
+    paths:
+      - "onchain/**"
+      - "lib/fair-launch-devnet-verifier.js"
+      - "lib/fair-launch-eligibility.js"
+      - "lib/fair-launch-lock-model.js"
+      - "tests/fair-launch-onchain.test.mjs"
+      - ".github/workflows/onchain-devnet-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  host-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: onchain
+      - name: Compile and test policy logic
+        run: cargo test --manifest-path onchain/Cargo.toml --workspace
+
+  sbf-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Solana toolchain
+        run: sh -c "$(curl -sSfL https://release.anza.xyz/v2.1.0/install)"
+      - name: Build deployable sBPF artifact without deploying
+        env:
+          PATH: /home/runner/.local/share/solana/install/active_release/bin:/home/runner/.local/share/agave/install/active_release/bin:/home/runner/.cargo/bin:/usr/local/bin:/usr/bin:/bin
+        run: cargo build-sbf --manifest-path onchain/programs/jamddmaj-lock/Cargo.toml
+      - name: Record artifact hash
+        run: sha256sum onchain/target/deploy/jamddmaj_lock.so
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jamddmaj-lock-devnet-unsigned
+          path: onchain/target/deploy/jamddmaj_lock.so
+          if-no-files-found: error
+          retention-days: 7
