@@ -2,7 +2,9 @@
 
 ## Current phase: safe product simulator
 
-Version 1.37.44 adds a non-custodial Wallet Standard connection to the local Fair Launch Lab. It may receive a selected public Solana address, but it does not persist wallet sessions, request signatures, accept funds, mint a token, deploy a contract, or authorize mainnet activity. Its output is a JSON design manifest with a SHA-256 fingerprint.
+Version 1.37.45 adds mobile wallet routes and an explicitly gated Solana Devnet Token-2022 prototype. A user may approve one Devnet transaction that creates a fixed-supply mint, sends the initial supply to the connected wallet, disables freeze authority and revokes mint authority. The app never receives a seed phrase or private wallet key, does not persist wallet sessions, does not accept payments and cannot authorize mainnet activity. The generated design manifest still includes a SHA-256 fingerprint.
+
+The boost planner is also non-financial in this release. It calculates simulated JDMAJ platform credits for transparent directory placement, verification, analytics, education and security visibility. Fake volume, fake holders, price manipulation and guaranteed-return claims are outside the product design and payments remain disabled.
 
 ## Wallet connection foundation
 

@@ -24,6 +24,8 @@ import {
   shortenWalletAddress
 } from "../lib/wallet-security.js";
 import { createWalletRegistry, walletEvent } from "../lib/wallet-standard-registry.js";
+import { buildBoostPlan, JDMAJ_BOOST_CATALOG } from "../lib/fair-launch-boost.js";
+import { validateDevnetTokenRequest } from "../lib/solana-devnet-token.js";
 import {
   evaluateAiSimulationVariant,
   isAiSimulationMode,
@@ -518,6 +520,42 @@ test("wallet labels are bounded and addresses are privacy shortened", () => {
   assert.equal(sanitizeWalletName("Safe\u0000Wallet"), "Safe Wallet");
   assert.equal(sanitizeWalletName("x".repeat(80)).length, 50);
   assert.equal(shortenWalletAddress("12345678901234567890"), "123456…567890");
+});
+
+test("boost plans use fixed JDMAJ credits and reject incompatible services", () => {
+  const plan = buildBoostPlan({
+    stage: "before",
+    days: 7,
+    services: ["featured", "analytics", "featured", "unknown"]
+  });
+  assert.equal(plan.paymentEnabled, false);
+  assert.deepEqual(plan.services.map((item) => item.key), ["featured"]);
+  assert.equal(plan.totalCredits, JDMAJ_BOOST_CATALOG.featured.creditsPerDay * 7);
+  assert.equal(plan.safeguards.noFakeVolume, true);
+  assert.equal(plan.safeguards.noPriceManipulation, true);
+});
+
+test("devnet token creation stays gated to safe fixed-supply Token-2022 requests", () => {
+  const account = { address: "11111111111111111111111111111111", chains: ["solana:devnet"] };
+  const wallet = {
+    features: {
+      "solana:signAndSendTransaction": {
+        supportedTransactionVersions: [0],
+        signAndSendTransaction() {}
+      }
+    }
+  };
+  const safe = {
+    network: "solana-token-2022",
+    totalSupply: 1_000_000,
+    decimals: 6,
+    revokeMintAuthority: true,
+    disableFreezeAuthority: true
+  };
+  assert.deepEqual(validateDevnetTokenRequest(safe, wallet, account), []);
+  assert.ok(validateDevnetTokenRequest({ ...safe, network: "base-erc20" }, wallet, account).length > 0);
+  assert.ok(validateDevnetTokenRequest({ ...safe, revokeMintAuthority: false }, wallet, account).length > 0);
+  assert.ok(validateDevnetTokenRequest({ ...safe, decimals: 18 }, wallet, account).length > 0);
 });
 
 test("Wallet Standard registry discovers providers before and after app startup", () => {

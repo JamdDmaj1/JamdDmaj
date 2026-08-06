@@ -5,6 +5,8 @@ import {
   calculateFairLaunchVesting,
   normalizeFairLaunchDraft
 } from "./lib/fair-launch.js";
+import { buildBoostPlan } from "./lib/fair-launch-boost.js";
+import { createFixedSupplyTokenOnDevnet, validateDevnetTokenRequest } from "./lib/solana-devnet-token.js";
 import { getWalletRegistry } from "./lib/wallet-standard-registry.js";
 import {
   getCompatibleSolanaWallets,
@@ -12,6 +14,14 @@ import {
   sanitizeWalletName,
   shortenWalletAddress
 } from "./lib/wallet-security.js";
+import {
+  createDefaultAuthorizationCache,
+  createDefaultChainSelector,
+  createDefaultWalletNotFoundHandler,
+  registerMwa
+} from "@solana-mobile/wallet-standard-mobile";
+
+registerMobileWalletAdapter();
 
 (() => {
   const STORAGE_KEY = "jamdV1FairLaunchDraft";
@@ -35,6 +45,8 @@ import {
   const disconnectWalletButton = document.getElementById("fairDisconnectWalletBtn");
   const copyWalletButton = document.getElementById("fairCopyWalletBtn");
   const walletStatus = document.getElementById("fairWalletStatus");
+  const devnetConfirm = document.getElementById("fairDevnetConfirm");
+  const createDevnetButton = document.getElementById("fairCreateDevnetTokenBtn");
 
   const fields = {
     projectName: document.getElementById("fairProjectName"),
@@ -69,7 +81,9 @@ import {
     document.getElementById("ticker")
   ].filter(Boolean);
 
-  populateForm(loadDraft());
+  const savedDraft = loadDraft();
+  populateForm(savedDraft);
+  populateBoostPlan(savedDraft.boost);
   updatePlan(false);
   refreshWalletOptions();
 
@@ -78,6 +92,9 @@ import {
   connectWalletButton?.addEventListener("click", connectSelectedWallet);
   disconnectWalletButton?.addEventListener("click", disconnectWallet);
   copyWalletButton?.addEventListener("click", copyWalletAddress);
+  createDevnetButton?.addEventListener("click", createDevnetToken);
+  devnetConfirm?.addEventListener("change", updateDevnetReadiness);
+  configureMobileWalletLinks();
 
   launchButton.addEventListener("click", () => active ? exitFairLaunch(true) : enterFairLaunch());
   document.getElementById("exitFairLaunchBtn").addEventListener("click", () => exitFairLaunch(true));
@@ -97,6 +114,8 @@ import {
     persistDraft(readForm());
     updatePlan(false);
   });
+
+  if (new URLSearchParams(window.location.search).get("view") === "fair-launch") enterFairLaunch();
 
   ["newChatBtn", "learnBtn", "sideLearnBtn", "marketsBtn", "settingsBtn", "topSettingsBtn"].forEach((id) => {
     document.getElementById(id)?.addEventListener("click", () => {
@@ -168,9 +187,24 @@ import {
     }
   }
 
+  function populateBoostPlan(value = {}) {
+    const stage = document.getElementById("fairBoostStage");
+    const days = document.getElementById("fairBoostDays");
+    if (stage) stage.value = value?.stage === "after" ? "after" : "before";
+    if (days) days.value = String(Math.min(30, Math.max(1, Number(value?.days) || 7)));
+    const selected = new Set(Array.isArray(value?.services)
+      ? value.services.map((item) => typeof item === "string" ? item : item?.key)
+      : []);
+    document.querySelectorAll('input[name="fairBoostService"]').forEach((input) => {
+      input.checked = selected.has(input.value);
+    });
+  }
+
   async function updatePlan(announce) {
     const config = readForm();
-    latestManifest = buildFairLaunchManifest(config);
+    const boost = readBoostPlan();
+    updateBoostAvailability(boost.stage);
+    latestManifest = { ...buildFairLaunchManifest(config), platformBoost: boost };
     latestManifestHash = await sha256(JSON.stringify(latestManifest));
     const assessment = assessFairLaunch(config);
     const creatorTokens = latestManifest.protection.creator.estimatedTokensAtStartingPrice;
@@ -189,6 +223,9 @@ import {
     document.getElementById("fairPlanStatus").textContent = announce
       ? "Manifiesto simulado generado. No se creó ningún token ni se conectó una billetera."
       : "Vista previa local: ningún dato se envía ni se firma.";
+    document.getElementById("fairBoostPreview").textContent = boost.services.length
+      ? `${boost.services.length} servicio(s) · ${boost.days} días · ${boost.totalCredits} créditos JDMAJ`
+      : "Sin boost seleccionado · 0 créditos JDMAJ";
 
     const checklist = document.getElementById("fairSecurityChecks");
     checklist.replaceChildren();
@@ -203,6 +240,26 @@ import {
       checklist.append(row);
     });
     renderVestingPreview();
+    updateDevnetReadiness();
+  }
+
+  function readBoostPlan() {
+    return buildBoostPlan({
+      stage: document.getElementById("fairBoostStage")?.value,
+      days: document.getElementById("fairBoostDays")?.value,
+      services: [...document.querySelectorAll('input[name="fairBoostService"]:checked')].map((input) => input.value)
+    });
+  }
+
+  function updateBoostAvailability(stage) {
+    const analytics = document.querySelector('input[name="fairBoostService"][value="analytics"]');
+    if (!analytics) return;
+    analytics.disabled = stage !== "after";
+    if (analytics.disabled) analytics.checked = false;
+    analytics.closest("label")?.toggleAttribute("data-disabled", analytics.disabled);
+    analytics.closest("label")?.setAttribute("title", analytics.disabled
+      ? "Disponible después de crear el token."
+      : "Disponible para tokens creados.");
   }
 
   function renderVestingPreview() {
@@ -217,6 +274,7 @@ import {
   function resetPlan() {
     if (!window.confirm("¿Restablecer el diseño seguro recomendado?")) return;
     populateForm(FAIR_LAUNCH_DEFAULTS);
+    populateBoostPlan();
     persistDraft(FAIR_LAUNCH_DEFAULTS);
     document.getElementById("fairVestingMonth").value = "0";
     updatePlan(true);
@@ -246,7 +304,10 @@ import {
 
   function persistDraft(value) {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizeFairLaunchDraft(value)));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        ...normalizeFairLaunchDraft(value),
+        boost: readBoostPlan()
+      }));
     } catch {
       document.getElementById("fairPlanStatus").textContent = "El navegador no pudo guardar este borrador local.";
     }
@@ -280,6 +341,7 @@ import {
       walletSelect.append(option);
     });
     connectWalletButton.disabled = compatibleWallets.length === 0;
+    updateDevnetReadiness();
   }
 
   async function connectSelectedWallet() {
@@ -372,6 +434,80 @@ import {
     setWalletStatus(connected
       ? "Conectada en modo identificación. JamdDmaj no puede mover fondos ni firmar por ti."
       : "La conexión solo comparte tu dirección pública. Nunca escribas tu frase semilla aquí.", connected ? "success" : "neutral");
+    updateDevnetReadiness();
+  }
+
+  function updateDevnetReadiness() {
+    if (!createDevnetButton) return;
+    const confirmed = Boolean(devnetConfirm?.checked);
+    const errors = validateDevnetTokenRequest(readForm(), connectedWallet, connectedAccount);
+    createDevnetButton.disabled = !confirmed || errors.length > 0;
+    const status = document.getElementById("fairDevnetStatus");
+    if (!status || status.dataset.running === "true") return;
+    status.textContent = errors[0] || (confirmed
+      ? "Listo: tu wallet pedirá aprobar una transacción únicamente en Devnet."
+      : "Marca la confirmación de red de prueba para continuar.");
+  }
+
+  async function createDevnetToken() {
+    const status = document.getElementById("fairDevnetStatus");
+    const resultBox = document.getElementById("fairDevnetResult");
+    if (!status || !resultBox || !devnetConfirm?.checked) return;
+    const config = readForm();
+    const errors = validateDevnetTokenRequest(config, connectedWallet, connectedAccount);
+    if (errors.length) {
+      status.textContent = errors[0];
+      return;
+    }
+    createDevnetButton.disabled = true;
+    status.dataset.running = "true";
+    status.textContent = "Preparando Token-2022. Revisa y aprueba la solicitud Devnet en tu wallet…";
+    resultBox.hidden = true;
+    try {
+      const result = await createFixedSupplyTokenOnDevnet({ config, wallet: connectedWallet, account: connectedAccount });
+      const mintUrl = `https://explorer.solana.com/address/${encodeURIComponent(result.mintAddress)}?cluster=devnet`;
+      const transactionUrl = `https://explorer.solana.com/tx/${encodeURIComponent(result.signature)}?cluster=devnet`;
+      resultBox.replaceChildren();
+      const title = document.createElement("strong");
+      title.textContent = "Token de prueba creado correctamente";
+      const details = document.createElement("p");
+      details.textContent = `Mint Token-2022 · suministro fijo ${config.totalSupply.toLocaleString()} · autoridad de emisión revocada · sin congelación. El nombre y símbolo permanecen en el manifiesto hasta implementar metadata on-chain auditada.`;
+      const mintLink = document.createElement("a");
+      mintLink.href = mintUrl;
+      mintLink.target = "_blank";
+      mintLink.rel = "noopener noreferrer";
+      mintLink.textContent = `Ver mint ${shortenWalletAddress(result.mintAddress)}`;
+      const separator = document.createTextNode(" · ");
+      const transactionLink = document.createElement("a");
+      transactionLink.href = transactionUrl;
+      transactionLink.target = "_blank";
+      transactionLink.rel = "noopener noreferrer";
+      transactionLink.textContent = "Ver transacción";
+      resultBox.append(title, details, mintLink, separator, transactionLink);
+      resultBox.hidden = false;
+      status.textContent = "Creación confirmada en Devnet. No se gastó dinero real.";
+    } catch (error) {
+      const message = String(error?.message || error);
+      status.textContent = /reject|declin|cancel|denied|user/i.test(message)
+        ? "La solicitud fue cancelada en la wallet. No se creó nada."
+        : /insufficient|funds|lamport/i.test(message)
+          ? "La wallet necesita SOL de prueba. Usa el faucet oficial y vuelve a intentarlo."
+          : "No se pudo crear el token de prueba. Verifica la conexión, Devnet SOL y vuelve a intentarlo.";
+    } finally {
+      status.dataset.running = "false";
+      updateDevnetReadiness();
+    }
+  }
+
+  function configureMobileWalletLinks() {
+    const isLocalApp = /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname);
+    const base = isLocalApp ? "https://jamd-dmaj.vercel.app/" : `${window.location.origin}${window.location.pathname}`;
+    const target = `${base}${base.includes("?") ? "&" : "?"}view=fair-launch`;
+    const ref = isLocalApp ? "https://jamd-dmaj.vercel.app" : window.location.origin;
+    const phantom = document.getElementById("fairOpenPhantom");
+    const solflare = document.getElementById("fairOpenSolflare");
+    if (phantom) phantom.href = `https://phantom.app/ul/browse/${encodeURIComponent(target)}?ref=${encodeURIComponent(ref)}`;
+    if (solflare) solflare.href = `https://solflare.com/ul/v1/browse/${encodeURIComponent(target)}?ref=${encodeURIComponent(ref)}`;
   }
 
   function setWalletStatus(message, state) {
@@ -380,3 +516,22 @@ import {
     walletStatus.dataset.state = state;
   }
 })();
+
+function registerMobileWalletAdapter() {
+  if (typeof window === "undefined" || typeof navigator === "undefined") return;
+  try {
+    registerMwa({
+      appIdentity: {
+        name: "JamdDmaj AI",
+        uri: "https://jamd-dmaj.vercel.app",
+        icon: "/icon-192.png"
+      },
+      authorizationCache: createDefaultAuthorizationCache(),
+      chains: ["solana:devnet"],
+      chainSelector: createDefaultChainSelector(),
+      onWalletNotFound: createDefaultWalletNotFoundHandler()
+    });
+  } catch {
+    // Unsupported browsers still receive secure Phantom and Solflare deep links.
+  }
+}

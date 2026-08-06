@@ -88,9 +88,23 @@
 }
 
 .fair-wallet-card .fair-launch-note,
-.fair-wallet-help {
+.fair-wallet-help,
+.fair-mobile-wallets {
   grid-column: 1 / -1;
   margin: 0;
+}
+
+.fair-mobile-wallets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.fair-mobile-wallets .pill-btn {
+  text-decoration: none;
 }
 
 .fair-wallet-help a {
@@ -195,6 +209,10 @@
   font-size: 0.86rem;
 }
 
+.fair-checkbox-grid label[data-disabled] {
+  opacity: 0.55;
+}
+
 .fair-form-grid label.wide {
   grid-column: 1 / -1;
 }
@@ -241,6 +259,45 @@
 .fair-checkbox-grid input {
   margin-top: 2px;
   accent-color: var(--accent-2);
+}
+
+.fair-boost-options {
+  margin-top: 12px;
+}
+
+.fair-devnet-card {
+  padding: 16px;
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  border-radius: 16px;
+  background: rgba(34, 211, 238, 0.045);
+}
+
+.fair-devnet-confirm {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 9px;
+  align-items: start;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.fair-devnet-confirm input {
+  margin-top: 4px;
+  accent-color: var(--accent-2);
+}
+
+.fair-devnet-result {
+  margin-top: 12px;
+  padding: 13px;
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  border-radius: 13px;
+  background: rgba(52, 211, 153, 0.07);
+  overflow-wrap: anywhere;
+  line-height: 1.55;
+}
+
+.fair-devnet-result a {
+  color: var(--accent-2);
 }
 
 .fair-launch-actions {
@@ -369,6 +426,7 @@
 
   .fair-wallet-identity,
   .fair-wallet-card .fair-launch-note,
+  .fair-mobile-wallets,
   .fair-wallet-help {
     grid-column: auto;
   }

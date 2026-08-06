@@ -3338,7 +3338,7 @@
             <div>
               <span class="fair-launch-kicker">JamdDmaj Fair Launch · laboratorio seguro</span>
               <h1>Crea una economía de token difícil de manipular.</h1>
-              <p>Diseña el token, conecta una wallet Solana de forma no custodial y genera un manifiesto verificable. Esta fase no firma transacciones, no cobra, no despliega contratos y no crea activos reales.</p>
+              <p>Diseña el token, conecta una wallet Solana de forma no custodial y genera un manifiesto verificable. Puedes crear una prueba Token-2022 en Devnet; la red principal y los cobros reales siguen bloqueados.</p>
             </div>
             <button class="pill-btn" id="exitFairLaunchBtn" type="button">Volver</button>
           </header>
@@ -3369,7 +3369,12 @@
               <div><span>Dirección pública</span><strong id="fairWalletAddress">Ninguna dirección compartida</strong></div>
             </div>
             <p class="fair-launch-note" id="fairWalletStatus" role="status" aria-live="polite">La conexión solo comparte tu dirección pública. Nunca escribas tu frase semilla aquí.</p>
-            <p class="fair-wallet-help">¿No aparece ninguna? Abre la web desde el navegador de tu wallet o instala una desde el <a href="https://solana.com/wallets" target="_blank" rel="noopener noreferrer">directorio oficial de Solana</a>.</p>
+            <div class="fair-mobile-wallets" id="fairMobileWallets">
+              <span>En teléfono, abre JamdDmaj dentro de tu wallet:</span>
+              <a class="pill-btn" id="fairOpenPhantom" href="#" rel="noopener noreferrer">Abrir Phantom</a>
+              <a class="pill-btn" id="fairOpenSolflare" href="#" rel="noopener noreferrer">Abrir Solflare</a>
+            </div>
+            <p class="fair-wallet-help">Android Chrome puede usar Mobile Wallet Adapter. En iPhone o navegadores no compatibles, usa los botones anteriores. Consulta también el <a href="https://solana.com/wallets" target="_blank" rel="noopener noreferrer">directorio oficial de Solana</a>.</p>
           </section>
 
           <div class="fair-launch-grid">
@@ -3419,6 +3424,41 @@
                   <label><input id="fairAuditRequired" type="checkbox" checked><span>Auditoría externa obligatoria antes de mainnet.</span></label>
                   <label><input id="fairAntiSybil" type="checkbox" checked><span>Elegibilidad anti-Sybil; una billetera no equivale a una persona.</span></label>
                 </div>
+              </fieldset>
+
+              <fieldset class="fair-form-section">
+                <legend>4. Boost transparente con utilidad JDMAJ</legend>
+                <p>Los boosts dan visibilidad y herramientas; nunca compran volumen, holders ni prometen precio.</p>
+                <div class="fair-form-grid">
+                  <label>Momento del boost
+                    <select id="fairBoostStage">
+                      <option value="before">Antes del lanzamiento</option>
+                      <option value="after">Después del lanzamiento</option>
+                    </select>
+                  </label>
+                  <label>Duración (días)<input id="fairBoostDays" type="number" min="1" max="30" value="7"></label>
+                </div>
+                <div class="fair-checkbox-grid fair-boost-options">
+                  <label><input type="checkbox" name="fairBoostService" value="featured"><span>Destacado en el directorio JamdDmaj.</span></label>
+                  <label><input type="checkbox" name="fairBoostService" value="verified"><span>Perfil y utilidad verificados.</span></label>
+                  <label><input type="checkbox" name="fairBoostService" value="analytics"><span>Analítica y transparencia de holders.</span></label>
+                  <label><input type="checkbox" name="fairBoostService" value="community"><span>Campaña educativa de comunidad.</span></label>
+                  <label><input type="checkbox" name="fairBoostService" value="security"><span>Visibilidad de auditoría y bloqueos.</span></label>
+                </div>
+                <div class="fair-launch-stat"><strong>Vista previa</strong><span id="fairBoostPreview">Sin boost seleccionado · 0 créditos JDMAJ</span></div>
+                <p class="fair-launch-note">JDMAJ funcionará como crédito de plataforma para creación, verificación, analítica, descuentos y boosts. El pago está desactivado hasta auditoría y revisión legal.</p>
+              </fieldset>
+
+              <fieldset class="fair-form-section fair-devnet-card">
+                <legend>5. Crear token de prueba en Solana Devnet</legend>
+                <p>Crea un mint Token-2022 real de prueba, emite el suministro fijo a tu wallet y revoca la autoridad de emisión. Devnet SOL no tiene valor.</p>
+                <label class="fair-devnet-confirm"><input id="fairDevnetConfirm" type="checkbox"><span>Entiendo que es una red de prueba, que mi wallet mostrará una aprobación y que no debo usar fondos reales.</span></label>
+                <div class="fair-launch-actions">
+                  <button class="pill-btn active" id="fairCreateDevnetTokenBtn" type="button" disabled>Crear token de prueba</button>
+                  <a class="pill-btn" href="https://faucet.solana.com/" target="_blank" rel="noopener noreferrer">Conseguir SOL de prueba</a>
+                </div>
+                <p class="fair-launch-note" id="fairDevnetStatus" role="status" aria-live="polite">Conecta una wallet compatible para habilitar la prueba.</p>
+                <div class="fair-devnet-result" id="fairDevnetResult" hidden></div>
               </fieldset>
 
               <div class="fair-launch-actions">
@@ -4125,7 +4165,7 @@
             <button class="pill-btn" id="checkUpdatesBtn" type="button">Check for updates</button>
             <button class="pill-btn is-hidden" id="downloadUpdateBtn" type="button">Download APK</button>
           </div>
-          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.44</div>
+          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.45</div>
         </section>
       </div>
       <div class="dialog-actions">
@@ -4253,7 +4293,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.37.44";
+      const APP_VERSION = "1.37.45";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -4270,8 +4310,9 @@
             intro: "This update improves the normal app experience.",
             button: "Got it",
             items: [
-              ["Solana wallet connection", "Connect a Wallet Standard account without sharing private keys or authorizing transactions."],
-              ["Fair Launch Lab", "Design token locks, liquidity protection, authority controls, and an auditable manifest without deploying a real token."],
+              ["Mobile Solana wallets", "Connect through Mobile Wallet Adapter or open JamdDmaj securely inside Phantom and Solflare."],
+              ["Token-2022 Devnet", "Create a fixed-supply test mint, disable freeze authority and revoke mint authority in one wallet-approved Devnet transaction."],
+              ["Transparent boosts", "Plan useful directory, verification, analytics and education services in simulated JDMAJ credits without fake volume or holders."],
               ["Simpler Settings", "Clear tabs replace the long settings page and sensitive recovery codes stay masked."],
               ["Automatic access", "Regular users no longer see or need an OpenRouter account connection."],
               ["Cleaner mobile layout", "Header controls and live Markets use the phone screen more effectively."],
@@ -4283,8 +4324,9 @@
             intro: "Esta actualizacion mejora la experiencia normal de la app.",
             button: "Entendido",
             items: [
-              ["Conexión de wallet Solana", "Conecta una cuenta Wallet Standard sin compartir claves privadas ni autorizar transacciones."],
-              ["Fair Launch Lab", "Diseña bloqueos, liquidez protegida, controles de autoridad y un manifiesto auditable sin desplegar un token real."],
+              ["Wallets Solana en móvil", "Conecta con Mobile Wallet Adapter o abre JamdDmaj de forma segura dentro de Phantom y Solflare."],
+              ["Token-2022 en Devnet", "Crea un mint de prueba con suministro fijo, sin congelación y con la autoridad de emisión revocada en una transacción Devnet aprobada por tu wallet."],
+              ["Boosts transparentes", "Planifica servicios de directorio, verificación, analítica y educación en créditos JDMAJ simulados, sin volumen ni holders falsos."],
               ["Ajustes mas simples", "Las pestañas reemplazan la pagina larga y los codigos privados quedan ocultos."],
               ["Acceso automatico", "Los usuarios normales ya no ven ni necesitan una cuenta de OpenRouter."],
               ["Mejor espacio movil", "Los controles superiores y Mercados aprovechan mejor la pantalla."],
