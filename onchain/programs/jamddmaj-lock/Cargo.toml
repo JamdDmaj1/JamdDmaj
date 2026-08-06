@@ -19,3 +19,6 @@ idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
 [dependencies]
 anchor-lang = { version = "0.31.1", features = ["init-if-needed"] }
 anchor-spl = { version = "0.31.1", features = ["token_2022"] }
+# Solana 2.1.0's sBPF toolchain uses Cargo 1.79. Newer blake3 releases
+# select edition-2024-only cpufeatures 0.3, so keep the newest compatible line.
+blake3 = "=1.5.5"
