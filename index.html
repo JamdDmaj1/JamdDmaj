@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="dark light">
   <meta name="description" content="JamdDmaj AI: private, local-first AI chat with vision, voice, image generation, and history.">
+  <link rel="canonical" href="https://www.jamddmaj.com/">
+  <meta property="og:url" content="https://www.jamddmaj.com/">
   <title>JamdDmaj AI</title>
   <link rel="stylesheet" href="fair-launch.css">
   <style>
@@ -4165,7 +4167,7 @@
             <button class="pill-btn" id="checkUpdatesBtn" type="button">Check for updates</button>
             <button class="pill-btn is-hidden" id="downloadUpdateBtn" type="button">Download APK</button>
           </div>
-          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.45</div>
+          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.46</div>
         </section>
       </div>
       <div class="dialog-actions">
@@ -4288,12 +4290,12 @@
       const { analyzeCandlesticks, candlestickDecision } = await import("./candlesticks.js");
 
       const API_URL = "https://openrouter.ai/api/v1/chat/completions";
-      const WEB_APP_URL = "https://jamd-dmaj.vercel.app/";
+      const WEB_APP_URL = "https://www.jamddmaj.com/";
       const MANAGED_API_URL = `${WEB_APP_URL}api/chat`;
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.37.45";
+      const APP_VERSION = "1.37.46";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -7536,7 +7538,7 @@
         return [
           "# JamdDmaj client Bitget connector - private VPS only",
           "# Keep this file private. Do not paste these keys in support chats.",
-          "JAMDDMAJ_URL=https://jamd-dmaj.vercel.app",
+          "JAMDDMAJ_URL=https://www.jamddmaj.com",
           "JAMDDMAJ_CLIENT_CONNECTOR=true",
           "JAMDDMAJ_BITGET_MODE=" + mode,
           "JAMDDMAJ_LIVE_ENTRY_ONLY=true",

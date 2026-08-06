@@ -53,7 +53,7 @@ Full setup is in `BITGET-LIVE-SETUP.md`.
 
 Create a Google OAuth 2.0 Web application in Google Cloud Console.
 
-- Authorized JavaScript origin: `https://jamd-dmaj.vercel.app`
+- Authorized JavaScript origin: `https://www.jamddmaj.com`
 - Add `http://localhost:3000` only for local testing.
 
 Copy the Web Client ID into the Vercel variable `GOOGLE_CLIENT_ID`. Keep `JAMDDMAJ_ACCOUNT_SECRET` configured and redeploy.

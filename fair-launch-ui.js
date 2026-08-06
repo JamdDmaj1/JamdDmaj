@@ -501,9 +501,9 @@ registerMobileWalletAdapter();
 
   function configureMobileWalletLinks() {
     const isLocalApp = /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname);
-    const base = isLocalApp ? "https://jamd-dmaj.vercel.app/" : `${window.location.origin}${window.location.pathname}`;
+    const base = isLocalApp ? "https://www.jamddmaj.com/" : `${window.location.origin}${window.location.pathname}`;
     const target = `${base}${base.includes("?") ? "&" : "?"}view=fair-launch`;
-    const ref = isLocalApp ? "https://jamd-dmaj.vercel.app" : window.location.origin;
+    const ref = isLocalApp ? "https://www.jamddmaj.com" : window.location.origin;
     const phantom = document.getElementById("fairOpenPhantom");
     const solflare = document.getElementById("fairOpenSolflare");
     if (phantom) phantom.href = `https://phantom.app/ul/browse/${encodeURIComponent(target)}?ref=${encodeURIComponent(ref)}`;
@@ -523,7 +523,7 @@ function registerMobileWalletAdapter() {
     registerMwa({
       appIdentity: {
         name: "JamdDmaj AI",
-        uri: "https://jamd-dmaj.vercel.app",
+        uri: "https://www.jamddmaj.com",
         icon: "/icon-192.png"
       },
       authorizationCache: createDefaultAuthorizationCache(),

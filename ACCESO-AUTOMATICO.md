@@ -49,7 +49,7 @@ JAMDDMAJ_ALLOW_PAID_MODELS=false
 
 Abre:
 
-`https://jamd-dmaj.vercel.app/api/status`
+`https://www.jamddmaj.com/api/status`
 
 Debe responder:
 

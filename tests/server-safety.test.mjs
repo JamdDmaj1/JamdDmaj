@@ -32,7 +32,7 @@ import {
   recordAiSimulationCycle,
   recordAiSimulationOutcome
 } from "../scripts/bitget-executor.mjs";
-import { enforceRateLimits } from "../lib/server.js";
+import { corsHeaders, enforceRateLimits } from "../lib/server.js";
 import { calculateMarketDirection, dailyReportKey, saveExecutorHeartbeat, shouldReuseRecentCycle } from "../lib/pro-signals.js";
 
 function signal(id, ageMs, bitgetEligible) {
@@ -65,6 +65,17 @@ function mockRedisState(open) {
     { result: "null" }
   ]), { status: 200 });
 }
+
+test("the official JamdDmaj domain is allowed without reflecting unknown origins", () => {
+  const official = corsHeaders(new Request("https://example.test", {
+    headers: { origin: "https://www.jamddmaj.com" }
+  }));
+  const unknown = corsHeaders(new Request("https://example.test", {
+    headers: { origin: "https://wallet-drainer.example" }
+  }));
+  assert.equal(official["Access-Control-Allow-Origin"], "https://www.jamddmaj.com");
+  assert.equal(unknown["Access-Control-Allow-Origin"], "https://www.jamddmaj.com");
+});
 
 test("the executor feed rejects missing or URL-only credentials", { concurrency: false }, async () => {
   const previousSecret = process.env.JAMDDMAJ_CRON_SECRET;

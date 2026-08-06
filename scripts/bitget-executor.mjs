@@ -11,7 +11,7 @@ const LOG_PREFIX = "[jamddmaj-bitget]";
 loadDotEnv(ENV_PATH);
 
 const settings = {
-  appUrl: cleanUrl(process.env.JAMDDMAJ_URL || "https://jamd-dmaj.vercel.app"),
+  appUrl: cleanUrl(process.env.JAMDDMAJ_URL || "https://www.jamddmaj.com"),
   cronSecret: String(process.env.JAMDDMAJ_CRON_SECRET || "").trim(),
   clientConnector: String(process.env.JAMDDMAJ_CLIENT_CONNECTOR || "false").toLowerCase() === "true",
   clientFeedToken: String(process.env.JAMDDMAJ_CLIENT_FEED_TOKEN || "").trim(),

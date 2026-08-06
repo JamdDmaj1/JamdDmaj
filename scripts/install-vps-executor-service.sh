@@ -24,7 +24,7 @@ fi
 
 if [[ ! -f "$ENV_FILE" ]]; then
   cat > "$ENV_FILE" <<'ENV'
-JAMDDMAJ_URL=https://jamd-dmaj.vercel.app
+JAMDDMAJ_URL=https://www.jamddmaj.com
 JAMDDMAJ_BITGET_MODE=dry-run
 JAMDDMAJ_LIVE_ENTRY_ONLY=true
 JAMDDMAJ_LIVE_CONFIRM=
