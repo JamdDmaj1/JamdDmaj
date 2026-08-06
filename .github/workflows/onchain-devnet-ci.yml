@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -40,13 +40,26 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install pinned Solana toolchain
         run: sh -c "$(curl -sSfL https://release.anza.xyz/v2.1.0/install)"
       - name: Build deployable sBPF artifact without deploying
         env:
           PATH: /home/runner/.local/share/solana/install/active_release/bin:/home/runner/.local/share/agave/install/active_release/bin:/home/runner/.cargo/bin:/usr/local/bin:/usr/bin:/bin
-        run: cargo build-sbf --manifest-path onchain/programs/jamddmaj-lock/Cargo.toml
+        shell: bash
+        run: |
+          set -o pipefail
+          if ! cargo build-sbf --manifest-path onchain/programs/jamddmaj-lock/Cargo.toml 2>&1 | tee sbf-build.log; then
+            {
+              echo "### sBPF diagnostic (no deployment attempted)"
+              echo '```text'
+              tail -n 80 sbf-build.log
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            diagnostic="$(tail -n 30 sbf-build.log | tr '\n' '|' | sed 's/%/%25/g; s/|/%0A/g')"
+            echo "::error title=sBPF build diagnostic::$diagnostic"
+            exit 1
+          fi
       - name: Record artifact hash
         run: sha256sum onchain/target/deploy/jamddmaj_lock.so
       - uses: actions/upload-artifact@v4
