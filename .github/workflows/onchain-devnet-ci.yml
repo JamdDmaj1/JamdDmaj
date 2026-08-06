@@ -1,3 +1,4 @@
+# Build-only validation. This workflow never receives a wallet key or deploys.
 name: Fair Launch on-chain safety
 
 on:
