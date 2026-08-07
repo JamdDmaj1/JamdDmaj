@@ -3340,11 +3340,11 @@
         <div class="fair-launch-shell">
           <header class="fair-launch-hero">
             <div>
-              <span class="fair-launch-kicker">JamdDmaj Fair Launch · laboratorio seguro</span>
-              <h1>Crea una economía de token difícil de manipular.</h1>
-              <p>Diseña el token, conecta una wallet Solana de forma no custodial y genera un manifiesto verificable. Puedes crear una prueba Token-2022 en Devnet; la red principal y los cobros reales siguen bloqueados.</p>
+              <span class="fair-launch-kicker" data-fl-ui="heroKicker">JamdDmaj Fair Launch · secure lab</span>
+              <h1 data-fl-ui="heroTitle">Create your token in five clear steps.</h1>
+              <p data-fl-ui="heroText">Define the project, apply the mandatory anti-rug protections and test a Token-2022 mint on Solana Devnet. Mainnet and real payments remain disabled.</p>
             </div>
-            <button class="pill-btn" id="exitFairLaunchBtn" type="button">Volver</button>
+            <button class="pill-btn" id="exitFairLaunchBtn" type="button" data-fl-ui="back">Back</button>
           </header>
 
           <div class="fair-release-status" aria-label="Estado de publicación" data-fl-aria="statusAria">
@@ -3354,44 +3354,49 @@
             <span data-state="blocked"><strong data-fl-key="mainnetBlocked">Mainnet bloqueado</strong><small data-fl-key="noRealPayments">Sin pagos ni fondos reales</small></span>
           </div>
 
-          <div class="fair-launch-safety">
-            <div><strong>85% protegido</strong><span>Las compras del creador y de los primeros participantes elegibles quedan sujetas al bloqueo elegido.</span></div>
-            <div><strong>Liquidez bloqueada</strong><span>Los recibos de liquidez deben permanecer en un timelock verificable, no en la billetera del creador.</span></div>
-            <div><strong>Sin privilegios ocultos</strong><span>Suministro fijo, autoridad de emisión revocada, congelación desactivada y administración con multisig.</span></div>
+          <div class="fair-guided-banner">
+            <strong data-fl-ui="guidedTitle">Guided creation</strong>
+            <span data-fl-ui="guidedText">About 3 minutes · your draft is saved on this device · the wallet is requested only at the final test step.</span>
           </div>
 
-          <section class="fair-wallet-card" aria-labelledby="fairWalletHeading">
+          <div class="fair-launch-safety">
+            <div><strong data-fl-ui="protected85Title">85% protected</strong><span data-fl-ui="protected85Text">The creator and the first eligible participants must lock at least 85% of their initial allocation.</span></div>
+            <div><strong data-fl-ui="liquidityTitle">Locked liquidity</strong><span data-fl-ui="liquidityText">Liquidity receipts must remain in a verifiable timelock, not in the creator wallet.</span></div>
+            <div><strong data-fl-ui="privilegesTitle">No hidden privileges</strong><span data-fl-ui="privilegesText">Fixed supply, mint authority revoked, freezing disabled and administration through multisig plus timelock.</span></div>
+          </div>
+
+          <section class="fair-wallet-card" id="fairWalletCard" aria-labelledby="fairWalletHeading" hidden>
             <div>
-              <span class="fair-launch-kicker">Conexión no custodial</span>
-              <h2 id="fairWalletHeading">Enlaza tu wallet Solana</h2>
-              <p>Compatible con Wallet Standard: Phantom, Solflare, Backpack y otras wallets instaladas. Al conectar solo compartes tu dirección pública; una creación Devnet exige una aprobación separada y visible en tu wallet.</p>
+              <span class="fair-launch-kicker" data-fl-ui="connectKicker">Non-custodial connection</span>
+              <h2 id="fairWalletHeading" data-fl-ui="connectTitle">Connect a Solana wallet</h2>
+              <p data-fl-ui="connectText">JamdDmaj only receives your public address. Every test transaction requires a separate, visible approval in your wallet.</p>
             </div>
             <div class="fair-wallet-controls">
-              <label for="fairWalletSelect">Wallet detectada</label>
+              <label for="fairWalletSelect" data-fl-ui="detectedWallet">Detected wallet</label>
               <select id="fairWalletSelect"><option value="">Buscando wallets…</option></select>
               <div class="fair-launch-actions">
-                <button class="pill-btn active" id="fairConnectWalletBtn" type="button" disabled>Conectar wallet</button>
-                <button class="pill-btn" id="fairCopyWalletBtn" type="button" hidden>Copiar dirección</button>
-                <button class="pill-btn" id="fairDisconnectWalletBtn" type="button" hidden>Desconectar</button>
+                <button class="pill-btn active" id="fairConnectWalletBtn" type="button" disabled data-fl-ui="connectWallet">Connect wallet</button>
+                <button class="pill-btn" id="fairCopyWalletBtn" type="button" hidden data-fl-ui="copyAddress">Copy address</button>
+                <button class="pill-btn" id="fairDisconnectWalletBtn" type="button" hidden data-fl-ui="disconnect">Disconnect</button>
               </div>
             </div>
             <div class="fair-wallet-identity">
-              <div><span>Estado</span><strong id="fairWalletName">Sin conectar</strong></div>
-              <div><span>Dirección pública</span><strong id="fairWalletAddress">Ninguna dirección compartida</strong></div>
+              <div><span data-fl-ui="status">Status</span><strong id="fairWalletName" data-fl-ui="noWallet">Not connected</strong></div>
+              <div><span data-fl-ui="publicAddress">Public address</span><strong id="fairWalletAddress" data-fl-ui="noAddress">No address shared</strong></div>
             </div>
-            <p class="fair-launch-note" id="fairWalletStatus" role="status" aria-live="polite">La conexión solo comparte tu dirección pública. Nunca escribas tu frase semilla aquí.</p>
+            <p class="fair-launch-note" id="fairWalletStatus" role="status" aria-live="polite" data-fl-ui="walletIdle">Connection only shares your public address. Never type your recovery phrase here.</p>
             <div class="fair-mobile-wallets" id="fairMobileWallets">
-              <span>En teléfono, abre JamdDmaj dentro de tu wallet:</span>
-              <a class="pill-btn" id="fairOpenPhantom" href="#" rel="noopener noreferrer">Abrir Phantom</a>
-              <a class="pill-btn" id="fairOpenSolflare" href="#" rel="noopener noreferrer">Abrir Solflare</a>
+              <span data-fl-ui="mobileWallet">On a phone, open JamdDmaj inside your wallet:</span>
+              <a class="pill-btn" id="fairOpenPhantom" href="#" rel="noopener noreferrer" data-fl-ui="openPhantom">Open Phantom</a>
+              <a class="pill-btn" id="fairOpenSolflare" href="#" rel="noopener noreferrer" data-fl-ui="openSolflare">Open Solflare</a>
             </div>
-            <p class="fair-wallet-help">Android Chrome puede usar Mobile Wallet Adapter. En iPhone o navegadores no compatibles, usa los botones anteriores. Consulta también el <a href="https://solana.com/wallets" target="_blank" rel="noopener noreferrer">directorio oficial de Solana</a>.</p>
+            <p class="fair-wallet-help" data-fl-ui="mobileHelp">On mobile, wallet connection works inside the wallet browser. Never continue through a red malicious-site warning.</p>
           </section>
 
           <div class="fair-launch-grid">
             <form class="fair-launch-panel" id="fairLaunchForm">
-              <h2>Diseño del lanzamiento</h2>
-              <p>Solana Token-2022 es el objetivo recomendado para el primer prototipo. Base se conserva como comparación arquitectónica.</p>
+              <h2 data-fl-ui="formTitle">Create your token</h2>
+              <p data-fl-ui="formText">Start with the essentials. Technical settings stay under Advanced options.</p>
 
               <nav class="fair-stepper" id="fairLaunchStepper" aria-label="Pasos para crear el token" data-fl-aria="stepNavAria">
                 <button type="button" data-fair-step-target="0" aria-current="step"><span>1</span><span data-fl-key="identity">Identidad</span></button>
@@ -3402,76 +3407,99 @@
               </nav>
 
               <fieldset class="fair-form-section" data-fair-step="0">
-                <legend>1. Identidad y utilidad</legend>
+                <legend data-fl-ui="identityLegend">1. Token details</legend>
                 <div class="fair-form-grid">
-                  <label>Nombre<input id="fairProjectName" maxlength="60" value="JamdDmaj"></label>
-                  <label>Símbolo<input id="fairSymbol" maxlength="10" value="JDMAJ"></label>
-                  <label class="wide">Utilidad real<textarea id="fairPurpose" maxlength="280">Utility token for the JamdDmaj ecosystem.</textarea></label>
-                  <label>Arquitectura objetivo
+                  <label><span data-fl-ui="name">Name</span><input id="fairProjectName" maxlength="60" value="JamdDmaj" required></label>
+                  <label><span data-fl-ui="symbol">Symbol</span><input id="fairSymbol" maxlength="10" value="JDMAJ" required></label>
+                  <label class="wide"><span data-fl-ui="purpose">Real utility</span><textarea id="fairPurpose" maxlength="280" required>Utility token for the JamdDmaj ecosystem.</textarea></label>
+                </div>
+                <section class="fair-branding-section">
+                  <h3 data-fl-ui="brandingTitle">Brand and public links</h3>
+                  <p data-fl-ui="brandingText">These details are saved in the verifiable manifest. On-chain metadata publishing remains disabled until its audited implementation is ready.</p>
+                  <div class="fair-form-grid">
+                    <label><span data-fl-ui="logoUrl">Logo image URL</span><input id="fairLogoUrl" type="url" inputmode="url" maxlength="500" placeholder="https://..."><small data-fl-ui="urlHint">Use a complete https:// address.</small></label>
+                    <label><span data-fl-ui="bannerUrl">Banner or background image URL</span><input id="fairBannerUrl" type="url" inputmode="url" maxlength="500" placeholder="https://..."><small data-fl-ui="urlHint">Use a complete https:// address.</small></label>
+                    <label><span data-fl-ui="website">Website</span><input id="fairWebsiteUrl" type="url" inputmode="url" maxlength="500" value="https://www.jamddmaj.com/"></label>
+                    <label><span data-fl-ui="xProfile">X profile</span><input id="fairXUrl" type="url" inputmode="url" maxlength="500" placeholder="https://x.com/..."></label>
+                    <label><span data-fl-ui="telegram">Telegram</span><input id="fairTelegramUrl" type="url" inputmode="url" maxlength="500" placeholder="https://t.me/..."></label>
+                    <label><span data-fl-ui="discord">Discord invite</span><input id="fairDiscordUrl" type="url" inputmode="url" maxlength="500" placeholder="https://discord.gg/..."></label>
+                  </div>
+                </section>
+                <details class="fair-advanced-options">
+                  <summary data-fl-ui="advanced">Advanced token options</summary>
+                  <div class="fair-form-grid">
+                  <label><span data-fl-ui="networkTarget">Target architecture</span>
                     <select id="fairNetwork">
                       <option value="solana-token-2022">Solana Token-2022</option>
-                      <option value="base-erc20">Base ERC-20 (comparación)</option>
+                      <option value="base-erc20" data-fl-ui="baseComparison">Base ERC-20 (architecture comparison)</option>
                     </select>
                   </label>
-                  <label>Suministro total<input id="fairSupply" type="number" min="1000000" max="1000000000000" step="1000000" value="1000000000"></label>
-                  <label>Decimales<input id="fairDecimals" type="number" min="0" max="18" value="9"></label>
-                  <label>Precio inicial simulado (USD)<input id="fairStartPrice" type="number" min="0.000000001" step="0.000001" value="0.001"></label>
-                </div>
+                  <label><span data-fl-ui="totalSupply">Total supply</span><input id="fairSupply" type="number" min="1000000" max="1000000000000" step="1000000" value="1000000000"></label>
+                  <label><span data-fl-ui="decimals">Decimals</span><input id="fairDecimals" type="number" min="0" max="18" value="9"></label>
+                  <label><span data-fl-ui="startingPrice">Simulated starting price (USD)</span><input id="fairStartPrice" type="number" min="0.000000001" step="0.000001" value="0.001"></label>
+                  </div>
+                </details>
               </fieldset>
 
               <fieldset class="fair-form-section" data-fair-step="1" hidden>
-                <legend>2. Protección del creador y compradores iniciales</legend>
+                <legend data-fl-ui="protectionLegend">2. Automatic protection</legend>
+                <p class="fair-policy-lock" data-fl-ui="protectionIntro">The safe baseline is already active. You may only strengthen it; no creator can lower these minimums.</p>
+                <details class="fair-advanced-options">
+                  <summary data-fl-ui="protectionAdvanced">Review or strengthen protection values</summary>
                 <div class="fair-form-grid">
-                  <label>Aporte simulado del creador (USD)<input id="fairCreatorContribution" type="number" min="0" step="100" value="1000"></label>
-                  <label>Compra del creador bloqueada (%)<input id="fairCreatorLock" type="number" min="85" max="100" step="1" value="85"><small data-fl-key="minimum85">Mínimo JamdDmaj: 85%</small></label>
-                  <label>Participantes iniciales protegidos<input id="fairHolderCount" type="number" min="2000" max="100000" step="100" value="2000"><small data-fl-key="minimum2000">Mínimo JamdDmaj: 2,000 elegibles</small></label>
-                  <label>Compra inicial bloqueada (%)<input id="fairHolderLock" type="number" min="85" max="100" step="1" value="85"><small data-fl-key="minimum85">Mínimo JamdDmaj: 85%</small></label>
-                  <label>Cliff sin desbloqueo (meses)<input id="fairCliffMonths" type="number" min="24" max="120" value="24"><small data-fl-key="minimum24">Mínimo JamdDmaj: 24 meses</small></label>
-                  <label>Liberación gradual posterior (meses)<input id="fairReleaseMonths" type="number" min="12" max="120" value="12"><small data-fl-key="minimum12">Mínimo JamdDmaj: 12 meses</small></label>
-                  <label>Bloqueo de liquidez (meses)<input id="fairLiquidityLock" type="number" min="24" max="120" value="24"><small data-fl-key="minimum24">Mínimo JamdDmaj: 24 meses</small></label>
-                  <label>Máximo por billetera al inicio (%)<input id="fairMaxWallet" type="number" min="0.01" max="1" step="0.1" value="1"><small data-fl-key="maximum1">Máximo JamdDmaj: 1%</small></label>
+                  <label><span data-fl-ui="creatorContribution">Simulated creator contribution (USD)</span><input id="fairCreatorContribution" type="number" min="0" step="100" value="1000"></label>
+                  <label><span data-fl-ui="creatorLock">Creator purchase locked (%)</span><input id="fairCreatorLock" type="number" min="85" max="100" step="1" value="85"><small data-fl-key="minimum85">JamdDmaj minimum: 85%</small></label>
+                  <label><span data-fl-ui="earlyParticipants">Protected early participants</span><input id="fairHolderCount" type="number" min="2000" max="100000" step="100" value="2000"><small data-fl-key="minimum2000">JamdDmaj minimum: 2,000 eligible participants</small></label>
+                  <label><span data-fl-ui="earlyLock">Initial purchase locked (%)</span><input id="fairHolderLock" type="number" min="85" max="100" step="1" value="85"><small data-fl-key="minimum85">JamdDmaj minimum: 85%</small></label>
+                  <label><span data-fl-ui="cliff">No-unlock cliff (months)</span><input id="fairCliffMonths" type="number" min="24" max="120" value="24"><small data-fl-key="minimum24">JamdDmaj minimum: 24 months</small></label>
+                  <label><span data-fl-ui="release">Gradual release after cliff (months)</span><input id="fairReleaseMonths" type="number" min="12" max="120" value="12"><small data-fl-key="minimum12">JamdDmaj minimum: 12 months</small></label>
+                  <label><span data-fl-ui="liquidityLock">Liquidity lock (months)</span><input id="fairLiquidityLock" type="number" min="24" max="120" value="24"><small data-fl-key="minimum24">JamdDmaj minimum: 24 months</small></label>
+                  <label><span data-fl-ui="maxWallet">Maximum per wallet at launch (%)</span><input id="fairMaxWallet" type="number" min="0.01" max="1" step="0.1" value="1"><small data-fl-key="maximum1">JamdDmaj maximum: 1%</small></label>
                 </div>
+                </details>
               </fieldset>
 
               <fieldset class="fair-form-section" data-fair-step="2" hidden>
-                <legend>3. Garantías obligatorias de JamdDmaj</legend>
+                <legend data-fl-ui="rulesLegend">3. Mandatory safety rules</legend>
                 <p class="fair-policy-lock" data-fl-key="policyLock">Estas protecciones forman parte de la plataforma y ningún creador puede desactivarlas.</p>
                 <div class="fair-checkbox-grid">
-                  <label><input id="fairRevokeMint" type="checkbox" checked disabled><span>Revocar autoridad de emisión después del suministro inicial.</span></label>
-                  <label><input id="fairDisableFreeze" type="checkbox" checked disabled><span>Desactivar autoridad de congelación.</span></label>
-                  <label><input id="fairImmutableMetadata" type="checkbox" checked disabled><span>Hacer inmutable la metadata después de revisión.</span></label>
-                  <label><input id="fairMultisig" type="checkbox" checked disabled><span>Multisig con timelock para funciones administrativas.</span></label>
-                  <label><input id="fairAuditRequired" type="checkbox" checked disabled><span>Auditoría externa obligatoria antes de mainnet.</span></label>
-                  <label><input id="fairAntiSybil" type="checkbox" checked disabled><span>Elegibilidad anti-Sybil; una billetera no equivale a una persona.</span></label>
+                  <label><input id="fairRevokeMint" type="checkbox" checked disabled><span data-fl-ui="revokeMint">Revoke mint authority after the fixed supply is minted.</span></label>
+                  <label><input id="fairDisableFreeze" type="checkbox" checked disabled><span data-fl-ui="disableFreeze">Disable freeze authority.</span></label>
+                  <label><input id="fairImmutableMetadata" type="checkbox" checked disabled><span data-fl-ui="immutableMetadata">Make reviewed metadata immutable.</span></label>
+                  <label><input id="fairMultisig" type="checkbox" checked disabled><span data-fl-ui="multisig">Require multisig plus timelock for administration.</span></label>
+                  <label><input id="fairAuditRequired" type="checkbox" checked disabled><span data-fl-ui="audit">Require an independent audit before mainnet.</span></label>
+                  <label><input id="fairAntiSybil" type="checkbox" checked disabled><span data-fl-ui="antiSybil">Use anti-Sybil eligibility; one wallet is not one person.</span></label>
                 </div>
               </fieldset>
 
               <fieldset class="fair-form-section" data-fair-step="3" hidden>
-                <legend>4. Boost transparente con utilidad JDMAJ</legend>
-                <p>Los boosts dan visibilidad y herramientas; nunca compran volumen, holders ni prometen precio.</p>
+                <legend data-fl-ui="boostLegend">4. Optional visibility tools</legend>
+                <p class="fair-optional-note" data-fl-ui="optional">Optional · you can continue without selecting anything.</p>
+                <p data-fl-ui="boostText">Boosts provide visibility and useful tools. They never buy fake volume, fake holders or a price promise.</p>
                 <div class="fair-form-grid">
-                  <label>Momento del boost
+                  <label><span data-fl-ui="boostStage">When to use the boost</span>
                     <select id="fairBoostStage">
-                      <option value="before">Antes del lanzamiento</option>
-                      <option value="after">Después del lanzamiento</option>
+                      <option value="before" data-fl-ui="beforeLaunch">Before launch</option>
+                      <option value="after" data-fl-ui="afterLaunch">After launch</option>
                     </select>
                   </label>
-                  <label>Duración (días)<input id="fairBoostDays" type="number" min="1" max="30" value="7"></label>
+                  <label><span data-fl-ui="duration">Duration (days)</span><input id="fairBoostDays" type="number" min="1" max="30" value="7"></label>
                 </div>
                 <div class="fair-checkbox-grid fair-boost-options">
-                  <label><input type="checkbox" name="fairBoostService" value="featured"><span>Destacado en el directorio JamdDmaj.</span></label>
-                  <label><input type="checkbox" name="fairBoostService" value="verified"><span>Perfil y utilidad verificados.</span></label>
-                  <label><input type="checkbox" name="fairBoostService" value="analytics"><span>Analítica y transparencia de holders.</span></label>
-                  <label><input type="checkbox" name="fairBoostService" value="community"><span>Campaña educativa de comunidad.</span></label>
-                  <label><input type="checkbox" name="fairBoostService" value="security"><span>Visibilidad de auditoría y bloqueos.</span></label>
+                  <label><input type="checkbox" name="fairBoostService" value="featured"><span data-fl-ui="featured">Featured placement in the JamdDmaj directory.</span></label>
+                  <label><input type="checkbox" name="fairBoostService" value="verified"><span data-fl-ui="verified">Verified project profile and utility.</span></label>
+                  <label><input type="checkbox" name="fairBoostService" value="analytics"><span data-fl-ui="analytics">Holder analytics and transparency.</span></label>
+                  <label><input type="checkbox" name="fairBoostService" value="community"><span data-fl-ui="community">Educational community campaign.</span></label>
+                  <label><input type="checkbox" name="fairBoostService" value="security"><span data-fl-ui="security">Visible audits and protection locks.</span></label>
                 </div>
-                <div class="fair-launch-stat"><strong>Vista previa</strong><span id="fairBoostPreview">Sin boost seleccionado · 0 créditos JDMAJ</span></div>
-                <p class="fair-launch-note">JDMAJ funcionará como crédito de plataforma para creación, verificación, analítica, descuentos y boosts. El pago está desactivado hasta auditoría y revisión legal.</p>
+                <div class="fair-launch-stat"><strong data-fl-ui="preview">Preview</strong><span id="fairBoostPreview" data-fl-ui="noBoost">No boost selected · 0 JamdDmaj credits</span></div>
+                <p class="fair-launch-note" data-fl-ui="creditsNote">JamdDmaj credits will be used for platform services such as creation, verification, analytics and boosts. Payments remain disabled until audit and legal review.</p>
               </fieldset>
 
               <fieldset class="fair-form-section fair-devnet-card" data-fair-step="4" hidden>
-                <legend>5. Crear token de prueba en Solana Devnet</legend>
-                <p>Crea un mint Token-2022 real de prueba, emite el suministro fijo a tu wallet y revoca la autoridad de emisión. Devnet SOL no tiene valor.</p>
+                <legend data-fl-ui="devnetLegend">5. Test safely on Solana Devnet</legend>
+                <p data-fl-ui="devnetText">Connect your wallet only now. The test creates a Token-2022 mint, sends its fixed supply to your public address and revokes mint authority. Devnet SOL has no monetary value.</p>
+                <div class="fair-transaction-safety"><strong data-fl-ui="txSafeTitle">Safety check before opening your wallet</strong><span data-fl-ui="txSafeText">JamdDmaj simulates the request first and asks the wallet to sign before adding the temporary mint signature. If Phantom still shows a red malicious warning, cancel it and do not proceed.</span></div>
                 <div class="fair-transaction-preview" id="fairTransactionPreview">
                   <strong data-fl-key="txTitle">Antes de aprobar, verifica la transacción</strong>
                   <dl>
@@ -3482,10 +3510,10 @@
                     <div><dt data-fl-key="realFunds">Fondos reales</dt><dd data-fl-key="none">Ninguno</dd></div>
                   </dl>
                 </div>
-                <label class="fair-devnet-confirm"><input id="fairDevnetConfirm" type="checkbox"><span>Entiendo que es una red de prueba, que mi wallet mostrará una aprobación y que no debo usar fondos reales.</span></label>
+                <label class="fair-devnet-confirm"><input id="fairDevnetConfirm" type="checkbox"><span data-fl-ui="confirmDevnet">I understand this is a test network, my wallet will show an approval, and I must not use real funds.</span></label>
                 <div class="fair-launch-actions">
-                  <button class="pill-btn active" id="fairCreateDevnetTokenBtn" type="button" disabled>Crear token de prueba</button>
-                  <a class="pill-btn" href="https://faucet.solana.com/" target="_blank" rel="noopener noreferrer">Conseguir SOL de prueba</a>
+                  <button class="pill-btn active" id="fairCreateDevnetTokenBtn" type="button" disabled data-fl-ui="createTest">Create test token</button>
+                  <a class="pill-btn" href="https://faucet.solana.com/" target="_blank" rel="noopener noreferrer" data-fl-ui="faucet">Get test SOL</a>
                 </div>
                 <p class="fair-launch-note" id="fairDevnetStatus" role="status" aria-live="polite">Conecta una wallet compatible para habilitar la prueba.</p>
                 <div class="fair-devnet-result" id="fairDevnetResult" hidden></div>
@@ -3498,39 +3526,39 @@
               </div>
 
               <div class="fair-launch-actions">
-                <button class="pill-btn active" id="generateFairPlanBtn" type="button">Generar plan seguro</button>
-                <button class="pill-btn" id="downloadFairManifestBtn" type="button" disabled>Descargar manifiesto</button>
-                <button class="pill-btn" id="resetFairPlanBtn" type="button">Restablecer</button>
+                <button class="pill-btn active" id="generateFairPlanBtn" type="button" data-fl-ui="generatePlan">Generate safe plan</button>
+                <button class="pill-btn" id="downloadFairManifestBtn" type="button" disabled data-fl-ui="downloadManifest">Download manifest</button>
+                <button class="pill-btn" id="resetFairPlanBtn" type="button" data-fl-ui="reset">Reset</button>
               </div>
-              <p class="fair-launch-note" id="fairPlanStatus" role="status" aria-live="polite">Vista previa local: ningún dato se envía ni se firma.</p>
+              <p class="fair-launch-note" id="fairPlanStatus" role="status" aria-live="polite" data-fl-ui="localPreview">Local preview: no data is sent or signed.</p>
             </form>
 
             <aside class="fair-launch-panel">
-              <h2 data-fl-key="designReview">Revisión del diseño</h2>
+              <h2 data-fl-ui="reviewTitle">Live safety summary</h2>
               <div class="fair-score-card">
                 <span class="fair-grade" id="fairSecurityGrade">A</span>
                 <div><strong id="fairSecurityScore">100/100 de diseño</strong><span id="fairReadiness">Cumple las reglas JamdDmaj · no auditado</span></div>
               </div>
               <div class="fair-launch-stats">
-                <div class="fair-launch-stat"><strong>Compra del creador</strong><span id="fairCreatorPreview">Calculando…</span></div>
-                <div class="fair-launch-stat"><strong>Protección comunitaria</strong><span id="fairHolderPreview">Calculando…</span></div>
-                <div class="fair-launch-stat"><strong>Liquidez</strong><span id="fairLiquidityPreview">Calculando…</span></div>
+                <div class="fair-launch-stat"><strong data-fl-ui="creatorStat">Creator purchase</strong><span id="fairCreatorPreview">—</span></div>
+                <div class="fair-launch-stat"><strong data-fl-ui="communityStat">Community protection</strong><span id="fairHolderPreview">—</span></div>
+                <div class="fair-launch-stat"><strong data-fl-ui="liquidityStat">Liquidity</strong><span id="fairLiquidityPreview">—</span></div>
               </div>
 
-              <h3>Controles comprobables</h3>
+              <h3 data-fl-ui="controlsTitle">Verifiable controls</h3>
               <ul class="fair-security-checks" id="fairSecurityChecks"></ul>
 
               <div class="fair-vesting">
-                <h3>Simulador de desbloqueo</h3>
-                <input id="fairVestingMonth" type="range" min="0" max="48" value="0" aria-label="Mes del calendario de desbloqueo">
-                <div class="fair-vesting-labels"><span id="fairVestingMonthLabel">Mes 0</span><span id="fairLiquidPercent">15% líquido</span></div>
+                <h3 data-fl-ui="vestingTitle">Unlock simulator</h3>
+                <input id="fairVestingMonth" type="range" min="0" max="48" value="0" aria-label="Unlock calendar month" data-fl-ui-aria="unlockAria">
+                <div class="fair-vesting-labels"><span id="fairVestingMonthLabel">Month 0</span><span id="fairLiquidPercent">15% liquid</span></div>
                 <div class="fair-vesting-track"><span id="fairVestingBar"></span></div>
-                <div class="fair-vesting-labels"><span>Liquidez disponible</span><span id="fairLockedPercent">85% bloqueado</span></div>
+                <div class="fair-vesting-labels"><span data-fl-ui="availableLiquidity">Available liquidity</span><span id="fairLockedPercent">85% locked</span></div>
               </div>
 
-              <h3>Prueba del diseño</h3>
-              <p class="fair-manifest-hash" id="fairManifestHash">Generando huella SHA-256…</p>
-              <p class="fair-launch-note"><strong>Importante:</strong> bloquear tokens no garantiza ganancias ni elimina todo fraude. El lanzamiento real requerirá testnet, auditoría independiente, revisión legal y tu autorización explícita.</p>
+              <h3 data-fl-ui="designProof">Design proof</h3>
+              <p class="fair-manifest-hash" id="fairManifestHash" data-fl-ui="generatingHash">Generating SHA-256 fingerprint…</p>
+              <p class="fair-launch-note" data-fl-ui="important">Important: token locks reduce specific rug-pull risks, but do not guarantee gains or remove all fraud. A real launch still requires independent audit, legal review and explicit owner approval.</p>
               <section class="fair-public-verifier" aria-labelledby="fairVerifierTitle">
                 <h3 id="fairVerifierTitle" data-fl-verify-key="title">Verificación pública en Devnet</h3>
                 <p data-fl-verify-key="description">Lee el mint y la política de protección directamente desde Solana. No requiere wallet ni firma.</p>
@@ -4212,7 +4240,7 @@
             <button class="pill-btn" id="checkUpdatesBtn" type="button">Check for updates</button>
             <button class="pill-btn is-hidden" id="downloadUpdateBtn" type="button">Download APK</button>
           </div>
-          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.49</div>
+          <div class="backup-status" id="appUpdateStatus">Installed version: 1.37.50</div>
         </section>
       </div>
       <div class="dialog-actions">
@@ -4340,7 +4368,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.37.49";
+      const APP_VERSION = "1.37.50";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -4358,8 +4386,9 @@
             button: "Got it",
             items: [
               ["Mobile Solana wallets", "Connect through Mobile Wallet Adapter or open JamdDmaj securely inside Phantom and Solflare."],
-              ["Token-2022 Devnet", "Create a fixed-supply test mint, disable freeze authority and revoke mint authority in one wallet-approved Devnet transaction."],
-              ["Transparent boosts", "Plan useful directory, verification, analytics and education services in simulated JDMAJ credits without fake volume or holders."],
+              ["Guided Fair Launch", "Add brand and social links, review clear protections and connect the wallet only for the final Devnet test."],
+              ["Safer Devnet signing", "JamdDmaj simulates the transaction and lets the wallet sign before adding the temporary mint signer."],
+              ["JamdDmaj credits", "Plan useful directory, verification, analytics and education services in simulated JamdDmaj credits without fake volume or holders."],
               ["Simpler Settings", "Clear tabs replace the long settings page and sensitive recovery codes stay masked."],
               ["Automatic access", "Regular users no longer see or need an OpenRouter account connection."],
               ["Cleaner mobile layout", "Header controls and live Markets use the phone screen more effectively."],
@@ -4373,7 +4402,9 @@
             items: [
               ["Wallets Solana en móvil", "Conecta con Mobile Wallet Adapter o abre JamdDmaj de forma segura dentro de Phantom y Solflare."],
               ["Token-2022 en Devnet", "Crea un mint de prueba con suministro fijo, sin congelación y con la autoridad de emisión revocada en una transacción Devnet aprobada por tu wallet."],
-              ["Boosts transparentes", "Planifica servicios de directorio, verificación, analítica y educación en créditos JDMAJ simulados, sin volumen ni holders falsos."],
+              ["Fair Launch guiado", "Agrega marca y redes sociales, revisa protecciones claras y conecta la wallet solo para la prueba final en Devnet."],
+              ["Firma Devnet más segura", "JamdDmaj simula la transacción y deja que la wallet firme antes de agregar la firma temporal del mint."],
+              ["Créditos JamdDmaj", "Planifica servicios de directorio, verificación, analítica y educación en créditos JamdDmaj simulados, sin volumen ni holders falsos."],
               ["Ajustes mas simples", "Las pestañas reemplazan la pagina larga y los codigos privados quedan ocultos."],
               ["Acceso automatico", "Los usuarios normales ya no ven ni necesitan una cuenta de OpenRouter."],
               ["Mejor espacio movil", "Los controles superiores y Mercados aprovechan mejor la pantalla."],
@@ -9678,6 +9709,12 @@
             : "Do not claim general live web access. You may use any verified live data block supplied directly by the app; otherwise clearly state when knowledge may be outdated."
         }`;
         const practicalAnalysisInstruction = "For charts, markets, trading, screenshots, or technical analysis, you may provide educational analysis, likely scenarios, levels, invalidation points, and risk notes. Do not present it as guaranteed profit, do not claim to be a licensed advisor, and do not output moderation labels such as Safety Categories, Unauthorized Advice, or Needs Caution. If the user asks for a professional-style view, give a professional educational view with uncertainty and clear reasoning.";
+        const productKnowledge = `You are the assistant embedded inside JamdDmaj AI v${APP_VERSION}. You must accurately explain this app when asked, without pretending that unfinished capabilities already exist and without revealing or requesting secrets.
+JamdDmaj includes general multimodal chat; JamdDmaj Learn; live market information; chart screenshot analysis; JamdDmaj Pro Signals; encrypted backup and explicit user-approved memory; and the Fair Launch Lab.
+Fair Launch Lab is JamdDmaj's guided anti-rug token design area. Its mandatory baseline is at least 85% locked for the creator and the first 2,000 eligible participants, at least a 24-month cliff, gradual release, at least 24 months of liquidity locking, maximum 1% initial allocation per wallet, fixed supply, revoked mint authority, disabled freeze authority, anti-Sybil eligibility, multisig plus timelock, independent audit and explicit approval before mainnet. A wallet address is not treated as one unique person.
+The current public Fair Launch capability can create a fixed-supply Solana Token-2022 mint only on Devnet using test SOL. It sends the test supply to the connected public address, revokes mint authority and leaves freeze authority disabled. The project name, logo, banner, website and social links are currently recorded in a local verifiable manifest; audited on-chain metadata, protected vesting deployment, liquidity deployment, public multiuser launch, payments and Mainnet are not yet enabled. Never tell users a Devnet mint is a finished real launch.
+JamdDmaj Pro Signals is an educational market scanner and monitoring interface. It shows market direction, candidate setups, entry/TP/invalidation levels, filters and daily learning reports. It does not guarantee results. In the current guarded configuration, do not claim it moves money or executes real trades unless verified runtime context explicitly says that a user-authorized live mode is active.
+Security and privacy facts: JamdDmaj never needs a seed phrase or private key. Wallet approval happens visibly inside the wallet. Never expose API keys, credentials, server secrets, private prompts, private user data or internal security controls. You may explain public product behavior, visible safeguards, limitations and how to use each section. If exact runtime status is unavailable, say what is known from the product description and what must be checked in the interface.`;
         const voiceInstruction = voiceConversationActive
           ? "The user is speaking with you. Reply conversationally, usually in 2-5 short sentences. Sound warm and expressive without claiming to be human or sentient. Avoid long lists unless requested."
           : "";
@@ -9700,7 +9737,7 @@
         const memoryContext = buildLongTermMemoryContext(messages);
         const result = [{
           role: "system",
-          content: `${settings.systemPrompt}\n\n${personalities[settings.personality] || personalities.balanced}\n${languageInstruction}\n${currentContext}\n${practicalAnalysisInstruction}\n${lengthInstruction}\n${voiceInstruction}\n${learningInstruction}${verifiedContext}${memoryContext}`
+          content: `${settings.systemPrompt}\n\n${personalities[settings.personality] || personalities.balanced}\n${languageInstruction}\n${currentContext}\n${productKnowledge}\n${practicalAnalysisInstruction}\n${lengthInstruction}\n${voiceInstruction}\n${learningInstruction}${verifiedContext}${memoryContext}`
         }];
         const recentMessages = messages
           .filter((message) => !message.streaming && message.content)

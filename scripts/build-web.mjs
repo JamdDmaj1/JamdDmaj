@@ -30,6 +30,9 @@ for (const asset of assets) {
   await cp(resolve(root, asset), resolve(output, asset));
 }
 
+await mkdir(resolve(output, ".well-known"), { recursive: true });
+await cp(resolve(root, ".well-known", "security.txt"), resolve(output, ".well-known", "security.txt"));
+
 await build({
   absWorkingDir: root,
   entryPoints: ["./fair-launch-ui.js"],

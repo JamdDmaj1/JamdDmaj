@@ -1,0 +1,5 @@
+Contact: https://github.com/JamdDmaj1/JamdDmaj/security/advisories/new
+Canonical: https://www.jamddmaj.com/.well-known/security.txt
+Policy: https://github.com/JamdDmaj1/JamdDmaj/security
+Preferred-Languages: en, es
+Expires: 2027-08-06T23:59:59Z

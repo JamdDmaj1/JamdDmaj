@@ -9,12 +9,28 @@
   display: none !important;
 }
 
+.fair-wallet-card[hidden] { display: none !important; }
+
 .fair-launch-shell {
   width: min(1180px, 100%);
   margin: 0 auto;
   display: grid;
   gap: 18px;
 }
+
+.fair-guided-banner {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px 16px;
+  align-items: center;
+  padding: 14px 16px;
+  border: 1px solid rgba(34, 211, 238, 0.3);
+  border-radius: 15px;
+  background: rgba(8, 145, 178, 0.09);
+}
+
+.fair-guided-banner strong { color: var(--accent-2); }
+.fair-guided-banner span { color: var(--muted); line-height: 1.45; }
 
 .fair-launch-hero,
 .fair-launch-panel,
@@ -233,6 +249,56 @@
   min-height: 80px;
   resize: vertical;
 }
+
+.fair-branding-section {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.fair-branding-section h3 { margin: 0 0 5px; }
+.fair-branding-section p { margin: 0 0 14px; }
+
+.fair-advanced-options {
+  margin-top: 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.fair-advanced-options summary {
+  padding: 13px 15px;
+  cursor: pointer;
+  color: var(--text);
+  font-weight: 750;
+}
+
+.fair-advanced-options[open] summary { border-bottom: 1px solid var(--line); }
+.fair-advanced-options > .fair-form-grid { padding: 15px; }
+
+.fair-optional-note {
+  display: inline-flex;
+  margin: 0 0 5px !important;
+  padding: 6px 10px;
+  border-radius: 999px;
+  color: #bae6fd !important;
+  background: rgba(14, 116, 144, 0.2);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.fair-transaction-safety {
+  display: grid;
+  gap: 5px;
+  margin-top: 14px;
+  padding: 13px 14px;
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  border-radius: 14px;
+  background: rgba(120, 53, 15, 0.13);
+}
+
+.fair-transaction-safety strong { color: #fde68a; }
+.fair-transaction-safety span { color: var(--muted); line-height: 1.5; }
 
 .fair-form-grid input:focus,
 .fair-form-grid textarea:focus,
@@ -592,6 +658,16 @@
   .fair-launch-hero {
     display: grid;
   }
+
+  .fair-guided-banner { grid-template-columns: 1fr; }
+
+  .fair-release-status { grid-template-columns: 1fr 1fr; }
+
+  .fair-launch-safety > div { padding: 12px; }
+
+  .fair-launch-grid { gap: 12px; }
+
+  .fair-launch-panel { padding: 15px; }
 
   .fair-form-grid,
   .fair-checkbox-grid,

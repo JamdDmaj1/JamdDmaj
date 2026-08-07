@@ -2,13 +2,13 @@
 
 ## Current phase: Devnet on-chain prototype, not deployed
 
-Version 1.37.49 adds the first Anchor implementation of the protected launch policy. Program-controlled vaults enforce the 85% allocation floor, 730-day cliff, gradual release and 730-day liquidity-position lock. A privacy-preserving Merkle adapter binds one hashed uniqueness commitment to one wallet, allocation and launch policy, with a hard capacity of 2,000 registrations. The public app can read and verify the resulting Token-2022 mint and policy accounts without connecting a wallet. The program is source-complete but remains undeployed until its reproducible sBPF build passes and the owner approves a Devnet-only wallet transaction.
+Version 1.37.49 added the first Anchor implementation of the protected launch policy. Program-controlled vaults enforce the 85% allocation floor, 730-day cliff, gradual release and 730-day liquidity-position lock. A privacy-preserving Merkle adapter binds one hashed uniqueness commitment to one wallet, allocation and launch policy, with a hard capacity of 2,000 registrations. The public app can read and verify the resulting Token-2022 mint and policy accounts without connecting a wallet. Its reproducible sBPF build now passes, but the program remains undeployed until the owner provides a controlled program keypair and approves a Devnet-only deployment.
 
 Version 1.37.48 makes the JamdDmaj launch policy mandatory in every normalized draft, including drafts restored from local storage. The creator uses a five-step flow, presents separate design, Devnet, audit and mainnet states, and shows a readable transaction summary before wallet approval. Those product controls complement, but do not replace, the new on-chain prototype or an independent audit.
 
 Version 1.37.45 adds mobile wallet routes and an explicitly gated Solana Devnet Token-2022 prototype. A user may approve one Devnet transaction that creates a fixed-supply mint, sends the initial supply to the connected wallet, disables freeze authority and revokes mint authority. The app never receives a seed phrase or private wallet key, does not persist wallet sessions, does not accept payments and cannot authorize mainnet activity. The generated design manifest still includes a SHA-256 fingerprint.
 
-The boost planner is also non-financial in this release. It calculates simulated JDMAJ platform credits for transparent directory placement, verification, analytics, education and security visibility. Fake volume, fake holders, price manipulation and guaranteed-return claims are outside the product design and payments remain disabled.
+The boost planner is also non-financial in this release. It calculates simulated JamdDmaj platform credits for transparent directory placement, verification, analytics, education and security visibility. `JDMAJ` remains the proposed token symbol. Fake volume, fake holders, price manipulation and guaranteed-return claims are outside the product design and payments remain disabled.
 
 ## Wallet connection foundation
 

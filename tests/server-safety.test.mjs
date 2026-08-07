@@ -27,6 +27,7 @@ import {
 import { createWalletRegistry, walletEvent } from "../lib/wallet-standard-registry.js";
 import { buildBoostPlan, JDMAJ_BOOST_CATALOG } from "../lib/fair-launch-boost.js";
 import { FAIR_LAUNCH_LOCALES, FAIR_LAUNCH_LOCALE_KEYS } from "../lib/fair-launch-locales.js";
+import { FAIR_LAUNCH_UI_KEYS, fairLaunchUiText } from "../lib/fair-launch-ui-copy.js";
 import { validateDevnetTokenRequest } from "../lib/solana-devnet-token.js";
 import {
   evaluateAiSimulationVariant,
@@ -355,6 +356,13 @@ test("Fair Launch UI exposes a guided flow and non-disableable safety policy", (
   assert.match(html, /id="fairTransactionPreview"/);
   assert.match(html, /Mainnet bloqueado/);
   assert.match(html, /no auditado/);
+  for (const id of ["fairLogoUrl", "fairBannerUrl", "fairWebsiteUrl", "fairXUrl", "fairTelegramUrl", "fairDiscordUrl"]) {
+    assert.match(html, new RegExp(`id="${id}"`));
+  }
+  assert.match(html, /id="fairWalletCard"[^>]+hidden/);
+  assert.ok(FAIR_LAUNCH_UI_KEYS.includes("creditsNote"));
+  assert.match(fairLaunchUiText("en", "creditsNote"), /JamdDmaj credits/);
+  assert.match(fairLaunchUiText("es", "creditsNote"), /créditos JamdDmaj/);
 });
 
 test("Fair Launch vesting keeps 85% locked for two years and releases gradually", () => {
@@ -373,7 +381,10 @@ test("Fair Launch manifest cannot silently authorize a real deployment", () => {
   const manifest = buildFairLaunchManifest({
     ...FAIR_LAUNCH_DEFAULTS,
     projectName: "<script>Bad</script>",
-    symbol: "jd maj!"
+    symbol: "jd maj!",
+    logoUrl: "javascript:alert(1)",
+    websiteUrl: "https://example.com/project",
+    xUrl: "http://insecure.example"
   }, "2026-08-05T20:00:00.000Z");
   assert.equal(manifest.simulationOnly, true);
   assert.equal(manifest.policy.mandatory, true);
@@ -381,6 +392,9 @@ test("Fair Launch manifest cannot silently authorize a real deployment", () => {
   assert.equal(manifest.releaseGate.explicitMainnetApprovalRequired, true);
   assert.equal(manifest.token.symbol, "JDMAJ");
   assert.doesNotMatch(manifest.token.name, /[<>]/);
+  assert.equal(manifest.token.branding.logoUrl, "");
+  assert.equal(manifest.token.links.website, "https://example.com/project");
+  assert.equal(manifest.token.links.x, "");
 });
 
 test("rate limits use one atomic Redis script per request", { concurrency: false }, async () => {
@@ -607,7 +621,7 @@ test("wallet labels are bounded and addresses are privacy shortened", () => {
   assert.equal(shortenWalletAddress("12345678901234567890"), "123456…567890");
 });
 
-test("boost plans use fixed JDMAJ credits and reject incompatible services", () => {
+test("boost plans use fixed JamdDmaj credits and reject incompatible services", () => {
   const plan = buildBoostPlan({
     stage: "before",
     days: 7,
@@ -616,6 +630,7 @@ test("boost plans use fixed JDMAJ credits and reject incompatible services", () 
   assert.equal(plan.paymentEnabled, false);
   assert.deepEqual(plan.services.map((item) => item.key), ["featured"]);
   assert.equal(plan.totalCredits, JDMAJ_BOOST_CATALOG.featured.creditsPerDay * 7);
+  assert.equal(plan.currency, "JamdDmaj platform credits");
   assert.equal(plan.safeguards.noFakeVolume, true);
   assert.equal(plan.safeguards.noPriceManipulation, true);
 });
