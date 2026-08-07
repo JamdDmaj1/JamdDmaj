@@ -27,7 +27,12 @@ import {
 import { createWalletRegistry, walletEvent } from "../lib/wallet-standard-registry.js";
 import { buildBoostPlan, JDMAJ_BOOST_CATALOG } from "../lib/fair-launch-boost.js";
 import { FAIR_LAUNCH_LOCALES, FAIR_LAUNCH_LOCALE_KEYS } from "../lib/fair-launch-locales.js";
-import { FAIR_LAUNCH_UI_KEYS, fairLaunchUiText } from "../lib/fair-launch-ui-copy.js";
+import {
+  FAIR_LAUNCH_UI_KEYS,
+  FAIR_LAUNCH_UI_LOCALES,
+  fairLaunchUiText,
+  resolveFairLaunchUiLocale
+} from "../lib/fair-launch-ui-copy.js";
 import { validateDevnetTokenRequest } from "../lib/solana-devnet-token.js";
 import {
   evaluateAiSimulationVariant,
@@ -341,6 +346,17 @@ test("Fair Launch additions have complete locale parity", () => {
   const usedKeys = [...html.matchAll(/data-fl-(?:key|aria)="([^"]+)"/g)].map((match) => match[1]);
   assert.ok(usedKeys.length > 0);
   usedKeys.forEach((key) => assert.ok(FAIR_LAUNCH_LOCALE_KEYS.includes(key), `Unknown Fair Launch locale key: ${key}`));
+});
+
+test("Fair Launch creator copy never mixes partial locale catalogs", () => {
+  assert.deepEqual(Object.keys(FAIR_LAUNCH_UI_LOCALES).sort(), ["en", "es"]);
+  for (const [locale, catalog] of Object.entries(FAIR_LAUNCH_UI_LOCALES)) {
+    assert.deepEqual(Object.keys(catalog).sort(), [...FAIR_LAUNCH_UI_KEYS].sort(), `${locale} creator-copy keys differ`);
+    assert.ok(Object.values(catalog).every((value) => typeof value === "string" && value.trim()), `${locale} has empty creator copy`);
+  }
+  assert.equal(resolveFairLaunchUiLocale("es-MX"), "es");
+  assert.equal(resolveFairLaunchUiLocale("fr-FR"), "en");
+  assert.equal(resolveFairLaunchUiLocale("ar"), "en");
 });
 
 test("Fair Launch UI exposes a guided flow and non-disableable safety policy", () => {

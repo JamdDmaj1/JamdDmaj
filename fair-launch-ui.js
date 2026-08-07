@@ -9,7 +9,7 @@ import { buildBoostPlan } from "./lib/fair-launch-boost.js";
 import { verifyFairLaunchOnDevnet } from "./lib/fair-launch-devnet-verifier.js";
 import { fairLaunchText, resolveFairLaunchLocale } from "./lib/fair-launch-locales.js";
 import { fairLaunchVerifierText } from "./lib/fair-launch-verifier-locales.js";
-import { fairLaunchUiText } from "./lib/fair-launch-ui-copy.js";
+import { fairLaunchUiText, resolveFairLaunchUiLocale } from "./lib/fair-launch-ui-copy.js";
 import { createFixedSupplyTokenOnDevnet, validateDevnetTokenRequest } from "./lib/solana-devnet-token.js";
 import { getWalletRegistry } from "./lib/wallet-standard-registry.js";
 import {
@@ -26,6 +26,37 @@ import {
 } from "@solana-mobile/wallet-standard-mobile";
 
 registerMobileWalletAdapter();
+
+const ASSESSMENT_LABEL_KEYS = Object.freeze({
+  "creator-lock": "checkCreatorLock",
+  "early-holder-lock": "checkEarlyLock",
+  cliff: "checkCliff",
+  "gradual-release": "checkGradual",
+  "liquidity-lock": "checkLiquidity",
+  "mint-authority": "checkMint",
+  "freeze-authority": "checkFreeze",
+  "immutable-metadata": "checkMetadata",
+  multisig: "checkMultisig",
+  audit: "checkAudit",
+  "wallet-cap": "checkWalletCap",
+  "anti-sybil": "checkAntiSybil"
+});
+
+const VERIFIER_LABEL_KEYS = Object.freeze({
+  cluster: "verifyCluster",
+  "token-program": "verifyTokenProgram",
+  "mint-initialized": "verifyInitialized",
+  "mint-authority": "verifyMintAuthority",
+  "freeze-authority": "verifyFreezeAuthority",
+  "policy-program": "verifyPolicyProgram",
+  "policy-mint": "verifyPolicyMint",
+  "minimum-lock": "verifyMinimumLock",
+  participants: "verifyParticipants",
+  cliff: "verifyCliff",
+  release: "verifyRelease",
+  liquidity: "verifyLiquidity",
+  timelock: "verifyTimelock"
+});
 
 (() => {
   const STORAGE_KEY = "jamdV1FairLaunchDraft";
@@ -243,17 +274,17 @@ registerMobileWalletAdapter();
     document.getElementById("fairSecurityGrade").textContent = assessment.grade;
     document.getElementById("fairReadiness").textContent = assessment.readyForAudit
       ? t("designCompliant")
-      : `${assessment.blockers.length} bloqueo(s) antes de revisión`;
+      : ui("blockers", { count: assessment.blockers.length });
     document.getElementById("fairCreatorPreview").textContent = ui("creatorLocked", { locked: formatNumber(creatorLocked), total: formatNumber(creatorTokens), symbol: config.symbol });
     document.getElementById("fairHolderPreview").textContent = ui("participantsLocked", { count: config.earlyHolderCount.toLocaleString(), percent: config.holderLockPercent });
     document.getElementById("fairLiquidityPreview").textContent = ui("liquidityLocked", { months: config.liquidityLockMonths });
-    document.getElementById("fairManifestHash").textContent = latestManifestHash ? `SHA-256 ${latestManifestHash}` : "Hash local no disponible";
+    document.getElementById("fairManifestHash").textContent = latestManifestHash ? `SHA-256 ${latestManifestHash}` : ui("hashUnavailable");
     document.getElementById("downloadFairManifestBtn").disabled = false;
     document.getElementById("fairPlanStatus").textContent = announce
-      ? "Manifiesto simulado generado. No se creó ningún token ni se conectó una billetera."
+      ? ui("planGenerated")
       : ui("localPreview");
     document.getElementById("fairBoostPreview").textContent = boost.services.length
-      ? `${boost.services.length} · ${boost.days} · ${boost.totalCredits} JamdDmaj credits`
+      ? ui("boostSelected", { services: boost.services.length, days: boost.days, credits: boost.totalCredits })
       : ui("noBoost");
 
     const checklist = document.getElementById("fairSecurityChecks");
@@ -264,7 +295,7 @@ registerMobileWalletAdapter();
       const marker = document.createElement("span");
       marker.textContent = item.passed ? "✓" : "!";
       const label = document.createElement("span");
-      label.textContent = item.label;
+      label.textContent = ui(ASSESSMENT_LABEL_KEYS[item.id]) || item.label;
       row.append(marker, label);
       checklist.append(row);
     });
@@ -312,6 +343,9 @@ registerMobileWalletAdapter();
   }
 
   function applyFairLaunchLocale() {
+    const displayLocale = resolveFairLaunchUiLocale(locale);
+    launchView.lang = displayLocale;
+    launchView.dir = "ltr";
     launchView.querySelectorAll("[data-fl-key]").forEach((element) => {
       if (element.id === "fairDevnetBadgeText" && devnetVerified) element.textContent = t("devnetVerified");
       else element.textContent = t(element.dataset.flKey);
@@ -320,7 +354,7 @@ registerMobileWalletAdapter();
       element.setAttribute("aria-label", t(element.dataset.flAria));
     });
     launchView.querySelectorAll("[data-fl-verify-key]").forEach((element) => {
-      element.textContent = fairLaunchVerifierText(locale, element.dataset.flVerifyKey);
+      element.textContent = fairLaunchVerifierText(displayLocale, element.dataset.flVerifyKey);
     });
     launchView.querySelectorAll("[data-fl-ui]").forEach((element) => {
       if (["fairWalletName", "fairWalletAddress", "fairWalletStatus", "fairBoostPreview"].includes(element.id)) return;
@@ -348,7 +382,7 @@ registerMobileWalletAdapter();
     checks.replaceChildren();
     explorer.hidden = true;
     status.dataset.state = "pending";
-    status.textContent = fairLaunchVerifierText(locale, "running");
+    status.textContent = fairLaunchVerifierText(resolveFairLaunchUiLocale(locale), "running");
     try {
       const result = await verifyFairLaunchOnDevnet({
         mintAddress: mintInput?.value,
@@ -360,31 +394,31 @@ registerMobileWalletAdapter();
         const marker = document.createElement("span");
         marker.textContent = item.passed ? "✓" : "!";
         const label = document.createElement("span");
-        label.textContent = item.label;
+        label.textContent = ui(VERIFIER_LABEL_KEYS[item.id]) || item.label;
         row.append(marker, label);
         checks.append(row);
       });
       checks.hidden = false;
       status.dataset.state = result.verified ? "safe" : "error";
       status.textContent = result.verified
-        ? fairLaunchVerifierText(locale, "success")
-        : `${fairLaunchVerifierText(locale, "failure")}: ${result.checks.filter((item) => !item.passed).length}`;
+        ? fairLaunchVerifierText(resolveFairLaunchUiLocale(locale), "success")
+        : `${fairLaunchVerifierText(resolveFairLaunchUiLocale(locale), "failure")}: ${result.checks.filter((item) => !item.passed).length}`;
       explorer.href = `https://explorer.solana.com/address/${encodeURIComponent(result.policyAddress)}?cluster=devnet`;
       explorer.hidden = false;
     } catch (error) {
       status.dataset.state = "error";
-      status.textContent = `${fairLaunchVerifierText(locale, "failure")}: ${String(error?.message || error)}`;
+      status.textContent = `${fairLaunchVerifierText(resolveFairLaunchUiLocale(locale), "failure")}: ${String(error?.message || error)}`;
     } finally {
       verifyDevnetButton.disabled = false;
     }
   }
 
   function t(key, variables) {
-    return fairLaunchText(locale, key, variables);
+    return fairLaunchText(resolveFairLaunchUiLocale(locale), key, variables);
   }
 
   function ui(key, variables) {
-    return fairLaunchUiText(locale, key, variables);
+    return fairLaunchUiText(resolveFairLaunchUiLocale(locale), key, variables);
   }
 
   function validateCurrentStep() {
@@ -430,8 +464,8 @@ registerMobileWalletAdapter();
     if (analytics.disabled) analytics.checked = false;
     analytics.closest("label")?.toggleAttribute("data-disabled", analytics.disabled);
     analytics.closest("label")?.setAttribute("title", analytics.disabled
-      ? "Disponible después de crear el token."
-      : "Disponible para tokens creados.");
+      ? ui("afterToken")
+      : ui("forCreatedTokens"));
   }
 
   function renderVestingPreview() {
@@ -444,7 +478,7 @@ registerMobileWalletAdapter();
   }
 
   function resetPlan() {
-    if (!window.confirm("¿Restablecer el diseño seguro recomendado?")) return;
+    if (!window.confirm(ui("resetConfirm"))) return;
     populateForm(FAIR_LAUNCH_DEFAULTS);
     populateBoostPlan();
     persistDraft(FAIR_LAUNCH_DEFAULTS);
@@ -481,7 +515,7 @@ registerMobileWalletAdapter();
         boost: readBoostPlan()
       }));
     } catch {
-      document.getElementById("fairPlanStatus").textContent = "El navegador no pudo guardar este borrador local.";
+      document.getElementById("fairPlanStatus").textContent = ui("draftSaveFailed");
     }
   }
 
@@ -520,15 +554,15 @@ registerMobileWalletAdapter();
     if (connectedWallet) return;
     const selected = compatibleWallets[Number(walletSelect?.value)];
     if (!selected || walletSelect?.value === "") {
-      setWalletStatus("Selecciona una wallet compatible primero.", "warning");
+      setWalletStatus(ui("selectWalletFirst"), "warning");
       return;
     }
     connectWalletButton.disabled = true;
-    setWalletStatus(`Esperando autorización en ${selected.name}…`, "pending");
+    setWalletStatus(ui("waitingWallet", { wallet: selected.name }), "pending");
     try {
       const result = await selected.wallet.features["standard:connect"].connect();
       const account = getSolanaAccount(result?.accounts || selected.wallet.accounts);
-      if (!account) throw new Error("La wallet no devolvió una cuenta de Solana válida.");
+      if (!account) throw new Error(ui("invalidWalletAccount"));
       connectedWallet = selected.wallet;
       connectedAccount = account;
       subscribeToWalletChanges(selected.wallet);
@@ -538,8 +572,8 @@ registerMobileWalletAdapter();
       connectedAccount = null;
       const rejected = /reject|declin|cancel|denied|user/i.test(String(error?.message || error));
       setWalletStatus(rejected
-        ? "Conexión cancelada. No se realizó ninguna acción."
-        : "No fue posible conectar esta wallet. Verifica que esté desbloqueada y vuelve a intentarlo.", "error");
+        ? ui("connectCanceled")
+        : ui("connectFailed"), "error");
       connectWalletButton.disabled = false;
     }
   }
@@ -555,16 +589,16 @@ registerMobileWalletAdapter();
       // Local state is still cleared when a provider cannot disconnect cleanly.
     }
     renderWalletConnection();
-    setWalletStatus("Wallet desconectada de JamdDmaj.", "success");
+    setWalletStatus(ui("walletDisconnected"), "success");
   }
 
   async function copyWalletAddress() {
     if (!connectedAccount?.address || !navigator.clipboard?.writeText) return;
     try {
       await navigator.clipboard.writeText(connectedAccount.address);
-      setWalletStatus("Dirección copiada. No se copiaron claves ni datos privados.", "success");
+      setWalletStatus(ui("addressCopied"), "success");
     } catch {
-      setWalletStatus("El navegador no permitió copiar la dirección.", "error");
+      setWalletStatus(ui("copyFailed"), "error");
     }
   }
 
@@ -604,7 +638,7 @@ registerMobileWalletAdapter();
     document.getElementById("fairWalletName").textContent = connected ? sanitizeWalletName(connectedWallet.name) : ui("noWallet");
     document.getElementById("fairWalletAddress").textContent = connected ? shortenWalletAddress(connectedAccount.address) : ui("noAddress");
     setWalletStatus(connected
-      ? "Conectada en modo identificación. JamdDmaj no puede mover fondos ni firmar por ti."
+      ? ui("connectedIdentity")
       : ui("walletIdle"), connected ? "success" : "neutral");
     renderTransactionPreview();
     updateDevnetReadiness();
@@ -619,7 +653,7 @@ registerMobileWalletAdapter();
     if (!status || status.dataset.running === "true") return;
     status.textContent = !connectedWallet || !connectedAccount
       ? ui("devnetConnect")
-      : errors[0] || (confirmed ? ui("devnetReady") : ui("devnetConfirmFirst"));
+      : localizeDevnetError(errors[0]) || (confirmed ? ui("devnetReady") : ui("devnetConfirmFirst"));
   }
 
   async function createDevnetToken() {
@@ -629,7 +663,7 @@ registerMobileWalletAdapter();
     const config = readForm();
     const errors = validateDevnetTokenRequest(config, connectedWallet, connectedAccount);
     if (errors.length) {
-      status.textContent = errors[0];
+      status.textContent = localizeDevnetError(errors[0]);
       return;
     }
     createDevnetButton.disabled = true;
@@ -649,13 +683,13 @@ registerMobileWalletAdapter();
       mintLink.href = mintUrl;
       mintLink.target = "_blank";
       mintLink.rel = "noopener noreferrer";
-      mintLink.textContent = `Ver mint ${shortenWalletAddress(result.mintAddress)}`;
+      mintLink.textContent = ui("viewMint", { address: shortenWalletAddress(result.mintAddress) });
       const separator = document.createTextNode(" · ");
       const transactionLink = document.createElement("a");
       transactionLink.href = transactionUrl;
       transactionLink.target = "_blank";
       transactionLink.rel = "noopener noreferrer";
-      transactionLink.textContent = "Ver transacción";
+      transactionLink.textContent = ui("viewTransaction");
       resultBox.append(title, details, mintLink, separator, transactionLink);
       resultBox.hidden = false;
       status.textContent = ui("createdStatus");
@@ -667,10 +701,10 @@ registerMobileWalletAdapter();
       status.textContent = /simulation/i.test(message)
         ? ui("simulationFailed")
         : /reject|declin|cancel|denied|user/i.test(message)
-        ? "La solicitud fue cancelada en la wallet. No se creó nada."
+        ? ui("requestCanceled")
         : /insufficient|funds|lamport/i.test(message)
-          ? "La wallet necesita SOL de prueba. Usa el faucet oficial y vuelve a intentarlo."
-          : "No se pudo crear el token de prueba. Verifica la conexión, Devnet SOL y vuelve a intentarlo.";
+          ? ui("needsTestSol")
+          : ui("createFailed");
     } finally {
       status.dataset.running = "false";
       updateDevnetReadiness();
@@ -692,6 +726,20 @@ registerMobileWalletAdapter();
     if (!walletStatus) return;
     walletStatus.textContent = message;
     walletStatus.dataset.state = state;
+  }
+
+  function localizeDevnetError(message) {
+    const value = String(message || "");
+    if (!value) return "";
+    if (/firmar transacciones/i.test(value)) return ui("errorWalletSign");
+    if (/transacciones Solana v0/i.test(value)) return ui("errorV0");
+    if (/0 a 9 decimales/i.test(value)) return ui("errorDecimals");
+    if (/entero seguro/i.test(value)) return ui("errorSupply");
+    if (/l[ií]mite t[eé]cnico/i.test(value)) return ui("errorSupplyLimit");
+    if (/solo est[aá] habilitada/i.test(value)) return ui("errorNetwork");
+    if (/revocaci[oó]n.*emisi[oó]n/i.test(value)) return ui("errorMint");
+    if (/congelaci[oó]n/i.test(value)) return ui("errorFreeze");
+    return value;
   }
 })();
 
