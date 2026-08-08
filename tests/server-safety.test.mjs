@@ -85,6 +85,15 @@ test("the official JamdDmaj domain is allowed without reflecting unknown origins
   assert.equal(unknown["Access-Control-Allow-Origin"], "https://www.jamddmaj.com");
 });
 
+test("scheduled Pro workflows use the live official domain", () => {
+  const workflows = ["pro-scanner.yml", "pro-watchdog.yml", "pro-backtest.yml"]
+    .map((name) => readFileSync(new URL(`../.github/workflows/${name}`, import.meta.url), "utf8"));
+  for (const workflow of workflows) {
+    assert.match(workflow, /https:\/\/www\.jamddmaj\.com\/api\/pro-/);
+    assert.doesNotMatch(workflow, /jamd-dmaj\.vercel\.app/);
+  }
+});
+
 test("the official web app declares installability and baseline edge protections", () => {
   const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
   const manifest = JSON.parse(readFileSync(new URL("../manifest.json", import.meta.url), "utf8"));

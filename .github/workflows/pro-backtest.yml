@@ -27,7 +27,7 @@ jobs:
           response=$(curl --fail-with-body --retry 2 --max-time 360 \
             -X POST \
             -H "Authorization: Bearer $CRON_SECRET" \
-            https://jamd-dmaj.vercel.app/api/pro-backtest-cron)
+            https://www.jamddmaj.com/api/pro-backtest-cron)
           echo "$response"
           if ! echo "$response" | grep -q '"ok":true'; then
             echo "The Pro backtest did not confirm completion."
