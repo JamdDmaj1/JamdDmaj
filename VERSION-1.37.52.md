@@ -10,3 +10,8 @@
 - English and Spanish Fair Launch messages explain active and pending protections without claiming that design settings are on-chain guarantees.
 
 Mainnet, real payments, public sales and real liquidity remain disabled pending an independent audit and legal review.
+
+## Android
+
+- Signed APK version aligned with the web app at 1.37.52.
+- Android version code advanced so the APK installs over earlier JamdDmaj versions without deleting local data.

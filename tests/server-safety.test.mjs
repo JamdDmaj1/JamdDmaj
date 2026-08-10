@@ -74,6 +74,16 @@ function mockRedisState(open) {
   ]), { status: 200 });
 }
 
+test("web, API fallback and Android release versions stay aligned", () => {
+  const packageVersion = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const statusSource = readFileSync(new URL("../api/status.js", import.meta.url), "utf8");
+  const androidGradle = readFileSync(new URL("../android/app/build.gradle", import.meta.url), "utf8");
+  assert.match(html, new RegExp(`APP_VERSION = "${packageVersion.replaceAll(".", "\\.")}"`));
+  assert.match(statusSource, new RegExp(`FALLBACK_VERSION = "${packageVersion.replaceAll(".", "\\.")}"`));
+  assert.match(androidGradle, new RegExp(`versionName "${packageVersion.replaceAll(".", "\\.")}"`));
+});
+
 test("the official JamdDmaj domain is allowed without reflecting unknown origins", () => {
   const official = corsHeaders(new Request("https://example.test", {
     headers: { origin: "https://www.jamddmaj.com" }
