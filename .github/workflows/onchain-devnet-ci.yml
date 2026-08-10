@@ -11,6 +11,7 @@ on:
       - "lib/fair-launch-lock-model.js"
       - "tests/fair-launch-onchain.test.mjs"
       - ".github/workflows/onchain-devnet-ci.yml"
+      - ".github/workflows/deploy-fair-launch-devnet.yml"
   pull_request:
     paths:
       - "onchain/**"
@@ -19,6 +20,7 @@ on:
       - "lib/fair-launch-lock-model.js"
       - "tests/fair-launch-onchain.test.mjs"
       - ".github/workflows/onchain-devnet-ci.yml"
+      - ".github/workflows/deploy-fair-launch-devnet.yml"
 
 permissions:
   contents: read

@@ -10,7 +10,11 @@ import { verifyFairLaunchOnDevnet } from "./lib/fair-launch-devnet-verifier.js";
 import { fairLaunchText, resolveFairLaunchLocale } from "./lib/fair-launch-locales.js";
 import { fairLaunchVerifierText } from "./lib/fair-launch-verifier-locales.js";
 import { fairLaunchUiText, resolveFairLaunchUiLocale } from "./lib/fair-launch-ui-copy.js";
-import { createFixedSupplyTokenOnDevnet, validateDevnetTokenRequest } from "./lib/solana-devnet-token.js";
+import {
+  checkDevnetProtectionProgram,
+  createFixedSupplyTokenOnDevnet,
+  validateDevnetTokenRequest
+} from "./lib/solana-devnet-token.js";
 import { getWalletRegistry } from "./lib/wallet-standard-registry.js";
 import {
   getCompatibleSolanaWallets,
@@ -52,6 +56,9 @@ const VERIFIER_LABEL_KEYS = Object.freeze({
   "policy-mint": "verifyPolicyMint",
   "minimum-lock": "verifyMinimumLock",
   participants: "verifyParticipants",
+  "eligibility-root": "verifyEligibilityRoot",
+  "creator-vesting": "verifyCreatorVesting",
+  "creator-vault": "verifyCreatorVault",
   cliff: "verifyCliff",
   release: "verifyRelease",
   liquidity: "verifyLiquidity",
@@ -76,6 +83,8 @@ const VERIFIER_LABEL_KEYS = Object.freeze({
   let currentStep = 0;
   let locale = resolveFairLaunchLocale(document.documentElement.lang);
   let devnetVerified = false;
+  let protectionProgramAvailable = false;
+  let protectionProgramChecked = false;
   const stepPanels = [...form.querySelectorAll("[data-fair-step]")];
   const stepButtons = [...form.querySelectorAll("[data-fair-step-target]")];
 
@@ -134,6 +143,7 @@ const VERIFIER_LABEL_KEYS = Object.freeze({
   populateBoostPlan(savedDraft.boost);
   updatePlan(false);
   refreshWalletOptions();
+  refreshProtectionProgramStatus();
 
   walletRegistry.on("register", refreshWalletOptions);
   walletRegistry.on("unregister", refreshWalletOptions);
@@ -648,12 +658,31 @@ const VERIFIER_LABEL_KEYS = Object.freeze({
     if (!createDevnetButton) return;
     const confirmed = Boolean(devnetConfirm?.checked);
     const errors = validateDevnetTokenRequest(readForm(), connectedWallet, connectedAccount);
-    createDevnetButton.disabled = !confirmed || errors.length > 0;
+    createDevnetButton.disabled = !confirmed || errors.length > 0 || !protectionProgramAvailable;
     const status = document.getElementById("fairDevnetStatus");
     if (!status || status.dataset.running === "true") return;
-    status.textContent = !connectedWallet || !connectedAccount
+    status.textContent = protectionProgramChecked && !protectionProgramAvailable
+      ? ui("protectionUnavailable")
+      : !protectionProgramChecked
+        ? ui("checkingProtection")
+        : !connectedWallet || !connectedAccount
       ? ui("devnetConnect")
       : localizeDevnetError(errors[0]) || (confirmed ? ui("devnetReady") : ui("devnetConfirmFirst"));
+  }
+
+  async function refreshProtectionProgramStatus() {
+    protectionProgramChecked = false;
+    protectionProgramAvailable = false;
+    updateDevnetReadiness();
+    try {
+      const result = await checkDevnetProtectionProgram();
+      protectionProgramAvailable = result.available;
+    } catch {
+      protectionProgramAvailable = false;
+    } finally {
+      protectionProgramChecked = true;
+      updateDevnetReadiness();
+    }
   }
 
   async function createDevnetToken() {
@@ -674,11 +703,15 @@ const VERIFIER_LABEL_KEYS = Object.freeze({
       const result = await createFixedSupplyTokenOnDevnet({ config, wallet: connectedWallet, account: connectedAccount });
       const mintUrl = `https://explorer.solana.com/address/${encodeURIComponent(result.mintAddress)}?cluster=devnet`;
       const transactionUrl = `https://explorer.solana.com/tx/${encodeURIComponent(result.signature)}?cluster=devnet`;
+      const policyUrl = `https://explorer.solana.com/address/${encodeURIComponent(result.policyAddress)}?cluster=devnet`;
       resultBox.replaceChildren();
       const title = document.createElement("strong");
       title.textContent = ui("createdTitle");
       const details = document.createElement("p");
-      details.textContent = ui("createdDetails", { supply: config.totalSupply.toLocaleString() });
+      details.textContent = ui("createdDetails", {
+        supply: config.totalSupply.toLocaleString(),
+        locked: (Number(config.totalSupply) * result.creatorLockBps / 10_000).toLocaleString()
+      });
       const mintLink = document.createElement("a");
       mintLink.href = mintUrl;
       mintLink.target = "_blank";
@@ -690,12 +723,22 @@ const VERIFIER_LABEL_KEYS = Object.freeze({
       transactionLink.target = "_blank";
       transactionLink.rel = "noopener noreferrer";
       transactionLink.textContent = ui("viewTransaction");
-      resultBox.append(title, details, mintLink, separator, transactionLink);
+      const policySeparator = document.createTextNode(" Â· ");
+      const policyLink = document.createElement("a");
+      policyLink.href = policyUrl;
+      policyLink.target = "_blank";
+      policyLink.rel = "noopener noreferrer";
+      policyLink.textContent = ui("viewProtection");
+      const participantStatus = document.createElement("p");
+      participantStatus.textContent = ui("participantProtectionPending");
+      resultBox.append(title, details, mintLink, separator, transactionLink, policySeparator, policyLink, participantStatus);
       resultBox.hidden = false;
       status.textContent = ui("createdStatus");
-      devnetVerified = true;
-      const badge = document.getElementById("fairDevnetBadgeText");
-      if (badge) badge.textContent = t("devnetVerified");
+      const mintInput = document.getElementById("fairVerifyMint");
+      const policyInput = document.getElementById("fairVerifyPolicy");
+      if (mintInput) mintInput.value = result.mintAddress;
+      if (policyInput) policyInput.value = result.policyAddress;
+      devnetVerified = false;
     } catch (error) {
       const message = String(error?.message || error);
       status.textContent = /simulation/i.test(message)

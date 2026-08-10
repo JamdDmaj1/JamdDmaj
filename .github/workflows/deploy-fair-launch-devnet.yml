@@ -1,0 +1,118 @@
+name: Deploy Fair Launch protection to Devnet
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Type DEPLOY_DEVNET_ONLY"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fair-launch-devnet-deployment
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: inputs.confirmation == 'DEPLOY_DEVNET_ONLY'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PATH: /home/runner/.local/share/solana/install/active_release/bin:/home/runner/.local/share/agave/install/active_release/bin:/home/runner/.cargo/bin:/usr/local/bin:/usr/bin:/bin
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Install pinned Solana toolchain
+        run: sh -c "$(curl -sSfL https://release.anza.xyz/v2.1.0/install)"
+
+      - name: Create disposable Devnet identities
+        id: identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          solana-keygen new --no-bip39-passphrase --silent --force --outfile /tmp/jamddmaj-devnet-deployer.json
+          solana-keygen new --no-bip39-passphrase --silent --force --outfile /tmp/jamddmaj-devnet-program.json
+          program_id="$(solana-keygen pubkey /tmp/jamddmaj-devnet-program.json)"
+          echo "program_id=$program_id" >> "$GITHUB_OUTPUT"
+          echo "Generated a disposable Devnet program address: $program_id" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Bind source and client to the generated program
+        env:
+          NEW_PROGRAM_ID: ${{ steps.identity.outputs.program_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          old_program_id="HvbiDNyHotAUYVqK3T2apCW5HEPbvWriK3hrPsPSaLKR"
+          while IFS= read -r file; do
+            sed -i "s/$old_program_id/$NEW_PROGRAM_ID/g" "$file"
+          done < <(git grep -l "$old_program_id" -- onchain lib tests)
+          if git grep -n "$old_program_id" -- onchain lib tests; then
+            echo "::error::The previous undeployed program address is still present."
+            exit 1
+          fi
+
+      - name: Compile and test the bound program
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path onchain/Cargo.toml --workspace
+          cargo build-sbf --manifest-path onchain/programs/jamddmaj-lock/Cargo.toml
+          sha256sum onchain/target/deploy/jamddmaj_lock.so | tee /tmp/program-sha256.txt
+
+      - name: Fund disposable deployer with valueless Devnet SOL
+        shell: bash
+        run: |
+          set -euo pipefail
+          solana config set --url devnet --keypair /tmp/jamddmaj-devnet-deployer.json
+          for attempt in $(seq 1 10); do
+            balance="$(solana balance --lamports | awk '{print $1}')"
+            if [ "${balance:-0}" -ge 4000000000 ]; then
+              break
+            fi
+            solana airdrop 2 || true
+            sleep 8
+          done
+          balance="$(solana balance --lamports | awk '{print $1}')"
+          if [ "${balance:-0}" -lt 4000000000 ]; then
+            echo "::error::The official Devnet faucet did not provide enough test SOL. Retry this workflow later."
+            exit 1
+          fi
+          echo "Disposable deployer funded with Devnet-only test SOL." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Deploy and permanently remove upgrade authority
+        env:
+          PROGRAM_ID: ${{ steps.identity.outputs.program_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          solana program deploy onchain/target/deploy/jamddmaj_lock.so \
+            --program-id /tmp/jamddmaj-devnet-program.json
+          solana program set-upgrade-authority "$PROGRAM_ID" --final
+          solana program show "$PROGRAM_ID" >> "$GITHUB_STEP_SUMMARY"
+          echo "Program deployed to Devnet and made immutable: $PROGRAM_ID" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish the immutable Devnet address in the app
+        env:
+          PROGRAM_ID: ${{ steps.identity.outputs.program_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "jamddmaj-devnet-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -u onchain lib tests
+          git commit -m "Bind Fair Launch to immutable Devnet program $PROGRAM_ID"
+          git push origin HEAD:main
+          {
+            echo "### Fair Launch Devnet deployment complete"
+            echo "- Program: \`$PROGRAM_ID\`"
+            echo "- Cluster: Devnet only"
+            echo "- Upgrade authority: permanently removed"
+            echo "- Private keys: disposable and never uploaded or committed"
+            echo "- Mainnet: disabled"
+          } >> "$GITHUB_STEP_SUMMARY"

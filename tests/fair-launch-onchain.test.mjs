@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { address, getAddressEncoder } from "@solana/kit";
 
 import { buildEligibilityTree, verifyEligibilityRecord } from "../lib/fair-launch-eligibility.js";
 import {
@@ -9,6 +10,11 @@ import {
   TOKEN_2022_PROGRAM_ID,
   verifyFairLaunchOnDevnet
 } from "../lib/fair-launch-devnet-verifier.js";
+import {
+  deriveProtectionAddresses,
+  getInitializeCreatorVestingInstruction,
+  getInitializePolicyInstruction
+} from "../lib/solana-devnet-token.js";
 import {
   JAMDDMAJ_ONCHAIN_RULES,
   claimableLockedAmount,
@@ -74,17 +80,58 @@ test("Anchor program source keeps Devnet policy invariants explicit", () => {
   assert.match(source, /const MIN_LIQUIDITY_LOCK_SECONDS: i64 = 730 \* DAY_SECONDS/);
   assert.match(source, /InvalidEligibilityProof/);
   assert.match(source, /token_interface::transfer_checked/);
+  assert.match(source, /pub fn seal_eligibility_root/);
+  assert.match(source, /eligibility_root_frozen/);
   assert.doesNotMatch(source, /mainnet-beta|api\.mainnet/);
 });
 
+test("protected Devnet creation uses canonical PDAs and Anchor instructions", async () => {
+  const mint = BENEFICIARY_B;
+  const owner = BENEFICIARY_A;
+  const addresses = await deriveProtectionAddresses(mint, owner);
+  const policyInstruction = await getInitializePolicyInstruction({
+    ownerAddress: address(owner),
+    mintAddress: address(mint),
+    policyAddress: addresses.policyAddress
+  });
+  const vestingInstruction = await getInitializeCreatorVestingInstruction({
+    ownerAddress: address(owner),
+    mintAddress: address(mint),
+    sourceAddress: address(owner),
+    policyAddress: addresses.policyAddress,
+    vestingAddress: addresses.creatorVestingAddress,
+    vaultAddress: addresses.creatorVaultAddress,
+    totalAllocation: 1_000n,
+    lockedAmount: 850n
+  });
+  assert.equal(policyInstruction.programAddress, JAMDDMAJ_LOCK_PROGRAM_ID);
+  assert.equal(policyInstruction.data.length, 48);
+  assert.equal(vestingInstruction.data.length, 24);
+  assert.equal(vestingInstruction.accounts.length, 11);
+  assert.deepEqual(
+    Buffer.from(policyInstruction.data.subarray(0, 8)),
+    createHash("sha256").update("global:initialize_policy").digest().subarray(0, 8)
+  );
+  assert.deepEqual(
+    Buffer.from(vestingInstruction.data.subarray(0, 8)),
+    createHash("sha256").update("global:initialize_creator_vesting").digest().subarray(0, 8)
+  );
+});
+
 test("public Devnet verifier decodes and enforces the on-chain policy", async () => {
+  const mintAddress = "11111111111111111111111111111111";
+  const protection = await deriveProtectionAddresses(mintAddress, mintAddress);
+  const addressEncoder = getAddressEncoder();
   const mintBytes = new Uint8Array(82);
   new DataView(mintBytes.buffer).setBigUint64(36, 1_000_000n, true);
   mintBytes[44] = 6;
   mintBytes[45] = 1;
 
-  const policyBytes = new Uint8Array(157);
+  const policyBytes = new Uint8Array(158);
   policyBytes.set(createHash("sha256").update("account:LaunchPolicy").digest().subarray(0, 8), 0);
+  policyBytes.set(addressEncoder.encode(address(mintAddress)), 8);
+  policyBytes.set(addressEncoder.encode(address(mintAddress)), 40);
+  policyBytes[72] = 1;
   const view = new DataView(policyBytes.buffer);
   view.setUint32(112, 2_000, true);
   view.setUint32(116, 12, true);
@@ -93,16 +140,37 @@ test("public Devnet verifier decodes and enforces the on-chain policy", async ()
   view.setBigInt64(130, BigInt(365 * 86_400), true);
   view.setBigInt64(138, BigInt(730 * 86_400), true);
   view.setBigInt64(146, BigInt(2 * 86_400), true);
-  view.setUint16(155, 1, true);
+  policyBytes[154] = 1;
+  view.setUint16(156, 1, true);
 
+  const vestingBytes = new Uint8Array(187);
+  vestingBytes.set(createHash("sha256").update("account:VestingVault").digest().subarray(0, 8), 0);
+  vestingBytes.set(addressEncoder.encode(protection.policyAddress), 8);
+  vestingBytes.set(addressEncoder.encode(address(mintAddress)), 40);
+  vestingBytes.set(addressEncoder.encode(address(mintAddress)), 72);
+  const vestingView = new DataView(vestingBytes.buffer);
+  vestingView.setBigUint64(104, 1_000n, true);
+  vestingView.setBigUint64(112, 850n, true);
+  vestingBytes[184] = 1;
+
+  const vaultBytes = new Uint8Array(165);
+  vaultBytes.set(addressEncoder.encode(address(mintAddress)), 0);
+  vaultBytes.set(addressEncoder.encode(protection.creatorVestingAddress), 32);
+  new DataView(vaultBytes.buffer).setBigUint64(64, 850n, true);
+
+  let requestCount = 0;
   const fetchImpl = async () => ({
     ok: true,
     async json() {
+      requestCount += 1;
       return {
         result: {
-          value: [
+          value: requestCount === 1 ? [
             { owner: TOKEN_2022_PROGRAM_ID, data: [Buffer.from(mintBytes).toString("base64"), "base64"] },
             { owner: JAMDDMAJ_LOCK_PROGRAM_ID, data: [Buffer.from(policyBytes).toString("base64"), "base64"] }
+          ] : [
+            { owner: JAMDDMAJ_LOCK_PROGRAM_ID, data: [Buffer.from(vestingBytes).toString("base64"), "base64"] },
+            { owner: TOKEN_2022_PROGRAM_ID, data: [Buffer.from(vaultBytes).toString("base64"), "base64"] }
           ]
         }
       };
@@ -110,8 +178,8 @@ test("public Devnet verifier decodes and enforces the on-chain policy", async ()
   });
 
   const result = await verifyFairLaunchOnDevnet({
-    mintAddress: "11111111111111111111111111111111",
-    policyAddress: JAMDDMAJ_LOCK_PROGRAM_ID,
+    mintAddress,
+    policyAddress: String(protection.policyAddress),
     fetchImpl
   });
   assert.equal(result.verified, true);

@@ -10,6 +10,8 @@ This workspace contains the Devnet-only prototype for JamdDmaj Fair Launch. It i
 - Eligibility proofs bind a hashed identity commitment to one beneficiary wallet, one allocation and one policy. Raw identity data must never be placed in the tree or on-chain.
 - Liquidity-position tokens remain in a program-controlled vault for at least 730 days.
 - Token movement uses checked Token Interface transfers, compatible with Token-2022.
+- The creator mint, 85% vesting deposit and mint-authority revocation are submitted atomically by the app. A failed protection step leaves no partially created mint.
+- The early-participant Merkle root may be sealed exactly once after the off-chain uniqueness review. Early vesting is disabled until that immutable root exists.
 
 A wallet is not treated as a unique person. The off-chain eligibility provider must perform the permitted identity or uniqueness review, generate a random/salted 32-byte commitment, discard or separately protect personal data, and publish only the Merkle root.
 

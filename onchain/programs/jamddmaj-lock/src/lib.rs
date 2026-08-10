@@ -19,7 +19,6 @@ pub mod jamddmaj_lock {
     use super::*;
 
     pub fn initialize_policy(ctx: Context<InitializePolicy>, args: InitializePolicyArgs) -> Result<()> {
-        require!(args.eligibility_root != [0u8; 32], LockError::EmptyEligibilityRoot);
         require!(args.governance_delay_seconds >= MIN_GOVERNANCE_DELAY_SECONDS, LockError::GovernanceDelayTooShort);
 
         let now = Clock::get()?.unix_timestamp;
@@ -35,6 +34,7 @@ pub mod jamddmaj_lock {
         policy.release_seconds = MIN_RELEASE_SECONDS;
         policy.liquidity_lock_seconds = MIN_LIQUIDITY_LOCK_SECONDS;
         policy.governance_delay_seconds = args.governance_delay_seconds;
+        policy.eligibility_root_frozen = args.eligibility_root != [0u8; 32];
         policy.bump = ctx.bumps.policy;
         policy.version = 1;
         emit!(PolicyInitialized {
@@ -42,6 +42,26 @@ pub mod jamddmaj_lock {
             mint: policy.token_mint,
             authority: policy.authority,
             eligibility_root: policy.eligibility_root,
+        });
+        Ok(())
+    }
+
+    /// Seals the privacy-preserving eligibility list exactly once. This lets a
+    /// creator lock their own allocation atomically at mint creation while the
+    /// platform verifies the early-participant cohort off-chain. No early
+    /// participant can register until the non-zero root has been sealed.
+    pub fn seal_eligibility_root(
+        ctx: Context<SealEligibilityRoot>,
+        eligibility_root: [u8; 32],
+    ) -> Result<()> {
+        require!(eligibility_root != [0u8; 32], LockError::EmptyEligibilityRoot);
+        require!(!ctx.accounts.policy.eligibility_root_frozen, LockError::EligibilityRootAlreadyFrozen);
+        require!(ctx.accounts.policy.protected_registered == 0, LockError::EligibilityAlreadyUsed);
+        ctx.accounts.policy.eligibility_root = eligibility_root;
+        ctx.accounts.policy.eligibility_root_frozen = true;
+        emit!(EligibilityRootSealed {
+            policy: ctx.accounts.policy.key(),
+            eligibility_root,
         });
         Ok(())
     }
@@ -86,6 +106,7 @@ pub mod jamddmaj_lock {
         ctx: Context<InitializeEarlyVesting>,
         args: EarlyVestingArgs,
     ) -> Result<()> {
+        require!(ctx.accounts.policy.eligibility_root_frozen, LockError::EligibilityRootNotReady);
         require!(args.eligibility_id != CREATOR_ELIGIBILITY_ID, LockError::InvalidEligibilityId);
         validate_locked_amount(args.total_allocation, args.locked_amount, ctx.accounts.policy.minimum_lock_bps)?;
         require!(
@@ -289,6 +310,13 @@ pub struct InitializePolicy<'info> {
 }
 
 #[derive(Accounts)]
+pub struct SealEligibilityRoot<'info> {
+    #[account(mut, has_one = authority)]
+    pub policy: Account<'info, LaunchPolicy>,
+    pub authority: Signer<'info>,
+}
+
+#[derive(Accounts)]
 pub struct InitializeCreatorVesting<'info> {
     #[account(mut, has_one = authority, has_one = token_mint)]
     pub policy: Account<'info, LaunchPolicy>,
@@ -458,8 +486,15 @@ pub struct LaunchPolicy {
     pub release_seconds: i64,
     pub liquidity_lock_seconds: i64,
     pub governance_delay_seconds: i64,
+    pub eligibility_root_frozen: bool,
     pub bump: u8,
     pub version: u16,
+}
+
+#[event]
+pub struct EligibilityRootSealed {
+    pub policy: Pubkey,
+    pub eligibility_root: [u8; 32],
 }
 
 #[account]
@@ -672,6 +707,12 @@ pub struct LiquidityReleased {
 pub enum LockError {
     #[msg("The eligibility Merkle root cannot be empty.")]
     EmptyEligibilityRoot,
+    #[msg("The eligibility root has already been sealed and is immutable.")]
+    EligibilityRootAlreadyFrozen,
+    #[msg("The eligibility root must be sealed before early participants can register.")]
+    EligibilityRootNotReady,
+    #[msg("Eligibility registrations already exist for this policy.")]
+    EligibilityAlreadyUsed,
     #[msg("The governance delay is shorter than the JamdDmaj minimum.")]
     GovernanceDelayTooShort,
     #[msg("The token amount must be greater than zero.")]
