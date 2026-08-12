@@ -433,7 +433,14 @@ pub struct ClaimVested<'info> {
     )]
     pub vesting: Account<'info, VestingVault>,
     pub mint: InterfaceAccount<'info, Mint>,
-    #[account(mut, token::mint = mint, token::authority = vesting, token::token_program = token_program)]
+    #[account(
+        mut,
+        token::mint = mint,
+        token::authority = vesting,
+        token::token_program = token_program,
+        seeds = [b"vault", vesting.key().as_ref()],
+        bump = vesting.vault_bump
+    )]
     pub vault: InterfaceAccount<'info, TokenAccount>,
     #[account(mut, token::mint = mint, token::authority = beneficiary, token::token_program = token_program)]
     pub destination: InterfaceAccount<'info, TokenAccount>,
@@ -486,7 +493,14 @@ pub struct ReleaseLiquidity<'info> {
         bump = liquidity_lock.bump
     )]
     pub liquidity_lock: Account<'info, LiquidityLock>,
-    #[account(mut, token::mint = lp_mint, token::authority = liquidity_lock, token::token_program = token_program)]
+    #[account(
+        mut,
+        token::mint = lp_mint,
+        token::authority = liquidity_lock,
+        token::token_program = token_program,
+        seeds = [b"liquidity-vault", liquidity_lock.key().as_ref()],
+        bump = liquidity_lock.vault_bump
+    )]
     pub vault: InterfaceAccount<'info, TokenAccount>,
     #[account(mut, token::mint = lp_mint, token::authority = beneficiary, token::token_program = token_program)]
     pub destination: InterfaceAccount<'info, TokenAccount>,
@@ -792,6 +806,9 @@ mod tests {
     fn rejects_a_lock_below_eighty_five_percent() {
         assert!(validate_locked_amount(100, 84, MIN_LOCK_BPS).is_err());
         assert!(validate_locked_amount(101, 86, MIN_LOCK_BPS).is_ok());
+        assert!(validate_locked_amount(1, 1, MIN_LOCK_BPS).is_ok());
+        assert!(validate_locked_amount(u64::MAX, u64::MAX, MIN_LOCK_BPS).is_ok());
+        assert!(validate_locked_amount(100, 101, MIN_LOCK_BPS).is_err());
     }
 
     #[test]
@@ -807,5 +824,14 @@ mod tests {
         assert_eq!(vesting.vested_at(150).unwrap(), 42);
         assert_eq!(vesting.vested_at(200).unwrap(), 85);
         assert_eq!(vesting.vested_at(250).unwrap(), 85);
+    }
+
+    #[test]
+    fn claimable_never_releases_the_same_tokens_twice() {
+        let mut vesting = sample_vesting();
+        assert_eq!(vesting.claimable_at(150).unwrap(), 42);
+        vesting.released_amount = 42;
+        assert_eq!(vesting.claimable_at(150).unwrap(), 0);
+        assert_eq!(vesting.claimable_at(200).unwrap(), 43);
     }
 }

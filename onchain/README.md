@@ -40,3 +40,7 @@ Deployment is deliberately manual. Before deploying:
 7. Publish the program, mint and policy addresses so the app's read-only verifier can compare the accounts against the mandatory floors.
 
 Do not deploy to Mainnet, add real liquidity or represent this prototype as audited. Mainnet requires an independent audit, legal review and explicit owner approval.
+
+## Mainnet evidence gate
+
+The review scope and required evidence are documented in `AUDIT-READINESS.md`, `AUDITOR-RFP.md`, `LEGAL-READINESS.md` and `SECURITY.md`. Run `npm run mainnet:readiness` to view the current status. The machine-readable gate in `security/mainnet-readiness.json` must remain closed until independent evidence exists for every requirement.

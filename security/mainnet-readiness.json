@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "network": "solana-mainnet-beta",
+  "mainnetEnabled": false,
+  "requirements": {
+    "independentAudit": {
+      "status": "missing",
+      "reportUrl": null,
+      "auditor": null
+    },
+    "legalReview": {
+      "status": "missing",
+      "opinionReference": null,
+      "jurisdictions": []
+    },
+    "devnetAdversarialRehearsal": {
+      "status": "missing",
+      "evidenceUrl": null
+    },
+    "verifiableBuild": {
+      "status": "missing",
+      "sourceCommit": null,
+      "executableHash": null,
+      "verificationUrl": null
+    },
+    "upgradeAuthorityMultisig": {
+      "status": "missing",
+      "address": null,
+      "threshold": null,
+      "timelockSeconds": null
+    },
+    "incidentResponse": {
+      "status": "missing",
+      "policyUrl": null,
+      "securityContact": null
+    },
+    "ownerApproval": {
+      "status": "missing",
+      "approvalReference": null
+    }
+  }
+}

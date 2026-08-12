@@ -11,7 +11,9 @@
     "build:web": "node scripts/build-web.mjs",
     "mobile:sync": "npm run build:web && cap sync",
     "android": "npm run mobile:sync && cap open android",
-    "ios": "npm run mobile:sync && cap open ios"
+    "ios": "npm run mobile:sync && cap open ios",
+    "mainnet:readiness": "node scripts/check-mainnet-readiness.mjs",
+    "mainnet:gate": "node scripts/check-mainnet-readiness.mjs --enforce"
   },
   "dependencies": {
     "@capacitor-community/speech-recognition": "^7.0.1",
