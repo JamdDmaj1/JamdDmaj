@@ -11,6 +11,8 @@ import {
   verifyFairLaunchOnDevnet
 } from "../lib/fair-launch-devnet-verifier.js";
 import {
+  JAMDDMAJ_LAUNCH_FEE_LAMPORTS,
+  JAMDDMAJ_PLATFORM_TREASURY,
   deriveProtectionAddresses,
   getInitializeCreatorVestingInstruction,
   getInitializePolicyInstruction
@@ -82,6 +84,9 @@ test("Anchor program source keeps Devnet policy invariants explicit", () => {
   assert.match(source, /token_interface::transfer_checked/);
   assert.match(source, /pub fn seal_eligibility_root/);
   assert.match(source, /eligibility_root_frozen/);
+  assert.match(source, /PLATFORM_LAUNCH_FEE_LAMPORTS: u64 = 100_000_000/);
+  assert.match(source, /4WMnKm3KvLEHiw8tVFTynka8jBYvwekM2BpZz9iyyBjr/);
+  assert.match(source, /system_program::transfer/);
   assert.doesNotMatch(source, /mainnet-beta|api\.mainnet/);
 });
 
@@ -127,7 +132,7 @@ test("public Devnet verifier decodes and enforces the on-chain policy", async ()
   mintBytes[44] = 6;
   mintBytes[45] = 1;
 
-  const policyBytes = new Uint8Array(158);
+  const policyBytes = new Uint8Array(198);
   policyBytes.set(createHash("sha256").update("account:LaunchPolicy").digest().subarray(0, 8), 0);
   policyBytes.set(addressEncoder.encode(address(mintAddress)), 8);
   policyBytes.set(addressEncoder.encode(address(mintAddress)), 40);
@@ -140,8 +145,10 @@ test("public Devnet verifier decodes and enforces the on-chain policy", async ()
   view.setBigInt64(130, BigInt(365 * 86_400), true);
   view.setBigInt64(138, BigInt(730 * 86_400), true);
   view.setBigInt64(146, BigInt(2 * 86_400), true);
-  policyBytes[154] = 1;
-  view.setUint16(156, 1, true);
+  policyBytes.set(addressEncoder.encode(address(JAMDDMAJ_PLATFORM_TREASURY)), 154);
+  view.setBigUint64(186, JAMDDMAJ_LAUNCH_FEE_LAMPORTS, true);
+  policyBytes[194] = 1;
+  view.setUint16(196, 1, true);
 
   const vestingBytes = new Uint8Array(187);
   vestingBytes.set(createHash("sha256").update("account:VestingVault").digest().subarray(0, 8), 0);
@@ -185,6 +192,8 @@ test("public Devnet verifier decodes and enforces the on-chain policy", async ()
   assert.equal(result.verified, true);
   assert.equal(result.policy.minimumLockBps, 8_500);
   assert.equal(result.policy.protectedLimit, 2_000);
+  assert.equal(result.policy.platformTreasury, JAMDDMAJ_PLATFORM_TREASURY);
+  assert.equal(result.policy.launchFeeLamports, JAMDDMAJ_LAUNCH_FEE_LAMPORTS);
   assert.equal(result.mint.hasMintAuthority, false);
   assert.equal(result.mint.hasFreezeAuthority, false);
 });

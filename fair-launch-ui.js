@@ -59,6 +59,7 @@ const VERIFIER_LABEL_KEYS = Object.freeze({
   "eligibility-root": "verifyEligibilityRoot",
   "creator-vesting": "verifyCreatorVesting",
   "creator-vault": "verifyCreatorVault",
+  "platform-fee": "verifyPlatformFee",
   cliff: "verifyCliff",
   release: "verifyRelease",
   liquidity: "verifyLiquidity",
@@ -346,10 +347,14 @@ const VERIFIER_LABEL_KEYS = Object.freeze({
   function renderTransactionPreview(config = readForm()) {
     const supply = document.getElementById("fairTxSupply");
     const recipient = document.getElementById("fairTxRecipient");
+    const platformFee = document.getElementById("fairTxPlatformFee");
+    const platformTreasury = document.getElementById("fairTxTreasury");
     if (supply) supply.textContent = `${formatNumber(config.totalSupply)} ${config.symbol}`;
     if (recipient) recipient.textContent = connectedAccount?.address
       ? shortenWalletAddress(connectedAccount.address)
       : t("walletNotConnected");
+    if (platformFee) platformFee.textContent = ui("launchFeeValue");
+    if (platformTreasury) platformTreasury.textContent = "4WMnKm…iyyBjr";
   }
 
   function applyFairLaunchLocale() {

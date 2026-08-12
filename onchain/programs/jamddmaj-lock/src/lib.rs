@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::hash::hashv;
+use anchor_lang::solana_program::{hash::hashv, pubkey};
+use anchor_lang::system_program::{self, Transfer};
 use anchor_spl::token_interface::{self, Mint, TokenAccount, TokenInterface, TransferChecked};
 
 declare_id!("HvbiDNyHotAUYVqK3T2apCW5HEPbvWriK3hrPsPSaLKR");
@@ -13,6 +14,8 @@ const MIN_RELEASE_SECONDS: i64 = 365 * DAY_SECONDS;
 const MIN_LIQUIDITY_LOCK_SECONDS: i64 = 730 * DAY_SECONDS;
 const MIN_GOVERNANCE_DELAY_SECONDS: i64 = 2 * DAY_SECONDS;
 const CREATOR_ELIGIBILITY_ID: [u8; 32] = [0u8; 32];
+const PLATFORM_TREASURY: Pubkey = pubkey!("4WMnKm3KvLEHiw8tVFTynka8jBYvwekM2BpZz9iyyBjr");
+const PLATFORM_LAUNCH_FEE_LAMPORTS: u64 = 100_000_000;
 
 #[program]
 pub mod jamddmaj_lock {
@@ -20,6 +23,17 @@ pub mod jamddmaj_lock {
 
     pub fn initialize_policy(ctx: Context<InitializePolicy>, args: InitializePolicyArgs) -> Result<()> {
         require!(args.governance_delay_seconds >= MIN_GOVERNANCE_DELAY_SECONDS, LockError::GovernanceDelayTooShort);
+
+        system_program::transfer(
+            CpiContext::new(
+                ctx.accounts.system_program.to_account_info(),
+                Transfer {
+                    from: ctx.accounts.authority.to_account_info(),
+                    to: ctx.accounts.platform_treasury.to_account_info(),
+                },
+            ),
+            PLATFORM_LAUNCH_FEE_LAMPORTS,
+        )?;
 
         let now = Clock::get()?.unix_timestamp;
         let policy = &mut ctx.accounts.policy;
@@ -34,6 +48,8 @@ pub mod jamddmaj_lock {
         policy.release_seconds = MIN_RELEASE_SECONDS;
         policy.liquidity_lock_seconds = MIN_LIQUIDITY_LOCK_SECONDS;
         policy.governance_delay_seconds = args.governance_delay_seconds;
+        policy.platform_treasury = PLATFORM_TREASURY;
+        policy.launch_fee_lamports = PLATFORM_LAUNCH_FEE_LAMPORTS;
         policy.eligibility_root_frozen = args.eligibility_root != [0u8; 32];
         policy.bump = ctx.bumps.policy;
         policy.version = 1;
@@ -42,6 +58,8 @@ pub mod jamddmaj_lock {
             mint: policy.token_mint,
             authority: policy.authority,
             eligibility_root: policy.eligibility_root,
+            platform_treasury: policy.platform_treasury,
+            launch_fee_lamports: policy.launch_fee_lamports,
         });
         Ok(())
     }
@@ -306,6 +324,9 @@ pub struct InitializePolicy<'info> {
         bump
     )]
     pub policy: Account<'info, LaunchPolicy>,
+    /// CHECK: Fixed public platform treasury; it never signs or controls the launch.
+    #[account(mut, address = PLATFORM_TREASURY)]
+    pub platform_treasury: UncheckedAccount<'info>,
     pub system_program: Program<'info, System>,
 }
 
@@ -486,6 +507,8 @@ pub struct LaunchPolicy {
     pub release_seconds: i64,
     pub liquidity_lock_seconds: i64,
     pub governance_delay_seconds: i64,
+    pub platform_treasury: Pubkey,
+    pub launch_fee_lamports: u64,
     pub eligibility_root_frozen: bool,
     pub bump: u8,
     pub version: u16,
@@ -669,6 +692,8 @@ pub struct PolicyInitialized {
     pub mint: Pubkey,
     pub authority: Pubkey,
     pub eligibility_root: [u8; 32],
+    pub platform_treasury: Pubkey,
+    pub launch_fee_lamports: u64,
 }
 
 #[event]
