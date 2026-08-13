@@ -32,6 +32,7 @@ import {
 } from "../lib/wallet-security.js";
 import { createWalletRegistry, walletEvent } from "../lib/wallet-standard-registry.js";
 import { buildBoostPlan, JDMAJ_BOOST_CATALOG } from "../lib/fair-launch-boost.js";
+import { buildChronologicalValidation } from "../lib/pro-backtest.js";
 import { FAIR_LAUNCH_LOCALES, FAIR_LAUNCH_LOCALE_KEYS } from "../lib/fair-launch-locales.js";
 import {
   FAIR_LAUNCH_UI_KEYS,
@@ -41,6 +42,7 @@ import {
 } from "../lib/fair-launch-ui-copy.js";
 import { validateDevnetTokenRequest } from "../lib/solana-devnet-token.js";
 import {
+  classifySimulationSignal,
   evaluateAiSimulationVariant,
   isAiSimulationMode,
   recordAiSimulationCycle,
@@ -236,6 +238,7 @@ test("AI recommendations run only as a stricter simulation variant", () => {
     score: 13,
     createdAt: new Date(now - 60_000).toISOString(),
     higherTrend: "bullish 4h alignment",
+    microTrend: "bullish 15m confirmation",
     volumeRatio: 1.25,
     entry: 100,
     currentPrice: 100.2,
@@ -249,6 +252,7 @@ test("AI recommendations run only as a stricter simulation variant", () => {
     id: "btc-short-1",
     side: "SHORT",
     higherTrend: "bearish 4h alignment",
+    microTrend: "bearish 15m confirmation",
     volumeRatio: 1.2,
     marketAlignment: "counter-market"
   };
@@ -270,6 +274,7 @@ test("AI simulation A/B deduplicates candidates and outcomes", () => {
     score: 13,
     createdAt: new Date(now - 30_000).toISOString(),
     higherTrend: "bullish 4h alignment",
+    microTrend: "bullish 15m confirmation",
     volumeRatio: 1.3,
     entry: 3000,
     currentPrice: 3001,
@@ -287,6 +292,35 @@ test("AI simulation A/B deduplicates candidates and outcomes", () => {
   experiment = recordAiSimulationOutcome(experiment, { key: "event-1", signalId: signal.id, outcome: "win" });
   assert.equal(experiment.baseline.wins, 1);
   assert.equal(experiment.ai.wins, 1);
+});
+
+test("simulation classifies only fully confirmed setups as tier A", () => {
+  const signal = {
+    side: "LONG",
+    score: 13.5,
+    volumeRatio: 1.5,
+    adx: 28,
+    marketAlignment: "with-market",
+    microTrend: "bullish 15m confirmation",
+    spreadPercent: 0.001
+  };
+  assert.equal(classifySimulationSignal(signal, { ok: true }), "A");
+  assert.equal(classifySimulationSignal({ ...signal, score: 12.2, volumeRatio: 1.25 }, { ok: true }), "B");
+  assert.equal(classifySimulationSignal(signal, { ok: false }), "NO TRADE");
+});
+
+test("backtest validation keeps the newest 30 percent out of training", () => {
+  const trades = Array.from({ length: 10 }, (_, index) => ({
+    time: index,
+    outcome: index < 7 ? "WIN" : "INVALIDATED",
+    estimatedRoe: index < 7 ? 1 : -1
+  }));
+  const result = buildChronologicalValidation(trades);
+  assert.equal(result.training.samples, 7);
+  assert.equal(result.training.winRate, 100);
+  assert.equal(result.validation.samples, 3);
+  assert.equal(result.validation.winRate, 0);
+  assert.equal(result.sufficientValidation, false);
 });
 
 test("daily learning compares winners against losses without changing strategy", () => {

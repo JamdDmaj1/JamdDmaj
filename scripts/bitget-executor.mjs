@@ -755,6 +755,9 @@ export function evaluateAiSimulationVariant(signal = {}, baselineDecision = { ok
   if (!String(signal.higherTrend || "").toLowerCase().includes(expectedHigherTrend)) {
     return { ok: false, reason: `AI experiment needs ${expectedHigherTrend} 4h alignment` };
   }
+  if (!String(signal.microTrend || "").toLowerCase().includes(expectedHigherTrend)) {
+    return { ok: false, reason: `AI experiment needs ${expectedHigherTrend} 15m confirmation` };
+  }
   const counterMarket = String(signal.marketAlignment || "").toLowerCase() === "counter-market";
   const volumeRatio = Number(signal.volumeRatio || 0);
   const minimumVolume = counterMarket ? 1.35 : 1.2;
@@ -786,6 +789,20 @@ export function evaluateAiSimulationVariant(signal = {}, baselineDecision = { ok
   };
 }
 
+export function classifySimulationSignal(signal = {}, decision = { ok: false }) {
+  if (!decision?.ok) return "NO TRADE";
+  const score = Number(signal.score || 0);
+  const volume = Number(signal.volumeRatio || 0);
+  const adx = Number(signal.adx || 0);
+  const spread = Number(signal.spreadPercent || signal.spread || 0);
+  const aligned = signal.marketAlignment === "with-market";
+  const sideTrend = String(signal.side || "").toUpperCase() === "LONG" ? "bullish" : "bearish";
+  const microAligned = String(signal.microTrend || "").toLowerCase().includes(sideTrend);
+  if (score >= 13 && volume >= 1.35 && adx >= 25 && aligned && microAligned && spread <= 0.0015) return "A";
+  if (score >= 12 && volume >= 1.2 && adx >= 22 && microAligned && spread <= 0.0025) return "B";
+  return "C";
+}
+
 export function isAiSimulationMode(mode) {
   return String(mode || "").toLowerCase() === "dry-run";
 }
@@ -805,6 +822,7 @@ export function recordAiSimulationCycle(current, evaluations = [], categoryLearn
       baselineAccepted,
       aiAccepted: aiDecision.ok === true,
       aiReason: String(aiDecision.reason || "").slice(0, 160),
+      qualityTier: classifySimulationSignal(signal, aiDecision),
       createdAt: signal.createdAt || new Date(now).toISOString()
     };
     if (baselineAccepted) state.baseline.candidates += 1;
@@ -828,6 +846,9 @@ export function recordAiSimulationOutcome(current, value = {}) {
   state.outcomeKeys.push(key);
   if (signal.baselineAccepted) state.baseline[outcome === "win" ? "wins" : "losses"] += 1;
   if (signal.aiAccepted) state.ai[outcome === "win" ? "wins" : "losses"] += 1;
+  const tier = ["A", "B", "C"].includes(signal.qualityTier) ? signal.qualityTier : "NO TRADE";
+  state.quality[tier] = state.quality[tier] || { wins: 0, losses: 0 };
+  state.quality[tier][outcome === "win" ? "wins" : "losses"] += 1;
   state.outcomeKeys = state.outcomeKeys.slice(-1500);
   state.updatedAt = new Date().toISOString();
   return state;
@@ -841,12 +862,13 @@ function normalizeAiSimulationExperiment(value = {}) {
     losses: Number(item.losses || 0)
   });
   return {
-    version: 1,
+    version: 2,
     baseline: bucket(value.baseline),
     ai: bucket(value.ai),
     signals: value.signals && typeof value.signals === "object" ? value.signals : {},
     outcomeKeys: Array.isArray(value.outcomeKeys) ? value.outcomeKeys.slice(-1500) : [],
     rejections: value.rejections && typeof value.rejections === "object" ? value.rejections : {},
+    quality: value.quality && typeof value.quality === "object" ? value.quality : {},
     updatedAt: value.updatedAt || null
   };
 }
@@ -868,6 +890,18 @@ function compactAiSimulationExperiment(value, enabled) {
     simulationOnly: true,
     baseline: summarize(state.baseline),
     ai: summarize(state.ai),
+    quality: Object.fromEntries(["A", "B", "C"].map((tier) => {
+      const bucket = state.quality[tier] || {};
+      const decided = Number(bucket.wins || 0) + Number(bucket.losses || 0);
+      return [tier, {
+        wins: Number(bucket.wins || 0),
+        losses: Number(bucket.losses || 0),
+        decided,
+        winRate: decided ? Number(((Number(bucket.wins || 0) / decided) * 100).toFixed(1)) : 0,
+        calibrated: decided >= 30
+      }];
+    })),
+    minimumCalibrationSamples: 30,
     topRejections: Object.entries(state.rejections)
       .sort((a, b) => Number(b[1]) - Number(a[1]))
       .slice(0, 4)

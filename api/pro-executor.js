@@ -608,7 +608,11 @@ function formatAiSimulationExperiment(value) {
   const top = Array.isArray(value.topRejections) && value.topRejections[0]
     ? ` | top AI filter: ${escapeHtml(value.topRejections[0].reason)} (${Number(value.topRejections[0].count || 0)})`
     : "";
-  return `Simulation A/B: baseline ${Number(baseline.candidates || 0)} candidates, ${Number(baseline.wins || 0)}W/${Number(baseline.losses || 0)}L (${Number(baseline.winRate || 0).toFixed(1)}%) | AI variant ${Number(ai.candidates || 0)} candidates, ${Number(ai.wins || 0)}W/${Number(ai.losses || 0)}L (${Number(ai.winRate || 0).toFixed(1)}%)${top}`;
+  const quality = ["A", "B", "C"].map((tier) => {
+    const bucket = value?.quality?.[tier] || {};
+    return `${tier} ${Number(bucket.wins || 0)}W/${Number(bucket.losses || 0)}L (${bucket.calibrated ? `${Number(bucket.winRate || 0).toFixed(1)}%` : `muestra ${Number(bucket.decided || 0)}/${Number(value.minimumCalibrationSamples || 30)}`})`;
+  }).join(" | ");
+  return `Simulation A/B: baseline ${Number(baseline.candidates || 0)} candidates, ${Number(baseline.wins || 0)}W/${Number(baseline.losses || 0)}L (${Number(baseline.winRate || 0).toFixed(1)}%) | AI variant ${Number(ai.candidates || 0)} candidates, ${Number(ai.wins || 0)}W/${Number(ai.losses || 0)}L (${Number(ai.winRate || 0).toFixed(1)}%)\nCalibración: ${quality}${top}`;
 }
 
 export function executorRejectionSnapshot(input = {}) {
