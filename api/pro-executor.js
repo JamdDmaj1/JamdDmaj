@@ -67,8 +67,7 @@ async function maybeSendPinnedDailyLearning(input, learning) {
   const chatId = String(process.env.TELEGRAM_CHAT_ID || "").trim();
   if (!token || !chatId || !learning) return;
   const now = new Date();
-  const hour = Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hour: "2-digit", hour12: false }).format(now));
-  if (hour < 20) return;
+  if (!isMiamiDailyReportDue(now)) return;
   const day = dayKey(now);
   const claimed = await redisRequest("pipeline", [["SET", `${EXECUTOR_DAILY_PIN_PREFIX}${day}`, new Date().toISOString(), "NX", "EX", 172800]]);
   if (claimed?.[0]?.result !== "OK") return;
@@ -85,6 +84,7 @@ async function updateExecutorLearning(input) {
   previous.mode = String(input?.mode || previous.mode || "unknown").slice(0, 20);
   previous.updatedAt = new Date().toISOString();
   const dryRun = String(input?.mode || "").toLowerCase() === "dry-run";
+  const slSuggestions = buildDailyStopLossSuggestions(outcomes);
   const order = dryRun ? input?.lastDryRunSignal : input?.lastLiveSignal;
   if (order?.pair || order?.symbol) {
     const orderKey = String(order.id || `${order.pair || order.symbol}:${order.side || ""}:${order.createdAt || ""}`).slice(0, 160);
@@ -137,8 +137,11 @@ function createExecutorLearning(day) {
     orders: [],
     outcomeKeys: [],
     wins: 0,
+    tpHits: 0,
     losses: 0,
     slLosses: 0,
+    stopLossHits: 0,
+    invalidationLosses: 0,
     reversalLosses: 0,
     profitGivebacks: 0,
     lossReasons: {},
@@ -179,12 +182,17 @@ function applyOutcomeLearning(input, previous) {
     previous.outcomeKeys.push(key);
     if (outcome.outcome === "win") {
       previous.wins = Number(previous.wins || 0) + 1;
+      if (/\btp(?:1|2|3)?\b|take profit/.test(String(outcome.type || "").toLowerCase())) {
+        previous.tpHits = Number(previous.tpHits || 0) + 1;
+      }
       previous.winExamples.unshift(compactCohortExample(outcome));
       continue;
     }
     if (outcome.outcome !== "loss") continue;
     previous.losses = Number(previous.losses || 0) + 1;
     if (outcome.reason === "sl" || outcome.reason === "invalidation") previous.slLosses = Number(previous.slLosses || 0) + 1;
+    if (outcome.reason === "sl") previous.stopLossHits = Number(previous.stopLossHits || 0) + 1;
+    if (outcome.reason === "invalidation") previous.invalidationLosses = Number(previous.invalidationLosses || 0) + 1;
     if (outcome.reason === "reversal") previous.reversalLosses = Number(previous.reversalLosses || 0) + 1;
     if (outcome.reason === "profit-giveback") previous.profitGivebacks = Number(previous.profitGivebacks || 0) + 1;
     previous.lossReasons[outcome.reason] = (Number(previous.lossReasons[outcome.reason]) || 0) + 1;
@@ -292,8 +300,11 @@ function compactOutcomeSummary(value) {
     .map(([reason, count]) => ({ reason, count: Number(count || 0) }));
   return {
     wins: Number(value.wins || 0),
+    tpHits: Number(value.tpHits || 0),
     losses: Number(value.losses || 0),
     slLosses: Number(value.slLosses || 0),
+    stopLossHits: Number(value.stopLossHits || 0),
+    invalidationLosses: Number(value.invalidationLosses || 0),
     reversalLosses: Number(value.reversalLosses || 0),
     profitGivebacks: Number(value.profitGivebacks || 0),
     topLossReasons,
@@ -534,9 +545,11 @@ function formatExecutorDailyLearningMessage(input, learning) {
   return [
     "📌 <b>JamdDmaj Bitget daily learning</b>",
     `Day: ${escapeHtml(learning.day || dayKey())}`,
+    "Hora del informe: 9:00 p. m. Miami",
     `VPS runs: ${Number(learning.runs || 0)} | ${dryRun ? "Simulated entries" : "Live entries"}: ${Number(learning.liveOrders || 0)}`,
     formatExecutorMarketDirection(input?.marketDirection),
-    `Outcomes: wins ${Number(outcomes.wins || 0)} | losses ${Number(outcomes.losses || 0)} | SL ${Number(outcomes.slLosses || 0)} | reversal ${Number(outcomes.reversalLosses || 0)}`,
+    `🎯 TP tocados: <b>${Number(outcomes.tpHits || 0)}</b> | 🛑 SL tocados: <b>${Number(outcomes.stopLossHits || 0)}</b>`,
+    `Resultados: wins ${Number(outcomes.wins || 0)} | losses ${Number(outcomes.losses || 0)} | invalidaciones ${Number(outcomes.invalidationLosses || 0)} | reversals ${Number(outcomes.reversalLosses || 0)}`,
     Number(outcomes.profitGivebacks || 0) ? `Profit givebacks: ${Number(outcomes.profitGivebacks || 0)}` : "",
     lossReasons.length ? `Loss reasons: ${lossReasons.join(" | ")}` : "",
     lossExamples.length ? `Loss examples: ${lossExamples.join(" | ")}` : "",
@@ -544,6 +557,8 @@ function formatExecutorDailyLearningMessage(input, learning) {
     top.length ? `Top filters: ${top.join(" | ")}` : "Top filters: none yet",
     examples.length ? `Examples: ${examples.join(" | ")}` : "",
     `Lesson: ${escapeHtml(learning.lesson || "Collecting data.")}`,
+    "\n<b>Sugerencias de SL</b>",
+    ...slSuggestions.map((suggestion, index) => `${index + 1}. ${escapeHtml(suggestion)}`),
     formatAiSimulationExperiment(input?.aiExperiment),
     improvements.length ? "\n<b>AI self-improvement requests</b>" : "",
     ...improvements.map((item, index) => `${index + 1}. <b>${escapeHtml(item.title)}</b>: ${escapeHtml(item.detail)}`),
@@ -558,6 +573,32 @@ function formatOutcomeCohortComparison(value) {
   const losses = value?.losses || {};
   if (!Number(wins.samples || 0) || !Number(losses.samples || 0)) return "";
   return `Winner/loss comparison: score ${Number(wins.averageScore || 0).toFixed(1)}/${Number(losses.averageScore || 0).toFixed(1)} | volume ${Number(wins.averageVolumeRatio || 0).toFixed(2)}x/${Number(losses.averageVolumeRatio || 0).toFixed(2)}x | ADX ${Number(wins.averageAdx || 0).toFixed(1)}/${Number(losses.averageAdx || 0).toFixed(1)} | counter-market ${Number(wins.counterMarketPercent || 0).toFixed(0)}%/${Number(losses.counterMarketPercent || 0).toFixed(0)}%`;
+}
+
+export function buildDailyStopLossSuggestions(outcomes = {}) {
+  const suggestions = [];
+  const stopLossHits = Number(outcomes.stopLossHits || 0);
+  const invalidations = Number(outcomes.invalidationLosses || 0);
+  const givebacks = Number(outcomes.profitGivebacks || 0);
+  const losses = Number(outcomes.losses || 0);
+  if (stopLossHits >= 2) {
+    suggestions.push("Hubo varios SL: revisar si la entrada quedó demasiado cerca del ruido/ATR; validar en simulación antes de ampliar el stop.");
+  } else if (stopLossHits === 1) {
+    suggestions.push("Revisar el trade que tocó SL y comparar distancia ATR, estructura y spread con los trades que alcanzaron TP.");
+  }
+  if (invalidations >= 2) {
+    suggestions.push("Las invalidaciones se repitieron: exigir confirmación de tendencia 4h y cierre de vela antes de entrar.");
+  }
+  if (givebacks > 0) {
+    suggestions.push("Hubo devolución de beneficio: después de TP1 conviene evaluar protección a break-even o beneficio, primero en simulación.");
+  }
+  if (!suggestions.length && losses === 0) {
+    suggestions.push("Sin pérdidas registradas hoy: mantener el SL técnico actual y no aflojarlo sin más muestras.");
+  } else if (!suggestions.length) {
+    suggestions.push("Mantener el SL detrás de la invalidación técnica; no moverlo para aumentar riesgo después de abrir el trade.");
+  }
+  suggestions.push("Cualquier cambio de distancia o gestión del SL debe probarse en A/B simulado antes de aplicarse al bot.");
+  return suggestions.slice(0, 3);
 }
 
 function formatAiSimulationExperiment(value) {
@@ -620,6 +661,17 @@ export function dayKey(date = new Date()) {
   }).formatToParts(new Date(date));
   const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
   return `${values.year}-${values.month}-${values.day}`;
+}
+
+export function isMiamiDailyReportDue(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23"
+  }).formatToParts(new Date(date));
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return (Number(values.hour) * 60) + Number(values.minute) >= 21 * 60;
 }
 
 function parseJson(value, fallback) {

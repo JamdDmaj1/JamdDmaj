@@ -10,7 +10,13 @@ import {
   normalizeChartAnalysis
 } from "../api/chart-analysis.js";
 import proClientFeedHandler from "../api/pro-client-feed.js";
-import { buildOutcomeCohortComparison, dayKey, executorRejectionSnapshot } from "../api/pro-executor.js";
+import {
+  buildDailyStopLossSuggestions,
+  buildOutcomeCohortComparison,
+  dayKey,
+  executorRejectionSnapshot,
+  isMiamiDailyReportDue
+} from "../api/pro-executor.js";
 import {
   FAIR_LAUNCH_DEFAULTS,
   assessFairLaunch,
@@ -168,6 +174,26 @@ test("recent server scans are reused unless a forced cycle is requested", () => 
   assert.equal(shouldReuseRecentCycle("2026-07-31T23:55:00.000Z", false, now), false);
   assert.equal(shouldReuseRecentCycle("2026-07-31T23:59:00.000Z", true, now), false);
   assert.equal(shouldReuseRecentCycle("2026-08-01T00:01:00.000Z", false, now), false);
+});
+
+test("daily Telegram report waits until 9:00 PM Miami across daylight saving time", () => {
+  assert.equal(isMiamiDailyReportDue("2026-08-12T00:59:59.000Z"), false);
+  assert.equal(isMiamiDailyReportDue("2026-08-12T01:00:00.000Z"), true);
+  assert.equal(isMiamiDailyReportDue("2026-12-12T01:59:59.000Z"), false);
+  assert.equal(isMiamiDailyReportDue("2026-12-12T02:00:00.000Z"), true);
+});
+
+test("daily Telegram report produces safe SL suggestions from outcomes", () => {
+  const suggestions = buildDailyStopLossSuggestions({
+    stopLossHits: 2,
+    invalidationLosses: 2,
+    profitGivebacks: 1,
+    losses: 4
+  });
+  assert.equal(suggestions.length, 3);
+  assert.match(suggestions[0], /varios SL/);
+  assert.match(suggestions[1], /invalidaciones/);
+  assert.match(suggestions[2], /TP1/);
 });
 
 test("executor learning deduplicates repeated rejection snapshots", () => {
