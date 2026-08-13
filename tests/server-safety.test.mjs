@@ -49,7 +49,7 @@ import {
   recordAiSimulationOutcome
 } from "../scripts/bitget-executor.mjs";
 import { corsHeaders, enforceRateLimits } from "../lib/server.js";
-import { calculateMarketDirection, dailyReportKey, saveExecutorHeartbeat, shouldReuseRecentCycle } from "../lib/pro-signals.js";
+import { calculateMarketDirection, dailyReportKey, normalizeOwnerManualSignal, saveExecutorHeartbeat, shouldReuseRecentCycle } from "../lib/pro-signals.js";
 
 function signal(id, ageMs, bitgetEligible) {
   return {
@@ -682,6 +682,47 @@ test("chart analysis rejects generic templates and accepts image-specific eviden
     summary: "La captura muestra continuacion bajista mientras no recupere el ultimo maximo visible."
   }));
   assert.equal(hasSpecificChartEvidence(specific), true);
+});
+
+test("owner manual Bitget signals require complete numeric crypto levels", () => {
+  const valid = normalizeOwnerManualSignal({
+    signal: "LONG",
+    asset: "BTC/USDT PERP",
+    entry: 68000,
+    stopLoss: 67200,
+    targets: [69000, 70000],
+    confidence: 78,
+    reasons: ["owner reviewed chart"]
+  });
+  assert.equal(valid.pair, "BTCUSDT");
+  assert.equal(valid.side, "LONG");
+  assert.equal(valid.sl, 67200);
+  assert.equal(valid.tp1, 69000);
+
+  assert.throws(() => normalizeOwnerManualSignal({
+    signal: "LONG",
+    asset: "NVDA",
+    entry: 100,
+    stopLoss: 95,
+    targets: [110],
+    confidence: 90
+  }), /contratos cripto USDT/);
+  assert.throws(() => normalizeOwnerManualSignal({
+    signal: "SHORT",
+    asset: "ETHUSDT",
+    entry: 3000,
+    stopLoss: 2900,
+    targets: [2800],
+    confidence: 90
+  }), /niveles de entrada/);
+  assert.throws(() => normalizeOwnerManualSignal({
+    signal: "LONG",
+    asset: "SOLUSDT",
+    entry: 150,
+    stopLoss: 145,
+    targets: [160],
+    confidence: 60
+  }), /70%/);
 });
 
 test("chart vision fallbacks remain free and include explicit image models", () => {

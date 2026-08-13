@@ -4370,7 +4370,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.37.53";
+      const APP_VERSION = "1.37.54";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -4462,6 +4462,11 @@
           chartNote: "The AI analyzes only visible evidence and will not execute an order.",
           chartRemove: "Remove",
           chartIdle: "No order will be sent automatically.",
+          bitgetSend: "Send to Bitget",
+          bitgetReview: "Review real order",
+          bitgetOwnerOnly: "Real Bitget orders are available only on the authorized owner device.",
+          bitgetQueued: "Order queued for the VPS. Bitget and risk checks still apply.",
+          bitgetInvalidChart: "This chart does not contain a complete executable setup with numeric entry, SL and TP.",
           telegramTitle: "Telegram alerts",
           telegramOff: "Off. Configure Vercel, then enable alerts.",
           telegramOn: "On. New scanner calls will be sent automatically.",
@@ -4525,6 +4530,11 @@
           chartNote: "La IA analiza solo lo visible y no ejecutara ninguna orden.",
           chartRemove: "Quitar",
           chartIdle: "No se enviara ninguna orden automaticamente.",
+          bitgetSend: "Enviar a Bitget",
+          bitgetReview: "Revisar orden real",
+          bitgetOwnerOnly: "Las ordenes reales de Bitget solo estan disponibles en el dispositivo autorizado del propietario.",
+          bitgetQueued: "Orden enviada a la cola del VPS. Todavia se aplican las validaciones de Bitget y riesgo.",
+          bitgetInvalidChart: "Este grafico no contiene un setup ejecutable completo con entrada, SL y TP numericos.",
           telegramTitle: "Alertas de Telegram",
           telegramOff: "Apagadas. Configura Vercel y luego activalas.",
           telegramOn: "Activas. Las calls nuevas se enviaran automaticamente.",
@@ -7835,6 +7845,75 @@
         renderProServerHistory(state.history || []);
       }
 
+      function numericTradeLevel(value) {
+        const match = String(value ?? "").replaceAll(",", "").match(/-?\d+(?:\.\d+)?/);
+        const number = match ? Number(match[0]) : NaN;
+        return Number.isFinite(number) && number > 0 ? number : NaN;
+      }
+
+      function chartAnalysisToBitgetSignal(analysis) {
+        const pair = String(analysis?.asset || "").toUpperCase().replace(/\s*PERP\b/g, "").replace(/[^A-Z0-9]/g, "").replace(/USDTUSDT$/g, "USDT");
+        const targets = (analysis?.targets || []).map(numericTradeLevel).filter(Number.isFinite);
+        return {
+          id: `chart-${pair}-${Date.now()}`,
+          pair,
+          symbol: pair,
+          side: analysis?.signal,
+          entry: numericTradeLevel(analysis?.entry),
+          sl: numericTradeLevel(analysis?.stopLoss),
+          tp1: targets[0],
+          tp2: targets[1] || targets[0],
+          tp3: targets[2] || targets[1] || targets[0],
+          targets,
+          confidence: Number(analysis?.confidence || 0),
+          analysisIncomplete: analysis?.analysisIncomplete === true,
+          score: Math.max(8, Math.round(Number(analysis?.confidence || 0) / 10)),
+          reasons: [...(analysis?.visualEvidence || []), ...(analysis?.reasons || [])].slice(0, 5),
+          category: "Owner manual chart",
+          sourceKind: "chart-analysis"
+        };
+      }
+
+      function isManualBitgetSignalReady(signal) {
+        if (!signal || !["LONG", "SHORT"].includes(String(signal.side || "").toUpperCase())) return false;
+        if (!/^[A-Z0-9]{2,20}USDT$/.test(String(signal.pair || ""))) return false;
+        const entry = Number(signal.entry);
+        const sl = Number(signal.sl);
+        const tp1 = Number(signal.tp1);
+        if (![entry, sl, tp1].every((item) => Number.isFinite(item) && item > 0)) return false;
+        if (signal.analysisIncomplete === true || Number(signal.confidence || 100) < 70) return false;
+        return signal.side === "LONG" ? sl < entry && tp1 > entry : sl > entry && tp1 < entry;
+      }
+
+      async function reviewAndQueueBitgetSignal(signal, button = null) {
+        const spanish = resolvedLanguage() === "es";
+        if (!telegramOwnerAuthorized) {
+          showToast(tradeText("bitgetOwnerOnly"));
+          return;
+        }
+        if (!isManualBitgetSignalReady(signal)) {
+          showToast(tradeText("bitgetInvalidChart"));
+          return;
+        }
+        const fixedMargin = Math.max(1, Number(proServerState?.config?.fixedMarginUsd || document.getElementById("bitgetFixedMarginInput")?.value) || 5);
+        const maxMargin = Math.max(1, Number(proServerState?.config?.maxLiveMarginUsd || document.getElementById("bitgetMaxMarginInput")?.value) || 5);
+        const margin = Math.min(fixedMargin, maxMargin, 25);
+        const leverage = Math.max(1, Math.min(10, Number(signal.leverage || proServerState?.config?.leverage) || 3));
+        const summary = `${signal.pair} ${signal.side}\n${spanish ? "Margen" : "Margin"}: $${margin.toFixed(2)}\n${spanish ? "Apalancamiento" : "Leverage"}: ${leverage}x\n${spanish ? "Entrada" : "Entry"}: ${formatPrice(signal.entry)}\nTP1: ${formatPrice(signal.tp1)}\nSL: ${formatPrice(signal.sl)}\n\n${spanish ? "Esto puede abrir una orden REAL. El VPS volvera a validar precio, antiguedad, riesgo y disponibilidad." : "This can open a REAL order. The VPS will re-check price, freshness, risk and availability."}`;
+        if (!confirm(`${tradeText("bitgetReview")}\n\n${summary}`)) return;
+        if (!confirm(spanish ? "Confirmacion final: enviar esta orden REAL a la cola del VPS?" : "Final confirmation: send this REAL order to the VPS queue?")) return;
+        if (button) button.disabled = true;
+        try {
+          proServerState = await callProApi({ action: "executorTest", signal, plannedUsd: margin, leverage, mode: "owner-confirmed-live" });
+          renderProServerState(proServerState);
+          showToast(tradeText("bitgetQueued"));
+        } catch (error) {
+          showToast(error?.message || (spanish ? "No se pudo preparar la orden." : "The order could not be queued."));
+        } finally {
+          if (button) button.disabled = false;
+        }
+      }
+
       function renderMarketDirection(direction, spanish = resolvedLanguage() === "es") {
         const card = document.getElementById("marketDirectionCard");
         latestMarketDirection = direction && Number(direction.samples || 0) ? direction : null;
@@ -7989,10 +8068,19 @@
         appendChartList(result, spanish ? "Evidencia visual de esta captura" : "Visual evidence from this screenshot", analysis.visualEvidence);
         appendChartList(result, spanish ? "Razones" : "Reasons", analysis.reasons);
         appendChartList(result, spanish ? "Advertencias" : "Warnings", analysis.warnings);
+        const manualSignal = chartAnalysisToBitgetSignal(analysis);
+        if (telegramOwnerAuthorized && isManualBitgetSignalReady(manualSignal)) {
+          const sendButton = document.createElement("button");
+          sendButton.className = "pill-btn danger";
+          sendButton.type = "button";
+          sendButton.textContent = tradeText("bitgetSend");
+          sendButton.addEventListener("click", () => reviewAndQueueBitgetSignal(manualSignal, sendButton));
+          result.append(sendButton);
+        }
         const safety = document.createElement("p");
         safety.textContent = spanish
-          ? "Solo analisis de la captura. No ejecuta trades ni confirma precio en vivo."
-          : "Screenshot analysis only. It does not execute trades or confirm a live price.";
+          ? "El analisis no ejecuta nada por si solo. El boton requiere dos confirmaciones y el VPS valida el precio en vivo antes de cualquier orden."
+          : "The analysis never executes by itself. The button requires two confirmations and the VPS validates live price before any order.";
         result.append(safety);
         result.hidden = false;
       }
@@ -12349,6 +12437,20 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
           why.className = "signal-why";
           why.textContent = signal.summary || signal.reasons.join(", ");
           card.append(top, grid, reasons, why, note);
+          const manualSignal = {
+            ...signal,
+            pair: String(signal.pair || signal.symbol || "").toUpperCase().replace(/\s*PERP\b/g, "").replace(/[^A-Z0-9]/g, "").replace(/USDTUSDT$/g, "USDT"),
+            confidence: Number(signal.confidence === "A" ? 90 : signal.confidence === "B" ? 80 : signal.confidence || 100),
+            sourceKind: "listed-signal"
+          };
+          if (telegramOwnerAuthorized && isManualBitgetSignalReady(manualSignal)) {
+            const sendButton = document.createElement("button");
+            sendButton.className = "pill-btn danger";
+            sendButton.type = "button";
+            sendButton.textContent = tradeText("bitgetSend");
+            sendButton.addEventListener("click", () => reviewAndQueueBitgetSignal(manualSignal, sendButton));
+            card.append(sendButton);
+          }
           els.signalList.append(card);
         });
       }

@@ -199,6 +199,31 @@ async function main() {
       break;
     }
 
+    if (settings.mode === "live" && signal.manualTest === true) {
+      const livePrice = await fetchBitgetTickerPrice(bitgetSymbolForSignal(signal)).catch(() => NaN);
+      if (!Number.isFinite(livePrice) || livePrice <= 0) {
+        rememberSkip(state, signal, "manual order live price unavailable");
+        recordRejection(decisions, "manual order live price unavailable", signal);
+        console.log(`${LOG_PREFIX} reject ${signal.pair}: manual order live price unavailable`);
+        continue;
+      }
+      signal.currentPrice = livePrice / (Number(signal.contractMultiplier) || 1);
+      const referenceEntry = Number(signal.entry);
+      const liveDrift = Math.abs((signal.currentPrice - referenceEntry) / referenceEntry) * 100;
+      const maxDrift = effectiveTraderProfile(policy).maxEntryDriftPercent;
+      const liveGeometryOk = String(signal.side).toUpperCase() === "LONG"
+        ? Number(signal.sl) < signal.currentPrice && Number(signal.tp1) > signal.currentPrice
+        : Number(signal.tp1) < signal.currentPrice && Number(signal.sl) > signal.currentPrice;
+      if (!Number.isFinite(liveDrift) || liveDrift > maxDrift || !liveGeometryOk) {
+        const reason = !liveGeometryOk
+          ? "manual order levels invalid at live price"
+          : `manual order live drift ${liveDrift.toFixed(2)}% > ${maxDrift}%`;
+        rememberSkip(state, signal, reason);
+        recordRejection(decisions, reason, signal);
+        console.log(`${LOG_PREFIX} reject ${signal.pair}: ${reason}`);
+        continue;
+      }
+    }
     const plan = buildOrderPlan(signal, contracts, marketContext, policy, accountRisk);
     if (!plan.ok) {
       rememberSkip(state, signal, plan.reason);
@@ -1489,6 +1514,16 @@ function pruneState(state) {
 
 function createExecutorState() {
   return { version: 6, updatedAt: null, seen: {}, orders: [], daily: normalizeDailyState({}), symbolLearning: {}, categoryLearning: {}, rejectedSymbols: {}, learnedEvents: {}, lastOutcomeEvents: [], lastDecisionSummary: createDecisionSummary([], []), lastMarketDirection: null, aiExperiment: normalizeAiSimulationExperiment({}) };
+}
+
+async function fetchBitgetTickerPrice(symbol) {
+  if (!symbol) return NaN;
+  const response = await fetch(`https://api.bitget.com/api/v2/mix/market/ticker?productType=${encodeURIComponent(settings.productType)}&symbol=${encodeURIComponent(symbol)}`);
+  if (!response.ok) throw new Error(`Bitget ticker ${response.status}`);
+  const body = await response.json();
+  if (body?.code && body.code !== "00000") throw new Error(body?.msg || `Bitget ticker ${body.code}`);
+  const row = Array.isArray(body?.data) ? body.data[0] : body?.data;
+  return firstFiniteNumber(row?.lastPr, row?.markPrice, row?.indexPrice);
 }
 
 async function reportExecutorStatus(payload) {
