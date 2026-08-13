@@ -725,6 +725,13 @@ test("owner manual Bitget signals require complete numeric crypto levels", () =>
   }), /70%/);
 });
 
+test("manual Bitget UI waits for a versioned VPS safety handshake", () => {
+  const proSource = readFileSync(new URL("../lib/pro-signals.js", import.meta.url), "utf8");
+  const executorSource = readFileSync(new URL("../scripts/bitget-executor.mjs", import.meta.url), "utf8");
+  assert.match(proSource, /manualOrderVersion !== 1/);
+  assert.match(executorSource, /manualOrderVersion: 1/);
+});
+
 test("chart vision fallbacks remain free and include explicit image models", () => {
   assert.equal(chartVisionModels()[0], "openrouter/free");
   const models = chartVisionModels("paid/model,google/gemma-4-26b-a4b-it:free");

@@ -1568,6 +1568,7 @@ function statusPayload(state, overrides = {}) {
     lastAction: overrides.lastAction || state.lastAction || "",
     lastError: overrides.lastError || "",
     bitgetSynced: state.bitgetSynced === true,
+    manualOrderVersion: 1,
     effectivePolicy: {
       maxOpen: Number(state.effectivePolicy?.maxOpen || settings.maxOpen),
       maxNewOrdersPerRun: Number(state.effectivePolicy?.maxNewOrdersPerRun || settings.maxNewOrdersPerRun),
