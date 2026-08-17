@@ -1175,6 +1175,7 @@ async function reconcileBitgetPositions(state, policy = {}) {
       order.status = "CLOSED_UNKNOWN";
       order.closedAt = new Date().toISOString();
       const inferredOutcome = inferClosedOrderOutcome(order, policy);
+      order.reconciledOutcome = inferredOutcome || "unknown";
       if (inferredOutcome) learnFromSignalOutcome(state, order, inferredOutcome, policy, "bitget-position-sync");
       if (order.id) delete state.seen[order.id];
     }
@@ -1425,14 +1426,16 @@ function positionRoe(position, order) {
   return margin > 0 ? (pnl / margin) * 100 : NaN;
 }
 
-function inferClosedOrderOutcome(order = {}, policy = {}) {
-  const exit = effectiveExitSettings(policy);
-  const currentRoe = Number(order.currentRoe || 0);
-  const maxRoe = Number(order.maxRoe || 0);
-  if (order.protectionActive === true || maxRoe >= Number(exit.protectionTriggerRoe || settings.exitProtectionTriggerRoe)) return "win";
+export function inferClosedOrderOutcome(order = {}, policy = {}) {
+  const currentRoe = Number(order.currentRoe);
+  const explicitResult = `${order.status || ""} ${order.exitReason || ""}`;
+  if (/WIN|\bTP\b|take profit|protected ROE lock/i.test(explicitResult)) return "win";
+  if (/LOSS|\bSL\b|INVALID/i.test(explicitResult)) return "loss";
   if (Number.isFinite(currentRoe) && currentRoe <= -1) return "loss";
-  if (/WIN|TP/i.test(String(order.status || order.exitReason || ""))) return "win";
-  if (/LOSS|SL|INVALID/i.test(String(order.status || order.exitReason || ""))) return "loss";
+  // A protection acknowledgement or a previously positive ROE is not a fill.
+  // Bitget can later close the position at a loss because of fees, slippage, or
+  // a stop that did not remain active. Keep the outcome unknown until the
+  // exchange supplies a realized result instead of training on a false win.
   return "";
 }
 
@@ -1709,6 +1712,7 @@ function compactOrder(order) {
     currentRoe: Number(order.currentRoe || 0),
     maxRoe: Number(order.maxRoe || 0),
     protectionActive: order.protectionActive === true,
+    reconciledOutcome: order.reconciledOutcome || "",
     exitReason: order.exitReason || "",
     score: Number(order.score || 0),
     category: String(order.category || "").slice(0, 80),

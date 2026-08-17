@@ -33,6 +33,7 @@ import {
 import { createWalletRegistry, walletEvent } from "../lib/wallet-standard-registry.js";
 import { buildBoostPlan, JDMAJ_BOOST_CATALOG } from "../lib/fair-launch-boost.js";
 import { buildChronologicalValidation } from "../lib/pro-backtest.js";
+import { inferClosedOrderOutcome } from "../scripts/bitget-executor.mjs";
 import { FAIR_LAUNCH_LOCALES, FAIR_LAUNCH_LOCALE_KEYS } from "../lib/fair-launch-locales.js";
 import {
   FAIR_LAUNCH_UI_KEYS,
@@ -730,6 +731,25 @@ test("manual Bitget UI waits for a versioned VPS safety handshake", () => {
   const executorSource = readFileSync(new URL("../scripts/bitget-executor.mjs", import.meta.url), "utf8");
   assert.match(proSource, /manualOrderVersion !== 1/);
   assert.match(executorSource, /manualOrderVersion: 1/);
+});
+
+test("protected Bitget positions are not learned as wins without a realized result", () => {
+  assert.equal(inferClosedOrderOutcome({
+    status: "CLOSED_UNKNOWN",
+    protectionActive: true,
+    maxRoe: 10.36,
+    currentRoe: 4.2
+  }), "");
+  assert.equal(inferClosedOrderOutcome({
+    status: "CLOSED_UNKNOWN",
+    protectionActive: true,
+    maxRoe: 10.36,
+    currentRoe: -2.1
+  }), "loss");
+  assert.equal(inferClosedOrderOutcome({
+    status: "CLOSED_BY_EXIT_MANAGER",
+    exitReason: "ROE take profit 10%"
+  }), "win");
 });
 
 test("chart vision fallbacks remain free and include explicit image models", () => {
