@@ -33,7 +33,11 @@ import {
 import { createWalletRegistry, walletEvent } from "../lib/wallet-standard-registry.js";
 import { buildBoostPlan, JDMAJ_BOOST_CATALOG } from "../lib/fair-launch-boost.js";
 import { buildChronologicalValidation } from "../lib/pro-backtest.js";
-import { inferClosedOrderOutcome } from "../scripts/bitget-executor.mjs";
+import {
+  inferClosedOrderOutcome,
+  pendingProtectionDecision,
+  summarizeRealizedFills
+} from "../scripts/bitget-executor.mjs";
 import { FAIR_LAUNCH_LOCALES, FAIR_LAUNCH_LOCALE_KEYS } from "../lib/fair-launch-locales.js";
 import {
   FAIR_LAUNCH_UI_KEYS,
@@ -750,6 +754,51 @@ test("protected Bitget positions are not learned as wins without a realized resu
     status: "CLOSED_BY_EXIT_MANAGER",
     exitReason: "ROE take profit 10%"
   }), "win");
+});
+
+test("Bitget realized fills override optimistic protection assumptions", () => {
+  const realized = summarizeRealizedFills([
+    {
+      symbol: "LINKUSDT",
+      side: "buy",
+      tradeSide: "buy_single",
+      profit: "0",
+      cTime: "1000",
+      feeDetail: [{ feeCoin: "USDT", totalFee: "-0.01" }]
+    },
+    {
+      symbol: "LINKUSDT",
+      side: "sell",
+      tradeSide: "sell_single",
+      profit: "-0.20",
+      cTime: "2000",
+      feeDetail: [{ feeCoin: "USDT", totalFee: "-0.02" }]
+    }
+  ], { symbol: "LINKUSDT", side: "LONG" }, 500, 2500);
+  assert.equal(realized.outcome, "loss");
+  assert.equal(realized.grossPnl, -0.2);
+  assert.equal(realized.marginFee, -0.02);
+  assert.equal(realized.netPnl, -0.22);
+  assert.equal(realized.fillCount, 1);
+});
+
+test("Bitget protection acknowledgement must also exist in pending TP SL orders", () => {
+  const verified = pendingProtectionDecision([{
+    orderId: "stop-1",
+    symbol: "LINKUSDT",
+    posSide: "long",
+    planStatus: "live",
+    stopLossTriggerPrice: "9.509"
+  }], { symbol: "LINKUSDT", side: "LONG" }, "stop-1", 9.509);
+  assert.equal(verified.verified, true);
+  assert.equal(pendingProtectionDecision([{
+    orderId: "stop-2",
+    symbol: "LINKUSDT",
+    posSide: "net",
+    planStatus: "not_trigger",
+    triggerPrice: "9.509"
+  }], { symbol: "LINKUSDT", side: "LONG" }, "stop-2", 9.509).verified, true);
+  assert.equal(pendingProtectionDecision([], { symbol: "LINKUSDT", side: "LONG" }, "stop-1", 9.509).verified, false);
 });
 
 test("chart vision fallbacks remain free and include explicit image models", () => {

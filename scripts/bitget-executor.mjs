@@ -1174,10 +1174,22 @@ async function reconcileBitgetPositions(state, policy = {}) {
     if (!liveSymbols.has(order.symbol)) {
       order.status = "CLOSED_UNKNOWN";
       order.closedAt = new Date().toISOString();
-      const inferredOutcome = inferClosedOrderOutcome(order, policy);
-      order.reconciledOutcome = inferredOutcome || "unknown";
-      if (inferredOutcome) learnFromSignalOutcome(state, order, inferredOutcome, policy, "bitget-position-sync");
+      order.reconciledOutcome = "pending";
       if (order.id) delete state.seen[order.id];
+    }
+  }
+  const pendingRealized = state.orders
+    .filter((order) => shouldReconcileRealizedOrder(order))
+    .sort((a, b) => Date.parse(a.closedAt || "") - Date.parse(b.closedAt || ""));
+  for (const order of pendingRealized) {
+    order.realizedReconcileAttempts = Number(order.realizedReconcileAttempts || 0) + 1;
+    order.realizedReconcileLastAt = new Date().toISOString();
+    try {
+      const realized = await fetchRealizedOrderResult(order);
+      if (!realized) continue;
+      applyRealizedOrderResult(state, order, realized, policy);
+    } catch (error) {
+      order.realizedReconcileError = String(error?.message || error).slice(0, 180);
     }
   }
   state.bitgetSynced = true;
@@ -1316,15 +1328,35 @@ async function manageLiveExits(state, positions, events = [], policy = {}) {
           console.warn(`${LOG_PREFIX} ${state.lastExitAction}`);
         }
       }
-      if ((!order.protectionActive || !order.protectionBitgetConfirmedAt) && order.currentRoe >= exit.protectionTriggerRoe) {
+      if (order.protectionActive && !order.protectionBitgetConfirmedAt && order.protectionPendingOrderId) {
+        const verification = await verifyProtectionOnBitget(order, order.protectionPendingOrderId, order.protectionPrice).catch((error) => ({
+          verified: false,
+          error: error?.message || String(error)
+        }));
+        order.protectionVerificationAttempts = Number(order.protectionVerificationAttempts || 0) + 1;
+        order.protectionVerificationLastAt = new Date().toISOString();
+        if (verification.verified) {
+          order.protectionBitgetConfirmedAt = new Date().toISOString();
+          order.protectionVerificationError = "";
+        } else {
+          order.protectionVerificationError = String(verification.error || "protected stop not visible on Bitget").slice(0, 180);
+        }
+      }
+      if (!order.protectionActive && order.currentRoe >= exit.protectionTriggerRoe) {
         try {
           const protection = await placeProtectedStopLoss(order, position, exit);
           order.protectionActive = true;
           order.protectionActivatedAt = order.protectionActivatedAt || new Date().toISOString();
-          order.protectionBitgetConfirmedAt = new Date().toISOString();
           order.protectionPrice = protection.price;
           order.protectionResponse = protection.result;
-          state.lastExitAction = `exit manager protected ${order.pair || order.symbol} on Bitget at ${order.currentRoe}% ROE`;
+          order.protectionPendingOrderId = protection.orderId || "";
+          order.protectionBitgetConfirmedAt = protection.verification?.verified ? new Date().toISOString() : "";
+          order.protectionVerificationError = protection.verification?.verified
+            ? ""
+            : String(protection.verification?.error || "protected stop pending verification").slice(0, 180);
+          state.lastExitAction = protection.verification?.verified
+            ? `exit manager protected ${order.pair || order.symbol} on Bitget at ${order.currentRoe}% ROE`
+            : `exit manager protection acknowledged but unverified ${order.pair || order.symbol}`;
           state.lastAction = state.lastExitAction;
           console.log(`${LOG_PREFIX} ${state.lastExitAction} price=${protection.price}`);
         } catch (error) {
@@ -1400,7 +1432,40 @@ async function placeProtectedStopLoss(order, position = {}, exit = {}) {
     result = await bitgetRequest("POST", "/api/v2/mix/order/place-tpsl-order", fallback);
   }
   if (result?.code && result.code !== "00000") throw new Error(`Bitget protection rejected ${order.pair || order.symbol}: ${result?.msg || result.code}`);
-  return { price: Number(triggerPrice), result };
+  const orderId = String(result?.data?.orderId || "");
+  const verification = orderId
+    ? await verifyProtectionOnBitget(order, orderId, Number(triggerPrice)).catch((error) => ({ verified: false, error: error?.message || String(error) }))
+    : { verified: false, error: "Bitget protection response omitted orderId" };
+  return { price: Number(triggerPrice), result, orderId, verification };
+}
+
+async function verifyProtectionOnBitget(order, orderId, triggerPrice) {
+  const requestPath = "/api/v2/mix/order/orders-plan-pending"
+    + `?orderId=${encodeURIComponent(orderId)}`
+    + `&planType=profit_loss&productType=${encodeURIComponent(settings.productType)}`;
+  const result = await bitgetRequest("GET", requestPath);
+  if (result?.code && result.code !== "00000") {
+    return { verified: false, error: `Bitget protection verification rejected: ${result?.msg || result.code}` };
+  }
+  return pendingProtectionDecision(result?.data?.entrustedList, order, orderId, triggerPrice);
+}
+
+export function pendingProtectionDecision(items, order = {}, orderId = "", triggerPrice = NaN) {
+  const wantedSymbol = String(order.symbol || "").toUpperCase();
+  const wantedHold = order.side === "LONG" ? "long" : order.side === "SHORT" ? "short" : "";
+  const match = (Array.isArray(items) ? items : []).find((item) => {
+    const itemPrice = firstFiniteNumber(item.stopLossTriggerPrice, item.triggerPrice);
+    const samePrice = !Number.isFinite(Number(triggerPrice))
+      || (Number.isFinite(itemPrice) && Math.abs(itemPrice - Number(triggerPrice)) <= Math.max(1e-12, Number(triggerPrice) * 1e-6));
+    return String(item.orderId || "") === String(orderId || "")
+      && (!wantedSymbol || String(item.symbol || "").toUpperCase() === wantedSymbol)
+      && (!wantedHold || !item.posSide || [wantedHold, "net"].includes(String(item.posSide).toLowerCase()))
+      && ["live", "not_trigger", "not_triggered"].includes(String(item.planStatus || "live").toLowerCase())
+      && samePrice;
+  });
+  return match
+    ? { verified: true, orderId: String(match.orderId || orderId), triggerPrice: firstFiniteNumber(match.stopLossTriggerPrice, match.triggerPrice) }
+    : { verified: false, error: "protected stop is not present in Bitget pending TP/SL orders" };
 }
 
 function protectedStopPrice(order, position = {}, exit = {}) {
@@ -1437,6 +1502,86 @@ export function inferClosedOrderOutcome(order = {}, policy = {}) {
   // a stop that did not remain active. Keep the outcome unknown until the
   // exchange supplies a realized result instead of training on a false win.
   return "";
+}
+
+function shouldReconcileRealizedOrder(order = {}) {
+  if (!order.symbol || !order.closedAt || order.realizedOutcomeSource) return false;
+  if (!["CLOSED_UNKNOWN", "CLOSED_BY_EXIT_MANAGER"].includes(String(order.status || ""))) return false;
+  const lastAttempt = Date.parse(order.realizedReconcileLastAt || "");
+  return !Number.isFinite(lastAttempt) || Date.now() - lastAttempt >= 60_000;
+}
+
+async function fetchRealizedOrderResult(order = {}) {
+  const startedAt = Date.parse(order.createdAt || "");
+  const closedAt = Date.parse(order.closedAt || "") || Date.now();
+  if (!Number.isFinite(startedAt)) return null;
+  const requestPath = "/api/v2/mix/order/fills"
+    + `?symbol=${encodeURIComponent(order.symbol)}`
+    + `&productType=${encodeURIComponent(settings.productType)}`
+    + `&startTime=${Math.max(0, startedAt - 60_000)}`
+    + `&endTime=${Math.min(Date.now(), closedAt + 60_000)}`
+    + "&limit=100";
+  const result = await bitgetRequest("GET", requestPath);
+  if (result?.code && result.code !== "00000") throw new Error(`Bitget fills rejected: ${result?.msg || result.code}`);
+  return summarizeRealizedFills(result?.data?.fillList, order, startedAt, closedAt + 60_000);
+}
+
+export function summarizeRealizedFills(items, order = {}, startedAt = 0, endedAt = Date.now()) {
+  const wantedSymbol = String(order.symbol || "").toUpperCase();
+  const wantedCloseSide = order.side === "LONG" ? "sell" : order.side === "SHORT" ? "buy" : "";
+  const fills = (Array.isArray(items) ? items : []).filter((item) => {
+    const timestamp = Number(item.cTime || 0);
+    const tradeSide = String(item.tradeSide || "").toLowerCase();
+    const explicitClose = tradeSide === "close" || /close|reduce|burst|offset|delivery|adl/.test(tradeSide);
+    const oneWayClose = /_single$/.test(tradeSide) && (!wantedCloseSide || String(item.side || "").toLowerCase() === wantedCloseSide);
+    return (!wantedSymbol || String(item.symbol || "").toUpperCase() === wantedSymbol)
+      && timestamp >= Number(startedAt || 0)
+      && timestamp <= Number(endedAt || Date.now())
+      && (explicitClose || oneWayClose);
+  });
+  if (!fills.length) return null;
+  const grossPnl = fills.reduce((sum, item) => sum + (Number(item.profit) || 0), 0);
+  const feesByCoin = {};
+  for (const fill of fills) {
+    for (const fee of (Array.isArray(fill.feeDetail) ? fill.feeDetail : [])) {
+      const coin = String(fee.feeCoin || "UNKNOWN").toUpperCase();
+      feesByCoin[coin] = (feesByCoin[coin] || 0) + (Number(fee.totalFee) || 0);
+    }
+  }
+  const marginFee = Number(feesByCoin[String(settings.marginCoin || "USDT").toUpperCase()] || 0);
+  const netPnl = grossPnl + marginFee;
+  const outcome = netPnl > 0 ? "win" : netPnl < 0 ? "loss" : "flat";
+  return {
+    outcome,
+    grossPnl: Number(grossPnl.toFixed(8)),
+    marginFee: Number(marginFee.toFixed(8)),
+    netPnl: Number(netPnl.toFixed(8)),
+    feesByCoin,
+    fillCount: fills.length,
+    lastFillAt: new Date(Math.max(...fills.map((item) => Number(item.cTime || 0)))).toISOString()
+  };
+}
+
+function applyRealizedOrderResult(state, order, realized, policy = {}) {
+  order.realizedGrossPnl = realized.grossPnl;
+  order.realizedMarginFee = realized.marginFee;
+  order.realizedNetPnl = realized.netPnl;
+  order.realizedFeesByCoin = realized.feesByCoin;
+  order.realizedFillCount = realized.fillCount;
+  order.realizedAt = realized.lastFillAt;
+  order.reconciledOutcome = realized.outcome;
+  order.realizedOutcomeSource = "bitget-fills";
+  order.realizedReconcileError = "";
+  if (["win", "loss"].includes(realized.outcome)) {
+    learnFromSignalOutcome(state, order, realized.outcome, policy, "bitget-realized-fills");
+  }
+  state.daily = normalizeDailyState(state.daily);
+  if (String(realized.lastFillAt || "").slice(0, 10) === state.daily.day) {
+    state.daily.realizedPnl = Number((Number(state.daily.realizedPnl || 0) + Number(realized.netPnl || 0)).toFixed(8));
+    state.daily.consecutiveLosses = realized.outcome === "loss"
+      ? Number(state.daily.consecutiveLosses || 0) + 1
+      : realized.outcome === "win" ? 0 : Number(state.daily.consecutiveLosses || 0);
+  }
 }
 
 function eventMatchesOrder(event, order) {
@@ -1712,7 +1857,13 @@ function compactOrder(order) {
     currentRoe: Number(order.currentRoe || 0),
     maxRoe: Number(order.maxRoe || 0),
     protectionActive: order.protectionActive === true,
+    protectionBitgetConfirmed: Boolean(order.protectionBitgetConfirmedAt),
+    protectionVerificationError: order.protectionVerificationError || "",
     reconciledOutcome: order.reconciledOutcome || "",
+    realizedNetPnl: Number(order.realizedNetPnl || 0),
+    realizedGrossPnl: Number(order.realizedGrossPnl || 0),
+    realizedMarginFee: Number(order.realizedMarginFee || 0),
+    realizedOutcomeSource: order.realizedOutcomeSource || "",
     exitReason: order.exitReason || "",
     score: Number(order.score || 0),
     category: String(order.category || "").slice(0, 80),
