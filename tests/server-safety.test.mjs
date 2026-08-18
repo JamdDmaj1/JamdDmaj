@@ -432,6 +432,17 @@ test("Fair Launch additions have complete locale parity", () => {
   usedKeys.forEach((key) => assert.ok(FAIR_LAUNCH_LOCALE_KEYS.includes(key), `Unknown Fair Launch locale key: ${key}`));
 });
 
+test("visible app copy does not contain common UTF-8 mojibake", () => {
+  const visibleSources = [
+    readFileSync(new URL("../index.html", import.meta.url), "utf8"),
+    readFileSync(new URL("../fair-launch-ui.js", import.meta.url), "utf8"),
+    readFileSync(new URL("../lib/fair-launch-ui-copy.js", import.meta.url), "utf8"),
+    readFileSync(new URL("../lib/fair-launch-locales.js", import.meta.url), "utf8")
+  ];
+  const mojibake = /(?:Ã.|Â.|â(?:€|œ|€¦|€™|€“|€”|†|‡)|ðŸ)/u;
+  visibleSources.forEach((source) => assert.doesNotMatch(source, mojibake));
+});
+
 test("Fair Launch creator copy never mixes partial locale catalogs", () => {
   assert.deepEqual(Object.keys(FAIR_LAUNCH_UI_LOCALES).sort(), ["en", "es"]);
   for (const [locale, catalog] of Object.entries(FAIR_LAUNCH_UI_LOCALES)) {
