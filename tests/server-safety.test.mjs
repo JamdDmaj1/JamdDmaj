@@ -34,6 +34,7 @@ import { createWalletRegistry, walletEvent } from "../lib/wallet-standard-regist
 import { buildBoostPlan, JDMAJ_BOOST_CATALOG } from "../lib/fair-launch-boost.js";
 import { buildChronologicalValidation } from "../lib/pro-backtest.js";
 import {
+  automaticEntryQualityDecision,
   bitgetCloseDecision,
   executorDayKey,
   exitLevelDecision,
@@ -41,6 +42,7 @@ import {
   initialStopFailSafeDecision,
   pendingProtectionDecision,
   protectionFailSafeDecision,
+  selectRecentOpenSignals,
   summarizeRealizedFills
 } from "../scripts/bitget-executor.mjs";
 import { FAIR_LAUNCH_LOCALES, FAIR_LAUNCH_LOCALE_KEYS } from "../lib/fair-launch-locales.js";
@@ -885,6 +887,40 @@ test("an initial stop that Bitget cannot verify fails closed", () => {
     initialStopVerificationAttempts: 9,
     initialStopBitgetConfirmedAt: "2026-08-18T20:00:00.000Z"
   }).close, false);
+});
+
+test("automatic live trading accepts only conservative fully confirmed setups", () => {
+  const ready = {
+    side: "LONG",
+    score: 13.5,
+    marketAlignment: "with-market",
+    higherTrend: "bullish 4h alignment",
+    microTrend: "bullish 15m alignment",
+    volumeRatio: 1.3,
+    adx: 26,
+    spreadPercent: 0.0015,
+    liquidity24h: 25_000_000
+  };
+  const gate = { minLiquidityUsd: 3_000_000 };
+  assert.equal(automaticEntryQualityDecision(ready, gate).ok, true);
+  assert.match(automaticEntryQualityDecision({ ...ready, marketAlignment: "counter-market" }, gate).reason, /counter\/neutral/);
+  assert.match(automaticEntryQualityDecision({ ...ready, microTrend: "bearish" }, gate).reason, /15m alignment/);
+  assert.match(automaticEntryQualityDecision({ ...ready, volumeRatio: 1.1 }, gate).reason, /volume/);
+  assert.match(automaticEntryQualityDecision({ ...ready, adx: 18 }, gate).reason, /ADX/);
+  assert.match(automaticEntryQualityDecision({ ...ready, spreadPercent: 0 }, gate).reason, /spread/);
+  assert.match(automaticEntryQualityDecision({ ...ready, liquidity24h: 0 }, gate).reason, /liquidity/);
+});
+
+test("recent open signals cannot bypass the Bitget-ready gate", () => {
+  const now = Date.parse("2026-08-19T20:00:00.000Z");
+  const base = { status: "OPEN", createdAt: "2026-08-19T19:58:00.000Z" };
+  const selected = selectRecentOpenSignals([
+    { ...base, id: "ready", bitgetEligible: true },
+    { ...base, id: "watch-only", bitgetEligible: false },
+    { ...base, id: "missing-flag" },
+    { ...base, id: "closed", status: "CLOSED", bitgetEligible: true }
+  ], 5, now);
+  assert.deepEqual(selected.map((signal) => signal.id), ["ready"]);
 });
 
 test("chart vision fallbacks remain free and include explicit image models", () => {

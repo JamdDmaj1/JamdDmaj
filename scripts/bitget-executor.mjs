@@ -314,12 +314,11 @@ async function fetchClientFeed() {
   return body;
 }
 
-function selectRecentOpenSignals(openSignals, minutes) {
+export function selectRecentOpenSignals(openSignals, minutes, now = Date.now()) {
   if (!Array.isArray(openSignals)) return [];
-  const now = Date.now();
   const cutoff = now - (Number(minutes) || 20) * 60000;
   return openSignals
-    .filter((signal) => signal && signal.status === "OPEN")
+    .filter((signal) => signal && signal.status === "OPEN" && signal.bitgetEligible === true)
     .filter((signal) => {
       const created = Date.parse(signal.createdAt || "");
       return Number.isFinite(created) && created >= cutoff;
@@ -468,13 +467,19 @@ function executableDecision(signal, state, policy = {}, marketContext = null) {
   const minScore = gate.strictMinScore;
   if (signal.manualTest === true) {
     if (Number(signal.score || 0) < 8) return { ok: false, reason: "manual test score below 8" };
-  } else if (Number(signal.score) < minScore) {
-    return { ok: false, reason: `score below ${minScore}` };
+  } else {
+    if (signal.bitgetEligible !== true) return { ok: false, reason: "signal is not Bitget-ready" };
+    const liveQuality = automaticEntryQualityDecision(signal, gate);
+    if (!liveQuality.ok) return liveQuality;
+    if (Number(signal.score) < minScore) return { ok: false, reason: `score below ${minScore}` };
   }
   if (!gate.allowMemeLive && /meme/i.test(String(signal.category || ""))) return { ok: false, reason: "meme live disabled" };
   const liquidity = Number(signal.quoteVolume || signal.liquidityUsd || signal.liquidity24h || 0);
   const minLiquidity = Number(gate.minLiquidityUsd || settings.minLiquidityUsd);
-  if (liquidity && liquidity < minLiquidity) return { ok: false, reason: `liquidity below ${minLiquidity}` };
+  if (signal.manualTest !== true) {
+    if (!Number.isFinite(liquidity) || liquidity <= 0) return { ok: false, reason: "liquidity unavailable" };
+    if (liquidity < minLiquidity) return { ok: false, reason: `liquidity below ${minLiquidity}` };
+  }
   if (!["LONG", "SHORT"].includes(String(signal.side).toUpperCase())) return { ok: false, reason: "invalid side" };
   const gateDecision = marketGateDecision(signal, gate);
   if (!gateDecision.ok) return gateDecision;
@@ -780,6 +785,41 @@ function marketAlignmentRank(signal = {}, gate = {}) {
   }
   if (/btc-led|risk-on/i.test(String(gate?.regime || "")) && side === "LONG") return directionBonus + (core ? 0.75 : 0.35);
   return directionBonus;
+}
+
+export function automaticEntryQualityDecision(signal = {}, gate = {}) {
+  const side = String(signal.side || "").toUpperCase();
+  const expectedTrend = side === "LONG" ? "bullish" : side === "SHORT" ? "bearish" : "";
+  const score = Number(signal.score || 0);
+  const volumeRatio = Number(signal.volumeRatio || 0);
+  const adxValue = Number(signal.adx || 0);
+  const spread = Number(signal.spreadPercent || signal.spread || 0);
+  const liquidity = Number(signal.quoteVolume || signal.liquidityUsd || signal.liquidity24h || 0);
+  const minimumLiquidity = Math.max(1, Number(gate.minLiquidityUsd || settings.minLiquidityUsd));
+  if (!expectedTrend) return { ok: false, reason: "invalid side" };
+  if (score < 13) return { ok: false, reason: "conservative live score below 13" };
+  if (String(signal.marketAlignment || "").toLowerCase() !== "with-market") {
+    return { ok: false, reason: "conservative live blocks counter/neutral market trades" };
+  }
+  if (!String(signal.higherTrend || "").toLowerCase().includes(expectedTrend)) {
+    return { ok: false, reason: `conservative live needs ${expectedTrend} 4h alignment` };
+  }
+  if (!String(signal.microTrend || "").toLowerCase().includes(expectedTrend)) {
+    return { ok: false, reason: `conservative live needs ${expectedTrend} 15m alignment` };
+  }
+  if (!Number.isFinite(volumeRatio) || volumeRatio < 1.2) {
+    return { ok: false, reason: "conservative live volume below 1.20x" };
+  }
+  if (!Number.isFinite(adxValue) || adxValue < 22) {
+    return { ok: false, reason: "conservative live ADX below 22" };
+  }
+  if (!Number.isFinite(spread) || spread <= 0 || spread > 0.0025) {
+    return { ok: false, reason: "conservative live spread unavailable or above 0.25%" };
+  }
+  if (!Number.isFinite(liquidity) || liquidity < minimumLiquidity) {
+    return { ok: false, reason: `conservative live liquidity below ${minimumLiquidity}` };
+  }
+  return { ok: true, reason: "passed conservative automatic entry gate" };
 }
 
 export function evaluateAiSimulationVariant(signal = {}, baselineDecision = { ok: true }, categoryLearning = {}, now = Date.now()) {

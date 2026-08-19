@@ -98,6 +98,17 @@ function safeSignal(signal = {}) {
     momentum6h: Number(signal.momentum6h || 0),
     trend: String(signal.trend || "").slice(0, 80),
     higherTrend: String(signal.higherTrend || "").slice(0, 80),
+    microTrend: String(signal.microTrend || "").slice(0, 80),
+    microRsi: Number(signal.microRsi || 0),
+    marketAlignment: String(signal.marketAlignment || "").slice(0, 30),
+    marketDirection: signal.marketDirection && typeof signal.marketDirection === "object" ? {
+      bias: String(signal.marketDirection.bias || "").slice(0, 20),
+      strength: String(signal.marketDirection.strength || "").slice(0, 20),
+      label: String(signal.marketDirection.label || "").slice(0, 60),
+      score: Number(signal.marketDirection.score || 0),
+      bullishPercent: Number(signal.marketDirection.bullishPercent || 0),
+      bearishPercent: Number(signal.marketDirection.bearishPercent || 0)
+    } : null,
     setupType: String(signal.setupType || "trend-continuation").slice(0, 40),
     momentumBreakout: signal.momentumBreakout === true,
     riskFlags: Array.isArray(signal.riskFlags) ? signal.riskFlags.slice(0, 6).map((item) => String(item).slice(0, 40)) : [],
