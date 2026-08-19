@@ -55,7 +55,7 @@ async function maybeSendExitManagerAlert(input) {
   const chatId = String(process.env.TELEGRAM_CHAT_ID || "").trim();
   if (!token || !chatId || String(input?.mode || "").toLowerCase() !== "live") return;
   const action = String(input?.exitManager?.lastAction || input?.lastAction || "").trim();
-  if (!/^exit manager (protected|closed|close failed)/i.test(action)) return;
+  if (!/^(?:exit manager (?:protected|closed|close failed|protection failed|take-profit close failed)|exit safety block)/i.test(action)) return;
   const key = action.replace(/[^a-zA-Z0-9:_-]/g, "_").slice(0, 180);
   const claimed = await redisRequest("pipeline", [["SET", EXECUTOR_EXIT_ALERT_PREFIX + key, new Date().toISOString(), "NX", "EX", 604800]]);
   if (claimed?.[0]?.result !== "OK") return;

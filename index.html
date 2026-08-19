@@ -8173,6 +8173,7 @@
           rows.push([spanish ? "Auto risk" : "Auto risk", "equity " + Number(risk.equity || 0).toFixed(2) + " | " + (spanish ? "por trade" : "per trade") + " " + Number(risk.marginCapUsd || 0).toFixed(2) + " | trades " + Number(risk.maxTradesPerDay || 0)]);
         }
         if (executor.lastAction) rows.push([spanish ? "Ultima accion" : "Last action", executor.lastAction]);
+        if (executor.exitSafetyBlockReason) rows.push([spanish ? "Bloqueo de seguridad" : "Safety block", executor.exitSafetyBlockReason]);
         if (executor.lastError) rows.push([spanish ? "Ultimo error" : "Last error", executor.lastError]);
         const topReject = Object.entries(decisions.rejected || {}).sort((a, b) => Number(b[1]) - Number(a[1]))[0];
         if (topReject) rows.push([spanish ? "Filtro principal" : "Top filter", topReject[0] + " (" + topReject[1] + ")"]);

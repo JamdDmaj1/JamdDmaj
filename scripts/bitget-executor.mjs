@@ -87,6 +87,9 @@ async function main() {
   if (latestMarketDirection) state.lastMarketDirection = compactMarketDirection(latestMarketDirection);
   const policy = normalizeExecutorPolicy(scan?.executor);
   state.effectivePolicy = policy;
+  if (settings.mode === "live" && !isExitManagerEnabled(policy)) {
+    state.exitSafetyBlockReason = "exit manager disabled";
+  }
   const accountRisk = settings.mode === "live" ? await fetchBitgetAccountRisk(policy).catch((error) => {
     console.warn(`${LOG_PREFIX} account risk warning: ${error?.message || error}`);
     return null;
@@ -150,6 +153,16 @@ async function main() {
     await manageLiveExits(state, livePositions, events, policy);
   }
 
+  if (settings.mode === "live" && state.exitSafetyBlockReason) {
+    const reason = `exit safety block: ${state.exitSafetyBlockReason}`;
+    console.warn(`${LOG_PREFIX} ${reason}`);
+    state.lastAction = reason;
+    state.updatedAt = new Date().toISOString();
+    writeJson(STATE_PATH, state);
+    await reportExecutorStatus(statusPayload(state, { ok: true, livePaused: true, lastAction: reason }));
+    return;
+  }
+
   if (settings.mode === "off" || policy.livePaused) {
     const reason = policy.livePaused ? "remote live pause is active" : "execution off";
     console.log(`${LOG_PREFIX} ${reason}. candidates=${candidates.length}`);
@@ -199,25 +212,23 @@ async function main() {
       break;
     }
 
-    if (settings.mode === "live" && signal.manualTest === true) {
+    if (settings.mode === "live") {
       const livePrice = await fetchBitgetTickerPrice(bitgetSymbolForSignal(signal)).catch(() => NaN);
       if (!Number.isFinite(livePrice) || livePrice <= 0) {
-        rememberSkip(state, signal, "manual order live price unavailable");
-        recordRejection(decisions, "manual order live price unavailable", signal);
-        console.log(`${LOG_PREFIX} reject ${signal.pair}: manual order live price unavailable`);
+        rememberSkip(state, signal, "live price unavailable");
+        recordRejection(decisions, "live price unavailable", signal);
+        console.log(`${LOG_PREFIX} reject ${signal.pair}: live price unavailable`);
         continue;
       }
       signal.currentPrice = livePrice / (Number(signal.contractMultiplier) || 1);
       const referenceEntry = Number(signal.entry);
       const liveDrift = Math.abs((signal.currentPrice - referenceEntry) / referenceEntry) * 100;
       const maxDrift = effectiveTraderProfile(policy).maxEntryDriftPercent;
-      const liveGeometryOk = String(signal.side).toUpperCase() === "LONG"
-        ? Number(signal.sl) < signal.currentPrice && Number(signal.tp1) > signal.currentPrice
-        : Number(signal.tp1) < signal.currentPrice && Number(signal.sl) > signal.currentPrice;
-      if (!Number.isFinite(liveDrift) || liveDrift > maxDrift || !liveGeometryOk) {
-        const reason = !liveGeometryOk
-          ? "manual order levels invalid at live price"
-          : `manual order live drift ${liveDrift.toFixed(2)}% > ${maxDrift}%`;
+      const liveLevels = exitLevelDecision(signal.side, signal.currentPrice, signal.sl, signal.tp1);
+      if (!Number.isFinite(liveDrift) || liveDrift > maxDrift || !liveLevels.ok) {
+        const reason = !liveLevels.ok
+          ? `order levels invalid at live price: ${liveLevels.reason}`
+          : `live entry drift ${liveDrift.toFixed(2)}% > ${maxDrift}%`;
         rememberSkip(state, signal, reason);
         recordRejection(decisions, reason, signal);
         console.log(`${LOG_PREFIX} reject ${signal.pair}: ${reason}`);
@@ -533,11 +544,13 @@ function exchangePrice(value, multiplier = 1) {
 }
 function buildOrderPlan(signal, contracts, marketContext = null, policy = {}, accountRisk = null) {
   const symbol = bitgetSymbolForSignal(signal);
-  const displayPrice = Number(signal.entry || signal.currentPrice || signal.lastPrice);
+  const displayPrice = Number(signal.currentPrice || signal.lastPrice || signal.entry);
   const multiplier = clampNumber(signal.contractMultiplier, 1, 1_000_000, 1);
   const price = exchangePrice(displayPrice, multiplier);
   if (!symbol.endsWith("USDT")) return { ok: false, reason: "only USDT futures are allowed" };
   if (!Number.isFinite(price) || price <= 0) return { ok: false, reason: "missing price" };
+  const levels = exitLevelDecision(signal.side, price, exchangePrice(Number(signal.sl), multiplier), exchangePrice(Number(signal.tp1), multiplier));
+  if (!levels.ok) return levels;
 
   const gate = summarizeMarketGate(marketContext, policy);
   const maxMarginUsd = clampNumber(policy?.maxLiveMarginUsd || policy?.maxMarginUsd, 1, 1000, settings.maxMarginUsd);
@@ -812,6 +825,24 @@ export function evaluateAiSimulationVariant(signal = {}, baselineDecision = { ok
       ? "AI experiment passed strict counter-market confirmation"
       : "AI experiment passed trend, volume, freshness and drift confirmation"
   };
+}
+
+export function exitLevelDecision(side, entry, stopLoss, takeProfit) {
+  const normalizedSide = String(side || "").toUpperCase();
+  const price = Number(entry);
+  const sl = Number(stopLoss);
+  const tp = Number(takeProfit);
+  if (!Number.isFinite(price) || price <= 0) return { ok: false, reason: "missing price" };
+  if (!Number.isFinite(sl) || sl <= 0) return { ok: false, reason: "missing valid stop loss" };
+  if (!Number.isFinite(tp) || tp <= 0) return { ok: false, reason: "missing valid take profit" };
+  if (normalizedSide === "LONG" && !(sl < price && tp > price)) {
+    return { ok: false, reason: "LONG levels must have SL below entry and TP above entry" };
+  }
+  if (normalizedSide === "SHORT" && !(tp < price && sl > price)) {
+    return { ok: false, reason: "SHORT levels must have TP below entry and SL above entry" };
+  }
+  if (!["LONG", "SHORT"].includes(normalizedSide)) return { ok: false, reason: "invalid side" };
+  return { ok: true, reason: "valid exit levels" };
 }
 
 export function classifySimulationSignal(signal = {}, decision = { ok: false }) {
@@ -1307,11 +1338,53 @@ function buildExitPlan(signal, plan, policy = {}) {
 async function manageLiveExits(state, positions, events = [], policy = {}) {
   if (!isExitManagerEnabled(policy) || settings.mode !== "live") return;
   const exit = effectiveExitSettings(policy);
+  const safetyFailures = [];
   const exitTypes = new Set(["REVERSAL", "REVERSAL_PROFIT", "INVALIDATED", "SL"]);
   const exitEvents = (Array.isArray(events) ? events : []).filter((event) => exitTypes.has(String(event?.type || "")));
   for (const order of state.orders.filter((item) => item?.status === "OPEN" && item.symbol)) {
     const position = findMatchingPosition(order, positions);
     if (!position) continue;
+    if (!order.initialStopBitgetConfirmedAt && !order.protectionActive) {
+      if (!Number.isFinite(Number(order.sl)) || Number(order.sl) <= 0) {
+        order.initialStopVerificationError = "missing valid initial SL";
+        try {
+          await closeLivePosition(order, "missing valid initial SL fail-safe", position);
+          state.lastExitAction = `exit manager closed ${order.pair || order.symbol}: missing valid initial SL fail-safe`;
+          state.lastAction = state.lastExitAction;
+        } catch (error) {
+          safetyFailures.push(`initial SL missing ${order.pair || order.symbol}`);
+          state.lastExitAction = `exit manager close failed ${order.pair || order.symbol}: ${error?.message || error}`;
+          state.lastAction = state.lastExitAction;
+        }
+        continue;
+      }
+      const initialStopVerification = await verifyProtectionOnBitget(order, "", order.sl).catch((error) => ({
+        verified: false,
+        error: error?.message || String(error)
+      }));
+      order.initialStopVerificationAttempts = Number(order.initialStopVerificationAttempts || 0) + 1;
+      order.initialStopVerificationStartedAt = order.initialStopVerificationStartedAt || new Date().toISOString();
+      order.initialStopVerificationLastAt = new Date().toISOString();
+      if (initialStopVerification.verified) {
+        order.initialStopBitgetConfirmedAt = new Date().toISOString();
+        order.initialStopVerificationError = "";
+      } else {
+        order.initialStopVerificationError = String(initialStopVerification.error || "initial stop is not visible on Bitget").slice(0, 180);
+        const failSafe = initialStopFailSafeDecision(order);
+        if (failSafe.close) {
+          try {
+            await closeLivePosition(order, failSafe.reason, position);
+            state.lastExitAction = `exit manager closed ${order.pair || order.symbol}: ${failSafe.reason}`;
+            state.lastAction = state.lastExitAction;
+            continue;
+          } catch (error) {
+            state.lastExitAction = `exit manager close failed ${order.pair || order.symbol}: ${error?.message || error}`;
+            state.lastAction = state.lastExitAction;
+          }
+        }
+        safetyFailures.push(`initial SL unverified ${order.pair || order.symbol}`);
+      }
+    }
     const roe = positionRoe(position, order);
     if (Number.isFinite(roe)) {
       order.currentRoe = Number(roe.toFixed(2));
@@ -1325,6 +1398,7 @@ async function manageLiveExits(state, positions, events = [], policy = {}) {
         } catch (error) {
           state.lastExitAction = `exit manager take-profit close failed ${order.pair || order.symbol}: ${error?.message || error}`;
           state.lastAction = state.lastExitAction;
+          safetyFailures.push(`take-profit close failed ${order.pair || order.symbol}`);
           console.warn(`${LOG_PREFIX} ${state.lastExitAction}`);
         }
       }
@@ -1350,6 +1424,8 @@ async function manageLiveExits(state, positions, events = [], policy = {}) {
           order.protectionPrice = protection.price;
           order.protectionResponse = protection.result;
           order.protectionPendingOrderId = protection.orderId || "";
+          order.protectionVerificationAttempts = 1;
+          order.protectionVerificationLastAt = new Date().toISOString();
           order.protectionBitgetConfirmedAt = protection.verification?.verified ? new Date().toISOString() : "";
           order.protectionVerificationError = protection.verification?.verified
             ? ""
@@ -1364,26 +1440,26 @@ async function manageLiveExits(state, positions, events = [], policy = {}) {
           order.protectionError = error?.message || String(error);
           state.lastExitAction = `exit manager protection failed ${order.pair || order.symbol}: ${order.protectionError}`;
           state.lastAction = state.lastExitAction;
+          safetyFailures.push(`profit protection failed ${order.pair || order.symbol}`);
           console.warn(`${LOG_PREFIX} ${state.lastExitAction}`);
         }
       }
-      if (order.protectionActive && order.currentRoe > 0 && order.currentRoe <= exit.protectionLockRoe) {
+      const protectionFailSafe = protectionFailSafeDecision(order, order.currentRoe, exit.protectionLockRoe);
+      if (protectionFailSafe.close) {
         try {
-          await closeLivePosition(order, "protected ROE lock", position);
-          state.lastExitAction = `exit manager closed ${order.pair || order.symbol}: protected ROE lock`;
+          await closeLivePosition(order, protectionFailSafe.reason, position);
+          state.lastExitAction = `exit manager closed ${order.pair || order.symbol}: ${protectionFailSafe.reason}`;
           state.lastAction = state.lastExitAction;
         } catch (error) {
           state.lastExitAction = `exit manager close failed ${order.pair || order.symbol}: ${error?.message || error}`;
           state.lastAction = state.lastExitAction;
+          safetyFailures.push(`protected close failed ${order.pair || order.symbol}`);
           console.warn(`${LOG_PREFIX} ${state.lastExitAction}`);
         }
         continue;
       }
-      if (order.protectionActive && order.currentRoe <= 0 && order.lastNegativeProtectionSkipRoe !== order.currentRoe) {
-        order.lastNegativeProtectionSkipRoe = order.currentRoe;
-        state.lastExitAction = `exit manager skipped negative protected-lock close ${order.pair || order.symbol}: ${order.currentRoe}% ROE`;
-        state.lastAction = state.lastExitAction;
-        console.warn(`${LOG_PREFIX} ${state.lastExitAction}`);
+      if (order.protectionActive && !order.protectionBitgetConfirmedAt) {
+        safetyFailures.push(`profit protection unverified ${order.pair || order.symbol}`);
       }
     }
     const event = exitEvents.find((item) => eventMatchesOrder(item, order));
@@ -1395,10 +1471,40 @@ async function manageLiveExits(state, positions, events = [], policy = {}) {
       } catch (error) {
         state.lastExitAction = `exit manager close failed ${order.pair || order.symbol}: ${error?.message || error}`;
         state.lastAction = state.lastExitAction;
+        safetyFailures.push(`reversal close failed ${order.pair || order.symbol}`);
         console.warn(`${LOG_PREFIX} ${state.lastExitAction}`);
       }
     }
   }
+  state.exitSafetyBlockReason = [...new Set(safetyFailures)].join(" | ");
+}
+
+export function initialStopFailSafeDecision(order = {}, now = Date.now()) {
+  if (order.initialStopBitgetConfirmedAt) return { close: false, reason: "" };
+  const startedAt = Date.parse(order.initialStopVerificationStartedAt || "");
+  const expired = Number.isFinite(startedAt) && Number(now) - startedAt >= 60_000;
+  if (Number(order.initialStopVerificationAttempts || 0) >= 2 || expired) {
+    return { close: true, reason: "unverified initial Bitget SL fail-safe" };
+  }
+  return { close: false, reason: "" };
+}
+
+export function protectionFailSafeDecision(order = {}, currentRoe = NaN, lockRoe = settings.exitProtectionLockRoe, now = Date.now()) {
+  if (order.protectionActive !== true) return { close: false, reason: "" };
+  const roe = Number(currentRoe);
+  if (Number.isFinite(roe) && roe <= 0) {
+    return { close: true, reason: "protected trade lost its positive ROE lock" };
+  }
+  if (Number.isFinite(roe) && roe <= Number(lockRoe || settings.exitProtectionLockRoe)) {
+    return { close: true, reason: "protected ROE lock" };
+  }
+  if (order.protectionBitgetConfirmedAt) return { close: false, reason: "" };
+  const activatedAt = Date.parse(order.protectionActivatedAt || "");
+  const expired = Number.isFinite(activatedAt) && Number(now) - activatedAt >= 60_000;
+  if (Number(order.protectionVerificationAttempts || 0) >= 2 || expired) {
+    return { close: true, reason: "unverified Bitget profit protection fail-safe" };
+  }
+  return { close: false, reason: "" };
 }
 
 async function placeProtectedStopLoss(order, position = {}, exit = {}) {
@@ -1440,9 +1546,9 @@ async function placeProtectedStopLoss(order, position = {}, exit = {}) {
 }
 
 async function verifyProtectionOnBitget(order, orderId, triggerPrice) {
-  const requestPath = "/api/v2/mix/order/orders-plan-pending"
-    + `?orderId=${encodeURIComponent(orderId)}`
-    + `&planType=profit_loss&productType=${encodeURIComponent(settings.productType)}`;
+  const requestPath = "/api/v2/mix/order/orders-plan-pending?"
+    + (orderId ? `orderId=${encodeURIComponent(orderId)}&` : "")
+    + `planType=profit_loss&productType=${encodeURIComponent(settings.productType)}`;
   const result = await bitgetRequest("GET", requestPath);
   if (result?.code && result.code !== "00000") {
     return { verified: false, error: `Bitget protection verification rejected: ${result?.msg || result.code}` };
@@ -1457,7 +1563,7 @@ export function pendingProtectionDecision(items, order = {}, orderId = "", trigg
     const itemPrice = firstFiniteNumber(item.stopLossTriggerPrice, item.triggerPrice);
     const samePrice = !Number.isFinite(Number(triggerPrice))
       || (Number.isFinite(itemPrice) && Math.abs(itemPrice - Number(triggerPrice)) <= Math.max(1e-12, Number(triggerPrice) * 1e-6));
-    return String(item.orderId || "") === String(orderId || "")
+    return (!orderId || String(item.orderId || "") === String(orderId))
       && (!wantedSymbol || String(item.symbol || "").toUpperCase() === wantedSymbol)
       && (!wantedHold || !item.posSide || [wantedHold, "net"].includes(String(item.posSide).toLowerCase()))
       && ["live", "not_trigger", "not_triggered"].includes(String(item.planStatus || "live").toLowerCase())
@@ -1576,7 +1682,7 @@ function applyRealizedOrderResult(state, order, realized, policy = {}) {
     learnFromSignalOutcome(state, order, realized.outcome, policy, "bitget-realized-fills");
   }
   state.daily = normalizeDailyState(state.daily);
-  if (String(realized.lastFillAt || "").slice(0, 10) === state.daily.day) {
+  if (executorDayKey(realized.lastFillAt) === state.daily.day) {
     state.daily.realizedPnl = Number((Number(state.daily.realizedPnl || 0) + Number(realized.netPnl || 0)).toFixed(8));
     state.daily.consecutiveLosses = realized.outcome === "loss"
       ? Number(state.daily.consecutiveLosses || 0) + 1
@@ -1600,13 +1706,35 @@ async function closeLivePosition(order, reason, position = {}) {
     holdSide
   };
   const result = await bitgetRequest("POST", "/api/v2/mix/order/close-positions", body);
-  if (result?.code && result.code !== "00000") throw new Error(`Bitget close rejected ${order.pair || order.symbol}: ${result?.msg || result.code}`);
+  const closeDecision = bitgetCloseDecision(result, order);
+  if (!closeDecision.confirmed) throw new Error(closeDecision.error);
   order.status = "CLOSED_BY_EXIT_MANAGER";
   order.exitReason = reason;
   order.closedAt = new Date().toISOString();
   order.closeResponse = result;
   console.log(`${LOG_PREFIX} exit manager closed ${order.pair || order.symbol}: ${reason}`);
   return result;
+}
+
+export function bitgetCloseDecision(result = {}, order = {}) {
+  if (result?.code && result.code !== "00000") {
+    return { confirmed: false, error: `Bitget close rejected ${order.pair || order.symbol || "position"}: ${result?.msg || result.code}` };
+  }
+  const wantedSymbol = String(order.symbol || "").toUpperCase();
+  const successList = Array.isArray(result?.data?.successList) ? result.data.successList : [];
+  const failureList = Array.isArray(result?.data?.failureList) ? result.data.failureList : [];
+  const succeeded = successList.find((item) => !wantedSymbol || String(item.symbol || "").toUpperCase() === wantedSymbol);
+  const failed = failureList.find((item) => !wantedSymbol || String(item.symbol || "").toUpperCase() === wantedSymbol);
+  if (failed && !succeeded) {
+    return {
+      confirmed: false,
+      error: `Bitget close failed ${order.pair || order.symbol || "position"}: ${failed.errorMsg || failed.errorCode || "unknown failure"}`
+    };
+  }
+  if (!succeeded) {
+    return { confirmed: false, error: `Bitget did not confirm the close for ${order.pair || order.symbol || "position"}` };
+  }
+  return { confirmed: true, orderId: String(succeeded.orderId || "") };
 }
 
 function rememberSkip(state, signal, reason) {
@@ -1661,7 +1789,7 @@ function pruneState(state) {
 }
 
 function createExecutorState() {
-  return { version: 6, updatedAt: null, seen: {}, orders: [], daily: normalizeDailyState({}), symbolLearning: {}, categoryLearning: {}, rejectedSymbols: {}, learnedEvents: {}, lastOutcomeEvents: [], lastDecisionSummary: createDecisionSummary([], []), lastMarketDirection: null, aiExperiment: normalizeAiSimulationExperiment({}) };
+  return { version: 7, updatedAt: null, seen: {}, orders: [], daily: normalizeDailyState({}), symbolLearning: {}, categoryLearning: {}, rejectedSymbols: {}, learnedEvents: {}, lastOutcomeEvents: [], lastDecisionSummary: createDecisionSummary([], []), lastMarketDirection: null, aiExperiment: normalizeAiSimulationExperiment({}) };
 }
 
 async function fetchBitgetTickerPrice(symbol) {
@@ -1715,6 +1843,7 @@ function statusPayload(state, overrides = {}) {
     consecutiveLosses: daily.consecutiveLosses,
     lastAction: overrides.lastAction || state.lastAction || "",
     lastError: overrides.lastError || "",
+    exitSafetyBlockReason: state.exitSafetyBlockReason || "",
     bitgetSynced: state.bitgetSynced === true,
     manualOrderVersion: 1,
     effectivePolicy: {
@@ -1921,7 +2050,7 @@ function effectiveExitSettings(policy = {}) {
 }
 
 function normalizeDailyState(value = {}) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = executorDayKey();
   if (value.day !== today) {
     return { day: today, trades: 0, realizedPnl: 0, consecutiveLosses: 0 };
   }
@@ -1933,6 +2062,17 @@ function normalizeDailyState(value = {}) {
   };
 }
 
+export function executorDayKey(value = Date.now(), timeZone = "America/New_York") {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(new Date(value));
+  const fields = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${fields.year}-${fields.month}-${fields.day}`;
+}
+
 function incrementDailyTrades(state) {
   state.daily = normalizeDailyState(state.daily);
   state.daily.trades += 1;
@@ -1940,6 +2080,7 @@ function incrementDailyTrades(state) {
 
 function dailyRiskBlock(state, policy) {
   state.daily = normalizeDailyState(state.daily);
+  if (state.exitSafetyBlockReason) return `exit safety block: ${state.exitSafetyBlockReason}`;
   const daily = state.daily;
   const startingBalance = Number(process.env.JAMDDMAJ_LIVE_RISK_BALANCE_USD || 0);
   const percentLossLimit = startingBalance > 0

@@ -34,8 +34,13 @@ import { createWalletRegistry, walletEvent } from "../lib/wallet-standard-regist
 import { buildBoostPlan, JDMAJ_BOOST_CATALOG } from "../lib/fair-launch-boost.js";
 import { buildChronologicalValidation } from "../lib/pro-backtest.js";
 import {
+  bitgetCloseDecision,
+  executorDayKey,
+  exitLevelDecision,
   inferClosedOrderOutcome,
+  initialStopFailSafeDecision,
   pendingProtectionDecision,
+  protectionFailSafeDecision,
   summarizeRealizedFills
 } from "../scripts/bitget-executor.mjs";
 import { FAIR_LAUNCH_LOCALES, FAIR_LAUNCH_LOCALE_KEYS } from "../lib/fair-launch-locales.js";
@@ -810,6 +815,76 @@ test("Bitget protection acknowledgement must also exist in pending TP SL orders"
     triggerPrice: "9.509"
   }], { symbol: "LINKUSDT", side: "LONG" }, "stop-2", 9.509).verified, true);
   assert.equal(pendingProtectionDecision([], { symbol: "LINKUSDT", side: "LONG" }, "stop-1", 9.509).verified, false);
+  assert.equal(pendingProtectionDecision([{
+    orderId: "preset-stop",
+    symbol: "LINKUSDT",
+    posSide: "long",
+    planStatus: "live",
+    stopLossTriggerPrice: "8.90"
+  }], { symbol: "LINKUSDT", side: "LONG" }, "", 8.90).verified, true);
+});
+
+test("unverified profit protection fails closed instead of becoming a loss", () => {
+  const activatedAt = "2026-08-18T12:00:00.000Z";
+  assert.deepEqual(protectionFailSafeDecision({
+    protectionActive: true,
+    protectionActivatedAt: activatedAt,
+    protectionVerificationAttempts: 2
+  }, 8, 4, Date.parse("2026-08-18T12:00:20.000Z")), {
+    close: true,
+    reason: "unverified Bitget profit protection fail-safe"
+  });
+  assert.deepEqual(protectionFailSafeDecision({
+    protectionActive: true,
+    protectionBitgetConfirmedAt: "2026-08-18T12:00:10.000Z"
+  }, -0.1, 4), {
+    close: true,
+    reason: "protected trade lost its positive ROE lock"
+  });
+  assert.equal(protectionFailSafeDecision({
+    protectionActive: true,
+    protectionBitgetConfirmedAt: "2026-08-18T12:00:10.000Z"
+  }, 6, 4).close, false);
+});
+
+test("Bitget close is successful only when the symbol appears in successList", () => {
+  const order = { pair: "LINKUSDT", symbol: "LINKUSDT" };
+  assert.equal(bitgetCloseDecision({
+    code: "00000",
+    data: { successList: [{ symbol: "LINKUSDT", orderId: "close-1" }], failureList: [] }
+  }, order).confirmed, true);
+  const failed = bitgetCloseDecision({
+    code: "00000",
+    data: { successList: [], failureList: [{ symbol: "LINKUSDT", errorMsg: "risk control" }] }
+  }, order);
+  assert.equal(failed.confirmed, false);
+  assert.match(failed.error, /risk control/);
+  assert.equal(bitgetCloseDecision({ code: "00000", data: {} }, order).confirmed, false);
+});
+
+test("executor daily risk uses the Miami calendar instead of UTC", () => {
+  assert.equal(executorDayKey("2026-08-19T00:30:00.000Z"), "2026-08-18");
+  assert.equal(executorDayKey("2026-08-19T04:30:00.000Z"), "2026-08-19");
+});
+
+test("live orders require correctly oriented SL and TP levels", () => {
+  assert.equal(exitLevelDecision("LONG", 100, 95, 110).ok, true);
+  assert.equal(exitLevelDecision("SHORT", 100, 105, 90).ok, true);
+  assert.match(exitLevelDecision("LONG", 100, 101, 110).reason, /SL below entry/);
+  assert.match(exitLevelDecision("SHORT", 100, 95, 90).reason, /SL above entry/);
+  assert.match(exitLevelDecision("LONG", 100, NaN, 110).reason, /stop loss/);
+  assert.match(exitLevelDecision("LONG", 100, 95, NaN).reason, /take profit/);
+});
+
+test("an initial stop that Bitget cannot verify fails closed", () => {
+  assert.equal(initialStopFailSafeDecision({ initialStopVerificationAttempts: 1 }).close, false);
+  const decision = initialStopFailSafeDecision({ initialStopVerificationAttempts: 2 });
+  assert.equal(decision.close, true);
+  assert.match(decision.reason, /initial Bitget SL/);
+  assert.equal(initialStopFailSafeDecision({
+    initialStopVerificationAttempts: 9,
+    initialStopBitgetConfirmedAt: "2026-08-18T20:00:00.000Z"
+  }).close, false);
 });
 
 test("chart vision fallbacks remain free and include explicit image models", () => {
