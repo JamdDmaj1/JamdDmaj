@@ -1398,7 +1398,7 @@ async function manageLiveExits(state, positions, events = [], policy = {}) {
         }
         continue;
       }
-      const initialStopVerification = await verifyProtectionOnBitget(order, "", order.sl).catch((error) => ({
+      const initialStopVerification = await verifyInitialStopOnBitget(order, order.sl).catch((error) => ({
         verified: false,
         error: error?.message || String(error)
       }));
@@ -1594,6 +1594,43 @@ async function verifyProtectionOnBitget(order, orderId, triggerPrice) {
     return { verified: false, error: `Bitget protection verification rejected: ${result?.msg || result.code}` };
   }
   return pendingProtectionDecision(result?.data?.entrustedList, order, orderId, triggerPrice);
+}
+
+async function verifyInitialStopOnBitget(order, triggerPrice) {
+  const orderId = String(order?.response?.data?.orderId || order?.orderId || "").trim();
+  const clientOid = String(order?.response?.data?.clientOid || order?.clientOid || "").trim();
+  if (!orderId && !clientOid) {
+    return { verified: false, error: "Bitget entry response omitted orderId/clientOid" };
+  }
+  const requestPath = "/api/v2/mix/order/detail?"
+    + `symbol=${encodeURIComponent(order.symbol)}`
+    + `&productType=${encodeURIComponent(settings.productType)}`
+    + (orderId ? `&orderId=${encodeURIComponent(orderId)}` : `&clientOid=${encodeURIComponent(clientOid)}`);
+  const result = await bitgetRequest("GET", requestPath);
+  if (result?.code && result.code !== "00000") {
+    return { verified: false, error: `Bitget entry SL verification rejected: ${result?.msg || result.code}` };
+  }
+  return initialOrderStopDecision(result?.data, order, triggerPrice);
+}
+
+export function initialOrderStopDecision(details = {}, order = {}, triggerPrice = NaN) {
+  const wantedSymbol = String(order.symbol || "").toUpperCase();
+  const returnedSymbol = String(details?.symbol || wantedSymbol).toUpperCase();
+  const expectedPrice = Number(triggerPrice);
+  const presetPrice = firstFiniteNumber(details?.presetStopLossPrice, details?.stopLossTriggerPrice);
+  const sameSymbol = !wantedSymbol || !returnedSymbol || returnedSymbol === wantedSymbol;
+  const samePrice = Number.isFinite(expectedPrice)
+    && Number.isFinite(presetPrice)
+    && Math.abs(presetPrice - expectedPrice) <= Math.max(1e-12, expectedPrice * 1e-6);
+  if (sameSymbol && samePrice) {
+    return { verified: true, orderId: String(details?.orderId || ""), triggerPrice: presetPrice };
+  }
+  return {
+    verified: false,
+    error: !Number.isFinite(presetPrice)
+      ? "Bitget order detail has no preset stop loss"
+      : `Bitget preset SL mismatch ${presetPrice} != ${expectedPrice}`
+  };
 }
 
 export function pendingProtectionDecision(items, order = {}, orderId = "", triggerPrice = NaN) {

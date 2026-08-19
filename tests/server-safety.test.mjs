@@ -40,6 +40,7 @@ import {
   exitLevelDecision,
   inferClosedOrderOutcome,
   initialStopFailSafeDecision,
+  initialOrderStopDecision,
   pendingProtectionDecision,
   protectionFailSafeDecision,
   selectRecentOpenSignals,
@@ -887,6 +888,21 @@ test("an initial stop that Bitget cannot verify fails closed", () => {
     initialStopVerificationAttempts: 9,
     initialStopBitgetConfirmedAt: "2026-08-18T20:00:00.000Z"
   }).close, false);
+});
+
+test("preset entry SL is verified from the Bitget order detail", () => {
+  const verified = initialOrderStopDecision({
+    symbol: "ARBUSDT",
+    orderId: "entry-1",
+    presetStopLossPrice: "0.085568"
+  }, { symbol: "ARBUSDT" }, 0.085568);
+  assert.equal(verified.verified, true);
+  assert.equal(verified.orderId, "entry-1");
+  assert.equal(initialOrderStopDecision({
+    symbol: "ARBUSDT",
+    presetStopLossPrice: "0.084"
+  }, { symbol: "ARBUSDT" }, 0.085568).verified, false);
+  assert.match(initialOrderStopDecision({ symbol: "ARBUSDT" }, { symbol: "ARBUSDT" }, 0.085568).error, /no preset stop loss/);
 });
 
 test("automatic live trading accepts only conservative fully confirmed setups", () => {
