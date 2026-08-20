@@ -44,6 +44,7 @@ const settings = {
   weakPatternCooldownHours: clampNumber(process.env.JAMDDMAJ_WEAK_PATTERN_COOLDOWN_HOURS, 1, 168, 12),
   learningMinSamples: clampInt(process.env.JAMDDMAJ_LEARNING_MIN_SAMPLES, 3, 100, 5),
   rejectedSymbolCooldownMinutes: clampInt(process.env.JAMDDMAJ_REJECTED_SYMBOL_COOLDOWN_MINUTES, 5, 240, 20),
+  symbolReentryCooldownMinutes: clampInt(process.env.JAMDDMAJ_SYMBOL_REENTRY_COOLDOWN_MINUTES, 30, 1440, 360),
   manualTestMaxAgeMinutes: clampInt(process.env.JAMDDMAJ_MANUAL_TEST_MAX_AGE_MINUTES, 1, 30, 10),
   retrySkippedMinutes: clampInt(process.env.JAMDDMAJ_RETRY_SKIPPED_MINUTES, 1, 120, 15),
   minScore: clampInt(process.env.JAMDDMAJ_MIN_LIVE_SCORE, 8, 20, 14),
@@ -55,7 +56,8 @@ const settings = {
   maxDailyLossUsd: clampNumber(process.env.JAMDDMAJ_MAX_DAILY_LOSS_USD, 1, 100000, 25),
   maxDailyLossPercent: clampNumber(process.env.JAMDDMAJ_MAX_DAILY_LOSS_PERCENT, 0.1, 100, 3),
   maxConsecutiveLosses: clampInt(process.env.JAMDDMAJ_MAX_CONSECUTIVE_LOSSES, 1, 20, 2),
-  maxTradesPerDay: clampInt(process.env.JAMDDMAJ_MAX_TRADES_PER_DAY, 1, 100, 3)
+  maxTradesPerDay: clampInt(process.env.JAMDDMAJ_MAX_TRADES_PER_DAY, 1, 100, 3),
+  hardMaxLiveTradesPerDay: clampInt(process.env.JAMDDMAJ_HARD_MAX_LIVE_TRADES_PER_DAY, 1, 3, 3)
 };
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
@@ -258,10 +260,19 @@ async function main() {
     try {
       const placed = await placeMarketOrder(plan);
       state.orders.unshift(createStateOrder(signal, plan, "OPEN", placed));
+      state.seen[signal.id] = {
+        orderedAt: state.orders[0].createdAt,
+        clientOid: plan.clientOid,
+        symbol: plan.symbol
+      };
       state.lastLiveSignal = compactOrder(state.orders[0]);
       incrementDailyTrades(state);
       state.lastAction = `LIVE order sent ${signal.pair} ${signal.side}`;
       cycleOpenCount += 1;
+      // Persist the one-time ledger immediately after Bitget accepts the
+      // order. A later crash must not make the signal eligible again.
+      state.updatedAt = new Date().toISOString();
+      writeJson(STATE_PATH, state);
       console.log(`${LOG_PREFIX} LIVE order sent ${signal.pair} ${signal.side} clientOid=${plan.clientOid}`);
     } catch (error) {
       const reason = error?.message || String(error);
@@ -463,6 +474,8 @@ function executableDecision(signal, state, policy = {}, marketContext = null) {
   if (!rejectionBlock.ok) return rejectionBlock;
   const seenBlock = seenSignalBlockReason(state, signal);
   if (seenBlock) return { ok: false, reason: seenBlock };
+  const symbolReentryBlock = recentSymbolOrderBlockReason(state, signal);
+  if (symbolReentryBlock) return { ok: false, reason: symbolReentryBlock };
   const gate = summarizeMarketGate(marketContext, policy);
   const minScore = gate.strictMinScore;
   if (signal.manualTest === true) {
@@ -502,21 +515,15 @@ function recentSymbolRejectionDecision(signal, state) {
   }
   return { ok: true, reason: "no recent Bitget rejection" };
 }
-function seenSignalBlockReason(state, signal) {
+export function seenSignalBlockReason(state, signal) {
   const seen = state.seen?.[signal.id];
   if (!seen) return "";
+  // Once Bitget accepted an order, this signal ID is immutable. The absence
+  // of an open position means it was closed; it must never mean "order again".
+  if (seen.orderedAt) return "already ordered";
   if (isDuplicateClientOidReason(seen.reason)) {
     delete state.seen[signal.id];
     return "";
-  }
-  const signalSymbol = bitgetSymbolForSignal(signal);
-  const liveSymbols = new Set(Array.isArray(state.liveSymbols) ? state.liveSymbols : []);
-  if (seen.orderedAt) {
-    if ((settings.mode === "live" || state.bitgetSynced === true) && signalSymbol && !liveSymbols.has(signalSymbol)) {
-      delete state.seen[signal.id];
-      return "";
-    }
-    return "already ordered";
   }
   const skippedAt = Date.parse(seen.skippedAt || "");
   const retryMs = settings.retrySkippedMinutes * 60000;
@@ -527,6 +534,18 @@ function seenSignalBlockReason(state, signal) {
   }
   if (canRetry && Number.isFinite(skippedAt)) return `retry cooldown after ${seen.reason || "skip"}`;
   return "already seen";
+}
+
+export function recentSymbolOrderBlockReason(state, signal, now = Date.now(), cooldownMinutes = settings.symbolReentryCooldownMinutes) {
+  const symbol = bitgetSymbolForSignal(signal);
+  if (!symbol) return "";
+  const cutoff = Number(now) - Math.max(1, Number(cooldownMinutes) || 1) * 60000;
+  const recent = (Array.isArray(state?.orders) ? state.orders : []).find((order) => {
+    if (String(order?.symbol || "").toUpperCase() !== symbol) return false;
+    const orderedAt = Date.parse(order?.createdAt || order?.orderedAt || "");
+    return Number.isFinite(orderedAt) && orderedAt >= cutoff;
+  });
+  return recent ? `symbol re-entry cooldown ${symbol}` : "";
 }
 
 function bitgetSymbolForSignal(signal = {}) {
@@ -1209,7 +1228,7 @@ function applyAutoRiskPolicy(policy, accountRisk) {
   policy.maxOpen = Math.max(1, Math.min(desiredMaxOpen, Number(accountRisk.maxOpenByEquity) || desiredMaxOpen));
   policy.maxNewOrdersPerRun = Math.max(1, Math.min(desiredPerRun, policy.maxOpen));
   const desiredMaxTrades = Number(policy.maxTradesPerDay) || settings.maxTradesPerDay;
-  policy.maxTradesPerDay = Math.max(1, desiredMaxTrades);
+  policy.maxTradesPerDay = Math.max(1, Math.min(desiredMaxTrades, settings.hardMaxLiveTradesPerDay));
   accountRisk.suggestedMaxTradesByEquity = accountRisk.maxTradesByEquity;
   accountRisk.maxTradesPerDay = policy.maxTradesPerDay;
   policy.autoRisk = accountRisk;
@@ -1246,7 +1265,8 @@ async function reconcileBitgetPositions(state, policy = {}) {
       order.status = "CLOSED_UNKNOWN";
       order.closedAt = new Date().toISOString();
       order.reconciledOutcome = "pending";
-      if (order.id) delete state.seen[order.id];
+      // Keep the immutable one-time signal ledger after a position closes.
+      // Deleting it here caused the same open signal to re-enter every cycle.
     }
   }
   const pendingRealized = state.orders
@@ -1850,7 +1870,7 @@ function pruneState(state) {
   state.orders = Array.isArray(state.orders) ? state.orders : [];
   state.seen = state.seen && typeof state.seen === "object" ? state.seen : {};
   for (const [id, seen] of Object.entries(state.seen)) {
-    if (isDuplicateClientOidReason(seen?.reason)) delete state.seen[id];
+    if (!seen?.orderedAt && isDuplicateClientOidReason(seen?.reason)) delete state.seen[id];
   }
   state.daily = normalizeDailyState(state.daily);
   state.symbolLearning = state.symbolLearning && typeof state.symbolLearning === "object" ? state.symbolLearning : {};
@@ -2109,7 +2129,10 @@ function normalizeExecutorPolicy(value = {}) {
     maxDailyLossUsd: clampNumber(value?.maxDailyLossUsd, 1, 100000, settings.maxDailyLossUsd),
     maxDailyLossPercent: clampNumber(value?.maxDailyLossPercent, 0.1, 100, settings.maxDailyLossPercent),
     maxConsecutiveLosses: clampInt(value?.maxConsecutiveLosses, 1, 20, settings.maxConsecutiveLosses),
-    maxTradesPerDay: clampInt(value?.maxTradesPerDay, 1, 100, settings.maxTradesPerDay)
+    maxTradesPerDay: Math.min(
+      clampInt(value?.maxTradesPerDay, 1, 100, settings.maxTradesPerDay),
+      settings.hardMaxLiveTradesPerDay
+    )
   };
 }
 
@@ -2168,8 +2191,14 @@ function dailyRiskBlock(state, policy) {
   const combinedPnl = daily.realizedPnl + Math.min(0, Number(state.liveUnrealizedPnl || 0));
   if (combinedPnl <= lossLimit) return `daily/live loss ${combinedPnl} <= ${lossLimit}`;
   if (daily.consecutiveLosses >= (Number(policy.maxConsecutiveLosses) || settings.maxConsecutiveLosses)) return "consecutive loss limit";
-  if (daily.trades >= (Number(policy.maxTradesPerDay) || settings.maxTradesPerDay)) return "daily trade limit";
+  const effectiveTradeLimit = effectiveDailyTradeLimit(policy);
+  if (daily.trades >= effectiveTradeLimit) return "daily trade limit";
   return "";
+}
+
+export function effectiveDailyTradeLimit(policy = {}, hardCap = settings.hardMaxLiveTradesPerDay) {
+  const configuredTradeLimit = Number(policy.maxTradesPerDay) || settings.maxTradesPerDay;
+  return Math.max(1, Math.min(configuredTradeLimit, Number(hardCap) || settings.hardMaxLiveTradesPerDay));
 }
 
 function formatBitgetPrice(value, pricePlace = null, priceEndStep = 1) {
@@ -2212,7 +2241,9 @@ function readJson(filePath, fallback) {
 
 function writeJson(filePath, value) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, JSON.stringify(value, null, 2));
+  const temporaryPath = `${filePath}.${process.pid}.tmp`;
+  fs.writeFileSync(temporaryPath, JSON.stringify(value, null, 2));
+  fs.renameSync(temporaryPath, filePath);
 }
 
 function normalizeMode(value) {

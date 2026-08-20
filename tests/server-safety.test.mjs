@@ -36,6 +36,7 @@ import { buildChronologicalValidation } from "../lib/pro-backtest.js";
 import {
   automaticEntryQualityDecision,
   bitgetCloseDecision,
+  effectiveDailyTradeLimit,
   executorDayKey,
   exitLevelDecision,
   inferClosedOrderOutcome,
@@ -43,7 +44,9 @@ import {
   initialOrderStopDecision,
   pendingProtectionDecision,
   protectionFailSafeDecision,
+  recentSymbolOrderBlockReason,
   selectRecentOpenSignals,
+  seenSignalBlockReason,
   summarizeRealizedFills
 } from "../scripts/bitget-executor.mjs";
 import { FAIR_LAUNCH_LOCALES, FAIR_LAUNCH_LOCALE_KEYS } from "../lib/fair-launch-locales.js";
@@ -868,6 +871,38 @@ test("Bitget close is successful only when the symbol appears in successList", (
 test("executor daily risk uses the Miami calendar instead of UTC", () => {
   assert.equal(executorDayKey("2026-08-19T00:30:00.000Z"), "2026-08-18");
   assert.equal(executorDayKey("2026-08-19T04:30:00.000Z"), "2026-08-19");
+});
+
+test("remote policy cannot raise the hard live daily trade cap", () => {
+  assert.equal(effectiveDailyTradeLimit({ maxTradesPerDay: 100 }, 3), 3);
+  assert.equal(effectiveDailyTradeLimit({ maxTradesPerDay: 2 }, 3), 2);
+});
+
+test("an accepted live signal remains permanently one-time after its position closes", () => {
+  const state = {
+    bitgetSynced: true,
+    liveSymbols: [],
+    seen: {
+      "signal-arb-1": {
+        orderedAt: "2026-08-19T19:47:59.000Z",
+        reason: "duplicate clientOid"
+      }
+    }
+  };
+  assert.equal(seenSignalBlockReason(state, { id: "signal-arb-1", pair: "ARBUSDT" }), "already ordered");
+  assert.ok(state.seen["signal-arb-1"]);
+});
+
+test("a recently traded symbol cannot churn under a new signal id", () => {
+  const now = Date.parse("2026-08-19T20:00:00.000Z");
+  const state = {
+    orders: [{ symbol: "ARBUSDT", createdAt: "2026-08-19T19:47:59.000Z", status: "CLOSED_UNKNOWN" }]
+  };
+  assert.equal(
+    recentSymbolOrderBlockReason(state, { id: "new-id", pair: "ARBUSDT" }, now, 360),
+    "symbol re-entry cooldown ARBUSDT"
+  );
+  assert.equal(recentSymbolOrderBlockReason(state, { id: "sol-id", pair: "SOLUSDT" }, now, 360), "");
 });
 
 test("live orders require correctly oriented SL and TP levels", () => {
