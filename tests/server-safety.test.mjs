@@ -65,7 +65,7 @@ import {
   recordAiSimulationOutcome
 } from "../scripts/bitget-executor.mjs";
 import { corsHeaders, enforceRateLimits } from "../lib/server.js";
-import { calculateMarketDirection, dailyReportKey, normalizeOwnerManualSignal, saveExecutorHeartbeat, shouldReuseRecentCycle } from "../lib/pro-signals.js";
+import { calculateMarketDirection, dailyReportKey, normalizeOwnerManualSignal, saveExecutorHeartbeat, shouldReuseRecentCycle, summarizePaperPositionOutcomes } from "../lib/pro-signals.js";
 
 function signal(id, ageMs, bitgetEligible) {
   return {
@@ -871,6 +871,17 @@ test("Bitget close is successful only when the symbol appears in successList", (
 test("executor daily risk uses the Miami calendar instead of UTC", () => {
   assert.equal(executorDayKey("2026-08-19T00:30:00.000Z"), "2026-08-18");
   assert.equal(executorDayKey("2026-08-19T04:30:00.000Z"), "2026-08-19");
+});
+
+test("paper win rate counts complete positions instead of profitable TP legs", () => {
+  const summary = summarizePaperPositionOutcomes([
+    { signalId: "winner", netPnl: 7, closeTarget: "TP1" },
+    { signalId: "winner", netPnl: 3, closeTarget: "TP2" },
+    { signalId: "winner", netPnl: 2, closeTarget: "TP3" },
+    { signalId: "loser", netPnl: -5, closeTarget: "FINAL" },
+    { signalId: "partial-open", netPnl: 1, closeTarget: "TP1" }
+  ], [{ signalId: "partial-open" }]);
+  assert.deepEqual(summary, { trades: 2, wins: 1, losses: 1, flat: 0, winRate: 50 });
 });
 
 test("remote policy cannot raise the hard live daily trade cap", () => {
