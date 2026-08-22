@@ -84,7 +84,6 @@ async function updateExecutorLearning(input) {
   previous.mode = String(input?.mode || previous.mode || "unknown").slice(0, 20);
   previous.updatedAt = new Date().toISOString();
   const dryRun = String(input?.mode || "").toLowerCase() === "dry-run";
-  const slSuggestions = buildDailyStopLossSuggestions(outcomes);
   const order = dryRun ? input?.lastDryRunSignal : input?.lastLiveSignal;
   if (order?.pair || order?.symbol) {
     const orderKey = String(order.id || `${order.pair || order.symbol}:${order.side || ""}:${order.createdAt || ""}`).slice(0, 160);
@@ -539,6 +538,7 @@ function formatExecutorDailyLearningMessage(input, learning) {
   const examples = (learning.examples || []).slice(0, 3).map((item) => `${escapeHtml(item.pair)} ${escapeHtml(item.side)}: ${escapeHtml(item.reason)}`);
   const improvements = normalizeSelfImprovement(learning.selfImprovement);
   const outcomes = learning.outcomes || {};
+  const slSuggestions = buildDailyStopLossSuggestions(outcomes);
   const lossExamples = (outcomes.lossExamples || []).slice(0, 3).map((item) => `${escapeHtml(item.pair)} ${escapeHtml(item.side)}: ${escapeHtml(item.reason)}`);
   const lossReasons = (outcomes.topLossReasons || []).slice(0, 3).map((item) => `${escapeHtml(item.reason)} (${Number(item.count || 0)})`);
   const dryRun = String(input?.mode || "").toLowerCase() === "dry-run";

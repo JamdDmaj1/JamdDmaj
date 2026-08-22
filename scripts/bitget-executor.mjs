@@ -6,6 +6,7 @@ import { pathToFileURL } from "node:url";
 
 const ENV_PATH = process.env.JAMDDMAJ_EXECUTOR_ENV || "/opt/jamddmaj-scanner/.env";
 const STATE_PATH = process.env.JAMDDMAJ_EXECUTOR_STATE || "/opt/jamddmaj-scanner/executor-state.json";
+const LOCK_PATH = process.env.JAMDDMAJ_EXECUTOR_LOCK || `${STATE_PATH}.lock`;
 const LOG_PREFIX = "[jamddmaj-bitget]";
 
 loadDotEnv(ENV_PATH);
@@ -61,11 +62,20 @@ const settings = {
 };
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
-  main().catch(async (error) => {
+  runExecutorProcess().catch(async (error) => {
     console.error(`${LOG_PREFIX} fatal ${error?.message || error}`);
     await reportExecutorStatus({ ok: false, lastError: error?.message || String(error) }).catch(() => {});
     process.exitCode = 1;
   });
+}
+
+async function runExecutorProcess() {
+  const releaseLock = acquireExecutorLock(LOCK_PATH);
+  try {
+    await main();
+  } finally {
+    releaseLock();
+  }
 }
 
 async function main() {
@@ -73,7 +83,7 @@ async function main() {
     throw new Error("JAMDDMAJ_CRON_SECRET is required unless JAMDDMAJ_CLIENT_CONNECTOR=true is set.");
   }
 
-  const state = readJson(STATE_PATH, createExecutorState());
+  const state = readExecutorState(STATE_PATH, createExecutorState(), settings.mode === "live");
   pruneState(state);
 
   const scan = await runScanner();
@@ -254,10 +264,10 @@ async function main() {
       continue;
     }
 
-    await prepareBitgetLeverage(plan).catch((error) => {
-      console.warn(`${LOG_PREFIX} leverage setup warning ${plan.pair}: ${error?.message || error}`);
-    });
     try {
+      // Never open with an unknown leverage configuration. Continuing after
+      // this request failed could create a position with stale account risk.
+      await prepareBitgetLeverage(plan);
       const placed = await placeMarketOrder(plan);
       state.orders.unshift(createStateOrder(signal, plan, "OPEN", placed));
       state.seen[signal.id] = {
@@ -276,6 +286,25 @@ async function main() {
       console.log(`${LOG_PREFIX} LIVE order sent ${signal.pair} ${signal.side} clientOid=${plan.clientOid}`);
     } catch (error) {
       const reason = error?.message || String(error);
+      if (error?.indeterminate === true) {
+        const uncertainOrder = createStateOrder(signal, plan, "OPEN", error?.response || null);
+        uncertainOrder.acknowledgementUncertain = true;
+        uncertainOrder.acknowledgementError = reason;
+        state.orders.unshift(uncertainOrder);
+        state.seen[signal.id] = {
+          orderedAt: uncertainOrder.createdAt,
+          clientOid: plan.clientOid,
+          symbol: plan.symbol,
+          acknowledgementUncertain: true
+        };
+        incrementDailyTrades(state);
+        cycleOpenCount += 1;
+        state.lastAction = `Bitget acknowledgement uncertain ${signal.pair}; retry blocked pending reconciliation`;
+        state.updatedAt = new Date().toISOString();
+        writeJson(STATE_PATH, state);
+        console.error(`${LOG_PREFIX} ${state.lastAction}: ${reason}`);
+        continue;
+      }
       rememberSkip(state, signal, reason);
       recordRejection(decisions, reason, signal);
       state.lastAction = reason;
@@ -479,7 +508,10 @@ function executableDecision(signal, state, policy = {}, marketContext = null) {
   const gate = summarizeMarketGate(marketContext, policy);
   const minScore = gate.strictMinScore;
   if (signal.manualTest === true) {
-    if (Number(signal.score || 0) < 8) return { ok: false, reason: "manual test score below 8" };
+    if (Number(signal.score || 0) < minScore) return { ok: false, reason: `manual order score below ${minScore}` };
+    if (String(signal.marketAlignment || "neutral-market").toLowerCase() === "counter-market") {
+      return { ok: false, reason: "manual live order blocks counter-market setup" };
+    }
   } else {
     if (signal.bitgetEligible !== true) return { ok: false, reason: "signal is not Bitget-ready" };
     const liveQuality = automaticEntryQualityDecision(signal, gate);
@@ -1127,16 +1159,55 @@ async function getContracts() {
 }
 
 async function placeMarketOrder(plan) {
-  let result = await submitMarketOrder(plan);
-  if (result?.code !== "00000" && /duplicate clientoid/i.test(String(result?.msg || ""))) {
-    plan.clientOid = makeClientOid({ id: plan.signalId, pair: plan.pair, symbol: plan.symbol });
-    console.warn(`${LOG_PREFIX} retrying ${plan.pair} with fresh clientOid after duplicate rejection`);
+  let result;
+  try {
     result = await submitMarketOrder(plan);
+  } catch (error) {
+    const recovered = await fetchBitgetOrderByClientOid(plan).catch(() => null);
+    if (recovered) return recovered;
+    throw indeterminateOrderError(plan, error?.message || error);
   }
-  if (result?.code !== "00000") {
+  const acknowledgement = bitgetOrderAcknowledgementDecision(result);
+  if (acknowledgement.accepted) return result;
+  if (acknowledgement.indeterminate) {
+    const recovered = await fetchBitgetOrderByClientOid(plan).catch(() => null);
+    if (recovered) return recovered;
+    throw indeterminateOrderError(plan, acknowledgement.reason, result);
+  }
+  if (!acknowledgement.accepted) {
     throw new Error(`Bitget rejected ${plan.pair}: ${result?.msg || JSON.stringify(result)}`);
   }
   return result;
+}
+
+export function bitgetOrderAcknowledgementDecision(result = {}) {
+  const code = String(result?.code || "");
+  const orderId = String(result?.data?.orderId || "").trim();
+  if (code === "00000" && orderId) return { accepted: true, indeterminate: false, reason: "confirmed orderId" };
+  if (/duplicate clientoid/i.test(String(result?.msg || ""))) {
+    return { accepted: false, indeterminate: true, reason: "duplicate clientOid requires lookup; never resubmit" };
+  }
+  if (code === "00000") {
+    return { accepted: false, indeterminate: true, reason: "Bitget success response omitted orderId" };
+  }
+  return { accepted: false, indeterminate: false, reason: String(result?.msg || code || "Bitget rejection") };
+}
+
+async function fetchBitgetOrderByClientOid(plan) {
+  const requestPath = "/api/v2/mix/order/detail?"
+    + `symbol=${encodeURIComponent(plan.symbol)}`
+    + `&productType=${encodeURIComponent(settings.productType)}`
+    + `&clientOid=${encodeURIComponent(plan.clientOid)}`;
+  const result = await bitgetRequest("GET", requestPath);
+  if (String(result?.code || "") !== "00000" || !String(result?.data?.orderId || "").trim()) return null;
+  return { code: "00000", data: result.data, recoveredByClientOid: true };
+}
+
+function indeterminateOrderError(plan, detail, response = null) {
+  const error = new Error(`Bitget order status is uncertain for ${plan.pair}; automatic retry blocked: ${detail}`);
+  error.indeterminate = true;
+  error.response = response;
+  return error;
 }
 
 async function submitMarketOrder(plan) {
@@ -2104,15 +2175,15 @@ function compactOrder(order) {
   };
 }
 
-function normalizeExecutorPolicy(value = {}) {
+export function normalizeExecutorPolicy(value = {}) {
   return {
     livePaused: value?.livePaused === true,
     maxOpen: clampInt(value?.maxOpen ?? value?.maxLiveOpen, 1, 10, settings.maxOpen),
     maxNewOrdersPerRun: clampInt(value?.maxNewOrdersPerRun, 1, 10, settings.maxNewOrdersPerRun),
     maxLiveMarginUsd: clampNumber(value?.maxLiveMarginUsd || value?.maxMarginUsd, 1, 1000, settings.maxMarginUsd),
     fixedMarginUsd: clampNumber(value?.fixedMarginUsd, 0, 1000, settings.fixedMarginUsd),
-    minScore: clampInt(value?.minScore, 8, 20, settings.minScore),
-    strictRegimeMinScore: clampInt(value?.strictRegimeMinScore, 8, 20, settings.strictRegimeMinScore),
+    minScore: Math.max(settings.minScore, clampInt(value?.minScore, 8, 20, settings.minScore)),
+    strictRegimeMinScore: Math.max(settings.strictRegimeMinScore, clampInt(value?.strictRegimeMinScore, 8, 20, settings.strictRegimeMinScore)),
     minLiquidityUsd: clampNumber(value?.minLiquidityUsd, 0, 1_000_000_000, settings.minLiquidityUsd),
     maxExecutionSignalAgeMinutes: clampInt(value?.maxExecutionSignalAgeMinutes, 5, 240, settings.maxExecutionSignalAgeMinutes),
     traderProfile: normalizeTraderProfile(value?.traderProfile || settings.traderProfile),
@@ -2231,11 +2302,62 @@ function loadDotEnv(filePath) {
   }
 }
 
-function readJson(filePath, fallback) {
+export function readExecutorState(filePath, fallback, liveMode = false) {
+  if (!fs.existsSync(filePath)) return fallback;
   try {
-    return fs.existsSync(filePath) ? JSON.parse(fs.readFileSync(filePath, "utf8")) : fallback;
-  } catch {
+    const parsed = JSON.parse(fs.readFileSync(filePath, "utf8"));
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("state root is not an object");
+    return parsed;
+  } catch (error) {
+    if (liveMode) {
+      throw new Error(`executor state is unreadable; live entry blocked (${error?.message || error})`);
+    }
     return fallback;
+  }
+}
+
+export function acquireExecutorLock(filePath, processId = process.pid) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  const claim = () => {
+    const descriptor = fs.openSync(filePath, "wx", 0o600);
+    fs.writeFileSync(descriptor, JSON.stringify({ pid: processId, startedAt: new Date().toISOString() }));
+    fs.closeSync(descriptor);
+  };
+  try {
+    claim();
+  } catch (error) {
+    if (error?.code !== "EEXIST") throw error;
+    const existing = readLockOwner(filePath);
+    if (existing && isProcessAlive(existing.pid)) {
+      throw new Error(`another executor cycle is already running (pid ${existing.pid})`);
+    }
+    fs.unlinkSync(filePath);
+    claim();
+  }
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    const existing = readLockOwner(filePath);
+    if (!existing || Number(existing.pid) === Number(processId)) fs.rmSync(filePath, { force: true });
+  };
+}
+
+function readLockOwner(filePath) {
+  try {
+    const value = JSON.parse(fs.readFileSync(filePath, "utf8"));
+    return Number.isInteger(Number(value?.pid)) && Number(value.pid) > 0 ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function isProcessAlive(pid) {
+  try {
+    process.kill(Number(pid), 0);
+    return true;
+  } catch (error) {
+    return error?.code === "EPERM";
   }
 }
 

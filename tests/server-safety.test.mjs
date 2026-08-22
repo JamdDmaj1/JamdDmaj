@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 
 import chatHandler from "../api/chat.js";
@@ -10,7 +12,7 @@ import {
   normalizeChartAnalysis
 } from "../api/chart-analysis.js";
 import proClientFeedHandler from "../api/pro-client-feed.js";
-import {
+import proExecutorHandler, {
   buildDailyStopLossSuggestions,
   buildOutcomeCohortComparison,
   dayKey,
@@ -35,15 +37,19 @@ import { buildBoostPlan, JDMAJ_BOOST_CATALOG } from "../lib/fair-launch-boost.js
 import { buildChronologicalValidation } from "../lib/pro-backtest.js";
 import {
   automaticEntryQualityDecision,
+  acquireExecutorLock,
   bitgetCloseDecision,
+  bitgetOrderAcknowledgementDecision,
   effectiveDailyTradeLimit,
   executorDayKey,
   exitLevelDecision,
   inferClosedOrderOutcome,
   initialStopFailSafeDecision,
   initialOrderStopDecision,
+  normalizeExecutorPolicy,
   pendingProtectionDecision,
   protectionFailSafeDecision,
+  readExecutorState,
   recentSymbolOrderBlockReason,
   selectRecentOpenSignals,
   seenSignalBlockReason,
@@ -212,6 +218,64 @@ test("daily Telegram report produces safe SL suggestions from outcomes", () => {
   assert.match(suggestions[0], /varios SL/);
   assert.match(suggestions[1], /invalidaciones/);
   assert.match(suggestions[2], /TP1/);
+});
+
+test("executor heartbeat learning completes without an undefined daily-report variable", { concurrency: false }, async () => {
+  const previousFetch = globalThis.fetch;
+  const previousSecret = process.env.JAMDDMAJ_CRON_SECRET;
+  process.env.JAMDDMAJ_CRON_SECRET = "executor-test-secret";
+  globalThis.fetch = async (_url, init = {}) => {
+    const commands = JSON.parse(String(init.body || "[]"));
+    return new Response(JSON.stringify(commands.map(([command]) => ({
+      result: String(command).toUpperCase() === "GET" ? null : "OK"
+    }))), { status: 200 });
+  };
+  try {
+    const response = await proExecutorHandler(new Request("https://example.test/api/pro-executor", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer executor-test-secret",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ mode: "live", ok: true, recentOutcomeEvents: [] })
+    }));
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).ok, true);
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousSecret === undefined) delete process.env.JAMDDMAJ_CRON_SECRET;
+    else process.env.JAMDDMAJ_CRON_SECRET = previousSecret;
+  }
+});
+
+test("live executor fails closed when its protection ledger is corrupt", () => {
+  const directory = mkdtempSync(join(tmpdir(), "jamddmaj-state-"));
+  const statePath = join(directory, "executor-state.json");
+  writeFileSync(statePath, "{broken-json", "utf8");
+  try {
+    assert.throws(() => readExecutorState(statePath, { seen: {} }, true), /live entry blocked/);
+    assert.deepEqual(readExecutorState(statePath, { seen: {} }, false), { seen: {} });
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("executor lock prevents overlapping order cycles", () => {
+  const directory = mkdtempSync(join(tmpdir(), "jamddmaj-lock-"));
+  const lockPath = join(directory, "executor.lock");
+  const release = acquireExecutorLock(lockPath);
+  try {
+    assert.throws(() => acquireExecutorLock(lockPath), /already running/);
+  } finally {
+    release();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("remote policy cannot weaken local live score floors", () => {
+  const policy = normalizeExecutorPolicy({ minScore: 8, strictRegimeMinScore: 8 });
+  assert.ok(policy.minScore >= 14);
+  assert.ok(policy.strictRegimeMinScore >= 16);
 });
 
 test("executor learning deduplicates repeated rejection snapshots", () => {
@@ -866,6 +930,19 @@ test("Bitget close is successful only when the symbol appears in successList", (
   assert.equal(failed.confirmed, false);
   assert.match(failed.error, /risk control/);
   assert.equal(bitgetCloseDecision({ code: "00000", data: {} }, order).confirmed, false);
+});
+
+test("Bitget order acknowledgement never turns duplicate clientOid into a second order", () => {
+  assert.equal(bitgetOrderAcknowledgementDecision({
+    code: "00000",
+    data: { orderId: "order-1", clientOid: "stable-id" }
+  }).accepted, true);
+  const duplicate = bitgetOrderAcknowledgementDecision({ code: "40786", msg: "Duplicate clientOid" });
+  assert.equal(duplicate.accepted, false);
+  assert.equal(duplicate.indeterminate, true);
+  assert.match(duplicate.reason, /never resubmit/);
+  const missingOrderId = bitgetOrderAcknowledgementDecision({ code: "00000", data: {} });
+  assert.equal(missingOrderId.indeterminate, true);
 });
 
 test("executor daily risk uses the Miami calendar instead of UTC", () => {
