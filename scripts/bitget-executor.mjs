@@ -8,6 +8,8 @@ const ENV_PATH = process.env.JAMDDMAJ_EXECUTOR_ENV || "/opt/jamddmaj-scanner/.en
 const STATE_PATH = process.env.JAMDDMAJ_EXECUTOR_STATE || "/opt/jamddmaj-scanner/executor-state.json";
 const LOCK_PATH = process.env.JAMDDMAJ_EXECUTOR_LOCK || `${STATE_PATH}.lock`;
 const LOG_PREFIX = "[jamddmaj-bitget]";
+const HARD_MIN_LIVE_SCORE = 14;
+const HARD_STRICT_REGIME_MIN_SCORE = 16;
 
 loadDotEnv(ENV_PATH);
 
@@ -2182,8 +2184,8 @@ export function normalizeExecutorPolicy(value = {}) {
     maxNewOrdersPerRun: clampInt(value?.maxNewOrdersPerRun, 1, 10, settings.maxNewOrdersPerRun),
     maxLiveMarginUsd: clampNumber(value?.maxLiveMarginUsd || value?.maxMarginUsd, 1, 1000, settings.maxMarginUsd),
     fixedMarginUsd: clampNumber(value?.fixedMarginUsd, 0, 1000, settings.fixedMarginUsd),
-    minScore: Math.max(settings.minScore, clampInt(value?.minScore, 8, 20, settings.minScore)),
-    strictRegimeMinScore: Math.max(settings.strictRegimeMinScore, clampInt(value?.strictRegimeMinScore, 8, 20, settings.strictRegimeMinScore)),
+    minScore: Math.max(HARD_MIN_LIVE_SCORE, settings.minScore, clampInt(value?.minScore, 8, 20, settings.minScore)),
+    strictRegimeMinScore: Math.max(HARD_STRICT_REGIME_MIN_SCORE, settings.strictRegimeMinScore, clampInt(value?.strictRegimeMinScore, 8, 20, settings.strictRegimeMinScore)),
     minLiquidityUsd: clampNumber(value?.minLiquidityUsd, 0, 1_000_000_000, settings.minLiquidityUsd),
     maxExecutionSignalAgeMinutes: clampInt(value?.maxExecutionSignalAgeMinutes, 5, 240, settings.maxExecutionSignalAgeMinutes),
     traderProfile: normalizeTraderProfile(value?.traderProfile || settings.traderProfile),
