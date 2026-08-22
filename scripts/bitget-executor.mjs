@@ -8,8 +8,8 @@ const ENV_PATH = process.env.JAMDDMAJ_EXECUTOR_ENV || "/opt/jamddmaj-scanner/.en
 const STATE_PATH = process.env.JAMDDMAJ_EXECUTOR_STATE || "/opt/jamddmaj-scanner/executor-state.json";
 const LOCK_PATH = process.env.JAMDDMAJ_EXECUTOR_LOCK || `${STATE_PATH}.lock`;
 const LOG_PREFIX = "[jamddmaj-bitget]";
-const HARD_MIN_LIVE_SCORE = 14;
-const HARD_STRICT_REGIME_MIN_SCORE = 16;
+const HARD_MIN_LIVE_SCORE = 12;
+const HARD_STRICT_REGIME_MIN_SCORE = 12;
 
 loadDotEnv(ENV_PATH);
 
@@ -50,8 +50,8 @@ const settings = {
   symbolReentryCooldownMinutes: clampInt(process.env.JAMDDMAJ_SYMBOL_REENTRY_COOLDOWN_MINUTES, 30, 1440, 360),
   manualTestMaxAgeMinutes: clampInt(process.env.JAMDDMAJ_MANUAL_TEST_MAX_AGE_MINUTES, 1, 30, 10),
   retrySkippedMinutes: clampInt(process.env.JAMDDMAJ_RETRY_SKIPPED_MINUTES, 1, 120, 15),
-  minScore: clampInt(process.env.JAMDDMAJ_MIN_LIVE_SCORE, 8, 20, 14),
-  strictRegimeMinScore: clampInt(process.env.JAMDDMAJ_STRICT_REGIME_MIN_SCORE, 8, 20, 16),
+  minScore: clampInt(process.env.JAMDDMAJ_MIN_LIVE_SCORE, 8, 20, 12),
+  strictRegimeMinScore: clampInt(process.env.JAMDDMAJ_STRICT_REGIME_MIN_SCORE, 8, 20, 12),
   defensiveMaxLeverage: clampInt(process.env.JAMDDMAJ_DEFENSIVE_MAX_LEVERAGE, 1, 20, 5),
   defensiveMaxMarginUsd: clampNumber(process.env.JAMDDMAJ_DEFENSIVE_MAX_MARGIN_USD, 1, 1000, 3),
   allowMeme: String(process.env.JAMDDMAJ_ALLOW_MEME_LIVE || "false").toLowerCase() === "true",
@@ -850,7 +850,7 @@ export function automaticEntryQualityDecision(signal = {}, gate = {}) {
   const liquidity = Number(signal.quoteVolume || signal.liquidityUsd || signal.liquidity24h || 0);
   const minimumLiquidity = Math.max(1, Number(gate.minLiquidityUsd || settings.minLiquidityUsd));
   if (!expectedTrend) return { ok: false, reason: "invalid side" };
-  if (score < 13) return { ok: false, reason: "conservative live score below 13" };
+  if (score < 12) return { ok: false, reason: "live score below 12" };
   if (String(signal.marketAlignment || "").toLowerCase() !== "with-market") {
     return { ok: false, reason: "conservative live blocks counter/neutral market trades" };
   }

@@ -274,8 +274,8 @@ test("executor lock prevents overlapping order cycles", () => {
 
 test("remote policy cannot weaken local live score floors", () => {
   const policy = normalizeExecutorPolicy({ minScore: 8, strictRegimeMinScore: 8 });
-  assert.ok(policy.minScore >= 14);
-  assert.ok(policy.strictRegimeMinScore >= 16);
+  assert.ok(policy.minScore >= 12);
+  assert.ok(policy.strictRegimeMinScore >= 12);
 });
 
 test("executor learning deduplicates repeated rejection snapshots", () => {
@@ -1031,7 +1031,7 @@ test("preset entry SL is verified from the Bitget order detail", () => {
 test("automatic live trading accepts only conservative fully confirmed setups", () => {
   const ready = {
     side: "LONG",
-    score: 13.5,
+    score: 12,
     marketAlignment: "with-market",
     higherTrend: "bullish 4h alignment",
     microTrend: "bullish 15m alignment",
@@ -1042,6 +1042,7 @@ test("automatic live trading accepts only conservative fully confirmed setups", 
   };
   const gate = { minLiquidityUsd: 3_000_000 };
   assert.equal(automaticEntryQualityDecision(ready, gate).ok, true);
+  assert.match(automaticEntryQualityDecision({ ...ready, score: 11.9 }, gate).reason, /score below 12/);
   assert.match(automaticEntryQualityDecision({ ...ready, marketAlignment: "counter-market" }, gate).reason, /counter\/neutral/);
   assert.match(automaticEntryQualityDecision({ ...ready, microTrend: "bearish" }, gate).reason, /15m alignment/);
   assert.match(automaticEntryQualityDecision({ ...ready, volumeRatio: 1.1 }, gate).reason, /volume/);
