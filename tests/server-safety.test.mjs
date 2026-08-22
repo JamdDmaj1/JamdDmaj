@@ -71,7 +71,7 @@ import {
   recordAiSimulationOutcome
 } from "../scripts/bitget-executor.mjs";
 import { corsHeaders, enforceRateLimits } from "../lib/server.js";
-import { calculateMarketDirection, dailyReportKey, normalizeOwnerManualSignal, saveExecutorHeartbeat, shouldReuseRecentCycle, summarizePaperPositionOutcomes } from "../lib/pro-signals.js";
+import { applyMarketDirection, calculateMarketDirection, dailyReportKey, normalizeOwnerManualSignal, saveExecutorHeartbeat, shouldReuseRecentCycle, summarizePaperPositionOutcomes } from "../lib/pro-signals.js";
 
 function signal(id, ageMs, bitgetEligible) {
   return {
@@ -696,6 +696,25 @@ test("market direction smoothing avoids an instant full reversal", () => {
   }, now);
   assert.equal(direction.bias, "mixed");
   assert.ok(direction.currentScore < -90);
+});
+
+test("server and VPS agree that a fully confirmed 12 point signal is Bitget-ready", () => {
+  const signal = {
+    bitgetEligible: true,
+    telegramEligible: true,
+    side: "LONG",
+    score: 12,
+    volumeRatio: 1.3,
+    adx: 26,
+    spreadPercent: 0.0015,
+    higherTrend: "bullish 4h",
+    microTrend: "bullish 15m",
+    reasons: [],
+    paperShadow: { bitgetEligible: true }
+  };
+  const direction = { bias: "bullish", label: "ALCISTA", score: 35 };
+  assert.equal(applyMarketDirection(signal, direction).bitgetEligible, true);
+  assert.equal(applyMarketDirection({ ...signal, score: 11.9 }, direction).bitgetEligible, false);
 });
 
 test("chart analysis prompt includes the screenshot and scanner direction", () => {
