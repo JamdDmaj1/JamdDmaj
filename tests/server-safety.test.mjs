@@ -5,6 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import chatHandler from "../api/chat.js";
+import { publicExecutorPauseReason } from "../api/status.js";
 import {
   buildChartMessages,
   chartVisionModels,
@@ -715,6 +716,14 @@ test("server and VPS agree that a fully confirmed 12 point signal is Bitget-read
   const direction = { bias: "bullish", label: "ALCISTA", score: 35 };
   assert.equal(applyMarketDirection(signal, direction).bitgetEligible, true);
   assert.equal(applyMarketDirection({ ...signal, score: 11.9 }, direction).bitgetEligible, false);
+});
+
+test("public status reports only a safe executor pause category", () => {
+  assert.equal(publicExecutorPauseReason({ livePaused: false, lastAction: "risk block" }), "");
+  assert.equal(publicExecutorPauseReason({ livePaused: true, lastAction: "remote live pause is active" }), "remote");
+  assert.equal(publicExecutorPauseReason({ livePaused: true, lastAction: "risk block: daily loss reached" }), "daily-risk");
+  assert.equal(publicExecutorPauseReason({ livePaused: true, exitSafetyBlockReason: "initial SL unverified TSLAUSDT" }), "exit-safety");
+  assert.equal(publicExecutorPauseReason({ livePaused: true, lastAction: "paused" }), "unknown");
 });
 
 test("chart analysis prompt includes the screenshot and scanner direction", () => {

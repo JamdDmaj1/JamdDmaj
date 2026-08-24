@@ -46,6 +46,7 @@ async function getPublicExecutorHeartbeat() {
       mode: executor.mode || "unknown",
       ok: executor.ok === true,
       livePaused: executor.livePaused === true,
+      pauseReason: publicExecutorPauseReason(executor),
       lastRunAt: executor.lastRunAt || null,
       receivedAt: executor.receivedAt || null,
       bitgetSynced: executor.bitgetSynced === true,
@@ -54,6 +55,15 @@ async function getPublicExecutorHeartbeat() {
   } catch {
     return null;
   }
+}
+
+export function publicExecutorPauseReason(executor = {}) {
+  if (executor?.livePaused !== true) return "";
+  const detail = `${executor?.lastAction || ""} ${executor?.exitSafetyBlockReason || ""}`.toLowerCase();
+  if (detail.includes("remote live pause")) return "remote";
+  if (/(?:exit safety|initial sl|stop|protection)/.test(detail)) return "exit-safety";
+  if (/(?:risk block|daily risk|daily loss|consecutive loss|max trades)/.test(detail)) return "daily-risk";
+  return "unknown";
 }
 
 async function resolveLatestRelease() {
