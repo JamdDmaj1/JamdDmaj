@@ -457,6 +457,116 @@
       gap: 12px;
     }
 
+    .market-trending {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .trend-panel {
+      min-width: 0;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: color-mix(in srgb, var(--panel-2) 82%, transparent);
+    }
+
+    .trend-panel-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 9px;
+    }
+
+    .trend-panel-header strong {
+      display: block;
+      font-size: 0.82rem;
+    }
+
+    .trend-panel-header span,
+    .trend-note,
+    .trend-empty {
+      color: var(--muted);
+      font-size: 0.66rem;
+    }
+
+    .trend-list {
+      display: grid;
+      gap: 6px;
+    }
+
+    .trend-row {
+      display: grid;
+      grid-template-columns: 28px minmax(70px, 1fr) minmax(72px, auto) minmax(62px, auto);
+      align-items: center;
+      gap: 7px;
+      width: 100%;
+      min-height: 42px;
+      padding: 6px 8px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: color-mix(in srgb, var(--panel-solid) 76%, transparent);
+      color: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .trend-row:hover,
+    .trend-row:focus-visible {
+      border-color: rgba(34, 211, 238, 0.42);
+    }
+
+    .trend-rank,
+    .trend-metric {
+      color: var(--muted);
+      font-size: 0.66rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .trend-asset {
+      min-width: 0;
+    }
+
+    .trend-asset b,
+    .trend-asset small {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .trend-asset small {
+      color: var(--muted);
+      font-size: 0.61rem;
+    }
+
+    .trend-price {
+      font-size: 0.69rem;
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+    }
+
+    .trend-change {
+      padding: 4px 6px;
+      border-radius: 999px;
+      background: rgba(148, 163, 184, 0.1);
+      font-size: 0.67rem;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      text-align: center;
+    }
+
+    .trend-change.up { color: #34d399; background: rgba(52, 211, 153, 0.1); }
+    .trend-change.down { color: #fb7185; background: rgba(251, 113, 133, 0.1); }
+
+    .trend-note {
+      display: block;
+      margin-top: 8px;
+      line-height: 1.35;
+    }
+
     .market-group {
       padding: 11px;
       border: 1px solid var(--line);
@@ -3189,6 +3299,14 @@
         grid-template-columns: 1fr;
       }
 
+      .market-trending {
+        grid-template-columns: 1fr;
+      }
+
+      .trend-row {
+        grid-template-columns: 24px minmax(76px, 1fr) minmax(68px, auto) minmax(58px, auto);
+      }
+
       .learn-tracks {
         grid-template-columns: 1fr;
       }
@@ -3333,6 +3451,7 @@
           <div><strong>Live crypto markets</strong> <span>Grouped by function</span></div>
           <button class="coin" id="refreshPricesBtn" type="button" aria-live="polite">Refresh <b id="priceTime">loading</b></button>
         </div>
+        <div class="market-trending" id="marketTrending" aria-live="polite"></div>
         <div class="market-groups" id="marketGroups"></div>
       </div>
 
@@ -4370,7 +4489,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.37.55";
+      const APP_VERSION = "1.37.56";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -4387,6 +4506,7 @@
             intro: "This update improves the normal app experience.",
             button: "Got it",
             items: [
+              ["Bitget and DEX trends", "Markets now shows the most active Bitget USDT futures and DEX Screener's most actively boosted tokens with live metrics."],
               ["Mobile Solana wallets", "Connect through Mobile Wallet Adapter or open JamdDmaj securely inside Phantom and Solflare."],
               ["Guided Fair Launch", "Add brand and social links, review clear protections and connect the wallet only for the final Devnet test."],
               ["Safer Devnet signing", "JamdDmaj simulates the transaction and lets the wallet sign before adding the temporary mint signer."],
@@ -4402,6 +4522,7 @@
             intro: "Esta actualizacion mejora la experiencia normal de la app.",
             button: "Entendido",
             items: [
+              ["Tendencias de Bitget y DEX", "Mercados ahora muestra los futuros USDT con mayor actividad en Bitget y los tokens con más boosts activos en DEX Screener."],
               ["Wallets Solana en móvil", "Conecta con Mobile Wallet Adapter o abre JamdDmaj de forma segura dentro de Phantom y Solflare."],
               ["Token-2022 en Devnet", "Crea un mint de prueba con suministro fijo, sin congelación y con la autoridad de emisión revocada en una transacción Devnet aprobada por tu wallet."],
               ["Fair Launch guiado", "Agrega marca y redes sociales, revisa protecciones claras y conecta la wallet solo para la prueba final en Devnet."],
@@ -4840,6 +4961,7 @@
         Portuguese: "pt-BR", Italian: "it-IT", Japanese: "ja-JP", Korean: "ko-KR"
       };
       const PRICE_CACHE_KEY = "jamdV2CryptoPrices";
+      const MARKET_TREND_CACHE_KEY = "jamdV2MarketTrends";
       const STOCK_ALIASES = {
         nvidia: "NVDA",
         nvidea: "NVDA",
@@ -5378,6 +5500,19 @@
         ar: { newChat: "محادثة جديدة", markets: "الأسواق", hideMarkets: "إخفاء الأسواق", voiceOn: "الصوت مفعل", voiceOff: "الصوت متوقف", save: "حفظ", rename: "إعادة تسمية", help: "مساعدة", export: "تصدير", settings: "الإعدادات", message: "اكتب إلى JamdDmaj AI...", createImage: "إنشاء صورة", connect: "الاتصال بـ OpenRouter", connected: "تم توصيل خدمة الذكاء الاصطناعي" }
       };
 
+      const MARKET_TREND_TEXT = {
+        en: { bitget: "Trending on Bitget", bitgetSub: "Most active USDT futures", dex: "Trending on DEX Screener", dexSub: "Most actively boosted tokens", volume: "24h volume", liquidity: "liquidity", boosts: "boosts", loading: "Loading trends...", unavailable: "This source is temporarily unavailable.", promoted: "DEX ranking uses paid boosts. Promotion is not an endorsement or a trade signal.", open: "Open market" },
+        es: { bitget: "Tendencias en Bitget", bitgetSub: "Futuros USDT con mayor actividad", dex: "Tendencias en DEX Screener", dexSub: "Tokens con más boosts activos", volume: "volumen 24h", liquidity: "liquidez", boosts: "boosts", loading: "Cargando tendencias...", unavailable: "Esta fuente no está disponible temporalmente.", promoted: "El ranking DEX usa boosts pagados. Promoción no significa respaldo ni señal de trading.", open: "Abrir mercado" },
+        fr: { bitget: "Tendances Bitget", bitgetSub: "Futures USDT les plus actifs", dex: "Tendances DEX Screener", dexSub: "Tokens les plus boostés", volume: "volume 24 h", liquidity: "liquidité", boosts: "boosts", loading: "Chargement des tendances...", unavailable: "Cette source est temporairement indisponible.", promoted: "Le classement DEX utilise des boosts payants. Ce n'est ni une approbation ni un signal.", open: "Ouvrir le marché" },
+        de: { bitget: "Trends auf Bitget", bitgetSub: "Aktivste USDT-Futures", dex: "Trends auf DEX Screener", dexSub: "Tokens mit den meisten Boosts", volume: "24h-Volumen", liquidity: "Liquidität", boosts: "Boosts", loading: "Trends werden geladen...", unavailable: "Diese Quelle ist vorübergehend nicht verfügbar.", promoted: "Das DEX-Ranking nutzt bezahlte Boosts. Werbung ist keine Empfehlung oder Handelssignal.", open: "Markt öffnen" },
+        pt: { bitget: "Tendências na Bitget", bitgetSub: "Futuros USDT mais ativos", dex: "Tendências no DEX Screener", dexSub: "Tokens com mais boosts ativos", volume: "volume 24h", liquidity: "liquidez", boosts: "boosts", loading: "Carregando tendências...", unavailable: "Esta fonte está temporariamente indisponível.", promoted: "O ranking DEX usa boosts pagos. Promoção não é endosso nem sinal de trade.", open: "Abrir mercado" },
+        it: { bitget: "Tendenze su Bitget", bitgetSub: "Futures USDT più attivi", dex: "Tendenze su DEX Screener", dexSub: "Token con più boost attivi", volume: "volume 24h", liquidity: "liquidità", boosts: "boost", loading: "Caricamento tendenze...", unavailable: "Questa fonte non è temporaneamente disponibile.", promoted: "La classifica DEX usa boost a pagamento. La promozione non è approvazione né segnale.", open: "Apri mercato" },
+        ja: { bitget: "Bitget トレンド", bitgetSub: "最も活発なUSDT先物", dex: "DEX Screener トレンド", dexSub: "アクティブBoost上位トークン", volume: "24時間出来高", liquidity: "流動性", boosts: "Boost", loading: "トレンドを読み込み中...", unavailable: "このデータ源は一時的に利用できません。", promoted: "DEXランキングは有料Boostに基づきます。推奨や取引シグナルではありません。", open: "市場を開く" },
+        ko: { bitget: "Bitget 트렌드", bitgetSub: "가장 활발한 USDT 선물", dex: "DEX Screener 트렌드", dexSub: "활성 부스트 상위 토큰", volume: "24시간 거래량", liquidity: "유동성", boosts: "부스트", loading: "트렌드 불러오는 중...", unavailable: "이 데이터 소스를 일시적으로 사용할 수 없습니다.", promoted: "DEX 순위는 유료 부스트를 사용합니다. 추천이나 거래 신호가 아닙니다.", open: "시장 열기" },
+        zh: { bitget: "Bitget 热门", bitgetSub: "最活跃的 USDT 合约", dex: "DEX Screener 热门", dexSub: "活跃加速最多的代币", volume: "24小时成交量", liquidity: "流动性", boosts: "加速", loading: "正在加载热门数据...", unavailable: "此数据源暂时不可用。", promoted: "DEX 排名使用付费加速，不代表认可或交易信号。", open: "打开市场" },
+        ar: { bitget: "الرائج على Bitget", bitgetSub: "عقود USDT الأكثر نشاطًا", dex: "الرائج على DEX Screener", dexSub: "الرموز ذات التعزيزات الأكثر نشاطًا", volume: "حجم 24 ساعة", liquidity: "السيولة", boosts: "التعزيزات", loading: "جارٍ تحميل الرائج...", unavailable: "هذا المصدر غير متاح مؤقتًا.", promoted: "يعتمد ترتيب DEX على تعزيزات مدفوعة، وليس توصية أو إشارة تداول.", open: "فتح السوق" }
+      };
+
       const UI_EXTENDED = {
         en: {
           recentChats: "Recent chats", savedProjects: "Saved projects", noProjects: "No saved projects yet",
@@ -5625,6 +5760,7 @@
         voiceStatusText: document.getElementById("voiceStatusText"),
         endVoiceButton: document.getElementById("endVoiceBtn"),
         tutorial: document.getElementById("tutorialDialog"),
+        marketTrending: document.getElementById("marketTrending"),
         marketGroups: document.getElementById("marketGroups"),
         learnView: document.getElementById("learnView"),
         learnTracks: document.getElementById("learnTracks"),
@@ -5701,6 +5837,7 @@
       let lastProSignals = [];
       let pendingChartImage = "";
       let chartAnalysisBusy = false;
+      let marketTrendsFetchInProgress = false;
       let latestMarketDirection = null;
       let telegramOwnerAuthorized = false;
       let proServerState = null;
@@ -8893,6 +9030,7 @@
         renderHistory();
         renderProjects();
         renderMarketGroups();
+        renderMarketTrends(loadJson(MARKET_TREND_CACHE_KEY, null)?.payload || null);
         updateHeader();
       }
 
@@ -10484,7 +10622,10 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         els.ticker.classList.toggle("is-hidden", !willOpen);
         localStorage.setItem(STORAGE.markets, String(willOpen));
         updateHeader();
-        if (willOpen) fetchPrices();
+        if (willOpen) {
+          fetchPrices();
+          fetchMarketTrends();
+        }
       }
 
       function toggleVoiceMode() {
@@ -11416,11 +11557,139 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
       function loadCachedPrices() {
         try {
           const cached = JSON.parse(localStorage.getItem(PRICE_CACHE_KEY));
-          if (!cached?.prices || typeof cached.prices !== "object") return;
-          updatePriceElements(cached.prices);
-          document.getElementById("priceTime").textContent = "cached";
+          if (cached?.prices && typeof cached.prices === "object") {
+            updatePriceElements(cached.prices);
+            document.getElementById("priceTime").textContent = "cached";
+          }
         } catch {
           // Ignore an invalid cache and fetch fresh values.
+        }
+        try {
+          const cachedTrends = JSON.parse(localStorage.getItem(MARKET_TREND_CACHE_KEY));
+          if (cachedTrends?.payload) renderMarketTrends(cachedTrends.payload);
+        } catch {
+          // Ignore an invalid trends cache.
+        }
+      }
+
+      function marketTrendText(key) {
+        const pack = MARKET_TREND_TEXT[resolvedLanguage()] || MARKET_TREND_TEXT.en;
+        return pack[key] || MARKET_TREND_TEXT.en[key] || key;
+      }
+
+      function renderMarketTrends(payload = null) {
+        if (!els.marketTrending) return;
+        els.marketTrending.replaceChildren(
+          buildTrendPanel("bitget", payload?.bitget),
+          buildTrendPanel("dex", payload?.dexScreener)
+        );
+      }
+
+      function buildTrendPanel(source, items) {
+        const panel = document.createElement("section");
+        panel.className = "trend-panel";
+        const header = document.createElement("div");
+        header.className = "trend-panel-header";
+        const title = document.createElement("div");
+        const heading = document.createElement("strong");
+        heading.textContent = marketTrendText(source);
+        const subtitle = document.createElement("span");
+        subtitle.textContent = marketTrendText(`${source}Sub`);
+        title.append(heading, subtitle);
+        header.append(title);
+        const list = document.createElement("div");
+        list.className = "trend-list";
+
+        if (!Array.isArray(items)) {
+          const loading = document.createElement("div");
+          loading.className = "trend-empty";
+          loading.textContent = marketTrendText("loading");
+          list.append(loading);
+        } else if (!items.length) {
+          const empty = document.createElement("div");
+          empty.className = "trend-empty";
+          empty.textContent = marketTrendText("unavailable");
+          list.append(empty);
+        } else {
+          items.slice(0, 8).forEach((item, index) => list.append(buildTrendRow(source, item, index)));
+        }
+
+        panel.append(header, list);
+        if (source === "dex") {
+          const note = document.createElement("small");
+          note.className = "trend-note";
+          note.textContent = marketTrendText("promoted");
+          panel.append(note);
+        }
+        return panel;
+      }
+
+      function buildTrendRow(source, item, index) {
+        const row = document.createElement("button");
+        row.type = "button";
+        row.className = "trend-row";
+        row.dataset.url = String(item.url || "");
+        row.setAttribute("aria-label", `${marketTrendText("open")}: ${item.symbol || "token"}`);
+        const rank = document.createElement("span");
+        rank.className = "trend-rank";
+        rank.textContent = `#${Number(item.rank) || index + 1}`;
+        const asset = document.createElement("span");
+        asset.className = "trend-asset";
+        const symbol = document.createElement("b");
+        symbol.textContent = String(item.symbol || "TOKEN").slice(0, 24);
+        const detail = document.createElement("small");
+        detail.textContent = source === "dex"
+          ? `${String(item.chainId || "DEX").toUpperCase()} · ${formatCompactUsd(item.liquidityUsd)} ${marketTrendText("liquidity")}`
+          : `${formatCompactUsd(item.volume24h)} ${marketTrendText("volume")}`;
+        asset.append(symbol, detail);
+        const price = document.createElement("span");
+        price.className = "trend-price";
+        price.textContent = formatTrendPrice(item.price);
+        const change = document.createElement("span");
+        const changeValue = Number(item.change24h) || 0;
+        change.className = `trend-change ${changeValue > 0 ? "up" : changeValue < 0 ? "down" : ""}`;
+        change.textContent = `${changeValue > 0 ? "+" : ""}${changeValue.toFixed(2)}%`;
+        row.append(rank, asset, price, change);
+        return row;
+      }
+
+      function formatTrendPrice(value) {
+        const number = Number(value);
+        if (!Number.isFinite(number) || number <= 0) return "--";
+        const maximumFractionDigits = number >= 100 ? 2 : number >= 1 ? 4 : number >= 0.01 ? 6 : 8;
+        return new Intl.NumberFormat(undefined, {
+          style: "currency",
+          currency: "USD",
+          maximumFractionDigits
+        }).format(number);
+      }
+
+      function formatCompactUsd(value) {
+        const number = Number(value);
+        if (!Number.isFinite(number) || number < 0) return "--";
+        return new Intl.NumberFormat(undefined, {
+          style: "currency",
+          currency: "USD",
+          notation: "compact",
+          maximumFractionDigits: 1
+        }).format(number);
+      }
+
+      async function fetchMarketTrends() {
+        if (marketTrendsFetchInProgress) return;
+        marketTrendsFetchInProgress = true;
+        if (!els.marketTrending?.children.length) renderMarketTrends();
+        try {
+          const response = await fetch("/api/market-trending", { headers: { "Accept": "application/json" } });
+          if (!response.ok) throw new Error(`Trending markets returned ${response.status}`);
+          const payload = await response.json();
+          renderMarketTrends(payload);
+          localStorage.setItem(MARKET_TREND_CACHE_KEY, JSON.stringify({ payload, updatedAt: new Date().toISOString() }));
+        } catch {
+          const cached = loadJson(MARKET_TREND_CACHE_KEY, null)?.payload;
+          renderMarketTrends(cached || { bitget: [], dexScreener: [] });
+        } finally {
+          marketTrendsFetchInProgress = false;
         }
       }
 
@@ -13024,7 +13293,14 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         autoSizePrompt();
         els.prompt.focus();
       });
-      document.getElementById("refreshPricesBtn").addEventListener("click", fetchPrices);
+      els.marketTrending.addEventListener("click", (event) => {
+        const row = event.target.closest(".trend-row[data-url]");
+        if (row?.dataset.url) openExternalUrl(row.dataset.url);
+      });
+      document.getElementById("refreshPricesBtn").addEventListener("click", () => {
+        fetchPrices();
+        fetchMarketTrends();
+      });
       document.getElementById("selectCopyTextBtn").addEventListener("click", () => {
         const area = document.getElementById("copyDialogText");
         area.focus();
@@ -13124,10 +13400,14 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
       renderMarketGroups();
       loadCachedPrices();
       fetchPrices();
+      if (!els.ticker.classList.contains("is-hidden")) fetchMarketTrends();
       scheduleIdleNudge();
       setInterval(() => {
         if (!document.hidden) fetchPrices();
       }, 30000);
+      setInterval(() => {
+        if (!document.hidden && !els.ticker.classList.contains("is-hidden")) fetchMarketTrends();
+      }, 120000);
       document.addEventListener("visibilitychange", () => {
         if (document.hidden && voiceConversationActive) {
           clearVoiceRestart();
@@ -13135,6 +13415,7 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
           if (hasPendingBackupChanges()) syncCloudBackup(false);
         } else if (!document.hidden) {
           fetchPrices();
+          if (!els.ticker.classList.contains("is-hidden")) fetchMarketTrends();
           scheduleBackgroundUpdateCheck(500);
           if (localStorage.getItem(STORAGE.traderOpen) === "true" && !traderMode) {
             traderMode = true;

@@ -35,7 +35,7 @@ await cp(resolve(root, ".well-known", "security.txt"), resolve(output, ".well-kn
 
 await build({
   absWorkingDir: root,
-  entryPoints: ["./fair-launch-ui.js"],
+  entryPoints: [resolve(root, "fair-launch-ui.js")],
   outfile: resolve(output, "fair-launch-ui.js"),
   bundle: true,
   format: "esm",
