@@ -46,6 +46,8 @@ test("market trending combines sanitized Bitget activity and DEX boost data", as
   assert.equal(payload.bitget[0].change24h, 2.5);
   assert.equal(payload.dexScreener[0].symbol, "HOT");
   assert.equal(payload.dexScreener[0].liquidityUsd, 210000);
+  assert.equal(payload.dexScreener[0].tokenAddress, "So11111111111111111111111111111111111111112");
+  assert.equal(payload.dexScreener[0].pairAddress, "Pair111111111111111111111111111111111111111");
   assert.match(payload.methodology.dexScreener, /promotion, not an endorsement/i);
 });
 
@@ -57,6 +59,7 @@ test("market trending rejects unsupported methods", async () => {
 test("market trends UI is mobile-ready and translated in every supported language", async () => {
   const html = await readFile(new URL("index.html", root), "utf8");
   assert.match(html, /id="marketTrending"/);
+  assert.doesNotMatch(html, /row\.dataset\.url\) openExternalUrl/);
   assert.match(html, /@media[\s\S]*?\.market-trending\s*\{\s*grid-template-columns:\s*1fr/);
   const literal = html.match(/const MARKET_TREND_TEXT = (\{[\s\S]*?\});\s*const MARKET_DETAIL_TEXT/)?.[1];
   assert.ok(literal, "market trend locale catalog should be present");

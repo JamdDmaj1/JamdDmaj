@@ -105,6 +105,8 @@ async function fetchDexScreenerTrending() {
       symbol,
       name: safeText(pair.baseToken?.name, 60),
       chainId: candidate.chainId,
+      tokenAddress: candidate.tokenAddress,
+      pairAddress: safeAddress(pair.pairAddress),
       price: finiteNumber(pair.priceUsd),
       change24h: finiteNumber(pair.priceChange?.h24),
       volume24h: finiteNumber(pair.volume?.h24),
@@ -121,7 +123,7 @@ async function fetchJson(url) {
   try {
     const response = await fetch(url, {
       signal: controller.signal,
-      headers: { "Accept": "application/json", "User-Agent": "JamdDmaj-Markets/1.37.57" }
+      headers: { "Accept": "application/json", "User-Agent": "JamdDmaj-Markets/1.37.58" }
     });
     if (!response.ok) throw new Error(`Market source returned ${response.status}`);
     return await response.json();

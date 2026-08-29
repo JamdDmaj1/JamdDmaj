@@ -60,6 +60,38 @@ test("market asset rejects unsafe or incomplete identifiers", async () => {
   assert.equal(response.status, 400);
 });
 
+test("every DEX trend opens an internal detail with real pool candles and metrics", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = async (url) => {
+    const value = String(url);
+    if (value.includes("api.dexscreener.com/latest/dex/pairs")) {
+      return Response.json({ pairs: [{
+        baseToken: { address: "Token1111111111111111111111111111111111111", name: "Internal Token" },
+        priceUsd: "0.25", priceChange: { h24: 12.5 }, volume: { h24: 750000 }, liquidity: { usd: 210000 },
+        marketCap: 2500000, fdv: 3000000, txns: { h24: { buys: 400, sells: 300 } }, pairCreatedAt: 1700000000000,
+        info: { imageUrl: "https://assets.example.com/token.png" }
+      }] });
+    }
+    if (value.includes("api.geckoterminal.com")) {
+      const now = Math.floor(Date.now() / 1000);
+      const rows = Array.from({ length: 60 }, (_, index) => [now - (59 - index) * 3600, 0.1 + index / 1000, 0.11 + index / 1000, 0.09 + index / 1000, 0.105 + index / 1000, 1000 + index]);
+      return Response.json({ data: { attributes: { ohlcv_list: rows.reverse() } } });
+    }
+    if (value.includes("gdeltproject.org")) return Response.json({ articles: [] });
+    throw new Error(`Unexpected URL ${value}`);
+  };
+  const url = "https://www.jamddmaj.com/api/market-asset?source=dex&symbol=INT&name=Internal%20Token&chainId=solana&tokenAddress=Token1111111111111111111111111111111111111&pairAddress=Pair11111111111111111111111111111111111111&timeframe=1h";
+  const response = await marketAssetHandler(new Request(url));
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.asset.source, "dex");
+  assert.equal(payload.candles.length, 60);
+  assert.equal(payload.metrics.liquidityUsd, 210000);
+  assert.equal(payload.metrics.transactions24h, 700);
+  assert.match(payload.sources.chart, /GeckoTerminal/);
+});
+
 test("trend analysis reports uncertainty instead of inventing a prediction", () => {
   assert.equal(analyzeTrend([{ close: 1 }]).direction, "insufficient");
   const mixed = analyzeTrend(Array.from({ length: 60 }, (_, index) => ({ close: 100 + Math.sin(index) })));
@@ -74,11 +106,17 @@ test("asset research UI is internal, mobile-safe and translated in every support
   assert.match(html, /MARKET_TREND_API_URL/);
   assert.doesNotMatch(html, /fetch\("\/api\/market-trending"/);
   assert.match(html, /@media \(max-width: 500px\)[\s\S]*?\.asset-detail-grid\s*\{\s*grid-template-columns:\s*1fr/);
-  const literal = html.match(/const MARKET_DETAIL_TEXT = (\{[\s\S]*?\});\s*const UI_EXTENDED/)?.[1];
+  const literal = html.match(/const MARKET_DETAIL_TEXT = (\{[\s\S]*?\});\s*const DEX_METRIC_TEXT/)?.[1];
   assert.ok(literal, "asset detail locale catalog should be present");
   const catalog = Function(`"use strict"; return (${literal});`)();
   const languages = ["en", "es", "fr", "de", "pt", "it", "ja", "ko", "zh", "ar"];
   const expectedKeys = Object.keys(catalog.en).sort();
   assert.deepEqual(Object.keys(catalog).sort(), languages.sort());
   languages.forEach((language) => assert.deepEqual(Object.keys(catalog[language]).sort(), expectedKeys));
+  const dexLiteral = html.match(/const DEX_METRIC_TEXT = (\{[\s\S]*?\});\s*const UI_EXTENDED/)?.[1];
+  assert.ok(dexLiteral, "DEX metric locale catalog should be present");
+  const dexCatalog = Function(`"use strict"; return (${dexLiteral});`)();
+  const dexKeys = Object.keys(dexCatalog.en).sort();
+  languages.forEach((language) => assert.deepEqual(Object.keys(dexCatalog[language]).sort(), dexKeys));
+  assert.match(html, /openMarketAsset\(\{[\s\S]*?source:\s*row\.dataset\.source/);
 });

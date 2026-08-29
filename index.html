@@ -4721,7 +4721,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.37.57";
+      const APP_VERSION = "1.37.58";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -5760,6 +5760,19 @@
         ko: { back: "시장으로 돌아가기", chart: "가격 차트", scenario: "기술적 시나리오", news: "중요한 최신 뉴스", question: "이 자산에 대해 질문", placeholder: "추세, 위험, 거래량 또는 뉴스를 질문하세요...", ask: "JamdDmaj AI에 질문", loading: "실시간 시장 데이터 로딩 중...", unavailable: "실시간 세부 정보를 일시적으로 사용할 수 없습니다.", noNews: "관련성 높은 최신 뉴스가 없습니다.", risk: "기술적 시나리오는 교육용 추정이며 보장이나 금융 조언이 아닙니다.", bullish: "상승 편향", bearish: "하락 편향", mixed: "혼조 / 명확한 방향 없음", insufficient: "차트 데이터 부족", confidence: "기술적 신뢰도", marketCap: "시가총액", volume: "24시간 거래량", rank: "시장 순위", openInterest: "미결제약정", highLow: "24시간 고가 / 저가", funding: "펀딩 비율", supply: "유통 공급량", rsi: "RSI (14)", momentum: "차트 변화", updated: "업데이트", sources: "공개 시장 데이터", priceAboveSma20: "가격이 20기간 평균 위에 있습니다.", priceBelowSma20: "가격이 20기간 평균 아래에 있습니다.", sma20AboveSma50: "단기 평균이 장기 평균보다 높습니다.", sma20BelowSma50: "단기 평균이 장기 평균보다 낮습니다.", positiveMomentum: "최근 모멘텀이 긍정적입니다.", negativeMomentum: "최근 모멘텀이 부정적입니다.", overbought: "RSI가 높아 조정 위험이 큽니다.", oversold: "RSI가 낮아 반등 위험이 큽니다." },
         zh: { back: "返回市场", chart: "价格图表", scenario: "技术情景", news: "近期重要新闻", question: "询问此资产", placeholder: "询问趋势、风险、成交量或新闻...", ask: "询问 JamdDmaj AI", loading: "正在加载实时市场数据...", unavailable: "实时详情暂时不可用。", noNews: "未找到高度相关的近期新闻。", risk: "技术情景仅为教育性估计，不是保证或财务建议。", bullish: "看涨倾向", bearish: "看跌倾向", mixed: "混合 / 无明确方向", insufficient: "图表数据不足", confidence: "技术置信度", marketCap: "市值", volume: "24小时成交量", rank: "市场排名", openInterest: "未平仓量", highLow: "24小时高 / 低", funding: "资金费率", supply: "流通供应量", rsi: "RSI (14)", momentum: "图表变化", updated: "更新", sources: "公开市场数据", priceAboveSma20: "价格高于20周期均线。", priceBelowSma20: "价格低于20周期均线。", sma20AboveSma50: "短期均线高于长期均线。", sma20BelowSma50: "短期均线低于长期均线。", positiveMomentum: "近期动能为正。", negativeMomentum: "近期动能为负。", overbought: "RSI偏高，回调风险增加。", oversold: "RSI偏低，反弹风险增加。" },
         ar: { back: "العودة إلى الأسواق", chart: "مخطط السعر", scenario: "السيناريو الفني", news: "أهم الأخبار الحديثة", question: "اسأل عن هذا الأصل", placeholder: "اسأل عن الاتجاه أو المخاطر أو الحجم أو الأخبار...", ask: "اسأل JamdDmaj AI", loading: "جارٍ تحميل بيانات السوق المباشرة...", unavailable: "التفاصيل المباشرة غير متاحة مؤقتًا.", noNews: "لم يتم العثور على أخبار حديثة عالية الصلة.", risk: "السيناريوهات الفنية تقديرات تعليمية وليست ضمانًا أو نصيحة مالية.", bullish: "ميل صاعد", bearish: "ميل هابط", mixed: "مختلط / بلا اتجاه واضح", insufficient: "بيانات الرسم غير كافية", confidence: "الثقة الفنية", marketCap: "القيمة السوقية", volume: "حجم 24 ساعة", rank: "ترتيب السوق", openInterest: "العقود المفتوحة", highLow: "أعلى / أدنى 24 ساعة", funding: "معدل التمويل", supply: "المعروض المتداول", rsi: "RSI (14)", momentum: "تغير الرسم", updated: "محدث", sources: "بيانات سوق عامة", priceAboveSma20: "السعر فوق متوسط 20 فترة.", priceBelowSma20: "السعر دون متوسط 20 فترة.", sma20AboveSma50: "المتوسط القصير أعلى من الطويل.", sma20BelowSma50: "المتوسط القصير أدنى من الطويل.", positiveMomentum: "الزخم الأخير إيجابي.", negativeMomentum: "الزخم الأخير سلبي.", overbought: "RSI مرتفع؛ خطر التراجع أكبر.", oversold: "RSI منخفض؛ احتمال الارتداد أكبر." }
+      };
+
+      const DEX_METRIC_TEXT = {
+        en: { fdv: "Fully diluted value", liquidity: "Liquidity", transactions: "24h transactions", buysSells: "24h buys / sells" },
+        es: { fdv: "Valor totalmente diluido", liquidity: "Liquidez", transactions: "Transacciones 24h", buysSells: "Compras / ventas 24h" },
+        fr: { fdv: "Valeur entièrement diluée", liquidity: "Liquidité", transactions: "Transactions 24 h", buysSells: "Achats / ventes 24 h" },
+        de: { fdv: "Voll verwässerter Wert", liquidity: "Liquidität", transactions: "24h-Transaktionen", buysSells: "24h Käufe / Verkäufe" },
+        pt: { fdv: "Valor totalmente diluído", liquidity: "Liquidez", transactions: "Transações 24h", buysSells: "Compras / vendas 24h" },
+        it: { fdv: "Valore completamente diluito", liquidity: "Liquidità", transactions: "Transazioni 24h", buysSells: "Acquisti / vendite 24h" },
+        ja: { fdv: "完全希薄化後評価額", liquidity: "流動性", transactions: "24時間取引数", buysSells: "24時間買い / 売り" },
+        ko: { fdv: "완전 희석 가치", liquidity: "유동성", transactions: "24시간 거래 수", buysSells: "24시간 매수 / 매도" },
+        zh: { fdv: "完全稀释估值", liquidity: "流动性", transactions: "24小时交易数", buysSells: "24小时买入 / 卖出" },
+        ar: { fdv: "القيمة المخففة بالكامل", liquidity: "السيولة", transactions: "معاملات 24 ساعة", buysSells: "شراء / بيع 24 ساعة" }
       };
 
       const UI_EXTENDED = {
@@ -11827,6 +11840,11 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         return pack[key] || MARKET_DETAIL_TEXT.en[key] || key;
       }
 
+      function dexMetricText(key) {
+        const pack = DEX_METRIC_TEXT[resolvedLanguage()] || DEX_METRIC_TEXT.en;
+        return pack[key] || marketDetailText(key);
+      }
+
       function applyMarketDetailLanguage() {
         document.getElementById("assetBackBtn").setAttribute("aria-label", marketDetailText("back"));
         document.getElementById("assetChartTitle").textContent = marketDetailText("chart");
@@ -11840,8 +11858,16 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
       }
 
       async function openMarketAsset(asset, timeframe = selectedMarketTimeframe) {
-        if (!asset?.symbol || !asset?.id) return;
-        selectedMarketAsset = { symbol: asset.symbol, id: asset.id, name: asset.name || asset.symbol };
+        if (!asset?.symbol) return;
+        selectedMarketAsset = {
+          symbol: asset.symbol,
+          id: asset.id || "",
+          name: asset.name || asset.symbol,
+          source: asset.source === "dex" ? "dex" : "bitget",
+          chainId: asset.chainId || "",
+          tokenAddress: asset.tokenAddress || "",
+          pairAddress: asset.pairAddress || ""
+        };
         selectedMarketTimeframe = timeframe;
         selectedMarketPayload = null;
         els.ticker.classList.add("is-hidden");
@@ -11850,7 +11876,9 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         els.messages.hidden = true;
         document.querySelector(".composer-wrap").hidden = true;
         document.getElementById("assetDetailName").textContent = selectedMarketAsset.name;
-        document.getElementById("assetDetailSymbol").textContent = `${selectedMarketAsset.symbol} / USDT`;
+        document.getElementById("assetDetailSymbol").textContent = selectedMarketAsset.source === "dex"
+          ? `${selectedMarketAsset.symbol} · ${selectedMarketAsset.chainId.toUpperCase()} DEX`
+          : `${selectedMarketAsset.symbol} / USDT`;
         document.getElementById("assetDetailPrice").textContent = "--";
         document.getElementById("assetDetailChange").textContent = "--";
         els.assetChartStatus.textContent = marketDetailText("loading");
@@ -11890,10 +11918,16 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         els.assetChartStatus.textContent = marketDetailText("loading");
         const params = new URLSearchParams({
           symbol: selectedMarketAsset.symbol,
-          coinId: selectedMarketAsset.id,
           name: selectedMarketAsset.name,
+          source: selectedMarketAsset.source,
           timeframe: selectedMarketTimeframe
         });
+        if (selectedMarketAsset.id) params.set("coinId", selectedMarketAsset.id);
+        if (selectedMarketAsset.source === "dex") {
+          params.set("chainId", selectedMarketAsset.chainId);
+          params.set("tokenAddress", selectedMarketAsset.tokenAddress);
+          params.set("pairAddress", selectedMarketAsset.pairAddress);
+        }
         try {
           const response = await fetch(`${MARKET_ASSET_API_URL}?${params}`, {
             signal: marketAssetController.signal,
@@ -11912,7 +11946,9 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
       function renderMarketAsset(payload) {
         if (!payload?.asset) return;
         document.getElementById("assetDetailName").textContent = payload.asset.name || selectedMarketAsset?.name || payload.asset.symbol;
-        document.getElementById("assetDetailSymbol").textContent = `${payload.asset.symbol} / USDT · ${marketDetailText("sources")}`;
+        document.getElementById("assetDetailSymbol").textContent = payload.asset.source === "dex"
+          ? `${payload.asset.symbol} · ${String(payload.asset.chainId || "DEX").toUpperCase()} · ${marketDetailText("sources")}`
+          : `${payload.asset.symbol} / USDT · ${marketDetailText("sources")}`;
         const price = Number(payload.ticker?.price || payload.candles?.at(-1)?.close);
         const change = Number(payload.ticker?.change24h);
         document.getElementById("assetDetailPrice").textContent = formatTrendPrice(price);
@@ -11953,7 +11989,17 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         const metrics = payload.metrics || {};
         const ticker = payload.ticker || {};
         const trend = payload.trend || {};
-        const items = [
+        const items = payload.asset?.source === "dex" ? [
+          ["marketCap", metrics.marketCap ? formatCompactUsd(metrics.marketCap) : "--"],
+          ["fdv", metrics.fullyDilutedValuation ? formatCompactUsd(metrics.fullyDilutedValuation) : "--"],
+          ["volume", formatCompactUsd(metrics.volume24h || ticker.volume24h)],
+          ["liquidity", formatCompactUsd(metrics.liquidityUsd)],
+          ["transactions", formatCompactNumber(metrics.transactions24h)],
+          ["buysSells", `${formatCompactNumber(metrics.buys24h)} / ${formatCompactNumber(metrics.sells24h)}`],
+          ["highLow", ticker.high24h && ticker.low24h ? `${formatTrendPrice(ticker.high24h)} / ${formatTrendPrice(ticker.low24h)}` : "--"],
+          ["rsi", Number.isFinite(Number(trend.rsi)) ? Number(trend.rsi).toFixed(1) : "--"],
+          ["momentum", Number.isFinite(Number(trend.change)) ? `${Number(trend.change) >= 0 ? "+" : ""}${Number(trend.change).toFixed(2)}%` : "--"]
+        ] : [
           ["marketCap", metrics.marketCap ? formatCompactUsd(metrics.marketCap) : "--"],
           ["volume", formatCompactUsd(metrics.volume24h || ticker.volume24h)],
           ["rank", metrics.marketCapRank ? `#${metrics.marketCapRank}` : "--"],
@@ -11968,7 +12014,7 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
           const card = document.createElement("div");
           card.className = "asset-metric";
           const label = document.createElement("span");
-          label.textContent = marketDetailText(key);
+          label.textContent = payload.asset?.source === "dex" ? dexMetricText(key) : marketDetailText(key);
           const number = document.createElement("strong");
           number.textContent = value;
           card.append(label, number);
@@ -12152,6 +12198,10 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         row.dataset.url = String(item.url || "");
         row.dataset.source = source;
         row.dataset.symbol = String(item.symbol || "").toUpperCase().replace(/USDT$/, "");
+        row.dataset.name = String(item.name || row.dataset.symbol).slice(0, 60);
+        row.dataset.chainId = String(item.chainId || "").slice(0, 40);
+        row.dataset.tokenAddress = String(item.tokenAddress || "").slice(0, 80);
+        row.dataset.pairAddress = String(item.pairAddress || "").slice(0, 80);
         row.setAttribute("aria-label", `${marketTrendText("open")}: ${item.symbol || "token"}`);
         const rank = document.createElement("span");
         rank.className = "trend-rank";
@@ -13815,11 +13865,18 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         openMarketAsset({ symbol: coin.dataset.symbol, id: coin.dataset.coinId, name: coin.dataset.name });
       });
       els.marketTrending.addEventListener("click", (event) => {
-        const row = event.target.closest(".trend-row[data-url]");
+        const row = event.target.closest(".trend-row");
         if (!row) return;
         const asset = CRYPTO_ASSETS.find((item) => item.symbol === row.dataset.symbol);
-        if (row.dataset.source === "bitget" && asset) openMarketAsset({ symbol: asset.symbol, id: asset.id, name: asset.symbol });
-        else if (row.dataset.url) openExternalUrl(row.dataset.url);
+        openMarketAsset({
+          symbol: row.dataset.symbol,
+          id: asset?.id || "",
+          name: asset?.symbol || row.dataset.name || row.dataset.symbol,
+          source: row.dataset.source,
+          chainId: row.dataset.chainId,
+          tokenAddress: row.dataset.tokenAddress,
+          pairAddress: row.dataset.pairAddress
+        });
       });
       document.getElementById("assetBackBtn").addEventListener("click", closeMarketAsset);
       document.getElementById("assetTimeframes").addEventListener("click", (event) => {
