@@ -58,7 +58,7 @@ test("market trends UI is mobile-ready and translated in every supported languag
   const html = await readFile(new URL("index.html", root), "utf8");
   assert.match(html, /id="marketTrending"/);
   assert.match(html, /@media[\s\S]*?\.market-trending\s*\{\s*grid-template-columns:\s*1fr/);
-  const literal = html.match(/const MARKET_TREND_TEXT = (\{[\s\S]*?\});\s*const UI_EXTENDED/)?.[1];
+  const literal = html.match(/const MARKET_TREND_TEXT = (\{[\s\S]*?\});\s*const MARKET_DETAIL_TEXT/)?.[1];
   assert.ok(literal, "market trend locale catalog should be present");
   const catalog = Function(`"use strict"; return (${literal});`)();
   const languages = ["en", "es", "fr", "de", "pt", "it", "ja", "ko", "zh", "ar"];

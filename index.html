@@ -606,6 +606,178 @@
       font-variant-numeric: tabular-nums;
     }
 
+    .market-detail-view {
+      height: min(100%, calc(var(--viewport-height, 100dvh) - 96px));
+      overflow: auto;
+      padding: clamp(14px, 3vw, 28px);
+      background:
+        radial-gradient(circle at 12% 0%, rgba(34, 211, 238, 0.12), transparent 28rem),
+        radial-gradient(circle at 88% 5%, rgba(139, 92, 246, 0.12), transparent 26rem);
+    }
+
+    .market-detail-view.is-hidden { display: none; }
+
+    .asset-detail-shell {
+      display: grid;
+      gap: 16px;
+      width: min(1120px, 100%);
+      margin: 0 auto;
+    }
+
+    .asset-detail-header,
+    .asset-chart-card,
+    .asset-analysis-card,
+    .asset-news-card,
+    .asset-question-card {
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: color-mix(in srgb, var(--panel-solid) 92%, transparent);
+      box-shadow: 0 18px 55px rgba(0, 0, 0, 0.18);
+    }
+
+    .asset-detail-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px;
+    }
+
+    .asset-back {
+      width: 42px;
+      height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--panel-2);
+      font-size: 1.2rem;
+      cursor: pointer;
+    }
+
+    .asset-identity { min-width: 0; flex: 1; }
+    .asset-identity strong, .asset-identity span { display: block; }
+    .asset-identity strong { font-size: 1.05rem; }
+    .asset-identity span { color: var(--muted); font-size: 0.72rem; }
+    .asset-live-price { text-align: right; font-variant-numeric: tabular-nums; }
+    .asset-live-price strong, .asset-live-price span { display: block; }
+    .asset-live-price span { margin-top: 2px; font-size: 0.72rem; font-weight: 800; }
+    .asset-live-price .up { color: #34d399; }
+    .asset-live-price .down { color: #fb7185; }
+
+    .asset-chart-card,
+    .asset-analysis-card,
+    .asset-news-card,
+    .asset-question-card { padding: clamp(14px, 2.6vw, 22px); }
+
+    .asset-card-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .asset-card-heading h2,
+    .asset-card-heading h3 { margin: 0; font-size: 1rem; }
+
+    .asset-timeframes { display: flex; flex-wrap: wrap; gap: 6px; }
+    .asset-timeframes button {
+      padding: 6px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--panel-2);
+      color: inherit;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .asset-timeframes button.active {
+      border-color: var(--accent-2);
+      background: rgba(34, 211, 238, 0.12);
+      color: var(--accent-2);
+    }
+
+    .asset-chart-wrap {
+      position: relative;
+      height: clamp(250px, 42vw, 430px);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      overflow: hidden;
+      background: rgba(2, 6, 23, 0.35);
+    }
+    #assetChart { width: 100%; height: 100%; display: block; }
+    .asset-chart-status {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      color: var(--muted);
+      text-align: center;
+    }
+    .asset-chart-status:empty { display: none; }
+
+    .asset-detail-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
+      gap: 16px;
+    }
+
+    .asset-trend-box {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 14px;
+      align-items: center;
+      margin-bottom: 14px;
+      padding: 14px;
+      border-radius: 16px;
+      background: rgba(148, 163, 184, 0.08);
+    }
+    .asset-trend-icon { font-size: 1.8rem; }
+    .asset-trend-box strong, .asset-trend-box span { display: block; }
+    .asset-trend-box span { color: var(--muted); font-size: 0.74rem; }
+    .asset-risk-note { margin: 10px 0 0; color: var(--muted); font-size: 0.71rem; line-height: 1.45; }
+
+    .asset-metrics {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .asset-metric {
+      min-width: 0;
+      padding: 11px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: rgba(148, 163, 184, 0.05);
+    }
+    .asset-metric span, .asset-metric strong { display: block; overflow: hidden; text-overflow: ellipsis; }
+    .asset-metric span { color: var(--muted); font-size: 0.65rem; }
+    .asset-metric strong { margin-top: 4px; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+
+    .asset-news-list { display: grid; gap: 8px; }
+    .asset-news-item {
+      display: block;
+      width: 100%;
+      padding: 11px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: rgba(148, 163, 184, 0.05);
+      color: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+    .asset-news-item strong { display: block; font-size: 0.75rem; line-height: 1.35; }
+    .asset-news-item span { display: block; margin-top: 5px; color: var(--muted); font-size: 0.64rem; }
+
+    .asset-question-form { display: flex; gap: 8px; }
+    .asset-question-form input {
+      min-width: 0;
+      flex: 1;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--panel-2);
+      color: inherit;
+    }
+    .asset-question-form button { white-space: nowrap; }
+
     .trader-view {
       position: relative;
       height: min(100%, calc(var(--viewport-height, 100dvh) - 96px));
@@ -3307,6 +3479,13 @@
         grid-template-columns: 24px minmax(76px, 1fr) minmax(68px, auto) minmax(58px, auto);
       }
 
+      .market-detail-view { padding: 10px; }
+      .asset-detail-grid { grid-template-columns: 1fr; }
+      .asset-detail-header { position: sticky; top: 0; z-index: 3; }
+      .asset-card-heading { align-items: flex-start; flex-direction: column; }
+      .asset-chart-wrap { height: 290px; }
+      .asset-question-form { flex-direction: column; }
+
       .learn-tracks {
         grid-template-columns: 1fr;
       }
@@ -3454,6 +3633,59 @@
         <div class="market-trending" id="marketTrending" aria-live="polite"></div>
         <div class="market-groups" id="marketGroups"></div>
       </div>
+
+      <section class="market-detail-view is-hidden" id="marketDetailView" aria-label="Asset market research" hidden>
+        <div class="asset-detail-shell">
+          <header class="asset-detail-header">
+            <button class="asset-back" id="assetBackBtn" type="button" aria-label="Back to markets">←</button>
+            <div class="asset-identity">
+              <strong id="assetDetailName">Asset</strong>
+              <span id="assetDetailSymbol">-- / USDT</span>
+            </div>
+            <div class="asset-live-price">
+              <strong id="assetDetailPrice">--</strong>
+              <span id="assetDetailChange">--</span>
+            </div>
+          </header>
+
+          <section class="asset-chart-card">
+            <div class="asset-card-heading">
+              <h2 id="assetChartTitle">Price chart</h2>
+              <div class="asset-timeframes" id="assetTimeframes" aria-label="Chart timeframe">
+                <button type="button" data-timeframe="15m">15m</button>
+                <button class="active" type="button" data-timeframe="1h">1h</button>
+                <button type="button" data-timeframe="4h">4h</button>
+                <button type="button" data-timeframe="1d">1d</button>
+              </div>
+            </div>
+            <div class="asset-chart-wrap">
+              <canvas id="assetChart" role="img" aria-label="Candlestick price chart"></canvas>
+              <div class="asset-chart-status" id="assetChartStatus">Loading live chart...</div>
+            </div>
+          </section>
+
+          <div class="asset-detail-grid">
+            <section class="asset-analysis-card">
+              <div class="asset-card-heading"><h3 id="assetAnalysisTitle">Technical scenario</h3></div>
+              <div class="asset-trend-box" id="assetTrendBox"></div>
+              <div class="asset-metrics" id="assetMetrics"></div>
+              <p class="asset-risk-note" id="assetRiskNote">Technical scenarios are educational estimates, not guaranteed predictions or financial advice.</p>
+            </section>
+            <section class="asset-news-card">
+              <div class="asset-card-heading"><h3 id="assetNewsTitle">Recent important news</h3><span id="assetNewsTime"></span></div>
+              <div class="asset-news-list" id="assetNewsList"></div>
+            </section>
+          </div>
+
+          <section class="asset-question-card">
+            <div class="asset-card-heading"><h3 id="assetQuestionTitle">Ask about this asset</h3></div>
+            <form class="asset-question-form" id="assetQuestionForm">
+              <input id="assetQuestionInput" type="search" maxlength="400" autocomplete="off" placeholder="Ask about trend, risks, volume, news or fundamentals...">
+              <button class="pill-btn" id="assetQuestionBtn" type="submit">Ask JamdDmaj AI</button>
+            </form>
+          </section>
+        </div>
+      </section>
 
       <section class="fair-launch-view is-hidden" id="fairLaunchView" aria-label="Fair Launch Lab" hidden>
         <div class="fair-launch-shell">
@@ -4489,7 +4721,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.37.56";
+      const APP_VERSION = "1.37.57";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -4499,6 +4731,8 @@
       const PRO_NEWS_API_URL = `${WEB_APP_URL}api/pro-news`;
       const CHART_ANALYSIS_API_URL = `${WEB_APP_URL}api/chart-analysis`;
       const ACCOUNT_API_URL = `${WEB_APP_URL}api/account`;
+      const MARKET_TREND_API_URL = `${WEB_APP_URL}api/market-trending`;
+      const MARKET_ASSET_API_URL = `${WEB_APP_URL}api/market-asset`;
       const RELEASE_NOTES = {
         normal: {
           en: {
@@ -4506,6 +4740,7 @@
             intro: "This update improves the normal app experience.",
             button: "Got it",
             items: [
+              ["Complete asset research", "Tap a supported market asset to open its chart, timeframe controls, live metrics, transparent technical scenario, recent news and token-specific questions."],
               ["Bitget and DEX trends", "Markets now shows the most active Bitget USDT futures and DEX Screener's most actively boosted tokens with live metrics."],
               ["Mobile Solana wallets", "Connect through Mobile Wallet Adapter or open JamdDmaj securely inside Phantom and Solflare."],
               ["Guided Fair Launch", "Add brand and social links, review clear protections and connect the wallet only for the final Devnet test."],
@@ -4522,6 +4757,7 @@
             intro: "Esta actualizacion mejora la experiencia normal de la app.",
             button: "Entendido",
             items: [
+              ["Investigación completa del activo", "Toca un activo compatible para abrir su gráfico, temporalidades, métricas en vivo, escenario técnico transparente, noticias recientes y preguntas sobre el token."],
               ["Tendencias de Bitget y DEX", "Mercados ahora muestra los futuros USDT con mayor actividad en Bitget y los tokens con más boosts activos en DEX Screener."],
               ["Wallets Solana en móvil", "Conecta con Mobile Wallet Adapter o abre JamdDmaj de forma segura dentro de Phantom y Solflare."],
               ["Token-2022 en Devnet", "Crea un mint de prueba con suministro fijo, sin congelación y con la autoridad de emisión revocada en una transacción Devnet aprobada por tu wallet."],
@@ -5513,6 +5749,19 @@
         ar: { bitget: "الرائج على Bitget", bitgetSub: "عقود USDT الأكثر نشاطًا", dex: "الرائج على DEX Screener", dexSub: "الرموز ذات التعزيزات الأكثر نشاطًا", volume: "حجم 24 ساعة", liquidity: "السيولة", boosts: "التعزيزات", loading: "جارٍ تحميل الرائج...", unavailable: "هذا المصدر غير متاح مؤقتًا.", promoted: "يعتمد ترتيب DEX على تعزيزات مدفوعة، وليس توصية أو إشارة تداول.", open: "فتح السوق" }
       };
 
+      const MARKET_DETAIL_TEXT = {
+        en: { back: "Back to markets", chart: "Price chart", scenario: "Technical scenario", news: "Recent important news", question: "Ask about this asset", placeholder: "Ask about trend, risks, volume, news or fundamentals...", ask: "Ask JamdDmaj AI", loading: "Loading live market data...", unavailable: "Live detail is temporarily unavailable. Try again.", noNews: "No recent high-relevance news was found.", risk: "Technical scenarios are educational estimates, not guaranteed predictions or financial advice.", bullish: "Bullish bias", bearish: "Bearish bias", mixed: "Mixed / no clear direction", insufficient: "Not enough chart data", confidence: "technical confidence", marketCap: "Market cap", volume: "24h volume", rank: "Market rank", openInterest: "Open interest", highLow: "24h high / low", funding: "Funding rate", supply: "Circulating supply", rsi: "RSI (14)", momentum: "Chart change", updated: "Updated", sources: "Public market data", priceAboveSma20: "Price is above its 20-period average.", priceBelowSma20: "Price is below its 20-period average.", sma20AboveSma50: "Short-term average leads the longer average.", sma20BelowSma50: "Short-term average trails the longer average.", positiveMomentum: "Recent momentum is positive.", negativeMomentum: "Recent momentum is negative.", overbought: "RSI is elevated; pullback risk is higher.", oversold: "RSI is depressed; reversal risk is higher." },
+        es: { back: "Volver a mercados", chart: "Gráfico de precio", scenario: "Escenario técnico", news: "Noticias importantes recientes", question: "Pregunta sobre este activo", placeholder: "Pregunta por tendencia, riesgos, volumen, noticias o fundamentos...", ask: "Preguntar a JamdDmaj AI", loading: "Cargando datos del mercado en vivo...", unavailable: "El detalle en vivo no está disponible temporalmente. Inténtalo otra vez.", noNews: "No se encontraron noticias recientes de alta relevancia.", risk: "Los escenarios técnicos son estimaciones educativas, no predicciones garantizadas ni asesoría financiera.", bullish: "Sesgo alcista", bearish: "Sesgo bajista", mixed: "Mixto / sin dirección clara", insufficient: "No hay suficientes datos del gráfico", confidence: "confianza técnica", marketCap: "Capitalización", volume: "Volumen 24h", rank: "Puesto de mercado", openInterest: "Interés abierto", highLow: "Máximo / mínimo 24h", funding: "Tasa de financiación", supply: "Suministro circulante", rsi: "RSI (14)", momentum: "Cambio del gráfico", updated: "Actualizado", sources: "Datos públicos de mercado", priceAboveSma20: "El precio está sobre su promedio de 20 periodos.", priceBelowSma20: "El precio está debajo de su promedio de 20 periodos.", sma20AboveSma50: "El promedio corto supera al promedio largo.", sma20BelowSma50: "El promedio corto está debajo del promedio largo.", positiveMomentum: "El impulso reciente es positivo.", negativeMomentum: "El impulso reciente es negativo.", overbought: "El RSI está elevado; aumenta el riesgo de retroceso.", oversold: "El RSI está deprimido; aumenta el riesgo de rebote." },
+        fr: { back: "Retour aux marchés", chart: "Graphique des prix", scenario: "Scénario technique", news: "Actualités importantes récentes", question: "Question sur cet actif", placeholder: "Demandez la tendance, les risques, le volume ou les actualités...", ask: "Demander à JamdDmaj AI", loading: "Chargement des données en direct...", unavailable: "Le détail en direct est temporairement indisponible.", noNews: "Aucune actualité récente très pertinente.", risk: "Les scénarios techniques sont éducatifs, sans garantie ni conseil financier.", bullish: "Biais haussier", bearish: "Biais baissier", mixed: "Mixte / sans direction claire", insufficient: "Données graphiques insuffisantes", confidence: "confiance technique", marketCap: "Capitalisation", volume: "Volume 24 h", rank: "Rang du marché", openInterest: "Intérêt ouvert", highLow: "Haut / bas 24 h", funding: "Taux de financement", supply: "Offre en circulation", rsi: "RSI (14)", momentum: "Variation graphique", updated: "Mis à jour", sources: "Données publiques", priceAboveSma20: "Le prix dépasse sa moyenne sur 20 périodes.", priceBelowSma20: "Le prix est sous sa moyenne sur 20 périodes.", sma20AboveSma50: "La moyenne courte dépasse la longue.", sma20BelowSma50: "La moyenne courte reste sous la longue.", positiveMomentum: "La dynamique récente est positive.", negativeMomentum: "La dynamique récente est négative.", overbought: "RSI élevé : risque de repli accru.", oversold: "RSI faible : risque de rebond accru." },
+        de: { back: "Zurück zu Märkten", chart: "Preischart", scenario: "Technisches Szenario", news: "Wichtige aktuelle Nachrichten", question: "Zu diesem Asset fragen", placeholder: "Frage nach Trend, Risiko, Volumen oder Nachrichten...", ask: "JamdDmaj AI fragen", loading: "Live-Marktdaten werden geladen...", unavailable: "Live-Details sind vorübergehend nicht verfügbar.", noNews: "Keine hochrelevanten aktuellen Nachrichten gefunden.", risk: "Technische Szenarien sind Lernschätzungen, keine Garantie oder Finanzberatung.", bullish: "Bullische Tendenz", bearish: "Bärische Tendenz", mixed: "Gemischt / keine klare Richtung", insufficient: "Nicht genug Chartdaten", confidence: "technische Sicherheit", marketCap: "Marktkapitalisierung", volume: "24h-Volumen", rank: "Marktrang", openInterest: "Open Interest", highLow: "24h Hoch / Tief", funding: "Finanzierungsrate", supply: "Umlaufmenge", rsi: "RSI (14)", momentum: "Chartänderung", updated: "Aktualisiert", sources: "Öffentliche Marktdaten", priceAboveSma20: "Preis über dem 20-Perioden-Durchschnitt.", priceBelowSma20: "Preis unter dem 20-Perioden-Durchschnitt.", sma20AboveSma50: "Kurzer Durchschnitt liegt über dem langen.", sma20BelowSma50: "Kurzer Durchschnitt liegt unter dem langen.", positiveMomentum: "Jüngstes Momentum ist positiv.", negativeMomentum: "Jüngstes Momentum ist negativ.", overbought: "RSI erhöht; Rückschlagrisiko steigt.", oversold: "RSI niedrig; Erholungsrisiko steigt." },
+        pt: { back: "Voltar aos mercados", chart: "Gráfico de preço", scenario: "Cenário técnico", news: "Notícias importantes recentes", question: "Pergunte sobre este ativo", placeholder: "Pergunte sobre tendência, riscos, volume ou notícias...", ask: "Perguntar ao JamdDmaj AI", loading: "Carregando dados ao vivo...", unavailable: "O detalhe ao vivo está temporariamente indisponível.", noNews: "Nenhuma notícia recente de alta relevância.", risk: "Cenários técnicos são estimativas educacionais, não garantias nem aconselhamento financeiro.", bullish: "Viés de alta", bearish: "Viés de baixa", mixed: "Misto / sem direção clara", insufficient: "Dados do gráfico insuficientes", confidence: "confiança técnica", marketCap: "Capitalização", volume: "Volume 24h", rank: "Ranking", openInterest: "Interesse aberto", highLow: "Máxima / mínima 24h", funding: "Taxa de financiamento", supply: "Oferta circulante", rsi: "RSI (14)", momentum: "Variação do gráfico", updated: "Atualizado", sources: "Dados públicos", priceAboveSma20: "Preço acima da média de 20 períodos.", priceBelowSma20: "Preço abaixo da média de 20 períodos.", sma20AboveSma50: "A média curta supera a longa.", sma20BelowSma50: "A média curta está abaixo da longa.", positiveMomentum: "O impulso recente é positivo.", negativeMomentum: "O impulso recente é negativo.", overbought: "RSI elevado; maior risco de recuo.", oversold: "RSI baixo; maior risco de reversão." },
+        it: { back: "Torna ai mercati", chart: "Grafico dei prezzi", scenario: "Scenario tecnico", news: "Notizie importanti recenti", question: "Chiedi di questo asset", placeholder: "Chiedi trend, rischi, volume o notizie...", ask: "Chiedi a JamdDmaj AI", loading: "Caricamento dati live...", unavailable: "I dettagli live non sono temporaneamente disponibili.", noNews: "Nessuna notizia recente molto rilevante.", risk: "Gli scenari tecnici sono stime educative, non garanzie o consulenza finanziaria.", bullish: "Tendenza rialzista", bearish: "Tendenza ribassista", mixed: "Misto / nessuna direzione chiara", insufficient: "Dati grafici insufficienti", confidence: "fiducia tecnica", marketCap: "Capitalizzazione", volume: "Volume 24h", rank: "Posizione mercato", openInterest: "Open interest", highLow: "Massimo / minimo 24h", funding: "Tasso funding", supply: "Offerta circolante", rsi: "RSI (14)", momentum: "Variazione grafico", updated: "Aggiornato", sources: "Dati pubblici", priceAboveSma20: "Prezzo sopra la media a 20 periodi.", priceBelowSma20: "Prezzo sotto la media a 20 periodi.", sma20AboveSma50: "La media breve supera quella lunga.", sma20BelowSma50: "La media breve è sotto quella lunga.", positiveMomentum: "Il momentum recente è positivo.", negativeMomentum: "Il momentum recente è negativo.", overbought: "RSI elevato; cresce il rischio di calo.", oversold: "RSI basso; cresce il rischio di rimbalzo." },
+        ja: { back: "市場に戻る", chart: "価格チャート", scenario: "テクニカルシナリオ", news: "重要な最新ニュース", question: "この資産について質問", placeholder: "トレンド、リスク、出来高、ニュースを質問...", ask: "JamdDmaj AIに質問", loading: "ライブ市場データを読み込み中...", unavailable: "ライブ詳細は一時的に利用できません。", noNews: "関連性の高い最新ニュースはありません。", risk: "テクニカルシナリオは学習用推定であり、保証や投資助言ではありません。", bullish: "強気傾向", bearish: "弱気傾向", mixed: "混合 / 明確な方向なし", insufficient: "チャートデータ不足", confidence: "テクニカル信頼度", marketCap: "時価総額", volume: "24時間出来高", rank: "市場順位", openInterest: "建玉", highLow: "24時間高値 / 安値", funding: "資金調達率", supply: "循環供給量", rsi: "RSI (14)", momentum: "チャート変化", updated: "更新", sources: "公開市場データ", priceAboveSma20: "価格は20期間平均より上です。", priceBelowSma20: "価格は20期間平均より下です。", sma20AboveSma50: "短期平均が長期平均を上回っています。", sma20BelowSma50: "短期平均が長期平均を下回っています。", positiveMomentum: "直近モメンタムはプラスです。", negativeMomentum: "直近モメンタムはマイナスです。", overbought: "RSI高水準、反落リスク上昇。", oversold: "RSI低水準、反発リスク上昇。" },
+        ko: { back: "시장으로 돌아가기", chart: "가격 차트", scenario: "기술적 시나리오", news: "중요한 최신 뉴스", question: "이 자산에 대해 질문", placeholder: "추세, 위험, 거래량 또는 뉴스를 질문하세요...", ask: "JamdDmaj AI에 질문", loading: "실시간 시장 데이터 로딩 중...", unavailable: "실시간 세부 정보를 일시적으로 사용할 수 없습니다.", noNews: "관련성 높은 최신 뉴스가 없습니다.", risk: "기술적 시나리오는 교육용 추정이며 보장이나 금융 조언이 아닙니다.", bullish: "상승 편향", bearish: "하락 편향", mixed: "혼조 / 명확한 방향 없음", insufficient: "차트 데이터 부족", confidence: "기술적 신뢰도", marketCap: "시가총액", volume: "24시간 거래량", rank: "시장 순위", openInterest: "미결제약정", highLow: "24시간 고가 / 저가", funding: "펀딩 비율", supply: "유통 공급량", rsi: "RSI (14)", momentum: "차트 변화", updated: "업데이트", sources: "공개 시장 데이터", priceAboveSma20: "가격이 20기간 평균 위에 있습니다.", priceBelowSma20: "가격이 20기간 평균 아래에 있습니다.", sma20AboveSma50: "단기 평균이 장기 평균보다 높습니다.", sma20BelowSma50: "단기 평균이 장기 평균보다 낮습니다.", positiveMomentum: "최근 모멘텀이 긍정적입니다.", negativeMomentum: "최근 모멘텀이 부정적입니다.", overbought: "RSI가 높아 조정 위험이 큽니다.", oversold: "RSI가 낮아 반등 위험이 큽니다." },
+        zh: { back: "返回市场", chart: "价格图表", scenario: "技术情景", news: "近期重要新闻", question: "询问此资产", placeholder: "询问趋势、风险、成交量或新闻...", ask: "询问 JamdDmaj AI", loading: "正在加载实时市场数据...", unavailable: "实时详情暂时不可用。", noNews: "未找到高度相关的近期新闻。", risk: "技术情景仅为教育性估计，不是保证或财务建议。", bullish: "看涨倾向", bearish: "看跌倾向", mixed: "混合 / 无明确方向", insufficient: "图表数据不足", confidence: "技术置信度", marketCap: "市值", volume: "24小时成交量", rank: "市场排名", openInterest: "未平仓量", highLow: "24小时高 / 低", funding: "资金费率", supply: "流通供应量", rsi: "RSI (14)", momentum: "图表变化", updated: "更新", sources: "公开市场数据", priceAboveSma20: "价格高于20周期均线。", priceBelowSma20: "价格低于20周期均线。", sma20AboveSma50: "短期均线高于长期均线。", sma20BelowSma50: "短期均线低于长期均线。", positiveMomentum: "近期动能为正。", negativeMomentum: "近期动能为负。", overbought: "RSI偏高，回调风险增加。", oversold: "RSI偏低，反弹风险增加。" },
+        ar: { back: "العودة إلى الأسواق", chart: "مخطط السعر", scenario: "السيناريو الفني", news: "أهم الأخبار الحديثة", question: "اسأل عن هذا الأصل", placeholder: "اسأل عن الاتجاه أو المخاطر أو الحجم أو الأخبار...", ask: "اسأل JamdDmaj AI", loading: "جارٍ تحميل بيانات السوق المباشرة...", unavailable: "التفاصيل المباشرة غير متاحة مؤقتًا.", noNews: "لم يتم العثور على أخبار حديثة عالية الصلة.", risk: "السيناريوهات الفنية تقديرات تعليمية وليست ضمانًا أو نصيحة مالية.", bullish: "ميل صاعد", bearish: "ميل هابط", mixed: "مختلط / بلا اتجاه واضح", insufficient: "بيانات الرسم غير كافية", confidence: "الثقة الفنية", marketCap: "القيمة السوقية", volume: "حجم 24 ساعة", rank: "ترتيب السوق", openInterest: "العقود المفتوحة", highLow: "أعلى / أدنى 24 ساعة", funding: "معدل التمويل", supply: "المعروض المتداول", rsi: "RSI (14)", momentum: "تغير الرسم", updated: "محدث", sources: "بيانات سوق عامة", priceAboveSma20: "السعر فوق متوسط 20 فترة.", priceBelowSma20: "السعر دون متوسط 20 فترة.", sma20AboveSma50: "المتوسط القصير أعلى من الطويل.", sma20BelowSma50: "المتوسط القصير أدنى من الطويل.", positiveMomentum: "الزخم الأخير إيجابي.", negativeMomentum: "الزخم الأخير سلبي.", overbought: "RSI مرتفع؛ خطر التراجع أكبر.", oversold: "RSI منخفض؛ احتمال الارتداد أكبر." }
+      };
+
       const UI_EXTENDED = {
         en: {
           recentChats: "Recent chats", savedProjects: "Saved projects", noProjects: "No saved projects yet",
@@ -5762,6 +6011,13 @@
         tutorial: document.getElementById("tutorialDialog"),
         marketTrending: document.getElementById("marketTrending"),
         marketGroups: document.getElementById("marketGroups"),
+        marketDetailView: document.getElementById("marketDetailView"),
+        assetChart: document.getElementById("assetChart"),
+        assetChartStatus: document.getElementById("assetChartStatus"),
+        assetTrendBox: document.getElementById("assetTrendBox"),
+        assetMetrics: document.getElementById("assetMetrics"),
+        assetNewsList: document.getElementById("assetNewsList"),
+        assetQuestionInput: document.getElementById("assetQuestionInput"),
         learnView: document.getElementById("learnView"),
         learnTracks: document.getElementById("learnTracks"),
         learnPath: document.getElementById("learnPath"),
@@ -5838,6 +6094,10 @@
       let pendingChartImage = "";
       let chartAnalysisBusy = false;
       let marketTrendsFetchInProgress = false;
+      let selectedMarketAsset = null;
+      let selectedMarketTimeframe = "1h";
+      let selectedMarketPayload = null;
+      let marketAssetController = null;
       let latestMarketDirection = null;
       let telegramOwnerAuthorized = false;
       let proServerState = null;
@@ -6231,6 +6491,7 @@
       }
 
       async function enterTraderMode() {
+        if (!els.marketDetailView.hidden) closeMarketAsset();
         traderMode = true;
         localStorage.setItem(STORAGE.traderOpen, "true");
         learning.mode = "chat";
@@ -9031,6 +9292,7 @@
         renderProjects();
         renderMarketGroups();
         renderMarketTrends(loadJson(MARKET_TREND_CACHE_KEY, null)?.payload || null);
+        applyMarketDetailLanguage();
         updateHeader();
       }
 
@@ -9939,7 +10201,7 @@
         }`;
         const practicalAnalysisInstruction = "For charts, markets, trading, screenshots, or technical analysis, you may provide educational analysis, likely scenarios, levels, invalidation points, and risk notes. Do not present it as guaranteed profit, do not claim to be a licensed advisor, and do not output moderation labels such as Safety Categories, Unauthorized Advice, or Needs Caution. If the user asks for a professional-style view, give a professional educational view with uncertainty and clear reasoning.";
         const productKnowledge = `You are the assistant embedded inside JamdDmaj AI v${APP_VERSION}. You must accurately explain this app when asked, without pretending that unfinished capabilities already exist and without revealing or requesting secrets.
-JamdDmaj includes general multimodal chat; JamdDmaj Learn; live market information; chart screenshot analysis; JamdDmaj Pro Signals; encrypted backup and explicit user-approved memory; and the Fair Launch Lab.
+JamdDmaj includes general multimodal chat; JamdDmaj Learn; live market information; chart screenshot analysis; JamdDmaj Pro Signals; encrypted backup and explicit user-approved memory; and the Fair Launch Lab. In Markets, tapping a supported asset opens an in-app research view with public Bitget candlesticks, selectable timeframes, CoinGecko metrics, a transparent technical scenario, recent GDELT-indexed news and a token-specific question box. Technical direction is a probabilistic scenario, never a guaranteed forecast.
 Fair Launch Lab is JamdDmaj's guided anti-rug token design area. Its mandatory baseline is at least 85% locked for the creator and the first 2,000 eligible participants, at least a 24-month cliff, gradual release, at least 24 months of liquidity locking, maximum 1% initial allocation per wallet, fixed supply, revoked mint authority, disabled freeze authority, anti-Sybil eligibility, multisig plus timelock, independent audit and explicit approval before mainnet. A wallet address is not treated as one unique person.
 The current public Fair Launch capability can create a fixed-supply Solana Token-2022 mint only on Devnet using test SOL. It sends the test supply to the connected public address, revokes mint authority and leaves freeze authority disabled. The project name, logo, banner, website and social links are currently recorded in a local verifiable manifest; audited on-chain metadata, protected vesting deployment, liquidity deployment, public multiuser launch, payments and Mainnet are not yet enabled. Never tell users a Devnet mint is a finished real launch.
 JamdDmaj Pro Signals is an educational market scanner and monitoring interface. It shows market direction, candidate setups, entry/TP/invalidation levels, filters and daily learning reports. It does not guarantee results. In the current guarded configuration, do not claim it moves money or executes real trades unless verified runtime context explicitly says that a user-authorized live mode is active.
@@ -10606,6 +10868,12 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
       }
 
       function toggleMarkets() {
+        if (!els.marketDetailView.hidden) {
+          closeMarketAsset();
+          localStorage.setItem(STORAGE.markets, "true");
+          updateHeader();
+          return;
+        }
         if (traderMode) {
           traderMode = false;
           localStorage.setItem(STORAGE.traderOpen, "false");
@@ -11554,6 +11822,259 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         document.documentElement.style.setProperty("--viewport-height", `${Math.round(viewportHeight)}px`);
       }
 
+      function marketDetailText(key) {
+        const pack = MARKET_DETAIL_TEXT[resolvedLanguage()] || MARKET_DETAIL_TEXT.en;
+        return pack[key] || MARKET_DETAIL_TEXT.en[key] || key;
+      }
+
+      function applyMarketDetailLanguage() {
+        document.getElementById("assetBackBtn").setAttribute("aria-label", marketDetailText("back"));
+        document.getElementById("assetChartTitle").textContent = marketDetailText("chart");
+        document.getElementById("assetAnalysisTitle").textContent = marketDetailText("scenario");
+        document.getElementById("assetNewsTitle").textContent = marketDetailText("news");
+        document.getElementById("assetQuestionTitle").textContent = marketDetailText("question");
+        document.getElementById("assetQuestionInput").placeholder = marketDetailText("placeholder");
+        document.getElementById("assetQuestionBtn").textContent = marketDetailText("ask");
+        document.getElementById("assetRiskNote").textContent = marketDetailText("risk");
+        if (selectedMarketPayload) renderMarketAsset(selectedMarketPayload);
+      }
+
+      async function openMarketAsset(asset, timeframe = selectedMarketTimeframe) {
+        if (!asset?.symbol || !asset?.id) return;
+        selectedMarketAsset = { symbol: asset.symbol, id: asset.id, name: asset.name || asset.symbol };
+        selectedMarketTimeframe = timeframe;
+        selectedMarketPayload = null;
+        els.ticker.classList.add("is-hidden");
+        els.marketDetailView.hidden = false;
+        els.marketDetailView.classList.remove("is-hidden");
+        els.messages.hidden = true;
+        document.querySelector(".composer-wrap").hidden = true;
+        document.getElementById("assetDetailName").textContent = selectedMarketAsset.name;
+        document.getElementById("assetDetailSymbol").textContent = `${selectedMarketAsset.symbol} / USDT`;
+        document.getElementById("assetDetailPrice").textContent = "--";
+        document.getElementById("assetDetailChange").textContent = "--";
+        els.assetChartStatus.textContent = marketDetailText("loading");
+        els.assetTrendBox.replaceChildren();
+        els.assetMetrics.replaceChildren();
+        els.assetNewsList.replaceChildren();
+        updateAssetTimeframeButtons();
+        applyMarketDetailLanguage();
+        els.marketDetailView.scrollTop = 0;
+        await fetchMarketAsset();
+      }
+
+      function closeMarketAsset() {
+        marketAssetController?.abort();
+        marketAssetController = null;
+        els.marketDetailView.classList.add("is-hidden");
+        els.marketDetailView.hidden = true;
+        if (localStorage.getItem(STORAGE.markets) === "true" && !traderMode && learning.mode === "chat") {
+          els.ticker.classList.remove("is-hidden");
+        }
+        if (!traderMode && learning.mode === "chat") {
+          els.messages.hidden = false;
+          document.querySelector(".composer-wrap").hidden = false;
+        }
+      }
+
+      function updateAssetTimeframeButtons() {
+        document.querySelectorAll("#assetTimeframes [data-timeframe]").forEach((button) => {
+          button.classList.toggle("active", button.dataset.timeframe === selectedMarketTimeframe);
+        });
+      }
+
+      async function fetchMarketAsset() {
+        if (!selectedMarketAsset) return;
+        marketAssetController?.abort();
+        marketAssetController = new AbortController();
+        els.assetChartStatus.textContent = marketDetailText("loading");
+        const params = new URLSearchParams({
+          symbol: selectedMarketAsset.symbol,
+          coinId: selectedMarketAsset.id,
+          name: selectedMarketAsset.name,
+          timeframe: selectedMarketTimeframe
+        });
+        try {
+          const response = await fetch(`${MARKET_ASSET_API_URL}?${params}`, {
+            signal: marketAssetController.signal,
+            headers: { "Accept": "application/json" }
+          });
+          if (!response.ok) throw new Error(`Asset market returned ${response.status}`);
+          selectedMarketPayload = await response.json();
+          renderMarketAsset(selectedMarketPayload);
+        } catch (error) {
+          if (error?.name === "AbortError") return;
+          els.assetChartStatus.textContent = marketDetailText("unavailable");
+          els.assetNewsList.textContent = marketDetailText("unavailable");
+        }
+      }
+
+      function renderMarketAsset(payload) {
+        if (!payload?.asset) return;
+        document.getElementById("assetDetailName").textContent = payload.asset.name || selectedMarketAsset?.name || payload.asset.symbol;
+        document.getElementById("assetDetailSymbol").textContent = `${payload.asset.symbol} / USDT · ${marketDetailText("sources")}`;
+        const price = Number(payload.ticker?.price || payload.candles?.at(-1)?.close);
+        const change = Number(payload.ticker?.change24h);
+        document.getElementById("assetDetailPrice").textContent = formatTrendPrice(price);
+        const changeElement = document.getElementById("assetDetailChange");
+        changeElement.textContent = Number.isFinite(change) ? `${change >= 0 ? "+" : ""}${change.toFixed(2)}%` : "--";
+        changeElement.className = change > 0 ? "up" : change < 0 ? "down" : "";
+        document.getElementById("assetNewsTime").textContent = payload.updatedAt
+          ? `${marketDetailText("updated")} ${new Date(payload.updatedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`
+          : "";
+        renderAssetTrend(payload.trend);
+        renderAssetMetrics(payload);
+        renderAssetNews(payload.news);
+        requestAnimationFrame(() => drawAssetChart(payload.candles || []));
+      }
+
+      function renderAssetTrend(trend = {}) {
+        els.assetTrendBox.replaceChildren();
+        const direction = ["bullish", "bearish", "mixed", "insufficient"].includes(trend.direction) ? trend.direction : "insufficient";
+        const icon = document.createElement("span");
+        icon.className = "asset-trend-icon";
+        icon.textContent = direction === "bullish" ? "↗" : direction === "bearish" ? "↘" : "↔";
+        const copy = document.createElement("div");
+        const title = document.createElement("strong");
+        title.textContent = marketDetailText(direction);
+        const confidence = document.createElement("span");
+        confidence.textContent = `${Math.round(Number(trend.confidence) || 0)}% ${marketDetailText("confidence")}`;
+        copy.append(title, confidence);
+        const reasons = Array.isArray(trend.reasons) ? trend.reasons.slice(0, 4) : [];
+        reasons.forEach((reason) => {
+          const line = document.createElement("span");
+          line.textContent = `• ${marketDetailText(reason)}`;
+          copy.append(line);
+        });
+        els.assetTrendBox.append(icon, copy);
+      }
+
+      function renderAssetMetrics(payload) {
+        const metrics = payload.metrics || {};
+        const ticker = payload.ticker || {};
+        const trend = payload.trend || {};
+        const items = [
+          ["marketCap", metrics.marketCap ? formatCompactUsd(metrics.marketCap) : "--"],
+          ["volume", formatCompactUsd(metrics.volume24h || ticker.volume24h)],
+          ["rank", metrics.marketCapRank ? `#${metrics.marketCapRank}` : "--"],
+          ["openInterest", formatCompactUsd(ticker.openInterest)],
+          ["highLow", ticker.high24h && ticker.low24h ? `${formatTrendPrice(ticker.high24h)} / ${formatTrendPrice(ticker.low24h)}` : "--"],
+          ["funding", Number.isFinite(Number(ticker.fundingRate)) ? `${(Number(ticker.fundingRate) * 100).toFixed(4)}%` : "--"],
+          ["supply", metrics.circulatingSupply ? formatCompactNumber(metrics.circulatingSupply) : "--"],
+          ["rsi", Number.isFinite(Number(trend.rsi)) ? Number(trend.rsi).toFixed(1) : "--"],
+          ["momentum", Number.isFinite(Number(trend.change)) ? `${Number(trend.change) >= 0 ? "+" : ""}${Number(trend.change).toFixed(2)}%` : "--"]
+        ];
+        els.assetMetrics.replaceChildren(...items.map(([key, value]) => {
+          const card = document.createElement("div");
+          card.className = "asset-metric";
+          const label = document.createElement("span");
+          label.textContent = marketDetailText(key);
+          const number = document.createElement("strong");
+          number.textContent = value;
+          card.append(label, number);
+          return card;
+        }));
+      }
+
+      function renderAssetNews(news) {
+        els.assetNewsList.replaceChildren();
+        if (!Array.isArray(news) || !news.length) {
+          const empty = document.createElement("span");
+          empty.className = "trend-empty";
+          empty.textContent = marketDetailText("noNews");
+          els.assetNewsList.append(empty);
+          return;
+        }
+        news.forEach((article) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "asset-news-item";
+          button.dataset.url = article.url;
+          const title = document.createElement("strong");
+          title.textContent = article.title;
+          const meta = document.createElement("span");
+          const age = article.publishedAt ? new Date(article.publishedAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : "";
+          meta.textContent = [article.domain, age].filter(Boolean).join(" · ");
+          button.append(title, meta);
+          els.assetNewsList.append(button);
+        });
+      }
+
+      function drawAssetChart(candles) {
+        const canvas = els.assetChart;
+        const context = canvas.getContext("2d");
+        const points = Array.isArray(candles) ? candles.slice(-80) : [];
+        if (points.length < 2) {
+          els.assetChartStatus.textContent = marketDetailText("unavailable");
+          context.clearRect(0, 0, canvas.width, canvas.height);
+          return;
+        }
+        els.assetChartStatus.textContent = "";
+        const bounds = canvas.getBoundingClientRect();
+        const ratio = Math.min(2, window.devicePixelRatio || 1);
+        canvas.width = Math.max(320, Math.floor(bounds.width * ratio));
+        canvas.height = Math.max(240, Math.floor(bounds.height * ratio));
+        context.setTransform(ratio, 0, 0, ratio, 0, 0);
+        const width = canvas.width / ratio;
+        const height = canvas.height / ratio;
+        const pad = { left: 10, right: 62, top: 16, bottom: 30 };
+        const chartWidth = width - pad.left - pad.right;
+        const chartHeight = height - pad.top - pad.bottom;
+        const minimum = Math.min(...points.map((item) => Number(item.low)));
+        const maximum = Math.max(...points.map((item) => Number(item.high)));
+        const spread = Math.max(Number.EPSILON, maximum - minimum);
+        const y = (value) => pad.top + ((maximum - value) / spread) * chartHeight;
+        context.clearRect(0, 0, width, height);
+        context.strokeStyle = "rgba(148,163,184,.16)";
+        context.fillStyle = "rgba(148,163,184,.8)";
+        context.font = "11px system-ui";
+        for (let line = 0; line <= 4; line += 1) {
+          const lineY = pad.top + (chartHeight / 4) * line;
+          context.beginPath(); context.moveTo(pad.left, lineY); context.lineTo(width - pad.right, lineY); context.stroke();
+          const label = maximum - (spread / 4) * line;
+          context.fillText(formatAxisPrice(label), width - pad.right + 7, lineY + 4);
+        }
+        const step = chartWidth / points.length;
+        const bodyWidth = Math.max(2, Math.min(9, step * 0.62));
+        points.forEach((item, index) => {
+          const x = pad.left + step * index + step / 2;
+          const up = Number(item.close) >= Number(item.open);
+          const color = up ? "#34d399" : "#fb7185";
+          context.strokeStyle = color;
+          context.fillStyle = color;
+          context.beginPath(); context.moveTo(x, y(Number(item.high))); context.lineTo(x, y(Number(item.low))); context.stroke();
+          const top = y(Math.max(Number(item.open), Number(item.close)));
+          const bottom = y(Math.min(Number(item.open), Number(item.close)));
+          context.fillRect(x - bodyWidth / 2, top, bodyWidth, Math.max(1.5, bottom - top));
+        });
+        const firstDate = new Date(points[0].time);
+        const lastDate = new Date(points.at(-1).time);
+        context.fillStyle = "rgba(148,163,184,.8)";
+        context.fillText(formatChartDate(firstDate), pad.left, height - 8);
+        const lastLabel = formatChartDate(lastDate);
+        const lastWidth = context.measureText(lastLabel).width;
+        context.fillText(lastLabel, width - pad.right - lastWidth, height - 8);
+      }
+
+      function formatAxisPrice(value) {
+        const number = Number(value);
+        if (number >= 1000) return number.toLocaleString(undefined, { maximumFractionDigits: 0 });
+        if (number >= 1) return number.toFixed(2);
+        return number.toPrecision(4);
+      }
+
+      function formatChartDate(date) {
+        return selectedMarketTimeframe === "1d"
+          ? date.toLocaleDateString([], { month: "short", day: "numeric" })
+          : date.toLocaleString([], { month: "short", day: "numeric", hour: "numeric" });
+      }
+
+      function formatCompactNumber(value) {
+        const number = Number(value);
+        if (!Number.isFinite(number) || number < 0) return "--";
+        return new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 2 }).format(number);
+      }
+
       function loadCachedPrices() {
         try {
           const cached = JSON.parse(localStorage.getItem(PRICE_CACHE_KEY));
@@ -11629,6 +12150,8 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         row.type = "button";
         row.className = "trend-row";
         row.dataset.url = String(item.url || "");
+        row.dataset.source = source;
+        row.dataset.symbol = String(item.symbol || "").toUpperCase().replace(/USDT$/, "");
         row.setAttribute("aria-label", `${marketTrendText("open")}: ${item.symbol || "token"}`);
         const rank = document.createElement("span");
         rank.className = "trend-rank";
@@ -11680,7 +12203,7 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         marketTrendsFetchInProgress = true;
         if (!els.marketTrending?.children.length) renderMarketTrends();
         try {
-          const response = await fetch("/api/market-trending", { headers: { "Accept": "application/json" } });
+          const response = await fetch(MARKET_TREND_API_URL, { headers: { "Accept": "application/json" } });
           if (!response.ok) throw new Error(`Trending markets returned ${response.status}`);
           const payload = await response.json();
           renderMarketTrends(payload);
@@ -11714,7 +12237,8 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
             button.type = "button";
             button.className = "coin";
             button.dataset.symbol = asset.symbol;
-            button.dataset.prompt = `Analyze ${asset.symbol}'s current market setup.`;
+            button.dataset.coinId = asset.id;
+            button.dataset.name = asset.symbol;
             button.append(document.createTextNode(`${asset.symbol} `));
             const price = document.createElement("b");
             price.id = `price-${asset.symbol.toLowerCase()}`;
@@ -13286,16 +13810,43 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         if (confirmProjectSave()) document.getElementById("projectDialog").close();
       });
       els.marketGroups.addEventListener("click", (event) => {
-        const coin = event.target.closest(".coin[data-prompt]");
+        const coin = event.target.closest(".coin[data-coin-id]");
         if (!coin) return;
-        const price = coin.querySelector("b")?.textContent;
-        els.prompt.value = `${coin.dataset.prompt} The displayed live price is ${price}.`;
-        autoSizePrompt();
-        els.prompt.focus();
+        openMarketAsset({ symbol: coin.dataset.symbol, id: coin.dataset.coinId, name: coin.dataset.name });
       });
       els.marketTrending.addEventListener("click", (event) => {
         const row = event.target.closest(".trend-row[data-url]");
-        if (row?.dataset.url) openExternalUrl(row.dataset.url);
+        if (!row) return;
+        const asset = CRYPTO_ASSETS.find((item) => item.symbol === row.dataset.symbol);
+        if (row.dataset.source === "bitget" && asset) openMarketAsset({ symbol: asset.symbol, id: asset.id, name: asset.symbol });
+        else if (row.dataset.url) openExternalUrl(row.dataset.url);
+      });
+      document.getElementById("assetBackBtn").addEventListener("click", closeMarketAsset);
+      document.getElementById("assetTimeframes").addEventListener("click", (event) => {
+        const button = event.target.closest("[data-timeframe]");
+        if (!button || button.dataset.timeframe === selectedMarketTimeframe) return;
+        selectedMarketTimeframe = button.dataset.timeframe;
+        updateAssetTimeframeButtons();
+        fetchMarketAsset();
+      });
+      els.assetNewsList.addEventListener("click", (event) => {
+        const article = event.target.closest(".asset-news-item[data-url]");
+        if (article?.dataset.url) openExternalUrl(article.dataset.url);
+      });
+      document.getElementById("assetQuestionForm").addEventListener("submit", (event) => {
+        event.preventDefault();
+        const question = els.assetQuestionInput.value.trim();
+        if (!question || !selectedMarketAsset) return;
+        const trend = selectedMarketPayload?.trend;
+        const context = trend
+          ? `Current ${selectedMarketTimeframe} technical scenario: ${trend.direction}, ${Math.round(Number(trend.confidence) || 0)}% technical confidence, RSI ${Number(trend.rsi || 0).toFixed(1)}.`
+          : "Live asset detail may be partial.";
+        els.prompt.value = `Question about ${selectedMarketAsset.name} (${selectedMarketAsset.symbol}): ${question}\n\n${context} Use current reliable sources when freshness matters. Do not guarantee future price direction.`;
+        els.assetQuestionInput.value = "";
+        localStorage.setItem(STORAGE.markets, "false");
+        closeMarketAsset();
+        autoSizePrompt();
+        sendMessage();
       });
       document.getElementById("refreshPricesBtn").addEventListener("click", () => {
         fetchPrices();
@@ -13377,6 +13928,9 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
       }
       updateViewportHeight();
       window.addEventListener("resize", updateViewportHeight);
+      window.addEventListener("resize", () => {
+        if (selectedMarketPayload && !els.marketDetailView.hidden) requestAnimationFrame(() => drawAssetChart(selectedMarketPayload.candles || []));
+      });
       window.addEventListener("orientationchange", () => setTimeout(updateViewportHeight, 120));
       window.visualViewport?.addEventListener("resize", updateViewportHeight);
       window.visualViewport?.addEventListener("scroll", updateViewportHeight);
