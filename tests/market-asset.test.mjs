@@ -18,7 +18,7 @@ test("market asset combines candles, metrics, transparent trend and recent news"
       return Response.json({ code: "00000", data: rows.reverse() });
     }
     if (value.includes("/market/tickers")) {
-      return Response.json({ code: "00000", data: [{ lastPrice: "160", price24hPcnt: "0.04", high24h: "165", low24h: "150", turnover24h: "9000000", openInterest: "500000", fundingRate: "0.0001" }] });
+      return Response.json({ code: "00000", data: [{ lastPrice: "160", price24hPcnt: "0.04", highPrice24h: "165", lowPrice24h: "150", turnover24h: "9000000", openInterest: "500000", fundingRate: "0.0001" }] });
     }
     if (value.includes("api.coingecko.com")) {
       return Response.json({
@@ -47,6 +47,8 @@ test("market asset combines candles, metrics, transparent trend and recent news"
   assert.equal(payload.candles.length, 60);
   assert.equal(payload.candles[0].time < payload.candles.at(-1).time, true);
   assert.equal(payload.metrics.marketCapRank, 1);
+  assert.equal(payload.ticker.high24h, 165);
+  assert.equal(payload.ticker.low24h, 150);
   assert.equal(payload.news[0].domain, "example.com");
   assert.equal(payload.trend.direction, "bullish");
   assert.ok(payload.trend.confidence <= 82);

@@ -88,8 +88,8 @@ async function fetchBitgetTicker(symbol) {
   return {
     price: finiteNumber(item.lastPrice),
     change24h: finiteNumber(item.price24hPcnt) * 100,
-    high24h: finiteNumber(item.high24h),
-    low24h: finiteNumber(item.low24h),
+    high24h: finiteNumber(item.highPrice24h),
+    low24h: finiteNumber(item.lowPrice24h),
     volume24h: finiteNumber(item.turnover24h),
     openInterest: finiteNumber(item.openInterest),
     fundingRate: finiteNumber(item.fundingRate)
