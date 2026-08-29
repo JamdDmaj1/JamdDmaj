@@ -4721,7 +4721,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.37.58";
+      const APP_VERSION = "1.37.59";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -11997,8 +11997,8 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
           ["transactions", formatCompactNumber(metrics.transactions24h)],
           ["buysSells", `${formatCompactNumber(metrics.buys24h)} / ${formatCompactNumber(metrics.sells24h)}`],
           ["highLow", ticker.high24h && ticker.low24h ? `${formatTrendPrice(ticker.high24h)} / ${formatTrendPrice(ticker.low24h)}` : "--"],
-          ["rsi", Number.isFinite(Number(trend.rsi)) ? Number(trend.rsi).toFixed(1) : "--"],
-          ["momentum", Number.isFinite(Number(trend.change)) ? `${Number(trend.change) >= 0 ? "+" : ""}${Number(trend.change).toFixed(2)}%` : "--"]
+          ["rsi", trend.rsi != null && Number.isFinite(Number(trend.rsi)) ? Number(trend.rsi).toFixed(1) : "--"],
+          ["momentum", trend.direction !== "insufficient" && Number.isFinite(Number(trend.change)) ? `${Number(trend.change) >= 0 ? "+" : ""}${Number(trend.change).toFixed(2)}%` : "--"]
         ] : [
           ["marketCap", metrics.marketCap ? formatCompactUsd(metrics.marketCap) : "--"],
           ["volume", formatCompactUsd(metrics.volume24h || ticker.volume24h)],
@@ -12007,8 +12007,8 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
           ["highLow", ticker.high24h && ticker.low24h ? `${formatTrendPrice(ticker.high24h)} / ${formatTrendPrice(ticker.low24h)}` : "--"],
           ["funding", Number.isFinite(Number(ticker.fundingRate)) ? `${(Number(ticker.fundingRate) * 100).toFixed(4)}%` : "--"],
           ["supply", metrics.circulatingSupply ? formatCompactNumber(metrics.circulatingSupply) : "--"],
-          ["rsi", Number.isFinite(Number(trend.rsi)) ? Number(trend.rsi).toFixed(1) : "--"],
-          ["momentum", Number.isFinite(Number(trend.change)) ? `${Number(trend.change) >= 0 ? "+" : ""}${Number(trend.change).toFixed(2)}%` : "--"]
+          ["rsi", trend.rsi != null && Number.isFinite(Number(trend.rsi)) ? Number(trend.rsi).toFixed(1) : "--"],
+          ["momentum", trend.direction !== "insufficient" && Number.isFinite(Number(trend.change)) ? `${Number(trend.change) >= 0 ? "+" : ""}${Number(trend.change).toFixed(2)}%` : "--"]
         ];
         els.assetMetrics.replaceChildren(...items.map(([key, value]) => {
           const card = document.createElement("div");
