@@ -22,15 +22,6 @@ import {
   sanitizeWalletName,
   shortenWalletAddress
 } from "./lib/wallet-security.js";
-import {
-  createDefaultAuthorizationCache,
-  createDefaultChainSelector,
-  createDefaultWalletNotFoundHandler,
-  registerMwa
-} from "@solana-mobile/wallet-standard-mobile";
-
-registerMobileWalletAdapter();
-
 const ASSESSMENT_LABEL_KEYS = Object.freeze({
   "creator-lock": "checkCreatorLock",
   "early-holder-lock": "checkEarlyLock",
@@ -810,23 +801,3 @@ const VERIFIER_LABEL_KEYS = Object.freeze({
     return value;
   }
 })();
-
-function registerMobileWalletAdapter() {
-  if (typeof window === "undefined" || typeof navigator === "undefined" || window.__jamddmajMwaRegistered) return;
-  try {
-    registerMwa({
-      appIdentity: {
-        name: "JamdDmaj AI",
-        uri: "https://www.jamddmaj.com",
-        icon: "/icon-192.png"
-      },
-      authorizationCache: createDefaultAuthorizationCache(),
-      chains: ["solana:devnet"],
-      chainSelector: createDefaultChainSelector(),
-      onWalletNotFound: createDefaultWalletNotFoundHandler()
-    });
-    window.__jamddmajMwaRegistered = true;
-  } catch {
-    // Unsupported browsers still receive secure Phantom and Solflare deep links.
-  }
-}

@@ -28,6 +28,7 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="jamddmaj" android:host="oauth" />
                 <data android:scheme="jamddmaj" android:host="google" />
+                <data android:scheme="jamddmaj" android:host="phantom" />
             </intent-filter>
 
         </activity>

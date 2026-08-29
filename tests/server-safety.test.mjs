@@ -3,6 +3,8 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import bs58 from "bs58";
+import nacl from "tweetnacl";
 
 import chatHandler from "../api/chat.js";
 import { publicExecutorPauseReason } from "../api/status.js";
@@ -33,7 +35,12 @@ import {
   sanitizeWalletName,
   shortenWalletAddress
 } from "../lib/wallet-security.js";
-import { createWalletRegistry, walletEvent } from "../lib/wallet-standard-registry.js";
+import { createWalletRegistry, getWalletRegistry, walletEvent } from "../lib/wallet-standard-registry.js";
+import {
+  buildPhantomConnectUrl,
+  createPhantomConnectRequest,
+  decryptPhantomConnectResponse
+} from "../lib/phantom-deeplink.js";
 import {
   WALLET_LOGIN_LOCALES,
   walletLoginKeys,
@@ -1141,11 +1148,44 @@ test("wallet login safety copy stays complete in every supported language", () =
 test("wallet login UI never requests custody secrets or enables transactions", () => {
   const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
   const script = readFileSync(new URL("../wallet-login-ui.js", import.meta.url), "utf8");
+  const androidManifest = readFileSync(new URL("../android/app/src/main/AndroidManifest.xml", import.meta.url), "utf8");
   assert.match(html, /id="walletLoginDialog"/);
   assert.match(html, /data-wallet-copy="noSecrets"/);
+  assert.match(androidManifest, /android:scheme="jamddmaj" android:host="phantom"/);
+  assert.match(script, /buildPhantomConnectUrl/);
   assert.doesNotMatch(html, /<input[^>]+(?:seed|mnemonic|private.?key|recovery)/i);
   assert.doesNotMatch(script, /signAndSendTransaction|signTransaction|sendTransaction/);
   assert.doesNotMatch(script, /localStorage|sessionStorage/);
+});
+
+test("Phantom mobile callbacks are encrypted, origin-bound and one-request-only", () => {
+  const request = createPhantomConnectRequest((length) => Uint8Array.from({ length }, (_, index) => index + 1));
+  const connectUrl = new URL(buildPhantomConnectUrl({ publicKey: request.publicKey, requestId: request.requestId }));
+  assert.equal(connectUrl.origin, "https://phantom.app");
+  assert.equal(connectUrl.pathname, "/ul/v1/connect");
+  assert.equal(connectUrl.searchParams.get("app_url"), "https://www.jamddmaj.com/");
+  assert.match(connectUrl.searchParams.get("redirect_link"), /^jamddmaj:\/\/phantom\?request=/);
+
+  const phantom = nacl.box.keyPair();
+  const nonce = nacl.randomBytes(nacl.box.nonceLength);
+  const sharedSecret = nacl.box.before(request.publicKey, phantom.secretKey);
+  const expected = { public_key: "9xQeWvG816bUx9EPjHmaT23yvVMbK4zZ7uQh7s9WfJpN", session: "opaque-session-token" };
+  const encrypted = nacl.box.after(new TextEncoder().encode(JSON.stringify(expected)), nonce, sharedSecret);
+  const callback = new URL("jamddmaj://phantom");
+  callback.searchParams.set("request", request.requestId);
+  callback.searchParams.set("phantom_encryption_public_key", bs58.encode(phantom.publicKey));
+  callback.searchParams.set("nonce", bs58.encode(nonce));
+  callback.searchParams.set("data", bs58.encode(encrypted));
+  assert.deepEqual(decryptPhantomConnectResponse(callback, request), {
+    publicKey: expected.public_key,
+    session: expected.session
+  });
+  callback.searchParams.set("request", "0".repeat(32));
+  assert.throws(() => decryptPhantomConnectResponse(callback, request), /request-mismatch/);
+});
+
+test("Wallet Standard uses one registry across separately bundled app surfaces", () => {
+  assert.equal(getWalletRegistry(), getWalletRegistry());
 });
 
 test("boost plans use fixed JamdDmaj credits and reject incompatible services", () => {

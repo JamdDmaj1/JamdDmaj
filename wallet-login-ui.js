@@ -7,14 +7,10 @@ import {
 } from "./lib/wallet-security.js";
 import { walletLoginText, resolveWalletLoginLocale } from "./lib/wallet-login-locales.js";
 import {
-  createDefaultAuthorizationCache,
-  createDefaultChainSelector,
-  createDefaultWalletNotFoundHandler,
-  registerMwa
-} from "@solana-mobile/wallet-standard-mobile";
-
-registerMobileWalletAdapterOnce();
-
+  buildPhantomConnectUrl,
+  createPhantomConnectRequest,
+  decryptPhantomConnectResponse
+} from "./lib/phantom-deeplink.js";
 (() => {
   const dialog = document.getElementById("walletLoginDialog");
   const openButtons = [document.getElementById("walletBtn"), document.getElementById("sideWalletBtn")].filter(Boolean);
@@ -31,6 +27,7 @@ registerMobileWalletAdapterOnce();
   let connectedWallet = null;
   let connectedAccount = null;
   let removeWalletChangeListener = null;
+  let pendingPhantomRequest = null;
   let locale = resolveWalletLoginLocale(document.documentElement.lang);
 
   registry.on("register", refreshWallets);
@@ -61,6 +58,7 @@ registerMobileWalletAdapterOnce();
 
   applyLocale();
   refreshWallets();
+  initializeNativePhantomCallback();
 
   function text(key, replacements) {
     return walletLoginText(locale, key, replacements);
@@ -74,27 +72,42 @@ registerMobileWalletAdapterOnce();
   function refreshWallets() {
     wallets = getCompatibleSolanaWallets([...registry.get()]);
     const priorName = select.selectedOptions?.[0]?.dataset?.walletName || "";
+    const nativePhantom = isNativeApp();
     select.replaceChildren();
     const placeholder = document.createElement("option");
     placeholder.value = "";
-    placeholder.textContent = wallets.length ? text("choose") : text("none");
+    placeholder.textContent = wallets.length || nativePhantom ? text("choose") : text("none");
     select.append(placeholder);
     wallets.forEach(({ name }, index) => {
       const option = document.createElement("option");
-      option.value = String(index);
+      option.value = `wallet:${index}`;
       option.dataset.walletName = name;
       option.textContent = name;
       select.append(option);
     });
+    if (nativePhantom && !wallets.some(({ name }) => /phantom/i.test(name))) {
+      const option = document.createElement("option");
+      option.value = "phantom-mobile";
+      option.dataset.walletName = "Phantom";
+      option.textContent = "Phantom";
+      select.append(option);
+    }
     const preferred = wallets.findIndex(({ name }) => /phantom/i.test(name));
     const prior = wallets.findIndex(({ name }) => name === priorName);
-    if (!connectedWallet && wallets.length) select.value = String(prior >= 0 ? prior : preferred >= 0 ? preferred : 0);
+    if (!connectedWallet) {
+      if (prior >= 0) select.value = `wallet:${prior}`;
+      else if (preferred >= 0) select.value = `wallet:${preferred}`;
+      else if (nativePhantom) select.value = "phantom-mobile";
+      else if (wallets.length) select.value = "wallet:0";
+    }
     select.disabled = Boolean(connectedWallet);
-    connectButton.disabled = !wallets.length || Boolean(connectedWallet);
+    connectButton.disabled = !hasConnectOption() || Boolean(connectedWallet);
   }
 
   async function connectWallet() {
-    const selected = wallets[Number(select.value)];
+    if (select.value === "phantom-mobile") return connectPhantomMobile();
+    const selectedIndex = /^wallet:(\d+)$/.exec(select.value)?.[1];
+    const selected = selectedIndex === undefined ? null : wallets[Number(selectedIndex)];
     if (!selected) return setStatus(text("none"), "warning");
     connectButton.disabled = true;
     setStatus(text("waiting", { wallet: selected.name }), "pending");
@@ -111,7 +124,70 @@ registerMobileWalletAdapterOnce();
       clearConnection();
       const canceled = /reject|declin|cancel|denied|user/i.test(String(error?.message || error));
       setStatus(text(canceled ? "canceled" : "failed"), "error");
-      connectButton.disabled = !wallets.length;
+      connectButton.disabled = !hasConnectOption();
+    }
+  }
+
+  async function connectPhantomMobile() {
+    if (!isNativeApp()) return setStatus(text("none"), "warning");
+    clearPendingPhantomRequest();
+    try {
+      pendingPhantomRequest = createPhantomConnectRequest();
+      const url = buildPhantomConnectUrl({
+        publicKey: pendingPhantomRequest.publicKey,
+        requestId: pendingPhantomRequest.requestId
+      });
+      connectButton.disabled = true;
+      setStatus(text("waiting", { wallet: "Phantom" }), "pending");
+      const browser = globalThis.Capacitor?.Plugins?.Browser;
+      if (browser?.open) await browser.open({ url });
+      else window.location.assign(url);
+    } catch {
+      clearPendingPhantomRequest();
+      connectButton.disabled = !hasConnectOption();
+      setStatus(text("failed"), "error");
+    }
+  }
+
+  async function initializeNativePhantomCallback() {
+    if (!isNativeApp()) return;
+    const app = globalThis.Capacitor?.Plugins?.App;
+    if (!app?.addListener) return;
+    await app.addListener("appUrlOpen", ({ url }) => handlePhantomCallback(url));
+    try {
+      const launch = await app.getLaunchUrl?.();
+      if (launch?.url?.startsWith("jamddmaj://phantom")) await handlePhantomCallback(launch.url);
+    } catch {
+      // A cold-start callback without an in-memory key must be retried safely.
+    }
+  }
+
+  async function handlePhantomCallback(url) {
+    if (!String(url || "").startsWith("jamddmaj://phantom")) return;
+    try { await globalThis.Capacitor?.Plugins?.Browser?.close?.(); } catch { /* The tab may already be closed. */ }
+    if (!dialog.open) dialog.showModal();
+    const request = pendingPhantomRequest;
+    try {
+      const result = decryptPhantomConnectResponse(url, request);
+      const account = getSolanaAccount([{
+        address: result.publicKey,
+        chains: ["solana:mainnet", "solana:devnet"],
+        features: []
+      }]);
+      if (!account) throw new Error("invalid-account");
+      const wallet = Object.freeze({ name: "Phantom", chains: account.chains, features: {} });
+      adoptConnection(wallet, account);
+      window.dispatchEvent(new CustomEvent("jamddmaj:wallet-connected", {
+        detail: { wallet, account, source: "global" }
+      }));
+      renderConnection();
+    } catch (error) {
+      clearConnection();
+      const canceled = Boolean(error?.code) || /reject|declin|cancel|denied|user/i.test(String(error?.message || error));
+      setStatus(text(canceled ? "canceled" : "failed"), "error");
+      connectButton.disabled = !hasConnectOption();
+    } finally {
+      clearPendingPhantomRequest();
     }
   }
 
@@ -154,6 +230,11 @@ registerMobileWalletAdapterOnce();
     connectedAccount = null;
   }
 
+  function clearPendingPhantomRequest() {
+    try { pendingPhantomRequest?.secretKey?.fill?.(0); } catch { /* Ephemeral key cleanup is best effort. */ }
+    pendingPhantomRequest = null;
+  }
+
   async function copyAddress() {
     if (!connectedAccount?.address || !navigator.clipboard?.writeText) return;
     try {
@@ -168,7 +249,7 @@ registerMobileWalletAdapterOnce();
     const connected = Boolean(connectedWallet && connectedAccount);
     select.disabled = connected;
     connectButton.hidden = connected;
-    connectButton.disabled = !wallets.length;
+    connectButton.disabled = !hasConnectOption();
     if (disconnectButton) disconnectButton.hidden = !connected;
     if (copyButton) copyButton.hidden = !connected;
     const name = document.getElementById("walletLoginName");
@@ -197,20 +278,12 @@ registerMobileWalletAdapterOnce();
     status.textContent = message;
     status.dataset.state = state;
   }
-})();
 
-function registerMobileWalletAdapterOnce() {
-  if (typeof window === "undefined" || typeof navigator === "undefined" || window.__jamddmajMwaRegistered) return;
-  try {
-    registerMwa({
-      appIdentity: { name: "JamdDmaj AI", uri: "https://www.jamddmaj.com", icon: "/icon-192.png" },
-      authorizationCache: createDefaultAuthorizationCache(),
-      chains: ["solana:devnet"],
-      chainSelector: createDefaultChainSelector(),
-      onWalletNotFound: createDefaultWalletNotFoundHandler()
-    });
-    window.__jamddmajMwaRegistered = true;
-  } catch {
-    // Desktop injection and previously registered mobile adapters remain available.
+  function hasConnectOption() {
+    return wallets.length > 0 || isNativeApp();
   }
-}
+
+  function isNativeApp() {
+    try { return Boolean(globalThis.Capacitor?.isNativePlatform?.()); } catch { return false; }
+  }
+})();

@@ -1,6 +1,6 @@
 {
   "name": "jamddmaj-ai",
-  "version": "1.37.60",
+  "version": "1.37.61",
   "private": true,
   "type": "module",
   "description": "JamdDmaj AI mobile application",
@@ -23,10 +23,11 @@
     "@capacitor/browser": "^8.0.0",
     "@capacitor/core": "^8.0.0",
     "@capacitor/ios": "^8.0.0",
-    "@solana-mobile/wallet-standard-mobile": "^0.5.3",
     "@solana-program/system": "^0.12.2",
     "@solana-program/token-2022": "0.9.0",
-    "@solana/kit": "^6.10.0"
+    "@solana/kit": "^6.10.0",
+    "bs58": "^6.0.0",
+    "tweetnacl": "^1.0.3"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.0.0",

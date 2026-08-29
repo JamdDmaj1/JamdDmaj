@@ -352,7 +352,7 @@ async function fetchJson(url) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const response = await fetch(url, { signal: controller.signal, headers: { "Accept": "application/json", "User-Agent": "JamdDmaj-Asset-Research/1.37.60" } });
+    const response = await fetch(url, { signal: controller.signal, headers: { "Accept": "application/json", "User-Agent": "JamdDmaj-Asset-Research/1.37.61" } });
     if (!response.ok) throw new Error(`Market source returned ${response.status}`);
     return await response.json();
   } finally {
@@ -364,7 +364,7 @@ async function fetchText(url) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const response = await fetch(url, { signal: controller.signal, headers: { "Accept": "application/rss+xml, application/xml, text/xml", "User-Agent": "JamdDmaj-Asset-Research/1.37.60" } });
+    const response = await fetch(url, { signal: controller.signal, headers: { "Accept": "application/rss+xml, application/xml, text/xml", "User-Agent": "JamdDmaj-Asset-Research/1.37.61" } });
     if (!response.ok) throw new Error(`News source returned ${response.status}`);
     return await response.text();
   } finally {
