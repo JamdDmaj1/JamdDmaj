@@ -446,10 +446,76 @@
       background: var(--panel-solid);
     }
 
-    .market-toolbar span {
+    .market-toolbar > div:first-child span {
       color: var(--muted);
       font-size: 0.72rem;
     }
+
+    .market-toolbar-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .market-wallet-card {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      align-items: center;
+      gap: 8px;
+      min-width: 142px;
+      min-height: 42px;
+      padding: 7px 11px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--panel-2);
+      color: var(--text);
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .market-wallet-card:hover,
+    .market-wallet-card:focus-visible {
+      border-color: color-mix(in srgb, var(--accent) 58%, var(--line));
+      outline: none;
+    }
+
+    .market-wallet-card[data-connected="true"] {
+      border-color: rgba(52, 211, 153, 0.42);
+      background: rgba(16, 185, 129, 0.08);
+    }
+
+    .market-wallet-icon {
+      display: grid;
+      width: 27px;
+      height: 27px;
+      place-items: center;
+      border-radius: 9px;
+      background: rgba(34, 211, 238, 0.1);
+      color: var(--accent-2);
+      font-weight: 800;
+    }
+
+    .market-wallet-card[data-connected="true"] .market-wallet-icon {
+      background: rgba(52, 211, 153, 0.12);
+      color: #34d399;
+    }
+
+    .market-wallet-copy {
+      display: grid;
+      min-width: 0;
+      gap: 1px;
+    }
+
+    .market-wallet-copy strong,
+    .market-wallet-copy span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .market-wallet-copy strong { font-size: 0.74rem; }
+    .market-wallet-copy span { font-size: 0.65rem; }
 
     .market-groups {
       display: grid;
@@ -3541,8 +3607,20 @@
       }
 
       .market-toolbar {
+        align-items: stretch;
+        flex-direction: column;
         margin-inline: -10px;
         padding-inline: 10px;
+      }
+
+      .market-toolbar-actions {
+        justify-content: stretch;
+        width: 100%;
+      }
+
+      .market-wallet-card {
+        flex: 1 1 auto;
+        min-width: 0;
       }
 
       .market-groups {
@@ -3708,7 +3786,16 @@
       <div class="ticker is-hidden" id="ticker" aria-label="Live cryptocurrency prices">
         <div class="market-toolbar">
           <div><strong>Live crypto markets</strong> <span>Grouped by function</span></div>
-          <button class="coin" id="refreshPricesBtn" type="button" aria-live="polite">Refresh <b id="priceTime">loading</b></button>
+          <div class="market-toolbar-actions">
+            <button class="market-wallet-card" id="marketsWalletBtn" type="button" aria-haspopup="dialog" aria-controls="walletLoginDialog">
+              <span class="market-wallet-icon" aria-hidden="true">◎</span>
+              <span class="market-wallet-copy">
+                <strong id="marketsWalletName">Phantom</strong>
+                <span id="marketsWalletStatus" aria-live="polite">Not connected</span>
+              </span>
+            </button>
+            <button class="coin" id="refreshPricesBtn" type="button" aria-live="polite">Refresh <b id="priceTime">loading</b></button>
+          </div>
         </div>
         <div class="market-trending" id="marketTrending" aria-live="polite"></div>
         <div class="market-groups" id="marketGroups"></div>
@@ -4831,7 +4918,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.37.61";
+      const APP_VERSION = "1.37.62";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -4850,6 +4937,7 @@
             intro: "This update improves the normal app experience.",
             button: "Got it",
             items: [
+              ["Wallet visible in Markets", "Markets now keeps your wallet identity in view, showing its name, connection state and only an abbreviated public address. Tap it to open the same secure connection panel."],
               ["Secure Phantom connection", "On Android, the Wallet button now opens Phantom's official encrypted approval and returns directly to JamdDmaj. No recovery phrase, private key or password is shared."],
               ["Complete asset research", "Tap a supported market asset to open its chart, timeframe controls, live metrics, transparent technical scenario, recent news and token-specific questions."],
               ["Bitget and DEX trends", "Markets now shows the most active Bitget USDT futures and DEX Screener's most actively boosted tokens with live metrics."],
@@ -4868,6 +4956,7 @@
             intro: "Esta actualizacion mejora la experiencia normal de la app.",
             button: "Entendido",
             items: [
+              ["Wallet visible en Mercados", "Mercados ahora mantiene visible la identidad de tu wallet: muestra su nombre, estado y solo una dirección pública abreviada. Tócala para abrir el mismo panel de conexión segura."],
               ["Conexión segura con Phantom", "En Android, el botón Billetera ahora abre la aprobación oficial cifrada de Phantom y regresa directamente a JamdDmaj. No se comparte frase de recuperación, clave privada ni contraseña."],
               ["Investigación completa del activo", "Toca un activo compatible para abrir su gráfico, temporalidades, métricas en vivo, escenario técnico transparente, noticias recientes y preguntas sobre el token."],
               ["Tendencias de Bitget y DEX", "Mercados ahora muestra los futuros USDT con mayor actividad en Bitget y los tokens con más boosts activos en DEX Screener."],

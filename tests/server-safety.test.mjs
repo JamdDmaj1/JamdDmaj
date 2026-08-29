@@ -1150,6 +1150,8 @@ test("wallet login UI never requests custody secrets or enables transactions", (
   const script = readFileSync(new URL("../wallet-login-ui.js", import.meta.url), "utf8");
   const androidManifest = readFileSync(new URL("../android/app/src/main/AndroidManifest.xml", import.meta.url), "utf8");
   assert.match(html, /id="walletLoginDialog"/);
+  assert.match(html, /id="marketsWalletBtn"/);
+  assert.match(html, /id="marketsWalletStatus"[^>]+aria-live="polite"/);
   assert.match(html, /data-wallet-copy="noSecrets"/);
   assert.match(androidManifest, /android:scheme="jamddmaj" android:host="phantom"/);
   assert.match(script, /buildPhantomConnectUrl/);

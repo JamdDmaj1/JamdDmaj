@@ -13,7 +13,10 @@ import {
 } from "./lib/phantom-deeplink.js";
 (() => {
   const dialog = document.getElementById("walletLoginDialog");
-  const openButtons = [document.getElementById("walletBtn"), document.getElementById("sideWalletBtn")].filter(Boolean);
+  const marketWalletButton = document.getElementById("marketsWalletBtn");
+  const marketWalletName = document.getElementById("marketsWalletName");
+  const marketWalletStatus = document.getElementById("marketsWalletStatus");
+  const openButtons = [document.getElementById("walletBtn"), document.getElementById("sideWalletBtn"), marketWalletButton].filter(Boolean);
   const closeButton = document.getElementById("walletCloseBtn");
   const select = document.getElementById("walletLoginSelect");
   const connectButton = document.getElementById("walletConnectBtn");
@@ -262,6 +265,11 @@ import {
       const label = button.querySelector("[data-wallet-button-label]");
       if (label) label.textContent = connected ? shortenWalletAddress(connectedAccount.address) : text("wallet");
     });
+    if (marketWalletName) marketWalletName.textContent = connected ? sanitizeWalletName(connectedWallet.name) : "Phantom";
+    if (marketWalletStatus) marketWalletStatus.textContent = connected ? shortenWalletAddress(connectedAccount.address) : text("notConnected");
+    marketWalletButton?.setAttribute("aria-label", connected
+      ? `${sanitizeWalletName(connectedWallet.name)} ${shortenWalletAddress(connectedAccount.address)}`
+      : `${text("wallet")}: ${text("notConnected")}`);
     setStatus(text(connected ? "connected" : "idle"), connected ? "success" : "neutral");
   }
 
@@ -271,6 +279,7 @@ import {
       if (key) element.textContent = text(key);
     });
     closeButton?.setAttribute("aria-label", text("close"));
+    if (!connectedAccount && marketWalletStatus) marketWalletStatus.textContent = text("notConnected");
   }
 
   function setStatus(message, state) {
