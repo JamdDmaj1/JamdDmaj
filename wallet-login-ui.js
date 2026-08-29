@@ -142,9 +142,14 @@ import {
       });
       connectButton.disabled = true;
       setStatus(text("waiting", { wallet: "Phantom" }), "pending");
-      const browser = globalThis.Capacitor?.Plugins?.Browser;
-      if (browser?.open) await browser.open({ url });
-      else window.location.assign(url);
+      const platform = globalThis.Capacitor?.getPlatform?.();
+      const launcher = globalThis.Capacitor?.Plugins?.ExternalWallet;
+      if (platform === "android") {
+        if (!launcher?.openPhantom) throw new Error("native-phantom-launcher-unavailable");
+        await launcher.openPhantom({ url });
+      } else {
+        window.location.assign(url);
+      }
     } catch {
       clearPendingPhantomRequest();
       connectButton.disabled = !hasConnectOption();
