@@ -3110,6 +3110,84 @@
       backdrop-filter: blur(16px);
     }
 
+    .wallet-login-dialog {
+      width: min(520px, calc(100% - 24px));
+    }
+
+    .wallet-login-intro,
+    .wallet-login-status,
+    .wallet-login-mobile {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.78rem;
+      line-height: 1.55;
+    }
+
+    .wallet-login-safety {
+      display: grid;
+      gap: 9px;
+      margin: 0;
+      padding: 14px 14px 14px 34px;
+      border: 1px solid rgba(34, 211, 238, 0.22);
+      border-radius: 15px;
+      background: rgba(8, 47, 73, 0.14);
+      color: var(--text);
+      font-size: 0.76rem;
+      line-height: 1.45;
+    }
+
+    .wallet-login-identity {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 10px;
+    }
+
+    .wallet-login-identity div {
+      display: grid;
+      gap: 5px;
+      min-width: 0;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: var(--panel-2);
+    }
+
+    .wallet-login-identity span {
+      color: var(--muted);
+      font-size: 0.66rem;
+    }
+
+    .wallet-login-identity strong {
+      overflow: hidden;
+      font-size: 0.82rem;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .wallet-login-status {
+      min-height: 2.5em;
+      padding: 11px 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.025);
+    }
+
+    .wallet-login-status[data-state="success"] { border-color: rgba(52, 211, 153, 0.35); color: #6ee7b7; }
+    .wallet-login-status[data-state="error"] { border-color: rgba(251, 113, 133, 0.35); color: #fda4af; }
+    .wallet-login-status[data-state="pending"] { border-color: rgba(34, 211, 238, 0.35); color: var(--accent-2); }
+
+    .wallet-login-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    #walletBtn[data-connected="true"]::before,
+    #sideWalletBtn[data-connected="true"] span:first-child::before {
+      color: #34d399;
+      content: "●";
+    }
+
     .tutorial-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3367,7 +3445,7 @@
         overscroll-behavior: contain;
       }
 
-      .top-actions .pill-btn:not(#learnBtn):not(#marketsBtn):not(#fairLaunchBtn):not(#topThemeBtn):not(#topSettingsBtn) {
+      .top-actions .pill-btn:not(#learnBtn):not(#marketsBtn):not(#fairLaunchBtn):not(#walletBtn):not(#topThemeBtn):not(#topSettingsBtn) {
         display: none;
       }
 
@@ -3586,6 +3664,7 @@
         <button class="side-action mobile-side-action" id="sideTutorialBtn" type="button"><span>?</span><span>Quick tutorial</span></button>
         <button class="side-action mobile-side-action" id="sideExportBtn" type="button"><span>↓</span><span>Export conversation</span></button>
         <button class="side-action" id="sideBackupBtn" type="button"><span>DB</span><span>Data and backup</span></button>
+        <button class="side-action" id="sideWalletBtn" type="button"><span>◎</span><span data-wallet-button-label>Wallet</span></button>
         <button class="side-action" id="sideSocialBtn" type="button"><span>@</span><span>Official social networks</span></button>
         <button class="side-action" id="themeBtn" type="button"><span>◐</span><span>Change theme</span></button>
         <button class="side-action" id="settingsBtn" type="button"><span>⚙</span><span>Settings</span></button>
@@ -3604,6 +3683,7 @@
           <button class="pill-btn" id="learnBtn" type="button">Learn</button>
           <button class="pill-btn" id="marketsBtn" type="button">Markets</button>
           <button class="pill-btn" id="fairLaunchBtn" type="button">Fair Launch</button>
+          <button class="pill-btn" id="walletBtn" type="button"><span data-wallet-button-label>Wallet</span></button>
           <button class="pill-btn" id="voiceModeBtn" type="button">Voice off</button>
           <button class="pill-btn" id="saveChatBtn" type="button">Save</button>
           <button class="pill-btn" id="renameChatBtn" type="button">Rename</button>
@@ -4319,6 +4399,36 @@
     <div class="overlay" id="mobileOverlay"></div>
   </div>
 
+  <dialog class="wallet-login-dialog" id="walletLoginDialog" aria-labelledby="walletLoginTitle">
+    <div class="dialog-head">
+      <h2 id="walletLoginTitle" data-wallet-copy="title">Connect Phantom securely</h2>
+      <button class="icon-btn" id="walletCloseBtn" type="button" aria-label="Close">×</button>
+    </div>
+    <div class="dialog-body">
+      <p class="wallet-login-intro" data-wallet-copy="subtitle">Use your Solana wallet as a non-custodial identity inside JamdDmaj.</p>
+      <ul class="wallet-login-safety">
+        <li data-wallet-copy="noSecrets">JamdDmaj will never ask for your recovery phrase, private key or wallet password.</li>
+        <li data-wallet-copy="approval">Phantom keeps the keys and displays its own secure approval screen.</li>
+        <li data-wallet-copy="permissions">Connecting does not give JamdDmaj permission to move funds.</li>
+      </ul>
+      <div class="field">
+        <label for="walletLoginSelect" data-wallet-copy="select">Detected wallet</label>
+        <select id="walletLoginSelect"><option value="">Detecting wallets…</option></select>
+      </div>
+      <div class="wallet-login-identity">
+        <div><span data-wallet-copy="wallet">Wallet</span><strong id="walletLoginName">Not connected</strong></div>
+        <div><span data-wallet-copy="publicAddress">Public address</span><strong id="walletLoginAddress">—</strong></div>
+      </div>
+      <p class="wallet-login-status" id="walletLoginStatus" role="status" aria-live="polite" data-state="neutral">Connecting only shares your public address. It does not authorize purchases or transactions.</p>
+      <div class="wallet-login-actions">
+        <button class="pill-btn active" id="walletConnectBtn" type="button" data-wallet-copy="connect">Connect</button>
+        <button class="pill-btn" id="walletCopyBtn" type="button" data-wallet-copy="copy" hidden>Copy address</button>
+        <button class="pill-btn" id="walletDisconnectBtn" type="button" data-wallet-copy="disconnect" hidden>Disconnect</button>
+      </div>
+      <p class="wallet-login-mobile" data-wallet-copy="mobile">On mobile, Phantom may briefly show its secure approval sheet. That surface cannot safely be embedded or imitated by JamdDmaj.</p>
+    </div>
+  </dialog>
+
   <dialog id="placementDialog">
     <form method="dialog" id="placementForm">
       <div class="dialog-head">
@@ -4721,7 +4831,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.37.59";
+      const APP_VERSION = "1.37.60";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -4740,6 +4850,7 @@
             intro: "This update improves the normal app experience.",
             button: "Got it",
             items: [
+              ["Secure Phantom connection", "Connect Phantom from the Wallet button without sharing a recovery phrase, private key or password. JamdDmaj receives only the public address and every future transaction still needs a separate wallet approval."],
               ["Complete asset research", "Tap a supported market asset to open its chart, timeframe controls, live metrics, transparent technical scenario, recent news and token-specific questions."],
               ["Bitget and DEX trends", "Markets now shows the most active Bitget USDT futures and DEX Screener's most actively boosted tokens with live metrics."],
               ["Mobile Solana wallets", "Connect through Mobile Wallet Adapter or open JamdDmaj securely inside Phantom and Solflare."],
@@ -4757,6 +4868,7 @@
             intro: "Esta actualizacion mejora la experiencia normal de la app.",
             button: "Entendido",
             items: [
+              ["Conexión segura con Phantom", "Conecta Phantom desde el botón Billetera sin compartir frase de recuperación, clave privada ni contraseña. JamdDmaj solo recibe la dirección pública y cada transacción futura seguirá exigiendo una aprobación separada en la billetera."],
               ["Investigación completa del activo", "Toca un activo compatible para abrir su gráfico, temporalidades, métricas en vivo, escenario técnico transparente, noticias recientes y preguntas sobre el token."],
               ["Tendencias de Bitget y DEX", "Mercados ahora muestra los futuros USDT con mayor actividad en Bitget y los tokens con más boosts activos en DEX Screener."],
               ["Wallets Solana en móvil", "Conecta con Mobile Wallet Adapter o abre JamdDmaj de forma segura dentro de Phantom y Solflare."],
@@ -14077,5 +14189,6 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
     })();
   </script>
   <script type="module" src="fair-launch-ui.js"></script>
+  <script type="module" src="wallet-login-ui.js"></script>
 </body>
 </html>

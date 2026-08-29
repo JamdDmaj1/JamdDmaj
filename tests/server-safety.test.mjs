@@ -34,6 +34,11 @@ import {
   shortenWalletAddress
 } from "../lib/wallet-security.js";
 import { createWalletRegistry, walletEvent } from "../lib/wallet-standard-registry.js";
+import {
+  WALLET_LOGIN_LOCALES,
+  walletLoginKeys,
+  walletLoginText
+} from "../lib/wallet-login-locales.js";
 import { buildBoostPlan, JDMAJ_BOOST_CATALOG } from "../lib/fair-launch-boost.js";
 import { buildChronologicalValidation } from "../lib/pro-backtest.js";
 import {
@@ -1121,6 +1126,26 @@ test("wallet labels are bounded and addresses are privacy shortened", () => {
   assert.equal(sanitizeWalletName("Safe\u0000Wallet"), "Safe Wallet");
   assert.equal(sanitizeWalletName("x".repeat(80)).length, 50);
   assert.equal(shortenWalletAddress("12345678901234567890"), "123456…567890");
+});
+
+test("wallet login safety copy stays complete in every supported language", () => {
+  const englishKeys = walletLoginKeys("en").sort();
+  assert.deepEqual([...WALLET_LOGIN_LOCALES].sort(), ["ar", "de", "en", "es", "fr", "it", "ja", "ko", "pt", "zh"]);
+  for (const locale of WALLET_LOGIN_LOCALES) {
+    assert.deepEqual(walletLoginKeys(locale).sort(), englishKeys, `${locale} wallet copy must match English keys`);
+    assert.ok(walletLoginText(locale, "noSecrets").length > 20);
+    assert.ok(walletLoginText(locale, "permissions").length > 20);
+  }
+});
+
+test("wallet login UI never requests custody secrets or enables transactions", () => {
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const script = readFileSync(new URL("../wallet-login-ui.js", import.meta.url), "utf8");
+  assert.match(html, /id="walletLoginDialog"/);
+  assert.match(html, /data-wallet-copy="noSecrets"/);
+  assert.doesNotMatch(html, /<input[^>]+(?:seed|mnemonic|private.?key|recovery)/i);
+  assert.doesNotMatch(script, /signAndSendTransaction|signTransaction|sendTransaction/);
+  assert.doesNotMatch(script, /localStorage|sessionStorage/);
 });
 
 test("boost plans use fixed JamdDmaj credits and reject incompatible services", () => {

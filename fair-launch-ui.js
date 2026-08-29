@@ -166,6 +166,22 @@ const VERIFIER_LABEL_KEYS = Object.freeze({
     locale = resolveFairLaunchLocale(event.detail?.language || document.documentElement.lang);
     applyFairLaunchLocale();
   });
+  window.addEventListener("jamddmaj:wallet-connected", (event) => {
+    if (event.detail?.source === "fair-launch") return;
+    const account = getSolanaAccount([event.detail?.account]);
+    if (!event.detail?.wallet || !account) return;
+    connectedWallet = event.detail.wallet;
+    connectedAccount = account;
+    subscribeToWalletChanges(connectedWallet);
+    renderWalletConnection();
+  });
+  window.addEventListener("jamddmaj:wallet-disconnected", (event) => {
+    if (event.detail?.source === "fair-launch") return;
+    clearWalletChangeListener();
+    connectedWallet = null;
+    connectedAccount = null;
+    renderWalletConnection();
+  });
 
   launchButton.addEventListener("click", () => active ? exitFairLaunch(true) : enterFairLaunch());
   document.getElementById("exitFairLaunchBtn").addEventListener("click", () => exitFairLaunch(true));
@@ -582,6 +598,9 @@ const VERIFIER_LABEL_KEYS = Object.freeze({
       connectedAccount = account;
       subscribeToWalletChanges(selected.wallet);
       renderWalletConnection();
+      window.dispatchEvent(new CustomEvent("jamddmaj:wallet-connected", {
+        detail: { wallet: selected.wallet, account, source: "fair-launch" }
+      }));
     } catch (error) {
       connectedWallet = null;
       connectedAccount = null;
@@ -605,6 +624,7 @@ const VERIFIER_LABEL_KEYS = Object.freeze({
     }
     renderWalletConnection();
     setWalletStatus(ui("walletDisconnected"), "success");
+    window.dispatchEvent(new CustomEvent("jamddmaj:wallet-disconnected", { detail: { source: "fair-launch" } }));
   }
 
   async function copyWalletAddress() {
@@ -792,7 +812,7 @@ const VERIFIER_LABEL_KEYS = Object.freeze({
 })();
 
 function registerMobileWalletAdapter() {
-  if (typeof window === "undefined" || typeof navigator === "undefined") return;
+  if (typeof window === "undefined" || typeof navigator === "undefined" || window.__jamddmajMwaRegistered) return;
   try {
     registerMwa({
       appIdentity: {
@@ -805,6 +825,7 @@ function registerMobileWalletAdapter() {
       chainSelector: createDefaultChainSelector(),
       onWalletNotFound: createDefaultWalletNotFoundHandler()
     });
+    window.__jamddmajMwaRegistered = true;
   } catch {
     // Unsupported browsers still receive secure Phantom and Solflare deep links.
   }

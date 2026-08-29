@@ -44,6 +44,17 @@ await build({
   legalComments: "none"
 });
 
+await build({
+  absWorkingDir: root,
+  entryPoints: [resolve(root, "wallet-login-ui.js")],
+  outfile: resolve(output, "wallet-login-ui.js"),
+  bundle: true,
+  format: "esm",
+  platform: "browser",
+  target: ["es2020"],
+  legalComments: "none"
+});
+
 await mkdir(resolve(output, "lib"), { recursive: true });
 await cp(resolve(root, "lib", "fair-launch.js"), resolve(output, "lib", "fair-launch.js"));
 await cp(resolve(root, "lib", "wallet-security.js"), resolve(output, "lib", "wallet-security.js"));
