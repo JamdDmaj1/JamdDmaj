@@ -3204,7 +3204,7 @@
 
     .wallet-login-identity {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 10px;
     }
 
@@ -3246,6 +3246,63 @@
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
+    }
+
+    .wallet-portfolio,
+    .wallet-watch-only {
+      display: grid;
+      gap: 10px;
+      padding: 13px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.025);
+    }
+
+    .wallet-portfolio-head,
+    .wallet-watch-controls {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .wallet-portfolio-head strong,
+    .wallet-watch-only strong { font-size: 0.78rem; }
+
+    .wallet-assets {
+      display: grid;
+      gap: 7px;
+      max-height: 210px;
+      overflow: auto;
+      color: var(--muted);
+      font-size: 0.72rem;
+    }
+
+    .wallet-asset-row {
+      display: grid;
+      grid-template-columns: minmax(70px, 0.8fr) minmax(90px, 1fr) minmax(80px, 0.8fr);
+      gap: 8px;
+      align-items: center;
+      padding: 8px 9px;
+      border-radius: 10px;
+      background: var(--panel-2);
+    }
+
+    .wallet-asset-row span:last-child { text-align: right; }
+
+    .wallet-watch-controls input { min-width: 0; }
+
+    .wallet-watch-note {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.68rem;
+      line-height: 1.45;
+    }
+
+    @media (max-width: 560px) {
+      .wallet-login-identity { grid-template-columns: 1fr 1fr; }
+      .wallet-login-identity div:last-child { grid-column: 1 / -1; }
+      .wallet-watch-controls { align-items: stretch; flex-direction: column; }
     }
 
     #walletBtn[data-connected="true"]::before,
@@ -4488,14 +4545,14 @@
 
   <dialog class="wallet-login-dialog" id="walletLoginDialog" aria-labelledby="walletLoginTitle">
     <div class="dialog-head">
-      <h2 id="walletLoginTitle" data-wallet-copy="title">Connect Phantom securely</h2>
+      <h2 id="walletLoginTitle" data-wallet-copy="title">Connect a Solana wallet securely</h2>
       <button class="icon-btn" id="walletCloseBtn" type="button" aria-label="Close">×</button>
     </div>
     <div class="dialog-body">
       <p class="wallet-login-intro" data-wallet-copy="subtitle">Use your Solana wallet as a non-custodial identity inside JamdDmaj.</p>
       <ul class="wallet-login-safety">
         <li data-wallet-copy="noSecrets">JamdDmaj will never ask for your recovery phrase, private key or wallet password.</li>
-        <li data-wallet-copy="approval">Phantom keeps the keys and displays its own secure approval screen.</li>
+        <li data-wallet-copy="approval">Your wallet keeps the keys and displays its own secure approval screen.</li>
         <li data-wallet-copy="permissions">Connecting does not give JamdDmaj permission to move funds.</li>
       </ul>
       <div class="field">
@@ -4505,7 +4562,26 @@
       <div class="wallet-login-identity">
         <div><span data-wallet-copy="wallet">Wallet</span><strong id="walletLoginName">Not connected</strong></div>
         <div><span data-wallet-copy="publicAddress">Public address</span><strong id="walletLoginAddress">—</strong></div>
+        <div><span data-wallet-copy="balance">Estimated balance</span><strong id="walletLoginBalance">—</strong></div>
       </div>
+      <section class="wallet-portfolio" aria-labelledby="walletPortfolioLabel">
+        <div class="wallet-portfolio-head">
+          <strong id="walletPortfolioLabel" data-wallet-copy="holdings">Holdings</strong>
+          <div>
+            <button class="pill-btn" id="walletOwnPortfolioBtn" type="button" data-wallet-copy="myWallet" hidden>My wallet</button>
+            <button class="pill-btn" id="walletRefreshBalanceBtn" type="button" data-wallet-copy="refreshBalance">Refresh</button>
+          </div>
+        </div>
+        <div class="wallet-assets" id="walletPortfolioList" aria-live="polite" data-wallet-copy="connectForBalance">Connect or inspect a public address to see its on-chain balances.</div>
+      </section>
+      <section class="wallet-watch-only" aria-labelledby="walletWatchTitle">
+        <strong id="walletWatchTitle" data-wallet-copy="watchTitle">View a public wallet</strong>
+        <div class="wallet-watch-controls">
+          <input id="walletInspectAddress" type="text" inputmode="text" autocomplete="off" spellcheck="false" maxlength="44" data-wallet-placeholder="watchPlaceholder" placeholder="Solana public address">
+          <button class="pill-btn" id="walletInspectBtn" type="button" data-wallet-copy="inspect">Inspect</button>
+        </div>
+        <p class="wallet-watch-note" data-wallet-copy="watchHelp">Watch-only mode reads public blockchain data. It cannot spend funds and does not prove ownership. Never paste a recovery phrase or private key.</p>
+      </section>
       <p class="wallet-login-status" id="walletLoginStatus" role="status" aria-live="polite" data-state="neutral">Connecting only shares your public address. It does not authorize purchases or transactions.</p>
       <div class="wallet-login-actions">
         <button class="pill-btn active" id="walletConnectBtn" type="button" data-wallet-copy="connect">Connect</button>
@@ -4918,7 +4994,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.37.65";
+      const APP_VERSION = "1.37.66";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -4937,6 +5013,8 @@
             intro: "This update improves the normal app experience.",
             button: "Got it",
             items: [
+              ["Wallet balances and watch-only portfolios", "Markets now reads SOL, SPL and Token-2022 balances from public Solana data, estimates USD value and can inspect any public address without spending permission."],
+              ["More Solana wallet choices", "Installed Wallet Standard providers appear automatically, while mobile users can open JamdDmaj securely inside Phantom or Solflare. Private keys and recovery phrases are never imported."],
               ["Phantom connection on mobile web", "When a mobile browser cannot detect a wallet, Connect now opens JamdDmaj inside Phantom's protected browser and supports Phantom's injected Solana provider."],
               ["Web updates stay current", "In a browser, update controls now refresh JamdDmaj itself with a versioned, cache-busting URL instead of offering the Android APK."],
               ["Phantom opens correctly on Android", "Connect now launches the installed official Phantom app directly instead of opening phantom.com in a browser. JamdDmaj returns through its encrypted app callback."],
@@ -4959,6 +5037,8 @@
             intro: "Esta actualizacion mejora la experiencia normal de la app.",
             button: "Entendido",
             items: [
+              ["Saldos y wallets en solo observación", "Mercados ahora consulta saldos SOL, SPL y Token-2022 desde datos públicos de Solana, estima su valor en USD y permite ver cualquier dirección pública sin permiso para gastar."],
+              ["Más opciones de billeteras Solana", "Los proveedores instalados compatibles con Wallet Standard aparecen automáticamente; en móvil puedes abrir JamdDmaj dentro de Phantom o Solflare. Nunca se importan claves privadas ni frases de recuperación."],
               ["Conexión Phantom en la web móvil", "Cuando el navegador móvil no detecta una wallet, Conectar ahora abre JamdDmaj dentro del navegador protegido de Phantom y admite su proveedor Solana integrado."],
               ["La web se mantiene actualizada", "En el navegador, los controles de actualización ahora recargan JamdDmaj con una URL versionada y sin caché, en lugar de ofrecer el APK de Android."],
               ["Phantom abre correctamente en Android", "Conectar ahora abre directamente la app oficial de Phantom instalada, sin enviar a phantom.com en el navegador. JamdDmaj recibe el regreso mediante su callback cifrado."],
@@ -14308,7 +14388,7 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
       maybeShowNormalReleaseNotes();
     })();
   </script>
-  <script type="module" src="fair-launch-ui.js?v=1.37.65"></script>
-  <script type="module" src="wallet-login-ui.js?v=1.37.65"></script>
+  <script type="module" src="fair-launch-ui.js?v=1.37.66"></script>
+  <script type="module" src="wallet-login-ui.js?v=1.37.66"></script>
 </body>
 </html>

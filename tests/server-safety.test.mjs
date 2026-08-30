@@ -42,6 +42,7 @@ import {
   createPhantomConnectRequest,
   decryptPhantomConnectResponse
 } from "../lib/phantom-deeplink.js";
+import { buildSolflareBrowseUrl } from "../lib/solflare-deeplink.js";
 import {
   WALLET_LOGIN_LOCALES,
   walletLoginKeys,
@@ -1157,6 +1158,8 @@ test("wallet login UI never requests custody secrets or enables transactions", (
   assert.match(html, /id="marketsWalletBtn"/);
   assert.match(html, /id="marketsWalletStatus"[^>]+aria-live="polite"/);
   assert.match(html, /data-wallet-copy="noSecrets"/);
+  assert.match(html, /id="walletLoginBalance"/);
+  assert.match(html, /id="walletInspectAddress"/);
   assert.match(androidManifest, /android:scheme="jamddmaj" android:host="phantom"/);
   assert.match(androidActivity, /registerPlugin\(ExternalWalletPlugin\.class\)/);
   assert.match(walletPlugin, /PHANTOM_PACKAGE = "app\.phantom"/);
@@ -1166,6 +1169,8 @@ test("wallet login UI never requests custody secrets or enables transactions", (
   assert.match(script, /buildPhantomBrowseUrl/);
   assert.match(script, /phantom-browser/);
   assert.match(script, /globalThis\.phantom\?\.solana/);
+  assert.match(script, /buildSolflareBrowseUrl/);
+  assert.match(script, /\/api\/solana-portfolio\?address=/);
   assert.match(script, /ExternalWallet/);
   assert.doesNotMatch(script, /Plugins\?\.Browser\?\.open/);
   assert.doesNotMatch(html, /<input[^>]+(?:seed|mnemonic|private.?key|recovery)/i);
@@ -1205,6 +1210,23 @@ test("Phantom web fallback opens only the official JamdDmaj page inside Phantom"
   assert.match(browseUrl.pathname, /^\/ul\/browse\/https%3A%2F%2Fwww\.jamddmaj\.com%2F/);
   assert.equal(browseUrl.searchParams.get("ref"), "https://www.jamddmaj.com/");
   assert.throws(() => buildPhantomBrowseUrl({ appUrl: "https://evil.example/?wallet_connect=phantom" }), /invalid-browse-target/);
+});
+
+test("Solflare web fallback opens only the official JamdDmaj page inside Solflare", () => {
+  const browseUrl = new URL(buildSolflareBrowseUrl());
+  assert.equal(browseUrl.origin, "https://solflare.com");
+  assert.match(browseUrl.pathname, /^\/ul\/v1\/browse\/https%3A%2F%2Fwww\.jamddmaj\.com%2F/);
+  assert.equal(browseUrl.searchParams.get("ref"), "https://www.jamddmaj.com/");
+  assert.throws(() => buildSolflareBrowseUrl({ appUrl: "https://evil.example/?wallet_connect=solflare" }), /official JamdDmaj/);
+});
+
+test("public portfolio endpoint remains read-only and never accepts custody secrets", () => {
+  const source = readFileSync(new URL("../api/solana-portfolio.js", import.meta.url), "utf8");
+  assert.match(source, /getBalance/);
+  assert.match(source, /getTokenAccountsByOwner/);
+  assert.match(source, /TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb/);
+  assert.doesNotMatch(source, /sendTransaction|signTransaction|privateKey|mnemonic|recoveryPhrase/);
+  assert.match(source, /Cache-Control": "private/);
 });
 
 test("Wallet Standard uses one registry across separately bundled app surfaces", () => {

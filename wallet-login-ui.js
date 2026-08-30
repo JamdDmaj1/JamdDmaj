@@ -12,6 +12,7 @@ import {
   createPhantomConnectRequest,
   decryptPhantomConnectResponse
 } from "./lib/phantom-deeplink.js";
+import { buildSolflareBrowseUrl } from "./lib/solflare-deeplink.js";
 (() => {
   const dialog = document.getElementById("walletLoginDialog");
   const marketWalletButton = document.getElementById("marketsWalletBtn");
@@ -23,6 +24,13 @@ import {
   const connectButton = document.getElementById("walletConnectBtn");
   const disconnectButton = document.getElementById("walletDisconnectBtn");
   const copyButton = document.getElementById("walletCopyBtn");
+  const refreshBalanceButton = document.getElementById("walletRefreshBalanceBtn");
+  const inspectButton = document.getElementById("walletInspectBtn");
+  const inspectInput = document.getElementById("walletInspectAddress");
+  const ownPortfolioButton = document.getElementById("walletOwnPortfolioBtn");
+  const balance = document.getElementById("walletLoginBalance");
+  const portfolioLabel = document.getElementById("walletPortfolioLabel");
+  const portfolioList = document.getElementById("walletPortfolioList");
   const status = document.getElementById("walletLoginStatus");
   if (!dialog || !select || !connectButton) return;
 
@@ -32,6 +40,8 @@ import {
   let connectedAccount = null;
   let removeWalletChangeListener = null;
   let pendingPhantomRequest = null;
+  let portfolioController = null;
+  let viewedAddress = "";
   let locale = resolveWalletLoginLocale(document.documentElement.lang);
 
   registry.on("register", refreshWallets);
@@ -44,6 +54,9 @@ import {
   connectButton.addEventListener("click", connectWallet);
   disconnectButton?.addEventListener("click", disconnectWallet);
   copyButton?.addEventListener("click", copyAddress);
+  refreshBalanceButton?.addEventListener("click", () => loadPortfolio(viewedAddress || connectedAccount?.address));
+  inspectButton?.addEventListener("click", inspectPublicAddress);
+  ownPortfolioButton?.addEventListener("click", () => loadPortfolio(connectedAccount?.address));
   window.addEventListener("jamddmaj:languagechange", (event) => {
     locale = resolveWalletLoginLocale(event.detail?.language || document.documentElement.lang);
     applyLocale();
@@ -63,7 +76,7 @@ import {
   applyLocale();
   refreshWallets();
   initializeNativePhantomCallback();
-  initializePhantomBrowserEntry();
+  initializeWalletBrowserEntry();
 
   function text(key, replacements) {
     return walletLoginText(locale, key, replacements);
@@ -109,6 +122,13 @@ import {
       option.textContent = "Phantom";
       select.append(option);
     }
+    if (isMobileWeb() && !wallets.some(({ name }) => /solflare/i.test(name))) {
+      const option = document.createElement("option");
+      option.value = "solflare-browser";
+      option.dataset.walletName = "Solflare";
+      option.textContent = "Solflare";
+      select.append(option);
+    }
     const preferred = wallets.findIndex(({ name }) => /phantom/i.test(name));
     const prior = wallets.findIndex(({ name }) => name === priorName);
     if (!connectedWallet) {
@@ -125,6 +145,7 @@ import {
   async function connectWallet() {
     if (select.value === "phantom-mobile") return connectPhantomMobile();
     if (select.value === "phantom-browser") return openInsidePhantom();
+    if (select.value === "solflare-browser") return openInsideSolflare();
     const selectedIndex = /^wallet:(\d+)$/.exec(select.value)?.[1];
     const selected = selectedIndex === undefined ? null : wallets[Number(selectedIndex)];
     if (!selected) return setStatus(text("none"), "warning");
@@ -159,6 +180,17 @@ import {
     }
   }
 
+  function openInsideSolflare() {
+    try {
+      connectButton.disabled = true;
+      setStatus(text("waiting", { wallet: "Solflare" }), "pending");
+      window.location.assign(buildSolflareBrowseUrl());
+    } catch {
+      connectButton.disabled = !hasConnectOption();
+      setStatus(text("failed"), "error");
+    }
+  }
+
   function getLegacyPhantomWallet() {
     const provider = globalThis.phantom?.solana;
     if (!provider?.isPhantom || typeof provider.connect !== "function") return null;
@@ -180,11 +212,11 @@ import {
     });
   }
 
-  function initializePhantomBrowserEntry() {
+  function initializeWalletBrowserEntry() {
     if (isNativeApp()) return;
-    let requested = false;
-    try { requested = new URL(window.location.href).searchParams.get("wallet_connect") === "phantom"; } catch { /* Ignore malformed locations. */ }
-    if (!requested) return;
+    let requested = "";
+    try { requested = new URL(window.location.href).searchParams.get("wallet_connect") || ""; } catch { /* Ignore malformed locations. */ }
+    if (!/^(phantom|solflare)$/.test(requested)) return;
     setTimeout(() => {
       refreshWallets();
       if (!dialog.open) dialog.showModal();
@@ -276,6 +308,7 @@ import {
     clearConnection();
     connectedWallet = wallet;
     connectedAccount = account;
+    viewedAddress = account.address;
     const events = wallet.features?.["standard:events"];
     if (events?.on) {
       removeWalletChangeListener = events.on("change", ({ accounts }) => {
@@ -286,6 +319,8 @@ import {
           return;
         }
         connectedAccount = nextAccount;
+        viewedAddress = nextAccount.address;
+        loadPortfolio(nextAccount.address);
         renderConnection();
       });
     }
@@ -296,6 +331,9 @@ import {
     removeWalletChangeListener = null;
     connectedWallet = null;
     connectedAccount = null;
+    viewedAddress = "";
+    portfolioController?.abort();
+    portfolioController = null;
   }
 
   function clearPendingPhantomRequest() {
@@ -311,6 +349,79 @@ import {
     } catch {
       setStatus(text("failed"), "error");
     }
+  }
+
+  async function inspectPublicAddress() {
+    const address = String(inspectInput?.value || "").trim();
+    if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address)) {
+      return setStatus(text("invalidAddress"), "error");
+    }
+    await loadPortfolio(address);
+  }
+
+  async function loadPortfolio(address) {
+    const publicAddress = String(address || "").trim();
+    if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(publicAddress)) return;
+    portfolioController?.abort();
+    portfolioController = new AbortController();
+    viewedAddress = publicAddress;
+    const own = publicAddress === connectedAccount?.address;
+    if (portfolioLabel) portfolioLabel.textContent = text(own ? "ownPortfolio" : "watching", { address: shortenWalletAddress(publicAddress) });
+    if (portfolioList) portfolioList.textContent = text("loadingBalance");
+    refreshBalanceButton && (refreshBalanceButton.disabled = true);
+    try {
+      const response = await fetch(`/api/solana-portfolio?address=${encodeURIComponent(publicAddress)}`, {
+        signal: portfolioController.signal,
+        headers: { "Accept": "application/json" },
+        cache: "no-store"
+      });
+      const data = await response.json();
+      if (!response.ok || !data?.ok) throw new Error(data?.error?.message || "portfolio-unavailable");
+      renderPortfolio(data, own);
+      setStatus(own ? text("connected") : text("watchOnly"), "success");
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+      if (portfolioList) portfolioList.textContent = text("balanceFailed");
+      if (own && balance) balance.textContent = "—";
+      setStatus(text("balanceFailed"), "error");
+    } finally {
+      if (refreshBalanceButton) refreshBalanceButton.disabled = false;
+    }
+  }
+
+  function renderPortfolio(data, own) {
+    const money = new Intl.NumberFormat(locale, { style: "currency", currency: "USD", maximumFractionDigits: 2 });
+    const amount = new Intl.NumberFormat(locale, { maximumFractionDigits: 6 });
+    const estimate = money.format(Number(data.estimatedValueUsd) || 0);
+    if (own && balance) balance.textContent = estimate;
+    if (own && marketWalletStatus && connectedAccount) {
+      marketWalletStatus.textContent = `${shortenWalletAddress(connectedAccount.address)} · ${estimate}`;
+    }
+    if (!portfolioList) return;
+    portfolioList.replaceChildren();
+    const solRow = portfolioRow("SOL", `${amount.format(Number(data.sol?.amount) || 0)} SOL`, money.format(Number(data.sol?.valueUsd) || 0));
+    portfolioList.append(solRow);
+    (Array.isArray(data.tokens) ? data.tokens : []).slice(0, 30).forEach((token) => {
+      const value = Number(token.valueUsd) > 0 ? money.format(token.valueUsd) : text("unpriced");
+      portfolioList.append(portfolioRow(token.symbol, amount.format(token.amount), value));
+    });
+    if (!data.tokens?.length && Number(data.sol?.amount || 0) === 0) {
+      portfolioList.replaceChildren(document.createTextNode(text("noAssets")));
+    }
+    if (ownPortfolioButton) ownPortfolioButton.hidden = own || !connectedAccount;
+  }
+
+  function portfolioRow(symbol, tokenAmount, usdValue) {
+    const row = document.createElement("div");
+    row.className = "wallet-asset-row";
+    const name = document.createElement("strong");
+    name.textContent = String(symbol || "Token").slice(0, 20);
+    const quantity = document.createElement("span");
+    quantity.textContent = tokenAmount;
+    const value = document.createElement("span");
+    value.textContent = usdValue;
+    row.append(name, quantity, value);
+    return row;
   }
 
   function renderConnection() {
@@ -331,11 +442,19 @@ import {
       if (label) label.textContent = connected ? shortenWalletAddress(connectedAccount.address) : text("wallet");
     });
     if (marketWalletName) marketWalletName.textContent = connected ? sanitizeWalletName(connectedWallet.name) : "Phantom";
-    if (marketWalletStatus) marketWalletStatus.textContent = connected ? shortenWalletAddress(connectedAccount.address) : text("notConnected");
+    if (marketWalletStatus) marketWalletStatus.textContent = connected
+      ? `${shortenWalletAddress(connectedAccount.address)}${balance?.textContent && balance.textContent !== "—" ? ` · ${balance.textContent}` : ""}`
+      : text("notConnected");
     marketWalletButton?.setAttribute("aria-label", connected
       ? `${sanitizeWalletName(connectedWallet.name)} ${shortenWalletAddress(connectedAccount.address)}`
       : `${text("wallet")}: ${text("notConnected")}`);
     setStatus(text(connected ? "connected" : "idle"), connected ? "success" : "neutral");
+    if (connected) loadPortfolio(connectedAccount.address);
+    else {
+      if (balance) balance.textContent = "—";
+      if (portfolioLabel) portfolioLabel.textContent = text("holdings");
+      if (portfolioList) portfolioList.textContent = text("connectForBalance");
+    }
   }
 
   function applyLocale() {
@@ -344,6 +463,10 @@ import {
       if (key) element.textContent = text(key);
     });
     closeButton?.setAttribute("aria-label", text("close"));
+    document.querySelectorAll("[data-wallet-placeholder]").forEach((element) => {
+      const key = element.dataset.walletPlaceholder;
+      if (key) element.setAttribute("placeholder", text(key));
+    });
     if (!connectedAccount && marketWalletStatus) marketWalletStatus.textContent = text("notConnected");
   }
 
