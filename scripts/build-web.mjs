@@ -6,6 +6,9 @@ const root = resolve(import.meta.dirname, "..");
 const output = resolve(root, "www");
 const assets = [
   "index.html",
+  "discover.html",
+  "discover.css",
+  "discover.js",
   "candlesticks.js",
   "fair-launch.css",
   "oauth-mobile.html",

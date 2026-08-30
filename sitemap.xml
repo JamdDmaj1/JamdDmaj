@@ -5,6 +5,10 @@
     <changefreq>daily</changefreq>
   </url>
   <url>
+    <loc>https://www.jamddmaj.com/discover.html</loc>
+    <changefreq>weekly</changefreq>
+  </url>
+  <url>
     <loc>https://www.jamddmaj.com/?view=fair-launch</loc>
     <changefreq>weekly</changefreq>
   </url>
