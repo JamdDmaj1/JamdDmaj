@@ -4918,7 +4918,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.37.64";
+      const APP_VERSION = "1.37.65";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -4937,6 +4937,7 @@
             intro: "This update improves the normal app experience.",
             button: "Got it",
             items: [
+              ["Phantom connection on mobile web", "When a mobile browser cannot detect a wallet, Connect now opens JamdDmaj inside Phantom's protected browser and supports Phantom's injected Solana provider."],
               ["Web updates stay current", "In a browser, update controls now refresh JamdDmaj itself with a versioned, cache-busting URL instead of offering the Android APK."],
               ["Phantom opens correctly on Android", "Connect now launches the installed official Phantom app directly instead of opening phantom.com in a browser. JamdDmaj returns through its encrypted app callback."],
               ["Wallet visible in Markets", "Markets now keeps your wallet identity in view, showing its name, connection state and only an abbreviated public address. Tap it to open the same secure connection panel."],
@@ -4958,6 +4959,7 @@
             intro: "Esta actualizacion mejora la experiencia normal de la app.",
             button: "Entendido",
             items: [
+              ["Conexión Phantom en la web móvil", "Cuando el navegador móvil no detecta una wallet, Conectar ahora abre JamdDmaj dentro del navegador protegido de Phantom y admite su proveedor Solana integrado."],
               ["La web se mantiene actualizada", "En el navegador, los controles de actualización ahora recargan JamdDmaj con una URL versionada y sin caché, en lugar de ofrecer el APK de Android."],
               ["Phantom abre correctamente en Android", "Conectar ahora abre directamente la app oficial de Phantom instalada, sin enviar a phantom.com en el navegador. JamdDmaj recibe el regreso mediante su callback cifrado."],
               ["Wallet visible en Mercados", "Mercados ahora mantiene visible la identidad de tu wallet: muestra su nombre, estado y solo una dirección pública abreviada. Tócala para abrir el mismo panel de conexión segura."],
@@ -14306,7 +14308,7 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
       maybeShowNormalReleaseNotes();
     })();
   </script>
-  <script type="module" src="fair-launch-ui.js?v=1.37.64"></script>
-  <script type="module" src="wallet-login-ui.js?v=1.37.64"></script>
+  <script type="module" src="fair-launch-ui.js?v=1.37.65"></script>
+  <script type="module" src="wallet-login-ui.js?v=1.37.65"></script>
 </body>
 </html>

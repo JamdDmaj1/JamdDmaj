@@ -7,6 +7,7 @@ import {
 } from "./lib/wallet-security.js";
 import { walletLoginText, resolveWalletLoginLocale } from "./lib/wallet-login-locales.js";
 import {
+  buildPhantomBrowseUrl,
   buildPhantomConnectUrl,
   createPhantomConnectRequest,
   decryptPhantomConnectResponse
@@ -62,6 +63,7 @@ import {
   applyLocale();
   refreshWallets();
   initializeNativePhantomCallback();
+  initializePhantomBrowserEntry();
 
   function text(key, replacements) {
     return walletLoginText(locale, key, replacements);
@@ -74,12 +76,17 @@ import {
 
   function refreshWallets() {
     wallets = getCompatibleSolanaWallets([...registry.get()]);
+    const legacyPhantom = getLegacyPhantomWallet();
+    if (legacyPhantom && !wallets.some(({ name }) => /phantom/i.test(name))) {
+      wallets.unshift({ wallet: legacyPhantom, name: "Phantom" });
+    }
     const priorName = select.selectedOptions?.[0]?.dataset?.walletName || "";
     const nativePhantom = isNativeApp();
+    const mobileWebPhantom = isMobileWeb();
     select.replaceChildren();
     const placeholder = document.createElement("option");
     placeholder.value = "";
-    placeholder.textContent = wallets.length || nativePhantom ? text("choose") : text("none");
+    placeholder.textContent = wallets.length || nativePhantom || mobileWebPhantom ? text("choose") : text("none");
     select.append(placeholder);
     wallets.forEach(({ name }, index) => {
       const option = document.createElement("option");
@@ -95,12 +102,20 @@ import {
       option.textContent = "Phantom";
       select.append(option);
     }
+    if (mobileWebPhantom && !wallets.some(({ name }) => /phantom/i.test(name))) {
+      const option = document.createElement("option");
+      option.value = "phantom-browser";
+      option.dataset.walletName = "Phantom";
+      option.textContent = "Phantom";
+      select.append(option);
+    }
     const preferred = wallets.findIndex(({ name }) => /phantom/i.test(name));
     const prior = wallets.findIndex(({ name }) => name === priorName);
     if (!connectedWallet) {
       if (prior >= 0) select.value = `wallet:${prior}`;
       else if (preferred >= 0) select.value = `wallet:${preferred}`;
       else if (nativePhantom) select.value = "phantom-mobile";
+      else if (mobileWebPhantom) select.value = "phantom-browser";
       else if (wallets.length) select.value = "wallet:0";
     }
     select.disabled = Boolean(connectedWallet);
@@ -109,6 +124,7 @@ import {
 
   async function connectWallet() {
     if (select.value === "phantom-mobile") return connectPhantomMobile();
+    if (select.value === "phantom-browser") return openInsidePhantom();
     const selectedIndex = /^wallet:(\d+)$/.exec(select.value)?.[1];
     const selected = selectedIndex === undefined ? null : wallets[Number(selectedIndex)];
     if (!selected) return setStatus(text("none"), "warning");
@@ -129,6 +145,50 @@ import {
       setStatus(text(canceled ? "canceled" : "failed"), "error");
       connectButton.disabled = !hasConnectOption();
     }
+  }
+
+  function openInsidePhantom() {
+    try {
+      const url = buildPhantomBrowseUrl();
+      connectButton.disabled = true;
+      setStatus(text("waiting", { wallet: "Phantom" }), "pending");
+      window.location.assign(url);
+    } catch {
+      connectButton.disabled = !hasConnectOption();
+      setStatus(text("failed"), "error");
+    }
+  }
+
+  function getLegacyPhantomWallet() {
+    const provider = globalThis.phantom?.solana;
+    if (!provider?.isPhantom || typeof provider.connect !== "function") return null;
+    const chains = Object.freeze(["solana:mainnet", "solana:devnet"]);
+    return Object.freeze({
+      name: "Phantom",
+      chains,
+      accounts: Object.freeze([]),
+      features: Object.freeze({
+        "standard:connect": Object.freeze({
+          version: "1.0.0",
+          connect: async () => {
+            const result = await provider.connect();
+            const address = String(result?.publicKey?.toString?.() || provider.publicKey?.toString?.() || "");
+            return { accounts: [{ address, chains, features: [] }] };
+          }
+        })
+      })
+    });
+  }
+
+  function initializePhantomBrowserEntry() {
+    if (isNativeApp()) return;
+    let requested = false;
+    try { requested = new URL(window.location.href).searchParams.get("wallet_connect") === "phantom"; } catch { /* Ignore malformed locations. */ }
+    if (!requested) return;
+    setTimeout(() => {
+      refreshWallets();
+      if (!dialog.open) dialog.showModal();
+    }, 600);
   }
 
   async function connectPhantomMobile() {
@@ -294,7 +354,12 @@ import {
   }
 
   function hasConnectOption() {
-    return wallets.length > 0 || isNativeApp();
+    return wallets.length > 0 || isNativeApp() || isMobileWeb();
+  }
+
+  function isMobileWeb() {
+    if (isNativeApp()) return false;
+    return /Android|iPhone|iPad|iPod|Mobile/i.test(String(globalThis.navigator?.userAgent || ""));
   }
 
   function isNativeApp() {

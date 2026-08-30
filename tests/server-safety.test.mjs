@@ -38,6 +38,7 @@ import {
 import { createWalletRegistry, getWalletRegistry, walletEvent } from "../lib/wallet-standard-registry.js";
 import {
   buildPhantomConnectUrl,
+  buildPhantomBrowseUrl,
   createPhantomConnectRequest,
   decryptPhantomConnectResponse
 } from "../lib/phantom-deeplink.js";
@@ -1162,6 +1163,9 @@ test("wallet login UI never requests custody secrets or enables transactions", (
   assert.match(walletPlugin, /PHANTOM_CONNECT_PATH = "\/ul\/v1\/connect"/);
   assert.doesNotMatch(walletPlugin, /ACTION_VIEW[\s\S]+(?:play\.google|phantom\.com)/i);
   assert.match(script, /buildPhantomConnectUrl/);
+  assert.match(script, /buildPhantomBrowseUrl/);
+  assert.match(script, /phantom-browser/);
+  assert.match(script, /globalThis\.phantom\?\.solana/);
   assert.match(script, /ExternalWallet/);
   assert.doesNotMatch(script, /Plugins\?\.Browser\?\.open/);
   assert.doesNotMatch(html, /<input[^>]+(?:seed|mnemonic|private.?key|recovery)/i);
@@ -1193,6 +1197,14 @@ test("Phantom mobile callbacks are encrypted, origin-bound and one-request-only"
   });
   callback.searchParams.set("request", "0".repeat(32));
   assert.throws(() => decryptPhantomConnectResponse(callback, request), /request-mismatch/);
+});
+
+test("Phantom web fallback opens only the official JamdDmaj page inside Phantom", () => {
+  const browseUrl = new URL(buildPhantomBrowseUrl());
+  assert.equal(browseUrl.origin, "https://phantom.app");
+  assert.match(browseUrl.pathname, /^\/ul\/browse\/https%3A%2F%2Fwww\.jamddmaj\.com%2F/);
+  assert.equal(browseUrl.searchParams.get("ref"), "https://www.jamddmaj.com/");
+  assert.throws(() => buildPhantomBrowseUrl({ appUrl: "https://evil.example/?wallet_connect=phantom" }), /invalid-browse-target/);
 });
 
 test("Wallet Standard uses one registry across separately bundled app surfaces", () => {
