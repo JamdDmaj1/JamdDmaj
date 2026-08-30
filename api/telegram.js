@@ -19,6 +19,7 @@ export default async function handler(request) {
 
   const botToken = String(process.env.TELEGRAM_BOT_TOKEN || "").trim();
   const chatId = String(process.env.TELEGRAM_CHAT_ID || "").trim();
+  const signalChannelId = String(process.env.TELEGRAM_SIGNAL_CHANNEL_ID || "").trim();
   const ownerDevice = String(process.env.JAMDDMAJ_TELEGRAM_DEVICE_ID || "").trim();
   if (!botToken || !chatId || !ownerDevice) {
     return jsonResponse(request, {
@@ -36,7 +37,12 @@ export default async function handler(request) {
   try {
     const input = await request.json();
     if (input?.action === "status") {
-      return jsonResponse(request, { ok: true, configured: true, authorized: true });
+      return jsonResponse(request, {
+        ok: true,
+        configured: true,
+        authorized: true,
+        signalMirrorConfigured: Boolean(signalChannelId && signalChannelId !== chatId)
+      });
     }
     if (input?.action === "test") {
       const deviceHash = await hashIdentifier(deviceId);
@@ -44,13 +50,15 @@ export default async function handler(request) {
       if (!allowed) {
         return jsonResponse(request, { ok: true, sent: false, duplicate: true });
       }
-      await sendTelegram(botToken, chatId, [
+      const testText = [
         "✅ <b>JamdDmaj Pro Signals conectado</b>",
         "",
         "Las alertas de Trade ya pueden llegar a este canal.",
         `🕒 ${formatDate(new Date().toISOString())}`
-      ].join("\n"));
-      return jsonResponse(request, { ok: true, sent: true });
+      ].join("\n");
+      await sendTelegram(botToken, chatId, testText);
+      const mirror = await sendSignalMirror(botToken, chatId, signalChannelId, testText);
+      return jsonResponse(request, { ok: true, sent: true, ...mirror });
     }
 
     if (input?.action !== "signal") {
@@ -74,12 +82,30 @@ export default async function handler(request) {
       }
     }
 
-    await sendTelegram(botToken, chatId, formatSignal(signal));
-    return jsonResponse(request, { ok: true, sent: true });
+    const text = formatSignal(signal);
+    await sendTelegram(botToken, chatId, text);
+    const mirror = await sendSignalMirror(botToken, chatId, signalChannelId, text);
+    return jsonResponse(request, { ok: true, sent: true, ...mirror });
   } catch (error) {
     return jsonResponse(request, {
       error: { message: error?.message || "No se pudo enviar la alerta a Telegram." }
     }, Number(error?.status) || 500);
+  }
+}
+
+async function sendSignalMirror(token, primaryChatId, signalChannelId, text) {
+  if (!signalChannelId || signalChannelId === primaryChatId) {
+    return { mirrorConfigured: false, mirrorSent: false };
+  }
+  try {
+    await sendTelegram(token, signalChannelId, text);
+    return { mirrorConfigured: true, mirrorSent: true };
+  } catch (error) {
+    return {
+      mirrorConfigured: true,
+      mirrorSent: false,
+      mirrorError: String(error?.message || "Telegram mirror failed.").slice(0, 180)
+    };
   }
 }
 

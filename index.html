@@ -5032,7 +5032,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.37.67";
+      const APP_VERSION = "1.37.68";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -5051,6 +5051,7 @@
             intro: "This update improves the normal app experience.",
             button: "Got it",
             items: [
+              ["Signal channel mirroring", "Validated Pro signals can now publish to the private signals chat and a separate Telegram destination without copying executor or watchdog diagnostics."],
               ["Interactive charts", "Asset charts now support drag, pinch and mouse-wheel zoom, plus SMA 20, SMA 50, EMA 12 and volume overlays."],
               ["More resilient market data", "Wallet balances automatically retry a second public Solana RPC and DEX Screener grouped-token requests preserve every token address."],
               ["Wallet balances and watch-only portfolios", "Markets now reads SOL, SPL and Token-2022 balances from public Solana data, estimates USD value and can inspect any public address without spending permission."],
@@ -5077,6 +5078,7 @@
             intro: "Esta actualizacion mejora la experiencia normal de la app.",
             button: "Entendido",
             items: [
+              ["Duplicado seguro de señales", "Las señales Pro validadas ahora pueden publicarse en el chat privado de señales y en un segundo destino de Telegram, sin copiar diagnósticos del ejecutor o watchdog."],
               ["Gráficos interactivos", "Los gráficos de activos ahora permiten arrastrar, hacer zoom con dos dedos o la rueda y activar SMA 20, SMA 50, EMA 12 y volumen."],
               ["Datos de mercado más resistentes", "El saldo de la wallet reintenta automáticamente con un segundo RPC público de Solana y las consultas agrupadas de DEX Screener conservan todas las direcciones."],
               ["Saldos y wallets en solo observación", "Mercados ahora consulta saldos SOL, SPL y Token-2022 desde datos públicos de Solana, estima su valor en USD y permite ver cualquier dirección pública sin permiso para gastar."],
@@ -14580,7 +14582,7 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
       maybeShowNormalReleaseNotes();
     })();
   </script>
-  <script type="module" src="fair-launch-ui.js?v=1.37.67"></script>
-  <script type="module" src="wallet-login-ui.js?v=1.37.67"></script>
+  <script type="module" src="fair-launch-ui.js?v=1.37.68"></script>
+  <script type="module" src="wallet-login-ui.js?v=1.37.68"></script>
 </body>
 </html>

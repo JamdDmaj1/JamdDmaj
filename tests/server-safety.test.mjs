@@ -130,6 +130,18 @@ test("web, API fallback and Android release versions stay aligned", () => {
   assert.match(androidGradle, new RegExp(`versionName "${packageVersion.replaceAll(".", "\\.")}"`));
 });
 
+test("validated Telegram signals can mirror to one separate destination without executor noise", () => {
+  const telegram = readFileSync(new URL("../api/telegram.js", import.meta.url), "utf8");
+  const executor = readFileSync(new URL("../api/pro-executor.js", import.meta.url), "utf8");
+  const environment = readFileSync(new URL("../.env.example", import.meta.url), "utf8");
+  assert.match(telegram, /TELEGRAM_SIGNAL_CHANNEL_ID/);
+  assert.match(telegram, /sendSignalMirror\(botToken, chatId, signalChannelId, text\)/);
+  assert.match(telegram, /signalChannelId === primaryChatId/);
+  assert.match(telegram, /mirrorSent: true/);
+  assert.doesNotMatch(executor, /TELEGRAM_SIGNAL_CHANNEL_ID/);
+  assert.match(environment, /TELEGRAM_SIGNAL_CHANNEL_ID=your-signal-channel-id-or-username/);
+});
+
 test("the official JamdDmaj domain is allowed without reflecting unknown origins", () => {
   const official = corsHeaders(new Request("https://example.test", {
     headers: { origin: "https://www.jamddmaj.com" }
