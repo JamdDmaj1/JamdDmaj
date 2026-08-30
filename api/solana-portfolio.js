@@ -2,10 +2,14 @@ import { corsHeaders, jsonResponse } from "../lib/server.js";
 
 export const config = { runtime: "edge" };
 
-const SOLANA_RPC = "https://api.mainnet-beta.solana.com";
+const SOLANA_RPCS = [
+  "https://solana-rpc.publicnode.com",
+  "https://api.mainnet-beta.solana.com"
+];
 const TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
 const TOKEN_2022_PROGRAM = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
-const FETCH_TIMEOUT_MS = 8000;
+const FETCH_TIMEOUT_MS = 6000;
+const RPC_TIMEOUT_MS = 4000;
 const CACHE_TTL_MS = 20 * 1000;
 const cache = new Map();
 
@@ -66,22 +70,28 @@ async function tokenAccounts(owner, programId) {
 }
 
 async function rpc(method, params) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-  try {
-    const response = await fetch(SOLANA_RPC, {
-      method: "POST",
-      signal: controller.signal,
-      headers: { "Accept": "application/json", "Content-Type": "application/json" },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params })
-    });
-    if (!response.ok) throw new Error(`Solana RPC returned ${response.status}`);
-    const data = await response.json();
-    if (data?.error || !data?.result) throw new Error("Solana RPC returned an invalid result.");
-    return data.result;
-  } finally {
-    clearTimeout(timer);
+  let lastError = new Error("Solana RPC is unavailable.");
+  for (const endpoint of SOLANA_RPCS) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), RPC_TIMEOUT_MS);
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        signal: controller.signal,
+        headers: { "Accept": "application/json", "Content-Type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params })
+      });
+      if (!response.ok) throw new Error(`Solana RPC returned ${response.status}`);
+      const data = await response.json();
+      if (data?.error || !data?.result) throw new Error("Solana RPC returned an invalid result.");
+      return data.result;
+    } catch (error) {
+      lastError = error;
+    } finally {
+      clearTimeout(timer);
+    }
   }
+  throw lastError;
 }
 
 function aggregateTokens(accounts) {
@@ -105,7 +115,8 @@ async function enrichTokens(tokens) {
   for (let index = 0; index < tokens.length; index += 30) {
     const chunk = tokens.slice(index, index + 30).map((token) => token.mint).join(",");
     try {
-      const pairs = await fetchJson(`https://api.dexscreener.com/tokens/v1/solana/${encodeURIComponent(chunk)}`);
+      const encodedMints = chunk.split(",").map(encodeURIComponent).join(",");
+      const pairs = await fetchJson(`https://api.dexscreener.com/tokens/v1/solana/${encodedMints}`);
       for (const pair of Array.isArray(pairs) ? pairs : []) {
         const mint = validSolanaAddress(pair?.baseToken?.address);
         if (!mint || !tokens.some((token) => token.mint === mint)) continue;
@@ -140,7 +151,7 @@ async function fetchJson(url) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const response = await fetch(url, { signal: controller.signal, headers: { "Accept": "application/json", "User-Agent": "JamdDmaj-Portfolio/1.37.66" } });
+    const response = await fetch(url, { signal: controller.signal, headers: { "Accept": "application/json", "User-Agent": "JamdDmaj-Portfolio/1.37.67" } });
     if (!response.ok) throw new Error(`Public data source returned ${response.status}`);
     return await response.json();
   } finally {

@@ -69,8 +69,13 @@ async function fetchBitgetTrending() {
 }
 
 async function fetchDexScreenerTrending() {
-  const boosts = await fetchJson("https://api.dexscreener.com/token-boosts/top/v1");
+  const boostResults = await Promise.allSettled([
+    fetchJson("https://api.dexscreener.com/token-boosts/top/v1", 4500),
+    fetchJson("https://api.dexscreener.com/token-boosts/latest/v1", 4500)
+  ]);
+  const boosts = boostResults.flatMap((result) => result.status === "fulfilled" && Array.isArray(result.value) ? result.value : []);
   if (!Array.isArray(boosts)) throw new Error("DEX Screener boost response was invalid.");
+  const seen = new Set();
   const candidates = boosts
     .map((boost, index) => ({
       chainId: safeIdentifier(boost.chainId),
@@ -78,7 +83,12 @@ async function fetchDexScreenerTrending() {
       boostAmount: finiteNumber(boost.totalAmount || boost.amount),
       rank: index + 1
     }))
-    .filter((boost) => boost.chainId && boost.tokenAddress)
+    .filter((boost) => {
+      const key = `${boost.chainId}:${boost.tokenAddress}`.toLowerCase();
+      if (!boost.chainId || !boost.tokenAddress || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
     .slice(0, 18);
 
   const byChain = new Map();
@@ -87,8 +97,8 @@ async function fetchDexScreenerTrending() {
     byChain.get(candidate.chainId).push(candidate);
   });
   const pairResults = await Promise.allSettled([...byChain.entries()].map(async ([chainId, tokens]) => {
-    const addresses = tokens.map((token) => token.tokenAddress).join(",");
-    return fetchJson(`https://api.dexscreener.com/tokens/v1/${encodeURIComponent(chainId)}/${encodeURIComponent(addresses)}`);
+    const addresses = tokens.map((token) => encodeURIComponent(token.tokenAddress)).join(",");
+    return fetchJson(`https://api.dexscreener.com/tokens/v1/${encodeURIComponent(chainId)}/${addresses}`, 6000);
   }));
   const pairs = pairResults.flatMap((result) => result.status === "fulfilled" && Array.isArray(result.value) ? result.value : []);
 
@@ -117,13 +127,13 @@ async function fetchDexScreenerTrending() {
   }).filter(Boolean).slice(0, 8);
 }
 
-async function fetchJson(url) {
+async function fetchJson(url, timeoutMs = FETCH_TIMEOUT_MS) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(url, {
       signal: controller.signal,
-      headers: { "Accept": "application/json", "User-Agent": "JamdDmaj-Markets/1.37.66" }
+      headers: { "Accept": "application/json", "User-Agent": "JamdDmaj-Markets/1.37.67" }
     });
     if (!response.ok) throw new Error(`Market source returned ${response.status}`);
     return await response.json();

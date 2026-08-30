@@ -760,6 +760,33 @@
       color: var(--accent-2);
     }
 
+    .asset-chart-controls {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 10px 0;
+    }
+    .asset-indicators { display: flex; flex-wrap: wrap; gap: 6px; }
+    .asset-indicators button,
+    #assetChartResetBtn {
+      min-height: 34px;
+      padding: 6px 10px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--panel-2);
+      color: inherit;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .asset-indicators button.active {
+      border-color: var(--accent-2);
+      color: var(--accent-2);
+      background: rgba(34, 211, 238, 0.12);
+    }
+    .asset-chart-help { margin: 0 0 10px; color: var(--muted); font-size: .82rem; }
+
     .asset-chart-wrap {
       position: relative;
       height: clamp(250px, 42vw, 430px);
@@ -768,7 +795,8 @@
       overflow: hidden;
       background: rgba(2, 6, 23, 0.35);
     }
-    #assetChart { width: 100%; height: 100%; display: block; }
+    #assetChart { width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+    #assetChart.dragging { cursor: grabbing; }
     .asset-chart-status {
       position: absolute;
       inset: 0;
@@ -3886,6 +3914,16 @@
               <canvas id="assetChart" role="img" aria-label="Candlestick price chart"></canvas>
               <div class="asset-chart-status" id="assetChartStatus">Loading live chart...</div>
             </div>
+            <div class="asset-chart-controls">
+              <div class="asset-indicators" id="assetIndicators" aria-label="Chart indicators">
+                <button class="active" type="button" data-indicator="sma20">SMA 20</button>
+                <button type="button" data-indicator="sma50">SMA 50</button>
+                <button type="button" data-indicator="ema12">EMA 12</button>
+                <button type="button" data-indicator="volume">VOL</button>
+              </div>
+              <button type="button" id="assetChartResetBtn">Reset</button>
+            </div>
+            <p class="asset-chart-help" id="assetChartHelp">Drag to move. Pinch or use the mouse wheel to zoom.</p>
           </section>
 
           <div class="asset-detail-grid">
@@ -4994,7 +5032,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.37.66";
+      const APP_VERSION = "1.37.67";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -5013,6 +5051,8 @@
             intro: "This update improves the normal app experience.",
             button: "Got it",
             items: [
+              ["Interactive charts", "Asset charts now support drag, pinch and mouse-wheel zoom, plus SMA 20, SMA 50, EMA 12 and volume overlays."],
+              ["More resilient market data", "Wallet balances automatically retry a second public Solana RPC and DEX Screener grouped-token requests preserve every token address."],
               ["Wallet balances and watch-only portfolios", "Markets now reads SOL, SPL and Token-2022 balances from public Solana data, estimates USD value and can inspect any public address without spending permission."],
               ["More Solana wallet choices", "Installed Wallet Standard providers appear automatically, while mobile users can open JamdDmaj securely inside Phantom or Solflare. Private keys and recovery phrases are never imported."],
               ["Phantom connection on mobile web", "When a mobile browser cannot detect a wallet, Connect now opens JamdDmaj inside Phantom's protected browser and supports Phantom's injected Solana provider."],
@@ -5037,6 +5077,8 @@
             intro: "Esta actualizacion mejora la experiencia normal de la app.",
             button: "Entendido",
             items: [
+              ["Gráficos interactivos", "Los gráficos de activos ahora permiten arrastrar, hacer zoom con dos dedos o la rueda y activar SMA 20, SMA 50, EMA 12 y volumen."],
+              ["Datos de mercado más resistentes", "El saldo de la wallet reintenta automáticamente con un segundo RPC público de Solana y las consultas agrupadas de DEX Screener conservan todas las direcciones."],
               ["Saldos y wallets en solo observación", "Mercados ahora consulta saldos SOL, SPL y Token-2022 desde datos públicos de Solana, estima su valor en USD y permite ver cualquier dirección pública sin permiso para gastar."],
               ["Más opciones de billeteras Solana", "Los proveedores instalados compatibles con Wallet Standard aparecen automáticamente; en móvil puedes abrir JamdDmaj dentro de Phantom o Solflare. Nunca se importan claves privadas ni frases de recuperación."],
               ["Conexión Phantom en la web móvil", "Cuando el navegador móvil no detecta una wallet, Conectar ahora abre JamdDmaj dentro del navegador protegido de Phantom y admite su proveedor Solana integrado."],
@@ -6062,6 +6104,19 @@
         ar: { fdv: "القيمة المخففة بالكامل", liquidity: "السيولة", transactions: "معاملات 24 ساعة", buysSells: "شراء / بيع 24 ساعة" }
       };
 
+      const CHART_INTERACTION_TEXT = {
+        en: { indicators: "Chart indicators", reset: "Reset", help: "Drag to move. Pinch or use the mouse wheel to zoom." },
+        es: { indicators: "Indicadores del gráfico", reset: "Restablecer", help: "Arrastra para mover. Pellizca o usa la rueda para acercar y alejar." },
+        fr: { indicators: "Indicateurs du graphique", reset: "Réinitialiser", help: "Faites glisser pour déplacer. Pincez ou utilisez la molette pour zoomer." },
+        de: { indicators: "Chart-Indikatoren", reset: "Zurücksetzen", help: "Zum Verschieben ziehen. Mit zwei Fingern oder dem Mausrad zoomen." },
+        pt: { indicators: "Indicadores do gráfico", reset: "Redefinir", help: "Arraste para mover. Use pinça ou a roda do mouse para ampliar." },
+        it: { indicators: "Indicatori del grafico", reset: "Reimposta", help: "Trascina per spostare. Pizzica o usa la rotellina per lo zoom." },
+        ja: { indicators: "チャート指標", reset: "リセット", help: "ドラッグで移動し、ピンチまたはマウスホイールで拡大縮小します。" },
+        ko: { indicators: "차트 지표", reset: "재설정", help: "드래그하여 이동하고 핀치 또는 마우스 휠로 확대하세요." },
+        zh: { indicators: "图表指标", reset: "重置", help: "拖动以平移，双指缩放或使用鼠标滚轮缩放。" },
+        ar: { indicators: "مؤشرات الرسم", reset: "إعادة ضبط", help: "اسحب للتحريك، واستخدم القرص أو عجلة الفأرة للتكبير." }
+      };
+
       const UI_EXTENDED = {
         en: {
           recentChats: "Recent chats", savedProjects: "Saved projects", noProjects: "No saved projects yet",
@@ -6314,6 +6369,8 @@
         marketDetailView: document.getElementById("marketDetailView"),
         assetChart: document.getElementById("assetChart"),
         assetChartStatus: document.getElementById("assetChartStatus"),
+        assetIndicators: document.getElementById("assetIndicators"),
+        assetChartResetButton: document.getElementById("assetChartResetBtn"),
         assetTrendBox: document.getElementById("assetTrendBox"),
         assetMetrics: document.getElementById("assetMetrics"),
         assetNewsList: document.getElementById("assetNewsList"),
@@ -6398,6 +6455,11 @@
       let selectedMarketTimeframe = "1h";
       let selectedMarketPayload = null;
       let marketAssetController = null;
+      const assetChartState = {
+        candles: [], zoom: 1, offset: 0,
+        indicators: new Set(["sma20"]),
+        pointers: new Map(), lastX: null, pinchDistance: 0, lastStep: 1
+      };
       let latestMarketDirection = null;
       let telegramOwnerAuthorized = false;
       let proServerState = null;
@@ -12158,6 +12220,7 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
       }
 
       function applyMarketDetailLanguage() {
+        const chartCopy = CHART_INTERACTION_TEXT[resolvedLanguage()] || CHART_INTERACTION_TEXT.en;
         document.getElementById("assetBackBtn").setAttribute("aria-label", marketDetailText("back"));
         document.getElementById("assetChartTitle").textContent = marketDetailText("chart");
         document.getElementById("assetAnalysisTitle").textContent = marketDetailText("scenario");
@@ -12166,6 +12229,10 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         document.getElementById("assetQuestionInput").placeholder = marketDetailText("placeholder");
         document.getElementById("assetQuestionBtn").textContent = marketDetailText("ask");
         document.getElementById("assetRiskNote").textContent = marketDetailText("risk");
+        els.assetIndicators.setAttribute("aria-label", chartCopy.indicators);
+        els.assetChartResetButton.textContent = chartCopy.reset;
+        els.assetChartResetButton.setAttribute("aria-label", chartCopy.reset);
+        document.getElementById("assetChartHelp").textContent = chartCopy.help;
         if (selectedMarketPayload) renderMarketAsset(selectedMarketPayload);
       }
 
@@ -12182,6 +12249,7 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         };
         selectedMarketTimeframe = timeframe;
         selectedMarketPayload = null;
+        resetAssetChartView(false);
         els.ticker.classList.add("is-hidden");
         els.marketDetailView.hidden = false;
         els.marketDetailView.classList.remove("is-hidden");
@@ -12246,7 +12314,8 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
             headers: { "Accept": "application/json" }
           });
           if (!response.ok) throw new Error(`Asset market returned ${response.status}`);
-          selectedMarketPayload = await response.json();
+        selectedMarketPayload = await response.json();
+          resetAssetChartView(false);
           renderMarketAsset(selectedMarketPayload);
         } catch (error) {
           if (error?.name === "AbortError") return;
@@ -12273,7 +12342,8 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         renderAssetTrend(payload.trend);
         renderAssetMetrics(payload);
         renderAssetNews(payload.news);
-        requestAnimationFrame(() => drawAssetChart(payload.candles || []));
+        assetChartState.candles = Array.isArray(payload.candles) ? payload.candles : [];
+        requestAnimationFrame(() => drawAssetChart());
       }
 
       function renderAssetTrend(trend = {}) {
@@ -12358,10 +12428,17 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         });
       }
 
-      function drawAssetChart(candles) {
+      function drawAssetChart(candles = assetChartState.candles) {
         const canvas = els.assetChart;
         const context = canvas.getContext("2d");
-        const points = Array.isArray(candles) ? candles.slice(-80) : [];
+        const allPoints = Array.isArray(candles) ? candles : [];
+        assetChartState.candles = allPoints;
+        const baseCount = Math.min(80, allPoints.length);
+        const visibleCount = Math.max(12, Math.min(baseCount, Math.round(baseCount / assetChartState.zoom)));
+        const maxOffset = Math.max(0, allPoints.length - visibleCount);
+        assetChartState.offset = Math.max(0, Math.min(maxOffset, Math.round(assetChartState.offset)));
+        const end = allPoints.length - assetChartState.offset;
+        const points = allPoints.slice(Math.max(0, end - visibleCount), end);
         if (points.length < 2) {
           els.assetChartStatus.textContent = marketDetailText("unavailable");
           context.clearRect(0, 0, canvas.width, canvas.height);
@@ -12377,7 +12454,8 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         const height = canvas.height / ratio;
         const pad = { left: 10, right: 62, top: 16, bottom: 30 };
         const chartWidth = width - pad.left - pad.right;
-        const chartHeight = height - pad.top - pad.bottom;
+        const volumeHeight = assetChartState.indicators.has("volume") ? Math.min(62, height * 0.2) : 0;
+        const chartHeight = height - pad.top - pad.bottom - volumeHeight;
         const minimum = Math.min(...points.map((item) => Number(item.low)));
         const maximum = Math.max(...points.map((item) => Number(item.high)));
         const spread = Math.max(Number.EPSILON, maximum - minimum);
@@ -12393,6 +12471,7 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
           context.fillText(formatAxisPrice(label), width - pad.right + 7, lineY + 4);
         }
         const step = chartWidth / points.length;
+        assetChartState.lastStep = step;
         const bodyWidth = Math.max(2, Math.min(9, step * 0.62));
         points.forEach((item, index) => {
           const x = pad.left + step * index + step / 2;
@@ -12405,6 +12484,10 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
           const bottom = y(Math.min(Number(item.open), Number(item.close)));
           context.fillRect(x - bodyWidth / 2, top, bodyWidth, Math.max(1.5, bottom - top));
         });
+        if (volumeHeight) drawChartVolume(context, points, pad, chartWidth, chartHeight, volumeHeight, step);
+        if (assetChartState.indicators.has("sma20")) drawChartAverage(context, points, 20, "#22d3ee", false, pad, step, y);
+        if (assetChartState.indicators.has("sma50")) drawChartAverage(context, points, 50, "#fbbf24", false, pad, step, y);
+        if (assetChartState.indicators.has("ema12")) drawChartAverage(context, points, 12, "#a78bfa", true, pad, step, y);
         const firstDate = new Date(points[0].time);
         const lastDate = new Date(points.at(-1).time);
         context.fillStyle = "rgba(148,163,184,.8)";
@@ -12412,6 +12495,68 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         const lastLabel = formatChartDate(lastDate);
         const lastWidth = context.measureText(lastLabel).width;
         context.fillText(lastLabel, width - pad.right - lastWidth, height - 8);
+      }
+
+      function drawChartAverage(context, points, period, color, exponential, pad, step, y) {
+        if (points.length < 2) return;
+        const values = points.map((item) => Number(item.close));
+        const plotted = exponential ? exponentialAverage(values, period) : simpleAverage(values, period);
+        context.save();
+        context.strokeStyle = color;
+        context.lineWidth = 1.8;
+        context.beginPath();
+        let started = false;
+        plotted.forEach((value, index) => {
+          if (!Number.isFinite(value)) return;
+          const x = pad.left + step * index + step / 2;
+          if (!started) { context.moveTo(x, y(value)); started = true; }
+          else context.lineTo(x, y(value));
+        });
+        if (started) context.stroke();
+        context.restore();
+      }
+
+      function simpleAverage(values, period) {
+        return values.map((_, index) => {
+          const start = Math.max(0, index - period + 1);
+          const window = values.slice(start, index + 1);
+          return window.reduce((sum, value) => sum + value, 0) / window.length;
+        });
+      }
+
+      function exponentialAverage(values, period) {
+        const multiplier = 2 / (period + 1);
+        let previous = values[0];
+        return values.map((value, index) => {
+          previous = index ? value * multiplier + previous * (1 - multiplier) : value;
+          return previous;
+        });
+      }
+
+      function drawChartVolume(context, points, pad, chartWidth, chartHeight, volumeHeight, step) {
+        const maximum = Math.max(1, ...points.map((item) => Number(item.volume) || 0));
+        const baseline = pad.top + chartHeight + volumeHeight;
+        context.save();
+        context.globalAlpha = 0.3;
+        points.forEach((item, index) => {
+          const barHeight = ((Number(item.volume) || 0) / maximum) * Math.max(1, volumeHeight - 6);
+          context.fillStyle = Number(item.close) >= Number(item.open) ? "#34d399" : "#fb7185";
+          context.fillRect(pad.left + step * index + step * 0.18, baseline - barHeight, Math.max(1, step * 0.64), barHeight);
+        });
+        context.restore();
+      }
+
+      function resetAssetChartView(redraw = true) {
+        assetChartState.zoom = 1;
+        assetChartState.offset = 0;
+        assetChartState.lastX = null;
+        assetChartState.pinchDistance = 0;
+        if (redraw) requestAnimationFrame(() => drawAssetChart());
+      }
+
+      function zoomAssetChart(factor) {
+        assetChartState.zoom = Math.max(1, Math.min(6, assetChartState.zoom * factor));
+        requestAnimationFrame(() => drawAssetChart());
       }
 
       function formatAxisPrice(value) {
@@ -14198,6 +14343,53 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         updateAssetTimeframeButtons();
         fetchMarketAsset();
       });
+      els.assetIndicators.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-indicator]");
+        if (!button) return;
+        const indicator = button.dataset.indicator;
+        if (assetChartState.indicators.has(indicator)) assetChartState.indicators.delete(indicator);
+        else assetChartState.indicators.add(indicator);
+        button.classList.toggle("active", assetChartState.indicators.has(indicator));
+        requestAnimationFrame(() => drawAssetChart());
+      });
+      els.assetChartResetButton.addEventListener("click", () => resetAssetChartView());
+      els.assetChart.addEventListener("wheel", (event) => {
+        event.preventDefault();
+        zoomAssetChart(event.deltaY < 0 ? 1.16 : 0.86);
+      }, { passive: false });
+      els.assetChart.addEventListener("pointerdown", (event) => {
+        els.assetChart.setPointerCapture(event.pointerId);
+        assetChartState.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        assetChartState.lastX = event.clientX;
+        els.assetChart.classList.add("dragging");
+      });
+      els.assetChart.addEventListener("pointermove", (event) => {
+        if (!assetChartState.pointers.has(event.pointerId)) return;
+        assetChartState.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        const pointers = [...assetChartState.pointers.values()];
+        if (pointers.length >= 2) {
+          const distance = Math.hypot(pointers[0].x - pointers[1].x, pointers[0].y - pointers[1].y);
+          if (assetChartState.pinchDistance > 0 && Math.abs(distance - assetChartState.pinchDistance) > 4) {
+            zoomAssetChart(distance > assetChartState.pinchDistance ? 1.08 : 0.92);
+          }
+          assetChartState.pinchDistance = distance;
+          return;
+        }
+        const delta = event.clientX - assetChartState.lastX;
+        if (Math.abs(delta) >= Math.max(3, assetChartState.lastStep * 0.6)) {
+          assetChartState.offset += delta > 0 ? 1 : -1;
+          assetChartState.lastX = event.clientX;
+          requestAnimationFrame(() => drawAssetChart());
+        }
+      });
+      const finishAssetChartPointer = (event) => {
+        assetChartState.pointers.delete(event.pointerId);
+        assetChartState.lastX = null;
+        if (assetChartState.pointers.size < 2) assetChartState.pinchDistance = 0;
+        if (!assetChartState.pointers.size) els.assetChart.classList.remove("dragging");
+      };
+      els.assetChart.addEventListener("pointerup", finishAssetChartPointer);
+      els.assetChart.addEventListener("pointercancel", finishAssetChartPointer);
       els.assetNewsList.addEventListener("click", (event) => {
         const article = event.target.closest(".asset-news-item[data-url]");
         if (article?.dataset.url) openExternalUrl(article.dataset.url);
@@ -14298,7 +14490,7 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
       updateViewportHeight();
       window.addEventListener("resize", updateViewportHeight);
       window.addEventListener("resize", () => {
-        if (selectedMarketPayload && !els.marketDetailView.hidden) requestAnimationFrame(() => drawAssetChart(selectedMarketPayload.candles || []));
+        if (selectedMarketPayload && !els.marketDetailView.hidden) requestAnimationFrame(() => drawAssetChart());
       });
       window.addEventListener("orientationchange", () => setTimeout(updateViewportHeight, 120));
       window.visualViewport?.addEventListener("resize", updateViewportHeight);
@@ -14388,7 +14580,7 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
       maybeShowNormalReleaseNotes();
     })();
   </script>
-  <script type="module" src="fair-launch-ui.js?v=1.37.66"></script>
-  <script type="module" src="wallet-login-ui.js?v=1.37.66"></script>
+  <script type="module" src="fair-launch-ui.js?v=1.37.67"></script>
+  <script type="module" src="wallet-login-ui.js?v=1.37.67"></script>
 </body>
 </html>
