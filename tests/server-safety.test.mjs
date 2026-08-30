@@ -123,6 +123,7 @@ test("web, API fallback and Android release versions stay aligned", () => {
   const statusSource = readFileSync(new URL("../api/status.js", import.meta.url), "utf8");
   const androidGradle = readFileSync(new URL("../android/app/build.gradle", import.meta.url), "utf8");
   assert.match(html, new RegExp(`APP_VERSION = "${packageVersion.replaceAll(".", "\\.")}"`));
+  assert.match(html, new RegExp(`wallet-login-ui\\.js\\?v=${packageVersion.replaceAll(".", "\\.")}`));
   assert.match(statusSource, new RegExp(`FALLBACK_VERSION = "${packageVersion.replaceAll(".", "\\.")}"`));
   assert.match(androidGradle, new RegExp(`versionName "${packageVersion.replaceAll(".", "\\.")}"`));
 });

@@ -4918,7 +4918,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.37.63";
+      const APP_VERSION = "1.37.64";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -4937,6 +4937,7 @@
             intro: "This update improves the normal app experience.",
             button: "Got it",
             items: [
+              ["Web updates stay current", "In a browser, update controls now refresh JamdDmaj itself with a versioned, cache-busting URL instead of offering the Android APK."],
               ["Phantom opens correctly on Android", "Connect now launches the installed official Phantom app directly instead of opening phantom.com in a browser. JamdDmaj returns through its encrypted app callback."],
               ["Wallet visible in Markets", "Markets now keeps your wallet identity in view, showing its name, connection state and only an abbreviated public address. Tap it to open the same secure connection panel."],
               ["Secure Phantom connection", "On Android, the Wallet button now opens Phantom's official encrypted approval and returns directly to JamdDmaj. No recovery phrase, private key or password is shared."],
@@ -4957,6 +4958,7 @@
             intro: "Esta actualizacion mejora la experiencia normal de la app.",
             button: "Entendido",
             items: [
+              ["La web se mantiene actualizada", "En el navegador, los controles de actualización ahora recargan JamdDmaj con una URL versionada y sin caché, en lugar de ofrecer el APK de Android."],
               ["Phantom abre correctamente en Android", "Conectar ahora abre directamente la app oficial de Phantom instalada, sin enviar a phantom.com en el navegador. JamdDmaj recibe el regreso mediante su callback cifrado."],
               ["Wallet visible en Mercados", "Mercados ahora mantiene visible la identidad de tu wallet: muestra su nombre, estado y solo una dirección pública abreviada. Tócala para abrir el mismo panel de conexión segura."],
               ["Conexión segura con Phantom", "En Android, el botón Billetera ahora abre la aprobación oficial cifrada de Phantom y regresa directamente a JamdDmaj. No se comparte frase de recuperación, clave privada ni contraseña."],
@@ -9819,27 +9821,36 @@
         const button = document.getElementById("downloadUpdateBtn");
         if (!status || !button) return;
         const spanish = resolvedLanguage() === "es";
+        const native = isNativeApp();
         const latest = cleanAppVersion(data?.latestVersion || data?.version || APP_VERSION) || APP_VERSION;
         const available = compareVersions(latest, APP_VERSION) > 0;
-        const url = String(data?.apkUrl || data?.releaseUrl || DEFAULT_APK_URL).trim();
-        status.textContent = available
-          ? (spanish ? "Nueva version " + latest + " disponible. Toca Descargar APK e instalala encima." : "Version " + latest + " is available. Tap Download APK and install it over this app.")
-          : (spanish ? "Tienes la version mas reciente (" + APP_VERSION + "). Puedes descargar el APK actual si necesitas reinstalar." : "You have the latest version (" + APP_VERSION + "). You can download the current APK if you need to reinstall.");
+        const url = native
+          ? String(data?.apkUrl || data?.releaseUrl || DEFAULT_APK_URL).trim()
+          : buildWebRefreshUrl(latest);
+        status.textContent = native
+          ? (available
+              ? (spanish ? "Nueva version " + latest + " disponible. Toca Descargar APK e instalala encima." : "Version " + latest + " is available. Tap Download APK and install it over this app.")
+              : (spanish ? "Tienes la version mas reciente (" + APP_VERSION + "). Puedes descargar el APK actual si necesitas reinstalar." : "You have the latest version (" + APP_VERSION + "). You can download the current APK if you need to reinstall."))
+          : (available
+              ? (spanish ? "Nueva version web " + latest + " disponible. Toca Actualizar web." : "Web version " + latest + " is available. Tap Update web.")
+              : (spanish ? "La web esta actualizada (" + APP_VERSION + ")." : "The web app is current (" + APP_VERSION + ")."));
         button.classList.toggle("is-hidden", !url);
         button.dataset.updateUrl = url;
-        button.textContent = available
-          ? (spanish ? "Descargar APK" : "Download APK")
-          : (spanish ? "Descargar APK actual" : "Download current APK");
+        button.textContent = native
+          ? (available ? (spanish ? "Descargar APK" : "Download APK") : (spanish ? "Descargar APK actual" : "Download current APK"))
+          : (available ? (spanish ? "Actualizar web" : "Update web") : (spanish ? "Recargar web" : "Reload web"));
         document.getElementById("checkUpdatesBtn").textContent = spanish ? "Buscar actualizaciones" : "Check for updates";
-        document.getElementById("updatesSectionTitle").textContent = spanish ? "Actualizaciones de la app" : "App updates";
-        document.getElementById("updatesSectionText").textContent = spanish
-          ? "La app revisa GitHub automaticamente y descarga el APK oficial firmado sin borrar tus datos."
-          : "The app checks GitHub automatically and downloads the official signed APK without deleting your data.";
-        renderMainUpdateBanner({ available, latest, url, data, spanish });
+        document.getElementById("updatesSectionTitle").textContent = native
+          ? (spanish ? "Actualizaciones de la app" : "App updates")
+          : (spanish ? "Actualizaciones web" : "Web updates");
+        document.getElementById("updatesSectionText").textContent = native
+          ? (spanish ? "La app revisa GitHub automaticamente y descarga el APK oficial firmado sin borrar tus datos." : "The app checks GitHub automatically and downloads the official signed APK without deleting your data.")
+          : (spanish ? "La web comprueba la version publicada y puede recargarse sin borrar tus chats ni ajustes locales." : "The web app checks the published version and can reload without deleting local chats or settings.");
+        renderMainUpdateBanner({ available, latest, url, data, spanish, native });
         if (available && announce) showToast(spanish ? "JamdDmaj " + latest + " esta disponible." : "JamdDmaj " + latest + " is available.");
       }
 
-      function renderMainUpdateBanner({ available, latest, url, data, spanish = resolvedLanguage() === "es" }) {
+      function renderMainUpdateBanner({ available, latest, url, data, spanish = resolvedLanguage() === "es", native = isNativeApp() }) {
         const banner = document.getElementById("appUpdateBanner");
         const title = document.getElementById("appUpdateBannerTitle");
         const text = document.getElementById("appUpdateBannerText");
@@ -9850,10 +9861,12 @@
         const hidden = !available || !url || localStorage.getItem(dismissKey) === "true";
         banner.classList.toggle("is-hidden", hidden);
         title.textContent = spanish ? `Nueva version ${latest}` : `New version ${latest}`;
-        text.textContent = spanish
-          ? "Descarga el APK oficial desde aqui e instalalo encima de la app actual. No desinstales la app."
-          : "Download the official APK here and install it over the current app. Do not uninstall the app.";
-        download.textContent = spanish ? "Descargar update" : "Download update";
+        text.textContent = native
+          ? (spanish ? "Descarga el APK oficial desde aqui e instalalo encima de la app actual. No desinstales la app." : "Download the official APK here and install it over the current app. Do not uninstall the app.")
+          : (spanish ? "Recarga JamdDmaj con la version web publicada. Tus chats y ajustes locales se conservan." : "Reload JamdDmaj with the published web version. Local chats and settings are preserved.");
+        download.textContent = native
+          ? (spanish ? "Descargar update" : "Download update")
+          : (spanish ? "Actualizar web" : "Update web");
         later.textContent = spanish ? "Luego" : "Later";
         download.dataset.updateUrl = available ? url : "";
         download.dataset.releaseUrl = String(data?.releaseUrl || "");
@@ -9877,10 +9890,24 @@
         if (!latestAppStatus?.apkUrl && !settingsButton?.dataset.updateUrl && !bannerButton?.dataset.updateUrl) {
           await checkForAppUpdate(false).catch(() => {});
         }
-        const url = String(bannerButton?.dataset.updateUrl || settingsButton?.dataset.updateUrl || latestAppStatus?.apkUrl || DEFAULT_APK_URL).trim();
+        const latest = cleanAppVersion(latestAppStatus?.latestVersion || latestAppStatus?.version || APP_VERSION) || APP_VERSION;
+        const url = String(bannerButton?.dataset.updateUrl || settingsButton?.dataset.updateUrl || (isNativeApp() ? latestAppStatus?.apkUrl || DEFAULT_APK_URL : buildWebRefreshUrl(latest))).trim();
         if (!url) return;
+        if (!isNativeApp()) {
+          showToast(resolvedLanguage() === "es" ? "Actualizando la web..." : "Updating the web app...");
+          window.location.replace(url);
+          return;
+        }
         showToast(resolvedLanguage() === "es" ? "Abriendo descarga oficial..." : "Opening official download...");
         await openExternalUrl(url);
+      }
+
+      function buildWebRefreshUrl(version = APP_VERSION) {
+        const url = new URL(window.location.href);
+        url.searchParams.set("web_version", cleanAppVersion(version) || APP_VERSION);
+        url.searchParams.set("refresh", Date.now().toString(36));
+        url.hash = "";
+        return url.toString();
       }
 
       function dismissMainUpdateBanner() {
@@ -14279,7 +14306,7 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
       maybeShowNormalReleaseNotes();
     })();
   </script>
-  <script type="module" src="fair-launch-ui.js"></script>
-  <script type="module" src="wallet-login-ui.js"></script>
+  <script type="module" src="fair-launch-ui.js?v=1.37.64"></script>
+  <script type="module" src="wallet-login-ui.js?v=1.37.64"></script>
 </body>
 </html>
