@@ -74,6 +74,7 @@
   }
 
   function buildTourUi(index) {
+    const copy = catalogs[locale] || en;
     const frame = document.createElement("div");
     frame.className = "tour-ui";
     const header = document.createElement("div");
@@ -81,18 +82,36 @@
     header.innerHTML = "<i></i><b>JamdDmaj AI</b><span></span>";
     const body = document.createElement("div");
     body.className = "tour-ui-body";
-    const rowCount = index === 1 ? 4 : index === 4 ? 3 : 2;
-    for (let position = 0; position < rowCount; position += 1) {
-      const row = document.createElement("div");
-      row.className = `tour-ui-row ${position === index % rowCount ? "accent" : ""}`;
-      body.append(row);
-    }
-    const pills = document.createElement("div");
-    pills.className = "tour-ui-pills";
-    pills.innerHTML = "<b></b><b></b><b></b>";
-    body.append(pills);
+    body.append(buildTourScene(index, copy));
     frame.append(header, body);
     return frame;
+  }
+
+  function buildTourScene(index, copy) {
+    const sceneUi = document.createElement("div");
+    sceneUi.className = `tour-scene-content scene-content-${index}`;
+    const heading = document.createElement("strong");
+    heading.className = "tour-scene-heading";
+    heading.textContent = copy[tour[index]];
+    const visual = document.createElement("div");
+    visual.className = "tour-scene-visual";
+    if (index === 0) {
+      visual.innerHTML = '<span class="tour-avatar">AI</span><div class="tour-chat"><i></i><i></i><i></i></div><div class="tour-answer"><i></i><i></i><i></i><i></i></div>';
+    } else if (index === 1) {
+      visual.innerHTML = '<div class="tour-market-head"><b>BTC / USDT</b><span>+2.4%</span></div><svg viewBox="0 0 320 100" aria-hidden="true"><path class="tour-chart-area" d="M0 92 L0 78 L35 70 L68 76 L101 52 L134 61 L167 38 L200 47 L235 24 L270 35 L320 9 L320 92 Z"></path><path class="tour-chart-line" d="M0 78 L35 70 L68 76 L101 52 L134 61 L167 38 L200 47 L235 24 L270 35 L320 9"></path></svg><div class="tour-metrics"><i></i><i></i><i></i></div>';
+    } else if (index === 2) {
+      visual.innerHTML = '<div class="tour-wallet-shield">✓</div><div class="tour-wallet-address"><i></i><b>•••• 8QEy</b></div><div class="tour-wallet-balance"><i></i><i></i></div>';
+    } else if (index === 3) {
+      visual.innerHTML = '<div class="tour-lessons"><span class="done">✓</span><i></i><span class="active">2</span><i></i><span>3</span><i></i></div><div class="tour-learning-progress"><b></b></div>';
+    } else if (index === 4) {
+      visual.innerHTML = '<div class="tour-lock">⌬</div><div class="tour-policy"><b>85%</b><i></i><b>24+</b><i></i></div><div class="tour-manifest"><span>✓</span><i></i><span>✓</span><i></i></div>';
+    } else {
+      visual.innerHTML = `<div class="tour-finish-mark">J</div><div class="tour-finish-lines"><i></i><i></i></div><span class="tour-finish-button">${copy.openApp}</span>`;
+    }
+    const description = document.createElement("p");
+    description.textContent = copy[tourDescription[index]];
+    sceneUi.append(heading, visual, description);
+    return sceneUi;
   }
 
   function changeScene(delta) {
@@ -117,6 +136,9 @@
   document.getElementById("tourPrevious").addEventListener("click", () => changeScene(-1));
   document.getElementById("tourNext").addEventListener("click", () => changeScene(1));
   document.getElementById("tourPlay").addEventListener("click", () => setPlaying(!playing));
+  document.querySelectorAll('a[href="#tour"]').forEach((link) => {
+    link.addEventListener("click", () => window.setTimeout(() => setPlaying(true), 350));
+  });
   document.addEventListener("visibilitychange", () => { if (document.hidden) setPlaying(false); });
   document.getElementById("year").textContent = new Date().getFullYear();
   applyLanguage();

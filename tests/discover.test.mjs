@@ -5,9 +5,10 @@ import { readFile } from "node:fs/promises";
 const root = new URL("../", import.meta.url);
 
 test("public showcase is shareable, responsive and transparent about unfinished financial features", async () => {
-  const [html, css, script, sitemap, build] = await Promise.all([
+  const [html, css, tourCss, script, sitemap, build] = await Promise.all([
     readFile(new URL("discover.html", root), "utf8"),
     readFile(new URL("discover.css", root), "utf8"),
+    readFile(new URL("discover-tour.css", root), "utf8"),
     readFile(new URL("discover.js", root), "utf8"),
     readFile(new URL("sitemap.xml", root), "utf8"),
     readFile(new URL("scripts/build-web.mjs", root), "utf8")
@@ -18,12 +19,17 @@ test("public showcase is shareable, responsive and transparent about unfinished 
   assert.match(html, /data-i18n="futureText"/);
   assert.match(css, /@media\(max-width:620px\)/);
   assert.match(css, /@media\(prefers-reduced-motion:reduce\)/);
+  assert.match(tourCss, /@keyframes drawChart/);
+  assert.match(tourCss, /tour-scene-heading/);
   assert.match(script, /No active sale\./);
   assert.match(script, /No hay venta activa\./);
   assert.match(script, /setInterval\(\(\) => changeScene\(1\), 6000\)/);
+  assert.match(script, /querySelectorAll\('a\[href="#tour"\]'\)/);
+  assert.match(script, /buildTourScene\(index, copy\)/);
   assert.match(sitemap, /https:\/\/www\.jamddmaj\.com\/discover\.html/);
   assert.match(build, /"discover\.html"/);
   assert.match(build, /"discover\.css"/);
+  assert.match(build, /"discover-tour\.css"/);
   assert.match(build, /"discover\.js"/);
 });
 

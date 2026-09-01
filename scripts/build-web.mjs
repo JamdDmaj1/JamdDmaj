@@ -8,6 +8,7 @@ const assets = [
   "index.html",
   "discover.html",
   "discover.css",
+  "discover-tour.css",
   "discover.js",
   "candlesticks.js",
   "fair-launch.css",
