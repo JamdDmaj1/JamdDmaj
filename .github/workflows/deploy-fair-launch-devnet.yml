@@ -66,24 +66,36 @@ jobs:
           sha256sum onchain/target/deploy/jamddmaj_lock.so | tee /tmp/program-sha256.txt
 
       - name: Fund disposable deployer with valueless Devnet SOL
+        timeout-minutes: 22
         shell: bash
         run: |
           set -euo pipefail
           solana config set --url devnet --keypair /tmp/jamddmaj-devnet-deployer.json
-          for attempt in $(seq 1 10); do
-            balance="$(solana balance --lamports | awk '{print $1}')"
-            if [ "${balance:-0}" -ge 4000000000 ]; then
-              break
+          deployer_address="$(solana-keygen pubkey /tmp/jamddmaj-devnet-deployer.json)"
+          {
+            echo "### Devnet funding"
+            echo "- Send only valueless Devnet SOL to: $deployer_address"
+            echo "- Required balance: at least 4 Devnet SOL."
+            echo "- If automatic funding fails, use https://faucet.solana.com/ with this address."
+            echo "- This execution waits up to 20 minutes and resumes automatically."
+            echo "- The address is temporary: do not fund it after this execution ends."
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          # One bounded faucet attempt; repeated requests can worsen rate limits.
+          timeout 30s solana airdrop 4 "$deployer_address" --url https://api.devnet.solana.com || true
+          deadline=$((SECONDS + 1200))
+          while [ "$SECONDS" -lt "$deadline" ]; do
+            balance="$(timeout 15s solana balance "$deployer_address" --lamports --url https://api.devnet.solana.com 2>/dev/null | awk '{print $1}')" || balance=""
+            if [[ "$balance" =~ ^[0-9]+$ ]] && [ "$balance" -ge 4000000000 ]; then
+              echo "Devnet funding confirmed for $deployer_address."
+              echo "Funding confirmed; proceeding with deployment." >> "$GITHUB_STEP_SUMMARY"
+              exit 0
             fi
-            solana airdrop 2 || true
-            sleep 8
+            echo "Waiting for Devnet funds at $deployer_address (balance: ${balance:-unavailable} lamports)."
+            sleep 15
           done
-          balance="$(solana balance --lamports | awk '{print $1}')"
-          if [ "${balance:-0}" -lt 4000000000 ]; then
-            echo "::error::The official Devnet faucet did not provide enough test SOL. Retry this workflow later."
-            exit 1
-          fi
-          echo "Disposable deployer funded with Devnet-only test SOL." >> "$GITHUB_STEP_SUMMARY"
+          echo "::error::Funding window expired. Do not send to $deployer_address; a new execution creates a new address."
+          echo "Funding window expired; this temporary address must no longer be funded." >> "$GITHUB_STEP_SUMMARY"
+          exit 1
 
       - name: Deploy and permanently remove upgrade authority
         env:
