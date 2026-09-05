@@ -13,6 +13,7 @@ import {
   decryptPhantomConnectResponse
 } from "./lib/phantom-deeplink.js";
 import { buildSolflareBrowseUrl } from "./lib/solflare-deeplink.js";
+import { jamdLabText } from "./lib/jamd-lab-copy.js";
 (() => {
   const dialog = document.getElementById("walletLoginDialog");
   const marketWalletButton = document.getElementById("marketsWalletBtn");
@@ -43,6 +44,45 @@ import { buildSolflareBrowseUrl } from "./lib/solflare-deeplink.js";
   let portfolioController = null;
   let viewedAddress = "";
   let locale = resolveWalletLoginLocale(document.documentElement.lang);
+  let jamdRequest = 0;
+  const jamdPanel = document.createElement("section");
+  jamdPanel.className = "wallet-info-card";
+  jamdPanel.setAttribute("aria-live", "polite");
+  jamdPanel.hidden = true;
+  portfolioList?.parentElement?.append(jamdPanel);
+
+  async function loadJamdBalance(publicAddress) {
+    const requestId = ++jamdRequest;
+    jamdPanel.hidden = false;
+    jamdPanel.textContent = jamdLabText(locale, "loading");
+    try {
+      const response = await fetch(`/api/jamd-devnet-balance?address=${encodeURIComponent(publicAddress)}`, {
+        cache: "no-store", signal: AbortSignal.timeout(10000)
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error("unavailable");
+      if (requestId !== jamdRequest) return;
+      const title = document.createElement("h3");
+      title.textContent = jamdLabText(locale, "title");
+      const note = document.createElement("p");
+      note.textContent = jamdLabText(locale, "note");
+      const format = value => {
+        const units = BigInt(value);
+        const integer = new Intl.NumberFormat(locale).format(units / 1000000000n);
+        const remainder = units % 1000000000n;
+        if (!remainder) return integer;
+        const fraction = new Intl.NumberFormat(locale, { minimumFractionDigits: 9, maximumFractionDigits: 9 }).formatToParts(Number(remainder) / 1e9);
+        return integer + fraction.filter(part => part.type === "decimal" || part.type === "fraction").map(part => part.value).join("");
+      };
+      const available = document.createElement("p");
+      available.textContent = `${jamdLabText(locale, "available")}: ${format(data.availableBaseUnits)} JAMD`;
+      const vesting = document.createElement("p");
+      vesting.textContent = `${jamdLabText(locale, "vesting")}: ${format(data.vestingBaseUnits)} JAMD`;
+      jamdPanel.replaceChildren(title, available, vesting, note);
+    } catch {
+      if (requestId === jamdRequest) jamdPanel.textContent = jamdLabText(locale, "error");
+    }
+  }
 
   registry.on("register", refreshWallets);
   registry.on("unregister", refreshWallets);
@@ -327,6 +367,8 @@ import { buildSolflareBrowseUrl } from "./lib/solflare-deeplink.js";
   }
 
   function clearConnection() {
+    jamdRequest++;
+    jamdPanel.hidden = true;
     try { removeWalletChangeListener?.(); } catch { /* Provider cleanup is best effort. */ }
     removeWalletChangeListener = null;
     connectedWallet = null;
@@ -362,6 +404,7 @@ import { buildSolflareBrowseUrl } from "./lib/solflare-deeplink.js";
   async function loadPortfolio(address) {
     const publicAddress = String(address || "").trim();
     if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(publicAddress)) return;
+    loadJamdBalance(publicAddress);
     portfolioController?.abort();
     portfolioController = new AbortController();
     viewedAddress = publicAddress;
