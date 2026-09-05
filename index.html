@@ -10147,13 +10147,23 @@
 
       async function fetchChatCompletion(body, signal) {
         const transport = getChatTransport();
+        const managed = transport.url === MANAGED_API_URL;
+        if (managed) {
+          transport.headers.Authorization = `Bearer ${window.JamdTrial?.getToken() || ""}`;
+          body = { ...body, trialRequestId: crypto.randomUUID() };
+        }
         try {
-          return await fetch(transport.url, {
+          const response = await fetch(transport.url, {
             method: "POST",
             signal,
             headers: transport.headers,
             body: JSON.stringify(body)
           });
+          if (managed) {
+            await window.JamdTrial?.refresh();
+            if (!response.ok) return new Response(JSON.stringify({error:{message:window.JamdTrial?.error() || learnText("chatNetworkError")}}), {status:response.status,headers:{"Content-Type":"application/json"}});
+          }
+          return response;
         } catch (error) {
           if (error?.name === "AbortError") throw error;
           throw createNetworkError(error);
@@ -11646,6 +11656,7 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
 
       async function applyGoogleAccountResponse(data, currentCode, status, spanish) {
         if (!data.linked || !data.recoveryCode) throw new Error(spanish ? "No se pudo vincular el perfil." : "The profile could not be linked.");
+        if (data.webTrial) window.JamdTrial?.accept(data.webTrial);
         accountProfile = data.profile;
         localStorage.setItem(STORAGE.accountProfile, JSON.stringify(accountProfile));
         localStorage.setItem(STORAGE.recoveryCode, normalizeRecoveryCode(data.recoveryCode));
@@ -14586,5 +14597,6 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
   </script>
   <script type="module" src="fair-launch-ui.js?v=1.37.69"></script>
   <script type="module" src="wallet-login-ui.js?v=1.37.69"></script>
+  <script type="module" src="web-trial-ui.js"></script>
 </body>
 </html>

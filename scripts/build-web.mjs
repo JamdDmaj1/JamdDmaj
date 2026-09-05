@@ -11,6 +11,7 @@ const assets = [
   "discover-tour.css",
   "discover.js",
   "jamd-roadmap.js",
+  "web-trial-ui.js",
   "candlesticks.js",
   "fair-launch.css",
   "oauth-mobile.html",

@@ -14,13 +14,19 @@
 El módulo lib/trial-credits.js prepara operaciones atómicas Redis para reclamación única
 y débito idempotente, con tiempo del servidor. Los registros de uso del trial no caducan
 cuando vencen los créditos: reinstalar no debe borrar el historial.
-No está conectado a un endpoint, a la interfaz ni al servicio de IA. No concede acceso.
+El trial web está conectado a Google verificado, sesiones opacas de servidor,
+GET /api/trial, el panel de cuenta y POST /api/chat. La política web aprobada es
+una prueba por cuenta, no por dispositivo. Las claves API propias son independientes.
+Cada solicitud administrada completada consume un crédito; los errores de proveedor
+se reembolsan de forma idempotente. La respuesta se valida completa antes de entregarla.
+Las pruebas de integración utilizan almacenamiento y proveedor simulados; queda
+pendiente la aceptación con Google real del propietario en producción.
 Las pruebas actuales cubren el rechazo de identidad no verificada y fallos de almacenamiento,
 no constituyen ensayos de concurrencia en Redis real.
 
-Pendiente antes de activarlo:
+Pendiente para protección NATIVA por dispositivo (no bloquea el trial web aprobado):
 
-1. Integrar autenticación de cuenta verificada y sesiones de servicio.
+1. La autenticación web y sesiones están implementadas; adaptar sesiones a la integración nativa.
 2. Apple DeviceCheck/App Attest e integridad/Device Recall de Google:
    habilitación en las cuentas del propietario, configuración de servidor y versiones nativas.
 3. Implementar adaptadores reales de consulta/marcado del uso de promoción.
