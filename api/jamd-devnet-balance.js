@@ -1,6 +1,6 @@
 import { corsHeaders, jsonResponse } from "../lib/server.js";
 import { readJamdDevnetBalance } from "../lib/jamd-devnet-balance.js";
-import { normalizePublicKey } from "../lib/fair-launch-devnet-verifier.js";
+import { normalizePublicKey } from "../lib/solana-account-codecs.js";
 export const config = { runtime: "edge" };
 const cache = new Map();
 export default async function handler(request) {
