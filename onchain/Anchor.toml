@@ -7,10 +7,10 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-jamddmaj_lock = "HvbiDNyHotAUYVqK3T2apCW5HEPbvWriK3hrPsPSaLKR"
+jamddmaj_lock = "BZMa3Aubxg1K3yx6oSN2nCnUcSJw6t7y55yCe7nZvx9V"
 
 [programs.devnet]
-jamddmaj_lock = "HvbiDNyHotAUYVqK3T2apCW5HEPbvWriK3hrPsPSaLKR"
+jamddmaj_lock = "BZMa3Aubxg1K3yx6oSN2nCnUcSJw6t7y55yCe7nZvx9V"
 
 [provider]
 cluster = "Localnet"
