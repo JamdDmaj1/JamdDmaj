@@ -133,7 +133,7 @@ async function fetchJson(url, timeoutMs = FETCH_TIMEOUT_MS) {
   try {
     const response = await fetch(url, {
       signal: controller.signal,
-      headers: { "Accept": "application/json", "User-Agent": "JamdDmaj-Markets/1.37.69" }
+      headers: { "Accept": "application/json", "User-Agent": "JamdDmaj-Markets/1.37.70" }
     });
     if (!response.ok) throw new Error(`Market source returned ${response.status}`);
     return await response.json();
