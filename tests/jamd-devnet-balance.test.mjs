@@ -36,6 +36,20 @@ test("Jamd reports exact available and vested balances separately",async()=>{
   assert.equal(result.availableBaseUnits,"150000000000000000");
   assert.equal(result.vestingBaseUnits,"850000000000000000");
   assert.equal(result.metadataSource,"app-registry");
+  assert.equal(result.mint,"3hGv2JJ8Hfktw5LMPoSN6R4enoAAZMPvPtS3TcwgGV61");
+  assert.equal(result.name,"JamdDmaj");
+});
+
+test("old Devnet token cannot be counted as the current token", async () => {
+  const fetchCurrent = fetcher(fixtures());
+  await assert.rejects(readJamdDevnetBalance(owner, async (url, options) => {
+    const response = await fetchCurrent(url, options);
+    const body = await response.json();
+    if (JSON.parse(options.body).method === "getTokenAccountsByOwner") {
+      body.result.value[0].account.data.parsed.info.mint = "5uYzXBoGBrBCPFLqvEzGH8Aab4MNPKKPTcunZa7Q4aWH";
+    }
+    return new Response(JSON.stringify(body));
+  }), /invalid-token-account/);
 });
 test("another wallet never inherits creator vesting",async()=>{
   const result=await readJamdDevnetBalance(c.program,fetcher(fixtures(),c.program));

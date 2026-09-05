@@ -2,9 +2,10 @@
 
 ## Implementado
 
-- Lectura del mint Devnet exacto 5uYzXBoGBrBCPFLqvEzGH8Aab4MNPKKPTcunZa7Q4aWH.
+- Lectura del mint Devnet actual 3hGv2JJ8Hfktw5LMPoSN6R4enoAAZMPvPtS3TcwgGV61.
+- El mint anterior 5uYzXBoGBrBCPFLqvEzGH8Aab4MNPKKPTcunZa7Q4aWH no se suma al saldo actual ni se elimina.
 - Panel de wallet con saldo disponible y asignación pendiente en vesting separados.
-- Nombre Jamd / símbolo JAMD suministrados por registro de la app, sin alterar Phantom.
+- Nombre JamdDmaj / símbolo JAMD del ensayo actual suministrados por registro de la app, sin alterar Phantom. El nombre previsto para mainnet sigue siendo Jamd.
 - Validación de propietario del vault, mint, política y cobertura de la asignación bloqueada.
 - Textos completos para los diez idiomas existentes.
 
