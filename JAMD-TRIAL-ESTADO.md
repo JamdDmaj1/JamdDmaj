@@ -42,8 +42,13 @@ La cuenta mint consultada tiene 82 bytes, sin extensiones de metadatos, con auto
 emisión nula. El flujo actual crea un mint base y revoca emisión sin publicar nombre/símbolo.
 La inicialización nativa de TokenMetadata exige MetadataPointer y firma de la autoridad
 de emisión; no puede corregirse este mint por ese flujo ahora.
-Para comprobar nombre en wallets hace falta preparar un nuevo ensayo con metadatos
-antes de revocar emisión. No se creó otro token ni se alteró el existente.
+El nuevo flujo inicializa MetadataPointer y TokenMetadata con el nombre y símbolo
+del formulario, financia el tamaño final y revoca la modificación de metadatos en
+la misma transacción antes de revocar emisión. URI vacía: no promete logo ni
+indexación por Phantom. El puntero es inmutable desde la inicialización.
+El 5 de septiembre de 2026 pasó la simulación RPC Devnet de la transacción completa
+con Jamd/JAMD, suministro de 1.000 millones y 85% bloqueado, deteniéndose antes
+de solicitar firma de wallet. No se creó otro token ni se alteró el existente.
 Fuente: https://solana.com/docs/tokens/extensions/metadata
 
 ## Compras y membresías de prueba pendientes
