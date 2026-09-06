@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "status": "partial-adversarial-rehearsal",
+  "cluster": "devnet",
+  "mainnetAuthorized": false,
+  "observedAt": "2026-09-06",
+  "sourceCommit": "a449a61",
+  "token": {
+    "name": "JamdDmaj",
+    "symbol": "JAMD",
+    "mintAddress": "Gdvhja25md5P4B9LpX5NSD1QmS32rTwTbLwqnkEdfTdB",
+    "totalSupply": "1000000000",
+    "decimals": 9,
+    "tokenProgram": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+    "mintAuthorityRevoked": true,
+    "freezeAuthorityDisabled": true
+  },
+  "ownerAddress": "2RmDx5KLnEWG8wxdpdB6Z4ySDn9Z2Jir5aaCdg1ARCom",
+  "transaction": {
+    "signature": "2mXMWrNwP3LR1AmFZeeRqpQC5vxEnP2zjyFTG2357pnr37Y2CBoGZvoppyShg9c6kFtX84xAjBNJNDFBnhT433ec",
+    "slot": 494287167,
+    "confirmationStatus": "finalized",
+    "error": null
+  },
+  "protection": {
+    "programAddress": "FzH2QN9NFFrpwsn8xqLT83BZ7ruqmMBiwY4CU6MkLVQ4",
+    "programImmutable": true,
+    "policyAddress": "FuKZeMjTCFJRcYYfSxAa62EHM4sqx7RqH1SNTapUgc7r",
+    "creatorVestingAddress": "GnWU8WJbTCHC3tx5xGSWwQ7TWExHkrzENvZf4rW72SWd",
+    "creatorVaultAddress": "BLkpfU6mkdD72RcDwP7fdgW3VknsMdMfzUAtD8iv7hZj",
+    "lockedAmount": "850000000",
+    "minimumLockPercent": 85,
+    "cliffMonths": 24,
+    "releaseMonths": 36,
+    "releaseTranches": 36,
+    "liquidityLockMonths": 24
+  },
+  "publicVerification": {
+    "passedChecks": 15,
+    "totalChecks": 16,
+    "eligibilityRootFrozen": false,
+    "distributionClosed": true
+  },
+  "remainingEvidence": [
+    "Seal a real, independently reviewed anti-Sybil eligibility root; never use invented participants.",
+    "Create and verify the liquidity lock using valueless Devnet assets.",
+    "Execute the full adversarial matrix from AUDIT-READINESS.md with an independent reviewer.",
+    "Record reproducible sBPF and IDL hashes and obtain independent build verification."
+  ]
+}

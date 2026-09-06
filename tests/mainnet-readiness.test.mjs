@@ -50,3 +50,17 @@ test("published incident response has a private contact but does not open mainne
   assert.match(policy,/No JAMD Mainnet deployment/);
   assert.equal(evaluateReadiness(readiness).ready,false);
 });
+
+test("current JAMD v2 evidence is Devnet-only and cannot open mainnet", async () => {
+  const evidence=JSON.parse(await readFile(new URL("../security/jamd-v2-devnet-evidence.json",import.meta.url),"utf8"));
+  const readiness=JSON.parse(await readFile(new URL("../security/mainnet-readiness.json",import.meta.url),"utf8"));
+  assert.equal(evidence.cluster,"devnet");
+  assert.equal(evidence.mainnetAuthorized,false);
+  assert.equal(evidence.token.mintAddress,"Gdvhja25md5P4B9LpX5NSD1QmS32rTwTbLwqnkEdfTdB");
+  assert.equal(evidence.protection.programAddress,"FzH2QN9NFFrpwsn8xqLT83BZ7ruqmMBiwY4CU6MkLVQ4");
+  assert.equal(evidence.protection.releaseTranches,36);
+  assert.equal(evidence.publicVerification.eligibilityRootFrozen,false);
+  assert.equal(evidence.publicVerification.distributionClosed,true);
+  assert.equal(readiness.requirements.devnetAdversarialRehearsal.status,"missing");
+  assert.equal(evaluateReadiness(readiness).ready,false);
+});
