@@ -12,6 +12,7 @@ const assets = [
   "discover.js",
   "jamd-roadmap.js",
   "web-trial-ui.js",
+  "jamd-credit-ui.js",
   "candlesticks.js",
   "fair-launch.css",
   "oauth-mobile.html",
@@ -43,6 +44,17 @@ await build({
   absWorkingDir: root,
   entryPoints: [resolve(root, "fair-launch-ui.js")],
   outfile: resolve(output, "fair-launch-ui.js"),
+  bundle: true,
+  format: "esm",
+  platform: "browser",
+  target: ["es2020"],
+  legalComments: "none"
+});
+
+await build({
+  absWorkingDir: root,
+  entryPoints: [resolve(root, "jamd-credit-ui.js")],
+  outfile: resolve(output, "jamd-credit-ui.js"),
   bundle: true,
   format: "esm",
   platform: "browser",

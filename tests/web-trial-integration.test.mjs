@@ -4,6 +4,7 @@ import chat from "../api/chat.js";
 import { issueTrialSession, authenticateTrial, trialHash } from "../lib/web-trial-session.js";
 import { trialCopy } from "../web-trial-ui.js";
 import { CONSUME_TRIAL_SCRIPT, REFUND_TRIAL_SCRIPT } from "../lib/trial-credits.js";
+import { CONSUME_PAID_CREDIT_SCRIPT } from "../lib/account-credits.js";
 
 test("opaque sessions resolve only a server-stored account", async () => {
   const account = await trialHash("google:test-user");
@@ -39,6 +40,7 @@ test("managed chat enforces session, quota and replay protection and refunds pro
           credits--;spent.set(c[4],true);return {result:JSON.stringify({status:"active",credits})};
         }
         if(c[1]===REFUND_TRIAL_SCRIPT){if(spent.get(c[4])===true){credits++;spent.set(c[4],false);return {result:1};}return {result:0};}
+        if(c[1]===CONSUME_PAID_CREDIT_SCRIPT)return {result:'{"status":"exhausted"}'};
         return {result:[1,1,1,1,1]};
       });return Response.json(results);
     }

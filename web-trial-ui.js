@@ -11,10 +11,12 @@ export const trialCopy = {
  ar:["تجربة الذكاء الاصطناعي","سجّل الدخول عبر Google للبدء.","20 رصيداً لمدة 7 أيام، مرة لكل حساب Google موثّق وليس لكل جهاز. رصيد واحد لكل طلب ذكاء اصطناعي مُدار ناجح. دون تجديد تلقائي. مفاتيح API الخاصة مستقلة.","الرصيد المتبقي","تنتهي","التجربة غير متاحة أو منتهية أو مستنفدة. سجّل الدخول مجدداً أو راجع الرصيد."]
 };
 if (typeof document !== "undefined") {
-  let record = null, failed = false;
+  let record = null, paidCredits = 0, failed = false;
+  const paidCopy={en:"Recharged credits",es:"Créditos recargados",fr:"Crédits rechargés",de:"Aufgeladene Credits",pt:"Créditos recarregados",it:"Crediti ricaricati",ja:"チャージ済みクレジット",ko:"충전 크레딧",zh:"已充值积分",ar:"الأرصدة المشحونة"};
   const key = "jamdWebTrialSession";
   const getToken = () => { try { return sessionStorage.getItem(key) || ""; } catch { return ""; } };
   const panel = document.createElement("section");
+  panel.id = "jamdTrialPanel";
   panel.className = "backup-status";
   panel.setAttribute("aria-live","polite");
   document.getElementById("syncAccountStatus")?.after(panel);
@@ -26,7 +28,8 @@ if (typeof document !== "undefined") {
     const node = (tag,value) => {const el=document.createElement(tag);el.textContent=value;return el;};
     panel.replaceChildren(node("h3",c[0]),node("p",c[2]));
     if (record) panel.append(node("p", `${c[3]}: ${new Intl.NumberFormat(panel.lang).format(record.status === "expired" ? 0 : record.credits)} / ${new Intl.NumberFormat(panel.lang).format(20)} · ${c[4]}: ${new Date(record.expiresAt*1000).toLocaleString(panel.lang)}`));
-    if (failed || (record && record.status !== "active")) panel.append(node("p",c[5]));
+    if (record) panel.append(node("p",`${paidCopy[panel.lang]||paidCopy.en}: ${new Intl.NumberFormat(panel.lang).format(paidCredits)}`));
+    if (failed || (record && record.status !== "active" && paidCredits < 1)) panel.append(node("p",c[5]));
     else if (!record) panel.append(node("p",c[1]));
   }
   async function refresh() {
@@ -36,7 +39,7 @@ if (typeof document !== "undefined") {
       const response = await fetch(`${base}/api/trial`,{headers:{Authorization:`Bearer ${getToken()}`},cache:"no-store"});
       const data=await response.json();
       if (!response.ok) throw Error();
-      record=data.trial; failed=false;
+      record=data.trial; paidCredits=Number(data.paidCredits||0); failed=false;
     } catch {failed=true;}
     render();
   }
