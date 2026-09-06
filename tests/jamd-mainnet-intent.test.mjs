@@ -10,6 +10,11 @@ test("approved Jamd tokenomics remain preparation-only and cannot authorize main
   assert.equal(draft.token.fixedSupply, true);
   assert.equal(draft.token.decimals, 9);
   assert.equal(draft.mainnetEnabled, false);
+  assert.deepEqual(draft.intendedOperatingJurisdiction, {
+    city: "Miami",
+    state: "Florida",
+    country: "United States"
+  });
   assert.equal(draft.token.mintAddress, null);
   assert.equal(draft.allocation.reduce((sum,item)=>sum+item.percent,0),100);
   assert.equal(draft.allocation.reduce((sum,item)=>sum+BigInt(item.tokens),0n),1_000_000_000n);

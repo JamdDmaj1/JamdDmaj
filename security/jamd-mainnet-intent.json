@@ -4,6 +4,11 @@
   "network": "solana-mainnet-beta",
   "mainnetEnabled": false,
   "configurationConfirmedOn": "2026-09-06",
+  "intendedOperatingJurisdiction": {
+    "city": "Miami",
+    "state": "Florida",
+    "country": "United States"
+  },
   "token": {
     "name": "Jamd",
     "symbol": "JAMD",

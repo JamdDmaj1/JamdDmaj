@@ -2,6 +2,12 @@
 
 This document is a factual brief for qualified counsel, not legal advice.
 
+## Declared operating jurisdiction
+
+- The owner has identified Miami, Florida, United States as the intended operating location.
+- The legal entity, formation status, business address and territories in which the platform may serve users remain to be confirmed by qualified counsel.
+- Recording the intended location does not constitute legal approval and does not enable a Mainnet launch.
+
 ## Product facts counsel must evaluate
 
 - A public, multi-creator platform intended to let third parties configure and launch Solana Token-2022 assets.
@@ -14,7 +20,7 @@ This document is a factual brief for qualified counsel, not legal advice.
 
 ## Questions requiring written advice
 
-1. Which entity operates the platform and in which jurisdictions may it serve creators and buyers?
+1. Which entity should operate the platform from Miami, Florida, and in which jurisdictions may it serve creators and buyers?
 2. When could a created token or platform activity be regulated as a security, commodity, payment instrument, money transmission, crowdfunding or another financial service?
 3. Which creator verification, sanctions screening, KYC/AML, geoblocking and record-retention duties apply?
 4. Which consumer disclosures, fee disclosures, refund rules, tax records and complaint procedures are required?

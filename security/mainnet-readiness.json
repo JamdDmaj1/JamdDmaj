@@ -11,7 +11,9 @@
     "legalReview": {
       "status": "missing",
       "opinionReference": null,
-      "jurisdictions": []
+      "jurisdictions": [
+        "Miami, Florida, United States"
+      ]
     },
     "devnetAdversarialRehearsal": {
       "status": "missing",
