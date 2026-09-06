@@ -53,7 +53,12 @@ jobs:
             echo "::error::Could not resolve a distinct existing program address."
             exit 1
           fi
-          mapfile -t bound_files < <(git grep -l "$old_program_id" -- onchain lib tests || true)
+          mapfile -t bound_files < <(git grep -l "$old_program_id" -- \
+            onchain \
+            lib/fair-launch-devnet-verifier.js \
+            lib/fair-launch.js \
+            lib/solana-devnet-token.js \
+            tests/fair-launch-onchain.test.mjs || true)
           if [ "${#bound_files[@]}" -eq 0 ]; then
             echo "::error::No source or client files reference the existing program address."
             exit 1

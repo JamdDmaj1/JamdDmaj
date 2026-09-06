@@ -8,6 +8,9 @@ import { WALLET_LOGIN_LOCALES } from "../lib/wallet-login-locales.js";
 import { trialKeys, claimTrial, TRIAL_CREDITS, TRIAL_SECONDS } from "../lib/trial-credits.js";
 const owner = "2RmDx5KLnEWG8wxdpdB6Z4ySDn9Z2Jir5aaCdg1ARCom";
 const tokenProgram = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
+test("the existing JAMD mint remains bound to its immutable version-1 program", () => {
+  assert.equal(c.program, "BZMa3Aubxg1K3yx6oSN2nCnUcSJw6t7y55yCe7nZvx9V");
+});
 function binaryAccount(bytes, program) { return { owner: program, data: [bytes.toString("base64"), "base64"] }; }
 function fixtures() {
   const vesting = Buffer.alloc(187);

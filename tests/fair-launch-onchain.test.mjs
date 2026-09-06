@@ -111,6 +111,7 @@ test("Devnet deployment binds the generated address instead of a stale hard-code
   const workflow = readFileSync(new URL("../.github/workflows/deploy-fair-launch-devnet.yml", import.meta.url), "utf8");
   assert.match(workflow, /old_program_id="\$\(sed -n/);
   assert.match(workflow, /mapfile -t bound_files/);
+  assert.doesNotMatch(workflow, /git grep[^\n]+jamd-devnet-balance/);
   assert.match(workflow, /No source or client files reference the existing program address/);
   assert.doesNotMatch(workflow, /old_program_id="[1-9A-HJ-NP-Za-km-z]{32,44}"/);
 });
