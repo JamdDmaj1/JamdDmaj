@@ -512,7 +512,7 @@ test("Fair Launch imported drafts cannot weaken mandatory JamdDmaj rules", () =>
   assert.equal(draft.earlyHolderCount, 2_000);
   assert.equal(draft.holderLockPercent, 85);
   assert.equal(draft.cliffMonths, 24);
-  assert.equal(draft.releaseMonths, 12);
+  assert.equal(draft.releaseMonths, 36);
   assert.equal(draft.liquidityLockMonths, 24);
   assert.equal(draft.maxWalletPercent, 1);
   assert.equal(draft.revokeMintAuthority, true);
@@ -579,7 +579,7 @@ test("Fair Launch UI exposes a guided flow and non-disableable safety policy", (
   assert.match(fairLaunchUiText("es", "creditsNote"), /créditos JamdDmaj/);
 });
 
-test("Fair Launch vesting keeps 85% locked for two years and releases gradually", () => {
+test("Fair Launch vesting keeps 85% locked for two years and releases in 36 monthly tranches", () => {
   assert.deepEqual(calculateFairLaunchVesting(FAIR_LAUNCH_DEFAULTS, 0), {
     month: 0,
     liquidPercent: 15,
@@ -587,8 +587,9 @@ test("Fair Launch vesting keeps 85% locked for two years and releases gradually"
     phase: "cliff"
   });
   assert.equal(calculateFairLaunchVesting(FAIR_LAUNCH_DEFAULTS, 24).liquidPercent, 15);
-  assert.equal(calculateFairLaunchVesting(FAIR_LAUNCH_DEFAULTS, 30).liquidPercent, 57.5);
-  assert.equal(calculateFairLaunchVesting(FAIR_LAUNCH_DEFAULTS, 36).liquidPercent, 100);
+  assert.equal(calculateFairLaunchVesting(FAIR_LAUNCH_DEFAULTS, 30).liquidPercent, 29.17);
+  assert.equal(calculateFairLaunchVesting(FAIR_LAUNCH_DEFAULTS, 42).liquidPercent, 57.5);
+  assert.equal(calculateFairLaunchVesting(FAIR_LAUNCH_DEFAULTS, 60).liquidPercent, 100);
 });
 
 test("Fair Launch manifest cannot silently authorize a real deployment", () => {

@@ -42,6 +42,8 @@ test("on-chain model keeps locked tokens unavailable for the full cliff", () => 
   const releaseEndAt = cliffEndAt + JAMDDMAJ_ONCHAIN_RULES.releaseSeconds;
   assert.equal(vestedLockedAmount({ lockedAmount: 850, cliffEndAt, releaseEndAt, timestamp: cliffEndAt - 1 }), 0n);
   assert.equal(vestedLockedAmount({ lockedAmount: 850, cliffEndAt, releaseEndAt, timestamp: cliffEndAt }), 0n);
+  assert.equal(vestedLockedAmount({ lockedAmount: 850, cliffEndAt, releaseEndAt, timestamp: cliffEndAt + JAMDDMAJ_ONCHAIN_RULES.releaseSeconds / 36 - 1 }), 0n);
+  assert.equal(vestedLockedAmount({ lockedAmount: 850, cliffEndAt, releaseEndAt, timestamp: cliffEndAt + JAMDDMAJ_ONCHAIN_RULES.releaseSeconds / 36 }), 23n);
   assert.equal(vestedLockedAmount({ lockedAmount: 850, cliffEndAt, releaseEndAt, timestamp: cliffEndAt + JAMDDMAJ_ONCHAIN_RULES.releaseSeconds / 2 }), 425n);
   assert.equal(claimableLockedAmount({ lockedAmount: 850, releasedAmount: 400, cliffEndAt, releaseEndAt, timestamp: releaseEndAt }), 450n);
 });
@@ -78,8 +80,11 @@ test("Anchor program source keeps Devnet policy invariants explicit", () => {
   const source = readFileSync(new URL("../onchain/programs/jamddmaj-lock/src/lib.rs", import.meta.url), "utf8");
   assert.match(source, /const MIN_LOCK_BPS: u16 = 8_500/);
   assert.match(source, /const PROTECTED_PARTICIPANTS: u32 = 2_000/);
-  assert.match(source, /const MIN_CLIFF_SECONDS: i64 = 730 \* DAY_SECONDS/);
-  assert.match(source, /const MIN_LIQUIDITY_LOCK_SECONDS: i64 = 730 \* DAY_SECONDS/);
+  assert.match(source, /const MIN_CLIFF_SECONDS: i64 = 731 \* DAY_SECONDS/);
+  assert.match(source, /const MIN_RELEASE_SECONDS: i64 = 1_096 \* DAY_SECONDS/);
+  assert.match(source, /const RELEASE_TRANCHES: u128 = 36/);
+  assert.match(source, /const MIN_LIQUIDITY_LOCK_SECONDS: i64 = 731 \* DAY_SECONDS/);
+  assert.match(source, /policy\.version = 2/);
   assert.match(source, /InvalidEligibilityProof/);
   assert.match(source, /token_interface::transfer_checked/);
   assert.match(source, /pub fn seal_eligibility_root/);
@@ -153,14 +158,14 @@ test("public Devnet verifier decodes and enforces the on-chain policy", async ()
   view.setUint32(112, 2_000, true);
   view.setUint32(116, 12, true);
   view.setUint16(120, 8_500, true);
-  view.setBigInt64(122, BigInt(730 * 86_400), true);
-  view.setBigInt64(130, BigInt(365 * 86_400), true);
-  view.setBigInt64(138, BigInt(730 * 86_400), true);
+  view.setBigInt64(122, BigInt(731 * 86_400), true);
+  view.setBigInt64(130, BigInt(1_096 * 86_400), true);
+  view.setBigInt64(138, BigInt(731 * 86_400), true);
   view.setBigInt64(146, BigInt(2 * 86_400), true);
   policyBytes.set(addressEncoder.encode(address(JAMDDMAJ_PLATFORM_TREASURY)), 154);
   view.setBigUint64(186, JAMDDMAJ_LAUNCH_FEE_LAMPORTS, true);
   policyBytes[194] = 1;
-  view.setUint16(196, 1, true);
+  view.setUint16(196, 2, true);
 
   const vestingBytes = new Uint8Array(187);
   vestingBytes.set(createHash("sha256").update("account:VestingVault").digest().subarray(0, 8), 0);

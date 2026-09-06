@@ -68,7 +68,7 @@ Esta matriz todavía no equivale a pruebas ejecutadas de pagos.
 - Para cada categoría: beneficiario, cantidad, porción bloqueada y calendario verificable.
 - Conservar mínimos de 85% en asignaciones protegidas, 2.000 participantes elegibles,
   24 meses de cliff y liberación gradual. No confundir estas asignaciones con el total de oferta.
-- Resolver 730 días frente a 24 meses naturales antes de programar fechas definitivas.
+- Auditar que el suelo conservador de 731 días y los 36 tramos durante 1.096 días nunca acorten el calendario aprobado, incluidos años bisiestos.
 - Elegibilidad anti-Sybil: método, apelaciones, privacidad y responsable pendientes.
 - Liquidez: presupuesto, par, custodio de bloqueo y condiciones pendientes.
 - Destinatarios, mint, multisig/timelock y metadatos finales de Mainnet: no definidos ni desplegados.

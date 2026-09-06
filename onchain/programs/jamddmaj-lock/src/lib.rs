@@ -9,9 +9,12 @@ const BPS_DENOMINATOR: u64 = 10_000;
 const MIN_LOCK_BPS: u16 = 8_500;
 const PROTECTED_PARTICIPANTS: u32 = 2_000;
 const DAY_SECONDS: i64 = 86_400;
-const MIN_CLIFF_SECONDS: i64 = 730 * DAY_SECONDS;
-const MIN_RELEASE_SECONDS: i64 = 365 * DAY_SECONDS;
-const MIN_LIQUIDITY_LOCK_SECONDS: i64 = 730 * DAY_SECONDS;
+// Conservative timestamp floors: no 24- or 36-calendar-month interval can
+// complete later than these values. Version 2 releases in 36 discrete tranches.
+const MIN_CLIFF_SECONDS: i64 = 731 * DAY_SECONDS;
+const MIN_RELEASE_SECONDS: i64 = 1_096 * DAY_SECONDS;
+const MIN_LIQUIDITY_LOCK_SECONDS: i64 = 731 * DAY_SECONDS;
+const RELEASE_TRANCHES: u128 = 36;
 const MIN_GOVERNANCE_DELAY_SECONDS: i64 = 2 * DAY_SECONDS;
 const CREATOR_ELIGIBILITY_ID: [u8; 32] = [0u8; 32];
 const PLATFORM_TREASURY: Pubkey = pubkey!("4WMnKm3KvLEHiw8tVFTynka8jBYvwekM2BpZz9iyyBjr");
@@ -52,7 +55,7 @@ pub mod jamddmaj_lock {
         policy.launch_fee_lamports = PLATFORM_LAUNCH_FEE_LAMPORTS;
         policy.eligibility_root_frozen = args.eligibility_root != [0u8; 32];
         policy.bump = ctx.bumps.policy;
-        policy.version = 1;
+        policy.version = 2;
         emit!(PolicyInitialized {
             policy: policy.key(),
             mint: policy.token_mint,
@@ -181,7 +184,7 @@ pub mod jamddmaj_lock {
 
     pub fn claim_vested(ctx: Context<ClaimVested>) -> Result<()> {
         let now = Clock::get()?.unix_timestamp;
-        let claimable = ctx.accounts.vesting.claimable_at(now)?;
+        let claimable = ctx.accounts.vesting.claimable_at(now, ctx.accounts.policy.version)?;
         require!(claimable > 0, LockError::NothingToClaim);
 
         let policy_key = ctx.accounts.policy.key();
@@ -553,7 +556,7 @@ pub struct VestingVault {
 }
 
 impl VestingVault {
-    pub fn vested_at(&self, timestamp: i64) -> Result<u64> {
+    pub fn vested_at(&self, timestamp: i64, policy_version: u16) -> Result<u64> {
         if timestamp < self.cliff_end_at {
             return Ok(0);
         }
@@ -562,16 +565,26 @@ impl VestingVault {
         }
         let elapsed = timestamp.checked_sub(self.cliff_end_at).ok_or(LockError::MathOverflow)? as u128;
         let duration = self.release_end_at.checked_sub(self.cliff_end_at).ok_or(LockError::MathOverflow)? as u128;
+        let progress = if policy_version >= 2 {
+            elapsed
+                .checked_mul(RELEASE_TRANCHES)
+                .ok_or(LockError::MathOverflow)?
+                .checked_div(duration)
+                .ok_or(LockError::MathOverflow)?
+        } else {
+            elapsed
+        };
+        let denominator = if policy_version >= 2 { RELEASE_TRANCHES } else { duration };
         let vested = (self.locked_amount as u128)
-            .checked_mul(elapsed)
+            .checked_mul(progress)
             .ok_or(LockError::MathOverflow)?
-            .checked_div(duration)
+            .checked_div(denominator)
             .ok_or(LockError::MathOverflow)?;
         u64::try_from(vested).map_err(|_| error!(LockError::MathOverflow))
     }
 
-    pub fn claimable_at(&self, timestamp: i64) -> Result<u64> {
-        self.vested_at(timestamp)?
+    pub fn claimable_at(&self, timestamp: i64, policy_version: u16) -> Result<u64> {
+        self.vested_at(timestamp, policy_version)?
             .checked_sub(self.released_amount)
             .ok_or_else(|| error!(LockError::MathOverflow))
     }
@@ -814,24 +827,32 @@ mod tests {
     #[test]
     fn vesting_releases_nothing_before_cliff() {
         let vesting = sample_vesting();
-        assert_eq!(vesting.vested_at(99).unwrap(), 0);
-        assert_eq!(vesting.vested_at(100).unwrap(), 0);
+        assert_eq!(vesting.vested_at(99, 2).unwrap(), 0);
+        assert_eq!(vesting.vested_at(100, 2).unwrap(), 0);
     }
 
     #[test]
-    fn vesting_releases_linearly_after_cliff() {
+    fn version_two_vesting_releases_in_monthly_tranches() {
         let vesting = sample_vesting();
-        assert_eq!(vesting.vested_at(150).unwrap(), 42);
-        assert_eq!(vesting.vested_at(200).unwrap(), 85);
-        assert_eq!(vesting.vested_at(250).unwrap(), 85);
+        assert_eq!(vesting.vested_at(102, 2).unwrap(), 0);
+        assert_eq!(vesting.vested_at(103, 2).unwrap(), 2);
+        assert_eq!(vesting.vested_at(150, 2).unwrap(), 42);
+        assert_eq!(vesting.vested_at(200, 2).unwrap(), 85);
+        assert_eq!(vesting.vested_at(250, 2).unwrap(), 85);
+    }
+
+    #[test]
+    fn version_one_vesting_remains_linear_for_existing_devnet_accounts() {
+        let vesting = sample_vesting();
+        assert_eq!(vesting.vested_at(150, 1).unwrap(), 42);
     }
 
     #[test]
     fn claimable_never_releases_the_same_tokens_twice() {
         let mut vesting = sample_vesting();
-        assert_eq!(vesting.claimable_at(150).unwrap(), 42);
+        assert_eq!(vesting.claimable_at(150, 2).unwrap(), 42);
         vesting.released_amount = 42;
-        assert_eq!(vesting.claimable_at(150).unwrap(), 0);
-        assert_eq!(vesting.claimable_at(200).unwrap(), 43);
+        assert_eq!(vesting.claimable_at(150, 2).unwrap(), 0);
+        assert_eq!(vesting.claimable_at(200, 2).unwrap(), 43);
     }
 }

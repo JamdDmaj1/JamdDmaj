@@ -39,7 +39,7 @@ Los créditos internos y el saldo de Jamd son registros diferentes. Comprar cré
 - Bloqueo de liquidez, multisig y timelock verificables antes del lanzamiento.
 - Una wallet no representa una persona única; el proveedor y proceso de elegibilidad están pendientes.
 
-El prototipo actual usa 730 días como cliff. Antes de anunciar 24 meses naturales, se debe resolver y probar la diferencia de calendario, incluidos años bisiestos. La existencia de código y pruebas locales no demuestra un despliegue ni una auditoría independiente.
+El candidato de contrato v2 usa un suelo conservador de 731 días y 36 tramos de liberación durante al menos 1.096 días. Debe probarse la diferencia frente a meses naturales, incluidos años bisiestos. La existencia de código y pruebas locales no demuestra un despliegue ni una auditoría independiente.
 
 ## Economía aprobada para preparación y ensayos
 

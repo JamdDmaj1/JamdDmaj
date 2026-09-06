@@ -17,7 +17,7 @@ The auditor must identify the exact Git commit. Any later code change invalidate
 
 ## Security invariants to verify
 
-1. The next release candidate must replace the prototype's 730-day cliff and 365-day release with the approved conservative calendar schedule: at least 24 calendar months before release and monthly release across 36 months. The current deployed Devnet program does not yet satisfy this requirement.
+1. Candidate version 2 replaces the prototype's 730-day cliff and 365-day linear release with conservative timestamp floors of 731 and 1,096 days and 36 discrete release tranches. Auditors must verify the calendar-boundary assumptions, tranche arithmetic and version-1 compatibility. The currently deployed Devnet program does not yet satisfy this requirement.
 2. Eligibility proofs bind policy, salted identity commitment, beneficiary and allocation; claims cannot be replayed.
 3. Creator and early-participant vaults are canonical PDAs and cannot be substituted during claims.
 4. Liquidity vaults are canonical PDAs and cannot be substituted during release.

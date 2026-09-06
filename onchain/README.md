@@ -5,10 +5,10 @@ This workspace contains the Devnet-only prototype for JamdDmaj Fair Launch. It i
 ## Enforced rules
 
 - At least 85% of every creator and eligible early-participant allocation is deposited into a program-controlled token vault.
-- The locked allocation has a 730-day cliff followed by at least 365 days of linear release.
+- New version-2 policies use a conservative 731-day cliff followed by 36 release tranches over at least 1,096 days. Existing version-1 Devnet policies retain their original linear schedule.
 - At most 2,000 privacy-preserving eligibility commitments can register once per launch policy.
 - Eligibility proofs bind a hashed identity commitment to one beneficiary wallet, one allocation and one policy. Raw identity data must never be placed in the tree or on-chain.
-- Liquidity-position tokens remain in a program-controlled vault for at least 730 days.
+- Liquidity-position tokens remain in a program-controlled vault for at least 731 days.
 - Token movement uses checked Token Interface transfers, compatible with Token-2022.
 - The creator mint, 85% vesting deposit and mint-authority revocation are submitted atomically by the app. A failed protection step leaves no partially created mint.
 - The early-participant Merkle root may be sealed exactly once after the off-chain uniqueness review. Early vesting is disabled until that immutable root exists.
