@@ -3,7 +3,7 @@ use anchor_lang::solana_program::{hash::hashv, pubkey};
 use anchor_lang::system_program::{self, Transfer};
 use anchor_spl::token_interface::{self, Mint, TokenAccount, TokenInterface, TransferChecked};
 
-declare_id!("BZMa3Aubxg1K3yx6oSN2nCnUcSJw6t7y55yCe7nZvx9V");
+declare_id!("FzH2QN9NFFrpwsn8xqLT83BZ7ruqmMBiwY4CU6MkLVQ4");
 
 const BPS_DENOMINATOR: u64 = 10_000;
 const MIN_LOCK_BPS: u16 = 8_500;

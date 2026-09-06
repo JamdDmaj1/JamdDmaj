@@ -26,7 +26,7 @@ import {
   vestedLockedAmount
 } from "../lib/fair-launch-lock-model.js";
 
-const POLICY = "BZMa3Aubxg1K3yx6oSN2nCnUcSJw6t7y55yCe7nZvx9V";
+const POLICY = "FzH2QN9NFFrpwsn8xqLT83BZ7ruqmMBiwY4CU6MkLVQ4";
 const BENEFICIARY_A = "11111111111111111111111111111111";
 const BENEFICIARY_B = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
 
