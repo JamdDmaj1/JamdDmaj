@@ -2,11 +2,11 @@
 
 ## Current scope
 
-Fair Launch is limited to simulation and Solana Devnet. Mainnet, real payments, real liquidity and public token sales are not approved.
+Fair Launch is limited to simulation and Solana Devnet. Mainnet, real liquidity and public token sales are not approved. JAMD credit recharge uses only valueless Devnet tokens.
 
 ## Reporting a vulnerability
 
-Do not publish exploitable details or wallet secrets in a public issue. Use the private GitHub security-advisory feature for this repository. Include the affected commit, impact, reproduction steps and a safe proof of concept. Never include seed phrases, private keys or production credentials.
+Do not publish exploitable details or wallet secrets in a public issue. Use the private GitHub security-advisory feature for this repository. Include the affected commit, impact, reproduction steps and a safe proof of concept. Never include seed phrases, private keys or production credentials. The triage and recovery process is defined in `INCIDENT-RESPONSE.md`.
 
 ## Release rule
 

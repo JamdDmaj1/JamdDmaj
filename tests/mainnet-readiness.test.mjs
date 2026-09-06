@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { evaluateReadiness, REQUIRED_EVIDENCE } from "../lib/mainnet-readiness.js";
+import { readFile } from "node:fs/promises";
 
 function fixture() {
   return { schemaVersion: 1, network: "solana-mainnet-beta", mainnetEnabled: true,
@@ -39,4 +40,13 @@ test("blank and wrongly typed evidence cannot pass", () => {
     const data = fixture(); data.requirements.upgradeAuthorityMultisig[field] = value;
     assert.equal(evaluateReadiness(data).ready, false);
   }
+});
+
+test("published incident response has a private contact but does not open mainnet", async () => {
+  const readiness=JSON.parse(await readFile(new URL("../security/mainnet-readiness.json",import.meta.url),"utf8"));
+  const policy=await readFile(new URL("../INCIDENT-RESPONSE.md",import.meta.url),"utf8");
+  assert.equal(readiness.requirements.incidentResponse.status,"approved");
+  assert.match(readiness.requirements.incidentResponse.securityContact,/security\/advisories\/new/);
+  assert.match(policy,/No JAMD Mainnet deployment/);
+  assert.equal(evaluateReadiness(readiness).ready,false);
 });

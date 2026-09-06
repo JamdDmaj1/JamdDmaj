@@ -8,6 +8,7 @@ This document is a factual brief for qualified counsel, not legal advice.
 - A fixed platform fee of 0.1 SOL per successful policy initialization, paid to the disclosed JamdDmaj treasury.
 - Mandatory creator and eligible early-participant vesting, liquidity locks, anti-Sybil eligibility commitments and public verification.
 - Optional visibility/analytics services; no promise of price, profit, liquidity or exchange listing.
+- JAMD is intended as payment for metered platform services. The current 10 JAMD / 20-credit package is a valueless Devnet test and does not establish a Mainnet price.
 - Wallets are self-custodial. JamdDmaj must not request or store seed phrases or private keys.
 - Creators can provide names, symbols, images, websites and social links, which creates moderation and intellectual-property obligations.
 

@@ -30,9 +30,9 @@
       "timelockSeconds": null
     },
     "incidentResponse": {
-      "status": "missing",
-      "policyUrl": null,
-      "securityContact": null
+      "status": "approved",
+      "policyUrl": "https://github.com/JamdDmaj1/JamdDmaj/blob/main/INCIDENT-RESPONSE.md",
+      "securityContact": "https://github.com/JamdDmaj1/JamdDmaj/security/advisories/new"
     },
     "ownerApproval": {
       "status": "missing",

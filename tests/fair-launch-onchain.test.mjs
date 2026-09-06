@@ -97,9 +97,9 @@ test("Anchor program source keeps Devnet policy invariants explicit", () => {
 test("mainnet gate remains closed without independent evidence", () => {
   const readiness = JSON.parse(readFileSync(new URL("../security/mainnet-readiness.json", import.meta.url), "utf8"));
   assert.equal(readiness.mainnetEnabled, false);
-  for (const requirement of Object.values(readiness.requirements)) {
-    assert.notEqual(requirement.status, "approved");
-  }
+  assert.ok(Object.values(readiness.requirements).some(requirement => requirement.status !== "approved"));
+  assert.notEqual(readiness.requirements.independentAudit.status,"approved");
+  assert.notEqual(readiness.requirements.legalReview.status,"approved");
 });
 
 test("protected Devnet creation uses canonical PDAs and Anchor instructions", async () => {
