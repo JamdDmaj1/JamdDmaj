@@ -186,6 +186,11 @@ test("Devnet liquidity rehearsal uses canonical vaults and the 24-month floor", 
     amount: 1n,
     requestedLockSeconds: MIN_LIQUIDITY_LOCK_SECONDS - 1n
   }), /at least 24 months/);
+  const clientSource = readFileSync(new URL("../lib/solana-devnet-token.js", import.meta.url), "utf8");
+  assert.match(clientSource, /createMockLiquidityLockOnDevnet/);
+  assert.match(clientSource, /simulateTransaction/);
+  assert.match(clientSource, /mock: true/);
+  assert.doesNotMatch(clientSource, /api\.mainnet|mainnet-beta/);
 });
 
 test("public Devnet verifier decodes and enforces the on-chain policy", async () => {

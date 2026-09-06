@@ -13,6 +13,7 @@ import { fairLaunchUiText, resolveFairLaunchUiLocale } from "./lib/fair-launch-u
 import {
   checkDevnetProtectionProgram,
   createFixedSupplyTokenOnDevnet,
+  createMockLiquidityLockOnDevnet,
   validateDevnetTokenRequest
 } from "./lib/solana-devnet-token.js";
 import { getWalletRegistry } from "./lib/wallet-standard-registry.js";
@@ -75,6 +76,7 @@ const VERIFIER_LABEL_KEYS = Object.freeze({
   let currentStep = 0;
   let locale = resolveFairLaunchLocale(document.documentElement.lang);
   let devnetVerified = false;
+  let liquidityCandidatePolicy = "";
   let protectionProgramAvailable = false;
   let protectionProgramChecked = false;
   const stepPanels = [...form.querySelectorAll("[data-fair-step]")];
@@ -89,6 +91,7 @@ const VERIFIER_LABEL_KEYS = Object.freeze({
   const devnetConfirm = document.getElementById("fairDevnetConfirm");
   const createDevnetButton = document.getElementById("fairCreateDevnetTokenBtn");
   const verifyDevnetButton = document.getElementById("fairVerifyDevnetBtn");
+  const testLiquidityButton = document.getElementById("fairTestLiquidityBtn");
   const walletCard = document.getElementById("fairWalletCard");
 
   const fields = {
@@ -144,6 +147,7 @@ const VERIFIER_LABEL_KEYS = Object.freeze({
   copyWalletButton?.addEventListener("click", copyWalletAddress);
   createDevnetButton?.addEventListener("click", createDevnetToken);
   verifyDevnetButton?.addEventListener("click", verifyPublicDevnetPolicy);
+  testLiquidityButton?.addEventListener("click", createDevnetLiquidityRehearsal);
   devnetConfirm?.addEventListener("change", updateDevnetReadiness);
   document.getElementById("fairPrevStepBtn")?.addEventListener("click", () => showStep(currentStep - 1));
   document.getElementById("fairNextStepBtn")?.addEventListener("click", () => {
@@ -427,7 +431,11 @@ const VERIFIER_LABEL_KEYS = Object.freeze({
         : `${fairLaunchVerifierText(resolveFairLaunchUiLocale(locale), "failure")}: ${result.checks.filter((item) => !item.passed).length}`;
       explorer.href = `https://explorer.solana.com/address/${encodeURIComponent(result.policyAddress)}?cluster=devnet`;
       explorer.hidden = false;
+      const blockers = result.checks.filter((item) => !item.passed && item.id !== "eligibility-root");
+      liquidityCandidatePolicy = blockers.length === 0 ? result.policyAddress : "";
+      updateDevnetReadiness();
     } catch (error) {
+      liquidityCandidatePolicy = "";
       status.dataset.state = "error";
       status.textContent = `${fairLaunchVerifierText(resolveFairLaunchUiLocale(locale), "failure")}: ${String(error?.message || error)}`;
     } finally {
@@ -675,6 +683,9 @@ const VERIFIER_LABEL_KEYS = Object.freeze({
     const confirmed = Boolean(devnetConfirm?.checked);
     const errors = validateDevnetTokenRequest(readForm(), connectedWallet, connectedAccount);
     createDevnetButton.disabled = !confirmed || errors.length > 0 || !protectionProgramAvailable;
+    if (testLiquidityButton) {
+      testLiquidityButton.disabled = !confirmed || !connectedWallet || !connectedAccount || !liquidityCandidatePolicy || !protectionProgramAvailable;
+    }
     const status = document.getElementById("fairDevnetStatus");
     if (!status || status.dataset.running === "true") return;
     status.textContent = protectionProgramChecked && !protectionProgramAvailable
@@ -764,6 +775,44 @@ const VERIFIER_LABEL_KEYS = Object.freeze({
         : /insufficient|funds|lamport/i.test(message)
           ? ui("needsTestSol")
           : ui("createFailed");
+    } finally {
+      status.dataset.running = "false";
+      updateDevnetReadiness();
+    }
+  }
+
+  async function createDevnetLiquidityRehearsal() {
+    const status = document.getElementById("fairDevnetStatus");
+    const resultBox = document.getElementById("fairDevnetResult");
+    if (!status || !resultBox || !testLiquidityButton || !liquidityCandidatePolicy) return;
+    if (!window.confirm(ui("mockLiquidityConfirm"))) return;
+    testLiquidityButton.disabled = true;
+    status.dataset.running = "true";
+    status.textContent = ui("mockLiquidityPreparing");
+    try {
+      const rehearsal = await createMockLiquidityLockOnDevnet({
+        policyAddress: liquidityCandidatePolicy,
+        wallet: connectedWallet,
+        account: connectedAccount
+      });
+      const lockLink = document.createElement("a");
+      lockLink.href = `https://explorer.solana.com/address/${encodeURIComponent(rehearsal.liquidityLockAddress)}?cluster=devnet`;
+      lockLink.target = "_blank";
+      lockLink.rel = "noopener noreferrer";
+      lockLink.textContent = ui("viewLiquidityLock");
+      const rehearsalStatus = document.createElement("p");
+      rehearsalStatus.textContent = ui("mockLiquidityCreated");
+      resultBox.replaceChildren(rehearsalStatus, lockLink);
+      resultBox.hidden = false;
+      status.textContent = ui("mockLiquidityCreatedStatus");
+      liquidityCandidatePolicy = "";
+    } catch (error) {
+      const message = String(error?.message || error);
+      status.textContent = /reject|declin|cancel|denied|user/i.test(message)
+        ? ui("requestCanceled")
+        : /simulation/i.test(message)
+          ? ui("mockLiquiditySimulationFailed")
+          : ui("mockLiquidityFailed");
     } finally {
       status.dataset.running = "false";
       updateDevnetReadiness();

@@ -574,7 +574,10 @@ test("Fair Launch UI exposes a guided flow and non-disableable safety policy", (
     assert.match(html, new RegExp(`id="${id}"`));
   }
   assert.match(html, /id="fairWalletCard"[^>]+hidden/);
+  assert.match(html, /id="fairTestLiquidityBtn"[^>]+disabled/);
   assert.ok(FAIR_LAUNCH_UI_KEYS.includes("creditsNote"));
+  assert.match(fairLaunchUiText("en", "mockLiquidityNotice"), /not real liquidity/i);
+  assert.match(fairLaunchUiText("es", "mockLiquidityNotice"), /no es liquidez real/i);
   assert.match(fairLaunchUiText("en", "creditsNote"), /JamdDmaj credits/);
   assert.match(fairLaunchUiText("es", "creditsNote"), /créditos JamdDmaj/);
 });
