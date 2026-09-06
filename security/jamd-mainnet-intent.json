@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "status": "tokenomics-approved-preparation-only",
+  "network": "solana-mainnet-beta",
+  "mainnetEnabled": false,
+  "configurationConfirmedOn": "2026-09-06",
+  "token": {
+    "name": "Jamd",
+    "symbol": "JAMD",
+    "totalSupply": "1000000000",
+    "fixedSupply": true,
+    "decimals": 9,
+    "mintAddress": null
+  },
+  "protections": {
+    "minimumLockedBps": 8500,
+    "protectedParticipantSlots": 2000,
+    "minimumCliffCalendarMonths": 24,
+    "gradualReleaseRequired": true,
+    "mintAuthorityRevokedRequired": true,
+    "freezeAuthorityDisabledRequired": true,
+    "multisigAndTimelockRequired": true,
+    "independentAuditRequired": true
+  },
+  "allocation": [
+    { "category": "community", "percent": 40, "tokens": "400000000", "lockedBps": 9000 },
+    { "category": "treasury", "percent": 25, "tokens": "250000000", "lockedBps": 9000 },
+    { "category": "team", "percent": 15, "tokens": "150000000", "lockedBps": 10000 },
+    { "category": "ecosystem", "percent": 15, "tokens": "150000000", "lockedBps": 9000 },
+    { "category": "liquidity", "percent": 5, "tokens": "50000000", "lockedBps": 0 }
+  ],
+  "initialLockedTokens": "870000000",
+  "initialLockedPercent": 87,
+  "vesting": {
+    "cliffCalendarMonths": 24,
+    "releaseCalendarMonths": 36,
+    "releaseFrequency": "monthly"
+  },
+  "beneficiaries": null,
+  "liquidityBudget": null,
+  "liquidityPair": null,
+  "liquidityLockEvidence": null,
+  "eligibilityEvidence": null,
+  "legalReviewEvidence": null,
+  "auditEvidence": null,
+  "transactionApproval": null
+}

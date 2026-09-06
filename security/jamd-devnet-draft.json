@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "status": "active-reference-rehearsal",
+  "cluster": "devnet",
+  "mainnetAuthorized": false,
+  "token": {
+    "name": "Jamd",
+    "symbol": "JAMD",
+    "totalSupply": "1000000000",
+    "decimals": 9
+  },
+  "ownerAddress": "2RmDx5KLnEWG8wxdpdB6Z4ySDn9Z2Jir5aaCdg1ARCom",
+  "mintAddress": "3hGv2JJ8Hfktw5LMPoSN6R4enoAAZMPvPtS3TcwgGV61",
+  "policyAddress": "HpnJiFUavzPGi3ogKqLHRqvaY1bMBamhgiBu5trqGPyz",
+  "creatorVestingAddress": "874KTGhKo3FyeDTvenEGQrgKskHkTJDjynEU3dRgCip2",
+  "creatorVaultAddress": "DwjWRn3aoupJHJRai8PhVBwDN8aXoufix38KmJk1cMcu",
+  "protectionProgram": "BZMa3Aubxg1K3yx6oSN2nCnUcSJw6t7y55yCe7nZvx9V",
+  "protectionProgramCheck": {
+    "cluster": "devnet",
+    "method": "getAccountInfo",
+    "commitment": "confirmed",
+    "accountExists": true,
+    "executable": true
+  },
+  "creditRechargeRehearsal": {
+    "paymentJamd": "10",
+    "creditsGranted": 20,
+    "duplicateTransactionProtection": true,
+    "mainnetPaymentEnabled": false
+  }
+}
