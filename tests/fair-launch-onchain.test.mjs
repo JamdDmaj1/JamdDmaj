@@ -13,8 +13,11 @@ import {
 import {
   JAMDDMAJ_LAUNCH_FEE_LAMPORTS,
   JAMDDMAJ_PLATFORM_TREASURY,
+  MIN_LIQUIDITY_LOCK_SECONDS,
+  deriveLiquidityLockAddresses,
   deriveProtectionAddresses,
   getInitializeCreatorVestingInstruction,
+  getInitializeLiquidityLockInstruction,
   getInitializePolicyInstruction
 } from "../lib/solana-devnet-token.js";
 import {
@@ -147,6 +150,42 @@ test("protected Devnet creation uses canonical PDAs and Anchor instructions", as
     Buffer.from(vestingInstruction.data.subarray(0, 8)),
     createHash("sha256").update("global:initialize_creator_vesting").digest().subarray(0, 8)
   );
+});
+
+test("Devnet liquidity rehearsal uses canonical vaults and the 24-month floor", async () => {
+  const policyAddress = BENEFICIARY_A;
+  const lpMintAddress = BENEFICIARY_B;
+  const beneficiaryAddress = POLICY;
+  const derived = await deriveLiquidityLockAddresses(policyAddress, lpMintAddress, beneficiaryAddress);
+  const instruction = await getInitializeLiquidityLockInstruction({
+    policyAddress,
+    sourceOwnerAddress: beneficiaryAddress,
+    beneficiaryAddress,
+    lpMintAddress,
+    liquidityLockAddress: derived.liquidityLockAddress,
+    liquidityVaultAddress: derived.liquidityVaultAddress,
+    sourceAddress: beneficiaryAddress,
+    amount: 1n
+  });
+  assert.equal(instruction.programAddress, JAMDDMAJ_LOCK_PROGRAM_ID);
+  assert.equal(instruction.accounts.length, 9);
+  assert.equal(instruction.data.length, 24);
+  assert.deepEqual(
+    Buffer.from(instruction.data.subarray(0, 8)),
+    createHash("sha256").update("global:initialize_liquidity_lock").digest().subarray(0, 8)
+  );
+  assert.equal(new DataView(instruction.data.buffer, instruction.data.byteOffset).getBigInt64(16, true), MIN_LIQUIDITY_LOCK_SECONDS);
+  await assert.rejects(() => getInitializeLiquidityLockInstruction({
+    policyAddress,
+    sourceOwnerAddress: beneficiaryAddress,
+    beneficiaryAddress,
+    lpMintAddress,
+    liquidityLockAddress: derived.liquidityLockAddress,
+    liquidityVaultAddress: derived.liquidityVaultAddress,
+    sourceAddress: beneficiaryAddress,
+    amount: 1n,
+    requestedLockSeconds: MIN_LIQUIDITY_LOCK_SECONDS - 1n
+  }), /at least 24 months/);
 });
 
 test("public Devnet verifier decodes and enforces the on-chain policy", async () => {
