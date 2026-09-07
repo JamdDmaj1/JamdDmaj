@@ -66,6 +66,17 @@ test("current JAMD v2 evidence is Devnet-only and cannot open mainnet", async ()
   assert.equal(evidence.mockLiquidityLockRehearsal.lockDays,731);
   assert.equal(evidence.mockLiquidityLockRehearsal.vaultBalance,"1");
   assert.equal(evidence.mockLiquidityLockRehearsal.released,false);
+  assert.equal(evidence.liquidityAdversarialSimulations.status,"passed");
+  assert.equal(evidence.liquidityAdversarialSimulations.sentTransactions,0);
+  assert.equal(evidence.liquidityAdversarialSimulations.cases.length,4);
+  assert.ok(evidence.liquidityAdversarialSimulations.cases.every(item => item.rejected === true));
   assert.equal(readiness.requirements.devnetAdversarialRehearsal.status,"missing");
   assert.equal(evaluateReadiness(readiness).ready,false);
+});
+
+test("liquidity attack rehearsal can simulate but never transmit", async () => {
+  const source=await readFile(new URL("../scripts/rehearse-devnet-liquidity-attacks.mjs",import.meta.url),"utf8");
+  assert.match(source,/simulateTransaction/);
+  assert.match(source,/sigVerify: false/);
+  assert.doesNotMatch(source,/sendTransaction|signAndSendTransaction/);
 });

@@ -62,6 +62,17 @@
     "unlockAtUtc": "2028-09-06T23:44:37Z",
     "lockDays": 731
   },
+  "liquidityAdversarialSimulations": {
+    "status": "passed",
+    "cluster": "devnet",
+    "sentTransactions": 0,
+    "cases": [
+      { "name": "early release", "rejected": true, "error": "LiquidityStillLocked (6014)" },
+      { "name": "substituted vault", "rejected": true, "error": "UninitializedAccount" },
+      { "name": "wrong mint", "rejected": true, "error": "ConstraintSeeds (2006)" },
+      { "name": "wrong beneficiary", "rejected": true, "error": "ConstraintSeeds (2006)" }
+    ]
+  },
   "remainingEvidence": [
     "Seal a real, independently reviewed anti-Sybil eligibility root; never use invented participants.",
     "Repeat liquidity locking with actual pool receipts after a valueless Devnet market rehearsal; the confirmed mock receipt is not real liquidity.",
