@@ -1,4 +1,4 @@
-# Build-only validation. This workflow never receives a wallet key or deploys.
+# Builds and local VM tests only. No real wallet keys or network transactions.
 name: Fair Launch on-chain safety
 
 on:
@@ -6,6 +6,7 @@ on:
   push:
     paths:
       - "onchain/**"
+      - "integration/**"
       - "lib/fair-launch-devnet-verifier.js"
       - "lib/fair-launch-eligibility.js"
       - "lib/fair-launch-lock-model.js"
@@ -15,6 +16,7 @@ on:
   pull_request:
     paths:
       - "onchain/**"
+      - "integration/**"
       - "lib/fair-launch-devnet-verifier.js"
       - "lib/fair-launch-eligibility.js"
       - "lib/fair-launch-lock-model.js"
@@ -77,7 +79,20 @@ jobs:
             echo "cargo_build_sbf=$(cargo build-sbf --version 2>/dev/null || true)"
           } | tee verification/toolchain.txt
           cp sbf-build.log verification/sbf-build.log
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install isolated integration dependencies
+        run: |
+          npm ci --ignore-scripts
+          npm ci --ignore-scripts --prefix integration
+      - name: Test Squads approvals, timelock and category vesting in local VM
+        shell: bash
+        run: |
+          set -euo pipefail
+          node integration/squads-vesting.mjs | tee verification/squads-vesting.log
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: jamddmaj-lock-verification-${{ github.sha }}
           path: |
