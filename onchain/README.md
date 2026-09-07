@@ -25,7 +25,14 @@ cargo test --workspace
 anchor build
 ```
 
-The repository workflow performs host tests and an sBPF build. It never deploys and contains no wallet secret.
+The repository workflow uses current stable Rust for host tests, Solana 2.1.0's
+bundled Rust/Cargo toolchain for sBPF, and the committed `Cargo.lock`. It records the source
+commit, toolchain versions, build log, binary SHA-256 and lockfile SHA-256 in a
+90-day verification artifact. It never deploys and contains no wallet secret.
+
+An independent reviewer must rebuild the same commit with `--locked` and match
+the binary hash before the Mainnet build requirement can be approved. A CI
+artifact produced by this repository alone is not independent verification.
 
 ## Devnet rehearsal gate
 

@@ -36,7 +36,7 @@ jobs:
         with:
           workspaces: onchain
       - name: Compile and test policy logic
-        run: cargo test --manifest-path onchain/Cargo.toml --workspace
+        run: cargo test --locked --manifest-path onchain/Cargo.toml --workspace
 
   sbf-build:
     runs-on: ubuntu-latest
@@ -51,7 +51,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          if ! cargo build-sbf --manifest-path onchain/programs/jamddmaj-lock/Cargo.toml 2>&1 | tee sbf-build.log; then
+          if ! cargo build-sbf --locked --manifest-path onchain/programs/jamddmaj-lock/Cargo.toml 2>&1 | tee sbf-build.log; then
             {
               echo "### sBPF diagnostic (no deployment attempted)"
               echo '```text'
@@ -63,10 +63,26 @@ jobs:
             exit 1
           fi
       - name: Record artifact hash
-        run: sha256sum onchain/target/deploy/jamddmaj_lock.so
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p verification
+          sha256sum onchain/target/deploy/jamddmaj_lock.so | tee verification/jamddmaj_lock.so.sha256
+          sha256sum onchain/Cargo.lock | tee verification/Cargo.lock.sha256
+          {
+            echo "git_commit=$(git rev-parse HEAD)"
+            echo "rustc=$(rustc --version)"
+            echo "cargo=$(cargo --version)"
+            echo "solana=$(solana --version)"
+            echo "cargo_build_sbf=$(cargo build-sbf --version 2>/dev/null || true)"
+          } | tee verification/toolchain.txt
+          cp sbf-build.log verification/sbf-build.log
       - uses: actions/upload-artifact@v4
         with:
-          name: jamddmaj-lock-devnet-unsigned
-          path: onchain/target/deploy/jamddmaj_lock.so
+          name: jamddmaj-lock-verification-${{ github.sha }}
+          path: |
+            onchain/target/deploy/jamddmaj_lock.so
+            onchain/Cargo.lock
+            verification/
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 90

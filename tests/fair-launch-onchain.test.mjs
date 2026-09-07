@@ -154,6 +154,18 @@ test("protected Devnet creation uses canonical PDAs and Anchor instructions", as
   );
 });
 
+test("on-chain builds pin dependencies and preserve verification evidence", () => {
+  const lockfile = readFileSync(new URL("../onchain/Cargo.lock", import.meta.url), "utf8");
+  const workflow = readFileSync(new URL("../.github/workflows/onchain-devnet-ci.yml", import.meta.url), "utf8");
+  assert.match(lockfile, /^version = 3$/m);
+  assert.match(workflow, /dtolnay\/rust-toolchain@stable/);
+  assert.match(workflow, /cargo test --locked/);
+  assert.match(workflow, /cargo build-sbf --locked/);
+  assert.match(workflow, /jamddmaj_lock\.so\.sha256/);
+  assert.match(workflow, /git_commit=\$\(git rev-parse HEAD\)/);
+  assert.match(workflow, /retention-days: 90/);
+});
+
 test("vesting claim instruction binds every protected account", async () => {
   const instruction = await getClaimVestedInstruction({
     policyAddress: BENEFICIARY_A,

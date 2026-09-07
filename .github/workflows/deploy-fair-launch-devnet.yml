@@ -75,8 +75,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cargo test --manifest-path onchain/Cargo.toml --workspace
-          cargo build-sbf --manifest-path onchain/programs/jamddmaj-lock/Cargo.toml
+          cargo test --locked --manifest-path onchain/Cargo.toml --workspace
+          cargo build-sbf --locked --manifest-path onchain/programs/jamddmaj-lock/Cargo.toml
           sha256sum onchain/target/deploy/jamddmaj_lock.so | tee /tmp/program-sha256.txt
 
       - name: Fund disposable deployer with valueless Devnet SOL
