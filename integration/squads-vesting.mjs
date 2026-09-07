@@ -85,7 +85,7 @@ assert.ok(!identity.updateAuthority || identity.updateAuthority.equals(PublicKey
 const pointer=token.getMetadataPointerState(mintState);
 assert.equal(pointer.authority,null);
 assert.ok(pointer.metadataAddress.equals(mint.publicKey));
-send([token.createMintToInstruction(mint.publicKey,source,owner.publicKey,1n,[],token.TOKEN_2022_PROGRAM_ID)],[owner],/fixed supply|FixedSupply/i);
+send([token.createMintToInstruction(mint.publicKey,source,owner.publicKey,1n,[],token.TOKEN_2022_PROGRAM_ID)],[owner],/fixed supply|FixedSupply|total supply.*fixed/i);
 assert.equal((await token.getMint(connection,mint.publicKey,undefined,token.TOKEN_2022_PROGRAM_ID)).supply,supply);
 evidence.creation={name:identity.name,symbol:identity.symbol,supplyBaseUnits:supply.toString(),mintAuthorityRevoked:true,freezeAuthorityDisabled:true,metadataSealed:true,additionalMintRejected:true};
 const first=await deriveProtectionAddresses(mint.publicKey.toBase58(),owner.publicKey.toBase58());
