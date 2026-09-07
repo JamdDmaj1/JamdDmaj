@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "status": "configuration-required",
+  "network": "solana-mainnet-beta",
+  "programUpgradePolicy": "immutable-after-independent-verification",
+  "operationsMultisig": {
+    "address": null,
+    "threshold": null,
+    "signers": null,
+    "minimumThreshold": 2
+  },
+  "timelock": {
+    "seconds": null,
+    "minimumSeconds": 86400,
+    "appliesTo": [
+      "eligibility-root-sealing",
+      "treasury-policy-changes",
+      "launch-configuration-approval"
+    ]
+  },
+  "separationOfDuties": {
+    "deploymentSignerMayControlTreasury": false,
+    "eligibilityReviewerMayUnilaterallySealRoot": false,
+    "singleWalletMayAuthorizeLaunch": false
+  },
+  "mainnetAuthorized": false
+}

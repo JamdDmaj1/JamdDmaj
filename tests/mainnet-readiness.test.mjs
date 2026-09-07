@@ -92,3 +92,17 @@ test("vesting attack rehearsal can simulate but never transmit", async () => {
   assert.match(source,/sigVerify: false/);
   assert.doesNotMatch(source,/sendTransaction|signAndSendTransaction/);
 });
+
+test("external review packages never impersonate approvals", async () => {
+  const antiSybil=await readFile(new URL("../security/ANTI-SYBIL-PROTOCOL.md",import.meta.url),"utf8");
+  const audit=await readFile(new URL("../security/INDEPENDENT-REVIEW-REQUEST.md",import.meta.url),"utf8");
+  const legal=await readFile(new URL("../security/LEGAL-REVIEW-BRIEF.md",import.meta.url),"utf8");
+  const governance=JSON.parse(await readFile(new URL("../security/mainnet-governance-plan.json",import.meta.url),"utf8"));
+  assert.match(antiSybil,/wallet address alone is never evidence/i);
+  assert.match(antiSybil,/No synthetic or invented participant/i);
+  assert.match(audit,/not an audit report or approval/i);
+  assert.match(legal,/not legal advice or an opinion/i);
+  assert.equal(governance.status,"configuration-required");
+  assert.equal(governance.operationsMultisig.address,null);
+  assert.equal(governance.mainnetAuthorized,false);
+});

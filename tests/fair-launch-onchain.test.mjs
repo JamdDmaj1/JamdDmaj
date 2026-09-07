@@ -81,6 +81,16 @@ test("eligibility adapter rejects duplicate people and over-cap lists", async ()
   await assert.rejects(() => buildEligibilityTree(POLICY, tooMany), /first 2,000/);
 });
 
+test("eligibility verification fails closed on malformed and oversized proofs", async () => {
+  const record = { identityCommitment: "44".repeat(32), beneficiary: BENEFICIARY_A, totalAllocation: "18446744073709551615" };
+  const tree = await buildEligibilityTree(POLICY, [record]);
+  assert.equal(await verifyEligibilityRecord(POLICY, record, tree.root, []), true);
+  assert.equal(await verifyEligibilityRecord(POLICY, record, "not-a-root", []), false);
+  assert.equal(await verifyEligibilityRecord(POLICY, record, tree.root, ["zz".repeat(32)]), false);
+  assert.equal(await verifyEligibilityRecord(POLICY, record, tree.root, Array(33).fill(tree.root)), false);
+  await assert.rejects(() => buildEligibilityTree(POLICY, []), /at least one/);
+});
+
 test("Anchor program source keeps Devnet policy invariants explicit", () => {
   const source = readFileSync(new URL("../onchain/programs/jamddmaj-lock/src/lib.rs", import.meta.url), "utf8");
   assert.match(source, /const MIN_LOCK_BPS: u16 = 8_500/);
