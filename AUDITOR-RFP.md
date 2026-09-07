@@ -2,6 +2,17 @@
 
 JamdDmaj requests an independent security review of a Solana Token-2022 launch and protection program before any Mainnet deployment.
 
+## Frozen release candidate
+
+- Source commit: `e678e52ee42d07dbe4c33939c2d12abd95919144`
+- Program binary SHA-256: `ccfb9e37bbab5afd872c3dadac0e86496688420658173bf478d21255d0bb0fe6`
+- CI evidence: https://github.com/JamdDmaj1/JamdDmaj/actions/runs/34123907385
+- Verification artifact: https://github.com/JamdDmaj1/JamdDmaj/actions/runs/34123907385/artifacts/10019388185
+- Governance: Squads Mainnet multisig `FFyAmn9dauQQjq8d6eLP8ZWBJexJBpLMTYmgDo8zSygJ`, threshold 2/3, 86,400-second timelock
+
+The review and final report must identify this exact commit and hash. Any
+program change creates a new candidate and requires review of the delta.
+
 ## Scope
 
 - Anchor program and all instructions under `onchain/programs/jamddmaj-lock`.
