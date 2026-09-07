@@ -10,21 +10,26 @@ Se corrigió el comprobador documental de Mainnet para exigir al menos 86400
 segundos de timelock, conforme al plan de gobernanza. Se probaron los valores
 0, 1 y 86399 como inválidos y el caso válido de 86400 segundos.
 
-No es correcto afirmar que solo falta revisión legal:
+Después del ensayo integral y la verificación pública de la nueva multisig, ya
+constan como completados en el control documental:
+
+- Compilación sBPF identificada por commit y SHA-256.
+- Ensayo local integral de creación, suministro fijo y cinco asignaciones.
+- Multisig Mainnet `FFyAmn9dauQQjq8d6eLP8ZWBJexJBpLMTYmgDo8zSygJ`, umbral
+  2 de 3 y timelock de 86400 segundos.
+
+Siguen pendientes antes de Mainnet:
 
 - Falta auditoría técnica independiente auténtica.
 - Falta comparar una compilación reproducida con el binario correspondiente.
-- Faltan firmantes, dirección y umbral de la multisig y su timelock configurado.
 - Faltan destinatarios de las asignaciones, par y presupuesto de liquidez.
 - Falta evidencia de elegibilidad y bloqueo de liquidez real.
-- Falta completar el ensayo adversarial integral, incluidos casos que no cubren
-  las nueve simulaciones actuales.
 - Falta implementar y validar el flujo Mainnet de creación y recarga; los
   ensayos actuales solo demuestran comportamiento Devnet.
 
-La intención Mainnet guardada asigna 870 millones bloqueados (87%), mientras
-el ensayo del creador usa 850 millones (85%). Son configuraciones diferentes;
-no se debe reutilizar el ensayo como prueba de la asignación final.
+La intención Mainnet y el ensayo integral cuadran 870 millones bloqueados
+(87%) y 130 millones no sujetos a vesting. El ensayo no abre venta pública ni
+aporta liquidez.
 
 La autorización del propietario para avanzar consta en la conversación, pero
 no acredita una firma sobre direcciones, costes y transacciones finales que

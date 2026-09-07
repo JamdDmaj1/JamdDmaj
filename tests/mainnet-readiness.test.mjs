@@ -75,7 +75,8 @@ test("current JAMD v2 evidence is Devnet-only and cannot open mainnet", async ()
   assert.equal(evidence.vestingAdversarialSimulations.cases.length,5);
   assert.ok(evidence.vestingAdversarialSimulations.cases.every(item => item.rejected === true));
   assert.equal(evidence.vestingAdversarialSimulations.doubleClaim.status,"model-tested");
-  assert.equal(readiness.requirements.devnetAdversarialRehearsal.status,"missing");
+  assert.equal(readiness.requirements.devnetAdversarialRehearsal.status,"approved");
+  assert.match(readiness.requirements.devnetAdversarialRehearsal.evidenceUrl,/34123907385/);
   assert.equal(evaluateReadiness(readiness).ready,false);
 });
 

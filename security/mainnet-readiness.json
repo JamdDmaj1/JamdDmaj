@@ -16,20 +16,20 @@
       ]
     },
     "devnetAdversarialRehearsal": {
-      "status": "missing",
-      "evidenceUrl": null
+      "status": "approved",
+      "evidenceUrl": "https://github.com/JamdDmaj1/JamdDmaj/actions/runs/34123907385"
     },
     "verifiableBuild": {
-      "status": "missing",
-      "sourceCommit": null,
-      "executableHash": null,
-      "verificationUrl": null
+      "status": "approved",
+      "sourceCommit": "e678e52ee42d07dbe4c33939c2d12abd95919144",
+      "executableHash": "ccfb9e37bbab5afd872c3dadac0e86496688420658173bf478d21255d0bb0fe6",
+      "verificationUrl": "https://github.com/JamdDmaj1/JamdDmaj/actions/runs/34123907385/artifacts/10019388185"
     },
     "upgradeAuthorityMultisig": {
-      "status": "missing",
-      "address": null,
-      "threshold": null,
-      "timelockSeconds": null
+      "status": "approved",
+      "address": "FFyAmn9dauQQjq8d6eLP8ZWBJexJBpLMTYmgDo8zSygJ",
+      "threshold": 2,
+      "timelockSeconds": 86400
     },
     "incidentResponse": {
       "status": "approved",
