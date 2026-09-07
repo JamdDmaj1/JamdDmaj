@@ -51,7 +51,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          if ! cargo build-sbf --locked --manifest-path onchain/programs/jamddmaj-lock/Cargo.toml 2>&1 | tee sbf-build.log; then
+          if ! cargo build-sbf --manifest-path onchain/programs/jamddmaj-lock/Cargo.toml -- --locked 2>&1 | tee sbf-build.log; then
             {
               echo "### sBPF diagnostic (no deployment attempted)"
               echo '```text'

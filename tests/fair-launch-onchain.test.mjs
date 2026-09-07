@@ -160,7 +160,7 @@ test("on-chain builds pin dependencies and preserve verification evidence", () =
   assert.match(lockfile, /^version = 3$/m);
   assert.match(workflow, /dtolnay\/rust-toolchain@stable/);
   assert.match(workflow, /cargo test --locked/);
-  assert.match(workflow, /cargo build-sbf --locked/);
+  assert.match(workflow, /cargo build-sbf[^\n]+-- --locked/);
   assert.match(workflow, /jamddmaj_lock\.so\.sha256/);
   assert.match(workflow, /git_commit=\$\(git rev-parse HEAD\)/);
   assert.match(workflow, /retention-days: 90/);
