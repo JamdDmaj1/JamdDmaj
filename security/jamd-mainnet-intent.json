@@ -42,7 +42,25 @@
     "releaseFrequency": "monthly"
   },
   "beneficiaries": null,
-  "liquidityBudget": null,
+  "proposedTreasury": {
+    "address": "8c3NPUiUu4EX65QRBKPEYz2isZBk6spggvSJwazKdcHG",
+    "multisigAddress": "FFyAmn9dauQQjq8d6eLP8ZWBJexJBpLMTYmgDo8zSygJ",
+    "programAddress": "SQDS4ep65T869zMMBKyuUq6aD6EgTu8psMjkvj52pCf",
+    "vaultIndex": 0,
+    "pdaBump": 255,
+    "derivationVerified": true,
+    "scope": "treasury-only-not-all-allocation-beneficiaries"
+  },
+  "initialLaunch": {
+    "stage": "creation-only",
+    "publicTradingEnabled": false,
+    "publicSaleEnabled": false,
+    "customerTokenPaymentsEnabled": false,
+    "provideLiquidity": false,
+    "liquidityAllocationDisposition": "reserved-until-separate-approval",
+    "networkFeeBudget": null
+  },
+  "liquidityBudget": { "amount": "0", "currency": "USD" },
   "liquidityPair": null,
   "liquidityLockEvidence": null,
   "eligibilityEvidence": null,

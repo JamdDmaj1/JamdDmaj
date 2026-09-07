@@ -4,13 +4,98 @@
   "network": "solana-mainnet-beta",
   "programUpgradePolicy": "immutable-after-independent-verification",
   "operationsMultisig": {
-    "address": null,
-    "threshold": null,
-    "signers": null,
+    "address": "7ZmmiwTGmWexSxNqCQyFD2yU2GA9hBaYMRVVjzuQBhCc",
+    "onchainVerification": {
+      "commitment": "finalized",
+      "slot": 444982314,
+      "programOwner": "SQDS4ep65T869zMMBKyuUq6aD6EgTu8psMjkvj52pCf",
+      "threshold": 2,
+      "memberAddressesMatch": true,
+      "allMemberPermissionMasks": 7,
+      "configAuthority": "11111111111111111111111111111111",
+      "timeLockSeconds": 0
+    },
+    "threshold": 2,
+    "requiredSignerCount": 3,
+    "signers": [
+      "4WMnKm3KvLEHiw8tVFTynka8jBYvwekM2BpZz9iyyBjr",
+      "561CRUtWecFPKQYumT19D1Efznuzcycfham3D8EgXQt3",
+      "2MtjyLZjucUsKpkiBe1vY7Lac5SZYE5KXguZ1zNo35Er"
+    ],
+    "signerSelectionStatus": "invalid-exchange-deposit-signers-replacement-required",
+    "usableForLaunch": false,
+    "replacementPlan": {
+      "address": "FFyAmn9dauQQjq8d6eLP8ZWBJexJBpLMTYmgDo8zSygJ",
+      "status": "members-and-timelock-verified-on-mainnet",
+      "onchainVerification": {
+        "commitment": "finalized",
+        "slot": 444992011,
+        "programOwner": "SQDS4ep65T869zMMBKyuUq6aD6EgTu8psMjkvj52pCf",
+        "threshold": 2,
+        "timeLockSeconds": 86400,
+        "configAuthority": "11111111111111111111111111111111",
+        "memberAddressesMatch": true,
+        "allMemberPermissionMasks": 7,
+        "members": [
+          "Vje6oeZ2uiLafw7xnjpkTcvq54Ji1CwkFJA21wS2QEy",
+          "2RmDx5KLnEWG8wxdpdB6Z4ySDn9Z2Jir5aaCdg1ARCom",
+          "6r4enfuy41Xo44TNPjkSxYVjwyfzKjchQDqV6vwnAEpz"
+        ]
+      },
+      "threshold": 2,
+      "requiredSignerCount": 3,
+      "timeLockSeconds": 86400,
+      "ownerAddress": "2RmDx5KLnEWG8wxdpdB6Z4ySDn9Z2Jir5aaCdg1ARCom",
+      "cosignerCandidates": [
+        {
+          "address": "6r4enfuy41Xo44TNPjkSxYVjwyfzKjchQDqV6vwnAEpz",
+          "walletTypeReportedByOwner": "Phantom",
+          "addressFormatValid": true,
+          "controlVerified": false
+        },
+        {
+          "address": "Vje6oeZ2uiLafw7xnjpkTcvq54Ji1CwkFJA21wS2QEy",
+          "walletTypeReportedByOwner": "Phantom",
+          "addressFormatValid": true,
+          "controlVerified": false
+        }
+      ],
+      "excludedExchangeDepositAddresses": [
+        "561CRUtWecFPKQYumT19D1Efznuzcycfham3D8EgXQt3",
+        "2MtjyLZjucUsKpkiBe1vY7Lac5SZYE5KXguZ1zNo35Er"
+      ]
+    },
+    "signerCandidates": [
+      {
+        "address": "4WMnKm3KvLEHiw8tVFTynka8jBYvwekM2BpZz9iyyBjr",
+        "source": "owner-provided",
+        "addressFormatValid": true,
+        "controlVerified": false,
+        "roleConfirmed": true,
+        "role": "owner",
+        "existingUse": "devnet-platform-and-credit-treasury"
+      },
+      {
+        "address": "561CRUtWecFPKQYumT19D1Efznuzcycfham3D8EgXQt3",
+        "source": "owner-provided",
+        "addressFormatValid": true,
+        "controlVerified": false,
+        "roleConfirmed": true,
+        "role": "independent-cosigner"
+      },
+      {
+        "address": "2MtjyLZjucUsKpkiBe1vY7Lac5SZYE5KXguZ1zNo35Er",
+        "source": "owner-provided",
+        "addressFormatValid": true,
+        "controlVerified": false,
+        "roleConfirmed": true,
+        "role": "independent-cosigner"
+      }
+    ],
     "minimumThreshold": 2
   },
   "timelock": {
-    "seconds": null,
+    "seconds": 86400,
     "minimumSeconds": 86400,
     "appliesTo": [
       "eligibility-root-sealing",

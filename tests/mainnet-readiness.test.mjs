@@ -103,6 +103,8 @@ test("external review packages never impersonate approvals", async () => {
   assert.match(audit,/not an audit report or approval/i);
   assert.match(legal,/not legal advice or an opinion/i);
   assert.equal(governance.status,"configuration-required");
-  assert.equal(governance.operationsMultisig.address,null);
+  assert.equal(governance.operationsMultisig.usableForLaunch,false);
+  assert.equal(governance.operationsMultisig.replacementPlan.address,"FFyAmn9dauQQjq8d6eLP8ZWBJexJBpLMTYmgDo8zSygJ");
+  assert.equal(governance.operationsMultisig.replacementPlan.onchainVerification.timeLockSeconds,86400);
   assert.equal(governance.mainnetAuthorized,false);
 });

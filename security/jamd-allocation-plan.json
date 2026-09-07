@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "status": "draft-not-a-transaction",
+  "source": "security/jamd-mainnet-intent.json",
+  "network": "solana-mainnet-beta",
+  "token": "JAMD",
+  "totalTokens": "1000000000",
+  "lockedTokens": "870000000",
+  "notVestedTokens": "130000000",
+  "cliffCalendarMonths": 24,
+  "releaseCalendarMonths": 36,
+  "startTimestamp": null,
+  "custody": {
+    "model": "separate-squads-vault-per-category",
+    "multisigAddress": "FFyAmn9dauQQjq8d6eLP8ZWBJexJBpLMTYmgDo8zSygJ",
+    "programAddress": "SQDS4ep65T869zMMBKyuUq6aD6EgTu8psMjkvj52pCf",
+    "teamReserveController": "multisig",
+    "addressesDerivedOnly": true,
+    "accountsFundedByThisPlan": false
+  },
+  "allocations": [
+    {"category":"community","totalTokens":"400000000","lockedTokens":"360000000","notVestedTokens":"40000000","beneficiary":"2GztjoLqQuvHJUaafUpmrWZ5BCRSi1frhbw9Dju5ihJJ","vaultIndex":1},
+    {"category":"treasury","totalTokens":"250000000","lockedTokens":"225000000","notVestedTokens":"25000000","beneficiary":"8c3NPUiUu4EX65QRBKPEYz2isZBk6spggvSJwazKdcHG","vaultIndex":0},
+    {"category":"team","totalTokens":"150000000","lockedTokens":"150000000","notVestedTokens":"0","beneficiary":"3QxbrVJwq32VYFE4L5CsNVtyowvhTWxkg6q9bVPEH7Um","vaultIndex":2},
+    {"category":"ecosystem","totalTokens":"150000000","lockedTokens":"135000000","notVestedTokens":"15000000","beneficiary":"FDUzRLBNLM7X9GHuxGCj457WvFsKtHsTWB3P6yjX1SXX","vaultIndex":3},
+    {"category":"liquidity","totalTokens":"50000000","lockedTokens":"0","notVestedTokens":"50000000","beneficiary":"AXamYXoPVqZtBNuXxJdtBYRXHibbFWAzHhVxpULgLu8J","vaultIndex":4}
+  ],
+  "implementationNotes": {
+    "notVestedDoesNotAuthorizeDistribution": true,
+    "liquidityAllocationReserved": true,
+    "publicDistributionEnabled": false,
+    "vestingAccountAddresses": null,
+    "beneficiaryIsNotVestingEscrow": true,
+    "releaseRounding": "integer-base-units-cumulative-final-tranche-releases-remainder",
+    "categoryVestingImplementationVerified": false,
+    "multisigVestingClaimIntegrationVerified": false
+  }
+}
