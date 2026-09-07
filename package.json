@@ -14,6 +14,7 @@
     "ios": "npm run mobile:sync && cap open ios",
     "mainnet:readiness": "node scripts/check-mainnet-readiness.mjs",
     "devnet:rehearse-liquidity-attacks": "node scripts/rehearse-devnet-liquidity-attacks.mjs",
+    "devnet:rehearse-vesting-attacks": "node scripts/rehearse-devnet-vesting-attacks.mjs",
     "mainnet:gate": "node scripts/check-mainnet-readiness.mjs --enforce"
   },
   "dependencies": {

@@ -73,6 +73,22 @@
       { "name": "wrong beneficiary", "rejected": true, "error": "ConstraintSeeds (2006)" }
     ]
   },
+  "vestingAdversarialSimulations": {
+    "status": "passed",
+    "cluster": "devnet",
+    "sentTransactions": 0,
+    "cases": [
+      { "name": "claim before cliff", "rejected": true, "error": "NothingToClaim (6012)" },
+      { "name": "substituted vault", "rejected": true, "error": "ConstraintSeeds (2006)" },
+      { "name": "wrong mint", "rejected": true, "error": "ConstraintHasOne (2001)" },
+      { "name": "wrong beneficiary", "rejected": true, "error": "ConstraintSeeds (2006)" },
+      { "name": "wrong destination mint", "rejected": true, "error": "ConstraintTokenMint (2014)" }
+    ],
+    "doubleClaim": {
+      "status": "model-tested",
+      "reason": "A live double claim cannot occur until the 24-month cliff has elapsed; the release model returns zero after the full locked amount is released."
+    }
+  },
   "remainingEvidence": [
     "Seal a real, independently reviewed anti-Sybil eligibility root; never use invented participants.",
     "Repeat liquidity locking with actual pool receipts after a valueless Devnet market rehearsal; the confirmed mock receipt is not real liquidity.",

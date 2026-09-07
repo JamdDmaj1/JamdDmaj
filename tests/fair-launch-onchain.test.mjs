@@ -18,7 +18,8 @@ import {
   deriveProtectionAddresses,
   getInitializeCreatorVestingInstruction,
   getInitializeLiquidityLockInstruction,
-  getInitializePolicyInstruction
+  getInitializePolicyInstruction,
+  getClaimVestedInstruction
 } from "../lib/solana-devnet-token.js";
 import {
   JAMDDMAJ_ONCHAIN_RULES,
@@ -49,6 +50,7 @@ test("on-chain model keeps locked tokens unavailable for the full cliff", () => 
   assert.equal(vestedLockedAmount({ lockedAmount: 850, cliffEndAt, releaseEndAt, timestamp: cliffEndAt + JAMDDMAJ_ONCHAIN_RULES.releaseSeconds / 36 }), 23n);
   assert.equal(vestedLockedAmount({ lockedAmount: 850, cliffEndAt, releaseEndAt, timestamp: cliffEndAt + JAMDDMAJ_ONCHAIN_RULES.releaseSeconds / 2 }), 425n);
   assert.equal(claimableLockedAmount({ lockedAmount: 850, releasedAmount: 400, cliffEndAt, releaseEndAt, timestamp: releaseEndAt }), 450n);
+  assert.equal(claimableLockedAmount({ lockedAmount: 850, releasedAmount: 850, cliffEndAt, releaseEndAt, timestamp: releaseEndAt }), 0n);
 });
 
 test("liquidity cannot unlock before the JamdDmaj two-year floor", () => {
@@ -149,6 +151,24 @@ test("protected Devnet creation uses canonical PDAs and Anchor instructions", as
   assert.deepEqual(
     Buffer.from(vestingInstruction.data.subarray(0, 8)),
     createHash("sha256").update("global:initialize_creator_vesting").digest().subarray(0, 8)
+  );
+});
+
+test("vesting claim instruction binds every protected account", async () => {
+  const instruction = await getClaimVestedInstruction({
+    policyAddress: BENEFICIARY_A,
+    beneficiaryAddress: POLICY,
+    mintAddress: BENEFICIARY_B,
+    vestingAddress: BENEFICIARY_A,
+    vaultAddress: POLICY,
+    destinationAddress: BENEFICIARY_B
+  });
+  assert.equal(instruction.programAddress, JAMDDMAJ_LOCK_PROGRAM_ID);
+  assert.equal(instruction.accounts.length, 7);
+  assert.equal(instruction.data.length, 8);
+  assert.deepEqual(
+    Buffer.from(instruction.data),
+    createHash("sha256").update("global:claim_vested").digest().subarray(0, 8)
   );
 });
 
