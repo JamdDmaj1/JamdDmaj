@@ -41,9 +41,30 @@
     "eligibilityRootFrozen": false,
     "distributionClosed": true
   },
+  "mockLiquidityLockRehearsal": {
+    "status": "confirmed",
+    "realLiquidity": false,
+    "transactionSignature": "4Ed2JHj6r73sBUCDtPkfLGwgJkaJB7f9Pb8nbAa3YGz25RKtVkNZU8iFX9sfCSnjdHFWZiJS2QsVWYW2x7CMXwH2",
+    "slot": 494307182,
+    "confirmationStatus": "finalized",
+    "error": null,
+    "lpMintAddress": "3eCtggddS6WmQG3ACnbqoQF3wpB3WVEEH59yFYGoz25g",
+    "lpMintSupply": "1",
+    "lpMintAuthorityRevoked": true,
+    "lpFreezeAuthorityDisabled": true,
+    "liquidityLockAddress": "9MfHCJ73GyLE1afnjUsw77ucNYsWGj8X7stQYcMFzZGo",
+    "liquidityVaultAddress": "CTM56hMcmdzm4fX2aLQCmHAc2R6Cu35vJfM6zqn5J67a",
+    "sourceTokenAccountAddress": "4TmdqogJHqHVu75MqFaapNgnNkXrvxuUXpxqDBDRAkGT",
+    "sourceBalance": "0",
+    "vaultBalance": "1",
+    "released": false,
+    "createdAtUtc": "2026-09-06T23:44:37Z",
+    "unlockAtUtc": "2028-09-06T23:44:37Z",
+    "lockDays": 731
+  },
   "remainingEvidence": [
     "Seal a real, independently reviewed anti-Sybil eligibility root; never use invented participants.",
-    "Create and verify the liquidity lock using valueless Devnet assets.",
+    "Repeat liquidity locking with actual pool receipts after a valueless Devnet market rehearsal; the confirmed mock receipt is not real liquidity.",
     "Execute the full adversarial matrix from AUDIT-READINESS.md with an independent reviewer.",
     "Record reproducible sBPF and IDL hashes and obtain independent build verification."
   ]

@@ -61,6 +61,11 @@ test("current JAMD v2 evidence is Devnet-only and cannot open mainnet", async ()
   assert.equal(evidence.protection.releaseTranches,36);
   assert.equal(evidence.publicVerification.eligibilityRootFrozen,false);
   assert.equal(evidence.publicVerification.distributionClosed,true);
+  assert.equal(evidence.mockLiquidityLockRehearsal.status,"confirmed");
+  assert.equal(evidence.mockLiquidityLockRehearsal.realLiquidity,false);
+  assert.equal(evidence.mockLiquidityLockRehearsal.lockDays,731);
+  assert.equal(evidence.mockLiquidityLockRehearsal.vaultBalance,"1");
+  assert.equal(evidence.mockLiquidityLockRehearsal.released,false);
   assert.equal(readiness.requirements.devnetAdversarialRehearsal.status,"missing");
   assert.equal(evaluateReadiness(readiness).ready,false);
 });
