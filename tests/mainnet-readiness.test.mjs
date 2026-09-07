@@ -36,7 +36,7 @@ test("blank and wrongly typed evidence cannot pass", () => {
       }
     }
   }
-  for (const [field, value] of [["threshold", 1], ["threshold", 2.5], ["timelockSeconds", 0]]) {
+  for (const [field, value] of [["threshold", 1], ["threshold", 2.5], ["timelockSeconds", 0], ["timelockSeconds", 1], ["timelockSeconds", 86399]]) {
     const data = fixture(); data.requirements.upgradeAuthorityMultisig[field] = value;
     assert.equal(evaluateReadiness(data).ready, false);
   }
