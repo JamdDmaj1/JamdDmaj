@@ -20,6 +20,14 @@ check one-vote rejection, timelock rejection, pre-cliff rejection, first tranche
 full release and a second claim after full release. Clock advancement is an
 emulator facility; this is not elapsed-time evidence from Devnet or Mainnet.
 
+The expanded rehearsal also creates the Token-2022 mint with the application's
+metadata instructions, seals metadata, revokes mint authority, rejects additional
+issuance, and reconciles all five allocation balances. Unvested allocations stay
+in the local Squad's category vaults; no market or customer payments are opened.
+Setup spans multiple transactions and is not an atomic launch. Policy creation
+uses the temporary setup signer; governance of policy initialization and program
+upgrade authority is not demonstrated by successful multisig vesting claims.
+
 Output includes both binary hashes. A hash records the binary used; it is not
 an independent audit or a reproducible-build attestation. External RPC reads
 can fail, and the Squads binary may change between runs. Do not mark the test

@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "status": "partial-estimate-not-payment-authorization",
+  "queriedAtUtc": "2026-09-07T12:50:15Z",
+  "network": "solana-mainnet-beta",
+  "rpcMethod": "getMinimumBalanceForRentExemption",
+  "rpcEndpoint": "https://api.mainnet-beta.solana.com",
+  "artifactUrl": "https://github.com/JamdDmaj1/JamdDmaj/actions/runs/34122155125/artifacts/10018744024",
+  "binaryBytes": 436056,
+  "binarySha256": "ccfb9e37bbab5afd872c3dadac0e86496688420658173bf478d21255d0bb0fe6",
+  "loader": "BPFLoaderUpgradeab1e11111111111111111111111",
+  "layoutReference": "https://docs.rs/solana-loader-v3-interface/8.1.1/src/solana_loader_v3_interface/state.rs.html",
+  "assumption": "exact-fit-programdata-no-reserved-growth",
+  "programAccount": {"bytes":36,"rentExemptLamports":"1038612"},
+  "programDataAccount": {"bytes":436101,"rentExemptLamports":"2762638257"},
+  "programAccountRentSubtotalLamports": "2763676869",
+  "bufferAccountSeparateEstimate": {"bytes":436093,"rentExemptLamports":"2762587593"},
+  "bufferNote": "Not added to subtotal; peak funding and reclaimed buffer balance depend on the chosen deployment sequence.",
+  "excluded": ["mint-and-metadata-rent","policy-and-vesting-rent","token-account-rent","platform-creation-fee","network-transaction-fees","priority-fees","multisig-proposal-rent","audit-and-legal-review"],
+  "totalLaunchCost": null,
+  "recheckBeforeAnyDeployment": true
+}
