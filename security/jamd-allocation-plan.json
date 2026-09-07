@@ -32,7 +32,9 @@
     "vestingAccountAddresses": null,
     "beneficiaryIsNotVestingEscrow": true,
     "releaseRounding": "integer-base-units-cumulative-final-tranche-releases-remainder",
-    "categoryVestingImplementationVerified": false,
-    "multisigVestingClaimIntegrationVerified": false
+    "categoryVestingImplementationVerified": true,
+    "multisigVestingClaimIntegrationVerified": true,
+    "verificationScope": "local-litesvm-with-ephemeral-signers",
+    "verificationEvidence": "security/squads-vesting-integration-evidence.json"
   }
 }
