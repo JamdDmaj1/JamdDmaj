@@ -1,17 +1,18 @@
-import {language,tr,localize} from './lib/simulator-i18n.js?v=5';
+import {language,tr,localize} from './lib/simulator-i18n.js?v=10';
 import {pnl,indicators} from './lib/private-simulator.js?v=5';
 import {SimulatorAccount} from './lib/simulator-account.js?v=5';
 let account=new SimulatorAccount();
 const canonical={btc:['bitcoin','Bitcoin','BTC'],bitcoin:['bitcoin','Bitcoin','BTC'],eth:['ethereum','Ethereum','ETH'],ethereum:['ethereum','Ethereum','ETH'],sol:['solana','Solana','SOL'],solana:['solana','Solana','SOL'],zec:['zcash','Zcash','ZEC'],zcash:['zcash','Zcash','ZEC']};
 async function referencePrice(id){const r=await fetch('https://api.coingecko.com/api/v3/simple/price?ids='+encodeURIComponent(id)+'&vs_currencies=usd&include_last_updated_at=true',{signal:AbortSignal.timeout(10000)});if(!r.ok)throw new Error('reference');const d=await r.json(),v=Number(d[id]?.usd);if(!Number.isFinite(v)||v<=0)throw new Error('reference');return v;}
 
-let symbol='builtin:BTC'; const markets=new Map();
+let initialQuotePending=true;let symbol='builtin:BTC'; const markets=new Map();
 const $=id=>document.getElementById(id), money=n=>n.toLocaleString(language,{style:'currency',currency:'USD'}), quote=n=>n.toLocaleString(language,{maximumSignificantDigits:8});
 let price=60000,position=null,paused=false,asset='Bitcoin · BTC',ticks=[],clock=0,view=70,offset=0,mouse=null,drag=null,searchVersion=0;
 function seed(initial){price=initial;ticks=[];clock=0;let v=initial;for(let i=0;i<600;i++){v*=1+(Math.random()-.5)*.001;ticks.push({t:clock++,v});}const scale=initial/v;ticks.forEach(t=>t.v*=scale);view=70;offset=0;}
 function bars(){
  const size=Number($('timeframe').value),market=markets.get(symbol);
  if(market.live){const rows=[];for(const sample of [...(market.history||[]),...market.samples].sort((a,b)=>a.time-b.time)){const t=Math.floor(sample.time/1000/size);let b=rows.at(-1);if(!b||b.t!==t){b={t,open:sample.price,close:sample.price,high:sample.price,low:sample.price};rows.push(b);}b.close=sample.price;b.high=Math.max(b.high,sample.price);b.low=Math.min(b.low,sample.price);}return rows;}
+ if(initialQuotePending)return [];
  if(!market.charts)market.charts={};
  if(!market.charts[size]){
   let v=price,rows=[],now=Math.floor(Date.now()/1000/size);
@@ -39,10 +40,10 @@ function render(){
  const result=account.profit();
  const current=markets.get(symbol);$('chartStatus').textContent=current.historyLoading?(language==='es'?'Cargando historial público…':'Loading public history…'):(current.historyStatus|| (current.live?(language==='es'?'Recopilando muestras reales. Los indicadores necesitan más velas.':'Collecting real samples. Indicators need more candles.'):(language==='es'?'Escenario manual ficticio':'Synthetic manual scenario')));$('up').disabled=$('down').disabled=$('pause').disabled=!!current.live;
  $('identity').textContent=current.live?`${current.identity} · ${current.live.coin?'CoinGecko · USD reference':'DEX Screener'} · ${language==='es'?'consultado':'fetched'} ${new Date(current.updated).toLocaleTimeString(language)} · ${current.error||Date.now()-current.updated>45000?(language==='es'?'ATRASADO / órdenes bloqueadas':'STALE / orders blocked'):(language==='es'?'precio público · consulta cada 15 s':'public quote · 15 s polling')} · ${language==='es'?'velas de muestras recibidas, no historial completo':'sampled candles, not full history'}`:current.identity+' · '+tr('movimientos sintéticos');
- $('balance').textContent=money(account.available());$('equity').textContent=money(account.equity());$('quote').textContent=quote(price)+' USD';
+ $('balance').textContent=money(account.available());$('equity').textContent=money(account.equity());$('quote').textContent=initialQuotePending?'—':quote(price)+' USD';
  $('profit').textContent=account.positions.length?money(result):'—';$('profit').className=result>0?'positive':result<0?'negative':'neutral';$('assetName').textContent=asset;
  $('mode').disabled=!!(account.positions.length||account.orders.length);
- $('long').disabled=false;$('short').disabled=false;$('close').disabled=!account.positions.length;
+ $('long').disabled=!fresh();$('short').disabled=!fresh();$('close').disabled=!account.positions.length;
  $('position').replaceChildren();
  for(const p of account.positions){
   const div=document.createElement('div'),text=document.createElement('p'),button=document.createElement('button'),liq=account.liquidation(p),profit=pnl(p,account.price(p));
@@ -69,7 +70,7 @@ function select(name,identity,initial,live=null){
  if(!Number.isFinite(initial)||initial<=0)throw new Error('Introduce un precio inicial mayor que cero.');
  const key=identity||'manual:'+name;
  if(!markets.has(key))markets.set(key,{name:String(name).slice(0,100),identity,price:initial,charts:{},live,updated:live?Date.now():0,samples:live?[{time:Date.now(),price:initial}]:[]});
- symbol=key;const market=markets.get(key);asset=market.name;price=market.price;account.mark(symbol,price);
+ initialQuotePending=false;symbol=key;const market=markets.get(key);asset=market.name;price=market.price;account.mark(symbol,price);
  $('identity').textContent=market.identity+' · movimientos sintéticos';offset=0;
  $('stop').value='';$('take').value='';$('limitPrice').value=price;$('results').replaceChildren();$('searchStatus').textContent='';
  render();
@@ -127,7 +128,7 @@ async function loadHistory(id){
  }catch{m.historyStatus=language==='es'?'Historial no disponible. Solo se muestran muestras recibidas; no se inventan velas.':'History unavailable. Showing received samples only; no invented candles.';}
  finally{m.historyLoading=false;render();}
 }
-function fresh(){return [...markets.entries()].filter(([key])=>key===symbol||account.positions.some(p=>p.symbol===key)||account.orders.some(o=>o.symbol===key)).every(([,m])=>!m.live||(!m.error&&Date.now()-m.updated<=45000));}
+function fresh(){if(initialQuotePending)return false;return [...markets.entries()].filter(([key])=>key===symbol||account.positions.some(p=>p.symbol===key)||account.orders.some(o=>o.symbol===key)).every(([,m])=>!m.live||(!m.error&&Date.now()-m.updated<=45000));}
 async function refreshQuotes(){
  await Promise.all([...markets.entries()].filter(([key,m])=>m.live&&(key===symbol||account.positions.some(p=>p.symbol===key)||account.orders.some(o=>o.symbol===key))).map(async([key,m])=>{
  if(m.busy)return;m.busy=true;try{
@@ -141,6 +142,7 @@ async function refreshQuotes(){
  price=markets.get(symbol).price;if(fresh())record(account.tick());render();
 }
 setInterval(refreshQuotes,15000);
-setInterval(()=>{if(!paused){for(const [key,m] of markets){if(m.live)continue;m.price*=1+(Math.random()-.5)*.001;account.mark(key,m.price);}price=markets.get(symbol).price;if(fresh())record(account.tick());}render();},1000);render();
+setInterval(()=>{if(!paused&&!initialQuotePending){for(const [key,m] of markets){if(m.live)continue;m.price*=1+(Math.random()-.5)*.001;account.mark(key,m.price);}price=markets.get(symbol).price;if(fresh())record(account.tick());}render();},1000);render();
 for(const id of ['searchStatus','tokenStatus'])new MutationObserver(()=>{const el=$(id),text=tr(el.textContent);if(text!==el.textContent)el.textContent=text;}).observe($(id),{childList:true,characterData:true,subtree:true});
 for(const action of ['deposit','withdraw'])$(action).onclick=()=>{$('fundingStatus').textContent=language==='es'?'No conectado. Falta elegir y configurar tu wallet o exchange. No envíes fondos a esta demo.':'Not connected. Choose and configure your wallet or exchange first. Do not send funds to this demo.';};
+if(initialQuotePending){$('identity').textContent=language==='es'?'Consultando Bitcoin real…':'Fetching Bitcoin reference price…';referencePrice('bitcoin').then(value=>{if(!initialQuotePending)return;select('Bitcoin · BTC','coin:bitcoin',value,{coin:'bitcoin'});loadHistory('bitcoin');}).catch(()=>{$('error').textContent=language==='es'?'No se pudo consultar BTC. Busca Bitcoin para reintentar. No se muestra un precio ficticio.':'BTC unavailable. Search Bitcoin to retry. No simulated quote is displayed.';});}
