@@ -6,6 +6,8 @@ const root = resolve(import.meta.dirname, "..");
 const output = resolve(root, "www");
 const assets = [
   "index.html",
+  "private-simulator.html",
+  "private-simulator-ui.js",
   "discover.html",
   "discover.css",
   "discover-tour.css",
@@ -74,6 +76,9 @@ await build({
 });
 
 await mkdir(resolve(output, "lib"), { recursive: true });
+await cp(resolve(root, "lib", "private-simulator.js"), resolve(output, "lib", "private-simulator.js"));
+await cp(resolve(root, "lib", "simulator-account.js"), resolve(output, "lib", "simulator-account.js"));
+await cp(resolve(root, "lib", "simulator-i18n.js"), resolve(output, "lib", "simulator-i18n.js"));
 await cp(resolve(root, "lib", "fair-launch.js"), resolve(output, "lib", "fair-launch.js"));
 await cp(resolve(root, "lib", "wallet-security.js"), resolve(output, "lib", "wallet-security.js"));
 await cp(resolve(root, "lib", "wallet-standard-registry.js"), resolve(output, "lib", "wallet-standard-registry.js"));

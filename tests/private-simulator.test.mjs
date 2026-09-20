@@ -1,0 +1,12 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {pnl,openPosition,exitReason,settle,liquidationPrice,indicators} from '../lib/private-simulator.js';
+const make=side=>openPosition({side,margin:100,leverage:10,price:100,balance:1000,stop:null,take:null});
+test('leveraged long and short profits have opposite signs',()=>{assert.equal(pnl(make('long'),105),50);assert.equal(pnl(make('short'),105),-50)});
+test('margin cannot exceed cash and invalid inputs fail',()=>{for(const margin of [0,-1,1001,NaN])assert.throws(()=>openPosition({side:'long',margin,leverage:10,price:100,balance:1000,stop:null,take:null}))});
+test('liquidation gaps cannot debit beyond isolated margin',()=>{const p=make('long');assert.equal(exitReason(p,90),'Liquidación simulada');assert.equal(settle(p,50),0)});
+test('stop and take trigger for both directions',()=>{assert.equal(exitReason({...make('long'),stop:98},97),'Stop loss');assert.equal(exitReason({...make('short'),take:95},94),'Take profit');assert.equal(exitReason(make('short'),99),null)});
+test('cross uses all collateral and liquidation is farther away',()=>{const p=openPosition({side:'long',mode:'cross',margin:100,leverage:10,price:100,balance:1000});assert.equal(p.collateral,1000);assert.equal(liquidationPrice(p),.5);assert.equal(settle(p,90),900);assert.equal(settle(p,.1),1);assert.equal(exitReason(p,.4),'Liquidación simulada');assert.equal(liquidationPrice(make('long')),90.5);assert.equal(liquidationPrice(make('short')),109.5);});
+test('cross short gaps cannot create negative equity',()=>{const p=openPosition({side:'short',mode:'cross',margin:100,leverage:10,price:100,balance:1000});assert.equal(liquidationPrice(p),199.5);assert.equal(settle(p,300),0);assert.equal(settle(p,99),1010);});
+test('custom leverage and limits',()=>{for(const leverage of [1,2.5,75,1000])assert.equal(openPosition({side:'long',margin:10,leverage,price:1e-9,balance:100}).leverage,leverage);for(const leverage of [0,1001,Infinity,NaN])assert.throws(()=>openPosition({side:'long',margin:10,leverage,price:100,balance:100}));});
+test('indicator warmup, flat and rising data',()=>{const flat=indicators(Array(30).fill(100));assert.equal(flat[0].sma,null);assert.equal(flat[19].sma,100);assert.equal(flat[29].ema,100);assert.equal(flat[29].upper,100);assert.equal(flat[29].rsi,50);assert.equal(indicators(Array.from({length:30},(_,i)=>i+1)).at(-1).rsi,100);});

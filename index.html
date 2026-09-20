@@ -3845,6 +3845,7 @@
         <div class="top-actions">
           <button class="pill-btn" id="learnBtn" type="button">Learn</button>
           <button class="pill-btn" id="marketsBtn" type="button">Markets</button>
+          <button class="pill-btn" id="tradingDemoBtn" type="button">Trading demo</button>
           <button class="pill-btn" id="fairLaunchBtn" type="button">Fair Launch</button>
           <button class="pill-btn" id="walletBtn" type="button"><span data-wallet-button-label>Wallet</span></button>
           <button class="pill-btn" id="voiceModeBtn" type="button">Voice off</button>
@@ -3890,6 +3891,7 @@
         <div class="asset-detail-shell">
           <header class="asset-detail-header">
             <button class="asset-back" id="assetBackBtn" type="button" aria-label="Back to markets">←</button>
+            <button id="assetPracticeBtn" type="button">Practicar con este token</button>
             <div class="asset-identity">
               <strong id="assetDetailName">Asset</strong>
               <span id="assetDetailSymbol">-- / USDT</span>
@@ -14355,6 +14357,18 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         });
       });
       document.getElementById("assetBackBtn").addEventListener("click", closeMarketAsset);
+      document.getElementById("tradingDemoBtn").addEventListener("click", () => {
+        location.href = `./private-simulator.html?v=9#lang=${encodeURIComponent(resolvedLanguage())}`;
+      });
+      document.getElementById("assetPracticeBtn").addEventListener("click", () => {
+        if (!selectedMarketAsset) return;
+        const asset = selectedMarketAsset;
+        const params = new URLSearchParams({symbol: asset.symbol, name: asset.name, chain: asset.chainId || asset.source, address: asset.tokenAddress || asset.id || asset.symbol});
+        const initialPrice = Number(selectedMarketPayload?.ticker?.price || selectedMarketPayload?.candles?.at(-1)?.close);
+        if (Number.isFinite(initialPrice) && initialPrice > 0) params.set("price", String(initialPrice));
+        params.set("lang", resolvedLanguage());
+        location.href = `./private-simulator.html?v=9#${params}`;
+      });
       document.getElementById("assetTimeframes").addEventListener("click", (event) => {
         const button = event.target.closest("[data-timeframe]");
         if (!button || button.dataset.timeframe === selectedMarketTimeframe) return;
