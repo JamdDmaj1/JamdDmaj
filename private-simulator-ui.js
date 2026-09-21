@@ -3,7 +3,8 @@ import {pnl,indicators} from './lib/private-simulator.js?v=5';
 import {SimulatorAccount} from './lib/simulator-account.js?v=5';
 let account=new SimulatorAccount();
 const canonical={btc:['bitcoin','Bitcoin','BTC'],bitcoin:['bitcoin','Bitcoin','BTC'],eth:['ethereum','Ethereum','ETH'],ethereum:['ethereum','Ethereum','ETH'],sol:['solana','Solana','SOL'],solana:['solana','Solana','SOL'],zec:['zcash','Zcash','ZEC'],zcash:['zcash','Zcash','ZEC']};
-async function referencePrice(id){const r=await fetch('https://api.coingecko.com/api/v3/simple/price?ids='+encodeURIComponent(id)+'&vs_currencies=usd&include_last_updated_at=true',{signal:AbortSignal.timeout(10000)});if(!r.ok)throw new Error('reference');const d=await r.json(),v=Number(d[id]?.usd);if(!Number.isFinite(v)||v<=0)throw new Error('reference');return v;}
+async function catalogPrices(ids,signal=AbortSignal.timeout(10000)){const r=await fetch('/api/token-prices?ids='+encodeURIComponent(ids.join(',')),{signal});if(!r.ok)throw new Error('prices');return r.json();}
+async function referencePrice(id){const d=await catalogPrices([id]),v=Number(d[id]?.usd);if(!Number.isFinite(v)||v<=0)throw new Error('reference');return v;}
 
 let initialQuotePending=true;let symbol='builtin:BTC'; const markets=new Map();
 const $=id=>document.getElementById(id), money=n=>n.toLocaleString(language,{style:'currency',currency:'USD'}), quote=n=>n.toLocaleString(language,{maximumSignificantDigits:8});
@@ -108,7 +109,7 @@ async function searchCatalog(){
  };$('results').append(button);buttons.set(coin.id,{button,label});}
  if(unique.length>results.length&&!known){const more=document.createElement('button');more.type='button';more.textContent=language==='es'?'Ver más resultados':'Show more results';more.onclick=()=>{searchLimit+=30;searchCatalog();};$('results').append(more);}
  if(!results.length)return;
- try{const response=await fetch('https://api.coingecko.com/api/v3/simple/price?ids='+encodeURIComponent(results.map(c=>c.id).join(','))+'&vs_currencies=usd',{signal:controller.signal});if(!response.ok)throw new Error('prices');const prices=await response.json();if(version!==searchVersion)return;for(const [id,{button,label}] of buttons){const value=Number(prices[id]?.usd);button.textContent=label+' · '+(Number.isFinite(value)&&value>0?quote(value)+' USD':(language==='es'?'precio no disponible':'price unavailable'));}}
+ try{const prices=await catalogPrices(results.map(c=>c.id),controller.signal);if(version!==searchVersion)return;for(const [id,{button,label}] of buttons){const value=Number(prices[id]?.usd);button.textContent=label+' · '+(Number.isFinite(value)&&value>0?quote(value)+' USD':(language==='es'?'precio no disponible':'price unavailable'));}}
  catch{if(version===searchVersion)for(const {button,label} of buttons.values())button.textContent=label+' · '+(language==='es'?'consultar precio al seleccionar':'fetch price on selection');}
  }catch(error){if(version===searchVersion&&error.name!=='AbortError')$('searchStatus').textContent=language==='es'?'El catálogo no respondió. Espera un momento y vuelve a buscar.':'Catalog unavailable. Wait a moment and retry.';}
 }
