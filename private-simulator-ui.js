@@ -94,7 +94,7 @@ async function searchCatalog(){
  $('searchStatus').textContent=language==='es'?'Buscando monedas…':'Searching coins…';
  try{
  let coins=searchCache.get(q.toLowerCase());
- if(!coins){const response=await fetch('https://api.coingecko.com/api/v3/search?query='+encodeURIComponent(q),{signal:controller.signal});if(!response.ok)throw new Error('search');const data=await response.json();coins=Array.isArray(data.coins)?data.coins:[];searchCache.set(q.toLowerCase(),coins);}
+ if(!coins){const response=await fetch('/api/markets-catalog',{signal:controller.signal});if(!response.ok)throw new Error('search');const data=await response.json();coins=(Array.isArray(data.coins)?data.coins:[]).filter(c=>(c.symbol+' '+c.name+' '+c.id).toLowerCase().includes(q.toLowerCase()));searchCache.set(q.toLowerCase(),coins);}
  if(version!==searchVersion)return;
  const known=canonical[q.toLowerCase()];
  const score=c=>String(c.symbol).toLowerCase()===q.toLowerCase()||String(c.name).toLowerCase()===q.toLowerCase()?0:1;
