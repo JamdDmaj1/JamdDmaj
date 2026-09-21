@@ -19,6 +19,7 @@ const settings = {
   clientConnector: String(process.env.JAMDDMAJ_CLIENT_CONNECTOR || "false").toLowerCase() === "true",
   clientFeedToken: String(process.env.JAMDDMAJ_CLIENT_FEED_TOKEN || "").trim(),
   mode: normalizeMode(process.env.JAMDDMAJ_BITGET_MODE),
+  entrySource: String(process.env.JAMDDMAJ_ENTRY_SOURCE || "all").trim(),
   confirmation: String(process.env.JAMDDMAJ_LIVE_CONFIRM || "").trim(),
   apiKey: String(process.env.BITGET_API_KEY || "").trim(),
   apiSecret: String(process.env.BITGET_API_SECRET || "").trim(),
@@ -131,6 +132,11 @@ async function main() {
   const executable = [];
   const baselineEvaluations = [];
   for (const signal of signals) {
+    const sourceDecision = entrySourceDecision(signal, settings.entrySource);
+    if (!sourceDecision.ok) {
+      recordRejection(decisions, sourceDecision.reason, signal);
+      continue;
+    }
     const decision = executableDecision(signal, state, policy, marketContext);
     baselineEvaluations.push({ signal, decision });
     if (decision.ok) {
@@ -354,6 +360,14 @@ async function fetchClientFeed() {
     throw new Error(body?.error?.message || body?.message || `client feed returned ${response.status}`);
   }
   return body;
+}
+
+// Source selection never overrides the global pause or existing risk checks.
+export function entrySourceDecision(signal = {}, source = "all") {
+  if (source === "all") return { ok: true };
+  if (source !== "manual-only") return { ok: false, reason: "invalid entry source: entries blocked" };
+  if (signal?.manualTest === true && signal?.executorSource === "manual-test") return { ok: true };
+  return { ok: false, reason: "manual-only mode: automatic entry blocked" };
 }
 
 export function selectRecentOpenSignals(openSignals, minutes, now = Date.now()) {
