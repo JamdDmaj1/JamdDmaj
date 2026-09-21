@@ -130,7 +130,9 @@ test("web version matches its status field while Android fallback matches the na
   assert.doesNotMatch(html, /id="appUpdateStatus"[^>]*>\s*Installed version:/);
   assert.match(html, /renderAppUpdateStatus\(latestAppStatus \|\| \{ version: APP_VERSION \}\)/);
   assert.match(html, new RegExp(`wallet-login-ui\\.js\\?v=${packageVersion.replaceAll(".", "\\.")}`));
-  assert.match(statusSource, new RegExp(`FALLBACK_VERSION = "${packageVersion.replaceAll(".", "\\.")}"`));
+  const fallback = statusSource.match(/FALLBACK_VERSION = "(\d+\.\d+\.\d+)"/)?.[1];
+  assert.ok(fallback, "fallback must refer to an already published native release");
+  assert.ok(fallback.localeCompare(packageVersion, undefined, {numeric:true}) <= 0);
   assert.match(androidGradle, new RegExp(`versionName "${packageVersion.replaceAll(".", "\\.")}"`));
 });
 

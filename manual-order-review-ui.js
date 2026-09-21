@@ -22,7 +22,7 @@ quoteButton.onclick=async()=>{
  try{
   const device=localStorage.getItem('jamdV2DeviceId')||'';
   if(!/^[a-zA-Z0-9_-]{16,100}$/.test(device))throw new Error('owner');
-  const response=await fetch('/api/pro',{method:'POST',headers:{'Content-Type':'application/json','x-jamddmaj-device':device},body:JSON.stringify({action:'manualQuote',symbol:inputs.symbol.value.trim().toUpperCase()}),signal:AbortSignal.timeout(12000),cache:'no-store'});
+  const response=await fetch(terminalApiRoot+'/api/pro',{method:'POST',headers:{'Content-Type':'application/json','x-jamddmaj-device':device},body:JSON.stringify({action:'manualQuote',symbol:inputs.symbol.value.trim().toUpperCase()}),signal:AbortSignal.timeout(12000),cache:'no-store'});
   if(!response.ok)throw new Error('quote');const data=await response.json();
   if(version!==quoteVersion)return;
   if(!data.quote||!Number.isFinite(data.quote.price))throw new Error('quote');
@@ -56,7 +56,7 @@ validate.onclick=async()=>{
  try{
   const draft=reviewManualOrder(JSON.parse(snapshot)),device=localStorage.getItem('jamdV2DeviceId')||'';
   if(!/^[a-zA-Z0-9_-]{16,100}$/.test(device))throw new Error('owner');
-  const response=await fetch('/api/pro',{method:'POST',headers:{'Content-Type':'application/json','x-jamddmaj-device':device},body:JSON.stringify({action:'manualOrderPreview',draft}),signal:AbortSignal.timeout(15000),cache:'no-store'});
+  const response=await fetch(terminalApiRoot+'/api/pro',{method:'POST',headers:{'Content-Type':'application/json','x-jamddmaj-device':device},body:JSON.stringify({action:'manualOrderPreview',draft}),signal:AbortSignal.timeout(15000),cache:'no-store'});
   if(!response.ok)throw new Error('validation');const data=await response.json();
   if(snapshot!==JSON.stringify(Object.fromEntries(Object.entries(inputs).map(([key,input])=>[key,input.value]))))throw new Error('changed');
   if(data.preview?.submitted!==false||!Array.isArray(data.preview.blockers))throw new Error('validation');
@@ -76,7 +76,7 @@ let prepared=null,lastRequest=sessionStorage.getItem('jamdManualPendingId')||'';
 async function terminalRequest(body){
  const device=localStorage.getItem('jamdV2DeviceId')||'';
  if(!/^[a-zA-Z0-9_-]{16,100}$/.test(device))throw Error('owner');
- const response=await fetch('/api/pro',{method:'POST',headers:{'Content-Type':'application/json','x-jamddmaj-device':device},body:JSON.stringify(body),signal:AbortSignal.timeout(15000),cache:'no-store'});
+ const response=await fetch(terminalApiRoot+'/api/pro',{method:'POST',headers:{'Content-Type':'application/json','x-jamddmaj-device':device},body:JSON.stringify(body),signal:AbortSignal.timeout(15000),cache:'no-store'});
  const data=await response.json();if(!response.ok||data.ok!==true)throw Error(data.error?.message||'unavailable');return data;
 }
 form.addEventListener('input',()=>{prepared=null;dialog.close();});
@@ -110,3 +110,4 @@ statusButton.onclick=async()=>{
 };
 form.append(prepare,statusButton);
 panel.append(title,note,form,result);document.querySelector('.stats').before(panel);
+const terminalApiRoot = window.Capacitor?.isNativePlatform?.() ? 'https://www.jamddmaj.com' : '';

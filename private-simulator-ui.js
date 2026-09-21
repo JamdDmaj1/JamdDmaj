@@ -33,7 +33,7 @@ connectionButton.onclick=async()=>{
  try{
   const device=localStorage.getItem('jamdV2DeviceId')||'';
   if(!/^[a-zA-Z0-9_-]{16,100}$/.test(device))throw new Error('owner');
-  const response=await fetch('/api/pro',{method:'POST',headers:{'Content-Type':'application/json','x-jamddmaj-device':device},body:JSON.stringify({action:'manualReadiness'}),signal:AbortSignal.timeout(15000),cache:'no-store'});
+  const response=await fetch(terminalApiRoot+'/api/pro',{method:'POST',headers:{'Content-Type':'application/json','x-jamddmaj-device':device},body:JSON.stringify({action:'manualReadiness'}),signal:AbortSignal.timeout(15000),cache:'no-store'});
   if(response.status===403)throw new Error('owner');
   if(!response.ok)throw new Error('unavailable');
   const data=await response.json();
@@ -57,7 +57,7 @@ connectionButton.onclick=async()=>{
  finally{connectionButton.disabled=false;}
 };
 const canonical={btc:['bitcoin','Bitcoin','BTC'],bitcoin:['bitcoin','Bitcoin','BTC'],eth:['ethereum','Ethereum','ETH'],ethereum:['ethereum','Ethereum','ETH'],sol:['solana','Solana','SOL'],solana:['solana','Solana','SOL'],zec:['zcash','Zcash','ZEC'],zcash:['zcash','Zcash','ZEC']};
-async function catalogPrices(ids,signal=AbortSignal.timeout(10000)){const r=await fetch('/api/token-prices?ids='+encodeURIComponent(ids.join(',')),{signal});if(!r.ok)throw new Error('prices');return r.json();}
+async function catalogPrices(ids,signal=AbortSignal.timeout(10000)){const r=await fetch(terminalApiRoot+'/api/token-prices?ids='+encodeURIComponent(ids.join(',')),{signal});if(!r.ok)throw new Error('prices');return r.json();}
 async function referencePrice(id){const d=await catalogPrices([id]),v=Number(d[id]?.usd);if(!Number.isFinite(v)||v<=0)throw new Error('reference');return v;}
 
 let initialQuotePending=true;let symbol='builtin:BTC'; const markets=new Map();
@@ -148,7 +148,7 @@ async function searchCatalog(){
  $('searchStatus').textContent=language==='es'?'Buscando monedas…':'Searching coins…';
  try{
  let coins=searchCache.get(q.toLowerCase());
- if(!coins){const response=await fetch('/api/markets-catalog',{signal:controller.signal});if(!response.ok)throw new Error('search');const data=await response.json();coins=(Array.isArray(data.coins)?data.coins:[]).filter(c=>(c.symbol+' '+c.name+' '+c.id).toLowerCase().includes(q.toLowerCase()));searchCache.set(q.toLowerCase(),coins);}
+ if(!coins){const response=await fetch(terminalApiRoot+'/api/markets-catalog',{signal:controller.signal});if(!response.ok)throw new Error('search');const data=await response.json();coins=(Array.isArray(data.coins)?data.coins:[]).filter(c=>(c.symbol+' '+c.name+' '+c.id).toLowerCase().includes(q.toLowerCase()));searchCache.set(q.toLowerCase(),coins);}
  if(version!==searchVersion)return;
  const known=canonical[q.toLowerCase()];
  const score=c=>String(c.symbol).toLowerCase()===q.toLowerCase()||String(c.name).toLowerCase()===q.toLowerCase()?0:1;
@@ -201,3 +201,4 @@ setInterval(()=>{if(!paused&&!initialQuotePending){for(const [key,m] of markets)
 for(const id of ['searchStatus','tokenStatus'])new MutationObserver(()=>{const el=$(id),text=tr(el.textContent);if(text!==el.textContent)el.textContent=text;}).observe($(id),{childList:true,characterData:true,subtree:true});
 for(const action of ['deposit','withdraw'])$(action).onclick=()=>{$('fundingStatus').textContent=language==='es'?'No conectado. Falta elegir y configurar tu wallet o exchange. No envíes fondos a esta demo.':'Not connected. Choose and configure your wallet or exchange first. Do not send funds to this demo.';};
 if(initialQuotePending){$('identity').textContent=language==='es'?'Consultando Bitcoin real…':'Fetching Bitcoin reference price…';referencePrice('bitcoin').then(value=>{if(!initialQuotePending)return;select('Bitcoin · BTC','coin:bitcoin',value,{coin:'bitcoin'});loadHistory('bitcoin');}).catch(()=>{$('error').textContent=language==='es'?'No se pudo consultar BTC. Busca Bitcoin para reintentar. No se muestra un precio ficticio.':'BTC unavailable. Search Bitcoin to retry. No simulated quote is displayed.';});}
+const terminalApiRoot = window.Capacitor?.isNativePlatform?.() ? 'https://www.jamddmaj.com' : '';
