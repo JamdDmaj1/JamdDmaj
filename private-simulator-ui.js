@@ -1,7 +1,61 @@
 import {language,tr,localize} from './lib/simulator-i18n.js?v=10';
 import {pnl,indicators} from './lib/private-simulator.js?v=5';
 import {SimulatorAccount} from './lib/simulator-account.js?v=5';
+import './manual-order-review-ui.js';
 let account=new SimulatorAccount();
+// Owner-only diagnostics: never call the execution, configuration or queue actions here.
+const connectionPanel=document.createElement('section');
+connectionPanel.className='card';
+const connectionTitle=document.createElement('h2');
+connectionTitle.textContent=language==='es'?'Conexión privada con Bitget':'Private Bitget connection';
+const connectionButton=document.createElement('button');
+connectionButton.type='button';
+connectionButton.textContent=language==='es'?'Comprobar conexión (solo lectura)':'Check connection (read only)';
+const connectionResult=document.createElement('p');
+connectionResult.setAttribute('role','status');
+connectionResult.style.whiteSpace='pre-line';
+connectionResult.textContent=language==='es'?'Esta comprobación no activa operaciones. Los botones Long y Short siguen siendo de simulación.':'This check does not enable trading. Long and Short buttons remain simulated.';
+connectionPanel.append(connectionTitle,connectionButton,connectionResult);
+document.querySelector('.stats').before(connectionPanel);
+const connectionReasons={
+ heartbeat_missing_or_stale:['El servidor no ha enviado un estado reciente.','No recent server heartbeat.'],
+ exchange_connection_unconfirmed:['La conexión con Bitget no está confirmada.','Bitget connection is not confirmed.'],
+ executor_not_live:['El conector no informa modo real.','The connector does not report live mode.'],
+ manual_only_unconfirmed:['El servidor aún no informa el modo solo manual a la app.','The server does not yet report manual-only mode to the app.'],
+ manual_protocol_unconfirmed:['Falta confirmar el protocolo de órdenes manuales.','Manual order protocol is not confirmed.'],
+ exit_safety_block:['Hay un bloqueo de protección de cierres.','An exit safety block is active.'],
+ pending_manual_intent:['Existe una solicitud manual pendiente; no se ha enviado ni eliminado en esta comprobación.','A manual intent is pending; this check has not submitted or deleted it.'],
+ entries_paused_or_unknown:['Las entradas están pausadas o su estado no está confirmado.','Entries are paused or their status is unconfirmed.']
+};
+connectionButton.onclick=async()=>{
+ connectionButton.disabled=true;
+ connectionResult.textContent=language==='es'?'Comprobando…':'Checking…';
+ try{
+  const device=localStorage.getItem('jamdV2DeviceId')||'';
+  if(!/^[a-zA-Z0-9_-]{16,100}$/.test(device))throw new Error('owner');
+  const response=await fetch('/api/pro',{method:'POST',headers:{'Content-Type':'application/json','x-jamddmaj-device':device},body:JSON.stringify({action:'manualReadiness'}),signal:AbortSignal.timeout(15000),cache:'no-store'});
+  if(response.status===403)throw new Error('owner');
+  if(!response.ok)throw new Error('unavailable');
+  const data=await response.json();
+  if(data.readiness?.readOnly!==true||!Array.isArray(data.readiness.blockers))throw new Error('unavailable');
+  const messages=data.readiness.blockers.map(code=>connectionReasons[code]?.[language==='es'?0:1]||(language==='es'?'Comprobación adicional pendiente.':'Additional check required.'));
+  if(data.account && data.readiness.freshHeartbeat){
+   const format=value=>typeof value==='number'&&Number.isFinite(value)?value.toLocaleString(language,{maximumFractionDigits:4})+' USDT':'—';
+   messages.unshift((language==='es'?'Último saldo informado por Bitget — patrimonio: ':'Last balance reported by Bitget — equity: ')+format(data.account.equity)+(language==='es'?' · disponible: ':' · available: ')+format(data.account.available));
+   messages.push((language==='es'?'Fecha del saldo: ':'Balance timestamp: ')+String(data.account.updatedAt));
+  }else messages.unshift(language==='es'?'Saldo real no disponible o desactualizado; no se sustituye por saldo ficticio.':'Real balance unavailable or stale; no simulated balance is substituted.');
+  if(Array.isArray(data.positions)&&data.readiness.freshHeartbeat){
+   messages.push(language==='es'?'Posiciones informadas (máximo 8; la lista puede estar incompleta):':'Reported positions (maximum 8; list may be incomplete):');
+   for(const position of data.positions){
+    messages.push([position.symbol,position.holdSide,position.total].filter(value=>value!==undefined&&value!==null).map(String).join(' · '));
+   }
+   if(!data.positions.length)messages.push(language==='es'?'El conector no informa posiciones abiertas.':'No open positions reported by the connector.');
+  }
+  messages.push(language==='es'?'No se envió ninguna orden. Sigue pendiente la validación completa antes de operar.':'No order was sent. End-to-end validation is still required before trading.');
+  connectionResult.textContent=messages.join('\n');
+ }catch(error){connectionResult.textContent=error.message==='owner'?(language==='es'?'Abre la app desde el dispositivo autorizado del propietario. No introduzcas claves aquí.':'Open the app from the authorized owner device. Do not enter keys here.'):(language==='es'?'No se pudo comprobar la conexión. No se envió ninguna orden.':'Connection check unavailable. No order was sent.');}
+ finally{connectionButton.disabled=false;}
+};
 const canonical={btc:['bitcoin','Bitcoin','BTC'],bitcoin:['bitcoin','Bitcoin','BTC'],eth:['ethereum','Ethereum','ETH'],ethereum:['ethereum','Ethereum','ETH'],sol:['solana','Solana','SOL'],solana:['solana','Solana','SOL'],zec:['zcash','Zcash','ZEC'],zcash:['zcash','Zcash','ZEC']};
 async function referencePrice(id){const r=await fetch('https://api.coingecko.com/api/v3/simple/price?ids='+encodeURIComponent(id)+'&vs_currencies=usd&include_last_updated_at=true',{signal:AbortSignal.timeout(10000)});if(!r.ok)throw new Error('reference');const d=await r.json(),v=Number(d[id]?.usd);if(!Number.isFinite(v)||v<=0)throw new Error('reference');return v;}
 

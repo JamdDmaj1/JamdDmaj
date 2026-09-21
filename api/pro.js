@@ -1,6 +1,12 @@
 import { corsHeaders, jsonResponse } from "../lib/server.js";
 import { getProServerState, queueExecutorTestSignal, resetPaperPortfolio, runProCycle, saveProServerConfig } from "../lib/pro-signals.js";
 import { getCachedProBacktest, runProBacktest } from "../lib/pro-backtest.js";
+import { manualTradingReadiness } from "../lib/manual-trading-readiness.js";
+import { getBitgetPublicReview } from "../lib/bitget-public-review.js";
+import { preflightManualOrder } from "../lib/manual-order-preflight.js";
+import { reviewManualOrder } from "../lib/manual-order-draft.js";
+import { manualTerminalService } from "../lib/manual-terminal-service.js";
+import { redisRequest } from "../lib/server.js";
 
 export const config = { runtime: "edge" };
 
@@ -17,6 +23,46 @@ export default async function handler(request) {
 
   try {
     const input = await request.json();
+    if (input?.action === "manualOrderStatus") {
+      const id=String(input.requestId||"");
+      if(!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(id))return jsonResponse(request,{error:{message:"Invalid order ID"}},400);
+      const state=await getProServerState(),signalId="manual-terminal-"+id.toLowerCase();
+      const order=state.executor?.recentOrders?.find(order=>order.id===signalId);
+      return jsonResponse(request,{ok:true,requestId:id,
+        status:order?(order.acknowledgementUncertain?"uncertain":"reported_by_executor"):(state.executorTest?.id===signalId?"queued":"unconfirmed"),
+        order:order||null,receivedAt:state.executor?.receivedAt||null,
+        note:"Executor report only; missing status is not permission to resubmit."});
+    }
+    if (input?.action === "manualPrepare" || input?.action === "manualConfirm") {
+      const terminal = manualTerminalService({redis:redisRequest,getState:getProServerState,getQuote:getBitgetPublicReview,
+        enabled:process.env.JAMDDMAJ_MANUAL_TRADING_ENABLED === "true"});
+      const result = input.action === "manualPrepare" ? await terminal.prepare(input.draft) : await terminal.confirm(input);
+      return jsonResponse(request, {ok:true,...result});
+    }
+    if (input?.action === "manualOrderPreview") {
+      const draft = reviewManualOrder(input.draft);
+      const [quote, state] = await Promise.all([getBitgetPublicReview(draft.symbol), getProServerState()]);
+      return jsonResponse(request, { ok: true, preview: preflightManualOrder(draft, quote, state) });
+    }
+    if (input?.action === "manualQuote") {
+      return jsonResponse(request, { ok: true, quote: await getBitgetPublicReview(input.symbol) });
+    }
+    if (input?.action === "manualReadiness") {
+      const state = await getProServerState();
+      const executor = state.executor || {};
+      const readiness = manualTradingReadiness(state);
+      return jsonResponse(request, {
+        ok: true, readiness,
+        account: executor.bitgetSynced === true && executor.accountRisk?.updatedAt ? {
+          equity: executor.accountRisk.equity,
+          available: executor.accountRisk.available,
+          updatedAt: executor.accountRisk.updatedAt
+        } : null,
+        positions: executor.bitgetSynced === true ? executor.remotePositions : null,
+        positionsMayBeTruncated: true,
+        receivedAt: executor.receivedAt || null
+      });
+    }
     if (input?.action === "status" || input?.action === "history") {
       const state = await getProServerState();
       const backtest = await getCachedProBacktest();

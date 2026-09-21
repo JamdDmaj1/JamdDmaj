@@ -119,12 +119,14 @@ function mockRedisState(open) {
   ]), { status: 200 });
 }
 
-test("web, API fallback and Android release versions stay aligned", () => {
+test("web version matches its status field while Android fallback matches the native release", () => {
   const packageVersion = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
   const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
   const statusSource = readFileSync(new URL("../api/status.js", import.meta.url), "utf8");
   const androidGradle = readFileSync(new URL("../android/app/build.gradle", import.meta.url), "utf8");
-  assert.match(html, new RegExp(`APP_VERSION = "${packageVersion.replaceAll(".", "\\.")}"`));
+  const webVersion = statusSource.match(/webVersion: "(\d+\.\d+\.\d+)"/)?.[1];
+  assert.ok(webVersion, "status must identify the web version independently of the APK");
+  assert.match(html, new RegExp(`APP_VERSION = "${webVersion.replaceAll(".", "\\.")}"`));
   assert.doesNotMatch(html, /id="appUpdateStatus"[^>]*>\s*Installed version:/);
   assert.match(html, /renderAppUpdateStatus\(latestAppStatus \|\| \{ version: APP_VERSION \}\)/);
   assert.match(html, new RegExp(`wallet-login-ui\\.js\\?v=${packageVersion.replaceAll(".", "\\.")}`));

@@ -243,7 +243,7 @@ async function main() {
       signal.currentPrice = livePrice / (Number(signal.contractMultiplier) || 1);
       const referenceEntry = Number(signal.entry);
       const liveDrift = Math.abs((signal.currentPrice - referenceEntry) / referenceEntry) * 100;
-      const maxDrift = effectiveTraderProfile(policy).maxEntryDriftPercent;
+      const maxDrift = signal.terminalOrderVersion === 1 ? Math.min(0.5, effectiveTraderProfile(policy).maxEntryDriftPercent) : effectiveTraderProfile(policy).maxEntryDriftPercent;
       const liveLevels = exitLevelDecision(signal.side, signal.currentPrice, signal.sl, signal.tp1);
       if (!Number.isFinite(liveDrift) || liveDrift > maxDrift || !liveLevels.ok) {
         const reason = !liveLevels.ok
@@ -523,6 +523,11 @@ function executableDecision(signal, state, policy = {}, marketContext = null) {
   if (symbolReentryBlock) return { ok: false, reason: symbolReentryBlock };
   const gate = summarizeMarketGate(marketContext, policy);
   const minScore = gate.strictMinScore;
+  if (signal.terminalOrderVersion === 1) {
+    const terminal = terminalSignalDecision(signal, settings);
+    if (!terminal.ok) return terminal;
+    return exitLevelDecision(signal.side, Number(signal.entry), Number(signal.sl), Number(signal.tp1));
+  }
   if (signal.manualTest === true) {
     if (Number(signal.score || 0) < minScore) return { ok: false, reason: `manual order score below ${minScore}` };
     if (String(signal.marketAlignment || "neutral-market").toLowerCase() === "counter-market") {
@@ -633,6 +638,8 @@ function buildOrderPlan(signal, contracts, marketContext = null, policy = {}, ac
   const requestedMarginUsd = fixedMarginUsd > 0 ? fixedMarginUsd : Number(signal.plannedUsd);
   const marginUsd = Math.min(requestedMarginUsd || marginCap, marginCap);
   const leverage = clampInt(signal.leverage, 1, leverageCap, Math.min(10, leverageCap));
+  const confirmedRisk = manualRiskAgreement(signal, marginUsd, leverage);
+  if (!confirmedRisk.ok) return confirmedRisk;
   const notionalUsd = roundMoney(marginUsd * leverage);
   const rawSize = notionalUsd / price;
   const contract = contracts.get(symbol);
@@ -641,7 +648,14 @@ function buildOrderPlan(signal, contracts, marketContext = null, policy = {}, ac
   const pricePlace = contract ? clampInt(contract.pricePlace, 0, 12, 4) : 4;
   const priceEndStep = contract ? clampNumber(contract.priceEndStep, 1, 1000000, 1) : 1;
   const minTradeNum = Number(contract?.minTradeNum || 0);
-  const size = floorToPlace(rawSize, volumePlace);
+  let size = floorToPlace(rawSize, volumePlace);
+  if (signal.terminalOrderVersion === 1) {
+    const step=Number(contract?.sizeMultiplier),minimum=Number(contract?.minTradeUSDT);
+    if(contract?.symbolStatus!=="normal"||!contract?.supportMarginCoins?.includes("USDT")||!(step>0)||!(minimum>0)
+        || !(leverage>=Number(contract.minLever)&&leverage<=Number(contract.maxLever))) return {ok:false,reason:"terminal contract rules unavailable or incompatible"};
+    size=floorToPlace(Math.floor(rawSize/step)*step,volumePlace);
+    if(size*price<minimum || !(Number(contract.maxMarketOrderQty)>0) || size>Number(contract.maxMarketOrderQty))return {ok:false,reason:"terminal size outside exchange limits"};
+  }
   if (!Number.isFinite(size) || size <= 0) return { ok: false, reason: "calculated size is too small" };
   if (minTradeNum && size < minTradeNum) return { ok: false, reason: `size below Bitget minimum ${minTradeNum}` };
 
@@ -665,7 +679,33 @@ function buildOrderPlan(signal, contracts, marketContext = null, policy = {}, ac
   };
 }
 
-function makeClientOid(signal = {}) {
+export function manualRiskAgreement(signal, marginUsd, leverage) {
+  if (signal?.manualTest !== true) return { ok: true };
+  const requestedMargin = Number(signal.plannedUsd), requestedLeverage = Number(signal.leverage);
+  if (!Number.isFinite(requestedMargin) || requestedMargin <= 0
+      || !Number.isInteger(requestedLeverage) || requestedLeverage < 1
+      || Math.abs(requestedMargin - marginUsd) > 1e-9 || requestedLeverage !== leverage) {
+    return { ok: false, reason: "manual order risk differs from confirmation; review required" };
+  }
+  return { ok: true };
+}
+
+export function terminalSignalDecision(signal, configuration) {
+  if (configuration.entrySource !== "manual-only" || configuration.marginMode !== "isolated"
+      || configuration.productType !== "USDT-FUTURES" || configuration.marginCoin !== "USDT") return {ok:false,reason:"terminal configuration mismatch"};
+  const age=Date.now()-Date.parse(signal.createdAt);
+  if (signal.manualTest!==true || signal.executorSource!=="manual-test" || signal.orderType!=="market" || signal.marginMode!=="isolated"
+      || !/^manual-terminal-[a-f0-9-]{36}$/.test(signal.id||"") || !["LONG","SHORT"].includes(signal.side)
+      || !Number.isFinite(age) || age<0 || age>60000 || !(Date.parse(signal.validUntil)>Date.now())
+      || !(signal.plannedUsd>=1&&signal.plannedUsd<=25) || !Number.isInteger(signal.leverage) || signal.leverage<1 || signal.leverage>10) return {ok:false,reason:"invalid or expired terminal confirmation"};
+  return {ok:true,reason:"explicit terminal order; account risk and exchange checks still required"};
+}
+
+export function makeClientOid(signal = {}) {
+  if (signal.manualTest === true) {
+    if (typeof signal.id !== "string" || !signal.id.trim()) throw new Error("Manual order requires a stable ID.");
+    return `jamd-manual-${crypto.createHash("sha256").update(signal.id).digest("hex").slice(0, 40)}`;
+  }
   const base = String(signal.id || signal.pair || signal.symbol || "sig").replace(/[^a-zA-Z0-9-]/g, "").slice(0, 26) || "sig";
   const stamp = Date.now().toString(36);
   const random = crypto.randomBytes(3).toString("hex");
@@ -2030,6 +2070,10 @@ function statusPayload(state, overrides = {}) {
     exitSafetyBlockReason: state.exitSafetyBlockReason || "",
     bitgetSynced: state.bitgetSynced === true,
     manualOrderVersion: 1,
+    terminalOrderVersion: 1,
+    marginMode: settings.marginMode,
+    productType: settings.productType,
+    entrySource: settings.entrySource,
     effectivePolicy: {
       maxOpen: Number(state.effectivePolicy?.maxOpen || settings.maxOpen),
       maxNewOrdersPerRun: Number(state.effectivePolicy?.maxNewOrdersPerRun || settings.maxNewOrdersPerRun),
@@ -2161,6 +2205,7 @@ function compactOrder(order) {
     symbol: order.symbol || "",
     side: order.side || "",
     status: order.status || "",
+    acknowledgementUncertain: order.acknowledgementUncertain === true,
     marginUsd: Number(order.marginUsd || 0),
     notionalUsd: Number(order.notionalUsd || 0),
     size: order.size || "",

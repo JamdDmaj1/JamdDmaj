@@ -8,6 +8,7 @@ const assets = [
   "index.html",
   "private-simulator.html",
   "private-simulator-ui.js",
+  "manual-order-review-ui.js",
   "discover.html",
   "discover.css",
   "discover-tour.css",
@@ -76,6 +77,7 @@ await build({
 });
 
 await mkdir(resolve(output, "lib"), { recursive: true });
+await cp(resolve(root, "lib", "manual-order-draft.js"), resolve(output, "lib", "manual-order-draft.js"));
 await cp(resolve(root, "lib", "private-simulator.js"), resolve(output, "lib", "private-simulator.js"));
 await cp(resolve(root, "lib", "simulator-account.js"), resolve(output, "lib", "simulator-account.js"));
 await cp(resolve(root, "lib", "simulator-i18n.js"), resolve(output, "lib", "simulator-i18n.js"));
