@@ -3596,12 +3596,18 @@
         overscroll-behavior: contain;
       }
 
-      .top-actions .pill-btn:not(#learnBtn):not(#marketsBtn):not(#fairLaunchBtn):not(#walletBtn):not(#topThemeBtn):not(#topSettingsBtn) {
+      .top-actions .pill-btn:not(#learnBtn):not(#marketsBtn):not(#tradingDemoBtn):not(#fairLaunchBtn):not(#walletBtn):not(#topThemeBtn):not(#topSettingsBtn) {
         display: none;
       }
 
       .top-actions .pill-btn#learnBtn {
         display: block;
+      }
+
+      .top-actions #tradingDemoBtn {
+        display: block;
+        order: -1;
+        flex-shrink: 0;
       }
 
       .learn-view {
