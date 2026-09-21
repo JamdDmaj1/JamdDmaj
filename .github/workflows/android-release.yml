@@ -29,6 +29,9 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # The legacy 'tools' package is no longer served by Google.
+          packages: platform-tools
 
       - name: Install Android platform
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
