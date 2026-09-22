@@ -1,5 +1,6 @@
 import {language} from './lib/simulator-i18n.js?v=10';
 import {reviewManualOrder} from './lib/manual-order-draft.js';
+const terminalApiRoot = window.Capacitor?.isNativePlatform?.() ? 'https://www.jamddmaj.com' : '';
 const es=language==='es', text=(a,b)=>es?a:b;
 const panel=document.createElement('section');panel.className='card';
 const title=document.createElement('h2');title.textContent=text('Revisar orden Bitget — envío no habilitado','Review Bitget order — submission disabled');
@@ -110,4 +111,3 @@ statusButton.onclick=async()=>{
 };
 form.append(prepare,statusButton);
 panel.append(title,note,form,result);document.querySelector('.stats').before(panel);
-const terminalApiRoot = window.Capacitor?.isNativePlatform?.() ? 'https://www.jamddmaj.com' : '';
