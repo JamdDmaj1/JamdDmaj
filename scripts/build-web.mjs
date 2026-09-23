@@ -77,6 +77,7 @@ await build({
 });
 
 await mkdir(resolve(output, "lib"), { recursive: true });
+await cp(resolve(root, "lib", "terminal-layout.js"), resolve(output, "lib", "terminal-layout.js"));
 await build({
   absWorkingDir: root, entryPoints: [resolve(root, "funding-ui.js")],
   outfile: resolve(output, "funding-ui.js"), bundle: true, format: "esm",
