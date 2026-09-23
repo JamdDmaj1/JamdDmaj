@@ -29,7 +29,7 @@ export default async function handler(request) {
     ),
     googleAccount: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.JAMDDMAJ_ACCOUNT_SECRET),
     version: FALLBACK_VERSION,
-    webVersion: "1.37.75",
+    webVersion: "1.37.76",
     latestVersion: release.latestVersion,
     apkUrl: release.apkUrl,
     releaseUrl: release.releaseUrl,

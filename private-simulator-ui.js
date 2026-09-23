@@ -2,6 +2,7 @@ import {language,tr,localize} from './lib/simulator-i18n.js?v=10';
 import {pnl,indicators} from './lib/private-simulator.js?v=5';
 import {SimulatorAccount} from './lib/simulator-account.js?v=5';
 import './manual-order-review-ui.js';
+import {setupFunding} from './funding-ui.js';
 const terminalApiRoot = window.Capacitor?.isNativePlatform?.() ? 'https://www.jamddmaj.com' : '';
 let account=new SimulatorAccount();
 // Owner-only diagnostics: never call the execution, configuration or queue actions here.
@@ -200,5 +201,5 @@ async function refreshQuotes(){
 setInterval(refreshQuotes,15000);
 setInterval(()=>{if(!paused&&!initialQuotePending){for(const [key,m] of markets){if(m.live)continue;m.price*=1+(Math.random()-.5)*.001;account.mark(key,m.price);}price=markets.get(symbol).price;if(fresh())record(account.tick());}render();},1000);render();
 for(const id of ['searchStatus','tokenStatus'])new MutationObserver(()=>{const el=$(id),text=tr(el.textContent);if(text!==el.textContent)el.textContent=text;}).observe($(id),{childList:true,characterData:true,subtree:true});
-for(const action of ['deposit','withdraw'])$(action).onclick=()=>{$('fundingStatus').textContent=language==='es'?'No conectado. Falta elegir y configurar tu wallet o exchange. No envíes fondos a esta demo.':'Not connected. Choose and configure your wallet or exchange first. Do not send funds to this demo.';};
+setupFunding(language,connectionButton);
 if(initialQuotePending){$('identity').textContent=language==='es'?'Consultando Bitcoin real…':'Fetching Bitcoin reference price…';referencePrice('bitcoin').then(value=>{if(!initialQuotePending)return;select('Bitcoin · BTC','coin:bitcoin',value,{coin:'bitcoin'});loadHistory('bitcoin');}).catch(()=>{$('error').textContent=language==='es'?'No se pudo consultar BTC. Busca Bitcoin para reintentar. No se muestra un precio ficticio.':'BTC unavailable. Search Bitcoin to retry. No simulated quote is displayed.';});}

@@ -77,6 +77,11 @@ await build({
 });
 
 await mkdir(resolve(output, "lib"), { recursive: true });
+await build({
+  absWorkingDir: root, entryPoints: [resolve(root, "funding-ui.js")],
+  outfile: resolve(output, "funding-ui.js"), bundle: true, format: "esm",
+  platform: "browser", target: ["es2020"], legalComments: "none"
+});
 await cp(resolve(root, "lib", "manual-order-draft.js"), resolve(output, "lib", "manual-order-draft.js"));
 await cp(resolve(root, "lib", "private-simulator.js"), resolve(output, "lib", "private-simulator.js"));
 await cp(resolve(root, "lib", "simulator-account.js"), resolve(output, "lib", "simulator-account.js"));
