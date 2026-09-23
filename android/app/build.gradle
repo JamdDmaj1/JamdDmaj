@@ -34,9 +34,9 @@ android {
     }
     buildTypes {
         debug {
-            // Diagnostic source set is a separate offline app, never an update of the user's app.
-            applicationIdSuffix ".walletlab"
-            versionNameSuffix "-walletlab"
+            // Separate devnet app; never replaces the production or offline diagnostic app.
+            applicationIdSuffix ".walletlab.devnet"
+            versionNameSuffix "-walletlab-devnet"
         }
         release {
             if (releaseSigningReady) {
@@ -55,6 +55,7 @@ repositories {
 }
 
 dependencies {
+    debugImplementation "org.bouncycastle:bcprov-jdk18on:1.83"
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"

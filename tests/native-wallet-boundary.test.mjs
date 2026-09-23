@@ -12,6 +12,19 @@ test('native experimental vault is debug-only, unregistered and hardware-authent
  assert.doesNotMatch(activity,/HardwareTestVault/);
  assert.equal(existsSync(new URL('../android/app/src/main/java/com/jamddmaj/ai/wallet/HardwareTestVault.java',import.meta.url)),false);
 });
+test('native devnet wallet has no web bridge, mainnet endpoint or automatic submission',()=>{
+ const root=new URL('../android/app/src/debug/java/com/jamddmaj/ai/wallet/',import.meta.url);
+ const service=readFileSync(new URL('DevnetWalletService.java',root),'utf8');
+ const activity=readFileSync(new URL('DevnetWalletActivity.java',root),'utf8');
+ assert.match(service,/https:\/\/api\.devnet\.solana\.com/);
+ assert.match(service,/EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG/);
+ assert.match(service,/draft\.consumed=true/);
+ assert.ok(service.indexOf('write(journalFile,record)')<service.indexOf('rpc("sendTransaction"'));
+ assert.match(service,/setInstanceFollowRedirects\(false\)/);
+ assert.match(activity,/getCipher\(\)!=operation.authenticationCipher\(\)/);
+ assert.match(activity,/Confirm with biometrics/);
+ assert.doesNotMatch(service+activity,/api\.mainnet|JavascriptInterface|CapacitorPlugin|Log\./);
+});
 test('diagnostic UI authenticates exact cipher, locks on stop and is isolated from production',()=>{
  const activity=readFileSync(new URL('../android/app/src/debug/java/com/jamddmaj/ai/wallet/VaultDiagnosticActivity.java',import.meta.url),'utf8');
  assert.match(activity,/FLAG_SECURE/);
@@ -21,7 +34,7 @@ test('diagnostic UI authenticates exact cipher, locks on stop and is isolated fr
  assert.doesNotMatch(activity,/WebView|loadUrl|registerPlugin|http[s]?:|Log\./);
  const manifest=readFileSync(new URL('../android/app/src/debug/AndroidManifest.xml',import.meta.url),'utf8');
  assert.match(manifest,/android:allowBackup="false"/);
- assert.match(manifest,/android.permission.INTERNET" tools:node="remove"/);
+ assert.match(manifest,/android:usesCleartextTraffic="false"/);
  const gradle=readFileSync(new URL('../android/app/build.gradle',import.meta.url),'utf8');
- assert.match(gradle,/applicationIdSuffix "\.walletlab"/);
+ assert.match(gradle,/applicationIdSuffix "\.walletlab\.devnet"/);
 });

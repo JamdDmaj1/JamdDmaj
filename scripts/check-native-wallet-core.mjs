@@ -1,0 +1,13 @@
+import {execFileSync} from 'node:child_process';
+import assert from 'node:assert/strict';
+import {address,appendTransactionMessageInstructions,compileTransaction,createNoopSigner,createTransactionMessage,pipe,setTransactionMessageFeePayer,setTransactionMessageLifetimeUsingBlockhash} from '@solana/kit';
+import {getTransferSolInstruction} from '@solana-program/system';
+import bs58 from 'bs58';
+const [java,classpath]=process.argv.slice(2);
+if(!java||!classpath)throw new Error('Provide Java executable and compiled test classpath');
+const output=execFileSync(java,['-cp',classpath,'NativeWalletCoreCheck'],{encoding:'utf8'});
+const owner=address(bs58.encode(Buffer.from('d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a','hex')));
+const recipient=address(bs58.encode(new Uint8Array(32).fill(7)));
+const transaction=compileTransaction(pipe(createTransactionMessage({version:'legacy'}),m=>setTransactionMessageFeePayer(owner,m),m=>setTransactionMessageLifetimeUsingBlockhash({blockhash:'11111111111111111111111111111111',lastValidBlockHeight:1n},m),m=>appendTransactionMessageInstructions([getTransferSolInstruction({source:createNoopSigner(owner),destination:recipient,amount:1000000n})],m)));
+assert.equal(output.match(/MESSAGE_HEX=([0-9a-f]+)/)?.[1],Buffer.from(transaction.messageBytes).toString('hex'));
+console.log('Native backup/Ed25519 tests passed; legacy transaction matches Solana Kit byte for byte. No funds or network used.');

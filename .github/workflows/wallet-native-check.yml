@@ -9,6 +9,7 @@ on:
       - 'security/native-tests/**'
       - '.github/workflows/wallet-native-check.yml'
       - 'scripts/check-wallet-lab-manifest.mjs'
+      - 'scripts/check-native-wallet-core.mjs'
 permissions:
   contents: read
 jobs:
@@ -40,7 +41,12 @@ jobs:
           npm ci
           npm test
           npm run mobile:sync
-      - name: Build isolated offline diagnostic APK
+      - name: Verify native wallet cryptography and transaction encoding
+        run: |
+          curl --fail --silent --show-error https://repo.maven.apache.org/maven2/org/bouncycastle/bcprov-jdk18on/1.83/bcprov-jdk18on-1.83.jar -o "$RUNNER_TEMP/bcprov.jar"
+          javac -cp "$RUNNER_TEMP/bcprov.jar" -d "$RUNNER_TEMP/wallet-native-tests" android/app/src/debug/java/com/jamddmaj/ai/wallet/PortableTestBackup.java android/app/src/debug/java/com/jamddmaj/ai/wallet/DevnetSolana.java security/native-tests/NativeWalletCoreCheck.java
+          node scripts/check-native-wallet-core.mjs java "$RUNNER_TEMP/wallet-native-tests:$RUNNER_TEMP/bcprov.jar"
+      - name: Build isolated devnet lab APK
         working-directory: android
         run: |
           sed -i 's/\r$//' gradlew
@@ -49,7 +55,7 @@ jobs:
         run: node scripts/check-wallet-lab-manifest.mjs
       - uses: actions/upload-artifact@v4
         with:
-          name: JamdDmaj-Wallet-Lab-NO-FUNDS
+          name: JamdDmaj-Wallet-Lab-DEVNET-ONLY
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 7
       # No release signing secrets, production APK, device installation or money movement.
