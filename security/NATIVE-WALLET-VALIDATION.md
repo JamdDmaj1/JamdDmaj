@@ -13,7 +13,7 @@ The implementation lives only in Android's `src/debug` source set. It is not reg
 
 ## Still required
 
-The native caller and biometric screen are not yet wired up. It must provide the exact cipher to BiometricPrompt, invoke completion only on success, and cancel on backgrounding, failure, dismissal and activity destruction. There is no release bridge, address generation, signing or recovery import in this native component.
+An isolated debug diagnostic activity now supplies the exact cipher to the system BiometricPrompt, checks that the successful callback returns that cipher, and cancels on backgrounding, dismissal and destruction. It encrypts only a public fixed disposable test pattern and checks its recovery; it never creates wallet keys or addresses. The diagnostic has a different application ID (`com.jamddmaj.ai.walletlab`), disables backup, blocks screenshots, removes production activities/bridges and has no Internet permission. CI checks the merged manifest before uploading a seven-day diagnostic artifact. There is no release bridge, address generation, signing or recovery import in this native component.
 
 Test on a separate instrumented application/device before any release integration:
 

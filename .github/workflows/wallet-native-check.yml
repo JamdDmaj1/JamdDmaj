@@ -4,8 +4,11 @@ on:
   push:
     paths:
       - 'android/app/src/debug/java/com/jamddmaj/ai/wallet/**'
+      - 'android/app/src/debug/AndroidManifest.xml'
+      - 'android/app/build.gradle'
       - 'security/native-tests/**'
       - '.github/workflows/wallet-native-check.yml'
+      - 'scripts/check-wallet-lab-manifest.mjs'
 permissions:
   contents: read
 jobs:
@@ -37,9 +40,16 @@ jobs:
           npm ci
           npm test
           npm run mobile:sync
-      - name: Compile debug source only
+      - name: Build isolated offline diagnostic APK
         working-directory: android
         run: |
           sed -i 's/\r$//' gradlew
-          bash gradlew :app:compileDebugJavaWithJavac
-      # No signing secrets, release APK, device installation, wallet or network transfer.
+          bash gradlew :app:assembleDebug
+      - name: Verify final APK manifest isolation
+        run: node scripts/check-wallet-lab-manifest.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: JamdDmaj-Wallet-Lab-NO-FUNDS
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7
+      # No release signing secrets, production APK, device installation or money movement.

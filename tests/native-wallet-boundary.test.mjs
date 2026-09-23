@@ -12,3 +12,16 @@ test('native experimental vault is debug-only, unregistered and hardware-authent
  assert.doesNotMatch(activity,/HardwareTestVault/);
  assert.equal(existsSync(new URL('../android/app/src/main/java/com/jamddmaj/ai/wallet/HardwareTestVault.java',import.meta.url)),false);
 });
+test('diagnostic UI authenticates exact cipher, locks on stop and is isolated from production',()=>{
+ const activity=readFileSync(new URL('../android/app/src/debug/java/com/jamddmaj/ai/wallet/VaultDiagnosticActivity.java',import.meta.url),'utf8');
+ assert.match(activity,/FLAG_SECURE/);
+ assert.match(activity,/getCipher\(\)!=operation.authenticationCipher\(\)/);
+ assert.match(activity,/onStop\(\)\{lock\(\)/);
+ assert.match(activity,/onDestroy\(\)\{lock\(\)/);
+ assert.doesNotMatch(activity,/WebView|loadUrl|registerPlugin|http[s]?:|Log\./);
+ const manifest=readFileSync(new URL('../android/app/src/debug/AndroidManifest.xml',import.meta.url),'utf8');
+ assert.match(manifest,/android:allowBackup="false"/);
+ assert.match(manifest,/android.permission.INTERNET" tools:node="remove"/);
+ const gradle=readFileSync(new URL('../android/app/build.gradle',import.meta.url),'utf8');
+ assert.match(gradle,/applicationIdSuffix "\.walletlab"/);
+});

@@ -33,6 +33,11 @@ android {
         }
     }
     buildTypes {
+        debug {
+            // Diagnostic source set is a separate offline app, never an update of the user's app.
+            applicationIdSuffix ".walletlab"
+            versionNameSuffix "-walletlab"
+        }
         release {
             if (releaseSigningReady) {
                 signingConfig signingConfigs.release
