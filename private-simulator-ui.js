@@ -4,6 +4,7 @@ import {SimulatorAccount} from './lib/simulator-account.js?v=5';
 import './manual-order-review-ui.js';
 import {setupFunding} from './funding-ui.js';
 import {setupTerminalLayout} from './lib/terminal-layout.js';
+import {setupAssetsWallets} from './assets-wallet-ui.js';
 const terminalApiRoot = window.Capacitor?.isNativePlatform?.() ? 'https://www.jamddmaj.com' : '';
 let account=new SimulatorAccount();
 // Owner-only diagnostics: never call the execution, configuration or queue actions here.
@@ -204,4 +205,5 @@ setInterval(()=>{if(!paused&&!initialQuotePending){for(const [key,m] of markets)
 for(const id of ['searchStatus','tokenStatus'])new MutationObserver(()=>{const el=$(id),text=tr(el.textContent);if(text!==el.textContent)el.textContent=text;}).observe($(id),{childList:true,characterData:true,subtree:true});
 setupFunding(language,connectionButton);
 setupTerminalLayout(language);
+setupAssetsWallets(language);
 if(initialQuotePending){$('identity').textContent=language==='es'?'Consultando Bitcoin real…':'Fetching Bitcoin reference price…';referencePrice('bitcoin').then(value=>{if(!initialQuotePending)return;select('Bitcoin · BTC','coin:bitcoin',value,{coin:'bitcoin'});loadHistory('bitcoin');}).catch(()=>{$('error').textContent=language==='es'?'No se pudo consultar BTC. Busca Bitcoin para reintentar. No se muestra un precio ficticio.':'BTC unavailable. Search Bitcoin to retry. No simulated quote is displayed.';});}

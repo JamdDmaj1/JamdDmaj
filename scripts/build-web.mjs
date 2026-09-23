@@ -77,6 +77,11 @@ await build({
 });
 
 await mkdir(resolve(output, "lib"), { recursive: true });
+await build({
+  absWorkingDir: root, entryPoints: [resolve(root, "assets-wallet-ui.js")],
+  outfile: resolve(output, "assets-wallet-ui.js"), bundle: true, format: "esm",
+  platform: "browser", target: ["es2020"], legalComments: "none"
+});
 await cp(resolve(root, "lib", "terminal-layout.js"), resolve(output, "lib", "terminal-layout.js"));
 await build({
   absWorkingDir: root, entryPoints: [resolve(root, "funding-ui.js")],
