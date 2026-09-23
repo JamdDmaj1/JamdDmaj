@@ -100,7 +100,8 @@ public final class DevnetWalletService {
         synchronized(LOCK){JSONObject record=journal();if(record==null)return "none";network();
             JSONArray values=((JSONObject)rpc("getSignatureStatuses",new JSONArray().put(new JSONArray().put(record.getString("signature"))).put(new JSONObject().put("searchTransactionHistory",true)))).getJSONArray("value");
             if(values.length()!=1)throw new IOException("Invalid status response");if(!values.isNull(0)){JSONObject value=values.getJSONObject(0);
-                if(value.has("err")&&!value.isNull("err"))record.put("phase","failed");else if(value.has("err")&&value.isNull("err")&&java.util.Arrays.asList("confirmed","finalized").contains(value.optString("confirmationStatus")))record.put("phase","confirmed");write(journalFile,record);
+                boolean settled=java.util.Arrays.asList("confirmed","finalized").contains(value.optString("confirmationStatus"));
+                if(settled&&value.has("err"))record.put("phase",value.isNull("err")?"confirmed":"failed");write(journalFile,record);
             }return record.getString("phase")+"\n"+record.getString("signature");
         }
     }

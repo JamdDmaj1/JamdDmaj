@@ -75,7 +75,7 @@ public final class DevnetWalletActivity extends Activity {
     }
     private void openBackup(){lock();startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*"),102);}
     @Override protected void onActivityResult(int request,int result,Intent data){
-        super.onActivityResult(request,result,data);if(result!=RESULT_OK||data==null||data.getData()==null){busy(false);message("Selección cancelada.","Selection cancelled.");return;}
+        super.onActivityResult(request,result,data);if(request!=101&&request!=102)return;if(result!=RESULT_OK||data==null||data.getData()==null){exportBytes=null;busy(false);message("Selección cancelada.","Selection cancelled.");return;}
         Uri uri=data.getData();long ticket=epoch;busy(true);
         if(request==101){byte[] payload=exportBytes;exportBytes=null;worker.execute(()->{try{if(payload==null)throw new IllegalStateException("Backup unavailable; recreate");try(OutputStream out=getContentResolver().openOutputStream(uri,"w")){if(out==null)throw new java.io.IOException();out.write(payload);out.flush();}
             runOnUiThread(()->{if(ticket!=epoch)return;busy(false);message("Respaldo cifrado guardado. Ábrelo en el paso 2, introduce de nuevo su contraseña y recupera en el paso 3. No lo compartas junto con su contraseña.","Encrypted backup saved. Open it in step 2, enter its passphrase again and recover in step 3. Never share it together with its passphrase.");});

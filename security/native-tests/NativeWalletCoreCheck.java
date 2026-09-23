@@ -14,6 +14,9 @@ public class NativeWalletCoreCheck {
         char[] password="Disposable native backup test password".toCharArray();byte[] backup=PortableTestBackup.seal(seed,password);
         if(!Arrays.equals(seed,PortableTestBackup.open(backup,password)))throw new AssertionError("Recovery changed seed");
         byte[] second=PortableTestBackup.seal(seed,password);if(Arrays.equals(backup,second))throw new AssertionError("Reused randomness");
+        System.out.println("BACKUP_HEX="+hex.formatHex(second)); // Public RFC fixture only.
+        for(int length:new int[]{0,83,85})try{PortableTestBackup.open(new byte[length],password);throw new AssertionError("Malformed backup accepted");}catch(IllegalArgumentException expected){}
+        byte[] header=second.clone();header[0]^=1;try{PortableTestBackup.open(header,password);throw new AssertionError("Wrong domain accepted");}catch(IllegalArgumentException expected){}
         backup[83]^=1;try{PortableTestBackup.open(backup,password);throw new AssertionError("Tamper accepted");}catch(javax.crypto.AEADBadTagException expected){}
         try{PortableTestBackup.open(second,"Wrong password 1234567890".toCharArray());throw new AssertionError("Wrong password accepted");}catch(javax.crypto.AEADBadTagException expected){}
         if(DevnetSolana.lamports("0.000000001")!=1)throw new AssertionError("Unit conversion");
