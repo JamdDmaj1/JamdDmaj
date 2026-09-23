@@ -4,7 +4,7 @@ import nacl from 'tweetnacl';
 import bs58 from 'bs58';
 import {getBase64Encoder,getTransactionDecoder} from '@solana/kit';
 import {createDevnetTransferSession,DEVNET_GENESIS,testLamports} from '../lib/experimental-devnet-transfer.js';
-function fixture(){
+function fixture(journal=null){
  const key=nacl.sign.keyPair(),recipient=bs58.encode(nacl.sign.keyPair().publicKey),owner=bs58.encode(key.publicKey),calls=[];
  const state={chain:DEVNET_GENESIS,fee:5000,balance:1000000000,fail:false,locked:false,height:10,clock:1000};
  const rpc=async(method,params)=>{
@@ -22,8 +22,9 @@ function fixture(){
   if(method==='getSignatureStatuses')return {value:state.confirmed?[{err:null,confirmationStatus:'confirmed'}]:[null]};
   throw new Error('Unexpected method '+method);
  };
- const session=createDevnetTransferSession({owner,rpc,now:()=>state.clock,isUnlocked:()=>!state.locked,sign:bytes=>nacl.sign.detached(bytes,key.secretKey)});
- return {session,state,calls,recipient,cleanup:()=>key.secretKey.fill(0)};
+ const options={owner,rpc,now:()=>state.clock,isUnlocked:()=>!state.locked,sign:bytes=>nacl.sign.detached(bytes,key.secretKey),journal};
+ const session=createDevnetTransferSession(options);
+ return {session,state,calls,recipient,options,cleanup:()=>key.secretKey.fill(0)};
 }
 test('exact SOL units reject floats, excess decimals and amounts beyond test cap',()=>{
  assert.equal(testLamports('0.000000001'),1n);assert.equal(testLamports('0.1'),100000000n);
@@ -57,5 +58,22 @@ test('unknown broadcast result retains expected signature and prevents a second 
  await assert.rejects(f.session.confirm({reviewId:review.id,confirmed:true}),/timeout/);assert.equal(f.session.state.phase,'uncertain');assert.ok(f.session.state.signature);
  await assert.rejects(f.session.prepare({recipient:f.recipient,amountSOL:'0.001'}),/pending/);
  f.state.confirmed=true;assert.equal((await f.session.checkStatus()).phase,'confirmed');assert.equal(f.calls.filter(c=>c.method==='sendTransaction').length,1);
+ }finally{f.cleanup()}
+});
+test('restart recovers uncertain submission without sending again',async()=>{
+ let disk=null;const journal={load:()=>disk?JSON.parse(disk):null,save:value=>{disk=JSON.stringify(value)}};
+ const f=fixture(journal);try{
+ const review=await f.session.prepare({recipient:f.recipient,amountSOL:'0.001'});f.state.timeout=true;
+ await assert.rejects(f.session.confirm({reviewId:review.id,confirmed:true}));assert.equal(JSON.parse(disk).phase,'uncertain');
+ const reopened=createDevnetTransferSession(f.options);assert.equal(reopened.state.phase,'uncertain');
+ await assert.rejects(reopened.prepare({recipient:f.recipient,amountSOL:'0.001'}),/pending/);
+ f.state.confirmed=true;await reopened.checkStatus();assert.equal(JSON.parse(disk).phase,'confirmed');assert.equal(f.calls.filter(c=>c.method==='sendTransaction').length,1);
+ }finally{f.cleanup()}
+});
+test('journal failure prevents broadcast and mismatched owner cannot restore',async()=>{
+ const f=fixture({load:()=>null,save:()=>{throw new Error('disk-full')}});try{
+ const review=await f.session.prepare({recipient:f.recipient,amountSOL:'0.001'});
+ await assert.rejects(f.session.confirm({reviewId:review.id,confirmed:true}),/disk-full/);assert.equal(f.calls.some(c=>c.method==='sendTransaction'),false);
+ assert.throws(()=>createDevnetTransferSession({...f.options,journal:{load:()=>({version:1,owner:'wrong'}),save(){}}}),/invalid-journal/);
  }finally{f.cleanup()}
 });
