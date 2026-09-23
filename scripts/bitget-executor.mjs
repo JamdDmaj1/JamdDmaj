@@ -1298,21 +1298,17 @@ async function prepareBitgetLeverage(plan) {
 }
 
 async function fetchBitgetAccountRisk(policy = {}) {
-  if (!settings.autoRisk || policy?.autoRisk === false) return null;
   validateLiveSecrets();
   const result = await bitgetRequest("GET", `/api/v2/mix/account/accounts?productType=${encodeURIComponent(settings.productType)}`);
   if (result?.code && result.code !== "00000") {
     throw new Error(`Bitget account rejected: ${result?.msg || result.code}`);
   }
   const rows = Array.isArray(result?.data) ? result.data : [];
-  const account = rows.find((item) => String(item.marginCoin || item.marginCoinName || "").toUpperCase() === settings.marginCoin.toUpperCase()) || rows[0] || null;
-  if (!account) return null;
-  const equity = firstFiniteNumber(account.accountEquity, account.equity, account.marginBalance, account.usdtEquity, account.crossedEquity);
-  const modeAvailable = settings.marginMode.toLowerCase().startsWith("cross")
-    ? account.crossedMaxAvailable
-    : account.isolatedMaxAvailable;
-  const available = firstFiniteNumber(modeAvailable, account.available, account.availableBalance, account.availableMargin, account.crossedMaxAvailable, account.isolatedMaxAvailable);
-  if (!Number.isFinite(equity) || equity <= 0) return null;
+  const snapshot = readBitgetAccountSnapshot(rows, settings.marginCoin, settings.marginMode);
+  if (!snapshot) return null;
+  const {equity, available} = snapshot;
+  // Balance visibility is independent of automatic sizing. Zero is a valid balance.
+  if (!settings.autoRisk || policy?.autoRisk === false || equity <= 0) return snapshot;
   const riskPercent = clampNumber(policy?.autoRiskPerTradePercent, 0.1, 10, settings.autoRiskPerTradePercent);
   const reservePercent = clampNumber(policy?.autoRiskReservePercent, 0, 80, settings.autoRiskReservePercent);
   const minMarginUsd = clampNumber(policy?.autoRiskMinMarginUsd, 1, 1000, settings.autoRiskMinMarginUsd);
@@ -1330,7 +1326,7 @@ async function fetchBitgetAccountRisk(policy = {}) {
   return {
     enabled: true,
     source: "bitget-account",
-    marginCoin: String(account.marginCoin || settings.marginCoin),
+    marginCoin: snapshot.marginCoin,
     equity: roundMoney(equity),
     available: Number.isFinite(available) ? roundMoney(available) : null,
     equitySpendable: roundMoney(equitySpendable),
@@ -1343,6 +1339,22 @@ async function fetchBitgetAccountRisk(policy = {}) {
     maxTradesByEquity,
     updatedAt: new Date().toISOString()
   };
+}
+
+export function readBitgetAccountSnapshot(rows, marginCoin, marginMode) {
+  const coin = String(marginCoin).toUpperCase();
+  const account = rows.find(item => String(item.marginCoin || item.marginCoinName || "").toUpperCase() === coin);
+  if (!account) return null;
+  const numeric = (...values) => {
+    const value = values.find(v => v !== null && v !== undefined && String(v).trim() !== "" && Number.isFinite(Number(v)));
+    return value === undefined ? null : Number(value);
+  };
+  const equity = numeric(account.accountEquity, account.equity, account.marginBalance, account.usdtEquity, account.crossedEquity);
+  const modeAvailable = String(marginMode).toLowerCase().startsWith("cross") ? account.crossedMaxAvailable : account.isolatedMaxAvailable;
+  const available = numeric(modeAvailable, account.available, account.availableBalance, account.availableMargin);
+  if (equity === null) return null;
+  return {enabled:false, source:"bitget-account", marginCoin:coin, equity:roundMoney(equity),
+    available:available === null ? null : roundMoney(available), updatedAt:new Date().toISOString()};
 }
 
 function applyAutoRiskPolicy(policy, accountRisk) {
