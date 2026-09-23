@@ -1,0 +1,45 @@
+name: Wallet native build-only checks
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'android/app/src/debug/java/com/jamddmaj/ai/wallet/**'
+      - 'security/native-tests/**'
+      - '.github/workflows/wallet-native-check.yml'
+permissions:
+  contents: read
+jobs:
+  debug-compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - name: Install compilation platform
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - name: Check bounded ciphertext format
+        run: |
+          mkdir -p "$RUNNER_TEMP/wallet-native-tests"
+          javac -d "$RUNNER_TEMP/wallet-native-tests" android/app/src/debug/java/com/jamddmaj/ai/wallet/TestVaultEnvelope.java security/native-tests/TestVaultEnvelopeCheck.java
+          java -cp "$RUNNER_TEMP/wallet-native-tests" TestVaultEnvelopeCheck
+      - name: Build web assets and synchronize
+        run: |
+          npm ci
+          npm test
+          npm run mobile:sync
+      - name: Compile debug source only
+        working-directory: android
+        run: |
+          sed -i 's/\r$//' gradlew
+          bash gradlew :app:compileDebugJavaWithJavac
+      # No signing secrets, release APK, device installation, wallet or network transfer.
