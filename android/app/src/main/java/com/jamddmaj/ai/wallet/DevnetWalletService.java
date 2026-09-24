@@ -51,7 +51,11 @@ public final class DevnetWalletService {
         try(InputStream in=file.openRead()){return new JSONObject(new String(readBounded(in,4096),StandardCharsets.UTF_8));}catch(FileNotFoundException absent){return null;}
     }
     private void write(AtomicFile file,JSONObject value)throws Exception{
-        FileOutputStream out=null;try{out=file.startWrite();out.write(value.toString().getBytes(StandardCharsets.UTF_8));file.finishWrite(out);}catch(Exception failure){if(out!=null)file.failWrite(out);throw failure;}
+        byte[] expected=value.toString().getBytes(StandardCharsets.UTF_8);
+        FileOutputStream out=null;try{out=file.startWrite();out.write(expected);file.finishWrite(out);out=null;
+            // AtomicFile can log a failed rename instead of throwing. Never broadcast without readback.
+            try(InputStream input=file.openRead()){if(!java.util.Arrays.equals(expected,readBounded(input,4096)))throw new IOException("Storage verification failed");}
+        }catch(Exception failure){if(out!=null)file.failWrite(out);throw failure;}
     }
     public JSONObject wallet()throws Exception{
         synchronized(LOCK){JSONObject value=read(walletFile);if(value!=null){if(!"solana:devnet".equals(value.getString("network"))||!value.getString("id").matches("[a-f0-9]{32}"))throw new IOException("Invalid wallet metadata");DevnetSolana.decode(value.getString("address"),32);}return value;}

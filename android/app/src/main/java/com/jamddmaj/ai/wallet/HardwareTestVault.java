@@ -129,7 +129,13 @@ public final class HardwareTestVault {
                     synchronized(FILE_LOCK) {
                         if(exists())throw new GeneralSecurityException("Test vault already exists");
                         FileOutputStream out=null;
-                        try {out=file.startWrite();out.write(sealed);file.finishWrite(out);}
+                        try {out=file.startWrite();out.write(sealed);file.finishWrite(out);out=null;
+                            try(FileInputStream input=file.openRead()) {
+                                byte[] check=new byte[TestVaultEnvelope.SIZE];int total=0,count;
+                                while(total<check.length&&(count=input.read(check,total,check.length-total))!=-1)total+=count;
+                                if(total!=check.length||input.read()!=-1||!Arrays.equals(sealed,check))throw new java.io.IOException("Vault storage verification failed");
+                            }
+                        }
                         catch(Exception failure){if(out!=null)file.failWrite(out);throw failure;}
                     }
                 } finally {if(copy!=null)Arrays.fill(copy,(byte)0);clear();if(pending==this)pending=null;}
