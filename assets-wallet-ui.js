@@ -1,6 +1,7 @@
 import {getWalletRegistry} from './lib/wallet-standard-registry.js';
 import {getCompatibleSolanaWallets,getSolanaAccount,sanitizeWalletName} from './lib/wallet-security.js';
 import {createEvmReadOnlySession} from './lib/external-wallet-session.js';
+import {setupNativeWalletEntry} from './native-wallet-entry.js';
 
 export function setupAssetsWallets(language, doc=document, win=window) {
   const host=doc.getElementById('terminal-assets');if(!host)return;
@@ -18,6 +19,7 @@ export function setupAssetsWallets(language, doc=document, win=window) {
   const balance=el('p');const status=el('p');status.setAttribute('role','status');
   const note=el('p',t('Consulta SOL, ETH o BNB; no es un inventario de todos tus tokens. Desconectar aquí no revoca los permisos guardados en tu billetera.','Shows SOL, ETH or BNB; not a complete token inventory. Disconnecting here does not revoke permissions saved in your wallet.'));
   note.className='notes';host.prepend(panel);
+  const disposeNative=setupNativeWalletEntry(language,doc,win);
   const registry=getWalletRegistry(),providers=new Map();let choices=[],session=null,removeChange=null,epoch=0,busy=false,active=null;
   function clear(){epoch++;active=null;const old=session;session=null;old?.disconnect();removeChange?.();removeChange=null;identity.textContent='';balance.textContent='';refresh.hidden=disconnect.hidden=true;select.disabled=false;connect.hidden=false;}
   function invalid(){clear();status.textContent=t('La cuenta o red cambió. Vuelve a conectar.','Account or network changed. Connect again.');}
@@ -81,5 +83,5 @@ export function setupAssetsWallets(language, doc=document, win=window) {
     finally{busy=false;refresh.disabled=false;}
   };
   disconnect.onclick=()=>{clear();discover();};
-  return ()=>{clear();unregister();unregisterGone();win.removeEventListener('eip6963:announceProvider',announced);panel.remove();};
+  return ()=>{disposeNative();clear();unregister();unregisterGone();win.removeEventListener('eip6963:announceProvider',announced);panel.remove();};
 }

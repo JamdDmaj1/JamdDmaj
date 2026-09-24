@@ -1,0 +1,7 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {setupNativeWalletEntry} from '../native-wallet-entry.js';
+function fixture(native){const nodes=[];const host={prepend(n){this.child=n}};const doc={getElementById:()=>host,createElement(tag){const n={tag,append(){},setAttribute(){},remove(){this.removed=true}};nodes.push(n);return n}};const win={Capacitor:{isNativePlatform:()=>native,getPlatform:()=>native?'android':'web',isPluginAvailable:()=>native}};return{doc,win,nodes};}
+for(const language of ['es','en'])test(`native wallet entry is explicit and sends no arguments (${language})`,async()=>{const f=fixture(true);let calls=[];const dispose=setupNativeWalletEntry(language,f.doc,f.win,()=>({open:async(...args)=>calls.push(args)}));assert.equal(calls.length,0);await f.nodes.find(n=>n.tag==='button').onclick();assert.deepEqual(calls,[[]]);dispose();});
+test('web has no fake wallet or launcher',async()=>{const f=fixture(false);let calls=0;setupNativeWalletEntry('es',f.doc,f.win,()=>{calls++;});const button=f.nodes.find(n=>n.tag==='button');assert.equal(button.hidden,true);await button.onclick();assert.equal(calls,0);});
+test('failed launch releases control and reports failure',async()=>{const f=fixture(true);setupNativeWalletEntry('es',f.doc,f.win,()=>({open:async()=>{throw Error('unavailable')}}));const button=f.nodes.find(n=>n.tag==='button');await button.onclick();assert.equal(button.disabled,false);assert.ok(f.nodes.some(n=>n.textContent?.includes('No se pudo abrir')));});

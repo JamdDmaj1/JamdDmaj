@@ -21,7 +21,7 @@ import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.GCMParameterSpec;
 
 /**
- * DEBUG SOURCE SET ONLY. Not registered as a Capacitor plugin; no JavaScript API.
+ * DEVNET ONLY. Not registered as a Capacitor plugin; no JavaScript secret API.
  * Stores disposable 32-byte test secrets, never production wallet material.
  * Native caller must pass the cipher to Android BiometricPrompt.CryptoObject and
  * call complete only on authentication success; cancel on app background/cancel.

@@ -8,6 +8,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(LearnNotificationsPlugin.class);
         registerPlugin(ExternalWalletPlugin.class);
+        registerPlugin(DevnetWalletPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

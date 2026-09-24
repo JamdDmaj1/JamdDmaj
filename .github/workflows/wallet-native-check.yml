@@ -4,6 +4,13 @@ on:
   push:
     paths:
       - 'android/app/src/debug/java/com/jamddmaj/ai/wallet/**'
+      - 'android/app/src/main/java/com/jamddmaj/ai/wallet/**'
+      - 'android/app/src/main/java/com/jamddmaj/ai/DevnetWalletPlugin.java'
+      - 'android/app/src/main/java/com/jamddmaj/ai/MainActivity.java'
+      - 'android/app/src/main/AndroidManifest.xml'
+      - 'android/app/src/walletPreview/AndroidManifest.xml'
+      - 'native-wallet-entry.js'
+      - 'assets-wallet-ui.js'
       - 'android/app/src/debug/AndroidManifest.xml'
       - 'android/app/build.gradle'
       - 'security/native-tests/**'
@@ -34,7 +41,7 @@ jobs:
       - name: Check bounded ciphertext format
         run: |
           mkdir -p "$RUNNER_TEMP/wallet-native-tests"
-          javac -d "$RUNNER_TEMP/wallet-native-tests" android/app/src/debug/java/com/jamddmaj/ai/wallet/TestVaultEnvelope.java security/native-tests/TestVaultEnvelopeCheck.java
+          javac -d "$RUNNER_TEMP/wallet-native-tests" android/app/src/main/java/com/jamddmaj/ai/wallet/TestVaultEnvelope.java security/native-tests/TestVaultEnvelopeCheck.java
           java -cp "$RUNNER_TEMP/wallet-native-tests" TestVaultEnvelopeCheck
       - name: Build web assets and synchronize
         run: |
@@ -44,18 +51,23 @@ jobs:
       - name: Verify native wallet cryptography and transaction encoding
         run: |
           curl --fail --silent --show-error https://repo.maven.apache.org/maven2/org/bouncycastle/bcprov-jdk18on/1.83/bcprov-jdk18on-1.83.jar -o "$RUNNER_TEMP/bcprov.jar"
-          javac -cp "$RUNNER_TEMP/bcprov.jar" -d "$RUNNER_TEMP/wallet-native-tests" android/app/src/debug/java/com/jamddmaj/ai/wallet/PortableTestBackup.java android/app/src/debug/java/com/jamddmaj/ai/wallet/DevnetSolana.java security/native-tests/NativeWalletCoreCheck.java
+          javac -cp "$RUNNER_TEMP/bcprov.jar" -d "$RUNNER_TEMP/wallet-native-tests" android/app/src/main/java/com/jamddmaj/ai/wallet/PortableTestBackup.java android/app/src/main/java/com/jamddmaj/ai/wallet/DevnetSolana.java security/native-tests/NativeWalletCoreCheck.java
           node scripts/check-native-wallet-core.mjs java "$RUNNER_TEMP/wallet-native-tests:$RUNNER_TEMP/bcprov.jar"
       - name: Build isolated devnet lab APK
         working-directory: android
         run: |
           sed -i 's/\r$//' gradlew
-          bash gradlew :app:assembleDebug
+          bash gradlew :app:assembleDebug :app:assembleRelease :app:assembleWalletPreview
       - name: Verify final APK manifest isolation
         run: node scripts/check-wallet-lab-manifest.mjs
       - uses: actions/upload-artifact@v4
         with:
           name: JamdDmaj-Wallet-Lab-DEVNET-ONLY
           path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: JamdDmaj-Integrated-Wallet-Preview-DEVNET-ONLY
+          path: android/app/build/outputs/apk/walletPreview/*.apk
           retention-days: 7
       # No release signing secrets, production APK, device installation or money movement.

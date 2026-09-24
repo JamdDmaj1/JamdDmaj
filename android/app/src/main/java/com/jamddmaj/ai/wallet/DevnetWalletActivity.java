@@ -21,7 +21,7 @@ import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/** DEBUG ONLY. Native test wallet, never a WebView and never a mainnet wallet. */
+/** Native devnet-only test wallet; no WebView and no mainnet endpoint. */
 public final class DevnetWalletActivity extends Activity {
     private final ExecutorService worker=Executors.newSingleThreadExecutor();
     private final ArrayList<Button> controls=new ArrayList<>();
@@ -41,7 +41,7 @@ public final class DevnetWalletActivity extends Activity {
         es=Locale.getDefault().getLanguage().equals("es");service=new DevnetWalletService(this);
         ScrollView scroll=new ScrollView(this);LinearLayout layout=new LinearLayout(this);layout.setOrientation(LinearLayout.VERTICAL);int pad=(int)(20*getResources().getDisplayMetrics().density);layout.setPadding(pad,pad,pad,pad);scroll.addView(layout);
         label(layout,"JamdDmaj · SOL DEVNET",24);
-        label(layout,text("SOLO PRUEBAS. No deposites dinero real. Usa únicamente SOL de la red devnet. Esta app es independiente de JamdDmaj y de Bitget.","TEST ONLY. Do not deposit real money. Use only SOL from devnet. This app is separate from JamdDmaj and Bitget."),16);
+        label(layout,text("SOLO PRUEBAS. No deposites dinero real. Usa únicamente SOL de la red devnet. Esta billetera es independiente de Bitget; Wallet Lab y JamdDmaj guardan datos por separado.","TEST ONLY. Do not deposit real money. Use only SOL from devnet. This wallet is independent of Bitget; Wallet Lab and JamdDmaj store data separately."),16);
         identity=label(layout,text("Sin billetera recuperada.","No recovered wallet."),16);identity.setTextIsSelectable(true);
         label(layout,text("Contraseña del respaldo (mínimo 16 caracteres)","Backup passphrase (at least 16 characters)"),16);
         password=field(layout,true);label(layout,text("Repetir contraseña al crear una copia","Repeat passphrase when creating a backup"),16);repeat=field(layout,true);

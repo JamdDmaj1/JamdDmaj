@@ -33,6 +33,9 @@
 
         </activity>
 
+        <activity android:name="com.jamddmaj.ai.wallet.DevnetWalletActivity"
+            android:exported="false" android:theme="@android:style/Theme.Material.NoActionBar" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -52,6 +55,7 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 </manifest>

@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync,existsSync} from 'node:fs';
-test('native experimental vault is debug-only, unregistered and hardware-authenticated',()=>{
- const source=readFileSync(new URL('../android/app/src/debug/java/com/jamddmaj/ai/wallet/HardwareTestVault.java',import.meta.url),'utf8');
+test('native test vault is unregistered and hardware-authenticated',()=>{
+ const source=readFileSync(new URL('../android/app/src/main/java/com/jamddmaj/ai/wallet/HardwareTestVault.java',import.meta.url),'utf8');
  assert.match(source,/getNoBackupFilesDir/);
  assert.match(source,/setUserAuthenticationParameters\(0, KeyProperties.AUTH_BIOMETRIC_STRONG\)/);
  assert.match(source,/isUserAuthenticationRequirementEnforcedBySecureHardware/);
@@ -10,10 +10,15 @@ test('native experimental vault is debug-only, unregistered and hardware-authent
  assert.doesNotMatch(source,/JavascriptInterface|CapacitorPlugin|Log\.|System\.out|SharedPreferences/);
  const activity=readFileSync(new URL('../android/app/src/main/java/com/jamddmaj/ai/MainActivity.java',import.meta.url),'utf8');
  assert.doesNotMatch(activity,/HardwareTestVault/);
- assert.equal(existsSync(new URL('../android/app/src/main/java/com/jamddmaj/ai/wallet/HardwareTestVault.java',import.meta.url)),false);
+ const plugin=readFileSync(new URL('../android/app/src/main/java/com/jamddmaj/ai/DevnetWalletPlugin.java',import.meta.url),'utf8');
+ assert.match(plugin,/"localhost"\.equals\(page.getHost\(\)\)/);
+ assert.match(plugin,/"\/private-simulator.html"\.equals\(page.getPath\(\)\)/);
+ assert.doesNotMatch(plugin,/putExtra|call.getString|HardwareTestVault|signReviewed|submit\(/);
+ const manifest=readFileSync(new URL('../android/app/src/main/AndroidManifest.xml',import.meta.url),'utf8');
+ assert.match(manifest,/DevnetWalletActivity"\s+android:exported="false"/);
 });
 test('native devnet wallet has no web bridge, mainnet endpoint or automatic submission',()=>{
- const root=new URL('../android/app/src/debug/java/com/jamddmaj/ai/wallet/',import.meta.url);
+ const root=new URL('../android/app/src/main/java/com/jamddmaj/ai/wallet/',import.meta.url);
  const service=readFileSync(new URL('DevnetWalletService.java',root),'utf8');
  const activity=readFileSync(new URL('DevnetWalletActivity.java',root),'utf8');
  assert.match(service,/https:\/\/api\.devnet\.solana\.com/);
