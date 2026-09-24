@@ -6,6 +6,16 @@ The native flow generates a disposable random Ed25519 seed, exports an authentic
 
 The sole network endpoint is Solana devnet over HTTPS, with genesis verification. Native SOL only, maximum 0.1 test SOL per manually reviewed transfer. Simulation, fresh fee and balance checks, biometric signing and durable pre-broadcast journaling precede submission. Uncertain submissions cannot be automatically retried. App backgrounding cancels authorization; it cannot undo a transaction already sent.
 
-Validation: pure Java RFC8032 key/signature vectors, backup recovery and wrong-password/tamper rejection, exact amount checks, and byte-for-byte transaction comparison against Solana Kit. CI compiles the APK and checks merged manifest isolation. These do not replace real-device recovery, lifecycle and onchain confirmation tests. Public devnet faucet previously returned HTTP 429; no successful onchain transfer is claimed.
+Validation: pure Java RFC8032 key/signature vectors, backup recovery and wrong-password/tamper rejection, exact amount checks, independent Node decryption of the Java backup fixture, and byte-for-byte transaction comparison against Solana Kit. CI compiles the APK and checks merged manifest isolation. Automated checks do not replace device testing or constitute a security audit.
 
-Remaining acceptance on a real device: save and reopen backup; recover with fingerprint; restart and read the same public address; use devnet-only faucet tokens; review and confirm a small test transfer; check confirmation after restarting. Never fund public test vectors or use real money. Production wallets and multichain support remain out of scope for this lab.
+## Completed happy-path acceptance, 2026-09-24
+
+- Build tested: `bd32948593eabad1602ab1ab539a4e56af077cbb`; GitHub Actions run `35935419679` succeeded. APK SHA-256: `6ce777001c4a0d15ec886d39782036c864a5298054d0c77c0266fce9eb1657a1`.
+- User reported saving/reopening the encrypted backup, entering its password, completing biometric recovery and seeing the devnet address. This is user-reported device evidence, not remote instrumentation.
+- Faucet initially rate-limited automated requests. The user subsequently requested test funds; RPC confirmed 5 SOL on devnet, and the user confirmed the same balance in the app.
+- User performed the reviewed, biometric test transfer. RPC `getTransaction` with finalized commitment independently verified one native SOL transfer of 1,000,000 lamports, no error, fee 5,000 lamports, and source post-balance 4,998,995,000 lamports.
+- Transaction: `MbKHXHJ4hgeVdwZNWVDTMAtf4GK4vwqyp6gFQyqX3gU9B76Mr2gY3t6w9HtmDdAhBiwoPvDnW7ETCVrVbEkoFeq`. Network: Solana devnet. Recipient was disposable, with its private key discarded; never send real assets there.
+- User confirmed that closing/reopening the app and checking the last transfer still showed confirmed. This verifies the reported restart happy path, not all interruption/failure scenarios.
+- Test suite: 223 passing; native cryptographic and encoding checks separately passed. No production configuration or Bitget pause changes were part of this delivery.
+
+The isolated devnet happy path is delivered. Production hardening, independent security review, device-loss recovery across devices, biometric-enrollment invalidation, interruption/failure device tests, production wallet integration and multichain support remain separate work. Never use real money in this lab.
