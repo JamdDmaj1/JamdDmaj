@@ -17,13 +17,21 @@ public final class DevnetWalletService {
     public static final String GENESIS="EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG";
     private static final Object LOCK=new Object();
     private final AtomicFile walletFile,journalFile;
+    interface RpcTransport { Object request(String method,JSONArray params)throws Exception; }
+    private final RpcTransport testTransport;
     public DevnetWalletService(Context context){
+        this(context,null);
+    }
+    // Package-private fault injection for JVM Android tests; never exposed to the bridge.
+    DevnetWalletService(Context context,RpcTransport transport){
+        testTransport=transport;
         walletFile=new AtomicFile(new File(context.getNoBackupFilesDir(),"devnet-wallet-public.json"));
         journalFile=new AtomicFile(new File(context.getNoBackupFilesDir(),"devnet-transfer-public.json"));
     }
     private static String b64(byte[] bytes){return Base64.encodeToString(bytes,Base64.NO_WRAP);}
     private static long number(Object value)throws Exception{if(!(value instanceof Integer)&&!(value instanceof Long))throw new IOException("Invalid RPC number");long n=((Number)value).longValue();if(n<0)throw new IOException("Invalid RPC number");return n;}
     private Object rpc(String method,JSONArray params)throws Exception{
+        if(testTransport!=null)return testTransport.request(method,params);
         HttpsURLConnection connection=(HttpsURLConnection)new URL("https://api.devnet.solana.com").openConnection();
         connection.setInstanceFollowRedirects(false);connection.setConnectTimeout(10000);connection.setReadTimeout(10000);connection.setRequestMethod("POST");connection.setRequestProperty("Content-Type","application/json");connection.setDoOutput(true);
         try{

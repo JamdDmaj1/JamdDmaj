@@ -5,6 +5,7 @@ on:
     paths:
       - 'android/app/src/debug/java/com/jamddmaj/ai/wallet/**'
       - 'android/app/src/main/java/com/jamddmaj/ai/wallet/**'
+      - 'android/app/src/test/java/com/jamddmaj/ai/wallet/**'
       - 'android/app/src/main/java/com/jamddmaj/ai/DevnetWalletPlugin.java'
       - 'android/app/src/main/java/com/jamddmaj/ai/MainActivity.java'
       - 'android/app/src/main/AndroidManifest.xml'
@@ -58,6 +59,15 @@ jobs:
         run: |
           sed -i 's/\r$//' gradlew
           bash gradlew :app:assembleDebug :app:assembleRelease :app:assembleWalletPreview
+      - name: Native Android storage and RPC failure checks
+        working-directory: android
+        run: bash gradlew :app:testWalletPreviewUnitTest --tests 'com.jamddmaj.ai.wallet.DevnetWalletServiceTest'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Native-wallet-failure-test-results
+          path: android/app/build/test-results/testWalletPreviewUnitTest/*.xml
+          retention-days: 7
       - name: Verify final APK manifest isolation
         run: node scripts/check-wallet-lab-manifest.mjs
       - uses: actions/upload-artifact@v4
