@@ -6,7 +6,13 @@ The Android finance Assets panel now opens the native devnet activity inside the
 
 The isolated integration preview has application ID `com.jamddmaj.ai.walletpreview` and label `JamdDmaj Wallet Preview`. It does not replace the existing app or Wallet Lab. Import the saved encrypted test backup through Android's native picker to recover the same devnet address; local transaction history and hardware wrapping keys are not migrated across app IDs. Existing production release/version and Bitget configuration remain unchanged.
 
-UI launch/missing-plugin/failure tests are automated. The integrated Android build still requires device acceptance of navigation from Assets and recovery of the existing backup. A successful build is not a claim that this new navigation has been device-tested.
+UI launch/missing-plugin/failure tests are automated. After installing the integration preview, the user reported the same recovered address and the expected 4.998995 devnet SOL balance. This supplies user-reported integrated recovery acceptance, not a security audit or biometric-invalidation test.
+
+## Fault validation
+
+`DevnetWalletServiceTest` exercises the native service with Robolectric Android storage and injected deterministic RPC failures. It covers existing-wallet overwrite rejection, wrong network, insufficient funds, failed simulation, changed fee, expired blockhash, locked submission, uncertain broadcast across restart, processed-versus-finalized failure, duplicate draft submission, confirmed status persistence and corrupted journals. These tests use no network or funds; their assertions do not prove hardware-backed biometric behavior. Production construction always uses the fixed HTTPS devnet transport; the injection constructor is package-private and inaccessible through the web bridge.
+
+Remaining production gates include an independent security assessment and device testing of hardware-key invalidation/interrupted recovery. No production deployment or mainnet enablement is authorized by a passing fault-test suite alone. Preserve the existing encrypted backup and installed preview while these gates remain outstanding.
 
 Separate application ID: `com.jamddmaj.ai.walletlab.devnet`. Android 11+ and hardware-enforced strong biometrics required. Never install as a replacement for the production app. No Bitget changes or production signing secrets.
 
