@@ -64,6 +64,16 @@ public final class DevnetWalletService {
         if(!id.matches("[a-f0-9]{32}"))throw new IOException("Invalid wallet ID");DevnetSolana.decode(address,32);
         synchronized(LOCK){if(wallet()!=null)throw new IOException("Wallet already exists; no overwrite");write(walletFile,new JSONObject().put("id",id).put("address",address).put("network","solana:devnet"));}
     }
+    // Change only the local wrapping-key reference, never the wallet owner or transaction journal.
+    public void recoverExistingAccess(String expectedId,String newId,String address)throws Exception{
+        if(newId==null||!newId.matches("[a-f0-9]{32}")||newId.equals(expectedId))throw new IOException("Invalid recovery ID");
+        DevnetSolana.decode(address,32);
+        synchronized(LOCK){JSONObject existing=wallet();
+            if(existing==null||!existing.getString("id").equals(expectedId)||!existing.getString("address").equals(address))throw new IOException("Backup does not match current wallet");
+            journal(); // A damaged or mismatched journal is not silently discarded by recovery.
+            write(walletFile,new JSONObject().put("id",newId).put("address",address).put("network","solana:devnet"));
+        }
+    }
     private String owner()throws Exception{JSONObject value=wallet();if(value==null)throw new IOException("Restore a test backup first");return value.getString("address");}
     private JSONObject journal()throws Exception{
         JSONObject value=read(journalFile);if(value!=null){

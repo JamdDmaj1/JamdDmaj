@@ -48,6 +48,7 @@ public final class DevnetWalletActivity extends Activity {
         button(layout,text("1. Crear y guardar respaldo de prueba","1. Create and save test backup"),v->createBackup());
         button(layout,text("2. Abrir respaldo guardado","2. Open saved backup"),v->openBackup());
         button(layout,text("3. Recuperar y proteger con huella","3. Recover and protect with biometrics"),v->recover());
+        label(layout,text("Si perdiste el acceso por un cambio de huella, abre el respaldo de esta misma billetera e introduce su contraseña. Recuperar requiere biometría fuerte actual y conserva el registro de envíos; no cambia tu dirección.","If a biometric change removed access, open this same wallet's backup and enter its passphrase. Recovery requires current strong biometrics and preserves the transfer record; your address does not change."),16);
         button(layout,text("Consultar saldo SOL devnet","Check SOL devnet balance"),v->balance());
         label(layout,text("Destinatario SOL devnet","SOL devnet recipient"),16);recipient=field(layout,false);
         label(layout,text("Cantidad SOL de prueba (máximo 0.1)","Test SOL amount (maximum 0.1)"),16);amount=field(layout,false);amount.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_DECIMAL);
@@ -95,11 +96,12 @@ public final class DevnetWalletActivity extends Activity {
     private void recover(){
         if(importBytes==null||!biometrics()){message("Abre un respaldo y configura biometría fuerte en tu teléfono.","Open a backup and configure strong biometrics on your phone.");return;}
         char[] pass=takePassword();byte[] encrypted=importBytes.clone();lock();busy(true);long ticket=epoch;
-        worker.execute(()->{byte[] seed=null;try{if(service.wallet()!=null)throw new IllegalStateException("Wallet already exists");seed=PortableTestBackup.open(encrypted,pass);String publicAddress=DevnetSolana.address(seed),id=UUID.randomUUID().toString().replace("-","");
+        worker.execute(()->{byte[] seed=null;try{JSONObject existing=service.wallet();String previousId=existing==null?null:existing.getString("id");seed=PortableTestBackup.open(encrypted,pass);String publicAddress=DevnetSolana.address(seed),id=UUID.randomUUID().toString().replace("-","");
+            if(existing!=null&&!publicAddress.equals(existing.getString("address")))throw new IllegalStateException("Backup must match existing wallet");
             HardwareTestVault target=new HardwareTestVault(this,id);HardwareTestVault.Operation operation=target.prepareCreate();byte[] recovered=seed;seed=null;
             runOnUiThread(()->{if(ticket!=epoch){Arrays.fill(recovered,(byte)0);target.cancel();return;}vault=target;pendingSeed=recovered;authenticate(operation,text("Proteger billetera de prueba recuperada","Protect recovered test wallet"),ticket,op->{
                 byte[] local; synchronized(DevnetWalletActivity.this){if(ticket!=epoch||pendingSeed==null)throw new IllegalStateException("Locked");local=pendingSeed.clone();}
-                try{op.completeCreate(local);service.saveRecoveredWallet(id,publicAddress);}finally{Arrays.fill(local,(byte)0);}
+                try{op.completeCreate(local);synchronized(DevnetWalletActivity.this){if(ticket!=epoch)throw new IllegalStateException("Recovery cancelled");if(previousId==null)service.saveRecoveredWallet(id,publicAddress);else service.recoverExistingAccess(previousId,id,publicAddress);}}finally{Arrays.fill(local,(byte)0);}
                 runOnUiThread(()->{if(ticket!=epoch)return;lock();importBytes=null;identity.setText("SOL DEVNET · "+text("NO DINERO REAL","NO REAL FUNDS")+"\n"+publicAddress);message("Recuperación verificada y billetera de prueba protegida. Conserva el archivo y la contraseña por separado.","Recovery verified and test wallet protected. Keep backup file and passphrase separately.");});
             });});
         }catch(Exception failure){fail(ticket);}finally{if(seed!=null)Arrays.fill(seed,(byte)0);Arrays.fill(pass,'\0');}});
