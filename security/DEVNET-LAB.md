@@ -1,5 +1,13 @@
 # Native devnet lab — not production
 
+## Assets integration preview
+
+The Android finance Assets panel now opens the native devnet activity inside the app. The `DevnetWallet` bridge exposes only `open()` from `https://localhost/private-simulator.html`; no URL/transaction/key arguments are accepted, and no wallet data returns to JavaScript. The native activity is non-exported in the main/preview manifest. Web and unsupported builds show an availability notice instead of a fake wallet.
+
+The isolated integration preview has application ID `com.jamddmaj.ai.walletpreview` and label `JamdDmaj Wallet Preview`. It does not replace the existing app or Wallet Lab. Import the saved encrypted test backup through Android's native picker to recover the same devnet address; local transaction history and hardware wrapping keys are not migrated across app IDs. Existing production release/version and Bitget configuration remain unchanged.
+
+UI launch/missing-plugin/failure tests are automated. The integrated Android build still requires device acceptance of navigation from Assets and recovery of the existing backup. A successful build is not a claim that this new navigation has been device-tested.
+
 Separate application ID: `com.jamddmaj.ai.walletlab.devnet`. Android 11+ and hardware-enforced strong biometrics required. Never install as a replacement for the production app. No Bitget changes or production signing secrets.
 
 The native flow generates a disposable random Ed25519 seed, exports an authenticated encrypted file through Android's file picker, then requires reopening and decrypting that file before storing the recovered seed in the biometric hardware-backed vault. The backup password needs at least 16 characters. File and password must be kept separately. This custom test format is not a standard seed phrase.

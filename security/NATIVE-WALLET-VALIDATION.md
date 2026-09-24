@@ -2,7 +2,7 @@
 
 Update: the current debug launcher is the separate devnet wallet described in [DEVNET-LAB.md](DEVNET-LAB.md). The offline diagnostic described below was the earlier hardware-only build and remains as source, not the launcher. The user reported a successful fingerprint round trip in that earlier build; this does not establish the new devnet flow's real-device acceptance.
 
-The implementation lives only in Android's `src/debug` source set. It is not registered as a Capacitor plugin, cannot be called from the WebView and is excluded from release builds. Do not store real wallet secrets in it.
+Integration update: the devnet-only implementation now lives in Android's `src/main` source set. A navigation-only Capacitor plugin opens a non-exported native activity from the bundled finance page; it accepts no transfer, key or import parameters and returns no wallet data. Cryptography is not registered as a plugin. Release compilation is checked, but this branch is not a production deployment. Do not store real wallet secrets in it.
 
 ## Implemented
 
