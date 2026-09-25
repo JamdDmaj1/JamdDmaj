@@ -44,14 +44,37 @@ jobs:
           rustup default nightly-2025-12-11
           rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android i686-linux-android
           cargo install cbindgen --version 0.29.2 --locked
+      - name: Restore native dependency compilation cache
+        id: native-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            build/local
+            rust/target
+            codegen-v2/target
+          key: walletcore-5031fe6-ubuntu22-ndk28-rust20251211-boost185-v1
       - name: Build official internal dependencies
-        # Android's sysroot excludes the Linux host's /usr/include. Only Boost's
-        # portable headers are copied below, never host binaries or libc headers.
+        if: steps.native-cache.outputs.cache-hit != 'true'
         run: tools/install-dependencies
       - name: Generate Android bindings and native libraries
         run: tools/generate-files android
       - name: Make portable Boost headers visible to the Android compiler
-        run: cp -R /usr/include/boost build/local/include/boost
+        if: steps.native-cache.outputs.cache-hit != 'true'
+        # Ubuntu 22's Boost 1.74 uses std::unary_function removed by the NDK's
+        # modern libc++. Use checksum-pinned official portable headers, not host libc.
+        run: |
+          curl --fail --silent --show-error https://archives.boost.io/release/1.85.0/source/boost_1_85_0.tar.gz -o "$RUNNER_TEMP/boost_1_85_0.tar.gz"
+          printf '%s  %s\n' 'be0d91732d5b0cc6fbb275c7939974457e79b54d6f07ce2e3dfdd68bef883b0b' "$RUNNER_TEMP/boost_1_85_0.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/boost_1_85_0.tar.gz" -C build/local/include --strip-components=1 boost_1_85_0/boost
+      - name: Save completed native dependencies before final Android assembly
+        if: steps.native-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            build/local
+            rust/target
+            codegen-v2/target
+          key: walletcore-5031fe6-ubuntu22-ndk28-rust20251211-boost185-v1
       - name: Assemble Android library and protobuf classes
         working-directory: android
         run: ./gradlew --no-daemon --max-workers=2 :wallet-core:assembleRelease :wallet-core-proto:jar
