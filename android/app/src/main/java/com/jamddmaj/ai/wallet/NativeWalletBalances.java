@@ -2,13 +2,8 @@ package com.jamddmaj.ai.wallet;
 
 import android.os.SystemClock;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
-import javax.net.ssl.HttpsURLConnection;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -65,37 +60,8 @@ public final class NativeWalletBalances {
         return new BigInteger(((String) result).substring(2), 16);
     }
 
-    private static String endpoint(WalletNetwork network) {
-        switch (network) {
-            case SOLANA_MAINNET: return "https://api.mainnet-beta.solana.com";
-            case SOLANA_DEVNET: return "https://api.devnet.solana.com";
-            case BNB_MAINNET: return "https://bsc-dataseed.bnbchain.org";
-            case BNB_TESTNET: return "https://data-seed-prebsc-1-s1.bnbchain.org:8545";
-            default: throw new IllegalArgumentException("Unsupported network");
-        }
-    }
-
     private Object request(WalletNetwork network, String method, JSONArray params) throws Exception {
         if (transport != null) return transport.request(network, method, params);
-        HttpsURLConnection connection = (HttpsURLConnection) new URL(endpoint(network)).openConnection();
-        connection.setInstanceFollowRedirects(false);
-        connection.setConnectTimeout(10000); connection.setReadTimeout(10000);
-        connection.setRequestMethod("POST"); connection.setRequestProperty("Content-Type", "application/json");
-        connection.setDoOutput(true);
-        try {
-            byte[] body = new JSONObject().put("jsonrpc", "2.0").put("id", 1).put("method", method)
-                .put("params", params).toString().getBytes(StandardCharsets.UTF_8);
-            try (OutputStream output = connection.getOutputStream()) { output.write(body); }
-            if (connection.getResponseCode() != 200) throw new IOException("Balance provider unavailable");
-            JSONObject response;
-            try (InputStream input = connection.getInputStream()) {
-                response = new JSONObject(new String(DevnetWalletService.readBounded(input, 16384), StandardCharsets.UTF_8));
-            }
-            Object id = response.opt("id");
-            if (!(id instanceof Integer || id instanceof Long) || ((Number) id).longValue() != 1 ||
-                !"2.0".equals(response.optString("jsonrpc")) || response.has("error") || response.isNull("result"))
-                throw new IOException("Balance provider rejected request");
-            return response.get("result");
-        } finally { connection.disconnect(); }
+        return new NativeWalletRpc(network).request(method, params);
     }
 }
