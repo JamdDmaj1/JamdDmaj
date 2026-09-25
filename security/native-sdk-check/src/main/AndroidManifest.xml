@@ -1,0 +1,4 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Deliberately no network permission, activities, user keys or production app ID. -->
+    <application android:allowBackup="false" android:label="Offline SDK verification" />
+</manifest>

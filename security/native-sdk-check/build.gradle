@@ -1,0 +1,19 @@
+plugins { id 'com.android.application' version '8.13.0' }
+android {
+    namespace 'com.jamddmaj.sdkcheck'
+    compileSdk 36
+    defaultConfig {
+        applicationId 'com.jamddmaj.sdkcheck'
+        minSdk 30
+        targetSdk 36
+        versionCode 1
+        versionName 'verification-only'
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+    }
+}
+dependencies {
+    implementation files('libs/wallet-core-release.aar')
+    androidTestImplementation 'androidx.test.ext:junit:1.3.0'
+    androidTestImplementation 'androidx.test:runner:1.7.0'
+    androidTestImplementation 'org.bouncycastle:bcprov-jdk18on:1.83'
+}
