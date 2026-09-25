@@ -1,0 +1,72 @@
+name: Native multichain SDK source build
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/wallet-core-source.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wallet-core-source-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  android-library:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 100
+    env:
+      CARGO_BUILD_JOBS: 2
+      CMAKE_BUILD_PARALLEL_LEVEL: 2
+    steps:
+      - name: Check out official Wallet Core 4.8.3 source
+        uses: actions/checkout@v4
+        with:
+          repository: trustwallet/wallet-core
+          ref: 5031fe6dd14b6d11a5de9892ea4ea1ee443fa13f
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build clang libboost-all-dev ruby-full autoconf automake libtool pkg-config
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" "ndk;28.0.12674087" "cmake;3.18.1"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/28.0.12674087" >> "$GITHUB_ENV"
+          rustup toolchain install nightly-2025-12-11 --profile minimal --component rust-src
+          rustup default nightly-2025-12-11
+          rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android i686-linux-android
+          cargo install cbindgen --version 0.29.2 --locked
+      - name: Build official internal dependencies
+        run: tools/install-dependencies
+      - name: Generate Android bindings and native libraries
+        run: tools/generate-files android
+      - name: Assemble Android library and protobuf classes
+        working-directory: android
+        run: ./gradlew --no-daemon --max-workers=2 :wallet-core:assembleRelease :wallet-core-proto:jar
+      - name: Record artifact provenance
+        run: |
+          git rev-parse HEAD > build/source-commit.txt
+          git diff --stat > build/generated-changes.txt
+          sha256sum android/wallet-core/build/outputs/aar/wallet-core-release.aar android/wallet-core-proto/build/libs/*.jar > build/artifact-sha256.txt
+          unzip -l android/wallet-core/build/outputs/aar/wallet-core-release.aar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Wallet-Core-4.8.3-official-source-Android
+          path: |
+            android/wallet-core/build/outputs/aar/wallet-core-release.aar
+            android/wallet-core-proto/build/libs/*.jar
+            build/source-commit.txt
+            build/artifact-sha256.txt
+            build/generated-changes.txt
+            LICENSE
+          retention-days: 14
+          if-no-files-found: error
+      # Dependency verification only: no production secrets, signing or blockchain submission.
