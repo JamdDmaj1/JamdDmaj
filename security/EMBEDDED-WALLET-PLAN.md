@@ -22,6 +22,13 @@ A read-only request for the 4.8.3 Maven POM using the existing GitHub credential
 
 Bitget remains separate and paused. External, embedded and practice balances must not substitute for one another. Wallet connection alone is not account authentication.
 
+### Production foundations added after the distribution check
+
+- Official Wallet Core source-build workflow pins 4.8.3 commit 5031fe6dd14b6d11a5de9892ea4ea1ee443fa13f. Run 36126636684 was launched; a launch is not proof of a usable SDK artifact. No package credential is used by this route.
+- `PortableWalletBackup` encrypts 256-bit BIP39 entropy with a profile-bound format separate from the raw devnet seed format. Java and independent Node recovery agree, including a Unicode password; tampering and relabeled devnet backups are rejected. This is not yet a complete wallet creation/recovery UI.
+- Production hardware vaults bind ciphertext to native owner, wallet ID, app package and versioned recovery profile. The same hardened storage engine preserves existing devnet aliases, AAD and envelope bytes. Namespace isolation is not user authentication: authorized native profile selection remains to be implemented.
+- `NativeWalletBalances` reads exact native SOL/BNB balances with network identity checks and freshness timestamps. It does not substitute zero after failures. Public RPC endpoints are initial connectivity only; production capacity/reliability must be assessed before broad rollout.
+
 ## Archived prototype notes
 
 User intent: separate user-controlled wallets within JamdDmaj, plus external wallet connection. Independent of Bitget, with manual user confirmations. Solana and BNB Chain are requested; exchange accounts are a separate integration.

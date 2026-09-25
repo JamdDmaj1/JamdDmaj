@@ -66,7 +66,7 @@ jobs:
           bash gradlew :app:assembleDebug :app:assembleRelease :app:assembleWalletPreview
       - name: Native Android storage and RPC failure checks
         working-directory: android
-        run: bash gradlew :app:testWalletPreviewUnitTest --tests 'com.jamddmaj.ai.wallet.DevnetWalletServiceTest'
+        run: bash gradlew :app:testWalletPreviewUnitTest --tests 'com.jamddmaj.ai.wallet.*'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
