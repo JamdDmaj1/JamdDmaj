@@ -37,10 +37,10 @@ public final class NativeWalletProfiles {
             if (name == null || name.trim().isEmpty() || name.length() > 60 || name.chars().anyMatch(Character::isISOControl))
                 throw new IllegalArgumentException("Invalid native wallet profile name");
             DevnetSolana.decode(solanaAddress, 32);
-            if (bnbAddress == null || !bnbAddress.matches("0x[0-9a-fA-F]{40}") || createdAt <= 0)
+            if (createdAt <= 0)
                 throw new IllegalArgumentException("Invalid native wallet profile");
             this.ownerId = ownerId; this.vaultId = vaultId; this.name = name;
-            this.solanaAddress = solanaAddress; this.bnbAddress = bnbAddress; this.createdAt = createdAt;
+            this.solanaAddress = solanaAddress; this.bnbAddress = NativeEvmAddress.recipient(bnbAddress); this.createdAt = createdAt;
         }
         public String address(WalletNetwork network) {
             if (network == WalletNetwork.SOLANA_MAINNET) return solanaAddress;

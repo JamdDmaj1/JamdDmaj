@@ -59,6 +59,8 @@ jobs:
           curl --fail --silent --show-error https://repo.maven.apache.org/maven2/org/bouncycastle/bcprov-jdk18on/1.83/bcprov-jdk18on-1.83.jar -o "$RUNNER_TEMP/bcprov.jar"
           javac -cp "$RUNNER_TEMP/bcprov.jar" -d "$RUNNER_TEMP/wallet-native-tests" android/app/src/main/java/com/jamddmaj/ai/wallet/PortableTestBackup.java android/app/src/main/java/com/jamddmaj/ai/wallet/DevnetSolana.java security/native-tests/NativeWalletCoreCheck.java
           node scripts/check-native-wallet-core.mjs java "$RUNNER_TEMP/wallet-native-tests:$RUNNER_TEMP/bcprov.jar"
+          javac -cp "$RUNNER_TEMP/bcprov.jar" -d "$RUNNER_TEMP/wallet-native-tests" android/app/src/main/java/com/jamddmaj/ai/wallet/NativeEvmAddress.java security/native-tests/NativeEvmAddressCheck.java
+          java -cp "$RUNNER_TEMP/wallet-native-tests:$RUNNER_TEMP/bcprov.jar" NativeEvmAddressCheck
       - name: Build isolated devnet lab APK
         working-directory: android
         run: |

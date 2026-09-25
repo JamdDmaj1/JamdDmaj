@@ -32,7 +32,7 @@ public final class NativeWalletBalances {
         if (network == null) throw new IllegalArgumentException("Network required");
         boolean solana = network == WalletNetwork.SOLANA_MAINNET || network == WalletNetwork.SOLANA_DEVNET;
         if (solana) DevnetSolana.decode(address, 32); // canonical public-address codec only, no key use
-        else if (address == null || !address.matches("0x[0-9a-fA-F]{40}")) throw new IllegalArgumentException("Invalid public EVM address");
+        else NativeEvmAddress.validate(address);
         network.verifyIdentity(request(network, network.identityMethod, new JSONArray()));
         BigInteger value;
         if (solana) {

@@ -69,9 +69,10 @@ public final class NativeTransferJournal {
     private void validate(String transactionId, String recipient, BigInteger units, BigInteger fee) {
         if (network == WalletNetwork.SOLANA_MAINNET) {
             DevnetSolana.decode(transactionId, 64); DevnetSolana.decode(recipient, 32);
-        } else if (transactionId == null || !transactionId.matches("0x[0-9a-f]{64}") ||
-                   recipient == null || !recipient.matches("0x[0-9a-fA-F]{40}")) {
-            throw new IllegalArgumentException("Invalid EVM transaction identity");
+        } else {
+            if (transactionId == null || !transactionId.matches("0x[0-9a-f]{64}"))
+                throw new IllegalArgumentException("Invalid EVM transaction identity");
+            NativeEvmAddress.recipient(recipient);
         }
         int bits = network == WalletNetwork.SOLANA_MAINNET ? 64 : 256;
         if (units == null || fee == null || units.signum() <= 0 || fee.signum() < 0 ||
