@@ -2,12 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync,existsSync} from 'node:fs';
 test('native test vault is unregistered and hardware-authenticated',()=>{
- const source=readFileSync(new URL('../android/app/src/main/java/com/jamddmaj/ai/wallet/HardwareTestVault.java',import.meta.url),'utf8');
+ const source=readFileSync(new URL('../android/app/src/main/java/com/jamddmaj/ai/wallet/HardwareSecretVault.java',import.meta.url),'utf8');
  assert.match(source,/getNoBackupFilesDir/);
  assert.match(source,/setUserAuthenticationParameters\(0, KeyProperties.AUTH_BIOMETRIC_STRONG\)/);
  assert.match(source,/isUserAuthenticationRequirementEnforcedBySecureHardware/);
  assert.match(source,/cipher\.updateAAD\(aad\)/);
  assert.doesNotMatch(source,/JavascriptInterface|CapacitorPlugin|Log\.|System\.out|SharedPreferences/);
+ const production=readFileSync(new URL('../android/app/src/main/java/com/jamddmaj/ai/wallet/HardwareWalletVault.java',import.meta.url),'utf8');
+ const devnet=readFileSync(new URL('../android/app/src/main/java/com/jamddmaj/ai/wallet/HardwareTestVault.java',import.meta.url),'utf8');
+ assert.match(production,/WalletVaultDomain.production/);
+ assert.match(devnet,/WalletVaultDomain.devnet/);
  const activity=readFileSync(new URL('../android/app/src/main/java/com/jamddmaj/ai/MainActivity.java',import.meta.url),'utf8');
  assert.doesNotMatch(activity,/HardwareTestVault/);
  const plugin=readFileSync(new URL('../android/app/src/main/java/com/jamddmaj/ai/DevnetWalletPlugin.java',import.meta.url),'utf8');

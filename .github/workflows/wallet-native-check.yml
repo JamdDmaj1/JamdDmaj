@@ -18,6 +18,7 @@ on:
       - '.github/workflows/wallet-native-check.yml'
       - 'scripts/check-wallet-lab-manifest.mjs'
       - 'scripts/check-native-wallet-core.mjs'
+      - 'scripts/check-production-recovery.mjs'
 permissions:
   contents: read
 jobs:
@@ -46,6 +47,8 @@ jobs:
           java -cp "$RUNNER_TEMP/wallet-native-tests" TestVaultEnvelopeCheck
           javac -d "$RUNNER_TEMP/wallet-native-tests" android/app/src/main/java/com/jamddmaj/ai/wallet/WalletNetwork.java security/native-tests/WalletNetworkCheck.java
           java -cp "$RUNNER_TEMP/wallet-native-tests" WalletNetworkCheck
+          javac -encoding UTF-8 -d "$RUNNER_TEMP/wallet-native-tests" android/app/src/main/java/com/jamddmaj/ai/wallet/WalletRecoveryProfile.java android/app/src/main/java/com/jamddmaj/ai/wallet/WalletVaultDomain.java android/app/src/main/java/com/jamddmaj/ai/wallet/TestVaultEnvelope.java android/app/src/main/java/com/jamddmaj/ai/wallet/PortableWalletBackup.java android/app/src/main/java/com/jamddmaj/ai/wallet/PortableTestBackup.java security/native-tests/ProductionRecoveryCheck.java
+          node scripts/check-production-recovery.mjs java "$RUNNER_TEMP/wallet-native-tests"
       - name: Build web assets and synchronize
         run: |
           npm ci
