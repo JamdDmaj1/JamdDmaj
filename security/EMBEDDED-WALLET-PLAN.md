@@ -1,4 +1,28 @@
-# Embedded wallet — development scope
+# Embedded wallet — production delivery plan
+
+## Current status — 2026-09-25
+
+The goal is real funds in the main Android app, not completion of a devnet preview. Native Android devnet creation, encrypted backup recovery, biometric signing and a confirmed devnet transfer are now implemented; see DEVNET-LAB.md. Assets opens the native activity through an origin-restricted navigation-only bridge. Same-owner recovery preserves the transaction journal. Explicit Solana/BNB real/test chain domains and exact integer amount parsing are implemented, but not yet wired to a production signer. CI run 36125915841 at da85353 passed.
+
+The sections below are historical prototype notes and are superseded by this status. In particular their claims that no native integration or devnet transfer exists are no longer current.
+
+### Remaining production acceptance criteria
+
+1. Maintained native multichain key derivation/signing and standard interoperable recovery. The raw Ed25519 devnet backup is deliberately test-only; never silently migrate its seed to real funds.
+2. Separate production vault and explicit user ownership/account-switch isolation, with verified device-loss recovery and biometric lifecycle handling.
+3. Real-network receive/send for native SOL and BNB: chain identity, destination validation, exact amounts, fees, manual review, biometric confirmation and durable transaction status. Token transfers, swaps and futures are separate capabilities.
+4. Independent derivation/signing vectors, test-network end-to-end checks and production security-boundary review. No real transfers by the implementation agent.
+5. Permanent production signing, main-app release and verified update delivery. A debug/preview APK is not a stable production update.
+
+### Native SDK distribution check
+
+Trust Wallet Core supplies Android Java/JNI multichain functionality. Its official Maven distribution requires GitHub Packages authentication: https://developer.trustwallet.com/developer/wallet-core/integration-guide/android-guide
+
+A read-only request for the 4.8.3 Maven POM using the existing GitHub credential returned HTTP 401 on 2026-09-25. No credentials were exposed, changed or committed. This blocks that distribution route with the current credential, not all project progress. Use a private appropriately scoped package credential/CI secret or evaluate a reproducible source build; do not substitute unofficial binaries or improvised cryptography.
+
+Bitget remains separate and paused. External, embedded and practice balances must not substitute for one another. Wallet connection alone is not account authentication.
+
+## Archived prototype notes
 
 User intent: separate user-controlled wallets within JamdDmaj, plus external wallet connection. Independent of Bitget, with manual user confirmations. Solana and BNB Chain are requested; exchange accounts are a separate integration.
 
