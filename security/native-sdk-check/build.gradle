@@ -17,15 +17,12 @@ android {
     }
 }
 // Android's source provider does not reliably honor SourceDirectorySet includes.
-// Copy only these two production classes; never implicitly compile the WebView app.
+// Copy native wallet components only; never implicitly compile the WebView app.
 tasks.register('copyVerifiedAdapter', Sync) {
     from('../../android/app/src/main/java') {
-        include 'com/jamddmaj/ai/wallet/NativeHdWallet.java'
-        include 'com/jamddmaj/ai/wallet/WalletRecoveryProfile.java'
-        include 'com/jamddmaj/ai/wallet/NativeBnbSigner.java'
-        include 'com/jamddmaj/ai/wallet/BnbSignedTransaction.java'
-        include 'com/jamddmaj/ai/wallet/NativeEvmAddress.java'
-        include 'com/jamddmaj/ai/wallet/WalletStorageBarrier.java'
+        include 'com/jamddmaj/ai/wallet/*.java'
+        exclude '**/*Activity.java'
+        exclude '**/WalletReviewDialog.java'
     }
     into layout.buildDirectory.dir('verified-adapter-source')
 }
