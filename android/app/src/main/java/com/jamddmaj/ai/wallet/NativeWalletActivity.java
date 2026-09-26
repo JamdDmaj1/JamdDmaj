@@ -1,6 +1,8 @@
 package com.jamddmaj.ai.wallet;
 
 import android.app.Activity;
+import android.app.AlertDialog;
+import java.math.BigDecimal;
 import android.content.Intent;
 import android.text.InputType;
 import android.view.View;
@@ -31,6 +33,8 @@ public final class NativeWalletActivity extends Activity {
     private EditText walletName,password,passwordRepeat;
     private byte[] exportBackup,openedBackup;
     private String recoveryOwner;
+    private NativeWalletProfiles.Profile selectedProfile;
+    private EditText recipient,sendAmount;
     private String text(String spanish,String english){return es?spanish:english;}
     @Override public void onCreate(Bundle saved){
         super.onCreate(saved);
@@ -55,6 +59,12 @@ public final class NativeWalletActivity extends Activity {
             startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("application/octet-stream").addCategory(Intent.CATEGORY_OPENABLE),202);
         });
         action(root,text("3. Recuperar y proteger con huella","3. Recover and protect with biometrics"),()->recover());
+        label(root,text("Envío manual · SOL en Solana mainnet","Manual transfer · SOL on Solana mainnet"),18);
+        recipient=field(root,text("Dirección de destino Solana","Solana destination address"),false);
+        sendAmount=field(root,text("Cantidad de SOL","SOL amount"),false);
+        sendAmount.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        action(root,text("Revisar envío de SOL","Review SOL transfer"),()->reviewSolana());
+        action(root,text("Consultar último envío de SOL","Check latest SOL transfer"),()->checkSolana());
         Button lock=new Button(this);lock.setText(text("Bloquear","Lock"));root.addView(lock);lock.setOnClickListener(v->lock());
     }
     private EditText field(LinearLayout root,String hint,boolean secret){
@@ -158,13 +168,71 @@ public final class NativeWalletActivity extends Activity {
                                     NativeHdWallet.Addresses verified=NativeHdWallet.addresses(entropy);
                                     if(!profile.solanaAddress.equals(verified.solana)||!profile.bnbAddress.equalsIgnoreCase(verified.bnb))throw new SecurityException("Wallet metadata mismatch");
                                 });
-                                runOnUiThread(()->{if(ticket==epoch){addresses.setText("Solana mainnet · SOL\n"+profile.solanaAddress+"\n\nBNB Smart Chain · BNB\n"+profile.bnbAddress);status.setText(text("Consultando saldos…","Checking balances…"));}});
+                                runOnUiThread(()->{if(ticket==epoch){selectedProfile=profile;addresses.setText("Solana mainnet · SOL\n"+profile.solanaAddress+"\n\nBNB Smart Chain · BNB\n"+profile.bnbAddress);status.setText(text("Consultando saldos…","Checking balances…"));}});
                                 readBalances(profile,ticket);
                             }catch(Exception failure){error(ticket);}});
                         }
                     });
             });
         }catch(Exception failure){error(ticket);}});
+    }
+    private void reviewSolana(){
+        NativeWalletProfiles.Profile profile=selectedProfile;
+        if(profile==null){status.setText(text("Desbloquea primero la billetera.","Unlock the wallet first."));return;}
+        String to=recipient.getText().toString().trim(),amount=sendAmount.getText().toString().trim();
+        lock();selectedProfile=profile;long ticket=epoch;
+        status.setText(text("Preparando revisión; todavía no se firma ni se envía.","Preparing review; nothing is signed or sent yet."));
+        worker.execute(()->{try{
+            SolanaNativeTransfers service=new SolanaNativeTransfers(this,profile);
+            SolanaNativeTransfers.Draft draft=service.prepare(to,amount);
+            runOnUiThread(()->{if(ticket!=epoch)return;
+                String review="Solana MAINNET\n\n"+text("Desde: ","From: ")+draft.from+"\n\n"+text("Destino: ","To: ")+draft.recipient+
+                    "\n\nSOL: "+new BigDecimal(draft.units,9).toPlainString()+"\n"+text("Comisión SOL: ","SOL fee: ")+new BigDecimal(draft.fee,9).toPlainString()+
+                    "\n\n"+text("Dinero real. Comprueba la dirección completa. La siguiente huella autoriza este envío.","Real funds. Check the full address. The next biometric approval authorizes this transfer.");
+                new AlertDialog.Builder(this).setTitle(text("Revisar antes de enviar","Review before sending")).setMessage(review)
+                    .setNegativeButton(text("Cancelar","Cancel"),(dialog,which)->lock())
+                    .setOnCancelListener(dialog->lock())
+                    .setPositiveButton(text("Confirmar con huella","Confirm with biometrics"),(dialog,which)->authorizeSolana(profile,service,draft,ticket)).show();
+            });
+        }catch(Exception failure){runOnUiThread(()->{if(ticket==epoch)status.setText(text("No se pudo preparar: revisa dirección, saldo, comisión o un envío pendiente. No se envió esta solicitud.","Cannot prepare: check address, balance, fee or pending transfer. This request was not sent."));});}});
+    }
+    private void authorizeSolana(NativeWalletProfiles.Profile profile,SolanaNativeTransfers service,SolanaNativeTransfers.Draft draft,long ticket){
+        if(ticket!=epoch)return;
+        worker.execute(()->{try{
+            HardwareWalletVault selected=new HardwareWalletVault(this,profile.ownerId,profile.vaultId);
+            var operation=selected.prepareOpen();
+            runOnUiThread(()->{if(ticket!=epoch){selected.cancel();return;}vault=selected;cancellation=new CancellationSignal();
+                new BiometricPrompt.Builder(this).setTitle(text("Autorizar envío real de SOL","Authorize real SOL transfer"))
+                    .setSubtitle(new BigDecimal(draft.units,9).toPlainString()+" SOL · Solana mainnet")
+                    .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+                    .setNegativeButton(text("Cancelar","Cancel"),getMainExecutor(),(dialog,which)->lock()).build()
+                    .authenticate(new BiometricPrompt.CryptoObject(operation.authenticationCipher()),cancellation,getMainExecutor(),new BiometricPrompt.AuthenticationCallback(){
+                        @Override public void onAuthenticationError(int code,CharSequence reason){if(ticket==epoch)lock();}
+                        @Override public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult result){
+                            if(ticket!=epoch)return;
+                            if(result.getCryptoObject()==null||result.getCryptoObject().getCipher()!=operation.authenticationCipher()){error(ticket);return;}
+                            worker.execute(()->{byte[][] signature=new byte[1][];try{
+                                if(ticket!=epoch)return;
+                                operation.completeOpen(entropy->signature[0]=service.signReviewed(draft,entropy,new SolanaNativeTransfers.Signer(){
+                                    public String address(byte[] input){return NativeHdWallet.addresses(input).solana;}
+                                    public byte[] sign(byte[] input,byte[] message){return NativeHdWallet.signSolana(input,message);}
+                                }));
+                                String id=service.submit(draft,signature[0],()->ticket==epoch);
+                                runOnUiThread(()->{if(ticket==epoch)status.setText(text("Envío presentado; falta confirmar en la red. No repitas.\n","Transfer submitted; network confirmation pending. Do not repeat.\n")+id);});
+                            }catch(Exception failure){runOnUiThread(()->{if(ticket==epoch)status.setText(text("No hay confirmación de este intento. Consulta el último envío antes de repetir; podría haberse transmitido.","This attempt is not confirmed. Check the latest transfer before retrying; it may have been broadcast."));});}
+                            finally{if(signature[0]!=null)Arrays.fill(signature[0],(byte)0);selected.cancel();}});
+                        }
+                    });
+            });
+        }catch(Exception failure){error(ticket);}});
+    }
+    private void checkSolana(){
+        NativeWalletProfiles.Profile profile=selectedProfile;if(profile==null){status.setText(text("Desbloquea primero la billetera.","Unlock the wallet first."));return;}
+        long ticket=epoch;worker.execute(()->{try{
+            var record=new SolanaNativeTransfers(this,profile).checkLatest();
+            String result=record==null?text("No hay envíos registrados.","No recorded transfers."):record.phase.name()+"\n"+record.transactionId;
+            runOnUiThread(()->{if(ticket==epoch)status.setText(result);});
+        }catch(Exception failure){runOnUiThread(()->{if(ticket==epoch)status.setText(text("No se pudo consultar. No repitas el envío hasta aclarar su estado.","Status unavailable. Do not resend until its state is resolved."));});}});
     }
     private void readBalances(NativeWalletProfiles.Profile profile,long ticket){
         StringBuilder result=new StringBuilder();NativeWalletBalances reader=new NativeWalletBalances();
@@ -178,7 +246,7 @@ public final class NativeWalletActivity extends Activity {
         runOnUiThread(()->{if(ticket==epoch)status.setText(result.toString());});
     }
     private void error(long ticket){runOnUiThread(()->{if(ticket!=epoch)return;lock();status.setText(text("No se pudo verificar. Recupera el respaldo si cambiaste la huella; no se ha enviado dinero.","Verification failed. Recover your backup if biometrics changed; no money was sent."));});}
-    private void lock(){epoch++;if(cancellation!=null)cancellation.cancel();cancellation=null;if(vault!=null)vault.cancel();vault=null;if(enrollment!=null)enrollment.cancel();if(password!=null)password.setText("");if(passwordRepeat!=null)passwordRepeat.setText("");if(addresses!=null)addresses.setText("");if(status!=null)status.setText(text("Billetera bloqueada.","Wallet locked."));}
+    private void lock(){epoch++;selectedProfile=null;if(cancellation!=null)cancellation.cancel();cancellation=null;if(vault!=null)vault.cancel();vault=null;if(enrollment!=null)enrollment.cancel();if(password!=null)password.setText("");if(passwordRepeat!=null)passwordRepeat.setText("");if(addresses!=null)addresses.setText("");if(status!=null)status.setText(text("Billetera bloqueada.","Wallet locked."));}
     @Override protected void onStop(){lock();super.onStop();}
     @Override protected void onDestroy(){lock();worker.shutdownNow();super.onDestroy();}
 }
