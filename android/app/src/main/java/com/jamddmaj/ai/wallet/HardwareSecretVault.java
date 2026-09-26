@@ -27,6 +27,7 @@ import javax.crypto.spec.GCMParameterSpec;
 public class HardwareSecretVault {
     private static final Object FILE_LOCK = new Object();
     private final AtomicFile file;
+    private final File privateRoot;
     private final String alias;
     private final byte[] aad;
     private Operation pending;
@@ -36,6 +37,7 @@ public class HardwareSecretVault {
     HardwareSecretVault(Context context, WalletVaultDomain storageDomain) throws Exception {
         if (Build.VERSION.SDK_INT < 30) throw new GeneralSecurityException("Unsupported Android version");
         domain = storageDomain;
+        privateRoot=context.getNoBackupFilesDir();
         File directory = new File(context.getNoBackupFilesDir(), domain.directory);
         if (!directory.isDirectory() && !directory.mkdirs()) throw new java.io.IOException("Storage unavailable");
         file = new AtomicFile(new File(directory, domain.walletId + ".vault"));
@@ -127,12 +129,13 @@ public class HardwareSecretVault {
                     synchronized(FILE_LOCK) {
                         if(exists())throw new GeneralSecurityException("Wallet vault already exists");
                         FileOutputStream out=null;
-                        try {out=file.startWrite();out.write(sealed);file.finishWrite(out);out=null;
+                        try {out=file.startWrite();out.write(sealed);out.getFD().sync();file.finishWrite(out);out=null;
                             try(FileInputStream input=file.openRead()) {
                                 byte[] check=new byte[WalletVaultDomain.SIZE];int total=0,count;
                                 while(total<check.length&&(count=input.read(check,total,check.length-total))!=-1)total+=count;
                                 if(total!=check.length||input.read()!=-1||!Arrays.equals(sealed,check))throw new java.io.IOException("Vault storage verification failed");
                             }
+                            WalletStorageBarrier.syncParents(file.getBaseFile(),privateRoot);
                         }
                         catch(Exception failure){if(out!=null)file.failWrite(out);throw failure;}
                     }

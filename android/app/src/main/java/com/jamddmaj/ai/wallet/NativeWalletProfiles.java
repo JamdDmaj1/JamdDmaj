@@ -24,8 +24,10 @@ public final class NativeWalletProfiles {
     private static final Object LOCK = new Object();
     private static final int MAX_PROFILES = 32;
     private final AtomicFile file;
+    private final File privateRoot;
 
     public NativeWalletProfiles(Context context) {
+        privateRoot=context.getNoBackupFilesDir();
         file = new AtomicFile(new File(context.getNoBackupFilesDir(), "native-wallet-profiles-v1.json"));
     }
 
@@ -133,10 +135,11 @@ public final class NativeWalletProfiles {
         if (expected.length > 32768) throw new IOException("Wallet metadata exceeds storage limit");
         FileOutputStream output = null;
         try {
-            output = file.startWrite(); output.write(expected); file.finishWrite(output); output = null;
+            output = file.startWrite(); output.write(expected); output.getFD().sync(); file.finishWrite(output); output = null;
             try (FileInputStream input = file.openRead()) {
                 if (!Arrays.equals(expected, DevnetWalletService.readBounded(input, 32768))) throw new IOException("Wallet metadata storage failed");
             }
+            WalletStorageBarrier.syncParents(file.getBaseFile(),privateRoot);
         } catch (Exception failure) { if (output != null) file.failWrite(output); throw failure; }
     }
 }
