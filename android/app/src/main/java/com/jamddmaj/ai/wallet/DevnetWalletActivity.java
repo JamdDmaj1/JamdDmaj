@@ -41,6 +41,9 @@ public final class DevnetWalletActivity extends Activity {
         es=Locale.getDefault().getLanguage().equals("es");service=new DevnetWalletService(this);
         ScrollView scroll=new ScrollView(this);LinearLayout layout=new LinearLayout(this);layout.setOrientation(LinearLayout.VERTICAL);int pad=(int)(20*getResources().getDisplayMetrics().density);layout.setPadding(pad,pad,pad,pad);scroll.addView(layout);
         label(layout,"JamdDmaj · SOL DEVNET",24);
+        // Native-only staging entry. Not exposed in the signed production app or via intent extras.
+        if(getPackageName().endsWith(".walletpreview"))
+            button(layout,text("Revisar billetera multirred (sin depósitos)","Review multichain wallet (no deposits)"),v->startActivity(new Intent(this,NativeWalletActivity.class)));
         label(layout,text("SOLO PRUEBAS. No deposites dinero real. Usa únicamente SOL de la red devnet. Esta billetera es independiente de Bitget; Wallet Lab y JamdDmaj guardan datos por separado.","TEST ONLY. Do not deposit real money. Use only SOL from devnet. This wallet is independent of Bitget; Wallet Lab and JamdDmaj store data separately."),16);
         identity=label(layout,text("Sin billetera recuperada.","No recovered wallet."),16);identity.setTextIsSelectable(true);
         label(layout,text("Contraseña del respaldo (mínimo 16 caracteres)","Backup passphrase (at least 16 characters)"),16);

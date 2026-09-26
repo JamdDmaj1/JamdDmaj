@@ -4,6 +4,8 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import java.math.BigDecimal;
 import android.content.Intent;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.text.InputType;
 import android.view.View;
 import java.io.InputStream;
@@ -51,6 +53,8 @@ public final class NativeWalletActivity extends Activity {
         accounts=new LinearLayout(this);accounts.setOrientation(LinearLayout.VERTICAL);root.addView(accounts);
         addresses=label(root,"",17);addresses.setTextIsSelectable(true);
         status=label(root,"",16);
+        action(root,text("Ver dirección para recibir SOL","View SOL receiving address"),()->receive(WalletNetwork.SOLANA_MAINNET));
+        action(root,text("Ver dirección para recibir BNB","View BNB receiving address"),()->receive(WalletNetwork.BNB_MAINNET));
         walletName=field(root,text("Nombre de la billetera","Wallet name"),false);
         password=field(root,text("Contraseña del respaldo: mínimo 16 caracteres","Backup password: at least 16 characters"),true);
         passwordRepeat=field(root,text("Repite la contraseña al crear","Repeat password when creating"),true);
@@ -78,6 +82,21 @@ public final class NativeWalletActivity extends Activity {
         EditText value=new EditText(this);value.setHint(hint);value.setSaveEnabled(false);
         value.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS);
         value.setInputType(InputType.TYPE_CLASS_TEXT|(secret?InputType.TYPE_TEXT_VARIATION_PASSWORD:InputType.TYPE_TEXT_FLAG_CAP_SENTENCES));root.addView(value);return value;
+    }
+    private void receive(WalletNetwork network){
+        NativeWalletProfiles.Profile profile=selectedProfile;
+        if(profile==null){status.setText(text("Desbloquea primero la billetera para verificar su dirección.","Unlock the wallet first to verify its address."));return;}
+        final long ticket=epoch;String address=profile.address(network);
+        String chain=network==WalletNetwork.SOLANA_MAINNET?"Solana mainnet · SOL":"BNB Smart Chain · BNB (56)";
+        String warning=text("Esta pantalla aún está en verificación. No deposites todavía.\n\nRed: ","This screen is still under verification. Do not deposit yet.\n\nNetwork: ")+chain+
+            "\n\n"+address+"\n\n"+text("No uses redes de prueba ni envíes desde una red distinta. La misma apariencia de dirección no significa que las redes sean intercambiables.","Do not use test networks or send from a different chain. Similar-looking addresses do not make networks interchangeable.");
+        new AlertDialog.Builder(this).setTitle(text("Dirección de tu billetera","Your wallet address")).setMessage(warning)
+            .setNegativeButton(text("Cerrar","Close"),null)
+            .setPositiveButton(text("Copiar dirección","Copy address"),(dialog,which)->{
+                if(ticket!=epoch||selectedProfile!=profile)return;
+                ClipboardManager clipboard=getSystemService(ClipboardManager.class);
+                if(clipboard!=null){clipboard.setPrimaryClip(ClipData.newPlainText(chain,address));status.setText(text("Dirección copiada para ","Address copied for ")+chain);}
+            }).show();
     }
     private void action(LinearLayout root,String caption,Runnable action){Button button=new Button(this);button.setText(caption);root.addView(button);button.setOnClickListener(v->action.run());}
     private char[] take(EditText field){char[] chars=new char[field.length()];field.getText().getChars(0,chars.length,chars,0);field.setText("");return chars;}
