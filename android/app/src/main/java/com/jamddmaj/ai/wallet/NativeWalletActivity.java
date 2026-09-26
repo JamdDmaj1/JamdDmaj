@@ -1,6 +1,12 @@
 package com.jamddmaj.ai.wallet;
 
 import android.app.Activity;
+import android.content.Intent;
+import android.text.InputType;
+import android.view.View;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.Arrays;
 import android.hardware.biometrics.BiometricManager;
 import android.hardware.biometrics.BiometricPrompt;
 import android.os.Bundle;
@@ -21,11 +27,16 @@ public final class NativeWalletActivity extends Activity {
     private TextView status,addresses;
     private LinearLayout accounts;
     private boolean es;
+    private NativeWalletEnrollment enrollment;
+    private EditText walletName,password,passwordRepeat;
+    private byte[] exportBackup,openedBackup;
+    private String recoveryOwner;
     private String text(String spanish,String english){return es?spanish:english;}
     @Override public void onCreate(Bundle saved){
         super.onCreate(saved);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
         es=Locale.getDefault().getLanguage().equals("es");
+        enrollment=new NativeWalletEnrollment(this);
         ScrollView scroll=new ScrollView(this);
         LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);
         int padding=(int)(20*getResources().getDisplayMetrics().density);root.setPadding(padding,padding,padding,padding);scroll.addView(root);setContentView(scroll);
@@ -35,7 +46,77 @@ public final class NativeWalletActivity extends Activity {
         accounts=new LinearLayout(this);accounts.setOrientation(LinearLayout.VERTICAL);root.addView(accounts);
         addresses=label(root,"",17);addresses.setTextIsSelectable(true);
         status=label(root,"",16);
+        walletName=field(root,text("Nombre de la billetera","Wallet name"),false);
+        password=field(root,text("Contraseña del respaldo: mínimo 16 caracteres","Backup password: at least 16 characters"),true);
+        passwordRepeat=field(root,text("Repite la contraseña al crear","Repeat password when creating"),true);
+        action(root,text("1. Crear respaldo cifrado","1. Create encrypted backup"),()->createBackup());
+        action(root,text("2. Abrir respaldo guardado","2. Open saved backup"),()->{
+            lock();openedBackup=null;
+            startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("application/octet-stream").addCategory(Intent.CATEGORY_OPENABLE),202);
+        });
+        action(root,text("3. Recuperar y proteger con huella","3. Recover and protect with biometrics"),()->recover());
         Button lock=new Button(this);lock.setText(text("Bloquear","Lock"));root.addView(lock);lock.setOnClickListener(v->lock());
+    }
+    private EditText field(LinearLayout root,String hint,boolean secret){
+        EditText value=new EditText(this);value.setHint(hint);value.setSaveEnabled(false);
+        value.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS);
+        value.setInputType(InputType.TYPE_CLASS_TEXT|(secret?InputType.TYPE_TEXT_VARIATION_PASSWORD:InputType.TYPE_TEXT_FLAG_CAP_SENTENCES));root.addView(value);return value;
+    }
+    private void action(LinearLayout root,String caption,Runnable action){Button button=new Button(this);button.setText(caption);root.addView(button);button.setOnClickListener(v->action.run());}
+    private char[] take(EditText field){char[] chars=new char[field.length()];field.getText().getChars(0,chars.length,chars,0);field.setText("");return chars;}
+    private void createBackup(){
+        char[] pass=take(password),repeat=take(passwordRepeat);
+        if(!Arrays.equals(pass,repeat)){Arrays.fill(pass,'\0');Arrays.fill(repeat,'\0');status.setText(text("Las contraseñas no coinciden.","Passwords do not match."));return;}
+        Arrays.fill(repeat,'\0');lock();recoveryOwner=null;openedBackup=null;long ticket=epoch;
+        worker.execute(()->{try{byte[] encrypted=NativeWalletEnrollment.createBackup(pass);
+            runOnUiThread(()->{if(ticket!=epoch)return;exportBackup=encrypted;
+                startActivityForResult(new Intent(Intent.ACTION_CREATE_DOCUMENT).setType("application/octet-stream").addCategory(Intent.CATEGORY_OPENABLE).putExtra(Intent.EXTRA_TITLE,"JamdDmaj-wallet-backup.jamdhd"),201);
+            });
+        }catch(Exception failure){error(ticket);}finally{Arrays.fill(pass,'\0');}});
+    }
+    @Override protected void onActivityResult(int request,int result,Intent data){
+        super.onActivityResult(request,result,data);
+        if(request!=201&&request!=202)return;
+        byte[] outgoing=exportBackup;exportBackup=null;
+        if(result!=RESULT_OK||data==null||data.getData()==null){status.setText(text("Selección cancelada.","Selection cancelled."));return;}
+        var uri=data.getData();long ticket=epoch;
+        worker.execute(()->{try{
+            if(request==201){
+                if(outgoing==null)throw new IllegalStateException("Backup expired");
+                try(OutputStream output=getContentResolver().openOutputStream(uri,"w")){if(output==null)throw new java.io.IOException();output.write(outgoing);output.flush();}
+                runOnUiThread(()->{if(ticket==epoch)status.setText(text("Respaldo guardado. Ábrelo de nuevo e introduce su contraseña para comprobar que puedes recuperarlo.","Backup saved. Reopen it and enter its password to verify recovery."));});
+            }else{
+                byte[] encrypted;try(InputStream input=getContentResolver().openInputStream(uri)){if(input==null)throw new java.io.IOException();encrypted=DevnetWalletService.readBounded(input,PortableWalletBackup.SIZE);}
+                if(encrypted.length!=PortableWalletBackup.SIZE)throw new IllegalArgumentException("Wrong backup format");
+                runOnUiThread(()->{if(ticket==epoch){openedBackup=encrypted;status.setText(text("Introduce la contraseña y pulsa recuperar.","Enter the password and choose recover."));}});
+            }
+        }catch(Exception failure){error(ticket);}});
+    }
+    private void recover(){
+        if(openedBackup==null||Build.VERSION.SDK_INT<30){status.setText(text("Abre un respaldo compatible primero. Requiere Android 11 o posterior.","Open a compatible backup first. Android 11 or later required."));return;}
+        byte[] encrypted=openedBackup.clone();char[] pass=take(password);String name=walletName.getText().toString().trim(),owner=recoveryOwner;
+        lock();long ticket=epoch;
+        worker.execute(()->{try{
+            NativeWalletEnrollment.Pending pending=enrollment.recover(encrypted,pass,name,owner);
+            runOnUiThread(()->{if(ticket!=epoch){enrollment.cancel();return;}cancellation=new CancellationSignal();
+                new BiometricPrompt.Builder(this).setTitle("JamdDmaj Wallet")
+                    .setSubtitle(text("Proteger la billetera recuperada","Protect the recovered wallet"))
+                    .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+                    .setNegativeButton(text("Cancelar","Cancel"),getMainExecutor(),(dialog,which)->lock()).build()
+                    .authenticate(new BiometricPrompt.CryptoObject(pending.authenticationCipher()),cancellation,getMainExecutor(),new BiometricPrompt.AuthenticationCallback(){
+                        @Override public void onAuthenticationError(int code,CharSequence message){if(ticket==epoch)lock();}
+                        @Override public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult result){
+                            if(ticket!=epoch)return;
+                            worker.execute(()->{try{
+                                if(ticket!=epoch)return;
+                                if(result.getCryptoObject()==null)throw new SecurityException("No cipher");
+                                pending.complete(result.getCryptoObject().getCipher());
+                                runOnUiThread(()->{if(ticket!=epoch)return;openedBackup=null;recoveryOwner=null;loadProfiles();status.setText(text("Recuperación guardada. Desbloquea tu billetera para verificar sus direcciones.","Recovery saved. Unlock your wallet to verify its addresses."));});
+                            }catch(Exception failure){error(ticket);}});
+                        }
+                    });
+            });
+        }catch(Exception failure){error(ticket);}finally{Arrays.fill(pass,'\0');Arrays.fill(encrypted,(byte)0);}});
     }
     private TextView label(LinearLayout root,String value,int size){TextView view=new TextView(this);view.setText(value);view.setTextSize(size);root.addView(view);return view;}
     @Override protected void onResume(){super.onResume();loadProfiles();}
@@ -45,7 +126,8 @@ public final class NativeWalletActivity extends Activity {
             var profiles=new NativeWalletProfiles(this).list();
             runOnUiThread(()->{if(ticket!=epoch)return;accounts.removeAllViews();
                 if(profiles.isEmpty())status.setText(text("Aún no hay una billetera recuperada en este dispositivo.","No recovered wallet on this device yet."));
-                for(var profile:profiles){Button button=new Button(this);button.setText(profile.name+" · "+text("Desbloquear","Unlock"));accounts.addView(button);button.setOnClickListener(v->unlock(profile.ownerId));}
+                for(var profile:profiles){Button button=new Button(this);button.setText(profile.name+" · "+text("Desbloquear","Unlock"));accounts.addView(button);button.setOnClickListener(v->unlock(profile.ownerId));
+                    action(accounts,profile.name+" · "+text("Recuperar acceso","Recover access"),()->{lock();recoveryOwner=profile.ownerId;walletName.setText(profile.name);status.setText(text("Abre el respaldo de esta billetera para recuperar su acceso.","Open this wallet's backup to recover its access."));});}
             });
         }catch(Exception failure){error(ticket);}});
     }
@@ -96,7 +178,7 @@ public final class NativeWalletActivity extends Activity {
         runOnUiThread(()->{if(ticket==epoch)status.setText(result.toString());});
     }
     private void error(long ticket){runOnUiThread(()->{if(ticket!=epoch)return;lock();status.setText(text("No se pudo verificar. Recupera el respaldo si cambiaste la huella; no se ha enviado dinero.","Verification failed. Recover your backup if biometrics changed; no money was sent."));});}
-    private void lock(){epoch++;if(cancellation!=null)cancellation.cancel();cancellation=null;if(vault!=null)vault.cancel();vault=null;if(addresses!=null)addresses.setText("");if(status!=null)status.setText(text("Billetera bloqueada.","Wallet locked."));}
+    private void lock(){epoch++;if(cancellation!=null)cancellation.cancel();cancellation=null;if(vault!=null)vault.cancel();vault=null;if(enrollment!=null)enrollment.cancel();if(password!=null)password.setText("");if(passwordRepeat!=null)passwordRepeat.setText("");if(addresses!=null)addresses.setText("");if(status!=null)status.setText(text("Billetera bloqueada.","Wallet locked."));}
     @Override protected void onStop(){lock();super.onStop();}
     @Override protected void onDestroy(){lock();worker.shutdownNow();super.onDestroy();}
 }
