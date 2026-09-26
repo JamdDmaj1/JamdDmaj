@@ -15,3 +15,11 @@ if(!preview.includes('package="com.jamddmaj.ai.walletpreview"'))throw new Error(
 const activity=preview.match(/<activity\b[^>]*android:name="com\.jamddmaj\.ai\.wallet\.DevnetWalletActivity"[^>]*>/)?.[0];
 if(!activity||!activity.includes('android:exported="false"'))throw new Error('Native wallet must remain private in integrated preview');
 console.log('Integrated preview identity and non-exported native wallet verified.');
+for(const variant of ['walletPreview','release']){
+ const merged=manifests(`android/app/build/intermediates/merged_manifests/${variant}`);
+ if(merged.length!==1)throw new Error(`Missing ${variant} manifest`);
+ const source=readFileSync(merged[0],'utf8');
+ const native=source.match(/<activity\b[^>]*android:name="com\.jamddmaj\.ai\.wallet\.NativeWalletActivity"[^>]*>/)?.[0];
+ if(!native||!native.includes('android:exported="false"')||!native.includes('android:process=":native_wallet"'))throw new Error(`${variant}: production wallet must be private and in its own process`);
+}
+console.log('Multichain wallet process isolation verified in preview and release manifests.');

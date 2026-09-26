@@ -17,6 +17,7 @@ import android.os.Bundle;
 import android.os.Build;
 import android.os.CancellationSignal;
 import android.view.WindowManager;
+import android.view.MotionEvent;
 import android.widget.*;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
@@ -39,6 +40,11 @@ public final class NativeWalletActivity extends Activity {
     private EditText recipient,sendAmount;
     private EditText bnbRecipient,bnbAmount;
     private String text(String spanish,String english){return es?spanish:english;}
+    @Override public boolean dispatchTouchEvent(MotionEvent event){
+        // Reject taps when another app covers any part of this financial screen.
+        if((event.getFlags()&(MotionEvent.FLAG_WINDOW_IS_OBSCURED|MotionEvent.FLAG_WINDOW_IS_PARTIALLY_OBSCURED))!=0)return false;
+        return super.dispatchTouchEvent(event);
+    }
     @Override public void onCreate(Bundle saved){
         super.onCreate(saved);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);

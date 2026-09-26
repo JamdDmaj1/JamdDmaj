@@ -5,6 +5,7 @@ import android.content.pm.ActivityInfo;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.view.MotionEvent;
 import android.widget.EditText;
 import java.util.ArrayList;
 import org.junit.Test;
@@ -17,6 +18,16 @@ import static org.junit.Assert.*;
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk=30)
 public class NativeWalletActivityTest {
+    @Test public void obscuredTouchesCannotConfirmWalletActions(){
+        try(var controller=Robolectric.buildActivity(NativeWalletActivity.class).create()){
+            MotionEvent.PointerProperties pointer=new MotionEvent.PointerProperties();pointer.id=0;pointer.toolType=MotionEvent.TOOL_TYPE_FINGER;
+            MotionEvent.PointerCoords coords=new MotionEvent.PointerCoords();coords.x=50;coords.y=50;coords.pressure=1;coords.size=1;
+            for(int flags:new int[]{MotionEvent.FLAG_WINDOW_IS_OBSCURED,MotionEvent.FLAG_WINDOW_IS_PARTIALLY_OBSCURED}){
+                MotionEvent event=MotionEvent.obtain(1,1,MotionEvent.ACTION_DOWN,1,new MotionEvent.PointerProperties[]{pointer},new MotionEvent.PointerCoords[]{coords},0,0,1,1,0,0,0,flags);
+                try{assertFalse(controller.get().dispatchTouchEvent(event));}finally{event.recycle();}
+            }
+        }
+    }
     private void fields(View view,ArrayList<EditText> result){
         if(view instanceof EditText)result.add((EditText)view);
         if(view instanceof ViewGroup){ViewGroup group=(ViewGroup)view;for(int i=0;i<group.getChildCount();i++)fields(group.getChildAt(i),result);}
