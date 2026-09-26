@@ -29,7 +29,9 @@ public final class NativeBnbSigner {
                     .setTransfer(Ethereum.Transaction.Transfer.newBuilder().setAmount(uint(amount)))).build();
             var output=AnySigner.sign(input,CoinType.ETHEREUM,Ethereum.SigningOutput.parser());
             if(output.getErrorValue()!=0||output.getEncoded().isEmpty())throw new IllegalStateException("Native BNB signing failed");
-            return output.getEncoded().toByteArray();
+            byte[] encoded=output.getEncoded().toByteArray();
+            BnbSignedTransaction.verify(encoded,expectedOwner,recipient,amount,nonce,gasPrice,gasLimit);
+            return encoded;
         }finally{Arrays.fill(raw,(byte)0);}
         // Protobuf/JNI create managed copies; wiping raw cannot erase all copies.
         // This signer must run only in the dedicated native wallet process.

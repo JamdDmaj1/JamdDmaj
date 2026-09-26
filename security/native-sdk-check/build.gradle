@@ -23,6 +23,8 @@ tasks.register('copyVerifiedAdapter', Sync) {
         include 'com/jamddmaj/ai/wallet/NativeHdWallet.java'
         include 'com/jamddmaj/ai/wallet/WalletRecoveryProfile.java'
         include 'com/jamddmaj/ai/wallet/NativeBnbSigner.java'
+        include 'com/jamddmaj/ai/wallet/BnbSignedTransaction.java'
+        include 'com/jamddmaj/ai/wallet/NativeEvmAddress.java'
     }
     into layout.buildDirectory.dir('verified-adapter-source')
 }
@@ -31,6 +33,7 @@ dependencies {
     implementation files('libs/wallet-core-release.aar')
     implementation files('../../android/wallet-core-vendor/wallet-core-proto-4.8.3.jar')
     implementation 'com.google.protobuf:protobuf-javalite:3.22.3'
+    implementation 'org.bouncycastle:bcprov-jdk18on:1.83'
     androidTestImplementation 'androidx.test.ext:junit:1.3.0'
     androidTestImplementation 'androidx.test:runner:1.7.0'
     androidTestImplementation 'org.bouncycastle:bcprov-jdk18on:1.83'
