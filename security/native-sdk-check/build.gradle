@@ -2,6 +2,10 @@ plugins { id 'com.android.application' version '8.13.0' }
 android {
     namespace 'com.jamddmaj.sdkcheck'
     compileSdk 36
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
     defaultConfig {
         applicationId 'com.jamddmaj.sdkcheck'
         minSdk 30
