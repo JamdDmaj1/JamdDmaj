@@ -17,7 +17,7 @@ final class BnbSignedTransaction {
            !NativeEvmAddress.hex(values[3]).equalsIgnoreCase(NativeEvmAddress.recipient(recipient))||
            !number(values[4]).equals(amount)||values[5].length!=0)throw bad();
         BigInteger v=number(values[6]),r=number(values[7]),s=number(values[8]);
-        int recovery=v.subtract(CHAIN.multiply(BigInteger.TWO).add(BigInteger.valueOf(35))).intValueExact();
+        int recovery=v.subtract(CHAIN.multiply(BigInteger.valueOf(2)).add(BigInteger.valueOf(35))).intValueExact();
         if(recovery<0||recovery>1)throw bad();
         var curve=SECNamedCurves.getByName("secp256k1");BigInteger n=curve.getN();
         if(r.signum()<=0||r.compareTo(n)>=0||s.signum()<=0||s.compareTo(n.shiftRight(1))>0)throw bad();

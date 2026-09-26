@@ -15,7 +15,7 @@ public class BnbSignerTest {
         byte[] b=NativeBnbSigner.sign(entropy,owner,recipient,BigInteger.ONE,BigInteger.ZERO,BigInteger.valueOf(1000000000),BigInteger.valueOf(21000));
         assertArrayEquals(a,b);assertTrue(a.length>90&&a.length<200);
         assertTrue(BnbSignedTransaction.verify(a,owner,recipient,BigInteger.ONE,BigInteger.ZERO,BigInteger.valueOf(1000000000),BigInteger.valueOf(21000)).matches("0x[0-9a-f]{64}"));
-        try{BnbSignedTransaction.verify(a,owner,recipient,BigInteger.TWO,BigInteger.ZERO,BigInteger.valueOf(1000000000),BigInteger.valueOf(21000));fail("Altered review accepted");}catch(IllegalArgumentException expected){}
+        try{BnbSignedTransaction.verify(a,owner,recipient,BigInteger.valueOf(2),BigInteger.ZERO,BigInteger.valueOf(1000000000),BigInteger.valueOf(21000));fail("Altered review accepted");}catch(IllegalArgumentException expected){}
         byte[] tampered=a.clone();tampered[tampered.length-1]^=1;
         try{BnbSignedTransaction.verify(tampered,owner,recipient,BigInteger.ONE,BigInteger.ZERO,BigInteger.valueOf(1000000000),BigInteger.valueOf(21000));fail("Tampered signature accepted");}catch(IllegalArgumentException expected){}
         try{NativeBnbSigner.sign(entropy,recipient,owner,BigInteger.ONE,BigInteger.ZERO,BigInteger.ONE,BigInteger.valueOf(21000));fail("Wrong owner accepted");}catch(SecurityException expected){}
