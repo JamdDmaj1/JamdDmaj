@@ -13,7 +13,7 @@ public final class NativeHdWallet {
         static { System.loadLibrary("TrustWalletCore"); }
         static void load() {}
     }
-    private static HDWallet open(byte[] entropy) {
+    static HDWallet open(byte[] entropy) {
         if (Build.VERSION.SDK_INT < 30) throw new UnsupportedOperationException("Android 11 or later required");
         WalletRecoveryProfile.validateEntropy(entropy);
         Library.load();

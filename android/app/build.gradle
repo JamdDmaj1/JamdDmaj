@@ -69,6 +69,8 @@ repositories {
 
 dependencies {
     implementation files('../wallet-core-vendor/wallet-core-4.8.3.aar')
+    implementation files('../wallet-core-vendor/wallet-core-proto-4.8.3.jar')
+    implementation 'com.google.protobuf:protobuf-javalite:3.22.3'
     implementation "org.bouncycastle:bcprov-jdk18on:1.83"
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
@@ -87,6 +89,9 @@ def walletCoreBinary = file('../wallet-core-vendor/wallet-core-4.8.3.aar')
 def walletCoreDigest = java.security.MessageDigest.getInstance('SHA-256').digest(walletCoreBinary.bytes).encodeHex().toString()
 if (walletCoreDigest != 'eec5addbada174fd3946b29d237b18bdc049ea82c5b1196181079d9504df42a4') {
     throw new GradleException('Wallet Core binary checksum mismatch')
+}
+if (java.security.MessageDigest.getInstance('SHA-256').digest(file('../wallet-core-vendor/wallet-core-proto-4.8.3.jar').bytes).encodeHex().toString() != '57523cffc7c87bc6a82b3395e9b871030a08e77e9efc3e19c67a4ffe36691ac2') {
+    throw new GradleException('Wallet Core protobuf checksum mismatch')
 }
 
 apply from: 'capacitor.build.gradle'

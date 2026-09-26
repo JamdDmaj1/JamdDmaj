@@ -6,6 +6,7 @@ on:
       - 'security/native-sdk-check/**'
       - 'android/wallet-core-vendor/**'
       - 'android/app/src/main/java/com/jamddmaj/ai/wallet/NativeHdWallet.java'
+      - 'android/app/src/main/java/com/jamddmaj/ai/wallet/NativeBnbSigner.java'
       - 'android/app/src/main/java/com/jamddmaj/ai/wallet/WalletRecoveryProfile.java'
       - '.github/workflows/wallet-sdk-verify.yml'
 permissions:
@@ -27,6 +28,7 @@ jobs:
       - name: Verify exact source and binary before use
         run: |
           echo 'eec5addbada174fd3946b29d237b18bdc049ea82c5b1196181079d9504df42a4  android/wallet-core-vendor/wallet-core-4.8.3.aar' | sha256sum -c -
+          echo '57523cffc7c87bc6a82b3395e9b871030a08e77e9efc3e19c67a4ffe36691ac2  android/wallet-core-vendor/wallet-core-proto-4.8.3.jar' | sha256sum -c -
           mkdir -p security/native-sdk-check/libs
           cp android/wallet-core-vendor/wallet-core-4.8.3.aar security/native-sdk-check/libs/wallet-core-release.aar
           sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
