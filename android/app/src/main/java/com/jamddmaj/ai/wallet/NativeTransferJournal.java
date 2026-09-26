@@ -15,10 +15,12 @@ public final class NativeTransferJournal {
     private final NativeWalletProfiles.Profile owner;
     private final WalletNetwork network;
     private final AtomicFile file;
+    private final File privateRoot;
 
     public NativeTransferJournal(Context context, NativeWalletProfiles.Profile owner, WalletNetwork network) throws IOException {
         if (owner == null || network == null || !network.realFunds) throw new IllegalArgumentException("Production wallet and network required");
         this.owner = owner; this.network = network;
+        privateRoot=context.getNoBackupFilesDir();
         File directory = new File(context.getNoBackupFilesDir(), "wallet-transfers-v1/" + owner.ownerId);
         if (!directory.isDirectory() && !directory.mkdirs()) throw new IOException("Transaction storage unavailable");
         file = new AtomicFile(new File(directory, network.storageDomain + ".json"));
@@ -110,10 +112,11 @@ public final class NativeTransferJournal {
         byte[] expected = value.toString().getBytes(StandardCharsets.UTF_8);
         FileOutputStream output = null;
         try {
-            output = file.startWrite(); output.write(expected); file.finishWrite(output); output = null;
+            output = file.startWrite(); output.write(expected); output.getFD().sync(); file.finishWrite(output); output = null;
             try (FileInputStream input = file.openRead()) {
                 if (!Arrays.equals(expected, DevnetWalletService.readBounded(input, 4096))) throw new IOException("Transaction was not durably recorded");
             }
+            WalletStorageBarrier.syncParents(file.getBaseFile(),privateRoot);
         } catch (Exception failure) { if (output != null) file.failWrite(output); throw failure; }
     }
 }

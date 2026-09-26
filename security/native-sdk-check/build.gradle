@@ -25,6 +25,7 @@ tasks.register('copyVerifiedAdapter', Sync) {
         include 'com/jamddmaj/ai/wallet/NativeBnbSigner.java'
         include 'com/jamddmaj/ai/wallet/BnbSignedTransaction.java'
         include 'com/jamddmaj/ai/wallet/NativeEvmAddress.java'
+        include 'com/jamddmaj/ai/wallet/WalletStorageBarrier.java'
     }
     into layout.buildDirectory.dir('verified-adapter-source')
 }
