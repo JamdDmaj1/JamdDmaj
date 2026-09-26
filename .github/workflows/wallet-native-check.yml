@@ -22,6 +22,9 @@ on:
       - 'scripts/check-production-recovery.mjs'
 permissions:
   contents: read
+concurrency:
+  group: native-wallet-check-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   debug-compile:
     runs-on: ubuntu-latest
@@ -57,7 +60,7 @@ jobs:
           npm run mobile:sync
       - name: Verify native wallet cryptography and transaction encoding
         run: |
-          curl --fail --silent --show-error https://repo.maven.apache.org/maven2/org/bouncycastle/bcprov-jdk18on/1.83/bcprov-jdk18on-1.83.jar -o "$RUNNER_TEMP/bcprov.jar"
+          curl --fail --silent --show-error --retry 3 --retry-delay 10 --retry-max-time 120 https://repo.maven.apache.org/maven2/org/bouncycastle/bcprov-jdk18on/1.83/bcprov-jdk18on-1.83.jar -o "$RUNNER_TEMP/bcprov.jar"
           javac -cp "$RUNNER_TEMP/bcprov.jar" -d "$RUNNER_TEMP/wallet-native-tests" android/app/src/main/java/com/jamddmaj/ai/wallet/PortableTestBackup.java android/app/src/main/java/com/jamddmaj/ai/wallet/DevnetSolana.java security/native-tests/NativeWalletCoreCheck.java
           node scripts/check-native-wallet-core.mjs java "$RUNNER_TEMP/wallet-native-tests:$RUNNER_TEMP/bcprov.jar"
           javac -cp "$RUNNER_TEMP/bcprov.jar" -d "$RUNNER_TEMP/wallet-native-tests" android/app/src/main/java/com/jamddmaj/ai/wallet/NativeEvmAddress.java security/native-tests/NativeEvmAddressCheck.java
