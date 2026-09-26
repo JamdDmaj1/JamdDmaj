@@ -4,6 +4,9 @@ on:
   push:
     paths:
       - 'security/native-sdk-check/**'
+      - 'android/wallet-core-vendor/**'
+      - 'android/app/src/main/java/com/jamddmaj/ai/wallet/NativeHdWallet.java'
+      - 'android/app/src/main/java/com/jamddmaj/ai/wallet/WalletRecoveryProfile.java'
       - '.github/workflows/wallet-sdk-verify.yml'
 permissions:
   contents: read
@@ -21,18 +24,11 @@ jobs:
       - uses: android-actions/setup-android@v3
         with:
           packages: platform-tools
-      - uses: actions/download-artifact@v4
-        with:
-          github-token: ${{ github.token }}
-          run-id: 36195922802
-          name: Wallet-Core-4.8.3-official-source-Android
-          path: sdk-artifact
       - name: Verify exact source and binary before use
         run: |
-          test "$(cat sdk-artifact/build/source-commit.txt)" = '5031fe6dd14b6d11a5de9892ea4ea1ee443fa13f'
-          echo 'eec5addbada174fd3946b29d237b18bdc049ea82c5b1196181079d9504df42a4  sdk-artifact/android/wallet-core/build/outputs/aar/wallet-core-release.aar' | sha256sum -c -
+          echo 'eec5addbada174fd3946b29d237b18bdc049ea82c5b1196181079d9504df42a4  android/wallet-core-vendor/wallet-core-4.8.3.aar' | sha256sum -c -
           mkdir -p security/native-sdk-check/libs
-          cp sdk-artifact/android/wallet-core/build/outputs/aar/wallet-core-release.aar security/native-sdk-check/libs/
+          cp android/wallet-core-vendor/wallet-core-4.8.3.aar security/native-sdk-check/libs/wallet-core-release.aar
           sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
       - name: Enable emulator acceleration
         run: |

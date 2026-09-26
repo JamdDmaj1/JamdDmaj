@@ -2,6 +2,11 @@ plugins { id 'com.android.application' version '8.13.0' }
 android {
     namespace 'com.jamddmaj.sdkcheck'
     compileSdk 36
+    sourceSets.main.java {
+        srcDir '../../android/app/src/main/java'
+        include 'com/jamddmaj/ai/wallet/NativeHdWallet.java'
+        include 'com/jamddmaj/ai/wallet/WalletRecoveryProfile.java'
+    }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17

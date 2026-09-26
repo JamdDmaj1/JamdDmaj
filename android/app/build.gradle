@@ -68,6 +68,7 @@ repositories {
 }
 
 dependencies {
+    implementation files('../wallet-core-vendor/wallet-core-4.8.3.aar')
     implementation "org.bouncycastle:bcprov-jdk18on:1.83"
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
@@ -79,6 +80,13 @@ dependencies {
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')
+}
+
+// Fail closed if the verified source-build artifact is replaced or corrupted.
+def walletCoreBinary = file('../wallet-core-vendor/wallet-core-4.8.3.aar')
+def walletCoreDigest = java.security.MessageDigest.getInstance('SHA-256').digest(walletCoreBinary.bytes).encodeHex().toString()
+if (walletCoreDigest != 'eec5addbada174fd3946b29d237b18bdc049ea82c5b1196181079d9504df42a4') {
+    throw new GradleException('Wallet Core binary checksum mismatch')
 }
 
 apply from: 'capacitor.build.gradle'

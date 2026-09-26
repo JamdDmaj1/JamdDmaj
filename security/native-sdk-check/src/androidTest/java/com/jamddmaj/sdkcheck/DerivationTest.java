@@ -15,6 +15,7 @@ import org.bouncycastle.crypto.signers.Ed25519Signer;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import wallet.core.jni.*;
+import com.jamddmaj.ai.wallet.NativeHdWallet;
 import static org.junit.Assert.*;
 
 /** Public zero-entropy fixture only. Independent JCA/BC derivation; never funds these keys. */
@@ -71,5 +72,15 @@ public class DerivationTest {
         PrivateKey key = new HDWallet(new byte[32],"").getKey(CoinType.ETHEREUM,"m/44'/60'/0'/0/0");
         assertArrayEquals(expected,key.data());
         assertEquals(CoinType.ETHEREUM.deriveAddress(key),CoinType.ETHEREUM.deriveAddress(new PrivateKey(expected)));
+    }
+    @Test public void mainAppAdapterPreservesInputAndUsesVerifiedPaths() throws Exception {
+        byte[] entropy = new byte[32];
+        NativeHdWallet.Addresses addresses = NativeHdWallet.addresses(entropy);
+        HDWallet reference = new HDWallet(entropy, "");
+        assertEquals(CoinType.SOLANA.deriveAddress(reference.getKey(CoinType.SOLANA,"m/44'/501'/0'/0'")), addresses.solana);
+        assertEquals(CoinType.ETHEREUM.deriveAddress(reference.getKey(CoinType.ETHEREUM,"m/44'/60'/0'/0/0")), addresses.bnb);
+        assertArrayEquals(new byte[32],entropy);
+        try { NativeHdWallet.addresses(new byte[16]); fail("Wrong entropy profile accepted"); }
+        catch (IllegalArgumentException expected) {}
     }
 }
