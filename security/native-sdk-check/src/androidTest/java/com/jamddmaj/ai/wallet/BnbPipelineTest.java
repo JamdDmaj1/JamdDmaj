@@ -18,13 +18,13 @@ import static org.junit.Assert.*;
 public class BnbPipelineTest {
     private Context context;private NativeWalletProfiles.Profile owner;private NativeWalletRpc.Transport transport;
     private int broadcasts;private boolean timeout;private String tx;
-    private final String recipient="0x3535353535353535353535353535353535353535",hash="0x"+"b".repeat(64);
+    private final String recipient="0x3535353535353535353535353535353535353535",hash="0x"+String.join("",java.util.Collections.nCopies(64,"b"));
     @Before public void setup()throws Exception{
         Context target=InstrumentationRegistry.getInstrumentation().getTargetContext();
         File root=new File(target.getNoBackupFilesDir(),UUID.randomUUID().toString());assertTrue(root.mkdir());
         context=new ContextWrapper(target){@Override public File getNoBackupFilesDir(){return root;}};
         var addresses=NativeHdWallet.addresses(new byte[32]);
-        owner=new NativeWalletProfiles.Profile("1".repeat(32),"2".repeat(32),"Public test fixture",addresses.solana,addresses.bnb,1);
+        owner=new NativeWalletProfiles.Profile(String.join("",java.util.Collections.nCopies(32,"1")),String.join("",java.util.Collections.nCopies(32,"2")),"Public test fixture",addresses.solana,addresses.bnb,1);
         transport=(method,params)->{
             switch(method){
                 case "eth_chainId":return "0x38";
