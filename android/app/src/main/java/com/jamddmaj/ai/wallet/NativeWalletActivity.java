@@ -96,13 +96,11 @@ public final class NativeWalletActivity extends Activity {
         String chain=network==WalletNetwork.SOLANA_MAINNET?"Solana mainnet · SOL":"BNB Smart Chain · BNB (56)";
         String warning=text("Esta pantalla aún está en verificación. No deposites todavía.\n\nRed: ","This screen is still under verification. Do not deposit yet.\n\nNetwork: ")+chain+
             "\n\n"+address+"\n\n"+text("No uses redes de prueba ni envíes desde una red distinta. La misma apariencia de dirección no significa que las redes sean intercambiables.","Do not use test networks or send from a different chain. Similar-looking addresses do not make networks interchangeable.");
-        new AlertDialog.Builder(this).setTitle(text("Dirección de tu billetera","Your wallet address")).setMessage(warning)
-            .setNegativeButton(text("Cerrar","Close"),null)
-            .setPositiveButton(text("Copiar dirección","Copy address"),(dialog,which)->{
+        WalletReviewDialog.show(this,text("Dirección de tu billetera","Your wallet address"),warning,text("Copiar dirección","Copy address"),()->{
                 if(ticket!=epoch||selectedProfile!=profile)return;
                 ClipboardManager clipboard=getSystemService(ClipboardManager.class);
                 if(clipboard!=null){clipboard.setPrimaryClip(ClipData.newPlainText(chain,address));status.setText(text("Dirección copiada para ","Address copied for ")+chain);}
-            }).show();
+            },text("Cerrar","Close"),()->{});
     }
     private void action(LinearLayout root,String caption,Runnable action){Button button=new Button(this);button.setText(caption);root.addView(button);button.setOnClickListener(v->action.run());}
     private char[] take(EditText field){char[] chars=new char[field.length()];field.getText().getChars(0,chars.length,chars,0);field.setText("");return chars;}
@@ -221,10 +219,8 @@ public final class NativeWalletActivity extends Activity {
                 String review="Solana MAINNET\n\n"+text("Desde: ","From: ")+draft.from+"\n\n"+text("Destino: ","To: ")+draft.recipient+
                     "\n\nSOL: "+new BigDecimal(draft.units,9).toPlainString()+"\n"+text("Comisión SOL: ","SOL fee: ")+new BigDecimal(draft.fee,9).toPlainString()+
                     "\n\n"+text("Dinero real. Comprueba la dirección completa. La siguiente huella autoriza este envío.","Real funds. Check the full address. The next biometric approval authorizes this transfer.");
-                new AlertDialog.Builder(this).setTitle(text("Revisar antes de enviar","Review before sending")).setMessage(review)
-                    .setNegativeButton(text("Cancelar","Cancel"),(dialog,which)->lock())
-                    .setOnCancelListener(dialog->lock())
-                    .setPositiveButton(text("Confirmar con huella","Confirm with biometrics"),(dialog,which)->authorizeSolana(profile,service,draft,ticket)).show();
+                WalletReviewDialog.show(this,text("Revisar antes de enviar","Review before sending"),review,
+                    text("Confirmar con huella","Confirm with biometrics"),()->authorizeSolana(profile,service,draft,ticket),text("Cancelar","Cancel"),()->lock());
             });
         }catch(Exception failure){runOnUiThread(()->{if(ticket==epoch)status.setText(text("No se pudo preparar: revisa dirección, saldo, comisión o un envío pendiente. No se envió esta solicitud.","Cannot prepare: check address, balance, fee or pending transfer. This request was not sent."));});}});
     }
@@ -278,9 +274,8 @@ public final class NativeWalletActivity extends Activity {
                 String review="BNB Smart Chain MAINNET · 56\n\n"+text("Desde: ","From: ")+draft.from+"\n\n"+text("Destino: ","To: ")+draft.recipient+
                     "\n\nBNB: "+new BigDecimal(draft.units,18).toPlainString()+"\n"+text("Comisión máxima BNB: ","Maximum BNB fee: ")+new BigDecimal(draft.maximumFee,18).toPlainString()+
                     "\n\n"+text("Dinero real. Comprueba la dirección completa. La siguiente huella autoriza este envío.","Real funds. Check the full address. The next biometric approval authorizes this transfer.");
-                new AlertDialog.Builder(this).setTitle(text("Revisar antes de enviar","Review before sending")).setMessage(review)
-                    .setNegativeButton(text("Cancelar","Cancel"),(dialog,which)->lock()).setOnCancelListener(dialog->lock())
-                    .setPositiveButton(text("Confirmar con huella","Confirm with biometrics"),(dialog,which)->authorizeBnb(profile,service,draft,ticket)).show();
+                WalletReviewDialog.show(this,text("Revisar antes de enviar","Review before sending"),review,
+                    text("Confirmar con huella","Confirm with biometrics"),()->authorizeBnb(profile,service,draft,ticket),text("Cancelar","Cancel"),()->lock());
             });
         }catch(Exception failure){runOnUiThread(()->{if(ticket==epoch)status.setText(text("No se pudo preparar BNB. Revisa dirección, saldo y envíos pendientes. Esta solicitud no fue enviada.","Cannot prepare BNB. Check address, balance and pending transfers. This request was not sent."));});}});
     }

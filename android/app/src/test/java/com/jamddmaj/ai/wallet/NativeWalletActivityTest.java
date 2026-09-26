@@ -24,7 +24,7 @@ public class NativeWalletActivityTest {
             MotionEvent.PointerCoords coords=new MotionEvent.PointerCoords();coords.x=50;coords.y=50;coords.pressure=1;coords.size=1;
             for(int flags:new int[]{MotionEvent.FLAG_WINDOW_IS_OBSCURED,MotionEvent.FLAG_WINDOW_IS_PARTIALLY_OBSCURED}){
                 MotionEvent event=MotionEvent.obtain(1,1,MotionEvent.ACTION_DOWN,1,new MotionEvent.PointerProperties[]{pointer},new MotionEvent.PointerCoords[]{coords},0,0,1,1,0,0,0,flags);
-                try{assertFalse(controller.get().dispatchTouchEvent(event));}finally{event.recycle();}
+                try{assertFalse(controller.get().dispatchTouchEvent(event));assertFalse(new WalletReviewDialog(controller.get()).dispatchTouchEvent(event));}finally{event.recycle();}
             }
         }
     }
