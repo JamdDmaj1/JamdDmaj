@@ -35,6 +35,7 @@ public final class NativeWalletActivity extends Activity {
     private String recoveryOwner;
     private NativeWalletProfiles.Profile selectedProfile;
     private EditText recipient,sendAmount;
+    private EditText bnbRecipient,bnbAmount;
     private String text(String spanish,String english){return es?spanish:english;}
     @Override public void onCreate(Bundle saved){
         super.onCreate(saved);
@@ -65,6 +66,12 @@ public final class NativeWalletActivity extends Activity {
         sendAmount.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_DECIMAL);
         action(root,text("Revisar envío de SOL","Review SOL transfer"),()->reviewSolana());
         action(root,text("Consultar último envío de SOL","Check latest SOL transfer"),()->checkSolana());
+        label(root,text("Envío manual · BNB Smart Chain","Manual transfer · BNB Smart Chain"),18);
+        bnbRecipient=field(root,text("Dirección de destino BNB (0x…)","BNB destination address (0x…)"),false);
+        bnbAmount=field(root,text("Cantidad de BNB","BNB amount"),false);
+        bnbAmount.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        action(root,text("Revisar envío de BNB","Review BNB transfer"),()->reviewBnb());
+        action(root,text("Consultar último envío de BNB","Check latest BNB transfer"),()->checkBnb());
         Button lock=new Button(this);lock.setText(text("Bloquear","Lock"));root.addView(lock);lock.setOnClickListener(v->lock());
     }
     private EditText field(LinearLayout root,String hint,boolean secret){
@@ -233,6 +240,58 @@ public final class NativeWalletActivity extends Activity {
             String result=record==null?text("No hay envíos registrados.","No recorded transfers."):record.phase.name()+"\n"+record.transactionId;
             runOnUiThread(()->{if(ticket==epoch)status.setText(result);});
         }catch(Exception failure){runOnUiThread(()->{if(ticket==epoch)status.setText(text("No se pudo consultar. No repitas el envío hasta aclarar su estado.","Status unavailable. Do not resend until its state is resolved."));});}});
+    }
+    private void reviewBnb(){
+        NativeWalletProfiles.Profile profile=selectedProfile;
+        if(profile==null){status.setText(text("Desbloquea primero la billetera.","Unlock the wallet first."));return;}
+        String to=bnbRecipient.getText().toString().trim(),amount=bnbAmount.getText().toString().trim();
+        lock();selectedProfile=profile;long ticket=epoch;
+        status.setText(text("Preparando revisión BNB; no se envía todavía.","Preparing BNB review; nothing is sent yet."));
+        worker.execute(()->{try{
+            BnbTransferReview service=new BnbTransferReview(this,profile);var draft=service.prepare(to,amount);
+            runOnUiThread(()->{if(ticket!=epoch)return;
+                String review="BNB Smart Chain MAINNET · 56\n\n"+text("Desde: ","From: ")+draft.from+"\n\n"+text("Destino: ","To: ")+draft.recipient+
+                    "\n\nBNB: "+new BigDecimal(draft.units,18).toPlainString()+"\n"+text("Comisión máxima BNB: ","Maximum BNB fee: ")+new BigDecimal(draft.maximumFee,18).toPlainString()+
+                    "\n\n"+text("Dinero real. Comprueba la dirección completa. La siguiente huella autoriza este envío.","Real funds. Check the full address. The next biometric approval authorizes this transfer.");
+                new AlertDialog.Builder(this).setTitle(text("Revisar antes de enviar","Review before sending")).setMessage(review)
+                    .setNegativeButton(text("Cancelar","Cancel"),(dialog,which)->lock()).setOnCancelListener(dialog->lock())
+                    .setPositiveButton(text("Confirmar con huella","Confirm with biometrics"),(dialog,which)->authorizeBnb(profile,service,draft,ticket)).show();
+            });
+        }catch(Exception failure){runOnUiThread(()->{if(ticket==epoch)status.setText(text("No se pudo preparar BNB. Revisa dirección, saldo y envíos pendientes. Esta solicitud no fue enviada.","Cannot prepare BNB. Check address, balance and pending transfers. This request was not sent."));});}});
+    }
+    private void authorizeBnb(NativeWalletProfiles.Profile profile,BnbTransferReview service,BnbTransferReview.Draft draft,long ticket){
+        if(ticket!=epoch)return;
+        worker.execute(()->{try{
+            HardwareWalletVault selected=new HardwareWalletVault(this,profile.ownerId,profile.vaultId);var operation=selected.prepareOpen();
+            runOnUiThread(()->{if(ticket!=epoch){selected.cancel();return;}vault=selected;cancellation=new CancellationSignal();
+                new BiometricPrompt.Builder(this).setTitle(text("Autorizar envío real de BNB","Authorize real BNB transfer"))
+                    .setSubtitle(new BigDecimal(draft.units,18).toPlainString()+" BNB · Smart Chain 56")
+                    .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+                    .setNegativeButton(text("Cancelar","Cancel"),getMainExecutor(),(dialog,which)->lock()).build()
+                    .authenticate(new BiometricPrompt.CryptoObject(operation.authenticationCipher()),cancellation,getMainExecutor(),new BiometricPrompt.AuthenticationCallback(){
+                        @Override public void onAuthenticationError(int code,CharSequence reason){if(ticket==epoch)lock();}
+                        @Override public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult result){
+                            if(ticket!=epoch)return;
+                            if(result.getCryptoObject()==null||result.getCryptoObject().getCipher()!=operation.authenticationCipher()){error(ticket);return;}
+                            worker.execute(()->{try{
+                                if(ticket!=epoch)return;
+                                BnbTransferReview.Signed[] signed=new BnbTransferReview.Signed[1];
+                                operation.completeOpen(entropy->signed[0]=service.signReviewed(draft,entropy));
+                                String id=service.submit(signed[0],()->ticket==epoch);
+                                runOnUiThread(()->{if(ticket==epoch)status.setText(text("BNB presentado; falta confirmación de la red. No repitas.\n","BNB submitted; network confirmation pending. Do not repeat.\n")+id);});
+                            }catch(Exception failure){runOnUiThread(()->{if(ticket==epoch)status.setText(text("Resultado BNB sin confirmar. Consulta el último envío antes de repetir; podría haberse transmitido.","BNB outcome unconfirmed. Check the latest transfer before retrying; it may have been broadcast."));});}
+                            finally{selected.cancel();}});
+                        }
+                    });
+            });
+        }catch(Exception failure){error(ticket);}});
+    }
+    private void checkBnb(){
+        NativeWalletProfiles.Profile profile=selectedProfile;if(profile==null){status.setText(text("Desbloquea primero la billetera.","Unlock the wallet first."));return;}
+        long ticket=epoch;worker.execute(()->{try{
+            var record=new BnbTransferReview(this,profile).checkLatest();String result=record==null?text("No hay envíos BNB registrados.","No recorded BNB transfers."):record.phase.name()+"\n"+record.transactionId;
+            runOnUiThread(()->{if(ticket==epoch)status.setText(result);});
+        }catch(Exception failure){runOnUiThread(()->{if(ticket==epoch)status.setText(text("No se pudo consultar BNB. No repitas hasta aclarar su estado.","BNB status unavailable. Do not resend until its state is resolved."));});}});
     }
     private void readBalances(NativeWalletProfiles.Profile profile,long ticket){
         StringBuilder result=new StringBuilder();NativeWalletBalances reader=new NativeWalletBalances();
