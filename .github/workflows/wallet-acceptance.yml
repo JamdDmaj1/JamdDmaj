@@ -1,0 +1,61 @@
+name: Signed wallet device verification
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/native-wallet-protection]
+    paths: ['.github/workflows/wallet-acceptance.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  native-checks:
+    uses: ./.github/workflows/wallet-native-check.yml
+  sdk-checks:
+    uses: ./.github/workflows/wallet-sdk-verify.yml
+  signed-verification:
+    needs: [native-checks, sdk-checks]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - run: npm ci && npm run mobile:sync
+      - name: Build permanently signed isolated verification APK
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          JAMDDMAJ_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          JAMDDMAJ_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          JAMDDMAJ_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          export JAMDDMAJ_KEYSTORE_FILE="$RUNNER_TEMP/wallet-signing.jks"
+          trap 'rm -f "$JAMDDMAJ_KEYSTORE_FILE"' EXIT
+          test -n "$KEYSTORE_BASE64"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$JAMDDMAJ_KEYSTORE_FILE"
+          chmod 600 "$JAMDDMAJ_KEYSTORE_FILE"
+          sed -i 's/\r$//' android/gradlew
+          (cd android && bash gradlew :app:assembleWalletAcceptance)
+          APK=android/app/build/outputs/apk/walletAcceptance/app-walletAcceptance.apk
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$APK" > signature.txt
+          ! grep -q 'CN=Android Debug' signature.txt
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | grep "package: name='com.jamddmaj.ai.walletacceptance'"
+          cp "$APK" JamdDmaj-Wallet-Verification.apk
+          sha256sum JamdDmaj-Wallet-Verification.apk > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: JamdDmaj-Signed-Verification-NO-DEPOSITS
+          path: |
+            JamdDmaj-Wallet-Verification.apk
+            SHA256SUMS.txt
+            signature.txt
+          retention-days: 14

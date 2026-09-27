@@ -24,7 +24,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: native-wallet-check-${{ github.ref }}
+  group: native-wallet-check-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   debug-compile:

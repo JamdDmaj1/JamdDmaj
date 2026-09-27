@@ -58,6 +58,20 @@ android {
             versionNameSuffix "-walletpreview"
             matchingFallbacks = ['release']
         }
+        walletAcceptance {
+            initWith walletPreview
+            // Permanent signing, separate identity: never replaces existing wallets.
+            signingConfig signingConfigs.release
+            applicationIdSuffix ".walletacceptance"
+            versionNameSuffix "-walletacceptance"
+            matchingFallbacks = ['walletPreview', 'release']
+        }
+    }
+}
+
+gradle.taskGraph.whenReady { graph ->
+    if (graph.allTasks.any { it.name.toLowerCase().contains('walletacceptance') } && !releaseSigningReady) {
+        throw new GradleException('Permanent signing credentials required for wallet acceptance build')
     }
 }
 

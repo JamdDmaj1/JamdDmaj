@@ -38,6 +38,17 @@ Remaining acceptance, without implying that tests satisfy these requirements:
 
 No real transfer or trade was submitted by the implementation agent.
 
+### User decision and installation issue — 2026-09-27
+
+The user selected buying/selling inside JamdDmaj independently of Bitget, with
+optional external wallet connections (for example Phantom and Bitget Wallet).
+Native-wallet token swaps are therefore required; exchange-only trading is not
+a substitute. No additional trading-route question is needed for that distinction.
+The phone reports an existing-package conflict installing the ephemeral-signed
+preview. Preserve that app and its data. The isolated `walletAcceptance` build
+uses the existing permanent release signing credentials and a new app identity;
+it is a verification delivery, not a production activation or data migration.
+
 ## Historical status — 2026-09-25
 
 The goal is real funds in the main Android app, not completion of a devnet preview. Native Android devnet creation, encrypted backup recovery, biometric signing and a confirmed devnet transfer are now implemented; see DEVNET-LAB.md. Assets opens the native activity through an origin-restricted navigation-only bridge. Same-owner recovery preserves the transaction journal. Explicit Solana/BNB real/test chain domains and exact integer amount parsing are implemented, but not yet wired to a production signer. CI run 36125915841 at da85353 passed.
