@@ -18,6 +18,18 @@ import static org.junit.Assert.*;
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk=30)
 public class NativeWalletActivityTest {
+    @Test public void recoveryOpensBackupFormAndClearsOldPasswords(){
+        try(var controller=Robolectric.buildActivity(NativeWalletActivity.class).create()){
+            var activity=controller.get();ArrayList<EditText> inputs=new ArrayList<>();fields(activity.getWindow().getDecorView(),inputs);
+            assertEquals(View.GONE,((View)inputs.get(0).getParent()).getVisibility());
+            inputs.get(1).setText("old password");inputs.get(2).setText("old password");
+            activity.showRecoveryForm();
+            assertEquals(View.VISIBLE,((View)inputs.get(0).getParent()).getVisibility());
+            assertEquals(View.GONE,((View)inputs.get(3).getParent()).getVisibility());
+            assertEquals(View.GONE,((View)inputs.get(5).getParent()).getVisibility());
+            assertEquals("",inputs.get(1).getText().toString());assertEquals("",inputs.get(2).getText().toString());
+        }
+    }
     @Test public void obscuredTouchesCannotConfirmWalletActions(){
         try(var controller=Robolectric.buildActivity(NativeWalletActivity.class).create()){
             MotionEvent.PointerProperties pointer=new MotionEvent.PointerProperties();pointer.id=0;pointer.toolType=MotionEvent.TOOL_TYPE_FINGER;

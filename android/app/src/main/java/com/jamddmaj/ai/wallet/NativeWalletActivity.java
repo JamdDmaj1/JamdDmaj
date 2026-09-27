@@ -95,6 +95,11 @@ public final class NativeWalletActivity extends Activity {
         action(root,title,()->{boolean opening=panel.getVisibility()!=View.VISIBLE;for(LinearLayout other:sections)other.setVisibility(View.GONE);if(opening)panel.setVisibility(View.VISIBLE);if(password!=null)password.setText("");if(passwordRepeat!=null)passwordRepeat.setText("");});
         root.addView(panel);return panel;
     }
+    void showRecoveryForm(){
+        for(LinearLayout panel:sections)panel.setVisibility(panel==backupSection?View.VISIBLE:View.GONE);
+        password.setText("");passwordRepeat.setText("");
+        backupSection.post(()->backupSection.requestRectangleOnScreen(new android.graphics.Rect(0,0,backupSection.getWidth(),backupSection.getHeight()),false));
+    }
     private EditText field(LinearLayout root,String hint,boolean secret){
         EditText value=new EditText(this);value.setHint(hint);value.setSaveEnabled(false);
         value.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS);
@@ -178,7 +183,7 @@ public final class NativeWalletActivity extends Activity {
             runOnUiThread(()->{if(ticket!=epoch)return;accounts.removeAllViews();
                 if(profiles.isEmpty())status.setText(text("Aún no hay una billetera recuperada en este dispositivo.","No recovered wallet on this device yet."));
                 for(var profile:profiles){Button button=new Button(this);button.setText(profile.name+" · "+text("Desbloquear","Unlock"));accounts.addView(button);button.setOnClickListener(v->unlock(profile.ownerId));
-                    action(accounts,profile.name+" · "+text("Recuperar acceso","Recover access"),()->{lock();recoveryOwner=profile.ownerId;walletName.setText(profile.name);status.setText(text("Abre el respaldo de esta billetera para recuperar su acceso.","Open this wallet's backup to recover its access."));});}
+                    action(accounts,profile.name+" · "+text("Recuperar acceso","Recover access"),()->{lock();openedBackup=null;recoveryOwner=profile.ownerId;walletName.setText(profile.name);showRecoveryForm();status.setText(text("Abre el respaldo de esta billetera para recuperar su acceso.","Open this wallet's backup to recover its access."));});}
             });
         }catch(Exception failure){error(ticket);}});
     }
