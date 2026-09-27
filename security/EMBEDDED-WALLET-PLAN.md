@@ -1,6 +1,44 @@
 # Embedded wallet — production delivery plan
 
-## Current status — 2026-09-25
+## Current status — 2026-09-27
+
+The production objective is **not complete**. The native SOL/BNB wallet now has a
+preview UI, hardware-vault enrollment/recovery, fixed-network balance reads,
+reviewed native-asset signing, pre-broadcast durable journals and status checks.
+This is source/preview functionality, not an enabled main-app production release.
+
+Verified evidence:
+
+- Native Android build, UI/storage/RPC tests and APK-signature verification passed
+  at `bb7d5b0e96e427a06d821cfac8cef54823ff4cc2` in
+  https://github.com/JamdDmaj1/JamdDmaj/actions/runs/36282066685 .
+- Android API 30 offline SDK tests passed at `2773ae9` in
+  https://github.com/JamdDmaj1/JamdDmaj/actions/runs/36281396180 . These exercise
+  independent derivation/signature checks and SOL/BNB pipelines with fake RPC;
+  they do **not** prove mainnet transfers or physical-device biometrics.
+- Preview artifact 10919058182 has APK SHA-256
+  `7b150604653fc2b6773341dd20f1b71ddc476212ffb28b56a7a3b99bcc312804`.
+  It uses package `com.jamddmaj.ai.walletpreview` and an ephemeral CI debug
+  certificate. Do not uninstall an older wallet to resolve a signing conflict.
+
+Remaining acceptance, without implying that tests satisfy these requirements:
+
+1. User's physical-device validation of this **new BIP39 production-profile**
+   backup/recovery and biometric lifecycle. Earlier devnet acceptance does not
+   satisfy this. Do not request the backup password or private material in chat.
+2. Stable signing/update delivery and a production native entry point. Preview
+   installation is not a production update; current production version remains
+   1.37.78. No mainnet activation follows automatically from CI success.
+3. Security-boundary review and operational acceptance before real deposits.
+4. Trading route selection: native-wallet token swaps and Bitget manual trading
+   use different funds. Native SOL/BNB transfers are not token swaps or futures.
+   The native swap integration is absent; Bitget activation remains unverified.
+5. Verify the requested external-wallet/mobile and multi-user experience, then
+   release and verify the main app and update notification end to end.
+
+No real transfer or trade was submitted by the implementation agent.
+
+## Historical status — 2026-09-25
 
 The goal is real funds in the main Android app, not completion of a devnet preview. Native Android devnet creation, encrypted backup recovery, biometric signing and a confirmed devnet transfer are now implemented; see DEVNET-LAB.md. Assets opens the native activity through an origin-restricted navigation-only bridge. Same-owner recovery preserves the transaction journal. Explicit Solana/BNB real/test chain domains and exact integer amount parsing are implemented, but not yet wired to a production signer. CI run 36125915841 at da85353 passed.
 
