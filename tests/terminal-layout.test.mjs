@@ -15,7 +15,7 @@ for(const language of ['es','en'])test(`finance navigation preserves accounts an
   const doc={head:node(),body:node(),querySelector:()=>main,createElement:node,getElementById:id=>({closest:()=>ids[id].section})};
   setupTerminalLayout(language,doc);
   const find=id=>all.find(n=>n.id===id),pages=all.filter(n=>n.attrs.role==='tabpanel');
-  assert.equal(pages.length,4);
+  assert.equal(pages.length,5);
   assert.equal(find('practice-menu').open,false);
   assert.equal(pages.filter(n=>!n.hidden).length,1);
   find('tab-assets').onclick();
@@ -26,7 +26,7 @@ for(const language of ['es','en'])test(`finance navigation preserves accounts an
   assert.equal(find('practice-menu').hidden,true);
   assert.equal(find('tab-assets').tabIndex,0);
   assert.equal(find('tab-home').tabIndex,-1);
-  assert.equal(find('terminal-trade'),undefined);
+  assert.ok(find('terminal-trade'));
   assert.ok(doc.head.children[0].textContent.includes('[hidden]{display:none!important}'));
   const nav=doc.body.children[0];
   nav.keydown({target:find('tab-assets'),key:'Home',preventDefault(){}});

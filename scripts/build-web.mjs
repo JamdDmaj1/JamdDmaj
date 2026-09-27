@@ -83,6 +83,7 @@ await build({
   platform: "browser", target: ["es2020"], legalComments: "none"
 });
 await cp(resolve(root, "lib", "terminal-layout.js"), resolve(output, "lib", "terminal-layout.js"));
+await cp(resolve(root, "lib", "swap-quote-ui.js"), resolve(output, "lib", "swap-quote-ui.js"));
 await build({
   absWorkingDir: root, entryPoints: [resolve(root, "funding-ui.js")],
   outfile: resolve(output, "funding-ui.js"), bundle: true, format: "esm",
