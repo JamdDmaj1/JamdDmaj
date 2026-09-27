@@ -8,7 +8,7 @@ test('diagnostics expose only failure stage and bounded provider status', async 
   const handler = createHandler({ env, limit: async () => {}, diagnostic: data => records.push(data), quote: async () => { throw Object.assign(new Error('secret-response-body'), { providerStatus: 401 }); } });
   const response = await handler(new Request(url));
   assert.equal(response.status, 502);
-  assert.deepEqual(records, [{ stage: 'provider', providerStatus: 401 }]);
+  assert.deepEqual(records, [{ stage: 'provider', reason: 'TRANSPORT_OR_RUNTIME', providerStatus: 401 }]);
   assert.equal((await response.text()).includes('secret-response-body'), false);
 });
 test('quote API is disabled without server configuration', async () => {

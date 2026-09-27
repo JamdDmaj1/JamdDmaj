@@ -21,7 +21,17 @@ export function createHandler({ env = process.env, quote, limit, diagnostic = da
       return jsonResponse(request, { ok: true, quote: await getQuote(Object.fromEntries(params)) });
     } catch (error) {
       // Never log error messages, URLs, response bodies, API keys or request data.
-      diagnostic({ stage, providerStatus: Number.isInteger(error?.providerStatus) && error.providerStatus >= 100 && error.providerStatus <= 599 ? error.providerStatus : null });
+      const known = new Map([
+        ['Unexpected executable or failed quote', 'UNEXPECTED_QUOTE'],
+        ['Quote does not match request', 'QUOTE_MISMATCH'],
+        ['Invalid amount', 'INVALID_AMOUNT'],
+        ['Missing quote response', 'MISSING_BODY'],
+        ['Quote response too large', 'OVERSIZED_BODY'],
+        ['Quote expired during request', 'EXPIRED'],
+        ['Swap quote unavailable', 'HTTP_ERROR']
+      ]);
+      const reason = known.get(error?.message) || (error?.name === 'TimeoutError' ? 'TIMEOUT' : error?.name === 'SyntaxError' ? 'INVALID_JSON' : 'TRANSPORT_OR_RUNTIME');
+      diagnostic({ stage, reason, providerStatus: Number.isInteger(error?.providerStatus) && error.providerStatus >= 100 && error.providerStatus <= 599 ? error.providerStatus : null });
       return jsonResponse(request, { error: error?.status === 429 ? 'QUOTE_RATE_LIMIT' : 'QUOTE_UNAVAILABLE', executable: false }, error?.status === 429 ? 429 : 502);
     }
   };
