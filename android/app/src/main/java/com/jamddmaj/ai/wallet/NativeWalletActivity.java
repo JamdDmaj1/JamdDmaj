@@ -39,6 +39,8 @@ public final class NativeWalletActivity extends Activity {
     private NativeWalletProfiles.Profile selectedProfile;
     private EditText recipient,sendAmount;
     private EditText bnbRecipient,bnbAmount;
+    private final java.util.ArrayList<LinearLayout> sections=new java.util.ArrayList<>();
+    private LinearLayout backupSection;
     private String text(String spanish,String english){return es?spanish:english;}
     @Override public boolean dispatchTouchEvent(MotionEvent event){
         // Reject taps when another app covers any part of this financial screen.
@@ -59,30 +61,39 @@ public final class NativeWalletActivity extends Activity {
         accounts=new LinearLayout(this);accounts.setOrientation(LinearLayout.VERTICAL);root.addView(accounts);
         addresses=label(root,"",17);addresses.setTextIsSelectable(true);
         status=label(root,"",16);
-        action(root,text("Ver dirección para recibir SOL","View SOL receiving address"),()->receive(WalletNetwork.SOLANA_MAINNET));
-        action(root,text("Ver dirección para recibir BNB","View BNB receiving address"),()->receive(WalletNetwork.BNB_MAINNET));
-        walletName=field(root,text("Nombre de la billetera","Wallet name"),false);
-        password=field(root,text("Contraseña del respaldo: mínimo 16 caracteres","Backup password: at least 16 characters"),true);
-        passwordRepeat=field(root,text("Repite la contraseña al crear","Repeat password when creating"),true);
-        action(root,text("1. Crear respaldo cifrado","1. Create encrypted backup"),()->createBackup());
-        action(root,text("2. Abrir respaldo guardado","2. Open saved backup"),()->{
+        LinearLayout receiveSection=section(root,text("Recibir · elegir red","Receive · choose network"));
+        action(receiveSection,text("Ver dirección para recibir SOL","View SOL receiving address"),()->receive(WalletNetwork.SOLANA_MAINNET));
+        action(receiveSection,text("Ver dirección para recibir BNB","View BNB receiving address"),()->receive(WalletNetwork.BNB_MAINNET));
+        backupSection=section(root,text("Crear o recuperar billetera","Create or recover wallet"));
+        walletName=field(backupSection,text("Nombre de la billetera","Wallet name"),false);
+        password=field(backupSection,text("Contraseña del respaldo: mínimo 16 caracteres","Backup password: at least 16 characters"),true);
+        passwordRepeat=field(backupSection,text("Repite la contraseña al crear","Repeat password when creating"),true);
+        action(backupSection,text("1. Crear respaldo cifrado","1. Create encrypted backup"),()->createBackup());
+        action(backupSection,text("2. Abrir respaldo guardado","2. Open saved backup"),()->{
             lock();openedBackup=null;
             startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("application/octet-stream").addCategory(Intent.CATEGORY_OPENABLE),202);
         });
-        action(root,text("3. Recuperar y proteger con huella","3. Recover and protect with biometrics"),()->recover());
-        label(root,text("Envío manual · SOL en Solana mainnet","Manual transfer · SOL on Solana mainnet"),18);
-        recipient=field(root,text("Dirección de destino Solana","Solana destination address"),false);
-        sendAmount=field(root,text("Cantidad de SOL","SOL amount"),false);
+        action(backupSection,text("3. Recuperar y proteger con huella","3. Recover and protect with biometrics"),()->recover());
+        LinearLayout solSection=section(root,text("Enviar SOL · Solana","Send SOL · Solana"));
+        label(solSection,text("Envío manual · SOL en Solana mainnet","Manual transfer · SOL on Solana mainnet"),18);
+        recipient=field(solSection,text("Dirección de destino Solana","Solana destination address"),false);
+        sendAmount=field(solSection,text("Cantidad de SOL","SOL amount"),false);
         sendAmount.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        action(root,text("Revisar envío de SOL","Review SOL transfer"),()->reviewSolana());
-        action(root,text("Consultar último envío de SOL","Check latest SOL transfer"),()->checkSolana());
-        label(root,text("Envío manual · BNB Smart Chain","Manual transfer · BNB Smart Chain"),18);
-        bnbRecipient=field(root,text("Dirección de destino BNB (0x…)","BNB destination address (0x…)"),false);
-        bnbAmount=field(root,text("Cantidad de BNB","BNB amount"),false);
+        action(solSection,text("Revisar envío de SOL","Review SOL transfer"),()->reviewSolana());
+        action(solSection,text("Consultar último envío de SOL","Check latest SOL transfer"),()->checkSolana());
+        LinearLayout bnbSection=section(root,text("Enviar BNB · Smart Chain","Send BNB · Smart Chain"));
+        label(bnbSection,text("Envío manual · BNB Smart Chain","Manual transfer · BNB Smart Chain"),18);
+        bnbRecipient=field(bnbSection,text("Dirección de destino BNB (0x…)","BNB destination address (0x…)"),false);
+        bnbAmount=field(bnbSection,text("Cantidad de BNB","BNB amount"),false);
         bnbAmount.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        action(root,text("Revisar envío de BNB","Review BNB transfer"),()->reviewBnb());
-        action(root,text("Consultar último envío de BNB","Check latest BNB transfer"),()->checkBnb());
+        action(bnbSection,text("Revisar envío de BNB","Review BNB transfer"),()->reviewBnb());
+        action(bnbSection,text("Consultar último envío de BNB","Check latest BNB transfer"),()->checkBnb());
         Button lock=new Button(this);lock.setText(text("Bloquear","Lock"));root.addView(lock);lock.setOnClickListener(v->lock());
+    }
+    private LinearLayout section(LinearLayout root,String title){
+        LinearLayout panel=new LinearLayout(this);panel.setOrientation(LinearLayout.VERTICAL);panel.setVisibility(View.GONE);sections.add(panel);
+        action(root,title,()->{boolean opening=panel.getVisibility()!=View.VISIBLE;for(LinearLayout other:sections)other.setVisibility(View.GONE);if(opening)panel.setVisibility(View.VISIBLE);if(password!=null)password.setText("");if(passwordRepeat!=null)passwordRepeat.setText("");});
+        root.addView(panel);return panel;
     }
     private EditText field(LinearLayout root,String hint,boolean secret){
         EditText value=new EditText(this);value.setHint(hint);value.setSaveEnabled(false);
