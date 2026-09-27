@@ -3,7 +3,7 @@ import { createSolanaSwapQuoteService } from '../lib/solana-swap-quote.js';
 export const config = { runtime: 'edge' };
 
 // Public indicative prices, not authorization or a transaction-submission route.
-export function createHandler({ env = process.env, quote, limit } = {}) {
+export function createHandler({ env = process.env, quote, limit, diagnostic = data => console.warn('swap_quote_failure', JSON.stringify(data)) } = {}) {
   return async function handler(request) {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(request) });
     if (request.method !== 'GET') return jsonResponse(request, { error: 'METHOD_NOT_ALLOWED' }, 405);
@@ -13,11 +13,15 @@ export function createHandler({ env = process.env, quote, limit } = {}) {
     const allowed = ['inputMint', 'outputMint', 'amount'];
     if ([...params.keys()].some(key => !allowed.includes(key)) || allowed.some(key => params.getAll(key).length !== 1) || request.url.length > 600)
       return jsonResponse(request, { error: 'INVALID_QUOTE_REQUEST' }, 400);
+    let stage = 'quota';
     try {
       await (limit || enforceQuoteLimit)(request);
+      stage = 'provider';
       const getQuote = quote || createSolanaSwapQuoteService({ apiKey: env.JUPITER_API_KEY });
       return jsonResponse(request, { ok: true, quote: await getQuote(Object.fromEntries(params)) });
     } catch (error) {
+      // Never log error messages, URLs, response bodies, API keys or request data.
+      diagnostic({ stage, providerStatus: Number.isInteger(error?.providerStatus) && error.providerStatus >= 100 && error.providerStatus <= 599 ? error.providerStatus : null });
       return jsonResponse(request, { error: error?.status === 429 ? 'QUOTE_RATE_LIMIT' : 'QUOTE_UNAVAILABLE', executable: false }, error?.status === 429 ? 429 : 502);
     }
   };
