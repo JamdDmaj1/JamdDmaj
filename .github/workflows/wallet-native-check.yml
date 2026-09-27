@@ -82,6 +82,12 @@ jobs:
           retention-days: 7
       - name: Verify final APK manifest isolation
         run: node scripts/check-wallet-lab-manifest.mjs
+      - name: Verify preview signature and record install identity
+        run: |
+          APK=android/app/build/outputs/apk/walletPreview/app-walletPreview.apk
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$APK" > android/app/build/outputs/apk/walletPreview/signature.txt
+          sha256sum "$APK" > android/app/build/outputs/apk/walletPreview/SHA256SUMS.txt
+          printf '%s\n' 'Verification preview only. Do not deposit funds.' 'Package: com.jamddmaj.ai.walletpreview' 'This build uses an ephemeral CI debug signing key. It may not update an older preview.' 'Do not uninstall an existing wallet or clear its data to resolve a signing conflict. Preserve and verify its recovery backup first.' > android/app/build/outputs/apk/walletPreview/INSTALL-NOTES.txt
       - uses: actions/upload-artifact@v4
         with:
           name: JamdDmaj-Wallet-Lab-DEVNET-ONLY
@@ -89,7 +95,11 @@ jobs:
           retention-days: 7
       - uses: actions/upload-artifact@v4
         with:
-          name: JamdDmaj-Integrated-Wallet-Preview-DEVNET-ONLY
-          path: android/app/build/outputs/apk/walletPreview/*.apk
+          name: JamdDmaj-Integrated-Wallet-Preview-NOT-FOR-DEPOSITS
+          path: |
+            android/app/build/outputs/apk/walletPreview/*.apk
+            android/app/build/outputs/apk/walletPreview/signature.txt
+            android/app/build/outputs/apk/walletPreview/SHA256SUMS.txt
+            android/app/build/outputs/apk/walletPreview/INSTALL-NOTES.txt
           retention-days: 7
       # No release signing secrets, production APK, device installation or money movement.
