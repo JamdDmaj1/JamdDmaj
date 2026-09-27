@@ -31,7 +31,9 @@ export function createHandler({ env = process.env, quote, limit, diagnostic = da
         ['Swap quote unavailable', 'HTTP_ERROR']
       ]);
       const reason = known.get(error?.message) || (error?.name === 'TimeoutError' ? 'TIMEOUT' : error?.name === 'SyntaxError' ? 'INVALID_JSON' : 'TRANSPORT_OR_RUNTIME');
-      diagnostic({ stage, reason, providerStatus: Number.isInteger(error?.providerStatus) && error.providerStatus >= 100 && error.providerStatus <= 599 ? error.providerStatus : null });
+      const phase = ['INPUT','FETCH','READ_BODY','DECODE_BODY','VALIDATE_BODY'].includes(error?.providerPhase) ? error.providerPhase : null;
+      const kind = ['TypeError','TimeoutError','AbortError','SyntaxError','Error'].includes(error?.name) ? error.name : 'Other';
+      diagnostic({ stage, reason, phase, kind, providerStatus: Number.isInteger(error?.providerStatus) && error.providerStatus >= 100 && error.providerStatus <= 599 ? error.providerStatus : null });
       return jsonResponse(request, { error: error?.status === 429 ? 'QUOTE_RATE_LIMIT' : 'QUOTE_UNAVAILABLE', executable: false }, error?.status === 429 ? 429 : 502);
     }
   };
