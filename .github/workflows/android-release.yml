@@ -7,9 +7,15 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 jobs:
+  wallet-native-verification:
+    uses: ./.github/workflows/wallet-native-check.yml
+  wallet-sdk-verification:
+    uses: ./.github/workflows/wallet-sdk-verify.yml
   release:
+    needs: [wallet-native-verification, wallet-sdk-verification]
     runs-on: ubuntu-latest
     steps:
       - name: Download source
@@ -59,10 +65,15 @@ jobs:
           bash gradlew assembleRelease
           cp app/build/outputs/apk/release/app-release.apk ../JamdDmaj-AI.apk
 
+      - name: Verify signed APK before publishing
+        run: |
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs JamdDmaj-AI.apk
+          sha256sum JamdDmaj-AI.apk > JamdDmaj-AI.apk.sha256
+
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || \
             gh release create "$GITHUB_REF_NAME" --generate-notes --title "JamdDmaj AI $GITHUB_REF_NAME"
-          gh release upload "$GITHUB_REF_NAME" JamdDmaj-AI.apk --clobber
+          gh release upload "$GITHUB_REF_NAME" JamdDmaj-AI.apk JamdDmaj-AI.apk.sha256 --clobber

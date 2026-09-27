@@ -1,5 +1,6 @@
 name: Wallet native build-only checks
 on:
+  workflow_call:
   workflow_dispatch:
   push:
     paths:

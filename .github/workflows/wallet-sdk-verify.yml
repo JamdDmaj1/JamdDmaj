@@ -1,5 +1,6 @@
 name: Offline Android wallet SDK verification
 on:
+  workflow_call:
   workflow_dispatch:
   push:
     paths:
