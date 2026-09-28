@@ -48,6 +48,8 @@ jobs:
       - name: Check bounded ciphertext format
         run: |
           mkdir -p "$RUNNER_TEMP/wallet-native-tests"
+          javac -d "$RUNNER_TEMP/wallet-native-tests" android/app/src/main/java/com/jamddmaj/ai/wallet/SolanaMessage.java security/native-tests/SolanaMessageCheck.java
+          java -cp "$RUNNER_TEMP/wallet-native-tests" SolanaMessageCheck
           javac -d "$RUNNER_TEMP/wallet-native-tests" android/app/src/main/java/com/jamddmaj/ai/wallet/TestVaultEnvelope.java security/native-tests/TestVaultEnvelopeCheck.java
           java -cp "$RUNNER_TEMP/wallet-native-tests" TestVaultEnvelopeCheck
           javac -d "$RUNNER_TEMP/wallet-native-tests" android/app/src/main/java/com/jamddmaj/ai/wallet/WalletNetwork.java security/native-tests/WalletNetworkCheck.java
