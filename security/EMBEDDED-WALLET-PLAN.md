@@ -9,6 +9,13 @@ This is source/preview functionality, not an enabled main-app production release
 
 Verified evidence:
 
+- 2026-09-28: local native message compiler checks pass for legacy and v0
+  material, including cross-table writable-before-readonly ordering, stale
+  lookup rejection, duplicate tables, additional signers and writable programs.
+  The compiler has no signing/submission method. Independent serialization
+  cross-checks, Android CI and full instruction-policy wiring remain pending;
+  this is not an executable native swap release.
+
 - 2026-09-28: a public, unsigned Jupiter `/swap/v2/build` request for the
   disposable test address `2btLJAAb1S3x6hZYdVyAePjqtQYi2ZBSRGy4569RZu8h`
   passed the build-service validator (7 instructions, 1 lookup table). This

@@ -21,14 +21,18 @@ public final class SolanaLookupTables {
                     || slot == null || slot.signum() < 0 || slot.bitLength() > 64) throw invalid();
             this.address = address.clone(); this.data = data.clone(); this.slot = slot;
         }
-        private byte[] at(int index) {
+        byte[] address() { return address.clone(); }
+        int usableCount() {
             if (data[0] != 1 || data[1] != 0 || data[2] != 0 || data[3] != 0
                     || !u64(data,4).equals(ACTIVE) || (data[21] != 0 && data[21] != 1)) throw invalid();
             int count = (data.length - 56) / 32, start = data[20] & 255;
             BigInteger extended = u64(data,12);
             if (start > count || extended.compareTo(slot) > 0) throw invalid();
             // Entries appended in the current bank slot are not yet usable.
-            int usable = extended.equals(slot) ? start : count;
+            return extended.equals(slot) ? start : count;
+        }
+        byte[] at(int index) {
+            int usable = usableCount();
             if (index < 0 || index >= usable) throw invalid();
             return Arrays.copyOfRange(data,56 + index * 32,88 + index * 32);
         }
