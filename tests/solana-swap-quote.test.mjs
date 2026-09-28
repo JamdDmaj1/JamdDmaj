@@ -20,6 +20,8 @@ test('works in runtimes without AbortSignal.timeout', async () => {
 test('quote-only request never supplies taker and never returns executable payload', async () => {
   const quote = createSolanaSwapQuoteService({ apiKey: 'test-only', now: () => 100,
     fetchImpl: async (url, options) => {
+      assert.equal(typeof url, 'string');
+      url = new URL(url);
       assert.equal(url.origin, 'https://api.jup.ag');
       assert.equal(url.searchParams.has('taker'), false);
       assert.equal(options.redirect, 'error');
@@ -35,6 +37,11 @@ test('rejects malformed inputs before contacting provider', async () => {
   for (const amount of ['0', '-1', '1.0', '1e6', '01', '18446744073709551616', 1]) await assert.rejects(quote({ ...request, amount }));
   await assert.rejects(quote({ ...request, outputMint: inputMint }));
   await assert.rejects(quote({ ...request, inputMint: 'invalid' }));
+});
+test('rejects unsafe credential header contents without contacting provider', async () => {
+  for (const apiKey of ['key\nInjected: value', 'key\u200b', 'key value']) {
+    await assert.rejects(createSolanaSwapQuoteService({ apiKey, fetchImpl: () => assert.fail('network') })(request), /credential format/);
+  }
 });
 test('rejects mismatched, failed or executable replies', async () => {
   for (const change of [{ inAmount: '2' }, { outputMint: inputMint }, { outAmount: '0' }, { errorCode: 1 }, { transaction: 'base64' }]) {

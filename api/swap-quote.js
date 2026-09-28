@@ -34,7 +34,13 @@ export function createHandler({ env = process.env, quote, limit, diagnostic = da
         ['Quote expired during request', 'EXPIRED'],
         ['Swap quote unavailable', 'HTTP_ERROR']
       ]);
-      const reason = known.get(error?.message) || (error?.name === 'TimeoutError' ? 'TIMEOUT' : error?.name === 'SyntaxError' ? 'INVALID_JSON' : 'TRANSPORT_OR_RUNTIME');
+      const message = String(error?.message || '');
+      const transportReason = /redirect/i.test(message) ? 'REDIRECT_FAILURE'
+        : /url|RequestInfo/i.test(message) ? 'URL_INPUT_FAILURE'
+        : /header|ByteString/i.test(message) ? 'HEADER_FAILURE'
+        : /signal|abort/i.test(message) ? 'ABORT_FAILURE'
+        : /invocation|receiver|this/i.test(message) ? 'RUNTIME_BINDING_FAILURE' : 'TRANSPORT_OR_RUNTIME';
+      const reason = known.get(message) || (error?.name === 'TimeoutError' ? 'TIMEOUT' : error?.name === 'SyntaxError' ? 'INVALID_JSON' : transportReason);
       const phase = ['INPUT','FETCH','READ_BODY','DECODE_BODY','VALIDATE_BODY'].includes(error?.providerPhase) ? error.providerPhase : null;
       const kind = ['TypeError','TimeoutError','AbortError','SyntaxError','Error'].includes(error?.name) ? error.name : 'Other';
       diagnostic({ stage, reason, phase, kind, providerStatus: Number.isInteger(error?.providerStatus) && error.providerStatus >= 100 && error.providerStatus <= 599 ? error.providerStatus : null });
