@@ -9,6 +9,13 @@ This is source/preview functionality, not an enabled main-app production release
 
 Verified evidence:
 
+- 2026-09-28: native compiler legacy/v0 fixture bytes match the independently
+  encoded Solana Kit messages, including two-table writable/readonly ordering.
+  Native RPC preparation now supplies confirmed, network-verified table accounts
+  to the compiler. Added Android fixture tests for compilation and duplicate-key
+  rejection before network access; their CI result is still pending. This is
+  preparation, not instruction-policy approval or an enabled swap signer.
+
 - 2026-09-28: local native message compiler checks pass for legacy and v0
   material, including cross-table writable-before-readonly ordering, stale
   lookup rejection, duplicate tables, additional signers and writable programs.

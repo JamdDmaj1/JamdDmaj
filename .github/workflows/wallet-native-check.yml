@@ -20,6 +20,7 @@ on:
       - '.github/workflows/wallet-native-check.yml'
       - 'scripts/check-wallet-lab-manifest.mjs'
       - 'scripts/check-native-wallet-core.mjs'
+      - 'scripts/check-native-swap-compiler.mjs'
       - 'scripts/check-production-recovery.mjs'
 permissions:
   contents: read
@@ -71,6 +72,7 @@ jobs:
           npm run mobile:sync
       - name: Verify native wallet cryptography and transaction encoding
         run: |
+          node scripts/check-native-swap-compiler.mjs java "$RUNNER_TEMP/wallet-native-tests"
           curl --fail --silent --show-error --retry 3 --retry-delay 10 --retry-max-time 120 https://repo.maven.apache.org/maven2/org/bouncycastle/bcprov-jdk18on/1.83/bcprov-jdk18on-1.83.jar -o "$RUNNER_TEMP/bcprov.jar"
           javac -cp "$RUNNER_TEMP/bcprov.jar" -d "$RUNNER_TEMP/wallet-native-tests" android/app/src/main/java/com/jamddmaj/ai/wallet/PortableTestBackup.java android/app/src/main/java/com/jamddmaj/ai/wallet/DevnetSolana.java security/native-tests/NativeWalletCoreCheck.java
           node scripts/check-native-wallet-core.mjs java "$RUNNER_TEMP/wallet-native-tests:$RUNNER_TEMP/bcprov.jar"

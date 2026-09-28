@@ -23,6 +23,8 @@ public final class SolanaMessageCompilerCheck {
         require(v0.version==0 && v0.staticAccountCount()==2);
         require(Arrays.equals(v0.instructions.get(0).accounts(),new byte[]{0,4,2,5,3}));
         require(v0.isWritable(2) && v0.isWritable(3) && !v0.isWritable(4));
+        System.out.println("LEGACY="+Base64.getEncoder().encodeToString(legacy.bytes()));
+        System.out.println("V0="+Base64.getEncoder().encodeToString(v0.bytes()));
         reject(()->SolanaMessageCompiler.compile(key(1),key(9),instructions,tables,BigInteger.valueOf(11)));
         reject(()->SolanaMessageCompiler.compile(key(1),key(9),instructions,List.of(tables.get(0),tables.get(0)),BigInteger.ONE));
         reject(()->SolanaMessageCompiler.compile(key(1),key(9),List.of(new SolanaMessageCompiler.Instruction(key(2),List.of(new SolanaMessageCompiler.Meta(key(3),true,false)),new byte[0])),List.of(),BigInteger.ONE));

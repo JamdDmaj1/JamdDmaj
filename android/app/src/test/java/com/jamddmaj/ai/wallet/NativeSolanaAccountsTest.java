@@ -3,6 +3,7 @@ package com.jamddmaj.ai.wallet;
 import android.util.Base64;
 import java.io.ByteArrayOutputStream;
 import java.util.Arrays;
+import java.util.List;
 import org.json.*;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -50,6 +51,24 @@ public class NativeSolanaAccountsTest {
         SolanaLookupTables.Resolved resolved = new NativeSolanaAccounts(rpc).resolve(message());
         assertEquals(4,resolved.size()); assertEquals(10,resolved.key(2)[0]); assertEquals(11,resolved.key(3)[0]);
         assertEquals(2,rpc.identities); assertEquals(1,rpc.reads);
+    }
+    @Test public void compilesFromRpcTablesNotProviderResolvedAddresses() throws Exception {
+        Rpc rpc = new Rpc();
+        byte[] payer = message().staticKey(0), program = message().staticKey(1), loaded = new byte[32]; loaded[0]=10;
+        SolanaMessage compiled = new NativeSolanaAccounts(rpc).compile(payer,message().blockhash(),
+            List.of(new SolanaMessageCompiler.Instruction(program,List.of(
+                new SolanaMessageCompiler.Meta(payer,true,true),new SolanaMessageCompiler.Meta(loaded,false,true)),new byte[]{9})),
+            List.of(message().lookups.get(0).key()));
+        assertEquals(0,compiled.version); assertEquals(2,compiled.staticAccountCount());
+        assertArrayEquals(new byte[]{0,2},compiled.instructions.get(0).accounts());
+        assertArrayEquals(new byte[]{0},compiled.lookups.get(0).writable());
+        assertEquals(2,rpc.identities); assertEquals(1,rpc.reads);
+    }
+    @Test public void compilerRejectsDuplicateLookupRequestsBeforeRpc() throws Exception {
+        Rpc rpc = new Rpc(); byte[] key=message().lookups.get(0).key();
+        assertThrows(IllegalArgumentException.class,()->new NativeSolanaAccounts(rpc).compile(
+            message().staticKey(0),message().blockhash(),List.of(),List.of(key,key)));
+        assertEquals(0,rpc.identities); assertEquals(0,rpc.reads);
     }
     @Test public void rejectsWrongNetworkBeforeAccountRead() throws Exception {
         Rpc rpc = new Rpc(); rpc.badIdentity = true;
