@@ -24,7 +24,7 @@ test('quote-only request never supplies taker and never returns executable paylo
       url = new URL(url);
       assert.equal(url.origin, 'https://api.jup.ag');
       assert.equal(url.searchParams.has('taker'), false);
-      assert.equal(options.redirect, 'error');
+      assert.equal(options.redirect, 'manual');
       return Response.json(body);
     } });
   const result = await quote(request);
@@ -42,6 +42,16 @@ test('rejects unsafe credential header contents without contacting provider', as
   for (const apiKey of ['key\nInjected: value', 'key\u200b', 'key value']) {
     await assert.rejects(createSolanaSwapQuoteService({ apiKey, fetchImpl: () => assert.fail('network') })(request), /credential format/);
   }
+});
+test('redirect replies are rejected without following their destination', async () => {
+  let calls = 0;
+  const quote = createSolanaSwapQuoteService({ apiKey: 'test-only', fetchImpl: async (_, options) => {
+    calls++;
+    assert.equal(options.redirect, 'manual');
+    return new Response(null, { status: 302, headers: { Location: 'https://untrusted.invalid/' } });
+  } });
+  await assert.rejects(quote(request), error => error.providerStatus === 302);
+  assert.equal(calls, 1);
 });
 test('rejects mismatched, failed or executable replies', async () => {
   for (const change of [{ inAmount: '2' }, { outputMint: inputMint }, { outAmount: '0' }, { errorCode: 1 }, { transaction: 'base64' }]) {
