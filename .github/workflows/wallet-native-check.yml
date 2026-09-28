@@ -54,6 +54,8 @@ jobs:
           java -cp "$RUNNER_TEMP/wallet-native-tests" SolanaLookupTablesCheck
           javac -d "$RUNNER_TEMP/wallet-native-tests" android/app/src/main/java/com/jamddmaj/ai/wallet/SplTokenAccount.java security/native-tests/SplTokenAccountCheck.java
           java -cp "$RUNNER_TEMP/wallet-native-tests" SplTokenAccountCheck
+          javac -d "$RUNNER_TEMP/wallet-native-tests" android/app/src/main/java/com/jamddmaj/ai/wallet/JupiterV2Header.java security/native-tests/JupiterV2HeaderCheck.java
+          java -cp "$RUNNER_TEMP/wallet-native-tests" JupiterV2HeaderCheck
           javac -d "$RUNNER_TEMP/wallet-native-tests" android/app/src/main/java/com/jamddmaj/ai/wallet/TestVaultEnvelope.java security/native-tests/TestVaultEnvelopeCheck.java
           java -cp "$RUNNER_TEMP/wallet-native-tests" TestVaultEnvelopeCheck
           javac -d "$RUNNER_TEMP/wallet-native-tests" android/app/src/main/java/com/jamddmaj/ai/wallet/WalletNetwork.java security/native-tests/WalletNetworkCheck.java

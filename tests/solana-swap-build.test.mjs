@@ -28,6 +28,10 @@ test('rejects malformed instructions additional signers and unknown block lifeti
     b=>b.blockhashWithMetadata.lastValidBlockHeight=Number.MAX_SAFE_INTEGER+1,b=>b.blockhashWithMetadata.blockhash[0]=256,
     b=>b.computeBudgetInstructions=null,b=>b.addressesByLookupTableAddress=[]]){const value=body();edit(value);await assert.rejects(service(value)(request));}
 });
+test('minimum output rounds upward to preserve the requested slippage bound',async()=>{
+  await assert.rejects(service({...body(),outAmount:'1000001',otherAmountThreshold:'995000'})(request));
+  assert.equal((await service({...body(),outAmount:'1000001',otherAmountThreshold:'995001'})(request)).minimumOut,'995001');
+});
 test('invalid input never reaches provider and redirects are not followed',async()=>{
   const build=createSolanaSwapBuildService({apiKey:'fixture',fetchImpl:()=>assert.fail('unexpected network')});
   for(const delta of [{amount:'0'},{amount:'1e6'},{slippageBps:0},{slippageBps:501},{slippageBps:'50'},{taker:'bad'}])await assert.rejects(build({...request,...delta}));

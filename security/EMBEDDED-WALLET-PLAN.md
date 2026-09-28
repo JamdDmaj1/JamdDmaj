@@ -9,6 +9,14 @@ This is source/preview functionality, not an enabled main-app production release
 
 Verified evidence:
 
+- 2026-09-28: a public, unsigned Jupiter `/swap/v2/build` request for the
+  disposable test address `2btLJAAb1S3x6hZYdVyAePjqtQYi2ZBSRGy4569RZu8h`
+  passed the build-service validator (7 instructions, 1 lookup table). This
+  was a local provider integration check, not a verified call through the
+  authenticated Vercel Preview endpoint and not a signed transaction.
+  The returned shared-accounts V2 header now supplies a native decoder test
+  fixture. Amount/slippage/header checks are not full instruction-policy validation.
+
 - 2026-09-28: Native check run 36411334798 at `225d47b` completed successfully,
   including Android compilation and the new lookup-account/USDC RPC tests.
   Earlier run 36411014200 failed during APK packaging, not source compilation;
