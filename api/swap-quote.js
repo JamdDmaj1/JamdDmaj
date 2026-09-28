@@ -22,6 +22,10 @@ export function createHandler({ env = process.env, quote, limit, diagnostic = da
     } catch (error) {
       // Never log error messages, URLs, response bodies, API keys or request data.
       const known = new Map([
+        ['Invalid provider credential format', 'CREDENTIAL_FORMAT'],
+        ['Illegal invocation', 'FETCH_BINDING'],
+        ['fetch failed', 'FETCH_FAILED'],
+        ['Failed to fetch', 'FETCH_FAILED'],
         ['Unexpected executable or failed quote', 'UNEXPECTED_QUOTE'],
         ['Quote does not match request', 'QUOTE_MISMATCH'],
         ['Invalid amount', 'INVALID_AMOUNT'],
