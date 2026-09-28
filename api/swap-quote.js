@@ -48,7 +48,7 @@ export function createHandler({ env = process.env, quote, limit, diagnostic = da
     }
   };
 }
-async function enforceQuoteLimit(request) {
+export async function enforceQuoteLimit(request) {
   const ip = await hashIdentifier(getClientIp(request));
   const window = Math.floor(Date.now() / 60000);
   const script = 'local a=redis.call("INCR",KEYS[1]); if a==1 then redis.call("EXPIRE",KEYS[1],120) end; local b=redis.call("INCR",KEYS[2]); if b==1 then redis.call("EXPIRE",KEYS[2],120) end; return {a,b}';

@@ -9,6 +9,17 @@ This is source/preview functionality, not an enabled main-app production release
 
 Verified evidence:
 
+- 2026-09-28: Native check run 36411334798 at `225d47b` completed successfully,
+  including Android compilation and the new lookup-account/USDC RPC tests.
+  Earlier run 36411014200 failed during APK packaging, not source compilation;
+  the subsequent run succeeded without relaxing build or test requirements.
+- `/api/swap-build` prepares bounded Jupiter instruction material (no signing or
+  submission), checks the exact request and output threshold, shares quote quotas,
+  and discards provider-supplied resolved lookup addresses. Its material still
+  requires native instruction-policy validation and an explicit user review.
+  The 250 JavaScript tests passed locally; mocked build-provider tests do not
+  prove live preparation or a completed trade. Native wiring remains unfinished.
+
 - 2026-09-27: Preview deployment `BdM71gAQGKkhwGScGCJoKfnCE9Ec`
   at `0885741` displayed a live Jupiter indicative quote in Trade for 0.01 SOL
   (1.201463 USDC at observation time, not a current or guaranteed price).
