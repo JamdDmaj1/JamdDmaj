@@ -337,6 +337,13 @@ public final class NativeWalletActivity extends Activity {
             try{var balance=reader.read(network,profile.address(network));result.append(coin).append(": ").append(balance.decimalAmount()).append("\n");}
             catch(Exception failure){result.append(coin).append(text(": saldo no disponible\n",": balance unavailable\n"));}
         }
+        if(ticket!=epoch)return;
+        try{
+            var token=new NativeSolanaTokens().readUsdc(profile.solanaAddress);
+            result.append("USDC · Solana: ").append(token.decimalAmount()).append("\n");
+            if(token.frozen.signum()>0)result.append(text("USDC congelado: ","Frozen USDC: ")).append(new BigDecimal(token.frozen,6).toPlainString()).append("\n");
+            if(token.hasDelegatedAccounts)result.append(text("USDC: hay cuentas con permisos delegados; revisar antes de operar.\n","USDC: some accounts have delegated permissions; review before trading.\n"));
+        }catch(Exception failure){result.append(text("USDC · Solana: saldo no disponible\n","USDC · Solana: balance unavailable\n"));}
         result.append(text("Consulta puntual; no se han enviado fondos.","Point-in-time lookup; no funds were sent."));
         runOnUiThread(()->{if(ticket==epoch)status.setText(result.toString());});
     }
