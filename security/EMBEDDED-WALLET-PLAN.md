@@ -9,6 +9,16 @@ This is source/preview functionality, not an enabled main-app production release
 
 Verified evidence:
 
+- 2026-09-27: Preview deployment `BdM71gAQGKkhwGScGCJoKfnCE9Ec`
+  at `0885741` displayed a live Jupiter indicative quote in Trade for 0.01 SOL
+  (1.201463 USDC at observation time, not a current or guaranteed price).
+  Earlier Edge requests failed with TypeError classified REDIRECT_FAILURE;
+  replacing unsupported redirect-error mode with manual redirect rejection
+  resolved the observed failure. Redirect destinations are never followed.
+  All 243 JavaScript tests passed. This proves quote retrieval only: native
+  swap transaction review/signing/submission and production delivery remain
+  incomplete. No taker, signing request or transaction was submitted.
+
 - Native Android build, UI/storage/RPC tests and APK-signature verification passed
   at `bb7d5b0e96e427a06d821cfac8cef54823ff4cc2` in
   https://github.com/JamdDmaj1/JamdDmaj/actions/runs/36282066685 .
