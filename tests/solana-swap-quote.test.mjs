@@ -5,6 +5,18 @@ const inputMint = 'So11111111111111111111111111111111111111112';
 const outputMint = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 const request = { inputMint, outputMint, amount: '1000000' };
 const body = { inputMint, outputMint, inAmount: '1000000', outAmount: '100', transaction: null };
+test('works in runtimes without AbortSignal.timeout', async () => {
+  const original = Object.getOwnPropertyDescriptor(AbortSignal, 'timeout');
+  Object.defineProperty(AbortSignal, 'timeout', { configurable: true, value: undefined });
+  try {
+    const quote = createSolanaSwapQuoteService({ apiKey: 'test-only', fetchImpl: async (_, options) => {
+      assert.ok(options.signal instanceof AbortSignal);
+      assert.equal(options.signal.aborted, false);
+      return Response.json(body);
+    } });
+    assert.equal((await quote(request)).outAmount, '100');
+  } finally { Object.defineProperty(AbortSignal, 'timeout', original); }
+});
 test('quote-only request never supplies taker and never returns executable payload', async () => {
   const quote = createSolanaSwapQuoteService({ apiKey: 'test-only', now: () => 100,
     fetchImpl: async (url, options) => {
