@@ -70,7 +70,7 @@ final class NativeSwapService {
         NativeJupiterRoute route=NativeJupiterRoute.inspect(candidate.message,resolved,candidate.preparation);
         NativeSwapSetup setup=NativeSwapSetup.inspect(candidate.message,resolved,route,candidate.preparation,tokenAddresses);
         NativeSwapChainState.Result balances=chainState.inspect(candidate.message,resolved,candidate.preparation,route,setup);
-        NativeSwapSimulation.Result result=simulation.inspect(candidate.message,intent.payer,candidate.preparation.lastValidBlockHeight);
+        NativeSwapSimulation.Result result=simulation.inspect(candidate.message,candidate.preparation,route,balances);
         if(balances.solBalance.compareTo(setup.wrappedSol.add(result.fee))<0) throw new IOException("Insufficient SOL including swap fee");
         long elapsed=clock.elapsed()-start;
         if (!result.matches(candidate.message) || elapsed<0 || elapsed>15000 || clock.wall()>=candidate.preparation.expiresAt)

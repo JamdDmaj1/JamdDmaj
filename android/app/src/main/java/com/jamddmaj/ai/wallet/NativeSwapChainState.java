@@ -12,11 +12,12 @@ final class NativeSwapChainState {
     NativeSwapChainState() { this(null); }
     NativeSwapChainState(NativeWalletRpc.Transport fixture) { rpc=new NativeWalletRpc(WalletNetwork.SOLANA_MAINNET,fixture); }
     static final class Result {
-        final BigInteger solBalance, sourceBalance, destinationBalance, slot;
+        final BigInteger solBalance, sourceBalance, destinationBalance, sourceLamports, destinationLamports, slot;
         final int inputDecimals, outputDecimals;
-        private Result(BigInteger sol,BigInteger input,BigInteger output,BigInteger slot,int inputDecimals,int outputDecimals) {
+        private Result(BigInteger sol,BigInteger input,BigInteger output,BigInteger sourceLamports,BigInteger destinationLamports,BigInteger slot,int inputDecimals,int outputDecimals) {
             solBalance=sol; sourceBalance=input; destinationBalance=output; this.slot=slot;
             this.inputDecimals=inputDecimals; this.outputDecimals=outputDecimals;
+            this.sourceLamports=sourceLamports; this.destinationLamports=destinationLamports;
         }
     }
     Result inspect(SolanaMessage message,SolanaLookupTables.Resolved keys,NativeSwapPreparation preparation,
@@ -66,9 +67,9 @@ final class NativeSwapChainState {
         if(sol.compareTo(setup.wrappedSol)<0) throw new IOException("Insufficient SOL to fund swap");
         int inputDecimals=mint(values.get(preparation.intent.inputMint)),outputDecimals=mint(values.get(preparation.intent.outputMint));
         rpc.verifyNetwork();
-        return new Result(sol,source,destination,minimum,inputDecimals,outputDecimals);
+        return new Result(sol,source,destination,lamports(values.get(route.source)),lamports(values.get(route.destination)),minimum,inputDecimals,outputDecimals);
     }
-    private static BigInteger token(JSONObject value,String owner,String mint,boolean creating) throws Exception {
+    static BigInteger token(JSONObject value,String owner,String mint,boolean creating) throws Exception {
         if(value==null) {
             if(!creating) throw new IOException("Required token account missing");
             return BigInteger.ZERO;
@@ -89,7 +90,8 @@ final class NativeSwapChainState {
         if(bytes.length!=82 || bytes[45]!=1) throw new IOException("Uninitialized or invalid mint");
         return bytes[44]&255;
     }
-    private static byte[] data(JSONObject value) throws Exception {
+    static BigInteger lamports(JSONObject value) throws Exception { return value==null?BigInteger.ZERO:NativeWalletBalances.solanaUnits(value.get("lamports")); }
+    static byte[] data(JSONObject value) throws Exception {
         JSONArray encoded=value.getJSONArray("data");
         if(encoded.length()!=2 || !"base64".equals(encoded.get(1)) || !(encoded.get(0) instanceof String)) throw new IOException("Invalid account encoding");
         String text=encoded.getString(0); if(text.length()>224) throw new IOException("Oversized account prefix");

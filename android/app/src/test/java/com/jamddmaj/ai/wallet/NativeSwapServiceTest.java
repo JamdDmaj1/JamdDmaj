@@ -14,10 +14,12 @@ public class NativeSwapServiceTest {
         NativeSwapSimulation simulation=new NativeSwapSimulation((method,params)-> {
             if (method.equals("getGenesisHash")) return "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
             if (method.equals("getSlot") || method.equals("getBlockHeight")) return 100;
+            if (method.equals("getMinimumBalanceForRentExemption")) return 2039280;
             org.json.JSONObject response=new org.json.JSONObject().put("context",new org.json.JSONObject().put("slot",100));
             if (method.equals("getFeeForMessage")) return response.put("value",5000);
             if (method.equals("simulateTransaction")) return response.put("value",new org.json.JSONObject()
-                .put("err",org.json.JSONObject.NULL).put("unitsConsumed",200000));
+                .put("err",org.json.JSONObject.NULL).put("unitsConsumed",200000)
+                .put("accounts",NativeSwapEffectsTest.post(999995000L,0,1184627)));
             throw new AssertionError("Unexpected RPC: "+method);
         });
         NativeSwapService service=new NativeSwapService(intent->NativeJupiterRouteTest.fixture(),accounts(clock,false),clock,simulation,
@@ -26,6 +28,7 @@ public class NativeSwapServiceTest {
         NativeSwapService.Preview preview=service.preview(NativeSwapPreparationTest.intent());
         assertTrue(preview.simulation.matches(preview.candidate.message));
         assertEquals("5000",preview.simulation.fee.toString());
+        assertEquals("1184627",preview.simulation.effects.output.toString());
     }
     static final class Clock implements NativeSwapService.Clock {
         long time=1001, elapsed=10;
