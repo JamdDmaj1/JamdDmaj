@@ -26,8 +26,11 @@ Verified evidence:
   confirmation, with input mint addresses, human amounts, review and status lookup.
   Run 37151226859 compiled the application but failed packaging WalletPreview
   before UI tests ran; the log lacked a root cause. `8be219e` moves tests before
-  packaging and enables stack traces. Run 37162562252 is verifying that change.
-  The lifecycle is not connected to the production launcher.
+  packaging and enables stack traces. Run 37162562252 passed tests and APK packaging.
+  The source now adds a navigation-only NativeWallet bridge and an explicit Assets
+  button. It accepts only the bundled HTTPS localhost terminal, forwards no web
+  arguments and never exports keys or signatures. Its new Android verification is
+  pending; all 254 web tests passed locally. No production release was published.
   Hardware acceptance, full route/extension policy, main-app integration and release
   remain required. The source implementation is not a completed installable release.
 

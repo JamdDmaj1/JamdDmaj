@@ -8,6 +8,7 @@ on:
       - 'android/app/src/main/java/com/jamddmaj/ai/wallet/**'
       - 'android/app/src/test/java/com/jamddmaj/ai/wallet/**'
       - 'android/app/src/main/java/com/jamddmaj/ai/DevnetWalletPlugin.java'
+      - 'android/app/src/main/java/com/jamddmaj/ai/NativeWalletPlugin.java'
       - 'android/app/src/main/java/com/jamddmaj/ai/MainActivity.java'
       - 'android/app/src/main/AndroidManifest.xml'
       - 'android/app/src/walletPreview/AndroidManifest.xml'
