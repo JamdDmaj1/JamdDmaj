@@ -16,8 +16,14 @@ Verified evidence:
 - `b2ac2c6` adds native associated-token address derivation using Wallet Core 4.8.3.
   Four public legacy/Token-2022 address vectors were independently calculated
   using Solana Kit; the two legacy values also matched a public unsigned Jupiter
-  build response. SDK emulator run 37108897904 and native build run 37108897784
-  were in progress at last observation. Native SDK vector acceptance is pending.
+  build response. SDK emulator run 37108897904 completed successfully, verifying
+  all four vectors through the pinned native library on Android.
+- `8722f74` validates associated account creation, exact SOL wrapping, native
+  synchronization and refunds to the payer, rejects unrelated top-level programs
+  and token authority changes, and caps compute instructions/priority fees.
+  Preparation supplies an explicit 1,400,000-unit limit when the provider omits
+  one. Android run 37109244946 is pending. Chain token-account ownership/state
+  and remaining route account validation still precede any signing integration.
 
 - Native swap preview now requests the fee and simulates the exact unsigned
   message at a confirmed RPC context. It rejects expired blockhashes, absent or
