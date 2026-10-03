@@ -9,6 +9,19 @@ This is source/preview functionality, not an enabled main-app production release
 
 Verified evidence:
 
+- Android run 37137686975 at `581f2a5` passed immutable review amount/expiry
+  checks. Run 37140334052 at `74a9342` passed exact-message revalidation without
+  fetching a replacement quote, including changed-fee rejection.
+- `bc3f369` connects a native draft to owner-matched Ed25519 signing, exact-message
+  revalidation, signed simulation and manual submission. The existing shared
+  Solana journal now persists swap mints and minimum output before broadcasting,
+  preserves metadata across state transitions and blocks both swaps and native
+  transfers after an uncertain result. Disposable-key/fake-RPC tests cover these
+  paths; Android run 37150035911 is pending. No real transaction was submitted.
+  This lifecycle is not yet connected to the biometric UI or production launcher.
+  Hardware acceptance, full route/extension policy, main-app integration and release
+  remain required. The source implementation is not a completed installable release.
+
 - Run 37092084464 at `c526969` passed Android checks after binding Jupiter V2
   amounts, payer and mint/program positions to native intent. The preview rejects
   missing/duplicate swap instructions and mismatched output promises before
