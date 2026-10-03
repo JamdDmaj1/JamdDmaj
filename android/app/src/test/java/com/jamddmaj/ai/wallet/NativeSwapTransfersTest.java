@@ -65,6 +65,11 @@ public class NativeSwapTransfersTest {
             NativeSwapServiceTest.accounts(clock,false),clock,simulation,(payer,mint,program)->NativeJupiterRouteTest.key(mint.equals(NativeJupiterRouteTest.key(2))?10:13),state);
         transfers=new NativeSwapTransfers(context,owner,service,(method,params)->{
             if(method.equals("getGenesisHash"))return "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
+            if(method.equals("getAccountInfo")) {
+                byte[] mint=new byte[82]; mint[44]=6; mint[45]=1;
+                return new JSONObject().put("value",new JSONObject().put("owner",NativeJupiterRoute.TOKEN).put("executable",false)
+                    .put("data",new JSONArray().put(Base64.encodeToString(mint,Base64.NO_WRAP)).put("base64")));
+            }
             if(method.equals("simulateTransaction")) {
                 assertTrue(params.getJSONObject(1).getBoolean("sigVerify"));
                 return new JSONObject().put("value",new JSONObject().put("err",JSONObject.NULL));
@@ -109,6 +114,12 @@ public class NativeSwapTransfersTest {
         assertThrows(IOException.class,()->transfers.submit(draft,new byte[64],()->true));
         clock.time=16000;
         assertThrows(IOException.class,()->transfers.signReviewed(draft,seed,signer,()->true));
+        assertEquals(0,sends);
+    }
+    @Test public void humanAmountUsesOnChainDecimalsBeforeReview() throws Exception {
+        var result=transfers.prepareAmount(NativeJupiterRouteTest.key(2),NativeJupiterRouteTest.key(3),"10,000000",50);
+        assertEquals("10.000000",result.review.inputAmount);
+        assertThrows(IllegalArgumentException.class,()->transfers.prepareAmount(NativeJupiterRouteTest.key(2),NativeJupiterRouteTest.key(3),"0.0000001",50));
         assertEquals(0,sends);
     }
 }

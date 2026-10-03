@@ -85,7 +85,7 @@ final class NativeSwapChainState {
         if(NativeSwapSetup.SOL.equals(mint)!=(token.nativeReserve!=null)) throw new IOException("Invalid wrapped SOL account");
         return token.amount;
     }
-    private static int mint(JSONObject value) throws Exception {
+    static int mint(JSONObject value) throws Exception {
         if(value==null || !NativeJupiterRoute.TOKEN.equals(value.get("owner")) || !Boolean.FALSE.equals(value.get("executable")))
             throw new IOException("Invalid mint program");
         byte[] bytes=data(value);

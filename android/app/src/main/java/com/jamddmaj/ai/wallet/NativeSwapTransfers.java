@@ -34,6 +34,16 @@ final class NativeSwapTransfers {
         var preview=service.preview(intent);
         return new Draft(preview,service.review(preview));
     }
+    Draft prepareAmount(String inputMint,String outputMint,String amount,int slippageBps) throws Exception {
+        // Validate addresses and limits before RPC; fetch precision from the chain, not the UI/provider.
+        new NativeSwapPreparation.Intent(owner.solanaAddress,inputMint,outputMint,"1",slippageBps);
+        journal.requireNoPending(); rpc.verifyNetwork();
+        JSONObject response=(JSONObject)rpc.request("getAccountInfo",new JSONArray().put(inputMint)
+            .put(new JSONObject().put("commitment","confirmed").put("encoding","base64")
+                .put("dataSlice",new JSONObject().put("offset",0).put("length",83))));
+        int decimals=NativeSwapChainState.mint(response.isNull("value")?null:response.getJSONObject("value"));
+        return prepare(new NativeSwapPreparation.Intent(owner.solanaAddress,inputMint,outputMint,NativeSwapAmounts.units(amount,decimals),slippageBps));
+    }
     byte[] signReviewed(Draft draft,byte[] entropy,SolanaNativeTransfers.Signer signer,BooleanSupplier foreground) throws Exception {
         synchronized(draft) {
             require(draft,foreground); journal.requireNoPending();
@@ -49,7 +59,7 @@ final class NativeSwapTransfers {
             journal.requireNoPending();
             var current=service.revalidate(draft.preview,draft.review,owner.solanaAddress);
             rpc.verifyNetwork();
-            String wire=Base64.encodeToString(DevnetSolana.wire(current.candidate.message.bytes(),approved),Base64.NO_WRAP);
+            String wire=Base64.encodeToString(wire(current.candidate.message,approved),Base64.NO_WRAP);
             JSONObject simulation=(JSONObject)rpc.request("simulateTransaction",new JSONArray().put(wire)
                 .put(new JSONObject().put("encoding","base64").put("sigVerify",true).put("replaceRecentBlockhash",false)
                     .put("commitment","confirmed").put("minContextSlot",current.simulation.slot)));
@@ -73,5 +83,12 @@ final class NativeSwapTransfers {
         byte[] message=draft.preview.candidate.message.bytes();
         if(signature==null || signature.length!=64 || !Ed25519.verify(signature,0,DevnetSolana.decode(owner.solanaAddress,32),0,message,0,message.length))
             throw new IOException("Signature differs from reviewed swap");
+    }
+    private static byte[] wire(SolanaMessage message,byte[] signature) throws IOException {
+        byte[] bytes=message.bytes();
+        if(message.signatures!=1 || signature.length!=64 || bytes.length>1167) throw new IOException("Invalid swap wire size");
+        byte[] wire=new byte[65+bytes.length]; wire[0]=1;
+        System.arraycopy(signature,0,wire,1,64); System.arraycopy(bytes,0,wire,65,bytes.length);
+        return wire;
     }
 }
