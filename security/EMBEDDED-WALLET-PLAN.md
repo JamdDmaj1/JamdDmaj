@@ -1,6 +1,6 @@
 # Embedded wallet — production delivery plan
 
-## Current status — 2026-09-27
+## Current status — 2026-10-03
 
 The production objective is **not complete**. The native SOL/BNB wallet now has a
 preview UI, hardware-vault enrollment/recovery, fixed-network balance reads,
@@ -8,6 +8,16 @@ reviewed native-asset signing, pre-broadcast durable journals and status checks.
 This is source/preview functionality, not an enabled main-app production release.
 
 Verified evidence:
+
+- Run 37092084464 at `c526969` passed Android checks after binding Jupiter V2
+  amounts, payer and mint/program positions to native intent. The preview rejects
+  missing/duplicate swap instructions and mismatched output promises before
+  simulation. This does not yet validate token-account ownership or setup/cleanup.
+- `b2ac2c6` adds native associated-token address derivation using Wallet Core 4.8.3.
+  Four public legacy/Token-2022 address vectors were independently calculated
+  using Solana Kit; the two legacy values also matched a public unsigned Jupiter
+  build response. SDK emulator run 37108897904 and native build run 37108897784
+  were in progress at last observation. Native SDK vector acceptance is pending.
 
 - Native swap preview now requests the fee and simulates the exact unsigned
   message at a confirmed RPC context. It rejects expired blockhashes, absent or
