@@ -29,6 +29,16 @@ public class NativeSwapServiceTest {
         assertTrue(preview.simulation.matches(preview.candidate.message));
         assertEquals("5000",preview.simulation.fee.toString());
         assertEquals("1184627",preview.simulation.effects.output.toString());
+        NativeSwapReview review=new NativeSwapReview(preview,clock);
+        assertEquals("10.000000",review.inputAmount);
+        assertEquals("1.178704",review.minimumOutput);
+        assertEquals("0.000005000",review.feeSol);
+        assertTrue(review.description(true).contains("Resultado simulado (no garantizado)"));
+        assertThrows(java.io.IOException.class,()->review.requireCurrent(NativeJupiterRouteTest.key(9),preview.candidate.message));
+        clock.elapsed=15010;
+        assertThrows(java.io.IOException.class,()->review.requireCurrent(NativeJupiterRouteTest.key(1),preview.candidate.message));
+        clock.elapsed=10; clock.time=1000;
+        assertThrows(java.io.IOException.class,()->review.requireCurrent(NativeJupiterRouteTest.key(1),preview.candidate.message));
     }
     static final class Clock implements NativeSwapService.Clock {
         long time=1001, elapsed=10;

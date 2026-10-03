@@ -34,7 +34,9 @@ Verified evidence:
 - `9ae7650` adds simulation post-account checks for exact input consumption,
   minimum output, unchanged token permissions, fee payer delta, newly locked
   token-account rent and closed wrapped-SOL accounts. Android run 37110451212
-  is pending; this is not signing authorization or a production activation.
+  failed only on an expected exception type for a rejected malformed token
+  account. `9277e77` normalized that error; Android run 37136863902 passed.
+  This is not signing authorization or a production activation.
   `scripts/check-solana-simulation-effects.mjs` independently exercised the
   public devnet RPC with an unsigned self-transfer simulation: returned payer
   balance deducted the 5,000-lamport fee and a subsequent account read confirmed
