@@ -20,7 +20,7 @@ public class NativeSwapServiceTest {
                 .put("err",org.json.JSONObject.NULL).put("unitsConsumed",200000));
             throw new AssertionError("Unexpected RPC: "+method);
         });
-        NativeSwapService service=new NativeSwapService(intent->NativeSwapPreparationTest.fixture(),accounts(clock,false),clock,simulation);
+        NativeSwapService service=new NativeSwapService(intent->NativeJupiterRouteTest.fixture(),accounts(clock,false),clock,simulation);
         NativeSwapService.Preview preview=service.preview(NativeSwapPreparationTest.intent());
         assertTrue(preview.simulation.matches(preview.candidate.message));
         assertEquals("5000",preview.simulation.fee.toString());

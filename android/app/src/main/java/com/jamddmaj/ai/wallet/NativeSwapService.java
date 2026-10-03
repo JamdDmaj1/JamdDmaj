@@ -29,8 +29,9 @@ final class NativeSwapService {
     static final class Preview {
         final Candidate candidate;
         final NativeSwapSimulation.Result simulation;
-        private Preview(Candidate candidate, NativeSwapSimulation.Result simulation) {
-            this.candidate=candidate; this.simulation=simulation;
+        final NativeJupiterRoute route;
+        private Preview(Candidate candidate, NativeSwapSimulation.Result simulation, NativeJupiterRoute route) {
+            this.candidate=candidate; this.simulation=simulation; this.route=route;
         }
     }
     NativeSwapService() {
@@ -51,11 +52,12 @@ final class NativeSwapService {
     Preview preview(NativeSwapPreparation.Intent intent) throws Exception {
         long start=clock.elapsed();
         Candidate candidate=prepare(intent);
+        NativeJupiterRoute route=NativeJupiterRoute.inspect(candidate.message,accounts.resolve(candidate.message),candidate.preparation);
         NativeSwapSimulation.Result result=simulation.inspect(candidate.message,intent.payer,candidate.preparation.lastValidBlockHeight);
         long elapsed=clock.elapsed()-start;
         if (!result.matches(candidate.message) || elapsed<0 || elapsed>15000 || clock.wall()>=candidate.preparation.expiresAt)
             throw new IOException("Swap preview expired; request a new quote");
-        return new Preview(candidate,result);
+        return new Preview(candidate,result,route);
     }
     Candidate prepare(NativeSwapPreparation.Intent intent) throws Exception {
         if (intent==null) throw new IllegalArgumentException("Swap intent required");
