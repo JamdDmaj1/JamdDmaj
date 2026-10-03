@@ -13,8 +13,11 @@ Verified evidence:
   message at a confirmed RPC context. It rejects expired blockhashes, absent or
   excessive fees, stale contexts and simulation errors, and binds the evidence
   to the candidate bytes. NativeSwapService connects preparation and simulation
-  with a final expiry check. Android verification is pending for these changes;
-  instruction/account policy, user review and swap signing remain unfinished.
+  with a final expiry check. Android run 37091405545 at `f77b898` completed
+  successfully, including these tests and APK compilation. Earlier run
+  37090178166 failed because a rejection test omitted its checked JSON exception;
+  this was corrected. Instruction/account policy, user review and swap signing
+  remain unfinished.
 
 - 2026-10-02: run 36476878486 at `aa4423c` completed successfully, covering
   Android compilation, native tests and the independent Solana Kit compiler check.
