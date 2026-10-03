@@ -27,13 +27,15 @@ final class NativeSwapService {
     private final Clock clock;
     private final NativeSwapSimulation simulation;
     private final NativeSwapSetup.Deriver tokenAddresses;
+    private final NativeSwapChainState chainState;
     static final class Preview {
         final Candidate candidate;
         final NativeSwapSimulation.Result simulation;
         final NativeJupiterRoute route;
         final NativeSwapSetup setup;
-        private Preview(Candidate candidate, NativeSwapSimulation.Result simulation, NativeJupiterRoute route,NativeSwapSetup setup) {
-            this.candidate=candidate; this.simulation=simulation; this.route=route; this.setup=setup;
+        final NativeSwapChainState.Result balances;
+        private Preview(Candidate candidate, NativeSwapSimulation.Result simulation, NativeJupiterRoute route,NativeSwapSetup setup,NativeSwapChainState.Result balances) {
+            this.candidate=candidate; this.simulation=simulation; this.route=route; this.setup=setup; this.balances=balances;
         }
     }
     NativeSwapService() {
@@ -49,11 +51,16 @@ final class NativeSwapService {
         this(transport,accounts,clock,simulation,NativeTokenAddresses::associated);
     }
     NativeSwapService(Transport transport, NativeSolanaAccounts accounts, Clock clock, NativeSwapSimulation simulation,NativeSwapSetup.Deriver tokenAddresses) {
+        this(transport,accounts,clock,simulation,tokenAddresses,new NativeSwapChainState());
+    }
+    NativeSwapService(Transport transport, NativeSolanaAccounts accounts, Clock clock, NativeSwapSimulation simulation,NativeSwapSetup.Deriver tokenAddresses,NativeSwapChainState chainState) {
         if (transport==null || accounts==null || clock==null || simulation==null) throw new IllegalArgumentException("Missing swap dependencies");
         this.transport=transport; this.accounts=accounts; this.clock=clock;
         this.simulation=simulation;
         if(tokenAddresses==null) throw new IllegalArgumentException("Missing token address derivation");
         this.tokenAddresses=tokenAddresses;
+        if(chainState==null) throw new IllegalArgumentException("Missing token account state reader");
+        this.chainState=chainState;
     }
     /** Produces review evidence; account/instruction policy must still approve the candidate. */
     Preview preview(NativeSwapPreparation.Intent intent) throws Exception {
@@ -62,11 +69,13 @@ final class NativeSwapService {
         SolanaLookupTables.Resolved resolved=accounts.resolve(candidate.message);
         NativeJupiterRoute route=NativeJupiterRoute.inspect(candidate.message,resolved,candidate.preparation);
         NativeSwapSetup setup=NativeSwapSetup.inspect(candidate.message,resolved,route,candidate.preparation,tokenAddresses);
+        NativeSwapChainState.Result balances=chainState.inspect(candidate.message,resolved,candidate.preparation,route,setup);
         NativeSwapSimulation.Result result=simulation.inspect(candidate.message,intent.payer,candidate.preparation.lastValidBlockHeight);
+        if(balances.solBalance.compareTo(setup.wrappedSol.add(result.fee))<0) throw new IOException("Insufficient SOL including swap fee");
         long elapsed=clock.elapsed()-start;
         if (!result.matches(candidate.message) || elapsed<0 || elapsed>15000 || clock.wall()>=candidate.preparation.expiresAt)
             throw new IOException("Swap preview expired; request a new quote");
-        return new Preview(candidate,result,route,setup);
+        return new Preview(candidate,result,route,setup,balances);
     }
     Candidate prepare(NativeSwapPreparation.Intent intent) throws Exception {
         if (intent==null) throw new IllegalArgumentException("Swap intent required");

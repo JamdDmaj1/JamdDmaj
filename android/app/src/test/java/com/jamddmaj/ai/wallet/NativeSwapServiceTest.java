@@ -21,7 +21,8 @@ public class NativeSwapServiceTest {
             throw new AssertionError("Unexpected RPC: "+method);
         });
         NativeSwapService service=new NativeSwapService(intent->NativeJupiterRouteTest.fixture(),accounts(clock,false),clock,simulation,
-            (owner,mint,program)->NativeJupiterRouteTest.key(mint.equals(NativeJupiterRouteTest.key(2))?10:13));
+            (owner,mint,program)->NativeJupiterRouteTest.key(mint.equals(NativeJupiterRouteTest.key(2))?10:13),
+            new NativeSwapChainState(new NativeSwapChainStateTest.Rpc()));
         NativeSwapService.Preview preview=service.preview(NativeSwapPreparationTest.intent());
         assertTrue(preview.simulation.matches(preview.candidate.message));
         assertEquals("5000",preview.simulation.fee.toString());

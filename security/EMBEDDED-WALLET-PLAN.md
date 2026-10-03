@@ -22,8 +22,14 @@ Verified evidence:
   synchronization and refunds to the payer, rejects unrelated top-level programs
   and token authority changes, and caps compute instructions/priority fees.
   Preparation supplies an explicit 1,400,000-unit limit when the provider omits
-  one. Android run 37109244946 is pending. Chain token-account ownership/state
-  and remaining route account validation still precede any signing integration.
+  one. Android run 37109244946 completed successfully.
+- Native preview now reads confirmed token-account state, verifies legacy SPL
+  ownership/mint/permissions and input funds, and rejects additional writable
+  token accounts controlled by the wallet. It reads mint decimals and checks SOL
+  against wrapping plus the quoted fee. Android checks for this new state reader
+  are pending. Token-2022 extension policy, post-simulation asset effects and final
+  signing/revalidation remain incomplete; SDK address support alone does not
+  enable Token-2022 swaps.
 
 - Native swap preview now requests the fee and simulates the exact unsigned
   message at a confirmed RPC context. It rejects expired blockhashes, absent or
