@@ -20,11 +20,22 @@ Verified evidence:
   paths; Android run 37150035911 found a fixed-length native-transfer wire
   encoder incorrectly reused for swaps. `edd1605` supplies a bounded,
   single-signature variable-length swap encoder and adds exact human amount
-  conversion using on-chain mint decimals. Corrective run 37150371579 is pending.
+  conversion using on-chain mint decimals. Corrective run 37150371579 passed.
   No real transaction was submitted.
-  This lifecycle is not yet connected to the biometric UI or production launcher.
+  `51ddd0d` connects this lifecycle to the native wallet screen and biometric
+  confirmation, with input mint addresses, human amounts, review and status lookup.
+  Run 37151226859 compiled the application but failed packaging WalletPreview
+  before UI tests ran; the log lacked a root cause. `8be219e` moves tests before
+  packaging and enables stack traces. Run 37162562252 is verifying that change.
+  The lifecycle is not connected to the production launcher.
   Hardware acceptance, full route/extension policy, main-app integration and release
   remain required. The source implementation is not a completed installable release.
+
+- Public production `/api/swap-build` returned Vercel NOT_FOUND on 2026-10-03.
+  The first-party preparation endpoint therefore still needs a verified production
+  deployment and environment configuration; native source wiring alone is not
+  operational service availability. Browser automation failed to establish a safe
+  URL and later timed out; no Vercel settings were changed during those attempts.
 
 - Run 37092084464 at `c526969` passed Android checks after binding Jupiter V2
   amounts, payer and mint/program positions to native intent. The preview rejects
