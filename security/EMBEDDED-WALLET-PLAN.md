@@ -26,10 +26,21 @@ Verified evidence:
 - Native preview now reads confirmed token-account state, verifies legacy SPL
   ownership/mint/permissions and input funds, and rejects additional writable
   token accounts controlled by the wallet. It reads mint decimals and checks SOL
-  against wrapping plus the quoted fee. Android checks for this new state reader
-  are pending. Token-2022 extension policy, post-simulation asset effects and final
+  against wrapping plus the quoted fee. Android run 37109716824 at `04fd045`
+  passed. Token-2022 extension policy and final
   signing/revalidation remain incomplete; SDK address support alone does not
   enable Token-2022 swaps.
+
+- `9ae7650` adds simulation post-account checks for exact input consumption,
+  minimum output, unchanged token permissions, fee payer delta, newly locked
+  token-account rent and closed wrapped-SOL accounts. Android run 37110451212
+  is pending; this is not signing authorization or a production activation.
+  `scripts/check-solana-simulation-effects.mjs` independently exercised the
+  public devnet RPC with an unsigned self-transfer simulation: returned payer
+  balance deducted the 5,000-lamport fee and a subsequent account read confirmed
+  unchanged on-chain funds. No transaction was signed or submitted. This probe
+  verifies RPC fee semantics, not Jupiter execution, wrapped-SOL closure or
+  Android hardware signing.
 
 - Native swap preview now requests the fee and simulates the exact unsigned
   message at a confirmed RPC context. It rejects expired blockhashes, absent or
