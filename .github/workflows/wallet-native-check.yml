@@ -78,14 +78,16 @@ jobs:
           node scripts/check-native-wallet-core.mjs java "$RUNNER_TEMP/wallet-native-tests:$RUNNER_TEMP/bcprov.jar"
           javac -cp "$RUNNER_TEMP/bcprov.jar" -d "$RUNNER_TEMP/wallet-native-tests" android/app/src/main/java/com/jamddmaj/ai/wallet/NativeEvmAddress.java security/native-tests/NativeEvmAddressCheck.java
           java -cp "$RUNNER_TEMP/wallet-native-tests:$RUNNER_TEMP/bcprov.jar" NativeEvmAddressCheck
+      - name: Native Android storage and RPC failure checks
+        working-directory: android
+        run: |
+          sed -i 's/\r$//' gradlew
+          bash gradlew :app:testWalletPreviewUnitTest --tests 'com.jamddmaj.ai.wallet.*' --stacktrace
       - name: Build isolated devnet lab APK
         working-directory: android
         run: |
           sed -i 's/\r$//' gradlew
-          bash gradlew :app:assembleDebug :app:assembleRelease :app:assembleWalletPreview
-      - name: Native Android storage and RPC failure checks
-        working-directory: android
-        run: bash gradlew :app:testWalletPreviewUnitTest --tests 'com.jamddmaj.ai.wallet.*'
+          bash gradlew :app:assembleDebug :app:assembleRelease :app:assembleWalletPreview --stacktrace
       - uses: actions/upload-artifact@v4
         if: always()
         with:
