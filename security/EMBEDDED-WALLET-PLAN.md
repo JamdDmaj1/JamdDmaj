@@ -9,6 +9,13 @@ This is source/preview functionality, not an enabled main-app production release
 
 Verified evidence:
 
+- Native swap preview now requests the fee and simulates the exact unsigned
+  message at a confirmed RPC context. It rejects expired blockhashes, absent or
+  excessive fees, stale contexts and simulation errors, and binds the evidence
+  to the candidate bytes. NativeSwapService connects preparation and simulation
+  with a final expiry check. Android verification is pending for these changes;
+  instruction/account policy, user review and swap signing remain unfinished.
+
 - 2026-10-02: run 36476878486 at `aa4423c` completed successfully, covering
   Android compilation, native tests and the independent Solana Kit compiler check.
   All 251 JavaScript tests passed locally. The native swap preparation transport

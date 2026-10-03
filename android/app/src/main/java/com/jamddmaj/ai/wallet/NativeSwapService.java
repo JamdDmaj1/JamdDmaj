@@ -25,6 +25,14 @@ final class NativeSwapService {
     private final Transport transport;
     private final NativeSolanaAccounts accounts;
     private final Clock clock;
+    private final NativeSwapSimulation simulation;
+    static final class Preview {
+        final Candidate candidate;
+        final NativeSwapSimulation.Result simulation;
+        private Preview(Candidate candidate, NativeSwapSimulation.Result simulation) {
+            this.candidate=candidate; this.simulation=simulation;
+        }
+    }
     NativeSwapService() {
         this(NativeSwapService::request,new NativeSolanaAccounts(),new Clock() {
             public long wall() { return System.currentTimeMillis(); }
@@ -32,8 +40,22 @@ final class NativeSwapService {
         });
     }
     NativeSwapService(Transport transport, NativeSolanaAccounts accounts, Clock clock) {
-        if (transport==null || accounts==null || clock==null) throw new IllegalArgumentException("Missing swap dependencies");
+        this(transport,accounts,clock,new NativeSwapSimulation());
+    }
+    NativeSwapService(Transport transport, NativeSolanaAccounts accounts, Clock clock, NativeSwapSimulation simulation) {
+        if (transport==null || accounts==null || clock==null || simulation==null) throw new IllegalArgumentException("Missing swap dependencies");
         this.transport=transport; this.accounts=accounts; this.clock=clock;
+        this.simulation=simulation;
+    }
+    /** Produces review evidence; account/instruction policy must still approve the candidate. */
+    Preview preview(NativeSwapPreparation.Intent intent) throws Exception {
+        long start=clock.elapsed();
+        Candidate candidate=prepare(intent);
+        NativeSwapSimulation.Result result=simulation.inspect(candidate.message,intent.payer,candidate.preparation.lastValidBlockHeight);
+        long elapsed=clock.elapsed()-start;
+        if (!result.matches(candidate.message) || elapsed<0 || elapsed>15000 || clock.wall()>=candidate.preparation.expiresAt)
+            throw new IOException("Swap preview expired; request a new quote");
+        return new Preview(candidate,result);
     }
     Candidate prepare(NativeSwapPreparation.Intent intent) throws Exception {
         if (intent==null) throw new IllegalArgumentException("Swap intent required");

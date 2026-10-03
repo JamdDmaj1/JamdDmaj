@@ -9,6 +9,22 @@ import static org.junit.Assert.*;
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk=30)
 public class NativeSwapServiceTest {
+    @Test public void previewIncludesFeeAndSimulationForExactCandidate() throws Exception {
+        Clock clock=new Clock();
+        NativeSwapSimulation simulation=new NativeSwapSimulation((method,params)-> {
+            if (method.equals("getGenesisHash")) return "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
+            if (method.equals("getSlot") || method.equals("getBlockHeight")) return 100;
+            org.json.JSONObject response=new org.json.JSONObject().put("context",new org.json.JSONObject().put("slot",100));
+            if (method.equals("getFeeForMessage")) return response.put("value",5000);
+            if (method.equals("simulateTransaction")) return response.put("value",new org.json.JSONObject()
+                .put("err",org.json.JSONObject.NULL).put("unitsConsumed",200000));
+            throw new AssertionError("Unexpected RPC: "+method);
+        });
+        NativeSwapService service=new NativeSwapService(intent->NativeSwapPreparationTest.fixture(),accounts(clock,false),clock,simulation);
+        NativeSwapService.Preview preview=service.preview(NativeSwapPreparationTest.intent());
+        assertTrue(preview.simulation.matches(preview.candidate.message));
+        assertEquals("5000",preview.simulation.fee.toString());
+    }
     static final class Clock implements NativeSwapService.Clock {
         long time=1001, elapsed=10;
         public long wall() { return time; }
