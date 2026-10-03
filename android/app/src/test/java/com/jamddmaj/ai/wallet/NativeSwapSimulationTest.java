@@ -61,7 +61,7 @@ public class NativeSwapSimulationTest {
         Rpc high=new Rpc(); high.fee=1000001;
         assertThrows(java.io.IOException.class,()->inspect(high)); assertEquals(0,high.simulations);
     }
-    @Test public void rejectsStaleContextAndFailedSimulation() {
+    @Test public void rejectsStaleContextAndFailedSimulation() throws Exception {
         Rpc stale=new Rpc(); stale.slot=99;
         assertThrows(java.io.IOException.class,()->inspect(stale));
         Rpc failed=new Rpc(); failed.error=new JSONObject().put("InstructionError",1);
