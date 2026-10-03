@@ -7,6 +7,7 @@ on:
       - 'security/native-sdk-check/**'
       - 'android/wallet-core-vendor/**'
       - 'android/app/src/main/java/com/jamddmaj/ai/wallet/NativeHdWallet.java'
+      - 'android/app/src/main/java/com/jamddmaj/ai/wallet/NativeTokenAddresses.java'
       - 'android/app/src/main/java/com/jamddmaj/ai/wallet/NativeBnbSigner.java'
       - 'android/app/src/main/java/com/jamddmaj/ai/wallet/BnbSignedTransaction.java'
       - 'android/app/src/main/java/com/jamddmaj/ai/wallet/NativeEvmAddress.java'
