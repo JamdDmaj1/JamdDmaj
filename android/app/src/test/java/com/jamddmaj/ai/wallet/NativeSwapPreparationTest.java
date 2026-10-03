@@ -34,7 +34,7 @@ public class NativeSwapPreparationTest {
             throw new AssertionError("Unexpected RPC: "+method);
         };
         SolanaMessage message=parsed.compile(new NativeSolanaAccounts(rpc),1002);
-        assertArrayEquals(new byte[]{7},message.instructions.get(0).data());
+        assertArrayEquals(new byte[]{7},message.instructions.get(1).data());
         assertEquals(1,message.signatures);
         assertThrows(IllegalArgumentException.class,()->parsed.compile(new NativeSolanaAccounts(rpc),16000));
     }

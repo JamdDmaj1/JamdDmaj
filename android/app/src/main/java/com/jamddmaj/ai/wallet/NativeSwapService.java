@@ -26,12 +26,14 @@ final class NativeSwapService {
     private final NativeSolanaAccounts accounts;
     private final Clock clock;
     private final NativeSwapSimulation simulation;
+    private final NativeSwapSetup.Deriver tokenAddresses;
     static final class Preview {
         final Candidate candidate;
         final NativeSwapSimulation.Result simulation;
         final NativeJupiterRoute route;
-        private Preview(Candidate candidate, NativeSwapSimulation.Result simulation, NativeJupiterRoute route) {
-            this.candidate=candidate; this.simulation=simulation; this.route=route;
+        final NativeSwapSetup setup;
+        private Preview(Candidate candidate, NativeSwapSimulation.Result simulation, NativeJupiterRoute route,NativeSwapSetup setup) {
+            this.candidate=candidate; this.simulation=simulation; this.route=route; this.setup=setup;
         }
     }
     NativeSwapService() {
@@ -44,20 +46,27 @@ final class NativeSwapService {
         this(transport,accounts,clock,new NativeSwapSimulation());
     }
     NativeSwapService(Transport transport, NativeSolanaAccounts accounts, Clock clock, NativeSwapSimulation simulation) {
+        this(transport,accounts,clock,simulation,NativeTokenAddresses::associated);
+    }
+    NativeSwapService(Transport transport, NativeSolanaAccounts accounts, Clock clock, NativeSwapSimulation simulation,NativeSwapSetup.Deriver tokenAddresses) {
         if (transport==null || accounts==null || clock==null || simulation==null) throw new IllegalArgumentException("Missing swap dependencies");
         this.transport=transport; this.accounts=accounts; this.clock=clock;
         this.simulation=simulation;
+        if(tokenAddresses==null) throw new IllegalArgumentException("Missing token address derivation");
+        this.tokenAddresses=tokenAddresses;
     }
     /** Produces review evidence; account/instruction policy must still approve the candidate. */
     Preview preview(NativeSwapPreparation.Intent intent) throws Exception {
         long start=clock.elapsed();
         Candidate candidate=prepare(intent);
-        NativeJupiterRoute route=NativeJupiterRoute.inspect(candidate.message,accounts.resolve(candidate.message),candidate.preparation);
+        SolanaLookupTables.Resolved resolved=accounts.resolve(candidate.message);
+        NativeJupiterRoute route=NativeJupiterRoute.inspect(candidate.message,resolved,candidate.preparation);
+        NativeSwapSetup setup=NativeSwapSetup.inspect(candidate.message,resolved,route,candidate.preparation,tokenAddresses);
         NativeSwapSimulation.Result result=simulation.inspect(candidate.message,intent.payer,candidate.preparation.lastValidBlockHeight);
         long elapsed=clock.elapsed()-start;
         if (!result.matches(candidate.message) || elapsed<0 || elapsed>15000 || clock.wall()>=candidate.preparation.expiresAt)
             throw new IOException("Swap preview expired; request a new quote");
-        return new Preview(candidate,result,route);
+        return new Preview(candidate,result,route,setup);
     }
     Candidate prepare(NativeSwapPreparation.Intent intent) throws Exception {
         if (intent==null) throw new IllegalArgumentException("Swap intent required");

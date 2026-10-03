@@ -59,6 +59,7 @@ final class NativeSwapPreparation {
         JSONArray raw=body.getJSONArray("instructions");
         if (raw.length()<1 || raw.length()>64) throw invalid();
         List<SolanaMessageCompiler.Instruction> instructions=new ArrayList<>();
+        boolean hasComputeLimit=false;
         for (int i=0;i<raw.length();i++) {
             JSONObject instruction=raw.getJSONObject(i);
             byte[] program=address(instruction.get("programId"));
@@ -66,6 +67,7 @@ final class NativeSwapPreparation {
             if (!(encoded instanceof String) || ((String)encoded).length()>1560) throw invalid();
             byte[] data=Base64.decode((String)encoded,Base64.NO_WRAP);
             if (!Base64.encodeToString(data,Base64.NO_WRAP).equals(encoded)) throw invalid();
+            if(NativeSwapSetup.COMPUTE.equals(instruction.get("programId")) && data.length>0 && data[0]==2) hasComputeLimit=true;
             JSONArray rawAccounts=instruction.getJSONArray("accounts");
             if (rawAccounts.length()>256) throw invalid();
             List<SolanaMessageCompiler.Meta> metas=new ArrayList<>();
@@ -79,6 +81,11 @@ final class NativeSwapPreparation {
             }
             instructions.add(new SolanaMessageCompiler.Instruction(program,metas,data));
         }
+        if(!hasComputeLimit) {
+            byte[] limit=java.nio.ByteBuffer.allocate(5).order(java.nio.ByteOrder.LITTLE_ENDIAN).put((byte)2).putInt(1400000).array();
+            instructions.add(0,new SolanaMessageCompiler.Instruction(address(NativeSwapSetup.COMPUTE),Collections.emptyList(),limit));
+        }
+        if(instructions.size()>64) throw invalid();
         return new NativeSwapPreparation(intent,output,minimum,height,expires,hash,keys,instructions);
     }
     SolanaMessage compile(NativeSolanaAccounts accounts, long now) throws Exception {
