@@ -17,7 +17,11 @@ Verified evidence:
   Solana journal now persists swap mints and minimum output before broadcasting,
   preserves metadata across state transitions and blocks both swaps and native
   transfers after an uncertain result. Disposable-key/fake-RPC tests cover these
-  paths; Android run 37150035911 is pending. No real transaction was submitted.
+  paths; Android run 37150035911 found a fixed-length native-transfer wire
+  encoder incorrectly reused for swaps. `edd1605` supplies a bounded,
+  single-signature variable-length swap encoder and adds exact human amount
+  conversion using on-chain mint decimals. Corrective run 37150371579 is pending.
+  No real transaction was submitted.
   This lifecycle is not yet connected to the biometric UI or production launcher.
   Hardware acceptance, full route/extension policy, main-app integration and release
   remain required. The source implementation is not a completed installable release.
