@@ -11,25 +11,33 @@ import static org.junit.Assert.*;
 public class NativeSwapServiceTest {
     @Test public void previewIncludesFeeAndSimulationForExactCandidate() throws Exception {
         Clock clock=new Clock();
+        long[] fee={5000};
+        int[] providerCalls={0};
         NativeSwapSimulation simulation=new NativeSwapSimulation((method,params)-> {
             if (method.equals("getGenesisHash")) return "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
             if (method.equals("getSlot") || method.equals("getBlockHeight")) return 100;
             if (method.equals("getMinimumBalanceForRentExemption")) return 2039280;
             org.json.JSONObject response=new org.json.JSONObject().put("context",new org.json.JSONObject().put("slot",100));
-            if (method.equals("getFeeForMessage")) return response.put("value",5000);
+            if (method.equals("getFeeForMessage")) return response.put("value",fee[0]);
             if (method.equals("simulateTransaction")) return response.put("value",new org.json.JSONObject()
                 .put("err",org.json.JSONObject.NULL).put("unitsConsumed",200000)
-                .put("accounts",NativeSwapEffectsTest.post(999995000L,0,1184627)));
+                .put("accounts",NativeSwapEffectsTest.post(1000000000L-fee[0],0,1184627)));
             throw new AssertionError("Unexpected RPC: "+method);
         });
-        NativeSwapService service=new NativeSwapService(intent->NativeJupiterRouteTest.fixture(),accounts(clock,false),clock,simulation,
+        NativeSwapService service=new NativeSwapService(intent->{providerCalls[0]++;return NativeJupiterRouteTest.fixture();},accounts(clock,false),clock,simulation,
             (owner,mint,program)->NativeJupiterRouteTest.key(mint.equals(NativeJupiterRouteTest.key(2))?10:13),
             new NativeSwapChainState(new NativeSwapChainStateTest.Rpc()));
         NativeSwapService.Preview preview=service.preview(NativeSwapPreparationTest.intent());
         assertTrue(preview.simulation.matches(preview.candidate.message));
         assertEquals("5000",preview.simulation.fee.toString());
         assertEquals("1184627",preview.simulation.effects.output.toString());
-        NativeSwapReview review=new NativeSwapReview(preview,clock);
+        NativeSwapReview review=service.review(preview);
+        assertSame(preview.candidate,service.revalidate(preview,review,NativeJupiterRouteTest.key(1)).candidate);
+        assertEquals(1,providerCalls[0]);
+        fee[0]=5001;
+        assertThrows(java.io.IOException.class,()->service.revalidate(preview,review,NativeJupiterRouteTest.key(1)));
+        assertEquals(1,providerCalls[0]);
+        fee[0]=5000;
         assertEquals("10.000000",review.inputAmount);
         assertEquals("1.178704",review.minimumOutput);
         assertEquals("0.000005000",review.feeSol);

@@ -66,6 +66,24 @@ final class NativeSwapService {
     Preview preview(NativeSwapPreparation.Intent intent) throws Exception {
         long start=clock.elapsed();
         Candidate candidate=prepare(intent);
+        return inspect(candidate,start);
+    }
+    NativeSwapReview review(Preview preview) throws IOException { return new NativeSwapReview(preview,clock); }
+    /** Rechecks the already reviewed bytes, never silently replacing them with a new quote. */
+    Preview revalidate(Preview previous,NativeSwapReview review,String selectedPayer) throws Exception {
+        if(previous==null || review==null) throw new IOException("Missing reviewed swap");
+        review.requireCurrent(selectedPayer,previous.candidate.message);
+        Preview current=inspect(previous.candidate,clock.elapsed());
+        review.requireCurrent(selectedPayer,current.candidate.message);
+        if(!previous.simulation.fee.equals(current.simulation.fee)
+                || !previous.simulation.effects.rentLocked.equals(current.simulation.effects.rentLocked)
+                || previous.balances.inputDecimals!=current.balances.inputDecimals
+                || previous.balances.outputDecimals!=current.balances.outputDecimals)
+            throw new IOException("Reviewed costs or token precision changed; review again");
+        return current;
+    }
+    private Preview inspect(Candidate candidate,long start) throws Exception {
+        if(clock.wall()>=candidate.preparation.expiresAt) throw new IOException("Swap preview expired; request a new quote");
         SolanaLookupTables.Resolved resolved=accounts.resolve(candidate.message);
         NativeJupiterRoute route=NativeJupiterRoute.inspect(candidate.message,resolved,candidate.preparation);
         NativeSwapSetup setup=NativeSwapSetup.inspect(candidate.message,resolved,route,candidate.preparation,tokenAddresses);
