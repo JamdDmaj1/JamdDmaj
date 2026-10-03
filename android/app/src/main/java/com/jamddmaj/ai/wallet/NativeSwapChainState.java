@@ -75,7 +75,9 @@ final class NativeSwapChainState {
             return BigInteger.ZERO;
         }
         if(!Boolean.FALSE.equals(value.get("executable"))) throw new IOException("Invalid token account flags");
-        SplTokenAccount token=SplTokenAccount.decode(value.getString("owner"),false,data(value));
+        SplTokenAccount token;
+        try { token=SplTokenAccount.decode(value.getString("owner"),false,data(value)); }
+        catch(IllegalArgumentException invalid) { throw new IOException("Invalid token account state",invalid); }
         byte[] expected=DevnetSolana.decode(owner,32), close=token.closeAuthority();
         if(!Arrays.equals(expected,token.owner()) || !Arrays.equals(DevnetSolana.decode(mint,32),token.mint())
                 || token.frozen || token.hasDelegate() || (close!=null && !Arrays.equals(close,expected)))
