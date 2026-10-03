@@ -56,11 +56,22 @@ public class NativeWalletActivityTest {
     @Test public void backgroundClearsPasswordsAndDisablesSavedFieldState(){
         try(var controller=Robolectric.buildActivity(NativeWalletActivity.class).create().start()){
             var activity=controller.get();ArrayList<EditText> inputs=new ArrayList<>();fields(activity.getWindow().getDecorView(),inputs);
-            assertEquals(7,inputs.size());
+            assertEquals(10,inputs.size());
             for(EditText field:inputs){assertFalse(field.isSaveEnabled());assertEquals(View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS,field.getImportantForAutofill());}
             inputs.get(1).setText("public test password");inputs.get(2).setText("public test password");
             controller.stop();
             assertEquals("",inputs.get(1).getText().toString());assertEquals("",inputs.get(2).getText().toString());
+        }
+    }
+    @Test public void swapFormUsesMintAddressesAndCannotPrepareWhileLocked(){
+        try(var controller=Robolectric.buildActivity(NativeWalletActivity.class).create()){
+            var activity=controller.get();ArrayList<EditText> inputs=new ArrayList<>();fields(activity.getWindow().getDecorView(),inputs);
+            assertEquals(NativeSwapSetup.SOL,inputs.get(7).getText().toString());
+            assertEquals(NativeSolanaTokens.USDC,inputs.get(8).getText().toString());
+            assertEquals("",inputs.get(9).getText().toString());
+            assertEquals(View.GONE,((View)inputs.get(7).getParent()).getVisibility());
+            activity.reviewSwap();
+            assertNull(org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog());
         }
     }
 }

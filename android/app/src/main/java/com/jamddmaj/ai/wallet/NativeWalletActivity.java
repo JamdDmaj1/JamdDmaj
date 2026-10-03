@@ -39,6 +39,7 @@ public final class NativeWalletActivity extends Activity {
     private NativeWalletProfiles.Profile selectedProfile;
     private EditText recipient,sendAmount;
     private EditText bnbRecipient,bnbAmount;
+    private EditText swapInput,swapOutput,swapAmount;
     private final java.util.ArrayList<LinearLayout> sections=new java.util.ArrayList<>();
     private LinearLayout backupSection;
     private String text(String spanish,String english){return es?spanish:english;}
@@ -88,6 +89,19 @@ public final class NativeWalletActivity extends Activity {
         bnbAmount.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_DECIMAL);
         action(bnbSection,text("Revisar envío de BNB","Review BNB transfer"),()->reviewBnb());
         action(bnbSection,text("Consultar último envío de BNB","Check latest BNB transfer"),()->checkBnb());
+        LinearLayout swapSection=section(root,text("Intercambiar tokens · Solana","Swap tokens · Solana"));
+        label(swapSection,text("Intercambio manual en Solana. Revisa los tokens y confirma cada operación con tu huella. Deslizamiento máximo: 0,50%.","Manual swap on Solana. Review the tokens and approve each operation with biometrics. Maximum slippage: 0.50%."),16);
+        swapInput=field(swapSection,text("Token que entregas · dirección mint","Input token · mint address"),false);
+        swapOutput=field(swapSection,text("Token que recibes · dirección mint","Output token · mint address"),false);
+        swapInput.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
+        swapOutput.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
+        swapInput.setText(NativeSwapSetup.SOL);swapOutput.setText(NativeSolanaTokens.USDC);
+        action(swapSection,"SOL → USDC",()->{swapInput.setText(NativeSwapSetup.SOL);swapOutput.setText(NativeSolanaTokens.USDC);});
+        action(swapSection,"USDC → SOL",()->{swapInput.setText(NativeSolanaTokens.USDC);swapOutput.setText(NativeSwapSetup.SOL);});
+        swapAmount=field(swapSection,text("Cantidad del token que entregas","Amount of input token"),false);
+        swapAmount.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        action(swapSection,text("Revisar intercambio","Review swap"),()->reviewSwap());
+        action(swapSection,text("Consultar última operación de Solana","Check latest Solana operation"),()->checkSolana());
         Button lock=new Button(this);lock.setText(text("Bloquear","Lock"));root.addView(lock);lock.setOnClickListener(v->lock());
     }
     private LinearLayout section(LinearLayout root,String title){
@@ -221,6 +235,53 @@ public final class NativeWalletActivity extends Activity {
                     });
             });
         }catch(Exception failure){error(ticket);}});
+    }
+    void reviewSwap(){
+        NativeWalletProfiles.Profile profile=selectedProfile;
+        if(profile==null){status.setText(text("Desbloquea primero la billetera.","Unlock the wallet first."));return;}
+        String input=swapInput.getText().toString().trim(),output=swapOutput.getText().toString().trim(),amount=swapAmount.getText().toString().trim();
+        lock();selectedProfile=profile;long ticket=epoch;
+        status.setText(text("Comprobando cotización, saldos y simulación. No se firma ni se envía todavía.","Checking quote, balances and simulation. Nothing is signed or sent yet."));
+        worker.execute(()->{try{
+            NativeSwapTransfers service=new NativeSwapTransfers(this,profile);
+            NativeSwapTransfers.Draft draft=service.prepareAmount(input,output,amount,50);
+            runOnUiThread(()->{if(ticket!=epoch)return;
+                String message=draft.review.description(es)+"\n\n"+text("Dinero real. Comprueba las direcciones completas de los tokens. La siguiente huella autoriza este intercambio. Si la cotización caduca, tendrás que revisarla de nuevo.","Real funds. Check the complete token addresses. The next biometric approval authorizes this swap. If the quote expires, you must review again.");
+                WalletReviewDialog.show(this,text("Revisar intercambio","Review swap"),message,text("Confirmar con huella","Confirm with biometrics"),
+                    ()->authorizeSwap(profile,service,draft,ticket),text("Cancelar","Cancel"),()->lock());
+            });
+        }catch(Exception failure){runOnUiThread(()->{if(ticket==epoch)status.setText(text("No se pudo preparar el intercambio. Revisa tokens, cantidad, saldo y operaciones pendientes; también puede haber caducado la cotización o no estar disponible el servicio. No se envió esta solicitud.","Could not prepare swap. Check tokens, amount, funds and pending operations; the quote may also have expired or the service may be unavailable. This request was not sent."));});}});
+    }
+    private void authorizeSwap(NativeWalletProfiles.Profile profile,NativeSwapTransfers service,NativeSwapTransfers.Draft draft,long ticket){
+        if(ticket!=epoch)return;
+        worker.execute(()->{try{
+            service.requireReview(draft,()->ticket==epoch);
+            HardwareWalletVault selected=new HardwareWalletVault(this,profile.ownerId,profile.vaultId);
+            var operation=selected.prepareOpen();
+            runOnUiThread(()->{if(ticket!=epoch){selected.cancel();return;}vault=selected;cancellation=new CancellationSignal();
+                new BiometricPrompt.Builder(this).setTitle(text("Autorizar intercambio real","Authorize real swap"))
+                    .setSubtitle("Solana mainnet · "+draft.review.inputAmount)
+                    .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+                    .setNegativeButton(text("Cancelar","Cancel"),getMainExecutor(),(dialog,which)->lock()).build()
+                    .authenticate(new BiometricPrompt.CryptoObject(operation.authenticationCipher()),cancellation,getMainExecutor(),new BiometricPrompt.AuthenticationCallback(){
+                        @Override public void onAuthenticationError(int code,CharSequence reason){if(ticket==epoch)lock();}
+                        @Override public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult result){
+                            if(ticket!=epoch)return;
+                            if(result.getCryptoObject()==null||result.getCryptoObject().getCipher()!=operation.authenticationCipher()){error(ticket);return;}
+                            worker.execute(()->{byte[][] signature=new byte[1][];try{
+                                if(ticket!=epoch)return;
+                                operation.completeOpen(entropy->signature[0]=service.signReviewed(draft,entropy,new SolanaNativeTransfers.Signer(){
+                                    public String address(byte[] input){return NativeHdWallet.addresses(input).solana;}
+                                    public byte[] sign(byte[] input,byte[] message){return NativeHdWallet.signSolana(input,message);}
+                                },()->ticket==epoch));
+                                String id=service.submit(draft,signature[0],()->ticket==epoch);
+                                runOnUiThread(()->{if(ticket==epoch)status.setText(text("Intercambio presentado; falta confirmación de la red. No repitas.\n","Swap submitted; network confirmation pending. Do not repeat.\n")+id);});
+                            }catch(Exception failure){runOnUiThread(()->{if(ticket==epoch)status.setText(text("Intercambio no confirmado. Consulta la última operación de Solana antes de repetir; el intento podría haberse transmitido.","Swap unconfirmed. Check the latest Solana operation before retrying; the attempt may have been broadcast."));});}
+                            finally{if(signature[0]!=null)Arrays.fill(signature[0],(byte)0);selected.cancel();}});
+                        }
+                    });
+            });
+        }catch(Exception failure){runOnUiThread(()->{if(ticket==epoch){lock();status.setText(text("La autorización no está disponible o la cotización caducó. Desbloquea y revisa el intercambio de nuevo. No se envió esta solicitud.","Authorization unavailable or quote expired. Unlock and review the swap again. This request was not sent."));}});}});
     }
     private void reviewSolana(){
         NativeWalletProfiles.Profile profile=selectedProfile;

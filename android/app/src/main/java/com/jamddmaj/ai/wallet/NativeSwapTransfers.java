@@ -79,6 +79,7 @@ final class NativeSwapTransfers {
         if(draft.consumed || !foreground.getAsBoolean()) throw new IOException("Swap authorization unavailable");
         draft.review.requireCurrent(owner.solanaAddress,draft.preview.candidate.message);
     }
+    void requireReview(Draft draft,BooleanSupplier foreground) throws IOException { synchronized(draft){require(draft,foreground);} }
     private void verify(Draft draft,byte[] signature) throws IOException {
         byte[] message=draft.preview.candidate.message.bytes();
         if(signature==null || signature.length!=64 || !Ed25519.verify(signature,0,DevnetSolana.decode(owner.solanaAddress,32),0,message,0,message.length))
