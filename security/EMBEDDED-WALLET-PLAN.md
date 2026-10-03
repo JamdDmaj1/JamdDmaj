@@ -14,7 +14,9 @@ Verified evidence:
   All 251 JavaScript tests passed locally. The native swap preparation transport
   and intent parser now connect the first-party preparation response to the
   compiler, enforcing payer/mints/amount/slippage, expiry and bounded input.
-  These newest Android tests await CI. The service returns an unsigned candidate;
+  Run 37089212312 at `ba15669` completed successfully, including the new native
+  preparation/parser tests, Android builds and all required workflow checks.
+  The service returns an unsigned candidate;
   full account/instruction policy, simulation, review and submission remain pending.
 
 - 2026-09-28: native compiler legacy/v0 fixture bytes match the independently
