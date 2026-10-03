@@ -9,6 +9,14 @@ This is source/preview functionality, not an enabled main-app production release
 
 Verified evidence:
 
+- 2026-10-02: run 36476878486 at `aa4423c` completed successfully, covering
+  Android compilation, native tests and the independent Solana Kit compiler check.
+  All 251 JavaScript tests passed locally. The native swap preparation transport
+  and intent parser now connect the first-party preparation response to the
+  compiler, enforcing payer/mints/amount/slippage, expiry and bounded input.
+  These newest Android tests await CI. The service returns an unsigned candidate;
+  full account/instruction policy, simulation, review and submission remain pending.
+
 - 2026-09-28: native compiler legacy/v0 fixture bytes match the independently
   encoded Solana Kit messages, including two-table writable/readonly ordering.
   Native RPC preparation now supplies confirmed, network-verified table accounts
