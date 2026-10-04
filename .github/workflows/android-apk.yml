@@ -6,6 +6,10 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+  actions: read
+
 jobs:
   native-checks:
     uses: ./.github/workflows/wallet-native-check.yml
