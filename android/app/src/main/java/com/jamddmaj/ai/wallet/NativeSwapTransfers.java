@@ -63,8 +63,7 @@ final class NativeSwapTransfers {
             JSONObject simulation=(JSONObject)rpc.request("simulateTransaction",new JSONArray().put(wire)
                 .put(new JSONObject().put("encoding","base64").put("sigVerify",true).put("replaceRecentBlockhash",false)
                     .put("commitment","confirmed").put("minContextSlot",current.simulation.slot)));
-            JSONObject result=simulation.getJSONObject("value");
-            if(!result.has("err") || !result.isNull("err")) throw new IOException("Signed swap simulation failed");
+            NativeSwapSimulation.validateResponse(simulation,current.simulation.slot);
             require(draft,foreground); draft.consumed=true;
             String expected=DevnetSolana.encode(approved);
             journal.beginSwap(expected,current);

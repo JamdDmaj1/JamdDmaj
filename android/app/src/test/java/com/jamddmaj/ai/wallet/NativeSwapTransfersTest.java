@@ -23,6 +23,7 @@ public class NativeSwapTransfersTest {
     private final byte[] seed=new byte[32];
     private int sends;
     private boolean timeout;
+    private JSONObject signedSimulation;
     private NativeSwapServiceTest.Clock clock;
     private final SolanaNativeTransfers.Signer signer=new SolanaNativeTransfers.Signer(){
         public String address(byte[] value){return DevnetSolana.address(value);}
@@ -41,6 +42,8 @@ public class NativeSwapTransfersTest {
         return values;
     }
     @Before public void setup() throws Exception {
+        signedSimulation=new JSONObject().put("context",new JSONObject().put("slot",100))
+            .put("value",new JSONObject().put("err",JSONObject.NULL).put("unitsConsumed",200000));
         Arrays.fill(seed,(byte)51);
         context=new ContextWrapper(RuntimeEnvironment.getApplication()){@Override public File getNoBackupFilesDir(){return folder.getRoot();}};
         owner=new NativeWalletProfiles.Profile("1".repeat(32),"2".repeat(32),"Fixture",DevnetSolana.address(seed),"0x"+"1".repeat(40),1000);
@@ -72,7 +75,7 @@ public class NativeSwapTransfersTest {
             }
             if(method.equals("simulateTransaction")) {
                 assertTrue(params.getJSONObject(1).getBoolean("sigVerify"));
-                return new JSONObject().put("value",new JSONObject().put("err",JSONObject.NULL));
+                return signedSimulation;
             }
             if(method.equals("sendTransaction")) {
                 sends++;
@@ -121,5 +124,24 @@ public class NativeSwapTransfersTest {
         assertEquals("10.000000",result.review.inputAmount);
         assertThrows(IllegalArgumentException.class,()->transfers.prepareAmount(NativeJupiterRouteTest.key(2),NativeJupiterRouteTest.key(3),"0.0000001",50));
         assertEquals(0,sends);
+    }
+    @Test public void invalidSignedEvidenceNeverBroadcastsOrCreatesPendingRecord() throws Exception {
+        var draft=draft();
+        byte[] signature=transfers.signReviewed(draft,seed,signer,()->true);
+        signedSimulation.getJSONObject("context").put("slot",99);
+        assertThrows(Exception.class,()->transfers.submit(draft,signature,()->true));
+        signedSimulation.getJSONObject("context").put("slot",100);
+        for (int units : new int[]{0,1400001}) {
+            signedSimulation.getJSONObject("value").put("unitsConsumed",units);
+            assertThrows(Exception.class,()->transfers.submit(draft,signature,()->true));
+        }
+        signedSimulation.getJSONObject("value").remove("unitsConsumed");
+        assertThrows(Exception.class,()->transfers.submit(draft,signature,()->true));
+        signedSimulation.getJSONObject("value").put("unitsConsumed",200000).put("err","failure");
+        assertThrows(Exception.class,()->transfers.submit(draft,signature,()->true));
+        signedSimulation.remove("context");
+        assertThrows(Exception.class,()->transfers.submit(draft,signature,()->true));
+        assertEquals(0,sends);
+        assertNull(new NativeTransferJournal(context,owner,WalletNetwork.SOLANA_MAINNET).latest());
     }
 }

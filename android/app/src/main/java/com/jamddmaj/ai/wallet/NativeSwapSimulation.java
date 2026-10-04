@@ -58,14 +58,21 @@ final class NativeSwapSimulation {
         JSONObject response=(JSONObject)rpc.request("simulateTransaction",new JSONArray().put(b64(wire)).put(options));
         BigInteger slot=context(response,minimum);
         JSONObject value=response.getJSONObject("value");
-        if (!value.has("err") || !value.isNull("err")) throw new IOException("Swap simulation failed");
-        BigInteger units=NativeWalletBalances.solanaUnits(value.get("unitsConsumed"));
-        if (units.signum()<=0 || units.compareTo(BigInteger.valueOf(1400000))>0) throw new IOException("Invalid swap compute usage");
+        BigInteger units=validateResponse(response,minimum);
         NativeSwapEffects effects=before==null?null:NativeSwapEffects.inspect(preparation,before,value.getJSONArray("accounts"),fee,rent);
         rpc.verifyNetwork();
         long age=SystemClock.elapsedRealtime()-started;
         if (age<0 || age>30000) throw new IOException("Swap simulation expired");
         return new Result(fee,units,slot,bytes,effects);
+    }
+    /** Applies equally to unsigned review evidence and the final signed simulation. */
+    static BigInteger validateResponse(JSONObject response,BigInteger minimum) throws Exception {
+        context(response,minimum);
+        JSONObject value=response.getJSONObject("value");
+        if (!value.has("err") || !value.isNull("err")) throw new IOException("Swap simulation failed");
+        BigInteger units=NativeWalletBalances.solanaUnits(value.get("unitsConsumed"));
+        if (units.signum()<=0 || units.compareTo(BigInteger.valueOf(1400000))>0) throw new IOException("Invalid swap compute usage");
+        return units;
     }
     private static BigInteger context(JSONObject response, BigInteger minimum) throws Exception {
         BigInteger slot=NativeWalletBalances.solanaUnits(response.getJSONObject("context").get("slot"));
