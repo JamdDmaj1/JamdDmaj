@@ -7,7 +7,12 @@ on:
       - main
 
 jobs:
+  native-checks:
+    uses: ./.github/workflows/wallet-native-check.yml
+  sdk-checks:
+    uses: ./.github/workflows/wallet-sdk-verify.yml
   build:
+    needs: [native-checks, sdk-checks]
     runs-on: ubuntu-latest
 
     steps:
@@ -28,6 +33,8 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
 
       - name: Install Android platform
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
@@ -65,9 +72,25 @@ jobs:
           sed -i 's/\r$//' gradlew
           bash gradlew assembleRelease
 
+      - name: Verify main-app identity and permanent signature
+        run: |
+          set -euo pipefail
+          cp android/app/build/outputs/apk/release/app-release.apk JamdDmaj-AI.apk
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs JamdDmaj-AI.apk > signature.txt
+          grep -qi 'd4799319516f9b243b12ef4678823baed39d9203e42fa70f8de0ba0f7c0080d6' signature.txt
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging JamdDmaj-AI.apk | grep "package: name='com.jamddmaj.ai'"
+          sha256sum JamdDmaj-AI.apk > SHA256SUMS.txt
+
+      - name: Remove temporary signing material
+        if: always()
+        run: rm -f android/app/jamddmaj-release.jks
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: JamdDmaj-AI-APK
-          path: android/app/build/outputs/apk/release/app-release.apk
+          path: |
+            JamdDmaj-AI.apk
+            SHA256SUMS.txt
+            signature.txt
           if-no-files-found: error

@@ -2,6 +2,15 @@
 
 ## Current status — 2026-10-04
 
+Owner reports successful recovery with matching addresses and biometric unlock
+in Wallet Verification. This is owner-reported physical acceptance, not an
+independently observed mainnet transfer. Signed verification run `37192952517`
+at `8ffb715` passed. Version 1.37.79 / Android code 135 is being prepared as a
+main-app installable update, with native/SDK checks and permanent certificate
+verification required before artifact delivery. External-wallet mobile trading,
+full supported-route review and real-funds end-to-end verification remain open.
+No automatic mainnet activation or public release is implied by this artifact.
+
 Production service verification: deployment `dpl_7LpEAYHw693rPgCFdsQukziJXxuv`
 at `f7922b3` is READY in production. The owner initiated the redeploy after
 authorizing the existing Jupiter secret for Production and Preview. A public
