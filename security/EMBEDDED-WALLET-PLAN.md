@@ -1,6 +1,22 @@
 # Embedded wallet — production delivery plan
 
-## Current status — 2026-10-03
+## Current status — 2026-10-04
+
+Production service verification: deployment `dpl_7LpEAYHw693rPgCFdsQukziJXxuv`
+at `f7922b3` is READY in production. The owner initiated the redeploy after
+authorizing the existing Jupiter secret for Production and Preview. A public
+GET to `https://www.jamddmaj.com/api/swap-build` returned `ok: true`, seven
+instructions, `solana-mainnet-beta`, `requiresNativeValidation: true` and
+`executable: false`. This verifies unsigned preparation, not transaction execution.
+No secrets were displayed and no transaction was signed or submitted.
+
+Android native checks `37162817311` and signed device-verification workflow
+`37162913660` at the same commit both completed successfully. The isolated
+signed verification APK is available for physical-device acceptance; it is not
+the main-app production update. Physical-device recovery/biometric acceptance,
+supported-route review, external-wallet mobile integration and final release
+verification remain open. Earlier NOT_FOUND and pending-CI notes below are
+historical and superseded by this evidence.
 
 The production objective is **not complete**. The native SOL/BNB wallet now has a
 preview UI, hardware-vault enrollment/recovery, fixed-network balance reads,
