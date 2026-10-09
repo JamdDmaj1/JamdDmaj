@@ -1,5 +1,23 @@
 # Embedded wallet — production delivery plan
 
+## Latest work — 2026-10-09
+
+Version 1.37.80 adds direct USDC-on-Solana withdrawal from the associated token
+account. It compiles TransferChecked locally, optionally creates the recipient's
+associated account, reviews the exact USDC amount and SOL fee/rent, and requires
+biometric signing of the unchanged message. Both simulations verify payer and
+token balance effects; changed fees/rent, stale contexts, frozen/delegated or
+wrong-owner accounts are rejected. The shared Solana journal records the token
+mint before sending and blocks retries after unknown outcomes. Native tests and
+independent Solana Kit encoding vectors cover existing/new recipient accounts.
+Android verification and signed main-app packaging are pending for this version.
+
+This closes a source-level gap: displaying USDC balance previously did not offer
+a direct USDC withdrawal. It does not complete external-wallet mobile integration
+or demonstrate a real-money end-to-end transaction. No real funds were moved.
+The owner's earlier recovery/biometric confirmation remains accepted; do not ask
+them to repeat it as though no confirmation was given.
+
 ## Current status — 2026-10-04
 
 Owner reports successful recovery with matching addresses and biometric unlock

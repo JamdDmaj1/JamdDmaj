@@ -135,4 +135,12 @@ public class NativeUsdcTransfersTest {
         assertEquals(1,message.signatures);assertEquals(2,message.instructions.size());
         assertArrayEquals(new byte[]{12,65,66,15,0,0,0,0,0,6},message.instructions.get(1).data());
     }
+    @Test public void completeWireMessageMatchesIndependentSolanaKitEncoding() {
+        // Generated independently with @solana/kit getCompiledTransactionMessageEncoder.
+        String[] expected={
+            "AQACBRfLefsrQSDysexl5BmNbgiyjoE/6wHkpACDm4XhgIDONTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2Ngbd9uHXZaGT2cvhRs7reawctIXtX1s3kTqM9YV+/wCpxvp6877brTo9ZfNqq8l0MbG75MLS9uDkfKYCA0UvXWE3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3NwEDBAEEAgAKDEFCDwAAAAAABg==",
+            "AQAFCBfLefsrQSDysexl5BmNbgiyjoE/6wHkpACDm4XhgIDONjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NYyXJY9OJInxuz0QKRSODYMLWhOZ2v8QhASOe9jb6fhZNDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDTG+nrzvtutOj1l82qryXQxsbvkwtL24OR8pgIDRS9dYQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABt324ddloZPZy+FGzut5rBy0he1fWzeROoz1hX7/AKk3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3NwIDBgABBAUGBwEBBwQCBQEACgxBQg8AAAAAAAY="};
+        for(int i=0;i<2;i++)assertArrayEquals(Base64.decode(expected[i],Base64.NO_WRAP),
+            NativeUsdcTransfers.compile(owner.solanaAddress,recipient,source,destination,key(55),BigInteger.valueOf(1000001),i==1).bytes());
+    }
 }
