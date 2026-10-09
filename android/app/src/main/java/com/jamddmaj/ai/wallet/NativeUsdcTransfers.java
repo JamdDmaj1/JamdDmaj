@@ -41,7 +41,7 @@ final class NativeUsdcTransfers {
     }
     private static JSONObject options() throws Exception {return new JSONObject().put("commitment","confirmed");}
     private static String b64(byte[] data){return Base64.encodeToString(data,Base64.NO_WRAP);}
-    private static BigInteger number(Object value){return NativeWalletBalances.solanaUnits(value);}
+    private static BigInteger number(Object value) throws IOException {return NativeWalletBalances.solanaUnits(value);}
     private static BigInteger slot(JSONObject response,BigInteger minimum) throws Exception {
         BigInteger value=number(response.getJSONObject("context").get("slot"));
         if(value.compareTo(minimum)<0)throw new IOException("Stale USDC evidence");return value;
