@@ -40,6 +40,7 @@ public final class NativeWalletActivity extends Activity {
     private EditText recipient,sendAmount;
     private EditText bnbRecipient,bnbAmount;
     private EditText swapInput,swapOutput,swapAmount;
+    private EditText usdcRecipient,usdcAmount;
     private final java.util.ArrayList<LinearLayout> sections=new java.util.ArrayList<>();
     private LinearLayout backupSection;
     private String text(String spanish,String english){return es?spanish:english;}
@@ -102,6 +103,13 @@ public final class NativeWalletActivity extends Activity {
         swapAmount.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_DECIMAL);
         action(swapSection,text("Revisar intercambio","Review swap"),()->reviewSwap());
         action(swapSection,text("Consultar última operación de Solana","Check latest Solana operation"),()->checkSolana());
+        LinearLayout usdcSection=section(root,text("Enviar USDC · Solana","Send USDC · Solana"));
+        label(usdcSection,text("Solo USDC en Solana. Introduce la dirección de la billetera de destino, no una dirección de otra red. Necesitas SOL para la comisión y, si corresponde, crear su cuenta USDC.","USDC on Solana only. Enter the recipient wallet address, not an address on another network. SOL is required for the fee and, if needed, its USDC account creation."),16);
+        usdcRecipient=field(usdcSection,text("Billetera de destino · Solana","Recipient wallet · Solana"),false);
+        usdcAmount=field(usdcSection,text("Cantidad de USDC","USDC amount"),false);
+        usdcAmount.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        action(usdcSection,text("Revisar envío de USDC","Review USDC transfer"),()->reviewUsdc());
+        action(usdcSection,text("Consultar última operación de Solana","Check latest Solana operation"),()->checkSolana());
         Button lock=new Button(this);lock.setText(text("Bloquear","Lock"));root.addView(lock);lock.setOnClickListener(v->lock());
     }
     private LinearLayout section(LinearLayout root,String title){
@@ -282,6 +290,53 @@ public final class NativeWalletActivity extends Activity {
                     });
             });
         }catch(Exception failure){runOnUiThread(()->{if(ticket==epoch){lock();status.setText(text("La autorización no está disponible o la cotización caducó. Desbloquea y revisa el intercambio de nuevo. No se envió esta solicitud.","Authorization unavailable or quote expired. Unlock and review the swap again. This request was not sent."));}});}});
+    }
+    void reviewUsdc(){
+        NativeWalletProfiles.Profile profile=selectedProfile;
+        if(profile==null){status.setText(text("Desbloquea primero la billetera.","Unlock the wallet first."));return;}
+        String to=usdcRecipient.getText().toString().trim(),amount=usdcAmount.getText().toString().trim();
+        lock();selectedProfile=profile;long ticket=epoch;
+        status.setText(text("Comprobando USDC, comisión y destino. Todavía no se envía.","Checking USDC, fee and destination. Nothing is sent yet."));
+        worker.execute(()->{try{
+            NativeUsdcTransfers service=new NativeUsdcTransfers(this,profile);var draft=service.prepare(to,amount);
+            runOnUiThread(()->{if(ticket!=epoch)return;
+                String review="USDC · Solana MAINNET\n\n"+text("Desde: ","From: ")+draft.from+"\n\n"+text("Destino: ","To: ")+draft.recipient+
+                    "\n\nUSDC: "+new BigDecimal(draft.units,6).toPlainString()+"\n"+text("Comisión SOL: ","SOL fee: ")+new BigDecimal(draft.fee,9).toPlainString()+
+                    "\n"+text("Creación de cuenta SOL: ","Account creation SOL: ")+new BigDecimal(draft.rent,9).toPlainString()+
+                    "\n\n"+text("Dinero real. La siguiente huella autoriza este envío de USDC.","Real funds. The next biometric approval authorizes this USDC transfer.");
+                WalletReviewDialog.show(this,text("Revisar USDC antes de enviar","Review USDC before sending"),review,text("Confirmar con huella","Confirm with biometrics"),
+                    ()->authorizeUsdc(profile,service,draft,ticket),text("Cancelar","Cancel"),()->lock());
+            });
+        }catch(Exception failure){runOnUiThread(()->{if(ticket==epoch)status.setText(text("No se pudo preparar USDC. Revisa el destino, saldo USDC, SOL para gastos y operaciones pendientes. Esta solicitud no se envió.","Cannot prepare USDC. Check destination, USDC funds, SOL for costs and pending operations. This request was not sent."));});}});
+    }
+    private void authorizeUsdc(NativeWalletProfiles.Profile profile,NativeUsdcTransfers service,NativeUsdcTransfers.Draft draft,long ticket){
+        if(ticket!=epoch)return;
+        worker.execute(()->{try{
+            HardwareWalletVault selected=new HardwareWalletVault(this,profile.ownerId,profile.vaultId);var operation=selected.prepareOpen();
+            runOnUiThread(()->{if(ticket!=epoch){selected.cancel();return;}vault=selected;cancellation=new CancellationSignal();
+                new BiometricPrompt.Builder(this).setTitle(text("Autorizar envío real de USDC","Authorize real USDC transfer"))
+                    .setSubtitle(new BigDecimal(draft.units,6).toPlainString()+" USDC · Solana")
+                    .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+                    .setNegativeButton(text("Cancelar","Cancel"),getMainExecutor(),(dialog,which)->lock()).build()
+                    .authenticate(new BiometricPrompt.CryptoObject(operation.authenticationCipher()),cancellation,getMainExecutor(),new BiometricPrompt.AuthenticationCallback(){
+                        @Override public void onAuthenticationError(int code,CharSequence reason){if(ticket==epoch)lock();}
+                        @Override public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult result){
+                            if(ticket!=epoch)return;
+                            if(result.getCryptoObject()==null||result.getCryptoObject().getCipher()!=operation.authenticationCipher()){error(ticket);return;}
+                            worker.execute(()->{byte[][] signature=new byte[1][];try{
+                                if(ticket!=epoch)return;
+                                operation.completeOpen(entropy->signature[0]=service.signReviewed(draft,entropy,new SolanaNativeTransfers.Signer(){
+                                    public String address(byte[] input){return NativeHdWallet.addresses(input).solana;}
+                                    public byte[] sign(byte[] input,byte[] message){return NativeHdWallet.signSolana(input,message);}
+                                },()->ticket==epoch));
+                                String id=service.submit(draft,signature[0],()->ticket==epoch);
+                                runOnUiThread(()->{if(ticket==epoch)status.setText(text("USDC presentado; falta confirmación de red. No repitas.\n","USDC submitted; network confirmation pending. Do not repeat.\n")+id);});
+                            }catch(Exception failure){runOnUiThread(()->{if(ticket==epoch)status.setText(text("USDC sin confirmar. Consulta la última operación de Solana antes de repetir; podría haberse transmitido.","USDC unconfirmed. Check the latest Solana operation before retrying; it may have been broadcast."));});}
+                            finally{if(signature[0]!=null)Arrays.fill(signature[0],(byte)0);selected.cancel();}});
+                        }
+                    });
+            });
+        }catch(Exception failure){error(ticket);}});
     }
     private void reviewSolana(){
         NativeWalletProfiles.Profile profile=selectedProfile;

@@ -56,7 +56,7 @@ public class NativeWalletActivityTest {
     @Test public void backgroundClearsPasswordsAndDisablesSavedFieldState(){
         try(var controller=Robolectric.buildActivity(NativeWalletActivity.class).create().start()){
             var activity=controller.get();ArrayList<EditText> inputs=new ArrayList<>();fields(activity.getWindow().getDecorView(),inputs);
-            assertEquals(10,inputs.size());
+            assertEquals(12,inputs.size());
             for(EditText field:inputs){assertFalse(field.isSaveEnabled());assertEquals(View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS,field.getImportantForAutofill());}
             inputs.get(1).setText("public test password");inputs.get(2).setText("public test password");
             controller.stop();
@@ -71,6 +71,7 @@ public class NativeWalletActivityTest {
             assertEquals("",inputs.get(9).getText().toString());
             assertEquals(View.GONE,((View)inputs.get(7).getParent()).getVisibility());
             activity.reviewSwap();
+            activity.reviewUsdc();
             assertNull(org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog());
         }
     }

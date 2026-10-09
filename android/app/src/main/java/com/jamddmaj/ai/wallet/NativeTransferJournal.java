@@ -32,14 +32,19 @@ public final class NativeTransferJournal {
         public final Phase phase;
         public final String inputMint,outputMint;
         public final BigInteger minimumOutput;
+        public final String tokenMint;
         private final long createdAt;
         private Record(String transactionId, String recipient, BigInteger units, BigInteger maximumFee, Phase phase, long createdAt) {
             this(transactionId,recipient,units,maximumFee,phase,createdAt,null,null,null);
         }
         private Record(String transactionId,String recipient,BigInteger units,BigInteger maximumFee,Phase phase,long createdAt,String inputMint,String outputMint,BigInteger minimumOutput) {
+            this(transactionId,recipient,units,maximumFee,phase,createdAt,inputMint,outputMint,minimumOutput,null);
+        }
+        private Record(String transactionId,String recipient,BigInteger units,BigInteger maximumFee,Phase phase,long createdAt,String inputMint,String outputMint,BigInteger minimumOutput,String tokenMint) {
             this.transactionId = transactionId; this.recipient = recipient; this.units = units;
             this.maximumFee = maximumFee; this.phase = phase; this.createdAt = createdAt;
             this.inputMint=inputMint; this.outputMint=outputMint; this.minimumOutput=minimumOutput;
+            this.tokenMint=tokenMint;
         }
         public boolean pending() { return phase == Phase.UNKNOWN || phase == Phase.SUBMITTED; }
     }
@@ -57,6 +62,15 @@ public final class NativeTransferJournal {
     }
 
     public Record latest() throws Exception { synchronized (LOCK) { return read(); } }
+    void beginToken(String transactionId,String recipient,BigInteger units,BigInteger maximumFee,String mint) throws Exception {
+        if(network!=WalletNetwork.SOLANA_MAINNET||!NativeSolanaTokens.USDC.equals(mint))throw new IOException("Unsupported token journal");
+        validate(transactionId,recipient,units,maximumFee);
+        synchronized(LOCK){
+            Record previous=read();
+            if(previous!=null&&(previous.pending()||previous.transactionId.equals(transactionId)))throw new IOException("Unresolved or recorded transaction");
+            write(new Record(transactionId,recipient,units,maximumFee,Phase.UNKNOWN,System.currentTimeMillis(),null,null,null,mint));
+        }
+    }
     public void requireNoPending() throws Exception {
         synchronized (LOCK) { Record record = read(); if (record != null && record.pending()) throw new IOException("Check pending transaction before preparing another"); }
     }
@@ -82,7 +96,7 @@ public final class NativeTransferJournal {
             if (previous == null || !previous.transactionId.equals(transactionId)) throw new IOException("Transaction identity mismatch");
             if (previous.phase == next) return;
             if (!previous.pending()) throw new IOException("Final transaction state cannot be replaced");
-            write(new Record(previous.transactionId, previous.recipient, previous.units, previous.maximumFee, next, previous.createdAt,previous.inputMint,previous.outputMint,previous.minimumOutput));
+            write(new Record(previous.transactionId, previous.recipient, previous.units, previous.maximumFee, next, previous.createdAt,previous.inputMint,previous.outputMint,previous.minimumOutput,previous.tokenMint));
         }
     }
 
@@ -126,8 +140,10 @@ public final class NativeTransferJournal {
             minimumOutput=new BigInteger(minimum); if(minimumOutput.bitLength()>64) throw new IOException("Invalid swap minimum");
             if(!owner.solanaAddress.equals(value.getString("recipient"))) throw new IOException("Invalid swap recipient");
         }
+        String tokenMint=value.has("tokenMint")?value.getString("tokenMint"):null;
+        if(tokenMint!=null&&(network!=WalletNetwork.SOLANA_MAINNET||!NativeSolanaTokens.USDC.equals(tokenMint)||value.has("swap")))throw new IOException("Invalid transfer token");
         Record record = new Record(value.getString("transactionId"), value.getString("recipient"), new BigInteger(amount),
-            new BigInteger(fee), Phase.valueOf(value.getString("phase")), ((Number) timestamp).longValue(),inputMint,outputMint,minimumOutput);
+            new BigInteger(fee), Phase.valueOf(value.getString("phase")), ((Number) timestamp).longValue(),inputMint,outputMint,minimumOutput,tokenMint);
         validate(record.transactionId, record.recipient, record.units, record.maximumFee);
         return record;
     }
@@ -138,6 +154,7 @@ public final class NativeTransferJournal {
             .put("units", record.units.toString()).put("maximumFee", record.maximumFee.toString())
             .put("phase", record.phase.name()).put("createdAt", record.createdAt);
         if(record.inputMint!=null) value.put("swap",new JSONObject().put("inputMint",record.inputMint).put("outputMint",record.outputMint).put("minimumOutput",record.minimumOutput.toString()));
+        if(record.tokenMint!=null)value.put("tokenMint",record.tokenMint);
         byte[] expected = value.toString().getBytes(StandardCharsets.UTF_8);
         FileOutputStream output = null;
         try {
