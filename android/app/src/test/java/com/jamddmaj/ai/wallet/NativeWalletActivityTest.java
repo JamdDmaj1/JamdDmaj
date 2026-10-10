@@ -18,6 +18,17 @@ import static org.junit.Assert.*;
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk=30)
 public class NativeWalletActivityTest {
+    @Test public void appHeaderReturnsToAssetsAndClearsSensitiveInputsWithoutOpeningAnotherActivity(){
+        try(var controller=Robolectric.buildActivity(NativeWalletActivity.class).create()){
+            var activity=controller.get();ArrayList<EditText> inputs=new ArrayList<>();fields(activity.getWindow().getDecorView(),inputs);
+            assertNotNull(activity.getWindow().getDecorView().findViewWithTag("native-wallet-shell"));
+            inputs.get(1).setText("temporary password");
+            View back=activity.getWindow().getDecorView().findViewWithTag("wallet-back-to-assets");
+            assertNotNull(back);back.performClick();assertTrue(activity.isFinishing());
+            assertEquals("",inputs.get(1).getText().toString());
+            assertNull(org.robolectric.Shadows.shadowOf(activity).getNextStartedActivity());
+        }
+    }
     @Test public void recoveryOpensBackupFormAndClearsOldPasswords(){
         try(var controller=Robolectric.buildActivity(NativeWalletActivity.class).create()){
             var activity=controller.get();ArrayList<EditText> inputs=new ArrayList<>();fields(activity.getWindow().getDecorView(),inputs);

@@ -23,7 +23,7 @@ import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/** Native-only account view. Not connected to the production launcher until enrollment/send QA is complete. */
+/** Protected native Assets screen inside the main app; keys never cross the WebView bridge. */
 public final class NativeWalletActivity extends Activity {
     private final ExecutorService worker=Executors.newSingleThreadExecutor();
     private volatile long epoch;
@@ -56,8 +56,20 @@ public final class NativeWalletActivity extends Activity {
         enrollment=new NativeWalletEnrollment(this);
         ScrollView scroll=new ScrollView(this);
         LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);
-        int padding=(int)(20*getResources().getDisplayMetrics().density);root.setPadding(padding,padding,padding,padding);scroll.addView(root);setContentView(scroll);
-        label(root,"JamdDmaj · Wallet",24);
+        int padding=(int)(20*getResources().getDisplayMetrics().density);root.setPadding(padding,padding,padding,padding);scroll.addView(root);
+        LinearLayout shell=new LinearLayout(this);shell.setOrientation(LinearLayout.VERTICAL);shell.setBackgroundColor(NativeWalletStyle.BACKGROUND);shell.setTag("native-wallet-shell");
+        shell.setOnApplyWindowInsetsListener((view,insets)->{
+            android.graphics.Insets safe=insets.getInsets(android.view.WindowInsets.Type.systemBars()|android.view.WindowInsets.Type.displayCutout());
+            view.setPadding(safe.left,safe.top,safe.right,safe.bottom);return insets;
+        });
+        LinearLayout header=new LinearLayout(this);header.setGravity(android.view.Gravity.CENTER_VERTICAL);header.setPadding(padding,0,padding,0);
+        Button back=new Button(this);back.setText(text("‹ Activos","‹ Assets"));NativeWalletStyle.button(back);
+        back.setTag("wallet-back-to-assets");back.setContentDescription(text("Volver a Activos de JamdDmaj","Return to JamdDmaj Assets"));
+        header.addView(back,new LinearLayout.LayoutParams(-2,-2));back.setOnClickListener(view->returnToAssets());
+        TextView brand=new TextView(this);brand.setText("JamdDmaj");NativeWalletStyle.label(brand,20);brand.setGravity(android.view.Gravity.END);
+        header.addView(brand,new LinearLayout.LayoutParams(0,-2,1));shell.addView(header);
+        shell.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));setContentView(shell);shell.requestApplyInsets();
+        label(root,text("Tus activos","Your assets"),24);
         label(root,text("Billetera propia · separada de Bitget y del simulador.","Own wallet · separate from Bitget and simulation."),16);
         label(root,text("Integración en verificación. No deposites hasta que el envío y la recuperación estén habilitados y comprobados.","Integration under verification. Do not deposit until sending and recovery are enabled and verified."),16);
         accounts=new LinearLayout(this);accounts.setOrientation(LinearLayout.VERTICAL);root.addView(accounts);
@@ -110,8 +122,9 @@ public final class NativeWalletActivity extends Activity {
         usdcAmount.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_DECIMAL);
         action(usdcSection,text("Revisar envío de USDC","Review USDC transfer"),()->reviewUsdc());
         action(usdcSection,text("Consultar última operación de Solana","Check latest Solana operation"),()->checkSolana());
-        Button lock=new Button(this);lock.setText(text("Bloquear","Lock"));root.addView(lock);lock.setOnClickListener(v->lock());
+        action(root,text("Bloquear billetera","Lock wallet"),()->lock());
     }
+    void returnToAssets(){lock();finish();}
     private LinearLayout section(LinearLayout root,String title){
         LinearLayout panel=new LinearLayout(this);panel.setOrientation(LinearLayout.VERTICAL);panel.setVisibility(View.GONE);sections.add(panel);
         action(root,title,()->{boolean opening=panel.getVisibility()!=View.VISIBLE;for(LinearLayout other:sections)other.setVisibility(View.GONE);if(opening)panel.setVisibility(View.VISIBLE);if(password!=null)password.setText("");if(passwordRepeat!=null)passwordRepeat.setText("");});
@@ -125,7 +138,7 @@ public final class NativeWalletActivity extends Activity {
     private EditText field(LinearLayout root,String hint,boolean secret){
         EditText value=new EditText(this);value.setHint(hint);value.setSaveEnabled(false);
         value.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS);
-        value.setInputType(InputType.TYPE_CLASS_TEXT|(secret?InputType.TYPE_TEXT_VARIATION_PASSWORD:InputType.TYPE_TEXT_FLAG_CAP_SENTENCES));root.addView(value);return value;
+        value.setInputType(InputType.TYPE_CLASS_TEXT|(secret?InputType.TYPE_TEXT_VARIATION_PASSWORD:InputType.TYPE_TEXT_FLAG_CAP_SENTENCES));NativeWalletStyle.field(value);root.addView(value);return value;
     }
     private void receive(WalletNetwork network){
         NativeWalletProfiles.Profile profile=selectedProfile;
@@ -140,7 +153,7 @@ public final class NativeWalletActivity extends Activity {
                 if(clipboard!=null){clipboard.setPrimaryClip(ClipData.newPlainText(chain,address));status.setText(text("Dirección copiada para ","Address copied for ")+chain);}
             },text("Cerrar","Close"),()->{});
     }
-    private void action(LinearLayout root,String caption,Runnable action){Button button=new Button(this);button.setText(caption);root.addView(button);button.setOnClickListener(v->action.run());}
+    private void action(LinearLayout root,String caption,Runnable action){Button button=new Button(this);button.setText(caption);NativeWalletStyle.button(button);root.addView(button);button.setOnClickListener(v->action.run());}
     private char[] take(EditText field){char[] chars=new char[field.length()];field.getText().getChars(0,chars.length,chars,0);field.setText("");return chars;}
     private void createBackup(){
         char[] pass=take(password),repeat=take(passwordRepeat);
@@ -196,7 +209,7 @@ public final class NativeWalletActivity extends Activity {
             });
         }catch(Exception failure){error(ticket);}finally{Arrays.fill(pass,'\0');Arrays.fill(encrypted,(byte)0);}});
     }
-    private TextView label(LinearLayout root,String value,int size){TextView view=new TextView(this);view.setText(value);view.setTextSize(size);root.addView(view);return view;}
+    private TextView label(LinearLayout root,String value,int size){TextView view=new TextView(this);view.setText(value);NativeWalletStyle.label(view,size);root.addView(view);return view;}
     @Override protected void onResume(){super.onResume();loadProfiles();}
     private void loadProfiles(){
         long ticket=epoch;
@@ -204,7 +217,7 @@ public final class NativeWalletActivity extends Activity {
             var profiles=new NativeWalletProfiles(this).list();
             runOnUiThread(()->{if(ticket!=epoch)return;accounts.removeAllViews();
                 if(profiles.isEmpty())status.setText(text("Aún no hay una billetera recuperada en este dispositivo.","No recovered wallet on this device yet."));
-                for(var profile:profiles){Button button=new Button(this);button.setText(profile.name+" · "+text("Desbloquear","Unlock"));accounts.addView(button);button.setOnClickListener(v->unlock(profile.ownerId));
+                for(var profile:profiles){Button button=new Button(this);button.setText(profile.name+" · "+text("Desbloquear","Unlock"));NativeWalletStyle.button(button);accounts.addView(button);button.setOnClickListener(v->unlock(profile.ownerId));
                     action(accounts,profile.name+" · "+text("Recuperar acceso","Recover access"),()->{lock();openedBackup=null;recoveryOwner=profile.ownerId;walletName.setText(profile.name);showRecoveryForm();status.setText(text("Abre el respaldo de esta billetera para recuperar su acceso.","Open this wallet's backup to recover its access."));});}
             });
         }catch(Exception failure){error(ticket);}});

@@ -19,4 +19,13 @@
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@drawable/splash</item>
     </style>
+    <style name="NativeWalletTheme" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#090d19</item>
+        <item name="android:colorAccent">#9562fa</item>
+        <item name="android:statusBarColor">#090d19</item>
+        <item name="android:navigationBarColor">#090d19</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:fontFamily">sans</item>
+    </style>
 </resources>

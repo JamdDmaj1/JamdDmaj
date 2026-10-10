@@ -37,7 +37,7 @@
             android:exported="false" android:theme="@android:style/Theme.Material.NoActionBar" />
         <activity android:name="com.jamddmaj.ai.wallet.NativeWalletActivity"
             android:exported="false" android:process=":native_wallet"
-            android:theme="@android:style/Theme.Material.NoActionBar" />
+            android:theme="@style/NativeWalletTheme" />
 
         <provider
             android:name="androidx.core.content.FileProvider"
