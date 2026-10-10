@@ -5,7 +5,7 @@ import {setupTerminalLayout} from '../lib/terminal-layout.js';
 for(const language of ['es','en'])test(`finance navigation preserves accounts and hides unfinished features (${language})`,()=>{
   const all=[];
   function node(tag='div'){
-    const n={tag,children:[],attrs:{},style:{},append(...items){this.children.push(...items)},insertBefore(item){this.children.push(item)},setAttribute(k,v){this.attrs[k]=v},addEventListener(k,v){this[k]=v},focus(){this.focused=true},closest(){return this.section}};
+    const n={tag,children:[],attrs:{},style:{},append(...items){this.children.push(...items)},replaceChildren(...items){this.children=items},insertBefore(item){this.children.push(item)},setAttribute(k,v){this.attrs[k]=v},addEventListener(k,v){this[k]=v},focus(){this.focused=true},closest(){return this.section}};
     all.push(n);return n;
   }
   const main=node(),heading=node(),intro=node(),search=node(),stats=node(),notice=node(),chart=node(),history=node(),funding=node(),manual=node(),connection=node(),badge=node();
@@ -15,7 +15,7 @@ for(const language of ['es','en'])test(`finance navigation preserves accounts an
   const doc={head:node(),body:node(),querySelector:()=>main,createElement:node,getElementById:id=>({closest:()=>ids[id].section})};
   setupTerminalLayout(language,doc);
   const find=id=>all.find(n=>n.id===id),pages=all.filter(n=>n.attrs.role==='tabpanel');
-  assert.equal(pages.length,5);
+  assert.equal(pages.length,6);
   assert.equal(find('practice-menu').open,false);
   assert.equal(pages.filter(n=>!n.hidden).length,1);
   find('tab-assets').onclick();
@@ -32,4 +32,8 @@ for(const language of ['es','en'])test(`finance navigation preserves accounts an
   nav.keydown({target:find('tab-assets'),key:'Home',preventDefault(){}});
   assert.equal(find('terminal-home').hidden,false);
   assert.equal(find('tab-home').focused,true);
+  assert.equal(find('practice-menu').hidden,true);
+  find('tab-profile').onclick();
+  assert.equal(find('practice-menu').hidden,false);
+  assert.ok(find('finance-markets'));
 });

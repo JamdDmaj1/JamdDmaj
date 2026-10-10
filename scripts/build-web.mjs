@@ -83,6 +83,9 @@ await build({
   platform: "browser", target: ["es2020"], legalComments: "none"
 });
 await cp(resolve(root, "lib", "terminal-layout.js"), resolve(output, "lib", "terminal-layout.js"));
+await cp(resolve(root, "lib", "finance-markets.js"), resolve(output, "lib", "finance-markets.js"));
+await cp(resolve(root, "lib", "finance-preferences.js"), resolve(output, "lib", "finance-preferences.js"));
+await cp(resolve(root, "lib", "markets-catalog.js"), resolve(output, "lib", "markets-catalog.js"));
 await cp(resolve(root, "lib", "swap-quote-ui.js"), resolve(output, "lib", "swap-quote-ui.js"));
 await build({
   absWorkingDir: root, entryPoints: [resolve(root, "funding-ui.js")],
