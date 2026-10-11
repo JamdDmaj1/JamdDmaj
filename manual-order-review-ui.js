@@ -3,7 +3,7 @@ import {reviewManualOrder} from './lib/manual-order-draft.js';
 const terminalApiRoot = window.Capacitor?.isNativePlatform?.() ? 'https://www.jamddmaj.com' : '';
 const es=language==='es', text=(a,b)=>es?a:b;
 const panel=document.createElement('section');panel.className='card';
-const title=document.createElement('h2');title.textContent=text('Revisar orden Bitget — envío no habilitado','Review Bitget order — submission disabled');
+const title=document.createElement('h2');title.textContent=text('Futuros · orden manual Bitget','Futures · manual Bitget order');
 const note=document.createElement('p');note.textContent=text('Formulario separado del simulador. No verifica cotizaciones ni disponibilidad del contrato. Market e isolated; límites de esta integración: 1–25 USDT de margen y 1–10×.','Separate from the simulator. Quotes and contract availability are not verified. Market and isolated; integration limits: 1–25 USDT margin and 1–10×.');
 const form=document.createElement('form');const inputs={};
 for(const [key,label,en,type] of [['symbol','Contrato, por ejemplo BTCUSDT','Contract, e.g. BTCUSDT','text'],['side','Dirección','Direction','select'],['margin','Margen USDT','Margin USDT','number'],['leverage','Apalancamiento','Leverage','number'],['reference','Precio de referencia USDT (no es una cotización)','Reference price USDT (not a quote)','number'],['stop','Stop loss USDT','Stop loss USDT','number'],['take','Take profit USDT','Take profit USDT','number']]){
@@ -14,6 +14,10 @@ for(const [key,label,en,type] of [['symbol','Contrato, por ejemplo BTCUSDT','Con
  inputs[key]=input;form.append(l,input);
 }
 const review=document.createElement('button');review.type='submit';review.textContent=text('Revisar sin enviar','Review without sending');
+const directions=document.createElement('div');directions.className='terminal-shortcuts';directions.setAttribute('role','group');directions.setAttribute('aria-label',text('Dirección de la operación','Trade direction'));
+for(const side of ['LONG','SHORT']){const button=document.createElement('button');button.type='button';button.textContent=side==='LONG'?text('Comprar / Long','Buy / Long'):text('Vender / Short','Sell / Short');button.setAttribute('aria-pressed',String(inputs.side.value===side));button.onclick=()=>{inputs.side.value=side;inputs.side.dispatchEvent(new Event('input',{bubbles:true}));for(const other of directions.children)other.setAttribute('aria-pressed',String(other===button));};directions.append(button);}
+form.prepend(directions);
+inputs.side.addEventListener('change',()=>{Array.from(directions.children).forEach((button,i)=>button.setAttribute('aria-pressed',String(inputs.side.value===(i===0?'LONG':'SHORT'))));});
 const quoteButton=document.createElement('button');quoteButton.type='button';quoteButton.textContent=text('Consultar precio en Bitget','Fetch Bitget price');
 const quoteStatus=document.createElement('p');quoteStatus.setAttribute('role','status');
 let quoteVersion=0;

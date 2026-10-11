@@ -6,7 +6,7 @@ import android.view.MotionEvent;
 import android.view.WindowManager;
 
 /** Dialogs have separate windows: Activity touch filtering alone does not protect confirmation. */
-final class WalletReviewDialog extends AlertDialog {
+class WalletReviewDialog extends AlertDialog {
     WalletReviewDialog(Context context){super(context);}
     @Override public boolean dispatchTouchEvent(MotionEvent event){
         if((event.getFlags()&(MotionEvent.FLAG_WINDOW_IS_OBSCURED|MotionEvent.FLAG_WINDOW_IS_PARTIALLY_OBSCURED))!=0)return false;

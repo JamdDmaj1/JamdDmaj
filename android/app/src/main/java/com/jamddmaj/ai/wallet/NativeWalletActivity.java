@@ -43,6 +43,7 @@ public final class NativeWalletActivity extends Activity {
     private EditText usdcRecipient,usdcAmount;
     private final java.util.ArrayList<LinearLayout> sections=new java.util.ArrayList<>();
     private LinearLayout backupSection;
+    private SeedCreationDialog seedDialog;
     private String text(String spanish,String english){return es?spanish:english;}
     @Override public boolean dispatchTouchEvent(MotionEvent event){
         // Reject taps when another app covers any part of this financial screen.
@@ -82,6 +83,7 @@ public final class NativeWalletActivity extends Activity {
         walletName=field(backupSection,text("Nombre de la billetera","Wallet name"),false);
         password=field(backupSection,text("Contraseña del respaldo: mínimo 16 caracteres","Backup password: at least 16 characters"),true);
         passwordRepeat=field(backupSection,text("Repite la contraseña al crear","Repeat password when creating"),true);
+        action(backupSection,text("Crear con frase semilla aleatoria","Create with a random seed phrase"),()->createSeedWallet());
         action(backupSection,text("1. Crear respaldo cifrado","1. Create encrypted backup"),()->createBackup());
         action(backupSection,text("2. Abrir respaldo guardado","2. Open saved backup"),()->{
             lock();openedBackup=null;
@@ -125,6 +127,24 @@ public final class NativeWalletActivity extends Activity {
         action(root,text("Bloquear billetera","Lock wallet"),()->lock());
     }
     void returnToAssets(){lock();finish();}
+    private void createSeedWallet(){
+        char[] pass=take(password),repeat=take(passwordRepeat);
+        if(pass.length<16||!Arrays.equals(pass,repeat)){Arrays.fill(pass,'\0');Arrays.fill(repeat,'\0');status.setText(text("Las contraseñas deben coincidir y tener al menos 16 caracteres.","Passwords must match and contain at least 16 characters."));return;}
+        Arrays.fill(repeat,'\0');lock();recoveryOwner=null;openedBackup=null;long ticket=epoch;
+        worker.execute(()->{byte[] entropy=new byte[WalletRecoveryProfile.ENTROPY_BYTES];byte[] encrypted=null;char[] phrase=null;
+            try{
+                new java.security.SecureRandom().nextBytes(entropy);
+                phrase=NativeHdWallet.open(entropy).mnemonic().toCharArray();
+                encrypted=PortableWalletBackup.seal(entropy,pass);
+                final char[] display=phrase.clone(),secret=pass.clone();final byte[] backup=encrypted.clone();
+                runOnUiThread(()->{try{if(ticket!=epoch)return;
+                    seedDialog=new SeedCreationDialog(this,display,backup,secret,es,(bytes,chosenPassword)->{
+                        if(ticket!=epoch)return;openedBackup=bytes.clone();password.setText(new String(chosenPassword));recover();
+                    });seedDialog.show();
+                }finally{Arrays.fill(display,'\0');Arrays.fill(secret,'\0');Arrays.fill(backup,(byte)0);}});
+            }catch(Exception failure){error(ticket);}finally{Arrays.fill(entropy,(byte)0);Arrays.fill(pass,'\0');if(phrase!=null)Arrays.fill(phrase,'\0');if(encrypted!=null)Arrays.fill(encrypted,(byte)0);}
+        });
+    }
     private LinearLayout section(LinearLayout root,String title){
         LinearLayout panel=new LinearLayout(this);panel.setOrientation(LinearLayout.VERTICAL);panel.setVisibility(View.GONE);sections.add(panel);
         action(root,title,()->{boolean opening=panel.getVisibility()!=View.VISIBLE;for(LinearLayout other:sections)other.setVisibility(View.GONE);if(opening)panel.setVisibility(View.VISIBLE);if(password!=null)password.setText("");if(passwordRepeat!=null)passwordRepeat.setText("");});
@@ -217,6 +237,11 @@ public final class NativeWalletActivity extends Activity {
             var profiles=new NativeWalletProfiles(this).list();
             runOnUiThread(()->{if(ticket!=epoch)return;accounts.removeAllViews();
                 if(profiles.isEmpty())status.setText(text("Aún no hay una billetera recuperada en este dispositivo.","No recovered wallet on this device yet."));
+                String remembered=getSharedPreferences("wallet-selection",MODE_PRIVATE).getString("owner","");
+                for(var known:profiles)if(known.ownerId.equals(remembered)){
+                    addresses.setText(known.name+"\nSolana · "+known.solanaAddress+"\nBNB · "+known.bnbAddress);
+                    status.setText(text("Billetera recordada en este dispositivo. Desbloquea para verificar acceso y operar.","Wallet remembered on this device. Unlock to verify access and transact."));break;
+                }
                 for(var profile:profiles){Button button=new Button(this);button.setText(profile.name+" · "+text("Desbloquear","Unlock"));NativeWalletStyle.button(button);accounts.addView(button);button.setOnClickListener(v->unlock(profile.ownerId));
                     action(accounts,profile.name+" · "+text("Recuperar acceso","Recover access"),()->{lock();openedBackup=null;recoveryOwner=profile.ownerId;walletName.setText(profile.name);showRecoveryForm();status.setText(text("Abre el respaldo de esta billetera para recuperar su acceso.","Open this wallet's backup to recover its access."));});}
             });
@@ -249,6 +274,7 @@ public final class NativeWalletActivity extends Activity {
                                     NativeHdWallet.Addresses verified=NativeHdWallet.addresses(entropy);
                                     if(!profile.solanaAddress.equals(verified.solana)||!profile.bnbAddress.equalsIgnoreCase(verified.bnb))throw new SecurityException("Wallet metadata mismatch");
                                 });
+                                if(ticket==epoch)getSharedPreferences("wallet-selection",MODE_PRIVATE).edit().putString("owner",profile.ownerId).apply();
                                 runOnUiThread(()->{if(ticket==epoch){selectedProfile=profile;addresses.setText("Solana mainnet · SOL\n"+profile.solanaAddress+"\n\nBNB Smart Chain · BNB\n"+profile.bnbAddress);status.setText(text("Consultando saldos…","Checking balances…"));}});
                                 readBalances(profile,ticket);
                             }catch(Exception failure){error(ticket);}});
@@ -478,6 +504,6 @@ public final class NativeWalletActivity extends Activity {
     }
     private void error(long ticket){runOnUiThread(()->{if(ticket!=epoch)return;lock();status.setText(text("No se pudo verificar. Recupera el respaldo si cambiaste la huella; no se ha enviado dinero.","Verification failed. Recover your backup if biometrics changed; no money was sent."));});}
     private void lock(){epoch++;selectedProfile=null;if(cancellation!=null)cancellation.cancel();cancellation=null;if(vault!=null)vault.cancel();vault=null;if(enrollment!=null)enrollment.cancel();if(password!=null)password.setText("");if(passwordRepeat!=null)passwordRepeat.setText("");if(addresses!=null)addresses.setText("");if(status!=null)status.setText(text("Billetera bloqueada.","Wallet locked."));}
-    @Override protected void onStop(){lock();super.onStop();}
+    @Override protected void onStop(){if(seedDialog!=null){seedDialog.dismiss();seedDialog=null;}lock();super.onStop();}
     @Override protected void onDestroy(){lock();worker.shutdownNow();super.onDestroy();}
 }
