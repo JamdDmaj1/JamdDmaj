@@ -23,6 +23,7 @@ tasks.register('copyVerifiedAdapter', Sync) {
         include 'com/jamddmaj/ai/wallet/*.java'
         exclude '**/*Activity.java'
         exclude '**/WalletReviewDialog.java'
+        exclude '**/SeedCreationDialog.java'
     }
     into layout.buildDirectory.dir('verified-adapter-source')
 }

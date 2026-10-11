@@ -9,6 +9,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
+import org.robolectric.Shadows;
+import android.os.Looper;
 import org.robolectric.annotation.Config;
 import static org.junit.Assert.*;
 @RunWith(RobolectricTestRunner.class) @Config(sdk=30)
@@ -19,11 +21,12 @@ public class SeedCreationDialogTest {
     @Test public void requiresHiddenPhraseTranscriptionAndClearsInput(){
         try(var controller=Robolectric.buildActivity(Activity.class).setup()){
             int[] calls={0};SeedCreationDialog dialog=new SeedCreationDialog(controller.get(),fixture.toCharArray(),new byte[]{1},"public-fixture-password".toCharArray(),true,(b,p)->{calls[0]++;assertEquals(1,b[0]);});dialog.show();
+            Shadows.shadowOf(Looper.getMainLooper()).idle();
             assertNotEquals(0,dialog.getWindow().getAttributes().flags&WindowManager.LayoutParams.FLAG_SECURE);
             EditText field=input(dialog.getWindow().getDecorView());assertFalse(field.isSaveEnabled());assertEquals(View.GONE,field.getVisibility());
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();assertEquals(View.VISIBLE,field.getVisibility());
             field.setText("wrong");dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();assertEquals(0,calls[0]);
-            field.setText(fixture);dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();assertEquals(1,calls[0]);assertEquals("",field.getText().toString());
+            field.setText(fixture);dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();Shadows.shadowOf(Looper.getMainLooper()).idle();assertEquals(1,calls[0]);assertEquals("",field.getText().toString());
         }
     }
 }
