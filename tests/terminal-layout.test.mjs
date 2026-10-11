@@ -22,7 +22,7 @@ for(const language of ['es','en'])test(`finance navigation preserves accounts an
   assert.deepEqual(pages.filter(n=>!n.hidden).map(n=>n.id),['terminal-assets']);
   assert.ok(find('terminal-assets').children.includes(connection));
   assert.ok(find('terminal-assets').children.includes(funding));
-  assert.ok(find('terminal-futures').children.includes(manual));
+  assert.ok(find('terminal-futures').children.some(n=>n.children.includes(manual)));
   assert.equal(find('practice-menu').hidden,true);
   assert.equal(find('tab-assets').tabIndex,0);
   assert.equal(find('tab-home').tabIndex,-1);
