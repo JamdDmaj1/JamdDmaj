@@ -177,6 +177,7 @@ public final class NativeWalletActivity extends Activity {
     private char[] take(EditText field){char[] chars=new char[field.length()];field.getText().getChars(0,chars.length,chars,0);field.setText("");return chars;}
     private void createBackup(){
         char[] pass=take(password),repeat=take(passwordRepeat);
+        if(pass.length<16||pass.length>1024){Arrays.fill(pass,'\0');Arrays.fill(repeat,'\0');status.setText(text("La contraseña del respaldo debe tener entre 16 y 1024 caracteres. No se creó ningún archivo.","Backup password must contain 16 to 1024 characters. No file was created."));return;}
         if(!Arrays.equals(pass,repeat)){Arrays.fill(pass,'\0');Arrays.fill(repeat,'\0');status.setText(text("Las contraseñas no coinciden.","Passwords do not match."));return;}
         Arrays.fill(repeat,'\0');lock();recoveryOwner=null;openedBackup=null;long ticket=epoch;
         worker.execute(()->{try{byte[] encrypted=NativeWalletEnrollment.createBackup(pass);
@@ -189,7 +190,7 @@ public final class NativeWalletActivity extends Activity {
         super.onActivityResult(request,result,data);
         if(request!=201&&request!=202)return;
         byte[] outgoing=exportBackup;exportBackup=null;
-        if(result!=RESULT_OK||data==null||data.getData()==null){status.setText(text("Selección cancelada.","Selection cancelled."));return;}
+        if(result!=RESULT_OK||data==null||data.getData()==null){if(outgoing!=null)Arrays.fill(outgoing,(byte)0);status.setText(text("Selección cancelada.","Selection cancelled."));return;}
         var uri=data.getData();long ticket=epoch;
         worker.execute(()->{try{
             if(request==201){
@@ -201,11 +202,13 @@ public final class NativeWalletActivity extends Activity {
                 if(encrypted.length!=PortableWalletBackup.SIZE)throw new IllegalArgumentException("Wrong backup format");
                 runOnUiThread(()->{if(ticket==epoch){openedBackup=encrypted;status.setText(text("Introduce la contraseña y pulsa recuperar.","Enter the password and choose recover."));}});
             }
-        }catch(Exception failure){error(ticket);}});
+        }catch(Exception failure){runOnUiThread(()->{if(ticket!=epoch)return;status.setText(request==201?text("No se pudo guardar el archivo. Elige una carpeta accesible y vuelve a crear el respaldo; no borres los respaldos anteriores.","Could not save the file. Choose an accessible folder and create the backup again; do not delete previous backups."):text("No se pudo abrir un respaldo compatible. Selecciona el archivo .jamdhd original y comprueba el permiso de lectura.","Could not open a compatible backup. Select the original .jamdhd file and check read access."));});}finally{if(outgoing!=null)Arrays.fill(outgoing,(byte)0);}});
     }
     private void recover(){
         if(openedBackup==null||Build.VERSION.SDK_INT<30){status.setText(text("Abre un respaldo compatible primero. Requiere Android 11 o posterior.","Open a compatible backup first. Android 11 or later required."));return;}
         byte[] encrypted=openedBackup.clone();char[] pass=take(password);String name=walletName.getText().toString().trim(),owner=recoveryOwner;
+        if(name.isEmpty()||name.length()>60||name.chars().anyMatch(Character::isISOControl)){Arrays.fill(pass,'\0');Arrays.fill(encrypted,(byte)0);status.setText(text("Introduce un nombre de billetera de 1 a 60 caracteres y vuelve a escribir la contraseña.","Enter a wallet name of 1 to 60 characters and re-enter the password."));return;}
+        if(pass.length<16||pass.length>1024){Arrays.fill(pass,'\0');Arrays.fill(encrypted,(byte)0);status.setText(text("Introduce la contraseña original del respaldo (16–1024 caracteres).","Enter the original backup password (16–1024 characters)."));return;}
         lock();long ticket=epoch;
         worker.execute(()->{try{
             NativeWalletEnrollment.Pending pending=enrollment.recover(encrypted,pass,name,owner);

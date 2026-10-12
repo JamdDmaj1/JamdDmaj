@@ -88,6 +88,7 @@ await cp(resolve(root, "lib", "finance-preferences.js"), resolve(output, "lib", 
 await cp(resolve(root, "lib", "finance-depth.js"), resolve(output, "lib", "finance-depth.js"));
 await cp(resolve(root, "lib", "finance-candles.js"), resolve(output, "lib", "finance-candles.js"));
 await cp(resolve(root, "lib", "finance-activity.js"), resolve(output, "lib", "finance-activity.js"));
+await cp(resolve(root, "lib", "automation-panel.js"), resolve(output, "lib", "automation-panel.js"));
 await cp(resolve(root, "lib", "markets-catalog.js"), resolve(output, "lib", "markets-catalog.js"));
 await cp(resolve(root, "lib", "swap-quote-ui.js"), resolve(output, "lib", "swap-quote-ui.js"));
 await build({
