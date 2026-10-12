@@ -22,8 +22,8 @@ export function setupAssetsWallets(language, doc=document, win=window) {
   note.className='notes';host.prepend(panel);
   const disposeNative=win.Capacitor?.isPluginAvailable?.('DevnetWallet')?setupNativeWalletEntry(language,doc,win):()=>{};
   const disposeMain=setupMainWalletEntry(language,doc,win);
-  const registry=getWalletRegistry(),providers=new Map();let choices=[],session=null,removeChange=null,epoch=0,busy=false,active=null;
-  function clear(){epoch++;active=null;const old=session;session=null;old?.disconnect();removeChange?.();removeChange=null;identity.textContent='';balance.textContent='';holdings.replaceChildren();refresh.hidden=disconnect.hidden=true;select.disabled=false;connect.hidden=false;}
+  const registry=getWalletRegistry(),providers=new Map();let choices=[],session=null,removeChange=null,epoch=0,busy=false,active=null,refreshTimer;
+  function clear(){epoch++;clearInterval(refreshTimer);active=null;const old=session;session=null;old?.disconnect();removeChange?.();removeChange=null;identity.textContent='';balance.textContent='';holdings.replaceChildren();refresh.hidden=disconnect.hidden=true;select.disabled=false;connect.hidden=false;}
   function invalid(){clear();status.textContent=t('La cuenta o red cambió. Vuelve a conectar.','Account or network changed. Connect again.');}
   function discover(){
     if(active||busy)return;
@@ -65,6 +65,10 @@ export function setupAssetsWallets(language, doc=document, win=window) {
       status.textContent=t('Conectada para consulta. No se ha enviado dinero.','Connected for inspection. No funds were sent.');
     }catch{if(ticket===epoch){clear();status.textContent=t('Conexión cancelada, red no compatible o billetera no disponible. Usa Solana mainnet, Ethereum o BNB Smart Chain.','Connection cancelled, unsupported network or wallet unavailable. Use Solana mainnet, Ethereum or BNB Smart Chain.');}}
     finally{busy=false;connect.disabled=false;select.disabled=!!active;}
+    if(active){
+      await refresh.onclick();
+      if(active&&ticket===epoch){refreshTimer=setInterval(()=>{if(!doc.hidden&&!host.hidden)refresh.onclick();},60000);refreshTimer?.unref?.();}
+    }
   };
   refresh.onclick=async()=>{
     if(!active||busy)return;busy=true;refresh.disabled=true;const ticket=epoch,snapshot=active;balance.textContent='';holdings.replaceChildren();

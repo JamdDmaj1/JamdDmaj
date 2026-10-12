@@ -30,11 +30,11 @@ for(const lang of ['es','en'])test(`Assets has no automatic connections or inven
  assert.ok(f.all.some(n=>n.id==='external-wallet-assets'));assert.ok(f.all.some(n=>n.tag==='option'&&n.textContent.includes('Ethereum / BNB')));
  assert.ok(!f.all.some(n=>n.textContent==='0 BNB'));dispose();assert.equal(calls,0);
 });
-test('Assets connects and reads zero only after explicit clicks; disconnect clears it',async()=>{
+test('Assets refreshes after approved connection; disconnect clears the balance',async()=>{
  const f=fixture(),address='0x'+'3'.repeat(40),calls=[];
  f.win.ethereum={on(){},removeListener(){},async request({method}){calls.push(method);return method==='eth_chainId'?'0x38':method==='eth_getBalance'?'0x0':[address]}};
  const dispose=setupAssetsWallets('es',f.doc,f.win),find=text=>f.all.find(n=>n.tag==='button'&&n.textContent===text);
- await find('Conectar billetera').onclick();assert.ok(f.all.some(n=>n.textContent?.includes(address)));assert.equal(calls.includes('eth_getBalance'),false);
+ await find('Conectar billetera').onclick();assert.ok(f.all.some(n=>n.textContent?.includes(address)));assert.equal(calls.includes('eth_getBalance'),true);
  await find('Consultar saldo nativo').onclick();assert.ok(f.all.some(n=>n.textContent==='0 BNB'));
  find('Desconectar de esta vista').onclick();assert.ok(!f.all.some(n=>n.textContent==='0 BNB'));dispose();
 });
