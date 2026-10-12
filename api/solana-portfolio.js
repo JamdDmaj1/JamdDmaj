@@ -34,7 +34,9 @@ export default async function handler(request) {
     ]);
     if (balanceResult.status !== "fulfilled") throw balanceResult.reason;
 
-    const sol = finiteNumber(balanceResult.value?.value) / 1_000_000_000;
+    const lamports=balanceResult.value?.value;
+    if(!Number.isSafeInteger(lamports)||lamports<0)throw new Error('Invalid native balance');
+    const sol = lamports / 1_000_000_000;
     const solPriceUsd = solPriceResult.status === "fulfilled" ? solPriceResult.value : 0;
     const rawTokens = [
       ...(classicResult.status === "fulfilled" ? classicResult.value : []),
@@ -53,6 +55,7 @@ export default async function handler(request) {
       valuationCoverage: tokens.length ? tokens.filter((token) => token.priceUsd > 0).length / tokens.length : 1,
       partial: classicResult.status !== "fulfilled" || token2022Result.status !== "fulfilled" || solPriceResult.status !== "fulfilled"
     };
+    if(cache.size>=200)cache.delete(cache.keys().next().value);
     cache.set(address, { savedAt: Date.now(), payload });
     return jsonResponse(request, payload, 200, privateCacheHeaders());
   } catch {
@@ -112,9 +115,10 @@ function aggregateTokens(accounts) {
 async function enrichTokens(tokens) {
   if (!tokens.length) return [];
   const pairByMint = new Map();
+  const lookups=[];
   for (let index = 0; index < tokens.length; index += 30) {
     const chunk = tokens.slice(index, index + 30).map((token) => token.mint).join(",");
-    try {
+    lookups.push((async()=>{try {
       const encodedMints = chunk.split(",").map(encodeURIComponent).join(",");
       const pairs = await fetchJson(`https://api.dexscreener.com/tokens/v1/solana/${encodedMints}`);
       for (const pair of Array.isArray(pairs) ? pairs : []) {
@@ -125,8 +129,9 @@ async function enrichTokens(tokens) {
       }
     } catch {
       // An unpriced token still remains visible with its on-chain amount.
-    }
+    }})());
   }
+  await Promise.all(lookups);
   return tokens.map((token) => {
     const pair = pairByMint.get(token.mint);
     const priceUsd = finiteNumber(pair?.priceUsd);

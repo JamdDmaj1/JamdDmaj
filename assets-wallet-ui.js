@@ -16,13 +16,14 @@ export function setupAssetsWallets(language, doc=document, win=window) {
   const refresh=el('button',t('Consultar saldo nativo','Check native balance'));refresh.type='button';refresh.hidden=true;
   const disconnect=el('button',t('Desconectar de esta vista','Disconnect from this view'));disconnect.type='button';disconnect.hidden=true;
   const identity=el('p');identity.style.overflowWrap='anywhere';
-  const balance=el('p');const status=el('p');status.setAttribute('role','status');
+  const balance=el('p');balance.className='wallet-native-balance';const holdings=el('div');holdings.className='wallet-holdings';const status=el('p');status.setAttribute('role','status');
   const note=el('p',t('Consulta SOL, ETH o BNB; no es un inventario de todos tus tokens. Desconectar aquí no revoca los permisos guardados en tu billetera.','Shows SOL, ETH or BNB; not a complete token inventory. Disconnecting here does not revoke permissions saved in your wallet.'));
+  note.textContent=t('Solana: saldo SOL y tokens detectados. Los precios son estimaciones, no importes garantizados de venta. Ethereum y BNB: saldo nativo.','Solana: SOL balance and detected tokens. Prices are estimates, not guaranteed sale proceeds. Ethereum and BNB: native balance.');
   note.className='notes';host.prepend(panel);
   const disposeNative=win.Capacitor?.isPluginAvailable?.('DevnetWallet')?setupNativeWalletEntry(language,doc,win):()=>{};
   const disposeMain=setupMainWalletEntry(language,doc,win);
   const registry=getWalletRegistry(),providers=new Map();let choices=[],session=null,removeChange=null,epoch=0,busy=false,active=null;
-  function clear(){epoch++;active=null;const old=session;session=null;old?.disconnect();removeChange?.();removeChange=null;identity.textContent='';balance.textContent='';refresh.hidden=disconnect.hidden=true;select.disabled=false;connect.hidden=false;}
+  function clear(){epoch++;active=null;const old=session;session=null;old?.disconnect();removeChange?.();removeChange=null;identity.textContent='';balance.textContent='';holdings.replaceChildren();refresh.hidden=disconnect.hidden=true;select.disabled=false;connect.hidden=false;}
   function invalid(){clear();status.textContent=t('La cuenta o red cambió. Vuelve a conectar.','Account or network changed. Connect again.');}
   function discover(){
     if(active||busy)return;
@@ -66,7 +67,7 @@ export function setupAssetsWallets(language, doc=document, win=window) {
     finally{busy=false;connect.disabled=false;select.disabled=!!active;}
   };
   refresh.onclick=async()=>{
-    if(!active||busy)return;busy=true;refresh.disabled=true;const ticket=epoch,snapshot=active;balance.textContent='';
+    if(!active||busy)return;busy=true;refresh.disabled=true;const ticket=epoch,snapshot=active;balance.textContent='';holdings.replaceChildren();
     status.textContent=t('Consultando saldo…','Checking balance…');
     try{
       let amount,symbol;
@@ -77,10 +78,20 @@ export function setupAssetsWallets(language, doc=document, win=window) {
         const data=await response.json();
         const timestamp=Date.parse(data.updatedAt),age=Date.now()-timestamp;
         if(!response.ok||!data.ok||data.address!==snapshot.address||data.network!=='solana:mainnet'||!Number.isFinite(data.sol?.amount)||data.sol.amount<0||!Number.isFinite(age)||age< -5000||age>120000)throw new Error('invalid-balance');
+        if(ticket!==epoch)return;
         amount=String(data.sol.amount);symbol='SOL';
+        for(const token of (Array.isArray(data.tokens)?data.tokens:[]).slice(0,100)){
+          if(!Number.isFinite(token.amount)||token.amount<=0||typeof token.mint!=='string')continue;
+          const row=doc.createElement('div');row.className='wallet-token-row';
+          const name=doc.createElement('strong');name.textContent=String(token.symbol||token.mint).slice(0,44);
+          const quantity=doc.createElement('span');quantity.textContent=token.amount.toLocaleString(language,{maximumSignificantDigits:12});
+          const mint=doc.createElement('small');mint.textContent=token.mint;mint.style.overflowWrap='anywhere';
+          row.append(name,quantity,mint);holdings.append(row);
+        }
+        const coverage=doc.createElement('p');coverage.textContent=data.partial?t('Lista parcial: algunas consultas no respondieron.','Partial list: some queries failed.'):t('Tokens detectados en esta consulta; verifica su dirección antes de operar.','Tokens detected in this query; verify their address before trading.');holdings.append(coverage);
       }
       if(ticket!==epoch)return;balance.textContent=amount+' '+symbol;status.textContent=t('Consultado a las ','Checked at ')+new Date().toLocaleTimeString(language);
-    }catch{if(ticket===epoch){balance.textContent='';status.textContent=t('Saldo no disponible. No se sustituye por cero.','Balance unavailable. It is not replaced with zero.');}}
+    }catch{if(ticket===epoch){balance.textContent='';holdings.replaceChildren();status.textContent=t('No pudimos actualizar el saldo. Reintenta; si persiste, comprueba la fecha y hora del dispositivo. No se sustituye por cero.','Could not refresh balance. Retry; if it persists, check device date and time. It is not replaced with zero.');}}
     finally{busy=false;refresh.disabled=false;}
   };
   disconnect.onclick=()=>{clear();discover();};

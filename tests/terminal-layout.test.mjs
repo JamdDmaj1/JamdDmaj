@@ -12,10 +12,10 @@ for(const language of ['es','en'])test(`finance navigation preserves accounts an
   heading.nextElementSibling=intro;stats.previousElementSibling=notice;manual.nextElementSibling=connection;
   main.querySelector=s=>({'h1':heading,'.stats':stats,'.grid':chart,'.badge':badge}[s]);
   const ids={searchForm:{section:search},history:{section:history},deposit:{section:funding},'manual-review-symbol':{section:manual}};
-  const doc={head:node(),body:node(),querySelector:()=>main,createElement:node,getElementById:id=>({closest:()=>ids[id].section})};
+  const doc={head:node(),body:node(),querySelector:()=>main,createElement:node,getElementById:id=>ids[id]?{closest:()=>ids[id].section}:null};
   setupTerminalLayout(language,doc);
   const find=id=>all.find(n=>n.id===id),pages=all.filter(n=>n.attrs.role==='tabpanel');
-  assert.equal(pages.length,6);
+  assert.equal(pages.length,5);
   assert.equal(find('practice-menu').open,false);
   assert.equal(pages.filter(n=>!n.hidden).length,1);
   find('tab-assets').onclick();
@@ -33,7 +33,7 @@ for(const language of ['es','en'])test(`finance navigation preserves accounts an
   assert.equal(find('terminal-home').hidden,false);
   assert.equal(find('tab-home').focused,true);
   assert.equal(find('practice-menu').hidden,true);
-  find('tab-profile').onclick();
-  assert.equal(find('practice-menu').hidden,false);
+  assert.equal(find('tab-profile'),undefined);
+  assert.equal(find('practice-menu').hidden,true);
   assert.ok(find('finance-markets'));
 });
