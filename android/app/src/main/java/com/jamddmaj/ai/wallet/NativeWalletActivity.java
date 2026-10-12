@@ -230,7 +230,7 @@ public final class NativeWalletActivity extends Activity {
                         }
                     });
             });
-        }catch(Exception failure){error(ticket);}finally{Arrays.fill(pass,'\0');Arrays.fill(encrypted,(byte)0);}});
+        }catch(Exception failure){recoveryError(ticket,failure);}finally{Arrays.fill(pass,'\0');Arrays.fill(encrypted,(byte)0);}});
     }
     private TextView label(LinearLayout root,String value,int size){TextView view=new TextView(this);view.setText(value);NativeWalletStyle.label(view,size);root.addView(view);return view;}
     @Override protected void onResume(){super.onResume();loadProfiles();}
@@ -505,7 +505,18 @@ public final class NativeWalletActivity extends Activity {
         result.append(text("Consulta puntual; no se han enviado fondos.","Point-in-time lookup; no funds were sent."));
         runOnUiThread(()->{if(ticket==epoch)status.setText(result.toString());});
     }
-    private void error(long ticket){runOnUiThread(()->{if(ticket!=epoch)return;lock();status.setText(text("No se pudo verificar. Recupera el respaldo si cambiaste la huella; no se ha enviado dinero.","Verification failed. Recover your backup if biometrics changed; no money was sent."));});}
+    private void recoveryError(long ticket,Throwable failure){
+        final String code=WalletRecoveryFailure.code(failure);
+        runOnUiThread(()->{if(ticket!=epoch)return;lock();
+            String message;
+            if(code.equals("BACKUP_AUTH"))message=text("El archivo y la contraseña no se pudieron verificar. Puede ser otra contraseña o un archivo alterado. Conserva el original.","The file and password could not be verified. The password may differ or the file may be altered. Keep the original.");
+            else if(code.equals("KEY_INVALIDATED"))message=text("Android informa que la clave protegida ya no es válida. Recupera con el respaldo original; no borres la app.","Android reports the protected key is no longer valid. Recover with the original backup; do not delete the app.");
+            else if(code.equals("BACKUP_STORAGE"))message=text("No se pudo acceder al almacenamiento del respaldo o de la billetera. Conserva tus archivos.","Backup or wallet storage could not be accessed. Keep your files.");
+            else message=text("No se pudo completar la recuperación. No se ha confirmado un cambio de huella. Conserva el respaldo y comunica este código.","Recovery could not be completed. A biometric change has not been confirmed. Keep your backup and report this code.");
+            status.setText(message+" ["+code+"]");
+        });
+    }
+    private void error(long ticket){runOnUiThread(()->{if(ticket!=epoch)return;lock();status.setText(text("No se pudo verificar esta operación. Esto no confirma un cambio de huella. Conserva tu respaldo; no se ha enviado dinero.","This operation could not be verified. This does not confirm a biometric change. Keep your backup; no money was sent."));});}
     private void lock(){epoch++;selectedProfile=null;if(cancellation!=null)cancellation.cancel();cancellation=null;if(vault!=null)vault.cancel();vault=null;if(enrollment!=null)enrollment.cancel();if(password!=null)password.setText("");if(passwordRepeat!=null)passwordRepeat.setText("");if(addresses!=null)addresses.setText("");if(status!=null)status.setText(text("Billetera bloqueada.","Wallet locked."));}
     @Override protected void onStop(){if(seedDialog!=null){seedDialog.dismiss();seedDialog=null;}lock();super.onStop();}
     @Override protected void onDestroy(){lock();worker.shutdownNow();super.onDestroy();}
