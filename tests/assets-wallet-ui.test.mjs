@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {setupAssetsWallets} from '../assets-wallet-ui.js';
+import bs58 from 'bs58';
+import nacl from 'tweetnacl';
 
 test('Solana holdings are rendered from the selected account and cleared on disconnect',async()=>{
  const key=Symbol.for('jamddmaj.wallet-standard.registry'),oldRegistry=globalThis[key],oldFetch=globalThis.fetch;
@@ -37,6 +39,26 @@ test('Android Assets offers in-place Phantom approval without navigating away',a
   assert.ok(f.all.some(n=>n.textContent?.includes('Instala o actualiza')));
   assert.ok(f.all.some(n=>n.textContent==='Phantom · Conexión móvil'));
  }finally{dispose?.();Object.defineProperty(globalThis,key,{configurable:true,value:previous});}
+});
+test('approved Android callback refreshes exactly its public address and disconnect clears holdings',async()=>{
+ const key=Symbol.for('jamddmaj.wallet-standard.registry'),oldRegistry=globalThis[key],oldFetch=globalThis.fetch;
+ Object.defineProperty(globalThis,key,{configurable:true,value:{get:()=>[],on:()=>()=>{}}});
+ const f=fixture(),address='11111111111111111111111111111111',requests=[];let callback,removed=0,dispose;
+ globalThis.fetch=async url=>{requests.push(url);return {ok:true,json:async()=>({ok:true,address,network:'solana:mainnet',updatedAt:new Date().toISOString(),sol:{amount:1.25},tokens:[{mint:address,symbol:'TOKEN',amount:7}],partial:false})};};
+ f.win.Capacitor={isNativePlatform:()=>true,getPlatform:()=> 'android',Plugins:{App:{async addListener(event,handler){callback=handler;return {remove(){removed++;}}}},ExternalWallet:{async openPhantom({url}){
+  const query=new URL(url),reply=new URL(query.searchParams.get('redirect_link')),phantom=nacl.box.keyPair(),nonce=nacl.randomBytes(24);
+  const shared=nacl.box.before(bs58.decode(query.searchParams.get('dapp_encryption_public_key')),phantom.secretKey);
+  const encrypted=nacl.box.after(new TextEncoder().encode(JSON.stringify({public_key:address,session:'opaque-test'})),nonce,shared);
+  reply.searchParams.set('phantom_encryption_public_key',bs58.encode(phantom.publicKey));reply.searchParams.set('nonce',bs58.encode(nonce));reply.searchParams.set('data',bs58.encode(encrypted));callback({url:reply.toString()});
+ }}}};
+ try{
+  dispose=setupAssetsWallets('es',f.doc,f.win);f.all.find(n=>n.id==='assets-wallet-choice').value='0';
+  await f.all.find(n=>n.textContent==='Conectar billetera').onclick();
+  assert.equal(requests.length,1);assert.equal(new URL(requests[0]).searchParams.get('address'),address);
+  assert.ok(f.all.some(n=>n.textContent==='1.25 SOL'));assert.equal(removed,1);
+  const holdings=f.all.find(n=>n.className==='wallet-holdings');assert.equal(holdings.children[0].children[0].textContent,'TOKEN');
+  f.all.find(n=>n.textContent==='Desconectar de esta vista').onclick();assert.equal(holdings.children.length,0);
+ }finally{dispose?.();globalThis.fetch=oldFetch;Object.defineProperty(globalThis,key,{configurable:true,value:oldRegistry});}
 });
 for(const lang of ['es','en'])test(`Assets has no automatic connections or invented balance (${lang})`,()=>{
  const f=fixture();let calls=0;f.win.ethereum={request(){calls++},on(){},removeListener(){}};

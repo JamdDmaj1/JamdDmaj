@@ -83,7 +83,7 @@ jobs:
         working-directory: android
         run: |
           sed -i 's/\r$//' gradlew
-          bash gradlew :app:testWalletPreviewUnitTest --tests 'com.jamddmaj.ai.wallet.*' --stacktrace
+          bash gradlew :app:testWalletPreviewUnitTest --tests 'com.jamddmaj.ai.wallet.*' --tests 'com.jamddmaj.ai.ExternalWalletPluginTest' --stacktrace
       - name: Build isolated devnet lab APK
         working-directory: android
         run: |
