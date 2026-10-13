@@ -1,6 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {validateAutomationDraft,validateAutomationSettings,setupAutomationPanel} from '../lib/automation-panel.js';
+import {validateAutomationDraft,validateAutomationSettings,setupAutomationPanel,telegramSignalCards} from '../lib/automation-panel.js';
+test('Telegram cards exclude unpublished, closed, future, expired and malformed signals',()=>{
+ const now=Date.parse('2026-10-13T12:00:00Z');
+ const signal={id:'a',pair:'BTCUSDT',side:'LONG',status:'OPEN',entry:60000,sl:59000,tp1:62000,telegramMessageId:123,telegramSentAt:'2026-10-13T11:00:00Z'};
+ const cards=telegramSignalCards([signal,{...signal,telegramMessageId:null},{...signal,status:'CLOSED'},{...signal,telegramSentAt:'2026-10-14T11:00:00Z'},{...signal,telegramSentAt:'2026-10-11T11:00:00Z'},{...signal,entry:NaN},{...signal,pair:'<script>'}],now);
+ assert.equal(cards.length,1);assert.equal(cards[0].stop,59000);assert.equal(cards[0].take,62000);assert.equal(cards[0].telegramMessageId,undefined);
+ assert.deepEqual(telegramSignalCards(null,now),[]);
+});
 test('automation draft validates limits and drops activation fields',()=>{
  assert.deepEqual(validateAutomationDraft({capital:100,loss:10,positions:2,enabled:true}),{capital:100,loss:10,positions:2});
  for(const v of [{capital:0,loss:1,positions:1},{capital:1,loss:2,positions:1},{capital:100,loss:1,positions:1.5},{capital:Infinity,loss:1,positions:1}])assert.throws(()=>validateAutomationDraft(v));

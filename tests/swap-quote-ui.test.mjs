@@ -12,9 +12,16 @@ function fixture() {
     const node = { tag, children: [], value: '', textContent: '', append(...items) { this.children.push(...items); }, setAttribute() {}, addEventListener(name, fn) { this[name] = fn; } };
     nodes.push(node); return node;
   } };
-  setupSwapQuote(doc.createElement('main'), 'es', doc);
-  return { amount: nodes.find(n => n.id === 'swap-amount'), button: nodes.find(n => n.tag === 'button'), status: nodes.filter(n => n.tag === 'p').at(-1) };
+  const controller=setupSwapQuote(doc.createElement('main'), 'es', doc);
+  return {controller, amount: nodes.find(n => n.id === 'swap-amount'), button: nodes.find(n => n.tag === 'button'), status: nodes.find(n => n.id==='swap-status') };
 }
+test('unsupported BTC cannot request an unrelated SOL swap after editing',async t=>{
+ let calls=0;t.mock.method(globalThis,'fetch',async()=>{calls++;throw Error();});
+ const ui=fixture();ui.controller.selectAsset({symbol:'BTC'});assert.equal(ui.button.disabled,true);
+ ui.amount.value='10';ui.amount.input();assert.equal(ui.button.disabled,true);
+ await ui.button.onclick();assert.equal(calls,0);
+ ui.controller.selectAsset({symbol:'SOL'});assert.equal(ui.button.disabled,false);
+});
 test('editing amount discards an older network response', async t => {
   let finish;
   t.mock.method(globalThis, 'fetch', () => new Promise(resolve => { finish = resolve; }));
