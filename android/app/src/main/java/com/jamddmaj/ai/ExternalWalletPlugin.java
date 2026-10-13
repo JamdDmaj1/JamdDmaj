@@ -11,7 +11,7 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 @CapacitorPlugin(name = "ExternalWallet")
 public class ExternalWalletPlugin extends Plugin {
     private static final String PHANTOM_PACKAGE = "app.phantom";
-    private static final String PHANTOM_HOST = "phantom.app";
+    private static final String PHANTOM_HOST = "phantom.com";
     private static final String PHANTOM_CONNECT_PATH = "/ul/v1/connect";
 
     @PluginMethod

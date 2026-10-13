@@ -253,7 +253,6 @@ import { jamdLabText } from "./lib/jamd-lab-copy.js";
   }
 
   function initializeWalletBrowserEntry() {
-    if (isNativeApp()) return;
     let requested = "";
     try { requested = new URL(window.location.href).searchParams.get("wallet_connect") || ""; } catch { /* Ignore malformed locations. */ }
     if (!/^(phantom|solflare)$/.test(requested)) return;

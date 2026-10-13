@@ -18,6 +18,7 @@ const assets = [
   "jamd-credit-ui.js",
   "candlesticks.js",
   "fair-launch.css",
+  "app-polish.css",
   "oauth-mobile.html",
   "google-mobile.html",
   "manifest.json",

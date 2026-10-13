@@ -2,6 +2,7 @@ import {getWalletRegistry} from './lib/wallet-standard-registry.js';
 import {getCompatibleSolanaWallets,getSolanaAccount,sanitizeWalletName} from './lib/wallet-security.js';
 import {createEvmReadOnlySession} from './lib/external-wallet-session.js';
 import {setupNativeWalletEntry,setupMainWalletEntry} from './native-wallet-entry.js';
+import {createPhantomMobileSession} from './lib/phantom-mobile-session.js';
 
 export function setupAssetsWallets(language, doc=document, win=window) {
   const host=doc.getElementById('terminal-assets');if(!host)return;
@@ -30,8 +31,9 @@ export function setupAssetsWallets(language, doc=document, win=window) {
     const previous=select.value;
     choices=getCompatibleSolanaWallets([...registry.get()]).map(({wallet,name})=>({kind:'solana',wallet,name}));
     for(const [provider,name] of providers)choices.push({kind:'evm',provider,name});
+    if(win.Capacitor?.getPlatform?.()==='android')choices.push({kind:'mobile-entry',name:'Phantom'});
     select.replaceChildren();
-    choices.forEach((choice,i)=>{const option=doc.createElement('option');option.value=String(i);option.textContent=choice.name+' · '+(choice.kind==='solana'?'Solana':'Ethereum / BNB');select.append(option)});
+    choices.forEach((choice,i)=>{const option=doc.createElement('option');option.value=String(i);option.textContent=choice.name+' · '+(choice.kind==='mobile-entry'?t('Conexión móvil','Mobile connection'):choice.kind==='solana'?'Solana':'Ethereum / BNB');select.append(option)});
     if(choices[Number(previous)])select.value=previous;
     connect.disabled=!choices.length;
     if(!choices.length)status.textContent=t('No hay una billetera compatible en este navegador. La app Android necesita una conexión móvil específica; no crearemos una cuenta ficticia.','No compatible wallet is available in this browser. Android needs a separate mobile connection; no fictitious account will be created.');
@@ -48,7 +50,10 @@ export function setupAssetsWallets(language, doc=document, win=window) {
     status.textContent=t('Confirma la conexión en tu billetera.','Approve the connection in your wallet.');
     try{
       let account;
-      if(choice.kind==='evm'){
+      if(choice.kind==='mobile-entry'){
+        session=createPhantomMobileSession({app:win.Capacitor?.Plugins?.App,launcher:win.Capacitor?.Plugins?.ExternalWallet});
+        account=await session.connect();
+      }else if(choice.kind==='evm'){
         session=createEvmReadOnlySession(choice.provider,value=>{if(!value&&active)invalid()});
         const result=await session.connect();account={address:result.address,network:result.name};
       }else{
@@ -63,7 +68,7 @@ export function setupAssetsWallets(language, doc=document, win=window) {
       active={...choice,...account};identity.textContent=choice.name+' · '+account.network+' · '+account.address;
       refresh.hidden=disconnect.hidden=false;connect.hidden=true;
       status.textContent=t('Conectada para consulta. No se ha enviado dinero.','Connected for inspection. No funds were sent.');
-    }catch{if(ticket===epoch){clear();status.textContent=t('Conexión cancelada, red no compatible o billetera no disponible. Usa Solana mainnet, Ethereum o BNB Smart Chain.','Connection cancelled, unsupported network or wallet unavailable. Use Solana mainnet, Ethereum or BNB Smart Chain.');}}
+    }catch(error){if(ticket===epoch){clear();status.textContent=error?.message==='phantom-not-installed'?t('Instala o actualiza la app oficial de Phantom y vuelve a conectar.','Install or update the official Phantom app and reconnect.'):t('Conexión cancelada, caducada o billetera no disponible. Vuelve a conectar y aprueba en Phantom.','Connection cancelled, expired or wallet unavailable. Reconnect and approve in Phantom.');}}
     finally{busy=false;connect.disabled=false;select.disabled=!!active;}
     if(active){
       await refresh.onclick();

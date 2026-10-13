@@ -1203,7 +1203,7 @@ test("wallet login UI never requests custody secrets or enables transactions", (
 test("Phantom mobile callbacks are encrypted, origin-bound and one-request-only", () => {
   const request = createPhantomConnectRequest((length) => Uint8Array.from({ length }, (_, index) => index + 1));
   const connectUrl = new URL(buildPhantomConnectUrl({ publicKey: request.publicKey, requestId: request.requestId }));
-  assert.equal(connectUrl.origin, "https://phantom.app");
+  assert.equal(connectUrl.origin, "https://phantom.com");
   assert.equal(connectUrl.pathname, "/ul/v1/connect");
   assert.equal(connectUrl.searchParams.get("app_url"), "https://www.jamddmaj.com/");
   assert.match(connectUrl.searchParams.get("redirect_link"), /^jamddmaj:\/\/phantom\?request=/);

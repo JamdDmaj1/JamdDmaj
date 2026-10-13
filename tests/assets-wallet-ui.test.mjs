@@ -24,6 +24,20 @@ function fixture(){
  const host=node('section'),doc={createElement:node,getElementById:()=>host};
  const win=new EventTarget();return {all,host,doc,win};
 }
+test('Android Assets offers in-place Phantom approval without navigating away',async()=>{
+ const key=Symbol.for('jamddmaj.wallet-standard.registry'),previous=globalThis[key];
+ Object.defineProperty(globalThis,key,{configurable:true,value:{get:()=>[],on:()=>()=>{}}});
+ let dispose;
+ try{
+  const f=fixture(),opened=[];f.win.Capacitor={isNativePlatform:()=>true,getPlatform:()=> 'android',Plugins:{App:{async addListener(){return {remove(){}}}},ExternalWallet:{async openPhantom({url}){opened.push(url);throw Error('phantom-not-installed');}}}};
+  dispose=setupAssetsWallets('es',f.doc,f.win);
+  const select=f.all.find(n=>n.id==='assets-wallet-choice');select.value='0';
+  const button=f.all.find(n=>n.textContent==='Conectar billetera');assert.equal(button.disabled,false);
+  await button.onclick();assert.equal(new URL(opened[0]).origin,'https://phantom.com');
+  assert.ok(f.all.some(n=>n.textContent?.includes('Instala o actualiza')));
+  assert.ok(f.all.some(n=>n.textContent==='Phantom · Conexión móvil'));
+ }finally{dispose?.();Object.defineProperty(globalThis,key,{configurable:true,value:previous});}
+});
 for(const lang of ['es','en'])test(`Assets has no automatic connections or invented balance (${lang})`,()=>{
  const f=fixture();let calls=0;f.win.ethereum={request(){calls++},on(){},removeListener(){}};
  const dispose=setupAssetsWallets(lang,f.doc,f.win);assert.equal(calls,0);
