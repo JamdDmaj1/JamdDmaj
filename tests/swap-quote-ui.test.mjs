@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {exactSwapUnits, setupSwapQuote} from '../lib/swap-quote-ui.js';
+import {exactSwapUnits, setupSwapQuote,futuresDraftSummary} from '../lib/swap-quote-ui.js';
+test('order summary separates collateral from leveraged indicative exposure',()=>{
+ assert.deepEqual(futuresDraftSummary('20','10'),{margin:20,leverage:10,notional:200});
+ for(const [m,l]of [['',3],[-1,3],[20,0],[20,51],[Infinity,3]])assert.equal(futuresDraftSummary(m,l),null);
+});
 test('swap amounts retain precision without floating point', () => {
   assert.equal(exactSwapUnits('0.000000001',9),'1');
   assert.equal(exactSwapUnits('123.456789',6),'123456789');
@@ -13,7 +17,7 @@ function fixture() {
     nodes.push(node); return node;
   } };
   const controller=setupSwapQuote(doc.createElement('main'), 'es', doc);
-  return {controller, amount: nodes.find(n => n.id === 'swap-amount'), button: nodes.find(n => n.tag === 'button'), status: nodes.find(n => n.id==='swap-status') };
+  return {controller, amount: nodes.find(n => n.id === 'swap-amount'), button: nodes.find(n => n.id==='swap-quote-button'), status: nodes.find(n => n.id==='swap-status') };
 }
 test('unsupported BTC cannot request an unrelated SOL swap after editing',async t=>{
  let calls=0;t.mock.method(globalThis,'fetch',async()=>{calls++;throw Error();});

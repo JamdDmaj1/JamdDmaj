@@ -24,7 +24,8 @@ export function setupAssetsWallets(language, doc=document, win=window) {
   const disposeNative=win.Capacitor?.isPluginAvailable?.('DevnetWallet')?setupNativeWalletEntry(language,doc,win):()=>{};
   const disposeMain=setupMainWalletEntry(language,doc,win);
   const registry=getWalletRegistry(),providers=new Map();let choices=[],session=null,removeChange=null,epoch=0,busy=false,active=null,refreshTimer;
-  function clear(){epoch++;clearInterval(refreshTimer);active=null;const old=session;session=null;old?.disconnect();removeChange?.();removeChange=null;identity.textContent='';balance.textContent='';holdings.replaceChildren();refresh.hidden=disconnect.hidden=true;select.disabled=false;connect.hidden=false;}
+  function publishPortfolio(data){const EventType=win.CustomEvent;if(EventType&&doc.dispatchEvent)doc.dispatchEvent(new EventType('jamd-wallet-portfolio',{detail:data}));}
+  function clear(){publishPortfolio(null);epoch++;clearInterval(refreshTimer);active=null;const old=session;session=null;old?.disconnect();removeChange?.();removeChange=null;identity.textContent='';balance.textContent='';holdings.replaceChildren();refresh.hidden=disconnect.hidden=true;select.disabled=false;connect.hidden=false;}
   function invalid(){clear();status.textContent=t('La cuenta o red cambió. Vuelve a conectar.','Account or network changed. Connect again.');}
   function discover(){
     if(active||busy)return;
@@ -72,11 +73,11 @@ export function setupAssetsWallets(language, doc=document, win=window) {
     finally{busy=false;connect.disabled=false;select.disabled=!!active;}
     if(active){
       await refresh.onclick();
-      if(active&&ticket===epoch){refreshTimer=setInterval(()=>{if(!doc.hidden&&!host.hidden)refresh.onclick();},60000);refreshTimer?.unref?.();}
+      if(active&&ticket===epoch){refreshTimer=setInterval(()=>{if(!doc.hidden)refresh.onclick();},60000);refreshTimer?.unref?.();}
     }
   };
   refresh.onclick=async()=>{
-    if(!active||busy)return;busy=true;refresh.disabled=true;const ticket=epoch,snapshot=active;balance.textContent='';holdings.replaceChildren();
+    if(!active||busy)return;publishPortfolio(null);busy=true;refresh.disabled=true;const ticket=epoch,snapshot=active;balance.textContent='';holdings.replaceChildren();
     status.textContent=t('Consultando saldo…','Checking balance…');
     try{
       let amount,symbol;
@@ -88,6 +89,7 @@ export function setupAssetsWallets(language, doc=document, win=window) {
         const timestamp=Date.parse(data.updatedAt),age=Date.now()-timestamp;
         if(!response.ok||!data.ok||data.address!==snapshot.address||data.network!=='solana:mainnet'||!Number.isFinite(data.sol?.amount)||data.sol.amount<0||!Number.isFinite(age)||age< -5000||age>120000)throw new Error('invalid-balance');
         if(ticket!==epoch)return;
+        publishPortfolio(data);
         amount=String(data.sol.amount);symbol='SOL';
         for(const token of (Array.isArray(data.tokens)?data.tokens:[]).slice(0,100)){
           if(!Number.isFinite(token.amount)||token.amount<=0||typeof token.mint!=='string')continue;

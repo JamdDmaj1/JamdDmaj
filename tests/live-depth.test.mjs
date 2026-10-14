@@ -19,6 +19,10 @@ test('public socket subscribes, updates existing rows, retires callbacks and clo
  first.onmessage({data:JSON.stringify(snapshot())});assert.match(parent.children[1].textContent,/En vivo/);
  const row=parent.children[2].children[1];assert.equal(row.textContent,'101 / 2');
  first.onmessage({data:JSON.stringify(snapshot(2))});assert.equal(parent.children[2].children[1],row);
+ const multi=snapshot(3);multi.data[0].asks=[['101','2'],['102','4'],['103','1']];
+ first.onmessage({data:JSON.stringify(multi)});
+ assert.equal(row.textContent,'103 / 1');
+ assert.equal(parent.children[2].children[3].textContent,'101 / 2');
  const retired=first.onmessage;controller.select('ETHUSDT');assert.equal(first.closed,true);retired({data:JSON.stringify(snapshot(3))});assert.equal(row.textContent,'');
  controller.setActive(false);assert.equal(sockets[1].closed,true);controller.dispose();
 });
