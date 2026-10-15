@@ -17,8 +17,13 @@ function fixture() {
     nodes.push(node); return node;
   } };
   const controller=setupSwapQuote(doc.createElement('main'), 'es', doc);
-  return {controller, amount: nodes.find(n => n.id === 'swap-amount'), button: nodes.find(n => n.id==='swap-quote-button'), status: nodes.find(n => n.id==='swap-status') };
+  return {controller, direction: nodes.find(n=>n.id==='swap-direction'),slider:nodes.find(n=>n.type==='range'), amount: nodes.find(n => n.id === 'swap-amount'), button: nodes.find(n => n.id==='swap-quote-button'), status: nodes.find(n => n.id==='swap-status') };
 }
+test('changing payment token clears the old amount and disables USDC sizing',()=>{
+ const ui=fixture();ui.amount.value='20';ui.direction.value='SOL';ui.direction.change();
+ assert.equal(ui.amount.value,'');assert.equal(ui.slider.disabled,true);
+ assert.match(ui.status.textContent,/no se aplica a SOL/);
+});
 test('unsupported BTC cannot request an unrelated SOL swap after editing',async t=>{
  let calls=0;t.mock.method(globalThis,'fetch',async()=>{calls++;throw Error();});
  const ui=fixture();ui.controller.selectAsset({symbol:'BTC'});assert.equal(ui.button.disabled,true);

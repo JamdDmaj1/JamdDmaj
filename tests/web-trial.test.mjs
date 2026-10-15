@@ -1,9 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { claimWebTrial, WEB_TRIAL_SCRIPT } from "../lib/trial-credits.js";
+import { claimWebTrial, WEB_TRIAL_SCRIPT, CONSUME_TRIAL_SCRIPT, REFUND_TRIAL_SCRIPT, TRIAL_CREDITS, TRIAL_SECONDS } from "../lib/trial-credits.js";
 const account = "a".repeat(64);
+test('free policy renews atomically on server time and isolates refunds by period',()=>{
+ assert.equal(TRIAL_CREDITS,50);assert.equal(TRIAL_SECONDS,18000);
+ for(const script of [WEB_TRIAL_SCRIPT,CONSUME_TRIAL_SCRIPT]){
+  assert.match(script,/free-5h-v1/);assert.match(script,/credits=50/);assert.match(script,/now\+18000/);assert.match(script,/redis.call\("TIME"\)/);
+ }
+ assert.match(CONSUME_TRIAL_SCRIPT,/"EX", 604800/);
+ assert.match(REFUND_TRIAL_SCRIPT,/spent ~= tostring\(record.startedAt\)/);
+});
 test("web trial uses a persistent account ledger and server time, not device identity", async () => {
-  const expected = { status: "active", credits: 20, startedAt: 1000, expiresAt: 605800 };
+  const expected = { status: "active", credits: 50, startedAt: 1000, expiresAt: 19000 };
   const result = await claimWebTrial(account, async (path, commands) => {
     assert.equal(path, "pipeline");
     assert.deepEqual(commands, [["EVAL", WEB_TRIAL_SCRIPT, 1, `jamd:trial:v1:account:${account}`]]);

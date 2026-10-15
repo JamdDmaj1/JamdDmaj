@@ -73,7 +73,7 @@ test("all wallet locales have complete Jamd balance labels",()=>{
   }
 });
 test("trial requires native verification rather than client device IDs",()=>{
-  assert.equal(TRIAL_CREDITS,20);assert.equal(TRIAL_SECONDS,604800);
+  assert.equal(TRIAL_CREDITS,50);assert.equal(TRIAL_SECONDS,18000);
   assert.throws(()=>trialKeys({accountHash:"a".repeat(64),deviceHash:"b".repeat(64)}));
   assert.throws(()=>trialKeys({attestationVerified:true,provider:"browser-fingerprint"}));
 });

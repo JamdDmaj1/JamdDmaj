@@ -10,6 +10,14 @@ export const trialCopy = {
  zh:["AI试用","使用Google登录即可开始。","每个已验证Google账号仅限一次，7天内20积分，不按设备计算。每次成功的托管AI请求消耗1积分。不自动续期。个人API密钥独立使用。","剩余积分","到期时间","试用不可用、已到期或积分耗尽。请重新登录或检查余额。"],
  ar:["تجربة الذكاء الاصطناعي","سجّل الدخول عبر Google للبدء.","20 رصيداً لمدة 7 أيام، مرة لكل حساب Google موثّق وليس لكل جهاز. رصيد واحد لكل طلب ذكاء اصطناعي مُدار ناجح. دون تجديد تلقائي. مفاتيح API الخاصة مستقلة.","الرصيد المتبقي","تنتهي","التجربة غير متاحة أو منتهية أو مستنفدة. سجّل الدخول مجدداً أو راجع الرصيد."]
 };
+// Keep the legacy export name for installed clients, but describe the new policy.
+for (const [language,copy] of Object.entries(trialCopy)) {
+  copy[0]=language==='es'?'IA gratuita':'Free AI';
+  copy[2]=language==='es'?'50 mensajes gratis cada 5 horas por cuenta de Google verificada. No se acumulan. Los fallos del proveedor no consumen mensajes. No necesitas una clave personal de OpenRouter. Se mantienen los controles contra abuso.':'50 free messages every 5 hours per verified Google account. Unused messages do not accumulate. Provider failures do not consume messages. No personal OpenRouter key is required. Abuse protection still applies.';
+  copy[3]=language==='es'?'Mensajes disponibles':'Messages remaining';
+  copy[4]=language==='es'?'Se renuevan':'Renews';
+  copy[5]=language==='es'?'Inicia sesión con Google o revisa la hora de renovación de tu cuota gratuita.':'Sign in with Google or check when your free allowance renews.';
+}
 if (typeof document !== "undefined") {
   let record = null, paidCredits = 0, failed = false;
   const paidCopy={en:"Recharged credits",es:"Créditos recargados",fr:"Crédits rechargés",de:"Aufgeladene Credits",pt:"Créditos recarregados",it:"Crediti ricaricati",ja:"チャージ済みクレジット",ko:"충전 크레딧",zh:"已充值积分",ar:"الأرصدة المشحونة"};
@@ -27,7 +35,7 @@ if (typeof document !== "undefined") {
     panel.dir = panel.lang === "ar" ? "rtl" : "ltr";
     const node = (tag,value) => {const el=document.createElement(tag);el.textContent=value;return el;};
     panel.replaceChildren(node("h3",c[0]),node("p",c[2]));
-    if (record) panel.append(node("p", `${c[3]}: ${new Intl.NumberFormat(panel.lang).format(record.status === "expired" ? 0 : record.credits)} / ${new Intl.NumberFormat(panel.lang).format(20)} · ${c[4]}: ${new Date(record.expiresAt*1000).toLocaleString(panel.lang)}`));
+    if (record) panel.append(node("p", `${c[3]}: ${new Intl.NumberFormat(panel.lang).format(record.status === "expired" ? 0 : record.credits)} / ${new Intl.NumberFormat(panel.lang).format(50)} · ${c[4]}: ${new Date(record.expiresAt*1000).toLocaleString(panel.lang)}`));
     if (record) panel.append(node("p",`${paidCopy[panel.lang]||paidCopy.en}: ${new Intl.NumberFormat(panel.lang).format(paidCredits)}`));
     if (failed || (record && record.status !== "active" && paidCredits < 1)) panel.append(node("p",c[5]));
     else if (!record) panel.append(node("p",c[1]));

@@ -11,7 +11,7 @@ test("opaque sessions resolve only a server-stored account", async () => {
   assert.equal(account.length,64);
   const sessions=new Map();
   const storage=async (_,commands)=>commands.map(c=> {
-    if(c[0]==="EVAL") return {result:JSON.stringify({status:"active",credits:20,startedAt:1,expiresAt:604801})};
+    if(c[0]==="EVAL") return {result:JSON.stringify({status:"active",credits:50,startedAt:1,expiresAt:18001})};
     if(c[0]==="SET") {sessions.set(c[1],c[2]);return {result:"OK"};}
     return {result:sessions.get(c[1]) ?? null};
   });

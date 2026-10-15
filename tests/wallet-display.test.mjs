@@ -15,3 +15,11 @@ test('wallet display enables percent sizing only for fresh balances and clears o
  slider.value='50';slider.oninput();assert.equal(amount.value,'0.000550');
  listener({detail:null});assert.equal(slider.disabled,true);assert.match(out.textContent,/refresh in Assets/);
 });
+test('payment-token changes cannot size SOL using USDC or overwrite an edited amount',()=>{
+ let listener,eligible=true;const doc={addEventListener:(_name,fn)=>{listener=fn;},defaultView:{addEventListener(){}}};
+ const output={},slider={},amount={value:'12',dispatchEvent(){}};
+ bindWalletDisplay(doc,'en',output,slider,amount,()=>eligible);
+ listener({detail:snapshot()});assert.equal(amount.value,'12');
+ eligible=false;slider.value='100';slider.oninput();assert.equal(amount.value,'12');
+ listener({detail:snapshot()});assert.equal(slider.disabled,true);assert.equal(amount.value,'12');
+});
