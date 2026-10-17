@@ -122,7 +122,13 @@ public class NativeSwapTransfersTest {
     @Test public void humanAmountUsesOnChainDecimalsBeforeReview() throws Exception {
         var result=transfers.prepareAmount(NativeJupiterRouteTest.key(2),NativeJupiterRouteTest.key(3),"10,000000",50);
         assertEquals("10.000000",result.review.inputAmount);
-        assertThrows(IllegalArgumentException.class,()->transfers.prepareAmount(NativeJupiterRouteTest.key(2),NativeJupiterRouteTest.key(3),"0.0000001",50));
+        Exception precision=assertThrows(NativeSwapCheck.class,()->transfers.prepareAmount(NativeJupiterRouteTest.key(2),NativeJupiterRouteTest.key(3),"0.0000001",50));
+        assertEquals("SWAP_CHECK_AMOUNT",NativeSwapCheck.publicCode(precision));
+        assertEquals(0,sends);
+    }
+    @Test public void emptyAmountHasActionableCodeBeforeNetworkOrQuote() {
+        Exception failure=assertThrows(NativeSwapCheck.class,()->transfers.prepareAmount(NativeSwapSetup.SOL,NativeSolanaTokens.USDC,"",50));
+        assertEquals("SWAP_CHECK_AMOUNT",NativeSwapCheck.publicCode(failure));
         assertEquals(0,sends);
     }
     @Test public void invalidSignedEvidenceNeverBroadcastsOrCreatesPendingRecord() throws Exception {

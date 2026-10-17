@@ -36,13 +36,17 @@ final class NativeSwapTransfers {
     }
     Draft prepareAmount(String inputMint,String outputMint,String amount,int slippageBps) throws Exception {
         // Validate addresses and limits before RPC; fetch precision from the chain, not the UI/provider.
-        new NativeSwapPreparation.Intent(owner.solanaAddress,inputMint,outputMint,"1",slippageBps);
-        journal.requireNoPending(); rpc.verifyNetwork();
-        JSONObject response=(JSONObject)rpc.request("getAccountInfo",new JSONArray().put(inputMint)
+        NativeSwapCheck.at(NativeSwapCheck.Stage.INTENT,()->new NativeSwapPreparation.Intent(owner.solanaAddress,inputMint,outputMint,"1",slippageBps));
+        // Reject empty/invalid decimal input before any network access. Actual mint precision is checked below.
+        NativeSwapCheck.at(NativeSwapCheck.Stage.AMOUNT,()->{NativeSwapAmounts.requirePositive(amount);return null;});
+        NativeSwapCheck.at(NativeSwapCheck.Stage.PENDING,()->{journal.requireNoPending();return null;});
+        NativeSwapCheck.at(NativeSwapCheck.Stage.NETWORK,()->{rpc.verifyNetwork();return null;});
+        JSONObject response=NativeSwapCheck.at(NativeSwapCheck.Stage.MINT,()->(JSONObject)rpc.request("getAccountInfo",new JSONArray().put(inputMint)
             .put(new JSONObject().put("commitment","confirmed").put("encoding","base64")
-                .put("dataSlice",new JSONObject().put("offset",0).put("length",83))));
-        int decimals=NativeSwapChainState.mint(response.isNull("value")?null:response.getJSONObject("value"));
-        return prepare(new NativeSwapPreparation.Intent(owner.solanaAddress,inputMint,outputMint,NativeSwapAmounts.units(amount,decimals),slippageBps));
+                .put("dataSlice",new JSONObject().put("offset",0).put("length",83)))));
+        int decimals=NativeSwapCheck.at(NativeSwapCheck.Stage.MINT,()->NativeSwapChainState.mint(response.isNull("value")?null:response.getJSONObject("value")));
+        String exact=NativeSwapCheck.at(NativeSwapCheck.Stage.AMOUNT,()->NativeSwapAmounts.units(amount,decimals));
+        return prepare(new NativeSwapPreparation.Intent(owner.solanaAddress,inputMint,outputMint,exact,slippageBps));
     }
     byte[] signReviewed(Draft draft,byte[] entropy,SolanaNativeTransfers.Signer signer,BooleanSupplier foreground) throws Exception {
         synchronized(draft) {

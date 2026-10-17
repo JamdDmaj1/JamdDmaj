@@ -4,6 +4,11 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 public class NativeSwapAmountsTest {
+    @Test public void validatesHumanAmountBeforeMintPrecisionIsKnown() {
+        for(String amount:new String[]{"1","0.000001","0,001","18446744073709551615"})NativeSwapAmounts.requirePositive(amount);
+        for(String amount:new String[]{"","0","0.000","1e3","-1","+1"," 1","1,000.01"})
+            assertThrows(IllegalArgumentException.class,()->NativeSwapAmounts.requirePositive(amount));
+    }
     @Test public void preservesExactSolAndTokenUnits() {
         assertEquals("10000000",NativeSwapAmounts.units("0,01",9));
         assertEquals("1000001",NativeSwapAmounts.units("1.000001",6));

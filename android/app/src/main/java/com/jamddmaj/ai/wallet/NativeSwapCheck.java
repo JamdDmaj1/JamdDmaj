@@ -4,7 +4,7 @@ import java.io.IOException;
 
 /** Fixed diagnostic codes only; never display provider errors or wallet data. */
 final class NativeSwapCheck extends IOException {
-    enum Stage { QUOTE, DECODE, COMPILE, ROUTE, BALANCE, SIMULATION }
+    enum Stage { INTENT, AMOUNT, PENDING, NETWORK, MINT, QUOTE, DECODE, COMPILE, ROUTE, BALANCE, SIMULATION }
     final Stage stage;
     private NativeSwapCheck(Stage stage,Exception cause) {
         super("SWAP_CHECK_"+stage.name(),cause); this.stage=stage;

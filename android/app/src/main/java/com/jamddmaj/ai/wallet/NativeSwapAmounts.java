@@ -5,6 +5,11 @@ import java.math.BigInteger;
 
 /** Converts human token amounts exactly; never rounds up or down. */
 final class NativeSwapAmounts {
+    static void requirePositive(String text) {
+        if(text==null || text.length()>300 || !text.matches("(?:0|[1-9][0-9]*)(?:[.,][0-9]+)?")
+                || new BigDecimal(text.replace(',','.')).signum()<=0)
+            throw new IllegalArgumentException("Enter a positive token amount");
+    }
     static String units(String text,int decimals) {
         if(text==null || text.length()>300 || decimals<0 || decimals>255
                 || !text.matches("(?:0|[1-9][0-9]*)(?:[.,][0-9]+)?")) throw new IllegalArgumentException("Invalid token amount");
