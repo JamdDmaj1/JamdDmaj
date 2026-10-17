@@ -15,6 +15,45 @@ final class NativeSolanaAccounts {
     private final NativeWalletRpc rpc;
     NativeSolanaAccounts() { this(null); }
     NativeSolanaAccounts(NativeWalletRpc.Transport fixture) { rpc = new NativeWalletRpc(WalletNetwork.SOLANA_MAINNET,fixture); }
+    /** Market-account checks only. Funding, PDAs, remaining instructions and
+     * simulated effects must still pass before any signing review can exist. */
+    void verifyPerpsMarketAccounts(NativePerpsTransaction transaction,String asset,int side)throws Exception{
+        if(transaction==null||(side!=1&&side!=2)||!("SOL".equals(asset)||"BTC".equals(asset)||"ETH".equals(asset)))
+            throw new IllegalArgumentException("Invalid perps market intent");
+        SolanaLookupTables.Resolved resolved=resolve(transaction.message);
+        transaction.checkOpeningAccountBindings(resolved);
+        NativePerpsCustody market=readPerpsCustody(asset);
+        NativePerpsCustody collateral=side==1?market:readPerpsCustody("USDC");
+        for(SolanaMessage.Instruction instruction:transaction.message.instructions){
+            if(!NativePerpsCustody.PROGRAM.equals(DevnetSolana.encode(transaction.message.staticKey(instruction.program))))continue;
+            NativePerpsInstructionData data=NativePerpsInstructionData.parse(instruction.data());
+            if(data.kind!=NativePerpsInstructionData.Kind.INCREASE)continue;
+            if(data.side!=side)throw new IllegalArgumentException("Perps side differs from intent");
+            byte[] indexes=instruction.accounts();byte[][] keys=new byte[indexes.length][];
+            for(int i=0;i<indexes.length;i++)keys[i]=resolved.key(indexes[i]&255);
+            market.checkIncreaseAccounts(keys,collateral);
+        }
+    }
+    NativePerpsCustody readPerpsCustody(String asset) throws Exception {
+        String address=NativePerpsCustody.address(asset);
+        rpc.verifyNetwork();
+        BigInteger minimum=NativeWalletBalances.solanaUnits(rpc.request("getSlot",new JSONArray().put(new JSONObject().put("commitment","confirmed"))));
+        JSONObject result=(JSONObject)rpc.request("getAccountInfo",new JSONArray().put(address)
+            .put(new JSONObject().put("commitment","confirmed").put("encoding","base64").put("minContextSlot",minimum)));
+        BigInteger slot=NativeWalletBalances.solanaUnits(result.getJSONObject("context").get("slot"));
+        if(slot.compareTo(minimum)<0)throw new IOException("Stale custody snapshot");
+        JSONObject value=result.getJSONObject("value");
+        if(!(value.get("executable") instanceof Boolean))throw new IOException("Invalid custody flags");
+        JSONArray encoded=value.getJSONArray("data");
+        if(encoded.length()!=2||!"base64".equals(encoded.get(1))||!(encoded.get(0) instanceof String))throw new IOException("Invalid custody encoding");
+        String text=encoded.getString(0);
+        if(text.length()>10924)throw new IOException("Oversized custody account");
+        byte[] bytes=Base64.decode(text,Base64.NO_WRAP);
+        if(!Base64.encodeToString(bytes,Base64.NO_WRAP).equals(text))throw new IOException("Noncanonical custody encoding");
+        NativePerpsCustody custody=NativePerpsCustody.decode(asset,address,value.getString("owner"),value.getBoolean("executable"),bytes);
+        rpc.verifyNetwork();
+        return custody;
+    }
     SolanaLookupTables.Resolved resolve(SolanaMessage message) throws Exception {
         if (message == null) throw new IllegalArgumentException("Message required");
         List<byte[]> keys = new ArrayList<>();

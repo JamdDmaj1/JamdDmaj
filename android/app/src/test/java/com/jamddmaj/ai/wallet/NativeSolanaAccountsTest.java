@@ -87,4 +87,38 @@ public class NativeSolanaAccountsTest {
         Rpc bad = new Rpc(); bad.invalidEncoding = true;
         assertThrows(java.io.IOException.class,() -> new NativeSolanaAccounts(bad).resolve(message()));
     }
+    static final class CustodyRpc implements NativeWalletRpc.Transport {
+        int identities,reads;long slot=100;boolean wrongNetwork,badEncoding;
+        String owner=NativePerpsCustody.PROGRAM;
+        public Object request(String method,JSONArray params)throws Exception{
+            switch(method){
+                case "getGenesisHash":identities++;return wrongNetwork?"wrong":"5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
+                case "getSlot":return 100;
+                case "getAccountInfo":
+                    reads++;
+                    assertEquals(NativePerpsCustody.address("SOL"),params.getString(0));
+                    assertEquals("100",params.getJSONObject(1).get("minContextSlot").toString());
+                    assertEquals("confirmed",params.getJSONObject(1).getString("commitment"));
+                    assertEquals("base64",params.getJSONObject(1).getString("encoding"));
+                    return new JSONObject().put("context",new JSONObject().put("slot",slot))
+                        .put("value",new JSONObject().put("owner",owner).put("executable",false)
+                            .put("data",new JSONArray().put(Base64.encodeToString(NativePerpsCustodyTest.fixture(),Base64.NO_WRAP)).put(badEncoding?"base58":"base64")));
+                default:throw new AssertionError("Unexpected custody RPC method: "+method);
+            }
+        }
+    }
+    @Test public void readsPinnedCustodyFromConfirmedMainnetWithoutSending()throws Exception{
+        CustodyRpc rpc=new CustodyRpc();NativePerpsCustody custody=new NativeSolanaAccounts(rpc).readPerpsCustody("SOL");
+        assertEquals("SOL",custody.asset);assertTrue(custody.allowIncrease);assertEquals(2,rpc.identities);assertEquals(1,rpc.reads);
+    }
+    @Test public void rejectsCustodyNetworkStalenessOwnerAndEncoding()throws Exception{
+        CustodyRpc network=new CustodyRpc();network.wrongNetwork=true;
+        assertThrows(IllegalArgumentException.class,()->new NativeSolanaAccounts(network).readPerpsCustody("SOL"));assertEquals(0,network.reads);
+        CustodyRpc stale=new CustodyRpc();stale.slot=99;
+        assertThrows(java.io.IOException.class,()->new NativeSolanaAccounts(stale).readPerpsCustody("SOL"));
+        CustodyRpc foreign=new CustodyRpc();foreign.owner="11111111111111111111111111111111";
+        assertThrows(IllegalArgumentException.class,()->new NativeSolanaAccounts(foreign).readPerpsCustody("SOL"));
+        CustodyRpc encoding=new CustodyRpc();encoding.badEncoding=true;
+        assertThrows(java.io.IOException.class,()->new NativeSolanaAccounts(encoding).readPerpsCustody("SOL"));
+    }
 }
