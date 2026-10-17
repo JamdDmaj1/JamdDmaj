@@ -17,9 +17,15 @@ final class NativeSolanaAccounts {
     NativeSolanaAccounts(NativeWalletRpc.Transport fixture) { rpc = new NativeWalletRpc(WalletNetwork.SOLANA_MAINNET,fixture); }
     /** Market-account checks only. Funding, PDAs, remaining instructions and
      * simulated effects must still pass before any signing review can exist. */
-    void verifyPerpsMarketAccounts(NativePerpsTransaction transaction,String asset,int side)throws Exception{
-        if(transaction==null||(side!=1&&side!=2)||!("SOL".equals(asset)||"BTC".equals(asset)||"ETH".equals(asset)))
+    void verifyPerpsOrderAccounts(NativePerpsTransaction transaction,NativePerpsOrderIntent intent,long trustedNowSeconds)throws Exception{
+        if(transaction==null||intent==null)
             throw new IllegalArgumentException("Invalid perps market intent");
+        String asset=intent.asset;int side=intent.side;
+        List<NativePerpsInstructionData> orderData=new ArrayList<>();
+        for(SolanaMessage.Instruction instruction:transaction.message.instructions)
+            if(NativePerpsCustody.PROGRAM.equals(DevnetSolana.encode(transaction.message.staticKey(instruction.program))))
+                orderData.add(NativePerpsInstructionData.parse(instruction.data()));
+        intent.checkInstructions(orderData,trustedNowSeconds);
         SolanaLookupTables.Resolved resolved=resolve(transaction.message);
         transaction.checkOpeningAccountBindings(resolved);
         NativePerpsCustody market=readPerpsCustody(asset);
