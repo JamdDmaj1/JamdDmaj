@@ -14,6 +14,14 @@ test('adapter rejects unsupported pairs, stale signals, missing strategy approva
 });
 test('preparation only calls fixed unsigned builder and never enables signing or sends a trade',async()=>{
  const calls=[];const result=await prepareJupiterAutomationSignal(signal(),options(),async(url,config)=>{calls.push({url,config});return new Response(JSON.stringify({positionPubkey:wallet,serializedTxBase64:'AQID',quote:{side:'long'},txMetadata:{blockhash:wallet,lastValidBlockHeight:'100'}}));});
- assert.equal(calls.length,1);assert.equal(calls[0].url,'https://perps-api.jup.ag/v1/positions/increase');assert.equal(result.readyForSigning,false);assert.equal(result.tradingEnabled,false);
+ assert.equal(calls.length,1);assert.equal(calls[0].url,'https://perps-api.jup.ag/v1/positions/increase');assert.equal(calls[0].config.headers['x-perps-api-version'],'v2');assert.equal(result.readyForSigning,false);assert.equal(result.tradingEnabled,false);
  await assert.rejects(prepareJupiterAutomationSignal(signal(),options(),async()=>new Response('{}')),/INVALID_PREPARATION/);
+});
+
+test('provider rejection never enables signing or retries an order',async()=>{
+ let calls=0;
+ await assert.rejects(prepareJupiterAutomationSignal(signal(),options(),async()=>{
+   calls++;return new Response(JSON.stringify({code:422,message:'Insufficient funds'}),{status:422});
+ }),/JUPITER_PREPARATION_REJECTED/);
+ assert.equal(calls,1);
 });
