@@ -34,6 +34,7 @@ final class NativePerpsService {
     private final Accounts accounts;
     private final NativeSwapService.Clock clock;
     private boolean used;
+    private Analysis current;
     NativePerpsService(){this(new Live());}
     private NativePerpsService(Live live){this(live::prepare,new NativeSolanaAccounts()::verifyPerpsOrderAccounts,live.clock);}
     NativePerpsService(Transport transport,Accounts accounts,NativeSwapService.Clock clock){
@@ -66,7 +67,15 @@ final class NativePerpsService {
         // Deliberately cannot produce a NativeSwapReview or a signing token.
         // All other instructions, funding/effects and counter-signing remain
         // separate mandatory gates before a perps signing path can be added.
-        return new Analysis(transaction,intent,payer,height,expires);
+        current=new Analysis(transaction,intent,payer,height,expires);return current;
+    }
+    NativePerpsSimulation.Result simulate(Analysis analysis)throws Exception{return simulate(analysis,new NativePerpsSimulation());}
+    synchronized NativePerpsSimulation.Result simulate(Analysis analysis,NativePerpsSimulation simulator)throws Exception{
+        if(analysis==null||analysis!=current||simulator==null||clock.wall()>=analysis.expiresAt)throw new IOException("Missing or expired perps analysis");
+        NativePerpsSimulation.Result result=simulator.inspect(analysis.transaction,analysis.intent,analysis.payer,analysis.lastValidBlockHeight);
+        if(!result.matches(analysis.transaction)||clock.wall()>=analysis.expiresAt)throw new IOException("Perps simulation differs or expired");
+        result.checkPositionChange(analysis.transaction,analysis.intent,analysis.payer);
+        return result;
     }
     static JSONObject body(String payer,NativePerpsOrderIntent intent)throws Exception{
         DevnetSolana.decode(payer,32);if(intent==null)throw new IllegalArgumentException("Missing native order intent");

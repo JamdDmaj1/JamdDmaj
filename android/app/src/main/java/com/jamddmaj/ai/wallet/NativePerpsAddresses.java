@@ -8,11 +8,14 @@ import java.util.Arrays;
 final class NativePerpsAddresses {
     private NativePerpsAddresses(){}
     static byte[] position(String owner,String asset,int side){
+        return positionDerivation(owner,asset,side).key();
+    }
+    static SolanaProgramAddress.Derived positionDerivation(String owner,String asset,int side){
         if((side!=1&&side!=2)||!("SOL".equals(asset)||"BTC".equals(asset)||"ETH".equals(asset)))throw invalid();
         return SolanaProgramAddress.find(NativePerpsCustody.PROGRAM,Arrays.asList(
             "position".getBytes(StandardCharsets.US_ASCII),DevnetSolana.decode(owner,32),
             DevnetSolana.decode(NativePerpsCustody.POOL,32),DevnetSolana.decode(NativePerpsCustody.address(asset),32),
-            DevnetSolana.decode(NativePerpsCustody.address(side==1?asset:"USDC"),32),new byte[]{(byte)side})).key();
+            DevnetSolana.decode(NativePerpsCustody.address(side==1?asset:"USDC"),32),new byte[]{(byte)side}));
     }
     static byte[] exitRequest(byte[] position,BigInteger counter){
         if(position==null||position.length!=32||counter==null||counter.signum()<0||counter.bitLength()>64)throw invalid();

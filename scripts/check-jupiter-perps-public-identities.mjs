@@ -4,7 +4,8 @@ import { getAddressEncoder, getAddressDecoder, getTransactionDecoder, getCompile
 
 // Read-only diagnostic: builder preparation and public RPC reads ONLY. Never
 // signs, calls an execution endpoint, or uses a transaction as authorization.
-const [java, classpath, wallet] = process.argv.slice(2);
+const [java, classpath, wallet, mode] = process.argv.slice(2);
+if (mode !== undefined && mode !== '--simulate') throw new Error('Unknown diagnostic mode');
 const encode = getAddressEncoder().encode, decode = getAddressDecoder().decode;
 if (!java || !classpath || !wallet) throw new Error('Provide java, checker classpath, public wallet address');
 encode(wallet);
@@ -57,3 +58,36 @@ const checked = spawnSync(java, ['-cp', classpath, 'com.jamddmaj.ai.wallet.Solan
 if (checked.error || checked.status !== 0) throw checked.error || new Error(checked.stderr);
 assert.deepEqual(checked.stdout.trim().split(/\r?\n/).map((line) => line.split(':')[0]), actual);
 console.log('Live Jupiter preparation: native position and both exit-request PDAs match. Funding, simulation and execution NOT approved. Signed=false submitted=false.');
+if (mode === '--simulate') {
+  async function rpc(method, params) {
+    const reply = await post('https://api.mainnet-beta.solana.com', { jsonrpc: '2.0', id: 1, method, params });
+    assert.equal(reply.error, undefined); return reply.result;
+  }
+  const height = await rpc('getBlockHeight', [{ commitment: 'confirmed' }]);
+  assert.ok(BigInt(height) <= BigInt(prepared.txMetadata.lastValidBlockHeight));
+  const transaction = getTransactionDecoder().decode(Buffer.from(prepared.serializedTxBase64, 'base64'));
+  const fee = await rpc('getFeeForMessage', [Buffer.from(transaction.messageBytes).toString('base64'), { commitment: 'confirmed' }]);
+  assert.ok(fee.value > 0 && fee.value <= 1000000);
+  const watched = [...new Set([wallet, actual[0], ...actual.slice(1)])];
+  const before = await rpc('getMultipleAccounts', [watched, { commitment: 'confirmed', encoding: 'base64' }]);
+  const simulation = await rpc('simulateTransaction', [prepared.serializedTxBase64, {
+    encoding: 'base64', commitment: 'confirmed', sigVerify: false, replaceRecentBlockhash: false,
+    minContextSlot: before.context.slot, accounts: { encoding: 'base64', addresses: watched },
+  }]);
+  assert.equal(simulation.value.err, null, `Unsigned simulation failed: ${JSON.stringify(simulation.value.err)}`);
+  assert.ok(simulation.value.unitsConsumed > 0 && simulation.value.unitsConsumed <= 1400000);
+  assert.equal(simulation.value.accounts.length, watched.length);
+  const position = simulation.value.accounts[1]; assert.equal(position.owner, program); assert.equal(position.executable, false);
+  const data = Buffer.from(position.data[0], 'base64');
+  const nativePosition = spawnSync(java, ['-cp', classpath, 'com.jamddmaj.ai.wallet.NativePerpsPositionCheck',
+    actual[0], wallet, 'SOL', '1', position.owner, String(position.executable), position.data[0]], { encoding: 'utf8', timeout: 30000 });
+  if (nativePosition.error || nativePosition.status !== 0) throw nativePosition.error || new Error(nativePosition.stderr);
+  console.log(nativePosition.stdout.trim());
+  console.log(JSON.stringify({
+    diagnosticInputToken: 'SOL', productionUsdcFundingVerified: false, slot: simulation.context.slot,
+    feeLamports: fee.value, unitsConsumed: simulation.value.unitsConsumed,
+    existingPosition: before.value[1] !== null, simulatedPositionPrefixHex: data.subarray(0, 210).toString('hex'),
+    simulatedSizeUsdUnits: data.readBigUInt64LE(161).toString(), simulatedCollateralUsdUnits: data.readBigUInt64LE(169).toString(),
+    signedByUser: false, submitted: false, tradingApproved: false,
+  }));
+}

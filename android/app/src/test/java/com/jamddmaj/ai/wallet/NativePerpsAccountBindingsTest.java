@@ -28,7 +28,7 @@ public class NativePerpsAccountBindingsTest {
         byte[][] open=keys();rejects(open,null);rejects(open,new byte[19][32]);
         byte[][] exit=exit(open);exit[3]=new byte[31];rejects(open,exit);
     }
-    private static SolanaMessage transaction(boolean reverse,boolean wrongOwner,boolean wrongPosition,boolean duplicateOpen){
+    static SolanaMessage transaction(boolean reverse,boolean wrongOwner,boolean wrongPosition,boolean duplicateOpen){
         java.io.ByteArrayOutputStream out=new java.io.ByteArrayOutputStream();
         out.writeBytes(new byte[]{3,2,1,25});
         for(int i=0;i<25;i++)out.writeBytes(i==19?DevnetSolana.decode("PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu",32):key(i));
