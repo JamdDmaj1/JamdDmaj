@@ -84,11 +84,11 @@ final class NativeSwapService {
     }
     private Preview inspect(Candidate candidate,long start) throws Exception {
         if(clock.wall()>=candidate.preparation.expiresAt) throw new IOException("Swap preview expired; request a new quote");
-        SolanaLookupTables.Resolved resolved=accounts.resolve(candidate.message);
-        NativeJupiterRoute route=NativeJupiterRoute.inspect(candidate.message,resolved,candidate.preparation);
-        NativeSwapSetup setup=NativeSwapSetup.inspect(candidate.message,resolved,route,candidate.preparation,tokenAddresses);
-        NativeSwapChainState.Result balances=chainState.inspect(candidate.message,resolved,candidate.preparation,route,setup);
-        NativeSwapSimulation.Result result=simulation.inspect(candidate.message,candidate.preparation,route,balances);
+        SolanaLookupTables.Resolved resolved=NativeSwapCheck.at(NativeSwapCheck.Stage.COMPILE,()->accounts.resolve(candidate.message));
+        NativeJupiterRoute route=NativeSwapCheck.at(NativeSwapCheck.Stage.ROUTE,()->NativeJupiterRoute.inspect(candidate.message,resolved,candidate.preparation));
+        NativeSwapSetup setup=NativeSwapCheck.at(NativeSwapCheck.Stage.ROUTE,()->NativeSwapSetup.inspect(candidate.message,resolved,route,candidate.preparation,tokenAddresses));
+        NativeSwapChainState.Result balances=NativeSwapCheck.at(NativeSwapCheck.Stage.BALANCE,()->chainState.inspect(candidate.message,resolved,candidate.preparation,route,setup));
+        NativeSwapSimulation.Result result=NativeSwapCheck.at(NativeSwapCheck.Stage.SIMULATION,()->simulation.inspect(candidate.message,candidate.preparation,route,balances));
         if(balances.solBalance.compareTo(setup.wrappedSol.add(result.fee))<0) throw new IOException("Insufficient SOL including swap fee");
         long elapsed=clock.elapsed()-start;
         if (!result.matches(candidate.message) || elapsed<0 || elapsed>15000 || clock.wall()>=candidate.preparation.expiresAt)
@@ -98,8 +98,9 @@ final class NativeSwapService {
     Candidate prepare(NativeSwapPreparation.Intent intent) throws Exception {
         if (intent==null) throw new IllegalArgumentException("Swap intent required");
         long start=clock.elapsed();
-        NativeSwapPreparation preparation=NativeSwapPreparation.parse(transport.request(intent),intent,clock.wall());
-        SolanaMessage message=preparation.compile(accounts,clock.wall());
+        JSONObject envelope=NativeSwapCheck.at(NativeSwapCheck.Stage.QUOTE,()->transport.request(intent));
+        NativeSwapPreparation preparation=NativeSwapCheck.at(NativeSwapCheck.Stage.DECODE,()->NativeSwapPreparation.parse(envelope,intent,clock.wall()));
+        SolanaMessage message=NativeSwapCheck.at(NativeSwapCheck.Stage.COMPILE,()->preparation.compile(accounts,clock.wall()));
         long duration=clock.elapsed()-start;
         if (duration<0 || duration>15000 || clock.wall()>=preparation.expiresAt)
             throw new IOException("Swap preparation expired; request a new quote");
