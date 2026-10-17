@@ -35,8 +35,10 @@ final class NativePerpsService {
         final NativePerpsSimulation.Result simulation;
         final NativePerpsPosition position;
         final NativePerpsFunding funding;
-        private Evidence(NativePerpsSimulation.Result simulation,NativePerpsPosition position,NativePerpsFunding funding){
+        final java.util.List<NativePerpsExitRequest> exits;
+        private Evidence(NativePerpsSimulation.Result simulation,NativePerpsPosition position,NativePerpsFunding funding,java.util.List<NativePerpsExitRequest> exits){
             this.simulation=simulation;this.position=position;this.funding=funding;
+            this.exits=exits;
         }
     }
     private final Transport transport;
@@ -84,9 +86,10 @@ final class NativePerpsService {
         NativePerpsSimulation.Result result=simulator.inspect(analysis.transaction,analysis.intent,analysis.payer,analysis.lastValidBlockHeight);
         if(!result.matches(analysis.transaction)||clock.wall()>=analysis.expiresAt)throw new IOException("Perps simulation differs or expired");
         NativePerpsPosition position=result.checkPositionChange(analysis.transaction,analysis.intent,analysis.payer);
+        java.util.List<NativePerpsExitRequest> exits=result.checkExitRequests(analysis.transaction,analysis.intent,analysis.payer);
         NativePerpsFunding funding=simulator.checkFunding(result,analysis.transaction,analysis.intent,analysis.payer);
         if(clock.wall()>=analysis.expiresAt)throw new IOException("Perps funding evidence expired");
-        return new Evidence(result,position,funding);
+        return new Evidence(result,position,funding,exits);
     }
     static JSONObject body(String payer,NativePerpsOrderIntent intent)throws Exception{
         DevnetSolana.decode(payer,32);if(intent==null)throw new IllegalArgumentException("Missing native order intent");

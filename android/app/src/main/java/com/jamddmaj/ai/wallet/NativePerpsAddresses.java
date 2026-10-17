@@ -18,11 +18,14 @@ final class NativePerpsAddresses {
             DevnetSolana.decode(NativePerpsCustody.address(side==1?asset:"USDC"),32),new byte[]{(byte)side}));
     }
     static byte[] exitRequest(byte[] position,BigInteger counter){
+        return exitDerivation(position,counter).key();
+    }
+    static SolanaProgramAddress.Derived exitDerivation(byte[] position,BigInteger counter){
         if(position==null||position.length!=32||counter==null||counter.signum()<0||counter.bitLength()>64)throw invalid();
         byte[] little=new byte[8];BigInteger remaining=counter;
         for(int i=0;i<8;i++){little[i]=remaining.byteValue();remaining=remaining.shiftRight(8);}
         return SolanaProgramAddress.find(NativePerpsCustody.PROGRAM,Arrays.asList(
-            "position_request".getBytes(StandardCharsets.US_ASCII),position,little,new byte[]{2})).key();
+            "position_request".getBytes(StandardCharsets.US_ASCII),position,little,new byte[]{2}));
     }
     private static IllegalArgumentException invalid(){return new IllegalArgumentException("Invalid perps address intent");}
 }

@@ -79,6 +79,14 @@ if (mode === '--simulate') {
   assert.equal(simulation.value.accounts.length, watched.length);
   const position = simulation.value.accounts[1]; assert.equal(position.owner, program); assert.equal(position.executable, false);
   const data = Buffer.from(position.data[0], 'base64');
+  for (let i = 0; i < exits.length; i++) {
+    const request = simulation.value.accounts[i + 2];
+    assert.equal(request.owner, program); assert.equal(request.executable, false);
+    const checkedExit = spawnSync(java, ['-cp', classpath, 'com.jamddmaj.ai.wallet.NativePerpsExitRequestCheck',
+      actual[i + 1], wallet, 'SOL', '1', request.owner, String(request.executable), request.data[0], Buffer.from(exits[i].data).toString('base64')], { encoding: 'utf8', timeout: 30000 });
+    if (checkedExit.error || checkedExit.status !== 0) throw checkedExit.error || new Error(checkedExit.stderr);
+    console.log(checkedExit.stdout.trim());
+  }
   const nativePosition = spawnSync(java, ['-cp', classpath, 'com.jamddmaj.ai.wallet.NativePerpsPositionCheck',
     actual[0], wallet, 'SOL', '1', position.owner, String(position.executable), position.data[0]], { encoding: 'utf8', timeout: 30000 });
   if (nativePosition.error || nativePosition.status !== 0) throw nativePosition.error || new Error(nativePosition.stderr);

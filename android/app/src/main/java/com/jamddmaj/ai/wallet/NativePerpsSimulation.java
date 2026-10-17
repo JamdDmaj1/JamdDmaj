@@ -46,6 +46,22 @@ final class NativePerpsSimulation {
             this.keys=keys;this.source=source;
         }
         boolean matches(NativePerpsTransaction candidate){return candidate!=null&&Arrays.equals(transaction,candidate.bytes());}
+        List<NativePerpsExitRequest> checkExitRequests(NativePerpsTransaction candidate,NativePerpsOrderIntent intent,String payer)throws Exception{
+            if(!matches(candidate)||intent==null)throw invalid("Exit evidence differs from transaction");
+            List<NativePerpsExitRequest> exits=new ArrayList<>();
+            for(SolanaMessage.Instruction instruction:candidate.message.instructions){
+                if(!NativePerpsCustody.PROGRAM.equals(DevnetSolana.encode(keys.key(instruction.program))))continue;
+                NativePerpsInstructionData data=NativePerpsInstructionData.parse(instruction.data());
+                if(data.kind!=NativePerpsInstructionData.Kind.TPSL)continue;
+                byte[] indexes=instruction.accounts();if(indexes.length!=20)throw invalid("Invalid exit state roles");
+                String address=role(this,indexes,7);Account old=before.get(address),next=after.get(address);
+                if(!before.containsKey(address)||next==null||(old!=null&&!(NativePerpsFunding.SYSTEM.equals(old.owner)&&!old.executable&&old.lamports.signum()==0&&old.data.length==0)))
+                    throw invalid("Exit request already exists or simulation omitted it");
+                exits.add(NativePerpsExitRequest.check(address,next.owner,next.executable,next.data(),payer,intent.asset,intent.side,data));
+            }
+            if(exits.size()!=(intent.stopLoss==null?0:1)+(intent.takeProfit==null?0:1))throw invalid("Missing simulated protection request");
+            return Collections.unmodifiableList(exits);
+        }
         NativePerpsPosition checkPositionChange(NativePerpsTransaction candidate,NativePerpsOrderIntent intent,String payer)throws Exception{
             if(!matches(candidate)||intent==null)throw invalid("Position evidence differs from transaction");
             String address=DevnetSolana.encode(NativePerpsAddresses.position(payer,intent.asset,intent.side));
