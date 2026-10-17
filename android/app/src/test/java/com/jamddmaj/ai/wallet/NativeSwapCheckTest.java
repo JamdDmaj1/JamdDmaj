@@ -15,6 +15,10 @@ public class NativeSwapCheckTest {
             }));
             assertEquals("SWAP_CHECK_"+stage.name(),NativeSwapCheck.publicCode(failure));
             assertFalse(NativeSwapCheck.publicCode(failure).contains("private-provider-detail"));
+            for(boolean spanish:new boolean[]{true,false}) {
+                String message=NativeSwapCheck.describe(failure,spanish);
+                assertFalse(message.isEmpty());assertFalse(message.contains("private-provider-detail"));
+            }
         }
         assertEquals("SWAP_CHECK_PREPARATION",NativeSwapCheck.publicCode(new Exception("private")));
     }

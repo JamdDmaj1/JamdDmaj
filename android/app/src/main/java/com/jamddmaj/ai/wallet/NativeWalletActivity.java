@@ -318,7 +318,7 @@ public final class NativeWalletActivity extends Activity {
                 WalletReviewDialog.show(this,text("Revisar intercambio","Review swap"),message,text("Confirmar con huella","Confirm with biometrics"),
                     ()->authorizeSwap(profile,service,draft,ticket),text("Cancelar","Cancel"),()->lock());
             });
-        }catch(Exception failure){String check=NativeSwapCheck.publicCode(failure);runOnUiThread(()->{if(ticket==epoch)status.setText(text("No se pudo preparar el intercambio. Revisa tokens, cantidad, saldo y operaciones pendientes; también puede haber caducado la cotización o no estar disponible el servicio. No se envió esta solicitud.","Could not prepare swap. Check tokens, amount, funds and pending operations; the quote may also have expired or the service may be unavailable. This request was not sent.")+"\n"+check);});}});
+        }catch(Exception failure){String check=NativeSwapCheck.publicCode(failure),explanation=NativeSwapCheck.describe(failure,es);runOnUiThread(()->{if(ticket==epoch)status.setText(explanation+"\n"+text("Esta solicitud no se firmó ni se envió.","This request was not signed or submitted.")+"\n"+check);});}});
     }
     private void authorizeSwap(NativeWalletProfiles.Profile profile,NativeSwapTransfers service,NativeSwapTransfers.Draft draft,long ticket){
         if(ticket!=epoch)return;
