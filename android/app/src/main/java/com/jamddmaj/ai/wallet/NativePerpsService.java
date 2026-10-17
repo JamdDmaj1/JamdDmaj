@@ -30,6 +30,15 @@ final class NativePerpsService {
             this.transaction=transaction;this.intent=intent;this.payer=payer;this.lastValidBlockHeight=height;this.expiresAt=expiresAt;
         }
     }
+    /** Simulation facts only: not a signing token or execution permission. */
+    static final class Evidence {
+        final NativePerpsSimulation.Result simulation;
+        final NativePerpsPosition position;
+        final NativePerpsFunding funding;
+        private Evidence(NativePerpsSimulation.Result simulation,NativePerpsPosition position,NativePerpsFunding funding){
+            this.simulation=simulation;this.position=position;this.funding=funding;
+        }
+    }
     private final Transport transport;
     private final Accounts accounts;
     private final NativeSwapService.Clock clock;
@@ -69,13 +78,15 @@ final class NativePerpsService {
         // separate mandatory gates before a perps signing path can be added.
         current=new Analysis(transaction,intent,payer,height,expires);return current;
     }
-    NativePerpsSimulation.Result simulate(Analysis analysis)throws Exception{return simulate(analysis,new NativePerpsSimulation());}
-    synchronized NativePerpsSimulation.Result simulate(Analysis analysis,NativePerpsSimulation simulator)throws Exception{
+    Evidence simulate(Analysis analysis)throws Exception{return simulate(analysis,new NativePerpsSimulation());}
+    synchronized Evidence simulate(Analysis analysis,NativePerpsSimulation simulator)throws Exception{
         if(analysis==null||analysis!=current||simulator==null||clock.wall()>=analysis.expiresAt)throw new IOException("Missing or expired perps analysis");
         NativePerpsSimulation.Result result=simulator.inspect(analysis.transaction,analysis.intent,analysis.payer,analysis.lastValidBlockHeight);
         if(!result.matches(analysis.transaction)||clock.wall()>=analysis.expiresAt)throw new IOException("Perps simulation differs or expired");
-        result.checkPositionChange(analysis.transaction,analysis.intent,analysis.payer);
-        return result;
+        NativePerpsPosition position=result.checkPositionChange(analysis.transaction,analysis.intent,analysis.payer);
+        NativePerpsFunding funding=simulator.checkFunding(result,analysis.transaction,analysis.intent,analysis.payer);
+        if(clock.wall()>=analysis.expiresAt)throw new IOException("Perps funding evidence expired");
+        return new Evidence(result,position,funding);
     }
     static JSONObject body(String payer,NativePerpsOrderIntent intent)throws Exception{
         DevnetSolana.decode(payer,32);if(intent==null)throw new IllegalArgumentException("Missing native order intent");

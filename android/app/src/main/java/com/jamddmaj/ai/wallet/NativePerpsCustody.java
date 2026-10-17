@@ -23,6 +23,7 @@ final class NativePerpsCustody {
         maxLeverageBps=new BigInteger(1,big);
     }
     static String address(String asset){return identity(asset)[0];}
+    static String mint(String asset){return identity(asset)[1];}
     void checkIncreaseAccounts(byte[][] keys,NativePerpsCustody collateral){
         if(keys==null||keys.length!=20||collateral==null||!allowIncrease||!collateral.allowIncrease)throw invalid();
         for(byte[] key:keys)if(key==null||key.length!=32)throw invalid();

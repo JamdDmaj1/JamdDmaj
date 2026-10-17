@@ -38,9 +38,12 @@ final class NativePerpsSimulation {
         final BigInteger fee,unitsConsumed,slot;
         final Map<String,Account> before,after;
         private final byte[] transaction;
-        private Result(BigInteger fee,BigInteger units,BigInteger slot,Map<String,Account> before,Map<String,Account> after,byte[] transaction){
+        private final SolanaLookupTables.Resolved keys;
+        private final String source;
+        private Result(BigInteger fee,BigInteger units,BigInteger slot,Map<String,Account> before,Map<String,Account> after,byte[] transaction,SolanaLookupTables.Resolved keys,String source){
             this.fee=fee;unitsConsumed=units;this.slot=slot;this.before=Collections.unmodifiableMap(new LinkedHashMap<>(before));
             this.after=Collections.unmodifiableMap(new LinkedHashMap<>(after));this.transaction=transaction.clone();
+            this.keys=keys;this.source=source;
         }
         boolean matches(NativePerpsTransaction candidate){return candidate!=null&&Arrays.equals(transaction,candidate.bytes());}
         NativePerpsPosition checkPositionChange(NativePerpsTransaction candidate,NativePerpsOrderIntent intent,String payer)throws Exception{
@@ -76,7 +79,8 @@ final class NativePerpsSimulation {
         transaction.checkOpeningAccountBindings(keys);
         LinkedHashSet<String> watched=new LinkedHashSet<>();
         for(int i=0;i<transaction.message.accountCount;i++)if(transaction.message.isWritable(i))watched.add(DevnetSolana.encode(keys.key(i)));
-        watched.add(deriver.associated(payer,NativeSolanaTokens.USDC,SplTokenAccount.PROGRAM));
+        String source=deriver.associated(payer,NativeSolanaTokens.USDC,SplTokenAccount.PROGRAM);
+        watched.add(source);
         if(watched.size()>100)throw invalid("Too many simulation accounts");
         List<String> addresses=new ArrayList<>(watched);JSONArray addressJson=new JSONArray();for(String address:addresses)addressJson.put(address);
         rpc.verifyNetwork();
@@ -102,7 +106,59 @@ final class NativePerpsSimulation {
         long elapsed=SystemClock.elapsedRealtime()-started;if(elapsed<0||elapsed>30000)throw invalid("Perps simulation expired");
         // Returning these snapshots does NOT establish acceptable funding,
         // instruction side effects, fees or resulting position state.
-        return new Result(fee,consumed,slot,before,after,transaction.bytes());
+        return new Result(fee,consumed,slot,before,after,transaction.bytes(),keys,source);
+    }
+    NativePerpsFunding checkFunding(Result result,NativePerpsTransaction transaction,NativePerpsOrderIntent intent,String payer)throws Exception{
+        if(result==null||!result.matches(transaction)||intent==null)throw invalid("Funding evidence differs from transaction");
+        long start=SystemClock.elapsedRealtime();
+        Map<String,NativePerpsFunding.State> before=fundingStates(result.before),after=fundingStates(result.after);
+        Map<String,NativePerpsFunding.Rent> rents=new LinkedHashMap<>();
+        Map<String,String> closures=new LinkedHashMap<>();
+        String position=DevnetSolana.encode(NativePerpsAddresses.position(payer,intent.asset,intent.side));
+        String collateralMint=NativePerpsCustody.mint(intent.side==1?intent.asset:"USDC");
+        String collateralAccount=deriver.associated(payer,collateralMint,SplTokenAccount.PROGRAM);
+        for(SolanaMessage.Instruction instruction:transaction.message.instructions){
+            if(!NativePerpsCustody.PROGRAM.equals(DevnetSolana.encode(result.keys.key(instruction.program))))continue;
+            byte[] indexes=instruction.accounts();if(indexes.length!=20)throw invalid("Invalid funding roles");
+            NativePerpsInstructionData data=NativePerpsInstructionData.parse(instruction.data());
+            String actualPosition=role(result,indexes,6);
+            if(!position.equals(actualPosition))throw invalid("Funding position mismatch");
+            addRent(result,rents,position,NativePerpsCustody.PROGRAM,null,null);
+            if(data.kind==NativePerpsInstructionData.Kind.INCREASE){
+                String funding=role(result,indexes,3);
+                if(intent.side==2&&!result.source.equals(funding))throw invalid("Short funding must use native USDC account");
+                if(collateralAccount.equals(funding)&&!funding.equals(result.source)){
+                    if(!NativePerpsFunding.closed(after.get(funding)))addRent(result,rents,funding,SplTokenAccount.PROGRAM,payer,collateralMint);
+                    closures.put(funding,collateralMint);
+                }
+            }else if(data.kind==NativePerpsInstructionData.Kind.TPSL){
+                String request=DevnetSolana.encode(NativePerpsAddresses.exitRequest(DevnetSolana.decode(position,32),data.counter));
+                String requestToken=deriver.associated(request,NativeSolanaTokens.USDC,SplTokenAccount.PROGRAM);
+                if(!request.equals(role(result,indexes,7))||!requestToken.equals(role(result,indexes,8))
+                        ||!result.source.equals(role(result,indexes,3))||!NativeSolanaTokens.USDC.equals(role(result,indexes,13)))throw invalid("Exit funding destination mismatch");
+                addRent(result,rents,request,NativePerpsCustody.PROGRAM,null,null);
+                addRent(result,rents,requestToken,SplTokenAccount.PROGRAM,request,NativeSolanaTokens.USDC);
+            }else throw invalid("Unsupported funding instruction");
+        }
+        NativePerpsFunding funding=NativePerpsFunding.inspect(payer,result.source,intent.marginUsd,result.fee,before,after,rents,closures);
+        rpc.verifyNetwork();long elapsed=SystemClock.elapsedRealtime()-start;
+        if(elapsed<0||elapsed>15000)throw invalid("Funding evidence expired");
+        return funding;
+    }
+    private void addRent(Result result,Map<String,NativePerpsFunding.Rent> rents,String address,String program,String owner,String mint)throws Exception{
+        if(rents.containsKey(address))return;
+        Account account=result.after.get(address);
+        if(!result.before.containsKey(address)||account==null)throw invalid("Missing expected rent account");
+        BigInteger minimum=units(rpc.request("getMinimumBalanceForRentExemption",new JSONArray().put(account.data.length).put(confirmed())));
+        rents.put(address,new NativePerpsFunding.Rent(program,minimum,owner,mint));
+    }
+    private static String role(Result result,byte[] indexes,int role){return DevnetSolana.encode(result.keys.key(indexes[role]&255));}
+    private static Map<String,NativePerpsFunding.State> fundingStates(Map<String,Account> snapshot){
+        Map<String,NativePerpsFunding.State> result=new LinkedHashMap<>();
+        for(Map.Entry<String,Account> entry:snapshot.entrySet()){
+            Account account=entry.getValue();result.put(entry.getKey(),account==null?null:new NativePerpsFunding.State(account.owner,account.executable,account.lamports,account.data()));
+        }
+        return result;
     }
     private void requireHeight(BigInteger lastValid,BigInteger minimum)throws Exception{
         BigInteger height=units(rpc.request("getBlockHeight",new JSONArray().put(confirmed().put("minContextSlot",minimum))));
