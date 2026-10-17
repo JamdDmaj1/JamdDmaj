@@ -11,14 +11,27 @@ import static org.junit.Assert.*;
 @Config(sdk=30)
 public class NativeSwapPreparationTest {
     @Test public void decodesCapturedProductionResponseWithActualAndroidJsonTypes() throws Exception {
+        replayProductionResponse("/live-swap-preparation.json",
+            "So11111111111111111111111111111111111111112",
+            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v","1000000");
+    }
+    @Test public void decodesTwentyUsdcToSolProductionResponseWithoutSigningOrFunds() throws Exception {
+        replayProductionResponse("/live-swap-usdc-to-sol.json",
+            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+            "So11111111111111111111111111111111111111112","20000000");
+    }
+    private void replayProductionResponse(String resource,String inputMint,String outputMint,String amount) throws Exception {
         // Public unsigned provider response captured on 2026-10-17. Replay at its
         // original time, never send it or treat this historical quote as current.
         String raw;
-        try(java.io.InputStream input=getClass().getResourceAsStream("/live-swap-preparation.json")) {
+        try(java.io.InputStream input=getClass().getResourceAsStream(resource)) {
             assertNotNull(input);
             raw=new String(input.readAllBytes(),java.nio.charset.StandardCharsets.UTF_8);
         }
         JSONObject envelope=new JSONObject(raw),body=envelope.getJSONObject("preparation");
+        assertEquals(inputMint,body.getString("inputMint"));
+        assertEquals(outputMint,body.getString("outputMint"));
+        assertEquals(amount,body.getString("inAmount"));
         var intent=new NativeSwapPreparation.Intent(body.getString("taker"),body.getString("inputMint"),
             body.getString("outputMint"),body.getString("inAmount"),body.getInt("slippageBps"));
         var decoded=NativeSwapPreparation.parse(envelope,intent,body.getLong("receivedAt")+1);
