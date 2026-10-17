@@ -20,7 +20,7 @@ final class NativeSwapEffects {
         BigInteger sol=NativeSwapChainState.lamports(payer),input=new BigInteger(preparation.intent.amount);
         boolean nativeInput=NativeSwapSetup.SOL.equals(preparation.intent.inputMint),nativeOutput=NativeSwapSetup.SOL.equals(preparation.intent.outputMint);
         BigInteger sourceRent=BigInteger.ZERO,destinationRent=BigInteger.ZERO;
-        if(nativeInput) { if(source!=null) throw invalid(); }
+        if(nativeInput) { if(!closed(source)) throw invalid(); }
         else {
             BigInteger remaining=NativeSwapChainState.token(source,preparation.intent.payer,preparation.intent.inputMint,false);
             if(!before.sourceBalance.subtract(remaining).equals(input)) throw invalid();
@@ -28,7 +28,7 @@ final class NativeSwapEffects {
         }
         BigInteger received;
         if(nativeOutput) {
-            if(destination!=null) throw invalid();
+            if(!closed(destination)) throw invalid();
             received=sol.subtract(before.solBalance).add(fee).add(sourceRent).subtract(before.destinationLamports);
         } else {
             received=NativeSwapChainState.token(destination,preparation.intent.payer,preparation.intent.outputMint,false).subtract(before.destinationBalance);
@@ -39,6 +39,13 @@ final class NativeSwapEffects {
         }
         if(received.compareTo(preparation.minimumOut)<0) throw invalid();
         return new NativeSwapEffects(received,sol.subtract(before.solBalance),sourceRent.add(destinationRent));
+    }
+    private static boolean closed(JSONObject account) throws Exception {
+        // RPC simulations may retain a tombstone for an account closed in this transaction.
+        return account==null || (NativeSwapSetup.SYSTEM.equals(account.get("owner"))
+            && Boolean.FALSE.equals(account.get("executable"))
+            && NativeSwapChainState.lamports(account).signum()==0
+            && NativeSwapChainState.data(account).length==0);
     }
     private static BigInteger rent(BigInteger before,BigInteger after,BigInteger minimum) throws IOException {
         if(before.signum()==0) { if(!after.equals(minimum)) throw invalid(); return after; }

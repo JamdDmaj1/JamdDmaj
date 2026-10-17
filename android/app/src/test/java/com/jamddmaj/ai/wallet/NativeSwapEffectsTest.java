@@ -97,6 +97,30 @@ public class NativeSwapEffectsTest {
         after.getJSONObject(0).put("lamports",987955719L);
         assertThrows(java.io.IOException.class,()->nativeEffect(true,after));
     }
+    static JSONObject closedAccount() throws Exception {
+        return new JSONObject().put("lamports",0).put("owner",NativeSwapSetup.SYSTEM).put("executable",false)
+            .put("data",new JSONArray().put("").put("base64"));
+    }
+    @Test public void acceptsStrictClosedAccountTombstonesForBothDirections() throws Exception {
+        JSONArray input=post(987955720L,0,1184627);
+        input.put(1,closedAccount());
+        input.getJSONObject(2).put("lamports",2039280);
+        assertEquals(BigInteger.valueOf(1184627),nativeEffect(true,input).output);
+        JSONArray output=post(1001179627L,0,0);
+        output.put(2,closedAccount());
+        assertEquals(BigInteger.valueOf(1184627),nativeEffect(false,output).output);
+        for(String field:new String[]{"lamports","owner","executable","data"}) {
+            JSONObject bad=closedAccount();
+            if(field.equals("lamports")) bad.put(field,1);
+            if(field.equals("owner")) bad.put(field,NativeJupiterRoute.TOKEN);
+            if(field.equals("executable")) bad.put(field,true);
+            if(field.equals("data")) bad.put(field,new JSONArray().put("AA==").put("base64"));
+            input.put(1,bad);
+            assertThrows(java.io.IOException.class,()->nativeEffect(true,input));
+            output.put(2,bad);
+            assertThrows(java.io.IOException.class,()->nativeEffect(false,output));
+        }
+    }
     @Test public void solOutputIsNetOfFeeAndRequiresClosedDestination() throws Exception {
         JSONArray after=post(1001179627L,0,0);
         after.put(2,JSONObject.NULL);
