@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {exactUsdUnits,planJupiterAutomationSignal,prepareJupiterAutomationSignal} from '../lib/jupiter-perps-automation.js';
+import {exactUsdUnits,planJupiterAutomationSignal,prepareJupiterAutomationSignal,prepareJupiterManualOrder} from '../lib/jupiter-perps-automation.js';
 const wallet='ENEw7sNPtWu7g5bRMy3WkxAaHbWY5pmySwpXU6VHGaB5';
 const signal=()=>({id:'scanner:SOL:1',pair:'SOLUSDT',side:'LONG',entry:100,sl:95,tp1:110,createdAt:new Date(100000).toISOString()});
 const options=()=>({decision:{ok:true},walletAddress:wallet,marginUsd:'10.000001',leverage:3,maxSlippageBps:50,now:100000});
@@ -24,4 +24,18 @@ test('provider rejection never enables signing or retries an order',async()=>{
    calls++;return new Response(JSON.stringify({code:422,message:'Insufficient funds'}),{status:422});
  }),/JUPITER_PREPARATION_REJECTED/);
  assert.equal(calls,1);
+});
+
+test('manual orders use the same versioned preparation without fabricating Telegram signals',async()=>{
+ let calls=0;
+ const result=await prepareJupiterManualOrder({asset:'BTC',side:'SHORT',walletAddress:wallet,marginUsd:'12.000001',leverage:2,maxSlippageBps:50},async(url,config)=>{
+   calls++;assert.equal(url,'https://perps-api.jup.ag/v1/positions/increase');
+   assert.equal(config.headers['x-perps-api-version'],'v2');
+   const body=JSON.parse(config.body);assert.equal(body.side,'short');assert.equal(body.asset,'BTC');
+   assert.equal(body.inputTokenAmount,'12000001');assert.equal(body.tpsl,undefined);
+   return new Response(JSON.stringify({positionPubkey:wallet,serializedTxBase64:'AQID',quote:{side:'short'},txMetadata:{blockhash:wallet,lastValidBlockHeight:'100'}}));
+ });
+ assert.equal(calls,1);assert.equal(result.plan.signalId,undefined);
+ assert.equal(result.stage,'UNVERIFIED_PREPARATION');assert.equal(result.readyForSigning,false);
+ assert.equal(result.tradingEnabled,false);
 });
