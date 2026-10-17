@@ -20,7 +20,15 @@ final class NativeSwapCheck extends IOException {
         }
     }
     static String publicCode(Exception failure) {
-        return failure instanceof NativeSwapCheck?failure.getMessage():"SWAP_CHECK_PREPARATION";
+        if(!(failure instanceof NativeSwapCheck))return "SWAP_CHECK_PREPARATION";
+        NativeSwapCheck check=(NativeSwapCheck)failure;
+        if(check.stage==Stage.DECODE) {
+            Throwable cause=check.getCause();
+            if(cause instanceof NativeSwapPreparation.InvalidPart)
+                return "SWAP_CHECK_DECODE_"+((NativeSwapPreparation.InvalidPart)cause).part.name();
+            if(cause instanceof org.json.JSONException)return "SWAP_CHECK_DECODE_SCHEMA";
+        }
+        return failure.getMessage();
     }
     static String describe(Exception failure,boolean es) {
         if(!(failure instanceof NativeSwapCheck))return es?"No se pudo preparar el intercambio. La cotización puede haber caducado. Revisa de nuevo.":"Could not prepare swap. The quote may have expired. Review again.";

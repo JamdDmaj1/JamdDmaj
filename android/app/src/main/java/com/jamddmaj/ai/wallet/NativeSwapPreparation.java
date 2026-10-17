@@ -7,6 +7,11 @@ import org.json.*;
 
 /** Native decoding of untrusted server material, NOT permission to sign it. */
 final class NativeSwapPreparation {
+    enum Part { HEADER, INTENT, AMOUNTS, LOOKUPS, INSTRUCTIONS, DATA, ACCOUNTS }
+    static final class InvalidPart extends IllegalArgumentException {
+        final Part part;
+        InvalidPart(Part part) { super("Invalid swap preparation section"); this.part=part; }
+    }
     /** Fixed classification only; contains no provider or wallet material. */
     static final class TimeMismatch extends IllegalArgumentException {
         TimeMismatch() { super("Swap preparation time mismatch"); }
@@ -36,51 +41,51 @@ final class NativeSwapPreparation {
         this.blockhash=blockhash; this.lookupKeys=keys; this.instructions=instructions;
     }
     static NativeSwapPreparation parse(JSONObject envelope, Intent intent, long now) throws JSONException {
-        if (envelope == null || intent == null || now < 0 || !Boolean.TRUE.equals(envelope.opt("ok"))) throw invalid();
+        if (envelope == null || intent == null || now < 0 || !Boolean.TRUE.equals(envelope.opt("ok"))) throw new InvalidPart(Part.HEADER);
         JSONObject body=envelope.getJSONObject("preparation");
         if (!"solana-mainnet-beta".equals(body.opt("network")) || !Boolean.FALSE.equals(body.opt("executable"))
-                || !Boolean.TRUE.equals(body.opt("requiresNativeValidation")) || body.has("transaction") || body.has("signature")
-                || !intent.payer.equals(body.opt("taker")) || !intent.inputMint.equals(body.opt("inputMint"))
+                || !Boolean.TRUE.equals(body.opt("requiresNativeValidation")) || body.has("transaction") || body.has("signature")) throw new InvalidPart(Part.HEADER);
+        if (!intent.payer.equals(body.opt("taker")) || !intent.inputMint.equals(body.opt("inputMint"))
                 || !intent.outputMint.equals(body.opt("outputMint")) || !intent.amount.equals(body.opt("inAmount"))
-                || integer(body.get("slippageBps")) != intent.slippageBps) throw invalid();
+                || integer(body.get("slippageBps")) != intent.slippageBps) throw new InvalidPart(Part.INTENT);
         long received=integer(body.get("receivedAt")), expires=integer(body.get("expiresAt"));
         // Fail closed on stale material or a device clock inconsistent with the server.
         if (received < 0 || received > now || expires <= now || expires - received != 15000) throw new TimeMismatch();
         BigInteger output=units(body.get("outAmount")), minimum=units(body.get("minimumOut"));
         BigInteger floor=output.multiply(BigInteger.valueOf(10000-intent.slippageBps))
             .add(BigInteger.valueOf(9999)).divide(BigInteger.valueOf(10000));
-        if (minimum.compareTo(floor)<0 || minimum.compareTo(output)>0) throw invalid();
+        if (minimum.compareTo(floor)<0 || minimum.compareTo(output)>0) throw new InvalidPart(Part.AMOUNTS);
         byte[] hash=address(body.get("blockhash"));
         BigInteger height=units(body.get("lastValidBlockHeight"));
         JSONArray rawKeys=body.getJSONArray("lookupTableAddresses");
-        if (rawKeys.length()>32) throw invalid();
+        if (rawKeys.length()>32) throw new InvalidPart(Part.LOOKUPS);
         List<byte[]> keys=new ArrayList<>(); Set<String> seen=new HashSet<>();
         for (int i=0;i<rawKeys.length();i++) {
             byte[] key=address(rawKeys.get(i));
-            if (!seen.add(DevnetSolana.encode(key))) throw invalid();
+            if (!seen.add(DevnetSolana.encode(key))) throw new InvalidPart(Part.LOOKUPS);
             keys.add(key);
         }
         JSONArray raw=body.getJSONArray("instructions");
-        if (raw.length()<1 || raw.length()>64) throw invalid();
+        if (raw.length()<1 || raw.length()>64) throw new InvalidPart(Part.INSTRUCTIONS);
         List<SolanaMessageCompiler.Instruction> instructions=new ArrayList<>();
         boolean hasComputeLimit=false;
         for (int i=0;i<raw.length();i++) {
             JSONObject instruction=raw.getJSONObject(i);
             byte[] program=address(instruction.get("programId"));
             Object encoded=instruction.get("data");
-            if (!(encoded instanceof String) || ((String)encoded).length()>1560) throw invalid();
+            if (!(encoded instanceof String) || ((String)encoded).length()>1560) throw new InvalidPart(Part.DATA);
             byte[] data=Base64.decode((String)encoded,Base64.NO_WRAP);
-            if (!Base64.encodeToString(data,Base64.NO_WRAP).equals(encoded)) throw invalid();
+            if (!Base64.encodeToString(data,Base64.NO_WRAP).equals(encoded)) throw new InvalidPart(Part.DATA);
             if(NativeSwapSetup.COMPUTE.equals(instruction.get("programId")) && data.length>0 && data[0]==2) hasComputeLimit=true;
             JSONArray rawAccounts=instruction.getJSONArray("accounts");
-            if (rawAccounts.length()>256) throw invalid();
+            if (rawAccounts.length()>256) throw new InvalidPart(Part.ACCOUNTS);
             List<SolanaMessageCompiler.Meta> metas=new ArrayList<>();
             for (int j=0;j<rawAccounts.length();j++) {
                 JSONObject account=rawAccounts.getJSONObject(j);
                 byte[] key=address(account.get("pubkey"));
                 Object signer=account.get("isSigner"), writable=account.get("isWritable");
                 if (!(signer instanceof Boolean) || !(writable instanceof Boolean)
-                        || ((Boolean)signer && !intent.payer.equals(account.get("pubkey")))) throw invalid();
+                        || ((Boolean)signer && !intent.payer.equals(account.get("pubkey")))) throw new InvalidPart(Part.ACCOUNTS);
                 metas.add(new SolanaMessageCompiler.Meta(key,(Boolean)signer,(Boolean)writable));
             }
             instructions.add(new SolanaMessageCompiler.Instruction(program,metas,data));
@@ -89,7 +94,7 @@ final class NativeSwapPreparation {
             byte[] limit=java.nio.ByteBuffer.allocate(5).order(java.nio.ByteOrder.LITTLE_ENDIAN).put((byte)2).putInt(1400000).array();
             instructions.add(0,new SolanaMessageCompiler.Instruction(address(NativeSwapSetup.COMPUTE),Collections.emptyList(),limit));
         }
-        if(instructions.size()>64) throw invalid();
+        if(instructions.size()>64) throw new InvalidPart(Part.INSTRUCTIONS);
         return new NativeSwapPreparation(intent,output,minimum,height,expires,hash,keys,instructions);
     }
     SolanaMessage compile(NativeSolanaAccounts accounts, long now) throws Exception {

@@ -4,6 +4,16 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 public class NativeSwapCheckTest {
+    @Test public void decodeSectionCodesAreAllowlistedAndDoNotExposeValues() {
+        for(NativeSwapPreparation.Part part:NativeSwapPreparation.Part.values()) {
+            Exception failure=assertThrows(NativeSwapCheck.class,()->NativeSwapCheck.at(NativeSwapCheck.Stage.DECODE,
+                ()->{throw new NativeSwapPreparation.InvalidPart(part);}));
+            assertEquals("SWAP_CHECK_DECODE_"+part.name(),NativeSwapCheck.publicCode(failure));
+        }
+        Exception schema=assertThrows(NativeSwapCheck.class,()->NativeSwapCheck.at(NativeSwapCheck.Stage.DECODE,
+            ()->{throw new org.json.JSONException("private-provider-value");}));
+        assertEquals("SWAP_CHECK_DECODE_SCHEMA",NativeSwapCheck.publicCode(schema));
+    }
     @Test public void decodeTimeMismatchHasActionableFixedCode() {
         Exception failure=assertThrows(NativeSwapCheck.class,()->NativeSwapCheck.at(NativeSwapCheck.Stage.DECODE,
             ()->{throw new NativeSwapPreparation.TimeMismatch();}));
