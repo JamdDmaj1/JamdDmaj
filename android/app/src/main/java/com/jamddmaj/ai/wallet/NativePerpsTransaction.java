@@ -25,6 +25,9 @@ final class NativePerpsTransaction {
         return new NativePerpsTransaction(message,wire);
     }
     byte[] bytes(){return originalWire.clone();}
+    int checkOpeningAccountBindings(SolanaLookupTables.Resolved chainResolvedKeys){
+        return NativePerpsAccountBindings.checkOpeningTransaction(message,chainResolvedKeys);
+    }
     byte[] signature(int index){
         if(index<0||index>=3)throw invalid();
         return Arrays.copyOfRange(originalWire,1+64*index,65+64*index);

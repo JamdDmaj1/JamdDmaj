@@ -17,6 +17,12 @@ public final class NativePerpsTransactionCheck {
             System.out.println("PERPS_KIND="+data.kind+" SIZE="+data.sizeUsd+" COLLATERAL="+data.collateral+" SIDE="+data.side);
         }
         if(instructions==0)throw new IllegalArgumentException("Missing supported perps instruction");
+        if(decoded.message.lookups.isEmpty()){
+            SolanaLookupTables.Resolved resolved=SolanaLookupTables.resolve(decoded.message,java.util.Collections.emptyList(),java.math.BigInteger.ZERO);
+            System.out.println("BOUND_EXITS="+decoded.checkOpeningAccountBindings(resolved));
+        }else{
+            System.out.println("ACCOUNT_BINDINGS_PENDING_RPC_LOOKUP_RESOLUTION=true");
+        }
         System.out.println("ENVELOPE_AND_DATA_DECODED=true POLICY_APPROVED=false SIGNED_BY_USER=false SUBMITTED=false");
     }
 }
