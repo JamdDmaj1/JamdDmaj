@@ -42,6 +42,7 @@ public final class NativeWalletActivity extends Activity {
     private EditText recipient,sendAmount;
     private EditText bnbRecipient,bnbAmount;
     private EditText swapInput,swapOutput,swapAmount;
+    private TextView swapAmountUnit;
     private EditText usdcRecipient,usdcAmount;
     private final java.util.ArrayList<LinearLayout> sections=new java.util.ArrayList<>();
     private LinearLayout backupSection;
@@ -115,8 +116,15 @@ public final class NativeWalletActivity extends Activity {
         swapInput.setText(NativeSwapSetup.SOL);swapOutput.setText(NativeSolanaTokens.USDC);
         action(swapSection,"SOL → USDC",()->{swapInput.setText(NativeSwapSetup.SOL);swapOutput.setText(NativeSolanaTokens.USDC);});
         action(swapSection,"USDC → SOL",()->{swapInput.setText(NativeSolanaTokens.USDC);swapOutput.setText(NativeSwapSetup.SOL);});
-        swapAmount=field(swapSection,text("Cantidad del token que entregas","Amount of input token"),false);
+        swapAmountUnit=label(swapSection,"",16);swapAmountUnit.setTag("swap-amount-unit");
+        swapAmount=field(swapSection,text("Cantidad del token que entregas, no dólares","Input token quantity, not dollars"),false);
         swapAmount.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        swapInput.addTextChangedListener(new android.text.TextWatcher(){
+            public void beforeTextChanged(CharSequence s,int start,int count,int after){}
+            public void onTextChanged(CharSequence s,int start,int before,int count){swapAmount.setText("");updateSwapAmountUnit();}
+            public void afterTextChanged(android.text.Editable value){}
+        });
+        updateSwapAmountUnit();
         action(swapSection,text("Revisar intercambio","Review swap"),()->reviewSwap());
         action(swapSection,text("Consultar última operación de Solana","Check latest Solana operation"),()->checkSolana());
         LinearLayout usdcSection=section(root,text("Enviar USDC · Solana","Send USDC · Solana"));
@@ -287,6 +295,14 @@ public final class NativeWalletActivity extends Activity {
                     });
             });
         }catch(Exception failure){error(ticket);}});
+    }
+    private void updateSwapAmountUnit(){
+        String mint=swapInput.getText().toString().trim();
+        String unit=NativeSwapSetup.SOL.equals(mint)?"SOL":NativeSolanaTokens.USDC.equals(mint)?"USDC":text("token","token");
+        swapAmountUnit.setText(text("Cantidad que entregas en ","Amount you pay in ")+unit+
+            (NativeSwapSetup.SOL.equals(mint)?text(" · 20 aquí significa 20 SOL, no 20 dólares."," · 20 here means 20 SOL, not 20 dollars."):text(" · No es una cantidad en dólares bancarios."," · This is not a bank-dollar amount.")));
+        swapAmount.setHint(text("Cantidad en ","Amount in ")+unit);
+        swapAmount.setContentDescription(text("Cantidad en ","Amount in ")+unit);
     }
     void reviewSwap(){
         NativeWalletProfiles.Profile profile=selectedProfile;

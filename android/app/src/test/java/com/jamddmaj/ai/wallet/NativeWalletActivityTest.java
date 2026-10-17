@@ -18,6 +18,17 @@ import static org.junit.Assert.*;
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk=30)
 public class NativeWalletActivityTest {
+    @Test public void swapAmountExplicitlyNamesTokenAndClearsWhenPaymentTokenChanges(){
+        try(var controller=Robolectric.buildActivity(NativeWalletActivity.class).create()){
+            var activity=controller.get();ArrayList<EditText> inputs=new ArrayList<>();fields(activity.getWindow().getDecorView(),inputs);
+            android.widget.TextView unit=activity.getWindow().getDecorView().findViewWithTag("swap-amount-unit");
+            assertTrue(unit.getText().toString().contains("20 SOL"));
+            inputs.get(9).setText("20");inputs.get(7).setText(NativeSolanaTokens.USDC);
+            assertEquals("",inputs.get(9).getText().toString());
+            assertTrue(unit.getText().toString().contains("USDC"));
+            assertFalse(unit.getText().toString().contains("20 SOL"));
+        }
+    }
     @Test public void confirmationPollingDoesNotRunAfterLockOrExit(){
         try(var controller=Robolectric.buildActivity(NativeWalletActivity.class).create().start()){
             var activity=controller.get();int[] reads={0};
