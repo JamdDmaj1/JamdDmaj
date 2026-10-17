@@ -10,6 +10,24 @@ import static org.junit.Assert.*;
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk=30)
 public class NativeSwapPreparationTest {
+    @Test public void decodesCapturedProductionResponseWithActualAndroidJsonTypes() throws Exception {
+        // Public unsigned provider response captured on 2026-10-17. Replay at its
+        // original time, never send it or treat this historical quote as current.
+        String raw;
+        try(java.io.InputStream input=getClass().getResourceAsStream("/live-swap-preparation.json")) {
+            assertNotNull(input);
+            raw=new String(input.readAllBytes(),java.nio.charset.StandardCharsets.UTF_8);
+        }
+        JSONObject envelope=new JSONObject(raw),body=envelope.getJSONObject("preparation");
+        var intent=new NativeSwapPreparation.Intent(body.getString("taker"),body.getString("inputMint"),
+            body.getString("outputMint"),body.getString("inAmount"),body.getInt("slippageBps"));
+        var decoded=NativeSwapPreparation.parse(envelope,intent,body.getLong("receivedAt")+1);
+        assertEquals(body.getString("minimumOut"),decoded.minimumOut.toString());
+        assertThrows(NativeSwapPreparation.TimeMismatch.class,
+            ()->NativeSwapPreparation.parse(envelope,intent,body.getLong("receivedAt")-1));
+        assertThrows(NativeSwapPreparation.TimeMismatch.class,
+            ()->NativeSwapPreparation.parse(envelope,intent,body.getLong("expiresAt")));
+    }
     static String key(int n) { byte[] b=new byte[32]; b[0]=(byte)n; return DevnetSolana.encode(b); }
     static NativeSwapPreparation.Intent intent() { return new NativeSwapPreparation.Intent(key(1),key(2),key(3),"10000000",50); }
     static JSONObject fixture() throws Exception {

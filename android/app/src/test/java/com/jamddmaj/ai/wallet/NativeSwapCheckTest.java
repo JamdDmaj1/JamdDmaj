@@ -4,6 +4,13 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 public class NativeSwapCheckTest {
+    @Test public void decodeTimeMismatchHasActionableFixedCode() {
+        Exception failure=assertThrows(NativeSwapCheck.class,()->NativeSwapCheck.at(NativeSwapCheck.Stage.DECODE,
+            ()->{throw new NativeSwapPreparation.TimeMismatch();}));
+        assertEquals("SWAP_CHECK_DECODE_TIME",NativeSwapCheck.publicCode(failure));
+        assertTrue(NativeSwapCheck.describe(failure,false).contains("automatic date and time"));
+        assertTrue(NativeSwapCheck.describe(failure,true).contains("fecha y hora automáticas"));
+    }
     @Test public void successfulCheckPreservesExactResult() throws Exception {
         Object expected=new Object();
         assertSame(expected,NativeSwapCheck.at(NativeSwapCheck.Stage.QUOTE,()->expected));

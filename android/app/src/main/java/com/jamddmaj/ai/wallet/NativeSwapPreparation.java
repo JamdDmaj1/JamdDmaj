@@ -7,6 +7,10 @@ import org.json.*;
 
 /** Native decoding of untrusted server material, NOT permission to sign it. */
 final class NativeSwapPreparation {
+    /** Fixed classification only; contains no provider or wallet material. */
+    static final class TimeMismatch extends IllegalArgumentException {
+        TimeMismatch() { super("Swap preparation time mismatch"); }
+    }
     static final class Intent {
         final String payer, inputMint, outputMint, amount;
         final int slippageBps;
@@ -41,7 +45,7 @@ final class NativeSwapPreparation {
                 || integer(body.get("slippageBps")) != intent.slippageBps) throw invalid();
         long received=integer(body.get("receivedAt")), expires=integer(body.get("expiresAt"));
         // Fail closed on stale material or a device clock inconsistent with the server.
-        if (received < 0 || received > now || expires <= now || expires - received != 15000) throw invalid();
+        if (received < 0 || received > now || expires <= now || expires - received != 15000) throw new TimeMismatch();
         BigInteger output=units(body.get("outAmount")), minimum=units(body.get("minimumOut"));
         BigInteger floor=output.multiply(BigInteger.valueOf(10000-intent.slippageBps))
             .add(BigInteger.valueOf(9999)).divide(BigInteger.valueOf(10000));

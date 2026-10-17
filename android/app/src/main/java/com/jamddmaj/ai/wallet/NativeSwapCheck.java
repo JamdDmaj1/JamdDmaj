@@ -4,7 +4,7 @@ import java.io.IOException;
 
 /** Fixed diagnostic codes only; never display provider errors or wallet data. */
 final class NativeSwapCheck extends IOException {
-    enum Stage { INTENT, AMOUNT, PENDING, NETWORK, MINT, QUOTE, DECODE, COMPILE, ROUTE, BALANCE, SIMULATION }
+    enum Stage { INTENT, AMOUNT, PENDING, NETWORK, MINT, QUOTE, DECODE, DECODE_TIME, COMPILE, ROUTE, BALANCE, SIMULATION }
     final Stage stage;
     private NativeSwapCheck(Stage stage,Exception cause) {
         super("SWAP_CHECK_"+stage.name(),cause); this.stage=stage;
@@ -13,7 +13,11 @@ final class NativeSwapCheck extends IOException {
     static <T> T at(Stage stage,Operation<T> operation) throws Exception {
         try { return operation.run(); }
         catch(NativeSwapCheck alreadyClassified) { throw alreadyClassified; }
-        catch(Exception failure) { throw new NativeSwapCheck(stage,failure); }
+        catch(Exception failure) {
+            Stage classified=stage==Stage.DECODE && failure instanceof NativeSwapPreparation.TimeMismatch
+                ?Stage.DECODE_TIME:stage;
+            throw new NativeSwapCheck(classified,failure);
+        }
     }
     static String publicCode(Exception failure) {
         return failure instanceof NativeSwapCheck?failure.getMessage():"SWAP_CHECK_PREPARATION";
@@ -21,6 +25,7 @@ final class NativeSwapCheck extends IOException {
     static String describe(Exception failure,boolean es) {
         if(!(failure instanceof NativeSwapCheck))return es?"No se pudo preparar el intercambio. La cotización puede haber caducado. Revisa de nuevo.":"Could not prepare swap. The quote may have expired. Review again.";
         switch(((NativeSwapCheck)failure).stage) {
+            case DECODE_TIME: return es?"La cotización caducó o la hora del teléfono no coincide. Activa fecha y hora automáticas y solicita una nueva revisión; no se reutilizará esta propuesta.":"The quote expired or the phone clock does not match. Enable automatic date and time and request a new review; this proposal will not be reused.";
             case AMOUNT: return es?"Introduce una cantidad positiva en el token que entregas, no dólares. Revisa sus decimales.":"Enter a positive amount in the input token, not dollars. Check its decimal precision.";
             case INTENT: return es?"Revisa las direcciones de los tokens: deben ser distintos y pertenecer a Solana.":"Check the token mint addresses: they must differ and belong to Solana.";
             case PENDING: return es?"Hay una operación pendiente o su registro no está disponible. Consulta la última operación de Solana antes de repetir.":"An operation is pending or its record is unavailable. Check the latest Solana operation before retrying.";
