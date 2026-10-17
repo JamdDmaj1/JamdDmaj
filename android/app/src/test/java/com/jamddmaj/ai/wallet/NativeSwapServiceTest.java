@@ -9,6 +9,19 @@ import static org.junit.Assert.*;
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk=30)
 public class NativeSwapServiceTest {
+    @Test public void preparationUsesOneServerAnchoredClockAndStillExpiresDuringRpc() throws Exception {
+        Clock source=new Clock();
+        source.time=Long.MAX_VALUE; // Device calendar intentionally unrelated.
+        assertThrows(NativeSwapPreparation.TimeMismatch.class,
+            ()->NativeSwapPreparation.parse(NativeSwapPreparationTest.fixture(),NativeSwapPreparationTest.intent(),source.wall()));
+        NativeSwapClock clock=new NativeSwapClock(()->source.elapsed);
+        clock.anchor(1000,0,"0");
+        NativeSwapService service=new NativeSwapService(intent->NativeSwapPreparationTest.fixture(),accounts(source,false),clock);
+        var candidate=service.prepare(NativeSwapPreparationTest.intent());
+        assertEquals("1178704",candidate.preparation.minimumOut.toString());
+        source.elapsed=15000;
+        assertThrows(Exception.class,()->service.prepare(NativeSwapPreparationTest.intent()));
+    }
     @Test public void previewIncludesFeeAndSimulationForExactCandidate() throws Exception {
         Clock clock=new Clock();
         long[] fee={5000};

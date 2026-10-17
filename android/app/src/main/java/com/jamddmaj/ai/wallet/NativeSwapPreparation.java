@@ -49,7 +49,8 @@ final class NativeSwapPreparation {
                 || !intent.outputMint.equals(body.opt("outputMint")) || !intent.amount.equals(body.opt("inAmount"))
                 || integer(body.get("slippageBps")) != intent.slippageBps) throw new InvalidPart(Part.INTENT);
         long received=integer(body.get("receivedAt")), expires=integer(body.get("expiresAt"));
-        // Fail closed on stale material or a device clock inconsistent with the server.
+        // Production uses the fixed HTTPS response's conservative server-time
+        // estimate, advanced by monotonic elapsed time, not the phone calendar.
         if (received < 0 || received > now || expires <= now || expires - received != 15000) throw new TimeMismatch();
         BigInteger output=units(body.get("outAmount")), minimum=units(body.get("minimumOut"));
         BigInteger floor=output.multiply(BigInteger.valueOf(10000-intent.slippageBps))

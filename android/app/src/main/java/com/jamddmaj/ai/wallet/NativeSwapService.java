@@ -39,10 +39,16 @@ final class NativeSwapService {
         }
     }
     NativeSwapService() {
-        this(NativeSwapService::request,new NativeSolanaAccounts(),new Clock() {
-            public long wall() { return System.currentTimeMillis(); }
-            public long elapsed() { return SystemClock.elapsedRealtime(); }
-        });
+        this(new LiveSession());
+    }
+    private NativeSwapService(LiveSession live) {
+        this(live::request,new NativeSolanaAccounts(),live.clock);
+    }
+    private static final class LiveSession {
+        final NativeSwapClock clock=new NativeSwapClock(SystemClock::elapsedRealtime);
+        JSONObject request(NativeSwapPreparation.Intent intent) throws Exception {
+            return NativeSwapService.request(intent,clock);
+        }
     }
     NativeSwapService(Transport transport, NativeSolanaAccounts accounts, Clock clock) {
         this(transport,accounts,clock,new NativeSwapSimulation());
@@ -106,7 +112,7 @@ final class NativeSwapService {
             throw new IOException("Swap preparation expired; request a new quote");
         return new Candidate(preparation,message);
     }
-    private static JSONObject request(NativeSwapPreparation.Intent intent) throws Exception {
+    private static JSONObject request(NativeSwapPreparation.Intent intent,NativeSwapClock clock) throws Exception {
         // Fixed first-party server only. No API key or private wallet material enters this request.
         String query="inputMint="+encode(intent.inputMint)+"&outputMint="+encode(intent.outputMint)
             +"&amount="+encode(intent.amount)+"&taker="+encode(intent.payer)+"&slippageBps="+intent.slippageBps;
@@ -114,13 +120,24 @@ final class NativeSwapService {
         connection.setInstanceFollowRedirects(false); connection.setUseCaches(false);
         connection.setConnectTimeout(10000); connection.setReadTimeout(10000);
         connection.setRequestMethod("GET"); connection.setRequestProperty("Accept","application/json");
+        connection.setRequestProperty("Cache-Control","no-cache, no-store");
+        long requestStarted=clock.elapsed();
         try {
             if (connection.getResponseCode()!=200) throw new IOException("Swap preparation unavailable");
             try (InputStream input=connection.getInputStream()) {
                 byte[] bytes=DevnetWalletService.readBounded(input,262144);
                 String body=StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
                     .onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes)).toString();
-                return new JSONObject(body);
+                JSONObject envelope=new JSONObject(body);
+                NativeSwapCheck.at(NativeSwapCheck.Stage.DECODE_TIME,()->{
+                    String cacheControl=connection.getHeaderField("Cache-Control");
+                    if(cacheControl==null || !java.util.Arrays.stream(cacheControl.split(","))
+                            .anyMatch(value->"no-store".equalsIgnoreCase(value.trim())))
+                        throw new NativeSwapPreparation.TimeMismatch();
+                    clock.anchor(connection.getHeaderFieldDate("Date",-1),requestStarted,connection.getHeaderField("Age"));
+                    return null;
+                });
+                return envelope;
             }
         } finally { connection.disconnect(); }
     }

@@ -18,8 +18,8 @@ public class NativeSwapCheckTest {
         Exception failure=assertThrows(NativeSwapCheck.class,()->NativeSwapCheck.at(NativeSwapCheck.Stage.DECODE,
             ()->{throw new NativeSwapPreparation.TimeMismatch();}));
         assertEquals("SWAP_CHECK_DECODE_TIME",NativeSwapCheck.publicCode(failure));
-        assertTrue(NativeSwapCheck.describe(failure,false).contains("automatic date and time"));
-        assertTrue(NativeSwapCheck.describe(failure,true).contains("fecha y hora automáticas"));
+        assertTrue(NativeSwapCheck.describe(failure,false).contains("secure response time"));
+        assertTrue(NativeSwapCheck.describe(failure,true).contains("respuesta segura"));
     }
     @Test public void successfulCheckPreservesExactResult() throws Exception {
         Object expected=new Object();

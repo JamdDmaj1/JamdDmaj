@@ -33,7 +33,7 @@ final class NativeSwapCheck extends IOException {
     static String describe(Exception failure,boolean es) {
         if(!(failure instanceof NativeSwapCheck))return es?"No se pudo preparar el intercambio. La cotización puede haber caducado. Revisa de nuevo.":"Could not prepare swap. The quote may have expired. Review again.";
         switch(((NativeSwapCheck)failure).stage) {
-            case DECODE_TIME: return es?"La cotización caducó o la hora del teléfono no coincide. Activa fecha y hora automáticas y solicita una nueva revisión; no se reutilizará esta propuesta.":"The quote expired or the phone clock does not match. Enable automatic date and time and request a new review; this proposal will not be reused.";
+            case DECODE_TIME: return es?"La cotización caducó o no se pudo verificar la hora de la respuesta segura. Solicita una nueva revisión; no se reutilizará esta propuesta.":"The quote expired or the secure response time could not be verified. Request a new review; this proposal will not be reused.";
             case AMOUNT: return es?"Introduce una cantidad positiva en el token que entregas, no dólares. Revisa sus decimales.":"Enter a positive amount in the input token, not dollars. Check its decimal precision.";
             case INTENT: return es?"Revisa las direcciones de los tokens: deben ser distintos y pertenecer a Solana.":"Check the token mint addresses: they must differ and belong to Solana.";
             case PENDING: return es?"Hay una operación pendiente o su registro no está disponible. Consulta la última operación de Solana antes de repetir.":"An operation is pending or its record is unavailable. Check the latest Solana operation before retrying.";
