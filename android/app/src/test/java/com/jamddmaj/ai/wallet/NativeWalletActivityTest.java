@@ -18,6 +18,19 @@ import static org.junit.Assert.*;
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk=30)
 public class NativeWalletActivityTest {
+    @Test public void confirmationPollingDoesNotRunAfterLockOrExit(){
+        try(var controller=Robolectric.buildActivity(NativeWalletActivity.class).create().start()){
+            var activity=controller.get();int[] reads={0};
+            activity.confirmationReader=profile->{reads[0]++;throw new AssertionError("No RPC after lock");};
+            activity.pollSwapConfirmation(null,"fixture-signature",0,0);
+            controller.stop();
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(3));
+            assertEquals(0,reads[0]);
+            activity.finish();activity.pollSwapConfirmation(null,"fixture-signature",1,0);
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(3));
+            assertEquals(0,reads[0]);
+        }
+    }
     @Test public void appHeaderReturnsToAssetsAndClearsSensitiveInputsWithoutOpeningAnotherActivity(){
         try(var controller=Robolectric.buildActivity(NativeWalletActivity.class).create()){
             var activity=controller.get();ArrayList<EditText> inputs=new ArrayList<>();fields(activity.getWindow().getDecorView(),inputs);

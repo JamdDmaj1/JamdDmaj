@@ -25,6 +25,8 @@ import java.util.concurrent.Executors;
 
 /** Protected native Assets screen inside the main app; keys never cross the WebView bridge. */
 public final class NativeWalletActivity extends Activity {
+    interface ConfirmationReader { NativeTransferJournal.Record latest(NativeWalletProfiles.Profile profile) throws Exception; }
+    ConfirmationReader confirmationReader=profile->new SolanaNativeTransfers(this,profile).checkLatest();
     private final ExecutorService worker=Executors.newSingleThreadExecutor();
     private volatile long epoch;
     private HardwareWalletVault vault;
@@ -325,7 +327,7 @@ public final class NativeWalletActivity extends Activity {
                                     public byte[] sign(byte[] input,byte[] message){return NativeHdWallet.signSolana(input,message);}
                                 },()->ticket==epoch));
                                 String id=service.submit(draft,signature[0],()->ticket==epoch);
-                                runOnUiThread(()->{if(ticket==epoch)status.setText(text("Intercambio presentado; falta confirmación de la red. No repitas.\n","Swap submitted; network confirmation pending. Do not repeat.\n")+id);});
+                                runOnUiThread(()->{if(ticket==epoch){status.setText(text("Intercambio presentado; comprobando confirmación. No repitas.\n","Swap submitted; checking confirmation. Do not repeat.\n")+id);pollSwapConfirmation(profile,id,ticket,0);}});
                             }catch(Exception failure){runOnUiThread(()->{if(ticket==epoch)status.setText(text("Intercambio no confirmado. Consulta la última operación de Solana antes de repetir; el intento podría haberse transmitido.","Swap unconfirmed. Check the latest Solana operation before retrying; the attempt may have been broadcast."));});}
                             finally{if(signature[0]!=null)Arrays.fill(signature[0],(byte)0);selected.cancel();}});
                         }
@@ -427,6 +429,31 @@ public final class NativeWalletActivity extends Activity {
                     });
             });
         }catch(Exception failure){error(ticket);}});
+    }
+    /** Read-only follow-up of exactly the submitted signature. Never re-sign or resend. */
+    void pollSwapConfirmation(NativeWalletProfiles.Profile profile,String id,long ticket,int attempt){
+        if(ticket!=epoch || isFinishing() || isDestroyed())return;
+        status.postDelayed(()->{
+            if(ticket!=epoch || isFinishing() || isDestroyed())return;
+            worker.execute(()->{
+                if(ticket!=epoch)return;
+                try{
+                    var record=confirmationReader.latest(profile);
+                    if(record==null || !id.equals(record.transactionId))throw new IllegalStateException("Confirmation record mismatch");
+                    runOnUiThread(()->{
+                        if(ticket!=epoch)return;
+                        String message;
+                        if(record.phase==NativeTransferJournal.Phase.CONFIRMED)message=text("Intercambio confirmado por la red.","Swap confirmed by the network.");
+                        else if(record.phase==NativeTransferJournal.Phase.FAILED)message=text("La red rechazó el intercambio. Puede haberse cobrado la comisión de red.","The network rejected the swap. A network fee may have been charged.");
+                        else message=text("Confirmación pendiente. No repitas el intercambio. Puedes consultar la última operación de Solana.","Confirmation pending. Do not repeat the swap. You can check the latest Solana operation.");
+                        status.setText(message+"\n"+id);
+                        if(record.pending() && attempt<5)pollSwapConfirmation(profile,id,ticket,attempt+1);
+                    });
+                }catch(Exception unavailable){
+                    runOnUiThread(()->{if(ticket==epoch){status.setText(text("No se pudo consultar la confirmación. El intercambio podría haberse enviado: no repitas. Consulta la última operación de Solana.","Confirmation unavailable. The swap may have been submitted: do not repeat it. Check the latest Solana operation.")+"\n"+id);}});
+                }
+            });
+        },2000);
     }
     private void checkSolana(){
         NativeWalletProfiles.Profile profile=selectedProfile;if(profile==null){status.setText(text("Desbloquea primero la billetera.","Unlock the wallet first."));return;}
