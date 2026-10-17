@@ -103,6 +103,41 @@ public class NativeSwapTransfersTest {
         assertEquals(NativeJupiterRouteTest.key(3),record.outputMint);
         assertThrows(IOException.class,()->transfers.submit(draft,signature,()->true));
     }
+    @Test public void approvedSwapReachesConfirmedJournalWithoutSecondBroadcast() throws Exception {
+        var draft=draft();byte[] signature=transfers.signReviewed(draft,seed,signer,()->true);
+        String id=transfers.submit(draft,signature,()->true);
+        int[] statusReads={0};
+        SolanaNativeTransfers status=new SolanaNativeTransfers(context,owner,(method,params)->{
+            if(method.equals("getGenesisHash"))return "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
+            if(method.equals("getSignatureStatuses")){
+                statusReads[0]++;assertEquals(id,params.getJSONArray(0).getString(0));
+                return new JSONObject().put("value",new JSONArray().put(new JSONObject()
+                    .put("confirmationStatus","confirmed").put("err",JSONObject.NULL)));
+            }
+            throw new AssertionError("Status check must never broadcast: "+method);
+        });
+        var confirmed=status.checkLatest();
+        assertEquals(NativeTransferJournal.Phase.CONFIRMED,confirmed.phase);
+        assertEquals(id,confirmed.transactionId);
+        assertEquals(NativeJupiterRouteTest.key(3),confirmed.outputMint);
+        assertEquals(1,sends);assertEquals(1,statusReads[0]);
+        assertEquals(NativeTransferJournal.Phase.CONFIRMED,status.checkLatest().phase);
+        assertEquals(1,statusReads[0]);assertEquals(1,sends);
+        assertThrows(IOException.class,()->transfers.submit(draft,signature,()->true));
+    }
+    @Test public void rejectedSwapIsRecordedFailedWithoutClaimingFundsWereReceived() throws Exception {
+        var draft=draft();byte[] signature=transfers.signReviewed(draft,seed,signer,()->true);
+        transfers.submit(draft,signature,()->true);
+        SolanaNativeTransfers status=new SolanaNativeTransfers(context,owner,(method,params)->{
+            if(method.equals("getGenesisHash"))return "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
+            if(method.equals("getSignatureStatuses"))return new JSONObject().put("value",new JSONArray().put(new JSONObject()
+                .put("confirmationStatus","confirmed").put("err",new JSONObject().put("InstructionError",new JSONArray().put(0).put("Custom")))));
+            throw new AssertionError("Unexpected status RPC: "+method);
+        });
+        assertEquals(NativeTransferJournal.Phase.FAILED,status.checkLatest().phase);
+        assertEquals(1,sends);
+        assertThrows(IOException.class,()->transfers.submit(draft,signature,()->true));
+    }
     @Test public void unknownSubmissionBlocksAllFurtherSolanaOperations() throws Exception {
         var draft=draft(); timeout=true;
         byte[] signature=transfers.signReviewed(draft,seed,signer,()->true);
