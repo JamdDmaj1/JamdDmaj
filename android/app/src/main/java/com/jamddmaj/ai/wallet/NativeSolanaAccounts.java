@@ -24,14 +24,20 @@ final class NativeSolanaAccounts {
         transaction.checkOpeningAccountBindings(resolved);
         NativePerpsCustody market=readPerpsCustody(asset);
         NativePerpsCustody collateral=side==1?market:readPerpsCustody("USDC");
+        byte[] expectedPosition=NativePerpsAddresses.position(DevnetSolana.encode(resolved.key(0)),asset,side);
         for(SolanaMessage.Instruction instruction:transaction.message.instructions){
             if(!NativePerpsCustody.PROGRAM.equals(DevnetSolana.encode(transaction.message.staticKey(instruction.program))))continue;
             NativePerpsInstructionData data=NativePerpsInstructionData.parse(instruction.data());
-            if(data.kind!=NativePerpsInstructionData.Kind.INCREASE)continue;
-            if(data.side!=side)throw new IllegalArgumentException("Perps side differs from intent");
             byte[] indexes=instruction.accounts();byte[][] keys=new byte[indexes.length][];
             for(int i=0;i<indexes.length;i++)keys[i]=resolved.key(indexes[i]&255);
-            market.checkIncreaseAccounts(keys,collateral);
+            if(!java.util.Arrays.equals(keys[6],expectedPosition))throw new IllegalArgumentException("Perps position differs from owner and market intent");
+            if(data.kind==NativePerpsInstructionData.Kind.INCREASE){
+                if(data.side!=side)throw new IllegalArgumentException("Perps side differs from intent");
+                market.checkIncreaseAccounts(keys,collateral);
+            }else if(data.kind==NativePerpsInstructionData.Kind.TPSL){
+                if(!java.util.Arrays.equals(keys[7],NativePerpsAddresses.exitRequest(expectedPosition,data.counter)))
+                    throw new IllegalArgumentException("Perps exit request differs from position and counter");
+            }
         }
     }
     NativePerpsCustody readPerpsCustody(String asset) throws Exception {
