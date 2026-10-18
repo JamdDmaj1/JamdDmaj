@@ -24,6 +24,7 @@ const prepared = await post('https://perps-api.jup.ag/v1/positions/increase', {
 }, { 'x-perps-api-version': 'v2' });
 const message = getCompiledTransactionMessageDecoder().decode(getTransactionDecoder().decode(Buffer.from(prepared.serializedTxBase64, 'base64')).messageBytes);
 const keys = [...message.staticAccounts], writable = [], readonly = [];
+const nativeTableSnapshots=[];
 const tables = message.addressTableLookups || [];
 if (tables.length) {
   const rpc = await post('https://api.mainnet-beta.solana.com', { jsonrpc: '2.0', id: 1, method: 'getMultipleAccounts', params: [tables.map((table) => table.lookupTableAddress), { encoding: 'base64', commitment: 'confirmed' }] });
@@ -31,6 +32,7 @@ if (tables.length) {
   for (const [i, table] of tables.entries()) {
     const account = rpc.result.value[i]; assert.equal(account.owner, 'AddressLookupTab1e1111111111111111111111111'); assert.equal(account.executable, false); assert.equal(account.data[1], 'base64');
     const data = Buffer.from(account.data[0], 'base64'); assert.equal(data.readUInt32LE(0), 1); assert.equal(data.readBigUInt64LE(4), (1n << 64n) - 1n);
+    nativeTableSnapshots.push(`${table.lookupTableAddress} ${account.data[0]} ${rpc.result.context.slot}`);
     const slot = BigInt(rpc.result.context.slot), extended = data.readBigUInt64LE(12); assert.ok(extended <= slot);
     const usable = extended === slot ? data[20] : (data.length - 56) / 32;
     for (const [indexes, target] of [[table.writableIndexes, writable], [table.readonlyIndexes, readonly]]) for (const index of indexes) {
@@ -39,6 +41,11 @@ if (tables.length) {
   }
 }
 keys.push(...writable, ...readonly);
+const oracleBoundary=spawnSync(java,['-cp',classpath,'com.jamddmaj.ai.wallet.NativePerpsOracleBoundaryCheck',wallet,'SOL','1'],{
+  input:[prepared.serializedTxBase64,...nativeTableSnapshots].join('\n'),encoding:'utf8',timeout:30000,
+});
+if(oracleBoundary.error||oracleBoundary.status!==0)throw oracleBoundary.error||new Error(oracleBoundary.stderr);
+console.log(oracleBoundary.stdout.trim());
 const perps = message.instructions.filter((instruction) => keys[instruction.programAddressIndex] === program);
 assert.equal(perps.length, 3);
 const [open, ...exits] = perps;

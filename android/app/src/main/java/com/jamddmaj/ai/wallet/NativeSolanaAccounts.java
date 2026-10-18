@@ -21,6 +21,7 @@ final class NativeSolanaAccounts {
         if(transaction==null||intent==null)
             throw new IllegalArgumentException("Invalid perps market intent");
         NativePerpsComputeBudget.check(transaction.message);
+        NativePerpsOracleBoundary.check(transaction.message);
         String asset=intent.asset;int side=intent.side;
         List<NativePerpsInstructionData> orderData=new ArrayList<>();
         for(SolanaMessage.Instruction instruction:transaction.message.instructions)
@@ -28,6 +29,7 @@ final class NativeSolanaAccounts {
                 orderData.add(NativePerpsInstructionData.parse(instruction.data()));
         intent.checkInstructions(orderData,trustedNowSeconds);
         SolanaLookupTables.Resolved resolved=resolve(transaction.message);
+        NativePerpsTokenBoundary.check(transaction.message,resolved,asset,side);
         transaction.checkOpeningAccountBindings(resolved);
         NativePerpsCustody market=readPerpsCustody(asset);
         NativePerpsCustody collateral=side==1?market:readPerpsCustody("USDC");
