@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createPrivateKey,createPublicKey,sign} from 'node:crypto';
 import bs58 from 'bs58';
+import {getProgramDerivedAddress} from '@solana/kit';
+import {checkServerPerpsFundingSimulation} from '../lib/perps-server-funding-simulation.js';
 import {inspectServerPerpsPreparation} from '../lib/perps-server-preparation.js';
 import {PERPS_CUSTODIES,PERPS_PROGRAM,PERPS_POOL,deriveServerPerpsIdentities,readAndCheckServerPerpsCustodies} from '../lib/perps-server-custody.js';
 import {simulateServerPerpsPositionEffects,getServerPerpsSimulationSnapshots} from '../lib/perps-server-simulation.js';
@@ -36,20 +38,23 @@ async function fixture(){
  for(const [offset,address]of [[8,owner],[40,PERPS_POOL],[72,PERPS_CUSTODIES.SOL.address],[104,PERPS_CUSTODIES.SOL.address]])Buffer.from(bs58.decode(address)).copy(data,offset);
  data.writeBigUInt64LE(999n,136);data.writeBigUInt64LE(1000n,144);data[152]=1;data.writeBigUInt64LE(100000000n,153);data.writeBigUInt64LE(30000000n,161);data.writeBigUInt64LE(9990000n,169);data[209]=ids.positionBump;
  const positionAccount={owner:PERPS_PROGRAM,executable:false,data:[data.toString('base64'),'base64'],lamports:2000000};
+ const [source]=await getProgramDerivedAddress({programAddress:'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL',seeds:[bs58.decode(owner),bs58.decode(TOKEN),bs58.decode(PERPS_CUSTODIES.USDC.mint)]});
+ const inputAccount=amount=>{const b=Buffer.alloc(165);Buffer.from(bs58.decode(PERPS_CUSTODIES.USDC.mint)).copy(b);Buffer.from(bs58.decode(owner)).copy(b,32);b.writeBigUInt64LE(BigInt(amount),64);b[108]=1;return {owner:TOKEN,executable:false,lamports:2000000,data:[b.toString('base64'),'base64']};};
  const calls=[];
  const request=async(method,params)=>{
   calls.push({method,params});
   if(method==='getGenesisHash')return GENESIS;
   if(method==='getSlot')return (params[0].minContextSlot||0)+1;
   if(method==='getBlockHeight')return 5;
+  if(method==='getMinimumBalanceForRentExemption'){assert.equal(params[0],210);return 2000000;}
   if(method==='getMultipleAccounts'){
    if(params[0][0]===PERPS_CUSTODIES.SOL.address)return {context:{slot:params[1].minContextSlot+1},value:[custodyAccount('SOL'),custodyAccount('USDC')]};
-   return {context:{slot:params[1].minContextSlot+1},value:params[0].map(address=>address===owner?{owner:SYSTEM,executable:false,lamports:100000000,data:['','base64']}:null)};
+   return {context:{slot:params[1].minContextSlot+1},value:params[0].map(address=>address===owner?{owner:SYSTEM,executable:false,lamports:100000000,data:['','base64']}:address===source?inputAccount(20000000):null)};
   }
   if(method==='getFeeForMessage'){assert.equal(params[0],message.toString('base64'));return {context:{slot:params[1].minContextSlot+1},value:15100};}
   if(method==='simulateTransaction'){
    assert.equal(params[0],wire);assert.equal(params[1].sigVerify,false);assert.equal(params[1].replaceRecentBlockhash,false);
-   return {context:{slot:params[1].minContextSlot+1},value:{err:null,unitsConsumed:90000,accounts:params[1].accounts.addresses.map(address=>address===ids.position?positionAccount:address===owner?{owner:SYSTEM,executable:false,lamports:97984900,data:['','base64']}:null)}};
+   return {context:{slot:params[1].minContextSlot+1},value:{err:null,unitsConsumed:90000,accounts:params[1].accounts.addresses.map(address=>address===ids.position?positionAccount:address===owner?{owner:SYSTEM,executable:false,lamports:97984900,data:['','base64']}:address===source?inputAccount(10000000):null)}};
   }
   throw Error('UNEXPECTED_RPC_METHOD');
  };
@@ -69,6 +74,27 @@ test('exact-envelope simulation watches writable accounts, validates position de
  assert.throws(()=>getServerPerpsSimulationSnapshots(result,'changed-wire'));
  assert.equal(f.calls.some(c=>/send|execute|signTransaction/i.test(c.method)),false);
 });
+test('funding gate consumes only exact-wire simulation evidence and independent chain rent values',async()=>{
+ const f=await fixture(),simulation=await simulateServerPerpsPositionEffects(f.prepared,{request:f.request,monotonicNow:()=>0});
+ const result=await checkServerPerpsFundingSimulation(f.prepared,simulation,{request:f.request,monotonicNow:()=>0});
+ assert.equal(result.usdcDebitUnits,'10000000');assert.equal(result.networkFeeLamports,'15100');assert.equal(result.rentLockedLamports,'2000000');assert.equal(result.readyForSigning,false);
+ await assert.rejects(checkServerPerpsFundingSimulation(f.prepared,{...simulation},{request:f.request}));
+ await assert.rejects(checkServerPerpsFundingSimulation({...f.prepared,preparation:{serializedTxBase64:'different'}},simulation,{request:f.request}));
+ f.prepared.intent.marginUsd='1';
+ assert.equal((await checkServerPerpsFundingSimulation(f.prepared,simulation,{request:f.request,monotonicNow:()=>0})).usdcDebitUnits,'10000000');
+ for(const value of [null,0,2000001,Number.MAX_SAFE_INTEGER+1])await assert.rejects(checkServerPerpsFundingSimulation(f.prepared,simulation,{monotonicNow:()=>0,request:(m,p)=>m==='getMinimumBalanceForRentExemption'?value:f.request(m,p)}));
+ await assert.rejects(checkServerPerpsFundingSimulation(f.prepared,simulation,{request:async()=> 'devnet',monotonicNow:()=>0}));
+ let clock=0;await assert.rejects(checkServerPerpsFundingSimulation(f.prepared,simulation,{request:f.request,monotonicNow:()=>clock++===0?0:15001}));
+});
+
+test('funding gate rejects a successful simulation that debits extra USDC',async()=>{
+ const f=await fixture();
+ const simulation=await simulateServerPerpsPositionEffects(f.prepared,{monotonicNow:()=>0,request:async(m,p)=>{
+  const r=await f.request(m,p);if(m==='simulateTransaction')for(const account of r.value.accounts){if(account?.owner===TOKEN){const b=Buffer.from(account.data[0],'base64');b.writeBigUInt64LE(9999999n,64);account.data[0]=b.toString('base64');}}return r;
+ }});
+ await assert.rejects(checkServerPerpsFundingSimulation(f.prepared,simulation,{request:f.request,monotonicNow:()=>0}),/PERPS_SIMULATED_FUNDING_MISMATCH/);
+});
+
 test('simulation rejects incomplete snapshots, stale context, rejected transactions and replaced blockhashes',async()=>{
  for(const mutate of [r=>r.value.accounts.pop(),r=>r.value.err={InstructionError:[0,'InvalidArgument']},r=>r.value.replacementBlockhash={blockhash:'changed'},
   r=>r.context.slot=0,r=>r.value.unitsConsumed=100001,r=>r.value.unitsConsumed=0,r=>delete r.value.err]){
