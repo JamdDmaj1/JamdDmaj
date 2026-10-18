@@ -3,16 +3,37 @@ import assert from 'node:assert/strict';
 import {createPrivateKey,createPublicKey,sign} from 'node:crypto';
 import bs58 from 'bs58';
 import {inspectServerPerpsPreparation,prepareInspectedServerAutomation} from '../lib/perps-server-preparation.js';
+import {PERPS_CUSTODIES,PERPS_POOL,PERPS_PROGRAM,deriveServerPerpsIdentities} from '../lib/perps-server-custody.js';
+import {getProgramDerivedAddress} from '@solana/kit';
 const now=Date.parse('2026-10-18T12:00:00Z'),seconds=now/1000;
 const GENESIS='5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
 const u64=n=>{const b=Buffer.alloc(8);b.writeBigUInt64LE(BigInt(n));return b;};
-function fixture({exits=false,lookup=false}={}){
+function custodyAccount(asset){
+ const data=Buffer.alloc(416),id=PERPS_CUSTODIES[asset],index=asset==='SOL'?0:1;
+ Buffer.from('01b830515d833f91','hex').copy(data);Buffer.from(bs58.decode(PERPS_POOL)).copy(data,8);Buffer.from(bs58.decode(id.mint)).copy(data,40);
+ Buffer.alloc(32,100+index).copy(data,72);data[104]=id.decimals;data[105]=Number(id.stable);Buffer.alloc(32,110+index).copy(data,106);data[138]=2;
+ data.writeBigUInt64LE(500000n,175);data[199]=1;data[202]=1;data[203]=1;Buffer.alloc(32,120+index).copy(data,384);
+ return {owner:PERPS_PROGRAM,executable:false,data:[data.toString('base64'),'base64']};
+}
+async function fixture({exits=false,lookup=false,trusted=false}={}){
  lookup ||= exits;
  const apiPrivate=createPrivateKey({key:Buffer.concat([Buffer.from('302e020100300506032b657004220420','hex'),Buffer.alloc(32,21)]),format:'der',type:'pkcs8'});
  const keys=Array.from({length:19},(_,i)=>Buffer.alloc(32,i+1));keys[2]=createPublicKey(apiPrivate).export({format:'der',type:'spki'}).subarray(-32);
  keys.push(Buffer.from(bs58.decode('ComputeBudget111111111111111111111111111111')),Buffer.from(bs58.decode('PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu')));
  const blockhash=bs58.encode(Buffer.alloc(32,40)),tableAddress=bs58.encode(Buffer.alloc(32,60));
  const loaded=Array.from({length:exits?4:1},(_,i)=>Buffer.alloc(32,80+i));
+ let identities;
+ if(trusted){
+  identities=await deriveServerPerpsIdentities({walletAddress:bs58.encode(keys[0]),asset:'SOL',side:'LONG'});
+  const replacements={4:identities.perpetuals,5:PERPS_POOL,6:identities.position,7:PERPS_CUSTODIES.SOL.address,8:bs58.encode(Buffer.alloc(32,120)),9:bs58.encode(Buffer.alloc(32,110)),
+   10:PERPS_CUSTODIES.SOL.address,11:bs58.encode(Buffer.alloc(32,120)),12:bs58.encode(Buffer.alloc(32,110)),13:bs58.encode(Buffer.alloc(32,100)),
+   16:'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',17:'11111111111111111111111111111111',18:identities.eventAuthority};
+  for(const [index,address]of Object.entries(replacements))keys[Number(index)]=Buffer.from(bs58.decode(address));
+  if(exits)for(const [index,counter]of [[0,1],[2,2]]){
+   const [request]=await getProgramDerivedAddress({programAddress:PERPS_PROGRAM,seeds:['position_request',Buffer.from(bs58.decode(identities.position)),u64(counter),new Uint8Array([2])]});
+   loaded[index]=Buffer.from(bs58.decode(request));
+  }
+ }
  const table=Buffer.alloc(56+loaded.length*32);table.writeUInt32LE(1,0);table.writeBigUInt64LE(18446744073709551615n,4);table.writeBigUInt64LE(1n,12);loaded.forEach((k,i)=>k.copy(table,56+i*32));
  const account={owner:'AddressLookupTab1e1111111111111111111111111',executable:false,data:[table.toString('base64'),'base64']};
  const instruction=(program,accounts,data)=>Buffer.concat([Buffer.from([program,accounts.length,...accounts,data.length]),data]);
@@ -27,7 +48,12 @@ function fixture({exits=false,lookup=false}={}){
   const data=Buffer.concat([Buffer.from('7562427f1e3249b9','hex'),u64(0),u64(30000000),u64(profit?110000000:95000000),Buffer.from([profit?1:0,0]),u64(profit?2:1),u64(seconds)]);
   instructions.push(instruction(20,roles,data));
  }
- const message=Buffer.concat([Buffer.from(lookup?[128,3,1,2,21]:[3,1,2,21]),...keys,Buffer.from(bs58.decode(blockhash)),Buffer.from([instructions.length]),...instructions,
+ const staticKeys=trusted?[...new Map(keys.map(k=>[k.toString('hex'),k])).values()]:keys;
+ if(trusted){
+  const remap=i=>i>=21?i-21+staticKeys.length:staticKeys.findIndex(k=>k.equals(keys[i]));
+  for(const instruction of instructions){instruction[0]=remap(instruction[0]);for(let i=0;i<instruction[1];i++)instruction[2+i]=remap(instruction[2+i]);}
+ }
+ const message=Buffer.concat([Buffer.from(lookup?[128,3,1,2,staticKeys.length]:[3,1,2,staticKeys.length]),...staticKeys,Buffer.from(bs58.decode(blockhash)),Buffer.from([instructions.length]),...instructions,
   ...(lookup?[Buffer.from([1]),Buffer.from(bs58.decode(tableAddress)),Buffer.from([loaded.length,...loaded.map((_,i)=>i),0])]:[])]);
  const wire=Buffer.concat([Buffer.from([3]),Buffer.alloc(128),sign(null,message,apiPrivate),message]);
  assert.ok(wire.length<=1232);
@@ -37,14 +63,18 @@ function fixture({exits=false,lookup=false}={}){
  const request=async(method,params)=>{calls.push({method,params});
   if(method==='getGenesisHash')return GENESIS;
   if(method==='getSlot')return 50;
-  if(method==='getMultipleAccounts'){assert.deepEqual(params[0],[tableAddress]);return {context:{slot:51},value:[account]};}
+  if(method==='getMultipleAccounts'){
+   if(params[0][0]===tableAddress){assert.deepEqual(params[0],[tableAddress]);return {context:{slot:51},value:[account]};}
+   assert.equal(trusted,true);assert.deepEqual(params[0],[PERPS_CUSTODIES.SOL.address,PERPS_CUSTODIES.USDC.address]);
+   return {context:{slot:52},value:[custodyAccount('SOL'),custodyAccount('USDC')]};
+  }
   throw Error('UNEXPECTED_RPC');
  };
  return {preparation,intent,request,calls,account,table,loaded};
 }
 test('combined server gate inspects exact prepared wire, fee, core intent and RPC-resolved addresses without signing permission',async()=>{
  for(const lookup of [false,true]){
-  const f=fixture({lookup}),result=await inspectServerPerpsPreparation(f.preparation,f.intent,{request:f.request,nowSeconds:seconds});
+  const f=await fixture({lookup}),result=await inspectServerPerpsPreparation(f.preparation,f.intent,{request:f.request,nowSeconds:seconds});
   assert.equal(result.stage,'INSPECTED_NOT_AUTHORIZED');assert.equal(result.readyForSigning,false);
   assert.equal(result.requiresSameWireSimulation,true);assert.equal(result.requiresVerifiedCustodiesAndPdas,true);
   assert.equal(result.capabilities.priorityFeeLamports,'100');
@@ -53,10 +83,10 @@ test('combined server gate inspects exact prepared wire, fee, core intent and RP
  }
 });
 test('Telegram settings and builder response feed the complete inspection chain but never become signing-ready',async()=>{
- const f=fixture({exits:true});let builderCalls=0;
+ const f=await fixture({exits:true,trusted:true});let builderCalls=0;
  const input={settings:{capital:100,loss:20,positions:2,margin:10,leverage:3,dailyTrades:5},signal:{id:'signal-1',createdAt:new Date(now).toISOString(),pair:'SOLUSDT',side:'LONG',entry:100,sl:95,tp1:110},decision:{ok:true},walletAddress:f.intent.walletAddress,snapshot:{updatedAt:now,walletAddress:f.intent.walletAddress,availableUsd:100,allocatedUsd:0,lossTodayUsd:0,openPositions:0,tradesToday:0},enabled:true,paused:false,maxSlippageBps:50,now};
  const result=await prepareInspectedServerAutomation(input,{nowSeconds:seconds,rpcRequest:f.request,builderRequest:async()=>{builderCalls++;return new Response(JSON.stringify(f.preparation));}});
- assert.equal(builderCalls,1);assert.equal(result.inspection.core.exitCount,2);assert.equal(result.readyForSigning,false);assert.equal(result.tradingEnabled,false);
+ assert.equal(builderCalls,1);assert.equal(result.inspection.core.exitCount,2);assert.equal(result.custody.position,f.preparation.positionPubkey);assert.equal(result.custody.exitCount,2);assert.equal(result.readyForSigning,false);assert.equal(result.tradingEnabled,false);
 });
 test('table identity, bank slot, warmup, activation and distinct addresses fail closed',async()=>{
  for(const mutate of [
@@ -67,13 +97,13 @@ test('table identity, bank slot, warmup, activation and distinct addresses fail 
   f=>{Buffer.from(bs58.decode(f.intent.walletAddress)).copy(f.table,56);f.account.data[0]=f.table.toString('base64');},
   f=>{f.account.data[0]+='\n';}
  ]){
-  const f=fixture({lookup:true});mutate(f);await assert.rejects(inspectServerPerpsPreparation(f.preparation,f.intent,{request:f.request,nowSeconds:seconds}));
+  const f=await fixture({lookup:true});mutate(f);await assert.rejects(inspectServerPerpsPreparation(f.preparation,f.intent,{request:f.request,nowSeconds:seconds}));
  }
- const f=fixture({lookup:true});
+ const f=await fixture({lookup:true});
  await assert.rejects(inspectServerPerpsPreparation(f.preparation,f.intent,{request:async(m,p)=>m==='getMultipleAccounts'?{context:{slot:49},value:[f.account]}:f.request(m,p),nowSeconds:seconds}));
 });
 test('changed network, blockhash, expired instruction or mismatched intent cannot pass the combined gate',async()=>{
- const f=fixture();
+ const f=await fixture();
  for(const options of [{nowSeconds:seconds+31},{minimumSlot:51},{request:async()=> 'wrong-network'}]){
   await assert.rejects(inspectServerPerpsPreparation(f.preparation,f.intent,{request:f.request,nowSeconds:seconds,...options}));
  }
