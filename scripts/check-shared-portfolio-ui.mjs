@@ -27,6 +27,13 @@ try{
  await page.locator('.futures-market-picker input').fill('sol');
  await page.locator('.futures-market-picker button').click();
  assert.match(await page.locator('.futures-market-picker summary').innerText(),/SOL/);
+ await page.locator('#tab-trade').click();
+ const layout=await page.evaluate(()=>{
+  const workspace=document.querySelector('.finance-trade-workspace'),swap=workspace.querySelector('.finance-inline-buy'),book=workspace.querySelector('.finance-orderbook');
+  const a=workspace.getBoundingClientRect(),b=swap.getBoundingClientRect(),c=book.getBoundingClientRect();
+  return {fullSwap:b.width>=a.width-2,bookRight:c.x>a.x,bookAboveSwap:c.y<b.y};
+ });
+ assert.equal(layout.fullSwap,true);assert.equal(layout.bookRight,true);assert.equal(layout.bookAboveSwap,true);
  const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth);
  assert.equal(overflow,false,'Mobile document must not overflow');
  assert.deepEqual(errors,[]);

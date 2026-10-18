@@ -18,6 +18,16 @@ import static org.junit.Assert.*;
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk=30)
 public class NativeWalletActivityTest {
+    @Test public void swapNavigationOnlyOpensFormWithoutAmountOrAuthorization(){
+        var app=org.robolectric.RuntimeEnvironment.getApplication();
+        var intent=new android.content.Intent(app,NativeWalletActivity.class).putExtra("wallet-navigation","swap");
+        try(var controller=Robolectric.buildActivity(NativeWalletActivity.class,intent).create()){
+            ArrayList<EditText> inputs=new ArrayList<>();fields(controller.get().getWindow().getDecorView(),inputs);
+            assertEquals(View.VISIBLE,((View)inputs.get(7).getParent()).getVisibility());
+            assertEquals("",inputs.get(9).getText().toString());
+            assertNull(org.robolectric.Shadows.shadowOf(controller.get()).getNextStartedActivity());
+        }
+    }
     @Test public void swapAmountExplicitlyNamesTokenAndClearsWhenPaymentTokenChanges(){
         try(var controller=Robolectric.buildActivity(NativeWalletActivity.class).create()){
             var activity=controller.get();ArrayList<EditText> inputs=new ArrayList<>();fields(activity.getWindow().getDecorView(),inputs);

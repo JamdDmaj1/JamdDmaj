@@ -135,6 +135,10 @@ public final class NativeWalletActivity extends Activity {
         action(usdcSection,text("Revisar envío de USDC","Review USDC transfer"),()->reviewUsdc());
         action(usdcSection,text("Consultar última operación de Solana","Check latest Solana operation"),()->checkSolana());
         action(root,text("Bloquear billetera","Lock wallet"),()->lock());
+        if("swap".equals(getIntent().getStringExtra("wallet-navigation"))){
+            swapSection.setVisibility(View.VISIBLE);
+            swapSection.post(()->swapSection.requestRectangleOnScreen(new android.graphics.Rect(0,0,swapSection.getWidth(),swapSection.getHeight()),false));
+        }
     }
     void returnToAssets(){lock();finish();}
     private void createSeedWallet(){
