@@ -28,10 +28,13 @@ public class NativePerpsTransfersTest {
     static final class Rpc implements NativeWalletRpc.Transport {
         final NativePerpsAccountVerificationTest.Rpc chain=new NativePerpsAccountVerificationTest.Rpc();
         final NativePerpsTransaction transaction;
+        final boolean longSide;
         JSONArray watched;long credited=9950000,fee=15000;int simulations;
-        Rpc(){NativePerpsPreSwapPlanTest.configureShort(chain.fixture);transaction=chain.transaction();}
+        Rpc(){this(false);}
+        Rpc(boolean longSide){this.longSide=longSide;if(!longSide)NativePerpsPreSwapPlanTest.configureShort(chain.fixture);transaction=chain.transaction();}
         String payer(){return NativePerpsTransactionTest.payer();}
-        String source(){return DevnetSolana.encode(chain.fixture.route.opening[3]);}
+        String source(){return DevnetSolana.encode(chain.fixture.route.swap[1]);}
+        String collateralAccount(){return longSide?DevnetSolana.encode(chain.fixture.route.swap[2]):source();}
         String position(){return DevnetSolana.encode(chain.fixture.route.opening[6]);}
         public Object request(String method,JSONArray params)throws Exception{
             if(method.equals("getBlockHeight"))return 50;
@@ -63,17 +66,22 @@ public class NativePerpsTransfersTest {
                     if(!after){result.put(JSONObject.NULL);continue;}
                     byte[] position=NativePerpsPositionTest.fixture();
                     System.arraycopy(DevnetSolana.decode(payer(),32),0,position,8,32);
-                    System.arraycopy(DevnetSolana.decode(NativePerpsCustody.address("USDC"),32),0,position,104,32);
-                    position[152]=2;position[209]=(byte)NativePerpsAddresses.positionDerivation(payer(),"SOL",2).bump;
+                    if(!longSide)System.arraycopy(DevnetSolana.decode(NativePerpsCustody.address("USDC"),32),0,position,104,32);
+                    position[152]=(byte)(longSide?1:2);position[209]=(byte)NativePerpsAddresses.positionDerivation(payer(),"SOL",longSide?1:2).bump;
                     ByteBuffer.wrap(position).order(ByteOrder.LITTLE_ENDIAN).putLong(161,19900000).putLong(169,credited);
                     result.put(account(NativePerpsCustody.PROGRAM,2000000,position));
+                }else if(longSide&&address.equals(collateralAccount()))result.put(JSONObject.NULL);
+                else if(longSide&&address.equals(DevnetSolana.encode(chain.fixture.route.ledger[0]))){
+                    byte[] ledger=NativePerpsTokenLedgerTest.fixture();
+                    if(after){System.arraycopy(DevnetSolana.decode(collateralAccount(),32),0,ledger,8,32);ByteBuffer.wrap(ledger).order(ByteOrder.LITTLE_ENDIAN).putLong(40,0);}
+                    result.put(account(NativePerpsCustody.PROGRAM,2000000,ledger));
                 }else result.put(account(NativePerpsCustody.PROGRAM,2000000,new byte[0]));
             }
             return result;
         }
         NativePerpsService service(NativePerpsServiceTest.Clock clock){
             NativeSolanaAccounts accounts=new NativeSolanaAccounts(chain);
-            NativePerpsSimulation simulation=new NativePerpsSimulation(this,accounts,(owner,mint,program)->source());
+            NativePerpsSimulation simulation=new NativePerpsSimulation(this,accounts,(owner,mint,program)->NativeSolanaTokens.USDC.equals(mint)?source():collateralAccount());
             return new NativePerpsService((payer,intent)->new JSONObject().put("serializedTxBase64",Base64.encodeToString(transaction.bytes(),Base64.NO_WRAP))
                 .put("positionPubkey",position()).put("txMetadata",new JSONObject().put("lastValidBlockHeight","100")),
                 accounts::verifyPerpsOrderAccounts,clock,simulation);
@@ -101,6 +109,19 @@ public class NativePerpsTransfersTest {
         String id=transfers.submit(draft,signature,()->true);
         assertEquals(DevnetSolana.encode(signature),id);assertEquals(1,signatures[0]);assertEquals(1,broadcasts[0]);assertEquals(3,rpc.simulations);
         assertThrows(Exception.class,()->transfers.submit(draft,signature,()->true));
+    }
+    @Test public void verifiesUsdcLongPreSwapAndLedgerThroughWholeLifecycle()throws Exception{
+        Rpc rpc=new Rpc(true);int[] broadcasts={0},signatures={0};
+        var transfers=new NativePerpsTransfers(context,owner,rpc.service(clock),request->{
+            broadcasts[0]++;var record=new NativeTransferJournal(context,owner,WalletNetwork.SOLANA_MAINNET).latest();
+            assertEquals(1,record.perps.side);
+            return new JSONObject().put("action","increase-position").put("txid",record.transactionId);
+        });
+        var draft=transfers.prepare(rpc.chain.fixture.intent);
+        byte[] signature=transfers.signReviewed(draft,new byte[0],signer(signatures),()->true);
+        assertEquals(DevnetSolana.encode(signature),transfers.submit(draft,signature,()->true));
+        assertEquals(3,rpc.simulations);assertEquals(1,signatures[0]);assertEquals(1,broadcasts[0]);
+        assertEquals(3,rpc.chain.ledgerReads);
     }
     @Test public void changedVerifiedCostsCannotReachSignerOrBroadcast()throws Exception{
         Rpc rpc=new Rpc();int[] calls={0};
