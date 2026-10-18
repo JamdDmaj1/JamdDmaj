@@ -8,6 +8,9 @@ import {getProgramDerivedAddress} from '@solana/kit';
 const now=Date.parse('2026-10-18T12:00:00Z'),seconds=now/1000;
 const GENESIS='5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
 const u64=n=>{const b=Buffer.alloc(8);b.writeBigUInt64LE(BigInt(n));return b;};
+const TOKEN='TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
+async function associated(owner,mint){return (await getProgramDerivedAddress({programAddress:'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL',seeds:[bs58.decode(owner),bs58.decode(TOKEN),bs58.decode(mint)]}))[0];}
+function tokenAccount(owner,amount){const b=Buffer.alloc(165);Buffer.from(bs58.decode(PERPS_CUSTODIES.USDC.mint)).copy(b);Buffer.from(bs58.decode(owner)).copy(b,32);b.writeBigUInt64LE(BigInt(amount),64);b[108]=1;return {owner:TOKEN,executable:false,lamports:2000000,data:[b.toString('base64'),'base64']};}
 function custodyAccount(asset){
  const data=Buffer.alloc(416),id=PERPS_CUSTODIES[asset],index=asset==='SOL'?0:1;
  Buffer.from('01b830515d833f91','hex').copy(data);Buffer.from(bs58.decode(PERPS_POOL)).copy(data,8);Buffer.from(bs58.decode(id.mint)).copy(data,40);
@@ -29,9 +32,12 @@ async function fixture({exits=false,lookup=false,trusted=false}={}){
    10:PERPS_CUSTODIES.SOL.address,11:bs58.encode(Buffer.alloc(32,120)),12:bs58.encode(Buffer.alloc(32,110)),13:bs58.encode(Buffer.alloc(32,100)),
    16:'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',17:'11111111111111111111111111111111',18:identities.eventAuthority};
   for(const [index,address]of Object.entries(replacements))keys[Number(index)]=Buffer.from(bs58.decode(address));
+  keys[3]=Buffer.from(bs58.decode(await associated(bs58.encode(keys[0]),PERPS_CUSTODIES.USDC.mint)));
+  keys[14]=Buffer.from(bs58.decode(PERPS_CUSTODIES.USDC.mint));
   if(exits)for(const [index,counter]of [[0,1],[2,2]]){
    const [request]=await getProgramDerivedAddress({programAddress:PERPS_PROGRAM,seeds:['position_request',Buffer.from(bs58.decode(identities.position)),u64(counter),new Uint8Array([2])]});
    loaded[index]=Buffer.from(bs58.decode(request));
+   loaded[index+1]=Buffer.from(bs58.decode(await associated(request,PERPS_CUSTODIES.USDC.mint)));
   }
  }
  const table=Buffer.alloc(56+loaded.length*32);table.writeUInt32LE(1,0);table.writeBigUInt64LE(18446744073709551615n,4);table.writeBigUInt64LE(1n,12);loaded.forEach((k,i)=>k.copy(table,56+i*32));
@@ -44,7 +50,7 @@ async function fixture({exits=false,lookup=false,trusted=false}={}){
  const openData=Buffer.concat([Buffer.from('a47e44b6dfa640b7','hex'),u64(30000000),Buffer.from([1]),u64(10000000),Buffer.from([1]),u64(100500000),u64(seconds)]);
  const instructions=[instruction(19,[],computeLimit),instruction(19,[],computePrice),instruction(20,opening,openData)];
  if(exits)for(const profit of [false,true]){
-  const roles=[1,2,0,3,4,5,6,profit?23:21,profit?24:22,7,8,9,10,13,14,16,15,17,18,20];
+  const roles=[1,2,0,3,4,5,6,profit?23:21,profit?24:22,7,8,9,10,trusted?14:13,14,16,15,17,18,20];
   const data=Buffer.concat([Buffer.from('7562427f1e3249b9','hex'),u64(0),u64(30000000),u64(profit?110000000:95000000),Buffer.from([profit?1:0,0]),u64(profit?2:1),u64(seconds)]);
   instructions.push(instruction(20,roles,data));
  }
@@ -64,6 +70,7 @@ async function fixture({exits=false,lookup=false,trusted=false}={}){
   if(method==='getGenesisHash')return GENESIS;
   if(method==='getSlot')return Math.max(50,params[0]?.minContextSlot||0);
   if(method==='getBlockHeight')return 10;
+  if(method==='getMinimumBalanceForRentExemption'){assert.ok([210,230,165].includes(params[0]));return 2000000;}
   if(method==='getFeeForMessage')return {context:{slot:55},value:15100};
   if(method==='getMultipleAccounts'){
    if(params[0][0]===tableAddress){assert.deepEqual(params[0],[tableAddress]);return {context:{slot:51},value:[account]};}
@@ -71,7 +78,7 @@ async function fixture({exits=false,lookup=false,trusted=false}={}){
     assert.equal(trusted,true);assert.deepEqual(params[0],[PERPS_CUSTODIES.SOL.address,PERPS_CUSTODIES.USDC.address]);
     return {context:{slot:52},value:[custodyAccount('SOL'),custodyAccount('USDC')]};
    }
-   return {context:{slot:54},value:params[0].map(()=>null)};
+   return {context:{slot:54},value:params[0].map(address=>address===intent.walletAddress?{owner:'11111111111111111111111111111111',executable:false,lamports:100000000,data:['','base64']}:address===bs58.encode(keys[3])?tokenAccount(intent.walletAddress,20000000):null)};
   }
   if(method==='simulateTransaction'){
    assert.equal(params[0],preparation.serializedTxBase64);assert.equal(params[1].replaceRecentBlockhash,false);assert.equal(params[1].sigVerify,false);
@@ -89,7 +96,13 @@ async function fixture({exits=false,lookup=false,trusted=false}={}){
     const [address,bump]=await getProgramDerivedAddress({programAddress:PERPS_PROGRAM,seeds:['position_request',bs58.decode(identities.position),u64(counter),new Uint8Array([2])]});
     exit[228]=bump;states.set(address,exit);
    }
-   return {context:{slot:56},value:{err:null,unitsConsumed:50000,accounts:params[1].accounts.addresses.map(address=>states.has(address)?{owner:PERPS_PROGRAM,executable:false,lamports:2000000,data:[states.get(address).toString('base64'),'base64']}:null)}};
+   return {context:{slot:56},value:{err:null,unitsConsumed:50000,accounts:params[1].accounts.addresses.map(address=>{
+    if(states.has(address))return {owner:PERPS_PROGRAM,executable:false,lamports:2000000,data:[states.get(address).toString('base64'),'base64']};
+    if(address===intent.walletAddress)return {owner:'11111111111111111111111111111111',executable:false,lamports:100000000-15100-(exits?10000000:2000000),data:['','base64']};
+    if(address===bs58.encode(keys[3]))return tokenAccount(intent.walletAddress,10000000);
+    if(exits)for(const i of [1,3])if(address===bs58.encode(loaded[i]))return tokenAccount(bs58.encode(loaded[i-1]),0);
+    return null;
+   })}};
   }
   throw Error('UNEXPECTED_RPC');
  };
@@ -111,6 +124,26 @@ test('Telegram settings and builder response feed the complete inspection chain 
  const result=await prepareInspectedServerAutomation(input,{nowSeconds:seconds,rpcRequest:f.request,builderRequest:async()=>{builderCalls++;return new Response(JSON.stringify(f.preparation));}});
  assert.equal(builderCalls,1);assert.equal(result.inspection.core.exitCount,2);assert.equal(result.custody.position,f.preparation.positionPubkey);assert.equal(result.custody.exitCount,2);assert.equal(result.readyForSigning,false);assert.equal(result.tradingEnabled,false);
  assert.equal(result.simulation.stage,'SIMULATED_POSITION_AND_EXITS');assert.equal(result.simulation.requiresFundingAndRentChecks,true);assert.equal(result.simulation.exits.length,2);
+ assert.equal(result.stage,'SIMULATED_FUNDING_AND_EXITS');assert.equal(result.funding.usdcDebitUnits,'10000000');assert.equal(result.funding.rentLockedLamports,'10000000');assert.equal(result.requiresFullTokenPolicy,true);
+ // A successful program simulation is insufficient: these spending/exit-token
+ // mutations must reject the actual configured Telegram preparation pipeline.
+ for(const change of ['extra-usdc','extra-sol','exit-token-amount','exit-token-owner','missing-exit-token']){
+  await assert.rejects(prepareInspectedServerAutomation(input,{nowSeconds:seconds,builderRequest:async()=>new Response(JSON.stringify(f.preparation)),rpcRequest:async(m,p)=>{
+   const reply=await f.request(m,p);if(m!=='simulateTransaction')return reply;
+   const addresses=p[1].accounts.addresses,values=reply.value.accounts;
+   if(change==='extra-sol')values[addresses.indexOf(input.walletAddress)].lamports--;
+   else if(change==='extra-usdc'){
+    const account=values.find(a=>a?.owner===TOKEN&&Buffer.from(a.data[0],'base64').readBigUInt64LE(64)===10000000n);
+    const b=Buffer.from(account.data[0],'base64');b.writeBigUInt64LE(9999999n,64);account.data[0]=b.toString('base64');
+   }else{
+    const index=addresses.indexOf(bs58.encode(f.loaded[1]));
+    if(change==='missing-exit-token')values[index]=null;
+    else{const b=Buffer.from(values[index].data[0],'base64');if(change==='exit-token-amount')b.writeBigUInt64LE(1n,64);else b[32]^=1;values[index].data[0]=b.toString('base64');}
+   }
+   return reply;
+  }}));
+ }
+ assert.equal(f.calls.some(c=>/send|execute|signTransaction/i.test(c.method)),false);
 });
 test('table identity, bank slot, warmup, activation and distinct addresses fail closed',async()=>{
  for(const mutate of [
