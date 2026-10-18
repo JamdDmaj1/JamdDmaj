@@ -20,19 +20,20 @@
   "dependencies": {
     "@capacitor-community/speech-recognition": "^7.0.1",
     "@capacitor-community/text-to-speech": "^8.0.1",
-    "@capacitor/android": "^8.0.0",
+    "@capacitor/android": "8.4.3",
     "@capacitor/app": "^8.0.0",
     "@capacitor/browser": "^8.0.0",
-    "@capacitor/core": "^8.0.0",
-    "@capacitor/ios": "^8.0.0",
+    "@capacitor/core": "8.4.3",
+    "@capacitor/ios": "8.4.3",
     "@solana-program/system": "^0.12.2",
     "@solana-program/token-2022": "0.9.0",
     "@solana/kit": "^6.10.0",
     "bs58": "^6.0.0",
+    "qrcode": "1.5.4",
     "tweetnacl": "^1.0.3"
   },
   "devDependencies": {
-    "@capacitor/cli": "^8.0.0",
+    "@capacitor/cli": "8.4.3",
     "esbuild": "^0.28.1"
   }
 }

@@ -8,6 +8,10 @@ test('display counts canonical USDC only, not other assets or symbols',()=>{
  assert.equal(walletDisplayBalance({...snapshot(),tokens:[]}).usdc,0);
  for(const extra of [{partial:true},{network:'solana:devnet'},{updatedAt:'invalid'},{updatedAt:new Date(Date.now()-121000).toISOString()},{tokens:[{mint,amount:-1}]}])assert.equal(walletDisplayBalance({...snapshot(),...extra}),null);
 });
+test('missing USD prices do not hide a complete verified USDC inventory',()=>{
+ assert.equal(walletDisplayBalance({...snapshot(),partial:true,balancesComplete:true}).usdc,.0011);
+ assert.equal(walletDisplayBalance({...snapshot(),partial:true,balancesComplete:false}),null);
+});
 test('wallet display enables percent sizing only for fresh balances and clears on disconnect',()=>{
  let listener;const doc={addEventListener:(name,fn)=>{listener=fn;},defaultView:{addEventListener(){}}};
  const out={},slider={},amount={dispatchEvent(){}};bindWalletDisplay(doc,'en',out,slider,amount);

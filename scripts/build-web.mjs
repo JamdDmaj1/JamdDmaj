@@ -79,12 +79,17 @@ await build({
 
 await mkdir(resolve(output, "lib"), { recursive: true });
 await cp(resolve(root, "lib", "wallet-display.js"), resolve(output, "lib", "wallet-display.js"));
+await cp(resolve(root, "lib", "wallet-portfolio-store.js"), resolve(output, "lib", "wallet-portfolio-store.js"));
 await build({
   absWorkingDir: root, entryPoints: [resolve(root, "assets-wallet-ui.js")],
   outfile: resolve(output, "assets-wallet-ui.js"), bundle: true, format: "esm",
+  plugins: [{name:'shared-public-portfolio',setup(builder){
+    builder.onResolve({filter:/wallet-portfolio-store\.js$/},()=>({path:'./lib/wallet-portfolio-store.js',external:true}));
+  }}],
   platform: "browser", target: ["es2020"], legalComments: "none"
 });
 await cp(resolve(root, "lib", "terminal-layout.js"), resolve(output, "lib", "terminal-layout.js"));
+await cp(resolve(root, "lib", "market-sentiment-ui.js"), resolve(output, "lib", "market-sentiment-ui.js"));
 await cp(resolve(root, "lib", "finance-markets.js"), resolve(output, "lib", "finance-markets.js"));
 await cp(resolve(root, "lib", "finance-preferences.js"), resolve(output, "lib", "finance-preferences.js"));
 await cp(resolve(root, "lib", "finance-depth.js"), resolve(output, "lib", "finance-depth.js"));

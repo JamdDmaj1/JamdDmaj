@@ -3,6 +3,8 @@ import {getCompatibleSolanaWallets,getSolanaAccount,sanitizeWalletName} from './
 import {createEvmReadOnlySession} from './lib/external-wallet-session.js';
 import {setupNativeWalletEntry,setupMainWalletEntry} from './native-wallet-entry.js';
 import {createPhantomMobileSession} from './lib/phantom-mobile-session.js';
+import {selectWalletAccount,selectedWalletAccount,publishWalletPortfolio,forgetWalletAccount} from './lib/wallet-portfolio-store.js';
+import {setupWalletOverview} from './lib/wallet-overview.js';
 
 export function setupAssetsWallets(language, doc=document, win=window) {
   const host=doc.getElementById('terminal-assets');if(!host)return;
@@ -23,10 +25,12 @@ export function setupAssetsWallets(language, doc=document, win=window) {
   note.className='notes';host.prepend(panel);
   const disposeNative=win.Capacitor?.isPluginAvailable?.('DevnetWallet')?setupNativeWalletEntry(language,doc,win):()=>{};
   const disposeMain=setupMainWalletEntry(language,doc,win);
+  const disposeOverview=setupWalletOverview(language,doc,win);
   const registry=getWalletRegistry(),providers=new Map();let choices=[],session=null,removeChange=null,epoch=0,busy=false,active=null,refreshTimer;
-  function publishPortfolio(data){const EventType=win.CustomEvent;if(EventType&&doc.dispatchEvent)doc.dispatchEvent(new EventType('jamd-wallet-portfolio',{detail:data}));}
+  function publishPortfolio(data){publishWalletPortfolio(doc,data,{address:active?.address,source:'external'});}
   function clear(){publishPortfolio(null);epoch++;clearInterval(refreshTimer);active=null;const old=session;session=null;old?.disconnect();removeChange?.();removeChange=null;identity.textContent='';balance.textContent='';holdings.replaceChildren();refresh.hidden=disconnect.hidden=true;select.disabled=false;connect.hidden=false;}
-  function invalid(){clear();status.textContent=t('La cuenta o red cambió. Vuelve a conectar.','Account or network changed. Connect again.');}
+  function forgetExternal(){if(active?.address)forgetWalletAccount(doc,{address:active.address,source:'external'});try{win.localStorage?.removeItem('jamd.externalPublicWallet.v1');}catch{}}
+  function invalid(){forgetExternal();clear();status.textContent=t('La cuenta o red cambió. Vuelve a conectar.','Account or network changed. Connect again.');}
   function discover(){
     if(active||busy)return;
     const previous=select.value;
@@ -67,6 +71,8 @@ export function setupAssetsWallets(language, doc=document, win=window) {
       }
       if(ticket!==epoch)return;
       active={...choice,...account};identity.textContent=choice.name+' · '+account.network+' · '+account.address;
+      if(choice.kind!=='evm')selectWalletAccount(doc,{address:account.address,source:'external',name:choice.name});
+      if(choice.kind!=='evm')try{win.localStorage?.setItem('jamd.externalPublicWallet.v1',JSON.stringify({address:account.address,name:choice.name,network:'solana:mainnet'}));}catch{}
       refresh.hidden=disconnect.hidden=false;connect.hidden=true;
       status.textContent=t('Conectada para consulta. No se ha enviado dinero.','Connected for inspection. No funds were sent.');
     }catch(error){if(ticket===epoch){clear();status.textContent=error?.message==='phantom-not-installed'?t('Instala o actualiza la app oficial de Phantom y vuelve a conectar.','Install or update the official Phantom app and reconnect.'):t('Conexión cancelada, caducada o billetera no disponible. Vuelve a conectar y aprueba en Phantom.','Connection cancelled, expired or wallet unavailable. Reconnect and approve in Phantom.');}}
@@ -105,6 +111,19 @@ export function setupAssetsWallets(language, doc=document, win=window) {
     }catch{if(ticket===epoch){balance.textContent='';holdings.replaceChildren();status.textContent=t('No pudimos actualizar el saldo. Reintenta; si persiste, comprueba la fecha y hora del dispositivo. No se sustituye por cero.','Could not refresh balance. Retry; if it persists, check device date and time. It is not replaced with zero.');}}
     finally{busy=false;refresh.disabled=false;}
   };
-  disconnect.onclick=()=>{clear();discover();};
-  return ()=>{disposeMain();disposeNative();clear();unregister();unregisterGone();win.removeEventListener('eip6963:announceProvider',announced);panel.remove();};
+  const refreshSelected=()=>{const selected=selectedWalletAccount(doc);if(selected?.source==='external'&&selected.address===active?.address)refresh.onclick();};
+  doc.addEventListener?.('jamd-wallet-refresh',refreshSelected);
+  disconnect.onclick=()=>{forgetExternal();clear();discover();};
+  // Restore only a public watch address. This never restores a Phantom secret,
+  // signature session or spending permission; every transaction still needs approval.
+  try{
+    const saved=JSON.parse(win.localStorage?.getItem('jamd.externalPublicWallet.v1')||'null');
+    if(saved?.network==='solana:mainnet'&&typeof saved.address==='string'&&/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(saved.address)){
+      const name=sanitizeWalletName(saved.name);selectWalletAccount(doc,{address:saved.address,source:'external',name});
+      active={kind:'remembered-public',address:saved.address,name};identity.textContent=name+' · '+t('Cuenta pública recordada','Remembered public account')+' · '+saved.address;
+      refresh.hidden=disconnect.hidden=false;connect.hidden=true;select.disabled=true;refresh.onclick();
+      refreshTimer=setInterval(()=>{if(!doc.hidden)refresh.onclick();},60000);refreshTimer?.unref?.();
+    }
+  }catch{}
+  return ()=>{doc.removeEventListener?.('jamd-wallet-refresh',refreshSelected);disposeOverview();disposeMain();disposeNative();clear();unregister();unregisterGone();win.removeEventListener('eip6963:announceProvider',announced);panel.remove();};
 }

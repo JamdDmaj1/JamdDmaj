@@ -53,6 +53,7 @@ export default async function handler(request) {
       tokens,
       estimatedValueUsd: sol * solPriceUsd + tokensUsd,
       valuationCoverage: tokens.length ? tokens.filter((token) => token.priceUsd > 0).length / tokens.length : 1,
+      balancesComplete: classicResult.status === "fulfilled" && token2022Result.status === "fulfilled",
       partial: classicResult.status !== "fulfilled" || token2022Result.status !== "fulfilled" || solPriceResult.status !== "fulfilled"
     };
     if(cache.size>=200)cache.delete(cache.keys().next().value);

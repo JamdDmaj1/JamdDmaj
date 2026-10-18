@@ -250,14 +250,26 @@ public final class NativeWalletActivity extends Activity {
             var profiles=new NativeWalletProfiles(this).list();
             runOnUiThread(()->{if(ticket!=epoch)return;accounts.removeAllViews();
                 if(profiles.isEmpty())status.setText(text("Aún no hay una billetera recuperada en este dispositivo.","No recovered wallet on this device yet."));
-                String remembered=getSharedPreferences("wallet-selection",MODE_PRIVATE).getString("owner","");
+                NativeWalletProfiles.Profile publicSelection=null;
+                try{publicSelection=new NativeWalletPublicSelection(this).selected();}catch(Exception unavailable){/* No display selection on corrupt metadata. */}
+                String remembered=publicSelection==null?getSharedPreferences("wallet-selection",MODE_PRIVATE).getString("owner",""):publicSelection.ownerId;
                 for(var known:profiles)if(known.ownerId.equals(remembered)){
                     addresses.setText(known.name+"\nSolana · "+known.solanaAddress+"\nBNB · "+known.bnbAddress);
-                    status.setText(text("Billetera recordada en este dispositivo. Desbloquea para verificar acceso y operar.","Wallet remembered on this device. Unlock to verify access and transact."));break;
+                    selectedProfile=known;
+                    status.setText(text("Consultando saldo público. La huella se solicita al autorizar una operación.","Checking public balance. Biometrics are requested to authorize a transaction."));
+                    worker.execute(()->readBalances(known,ticket));break;
                 }
-                for(var profile:profiles){Button button=new Button(this);button.setText(profile.name+" · "+text("Desbloquear","Unlock"));NativeWalletStyle.button(button);accounts.addView(button);button.setOnClickListener(v->unlock(profile.ownerId));
+                for(var profile:profiles){Button button=new Button(this);button.setText(profile.name+" · "+text("Ver saldo","View balance"));NativeWalletStyle.button(button);accounts.addView(button);button.setOnClickListener(v->viewPublicProfile(profile));
                     action(accounts,profile.name+" · "+text("Recuperar acceso","Recover access"),()->{lock();openedBackup=null;recoveryOwner=profile.ownerId;walletName.setText(profile.name);showRecoveryForm();status.setText(text("Abre el respaldo de esta billetera para recuperar su acceso.","Open this wallet's backup to recover its access."));});}
             });
+        }catch(Exception failure){error(ticket);}});
+    }
+    private void viewPublicProfile(NativeWalletProfiles.Profile profile){
+        lock();long ticket=epoch;
+        worker.execute(()->{try{
+            new NativeWalletPublicSelection(this).select(profile);
+            runOnUiThread(()->{if(ticket==epoch){selectedProfile=profile;addresses.setText(profile.name+"\nSolana · "+profile.solanaAddress);}});
+            readBalances(profile,ticket);
         }catch(Exception failure){error(ticket);}});
     }
     private void unlock(String ownerId){

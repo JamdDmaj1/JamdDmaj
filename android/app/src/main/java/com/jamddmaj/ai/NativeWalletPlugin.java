@@ -6,12 +6,20 @@ import android.os.Build;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
+import com.getcapacitor.JSObject;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.jamddmaj.ai.wallet.NativeWalletActivity;
+import com.jamddmaj.ai.wallet.NativeWalletPublicSelection;
 
-/** Navigation only. No addresses, keys, transaction arguments or signatures cross this bridge. */
+/** Navigation and public account display only. No vault, signing or transaction arguments. */
 @CapacitorPlugin(name="NativeWallet")
 public final class NativeWalletPlugin extends Plugin {
+    @PluginMethod public void getPublicAccount(PluginCall call){
+        try{
+            if(!trustedPage(getBridge().getWebView().getUrl())){call.reject("untrusted-wallet-origin");return;}
+            call.resolve(new JSObject(new NativeWalletPublicSelection(getContext()).publicAccount().toString()));
+        }catch(Exception unavailable){call.reject("native-public-account-unavailable");}
+    }
     public static boolean trustedPage(String url) {
         if(url==null)return false;
         Uri page=Uri.parse(url);

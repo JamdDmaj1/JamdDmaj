@@ -18,6 +18,14 @@ for (const [language,copy] of Object.entries(trialCopy)) {
   copy[4]=language==='es'?'Se renuevan':'Renews';
   copy[5]=language==='es'?'Inicia sesión con Google o revisa la hora de renovación de tu cuota gratuita.':'Sign in with Google or check when your free allowance renews.';
 }
+export function managedChatError(code,status,language='en'){
+ const es=language==='es';
+ if(code==='trial-upstream')return es?'El proveedor de IA no respondió. Tu mensaje gratuito no se ha consumido; inténtalo de nuevo.':'The AI provider did not respond. Your free message was refunded; try again.';
+ if(status===401||code==='trial-login')return es?'Tu sesión de IA venció. Vuelve a iniciar sesión con Google; no necesitas una clave de OpenRouter.':'Your AI session expired. Sign in with Google again; no OpenRouter key is required.';
+ if(status===429)return es?'Se alcanzó un límite temporal de solicitudes. Espera un momento antes de reintentar.':'A temporary request limit was reached. Wait briefly before trying again.';
+ if(code?.startsWith('credits-')||code?.startsWith('trial-exhausted'))return es?'Tu cuota gratuita se agotó. Revisa la hora de renovación en tu cuenta.':'Your free allowance is exhausted. Check the renewal time in your account.';
+ return es?'La IA no está disponible temporalmente. No necesitas introducir un token personal.':'AI is temporarily unavailable. You do not need to enter a personal token.';
+}
 if (typeof document !== "undefined") {
   let record = null, paidCredits = 0, failed = false;
   const paidCopy={en:"Recharged credits",es:"Créditos recargados",fr:"Crédits rechargés",de:"Aufgeladene Credits",pt:"Créditos recarregados",it:"Crediti ricaricati",ja:"チャージ済みクレジット",ko:"충전 크레딧",zh:"已充值积分",ar:"الأرصدة المشحونة"};
@@ -43,7 +51,7 @@ if (typeof document !== "undefined") {
   async function refresh() {
     if (!getToken()) return render();
     try {
-      const base = location.protocol === "https:" ? location.origin : "https://www.jamddmaj.com";
+      const base = !window.Capacitor?.isNativePlatform?.() && location.protocol === "https:" && location.hostname !== 'localhost' ? location.origin : "https://www.jamddmaj.com";
       const response = await fetch(`${base}/api/trial`,{headers:{Authorization:`Bearer ${getToken()}`},cache:"no-store"});
       const data=await response.json();
       if (!response.ok) throw Error();
@@ -52,7 +60,7 @@ if (typeof document !== "undefined") {
     render();
   }
   window.JamdTrial = {
-    getToken, refresh, error:()=>copy()[5],
+    getToken, refresh, error:(code,status)=>managedChatError(code,status,language()),
     accept(value) {sessionStorage.setItem(key,value.token);record=value.trial;failed=false;render();}
   };
   new MutationObserver(render).observe(document.documentElement,{attributes:true,attributeFilter:["lang"]});

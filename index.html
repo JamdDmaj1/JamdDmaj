@@ -3852,7 +3852,7 @@
         <div class="top-actions">
           <button class="pill-btn" id="learnBtn" type="button">Learn</button>
           <button class="pill-btn" id="marketsBtn" type="button">Markets</button>
-          <button class="pill-btn" id="tradingDemoBtn" type="button">Trading demo</button>
+          <button class="pill-btn" id="tradingDemoBtn" type="button">Trade</button>
           <button class="pill-btn" id="fairLaunchBtn" type="button">Fair Launch</button>
           <button class="pill-btn" id="walletBtn" type="button"><span data-wallet-button-label>Wallet</span></button>
           <button class="pill-btn" id="voiceModeBtn" type="button">Voice off</button>
@@ -3898,7 +3898,7 @@
         <div class="asset-detail-shell">
           <header class="asset-detail-header">
             <button class="asset-back" id="assetBackBtn" type="button" aria-label="Back to markets">←</button>
-            <button id="assetPracticeBtn" type="button">Practicar con este token</button>
+            <button id="assetPracticeBtn" type="button">Trade</button>
             <div class="asset-identity">
               <strong id="assetDetailName">Asset</strong>
               <span id="assetDetailSymbol">-- / USDT</span>
@@ -10174,7 +10174,10 @@
           });
           if (managed) {
             await window.JamdTrial?.refresh();
-            if (!response.ok) return new Response(JSON.stringify({error:{message:window.JamdTrial?.error() || learnText("chatNetworkError")}}), {status:response.status,headers:{"Content-Type":"application/json"}});
+            if (!response.ok) {
+              const failure=await response.json().catch(()=>({}));
+              return new Response(JSON.stringify({error:{message:window.JamdTrial?.error(failure?.error?.code,response.status) || learnText("chatNetworkError")}}), {status:response.status,headers:{"Content-Type":"application/json"}});
+            }
           }
           return response;
         } catch (error) {
