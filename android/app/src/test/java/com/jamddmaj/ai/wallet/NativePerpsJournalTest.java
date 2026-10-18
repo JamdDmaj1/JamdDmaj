@@ -76,4 +76,42 @@ public class NativePerpsJournalTest {
         assertThrows(java.io.IOException.class,()->journal.beginPerps(envelope,intent,BigInteger.valueOf(1000001)));
         assertNull(journal.latest());
     }
+    @Test public void broadcastPersistsBeforeTransportAndPreservesExactPartialEnvelope()throws Exception{
+        int[] calls={0};
+        NativePerpsBroadcast sender=new NativePerpsBroadcast(journal,request->{
+            calls[0]++;assertEquals(NativeTransferJournal.Phase.UNKNOWN,journal.latest().phase);
+            assertEquals(envelope.transactionId,journal.latest().transactionId);
+            assertEquals(2,request.length());assertEquals("increase-position",request.getString("action"));
+            assertArrayEquals(envelope.bytes(),android.util.Base64.decode(request.getString("serializedTxBase64"),android.util.Base64.NO_WRAP));
+            return new JSONObject().put("action","increase-position").put("txid",envelope.transactionId);
+        });
+        assertEquals(envelope.transactionId,sender.submit(envelope,intent,BigInteger.ONE,()->true));
+        assertEquals(NativeTransferJournal.Phase.SUBMITTED,journal.latest().phase);
+        assertThrows(java.io.IOException.class,()->sender.submit(envelope,intent,BigInteger.ONE,()->true));assertEquals(1,calls[0]);
+    }
+    @Test public void timeoutRemainsUnknownAcrossRestartAndNeverRetries()throws Exception{
+        NativePerpsBroadcast sender=new NativePerpsBroadcast(journal,request->{throw new java.io.IOException("Fixture timeout after possible send");});
+        assertThrows(java.io.IOException.class,()->sender.submit(envelope,intent,BigInteger.ONE,()->true));
+        journal=new NativeTransferJournal(context,owner,WalletNetwork.SOLANA_MAINNET);
+        assertEquals(NativeTransferJournal.Phase.UNKNOWN,journal.latest().phase);
+        NativePerpsBroadcast restarted=new NativePerpsBroadcast(journal,request->{fail("No duplicate transport call");return null;});
+        assertThrows(java.io.IOException.class,()->restarted.submit(envelope,intent,BigInteger.ONE,()->true));
+    }
+    @Test public void substitutedResponseDoesNotBecomeSubmitted()throws Exception{
+        NativePerpsBroadcast sender=new NativePerpsBroadcast(journal,request->new JSONObject().put("action","increase-position").put("txid",DevnetSolana.encode(new byte[64])));
+        assertThrows(java.io.IOException.class,()->sender.submit(envelope,intent,BigInteger.ONE,()->true));
+        assertEquals(NativeTransferJournal.Phase.UNKNOWN,journal.latest().phase);
+    }
+    @Test public void storageFailurePreventsAnyTransportCall()throws Exception{
+        assertTrue(path().mkdir());Files.write(new File(path(),"obstruction").toPath(),new byte[]{1});
+        NativePerpsBroadcast sender=new NativePerpsBroadcast(journal,request->{fail("No transport before durable journal");return null;});
+        assertThrows(Exception.class,()->sender.submit(envelope,intent,BigInteger.ONE,()->true));
+    }
+    @Test public void lockedWalletNeverReachesTransport()throws Exception{
+        NativePerpsBroadcast sender=new NativePerpsBroadcast(journal,request->{fail("No transport while locked");return null;});
+        assertThrows(java.io.IOException.class,()->sender.submit(envelope,intent,BigInteger.ONE,()->false));assertNull(journal.latest());
+        int[] checks={0};
+        assertThrows(java.io.IOException.class,()->sender.submit(envelope,intent,BigInteger.ONE,()->++checks[0]==1));
+        assertEquals(NativeTransferJournal.Phase.UNKNOWN,journal.latest().phase);
+    }
 }
