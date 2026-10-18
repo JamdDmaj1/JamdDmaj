@@ -7,6 +7,9 @@ import java.util.Arrays;
 /** Position/request public identities. Derivation never authorizes spending. */
 final class NativePerpsAddresses {
     private NativePerpsAddresses(){}
+    static byte[] transferAuthority(){
+        return SolanaProgramAddress.find(NativePerpsCustody.PROGRAM,Arrays.asList("transfer_authority".getBytes(StandardCharsets.US_ASCII))).key();
+    }
     static byte[] perpetuals(){
         return SolanaProgramAddress.find(NativePerpsCustody.PROGRAM,Arrays.asList("perpetuals".getBytes(StandardCharsets.US_ASCII))).key();
     }

@@ -4,6 +4,13 @@
   "program": "PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu",
   "slot": 458207867,
   "idlSha256": "1d90a653a1cc88bddb7c5876acee52d3f26c6b1e3306e0833234020dc6f7d653",
+  "preSwapInstructionLayout": {
+    "source": "Confirmed program-owned mainnet Anchor IDL, 2026-10-18",
+    "slot": 458417659,
+    "setTokenLedger": {"discriminatorHex": "e455b9704e4f4d02", "bytes": 8, "accounts": ["tokenLedger", "tokenAccount", "tokenProgram"]},
+    "instantIncreasePositionPreSwap": {"discriminatorHex": "c52656a5c71726ea", "bytes": 24, "amountInOffset": 8, "minimumOutOffset": 16, "accountCount": 16},
+    "tokenLedgerAccount": {"bytes": 48, "tokenAccountOffset": 8, "amountOffset": 40}
+  },
   "custodyOracleLayout": {
     "source": "Confirmed mainnet Custody account and Anchor IDL, 2026-10-18",
     "slot": 458413213,

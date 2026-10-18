@@ -11,7 +11,7 @@ final class NativePerpsCustody {
     static final String POOL="5BUwFW4nRbftYTDMbgxykoFWqWHPzahFSNAaaaJtVKsq";
     final String asset,address,mint,tokenAccount,oracle,dovesAgOracle;
     final int decimals;
-    final boolean stable,allowIncrease,allowDecrease;
+    final boolean stable,allowSwap,allowIncrease,allowDecrease;
     final BigInteger maxLeverageBps;
     private NativePerpsCustody(String asset,String address,String mint,byte[] data){
         this.asset=asset;this.address=address;this.mint=mint;
@@ -21,7 +21,7 @@ final class NativePerpsCustody {
         // after dovesOracle (320) and JumpRateState (352, 32 bytes).
         dovesAgOracle=DevnetSolana.encode(Arrays.copyOfRange(data,384,416));
         decimals=data[104]&255;stable=data[105]==1;
-        allowIncrease=data[202]==1;allowDecrease=data[203]==1;
+        allowSwap=data[199]==1;allowIncrease=data[202]==1;allowDecrease=data[203]==1;
         byte[] big=new byte[8];for(int i=0;i<8;i++)big[i]=data[182-i];
         maxLeverageBps=new BigInteger(1,big);
     }
