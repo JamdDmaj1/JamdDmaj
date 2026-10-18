@@ -7,6 +7,7 @@ import {join} from 'node:path';
 import bs58 from 'bs58';
 import {readPerpsBroadcastReceipt,isVerifiedPerpsBroadcastReceipt} from '../lib/perps-broadcast-receipt.js';
 import {openPerpsExecutionJournal} from '../lib/perps-execution-journal.js';
+import {reconcilePendingPerps} from '../lib/perps-pending-recovery.js';
 const time=Date.parse('2026-10-18T12:00:00Z');
 // Unfunded deterministic fixture identities only; no RPC or signer service.
 function fixture({versioned=false,err=null,nonce=4}={}){
@@ -93,7 +94,11 @@ test('a failed attempt landing after midnight retains its new-day trade slot but
  journal.reserve(input('old'));journal.beginSigning('old');journal.recordBroadcastIntent('old',f.record);
  now=time;
  const proof=await readPerpsBroadcastReceipt(f.record,f.request,{now:()=>now});
- const result=journal.reconcileBroadcast('old',proof);
+ const recovered=await reconcilePendingPerps(journal,wallet,{readReceipt:async record=>{
+  assert.deepEqual(record,f.record);return proof;
+ }});
+ assert.equal(recovered.failed,1);assert.equal(recovered.unresolved,0);
+ const result=journal.read('old');
  assert.equal(result.state,'CLOSED');assert.equal(result.day,'2026-10-18');
  assert.throws(()=>journal.reserve(input('new')),/DAILY_TRADE_LIMIT/);
  assert.equal(journal.reserve(input('new',2)).state,'RESERVED');
