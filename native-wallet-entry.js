@@ -1,5 +1,6 @@
 import {registerPlugin} from '@capacitor/core';
 import {selectWalletAccount,selectedWalletAccount,publishWalletPortfolio} from './lib/wallet-portfolio-store.js';
+import {perpsNavigationDraft} from './lib/perps-navigation.js';
 
 export function setupMainWalletEntry(language,doc=document,win=window,pluginFactory=()=>registerPlugin('NativeWallet')){
  const host=doc.getElementById('terminal-assets');if(!host)return()=>{};
@@ -40,13 +41,21 @@ export function setupMainWalletEntry(language,doc=document,win=window,pluginFact
   finally{pending=false;}
  };
  doc.addEventListener?.('jamd-wallet-open-swap',openSwap);
+ const openPerps=async event=>{
+  if(!available||disposed||pending||selectedWalletAccount(doc)?.source!=='native')return;
+  pending=true;
+  try{const draft=perpsNavigationDraft(event?.detail);await pluginFactory().openPerps(draft);}
+  catch{status.textContent=t('No se pudo abrir Futuros. Revisa los datos y actualiza la app. No se firmó ni envió nada.','Could not open Futures. Check the draft and update the app. Nothing was signed or sent.');}
+  finally{pending=false;}
+ };
+ doc.addEventListener?.('jamd-wallet-open-perps',openPerps);
  if(available){refreshPublic();timer=setInterval(visible,60000);timer?.unref?.();win.addEventListener?.('focus',visible);doc.addEventListener?.('visibilitychange',visible);doc.addEventListener?.('jamd-wallet-refresh',visible);}
  button.onclick=async()=>{if(!available||pending||disposed)return;pending=true;button.disabled=true;
   try{await pluginFactory().open();if(!disposed)status.textContent=t('Pantalla nativa abierta. No se envió ninguna operación desde esta página.','Native screen opened. No operation was sent from this page.');}
   catch{if(!disposed)status.textContent=t('No se pudo abrir la billetera. Requiere Android 11 o posterior y la versión compatible.','Could not open wallet. Android 11 or later and a compatible version are required.');}
   finally{pending=false;if(!disposed)button.disabled=false;}
  };
- host.prepend(panel);return()=>{disposed=true;clearInterval(timer);win.removeEventListener?.('focus',visible);doc.removeEventListener?.('visibilitychange',visible);doc.removeEventListener?.('jamd-wallet-refresh',visible);doc.removeEventListener?.('jamd-wallet-open-swap',openSwap);panel.remove()};
+ host.prepend(panel);return()=>{disposed=true;clearInterval(timer);win.removeEventListener?.('focus',visible);doc.removeEventListener?.('visibilitychange',visible);doc.removeEventListener?.('jamd-wallet-refresh',visible);doc.removeEventListener?.('jamd-wallet-open-swap',openSwap);doc.removeEventListener?.('jamd-wallet-open-perps',openPerps);panel.remove()};
 }
 
 // Navigation only; native wallet never exports addresses, keys or signing to JS.

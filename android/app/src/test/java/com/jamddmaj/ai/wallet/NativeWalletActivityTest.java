@@ -18,6 +18,22 @@ import static org.junit.Assert.*;
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk=30)
 public class NativeWalletActivityTest {
+    @Test public void validatedPerpsDraftPrefillsButNeverStartsReviewOrAuthorization(){
+        var app=org.robolectric.RuntimeEnvironment.getApplication();
+        var intent=new android.content.Intent(app,NativeWalletActivity.class).putExtra("wallet-navigation","perps");
+        NativePerpsNavigation.putDraft(intent,"SOL","SHORT","10.123456","2.5","105","110","95");
+        try(var controller=Robolectric.buildActivity(NativeWalletActivity.class,intent).create()){
+            var activity=controller.get();android.view.ViewGroup form=activity.getWindow().getDecorView().findViewWithTag("native-perps-form");
+            ArrayList<EditText> inputs=new ArrayList<>();fields(form,inputs);
+            assertEquals("10.123456",inputs.get(0).getText().toString());assertEquals("2.5",inputs.get(1).getText().toString());
+            assertEquals("105.000000",inputs.get(2).getText().toString());assertEquals("110.000000",inputs.get(3).getText().toString());
+            assertEquals("95.000000",inputs.get(4).getText().toString());
+            assertNull(org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog());
+            assertNull(org.robolectric.Shadows.shadowOf(activity).getNextStartedActivity());
+        }
+        assertThrows(IllegalArgumentException.class,()->NativePerpsNavigation.putDraft(new android.content.Intent(),"SOL","LONG","9","2","105",null,null));
+        assertThrows(IllegalArgumentException.class,()->NativePerpsNavigation.putDraft(new android.content.Intent(),"ZEC","LONG","10","2","105",null,null));
+    }
     @Test public void perpsNavigationRequiresWalletAndNeverImportsWebTransactionArguments(){
         var app=org.robolectric.RuntimeEnvironment.getApplication();
         var intent=new android.content.Intent(app,NativeWalletActivity.class).putExtra("wallet-navigation","perps")

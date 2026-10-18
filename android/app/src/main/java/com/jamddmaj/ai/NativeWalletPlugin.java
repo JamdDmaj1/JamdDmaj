@@ -10,6 +10,7 @@ import com.getcapacitor.JSObject;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.jamddmaj.ai.wallet.NativeWalletActivity;
 import com.jamddmaj.ai.wallet.NativeWalletPublicSelection;
+import com.jamddmaj.ai.wallet.NativePerpsNavigation;
 
 /** Navigation and public account display only. No vault, signing or transaction arguments. */
 @CapacitorPlugin(name="NativeWallet")
@@ -40,6 +41,9 @@ public final class NativeWalletPlugin extends Plugin {
                 if(Build.VERSION.SDK_INT<30){call.reject("android-11-required");return;}
                 Intent screen=new Intent(getActivity(),NativeWalletActivity.class);
                 if(navigation!=null)screen.putExtra("wallet-navigation",navigation);
+                if("perps".equals(navigation)&&call.getData().length()>0)NativePerpsNavigation.putDraft(screen,
+                    call.getString("asset"),call.getString("side"),call.getString("margin"),call.getString("leverage"),
+                    call.getString("referencePrice"),call.getString("stopLoss"),call.getString("takeProfit"));
                 getActivity().startActivity(screen);
                 call.resolve();
             } catch(Exception unavailable){call.reject("native-wallet-unavailable");}

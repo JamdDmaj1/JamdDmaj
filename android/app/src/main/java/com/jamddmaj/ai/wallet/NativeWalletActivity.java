@@ -151,6 +151,15 @@ public final class NativeWalletActivity extends Activity {
         action(perpsSection,text("Revisar orden de Futuros","Review Futures order"),()->reviewPerps());
         action(root,text("Bloquear billetera","Lock wallet"),()->lock());
         if("perps".equals(getIntent().getStringExtra("wallet-navigation"))){
+            if(getIntent().hasExtra("perps-asset"))try{
+                NativePerpsOrderIntent draft=NativePerpsNavigation.readDraft(getIntent());
+                perpsAsset.setSelection("BTC".equals(draft.asset)?0:"ETH".equals(draft.asset)?1:2);perpsSide.setSelection(draft.side-1);
+                perpsMargin.setText(NativePerpsReviewAmounts.usd(draft.marginUsd));
+                perpsLeverage.setText((draft.leverageTenths/10)+"."+(draft.leverageTenths%10));
+                perpsPrice.setText(NativePerpsReviewAmounts.usd(draft.referencePrice));
+                perpsSl.setText(draft.stopLoss==null?"":NativePerpsReviewAmounts.usd(draft.stopLoss));
+                perpsTp.setText(draft.takeProfit==null?"":NativePerpsReviewAmounts.usd(draft.takeProfit));
+            }catch(Exception invalid){status.setText(text("Borrador inválido. Introduce la orden de nuevo.","Invalid draft. Enter the order again."));}
             perpsSection.setVisibility(View.VISIBLE);
             perpsSection.post(()->perpsSection.requestRectangleOnScreen(new android.graphics.Rect(0,0,perpsSection.getWidth(),perpsSection.getHeight()),false));
         }
