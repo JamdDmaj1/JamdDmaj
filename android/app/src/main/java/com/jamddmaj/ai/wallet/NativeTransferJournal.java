@@ -33,6 +33,7 @@ public final class NativeTransferJournal {
         public final String inputMint,outputMint;
         public final BigInteger minimumOutput;
         public final String tokenMint;
+        public final Perps perps;
         private final long createdAt;
         private Record(String transactionId, String recipient, BigInteger units, BigInteger maximumFee, Phase phase, long createdAt) {
             this(transactionId,recipient,units,maximumFee,phase,createdAt,null,null,null);
@@ -41,12 +42,46 @@ public final class NativeTransferJournal {
             this(transactionId,recipient,units,maximumFee,phase,createdAt,inputMint,outputMint,minimumOutput,null);
         }
         private Record(String transactionId,String recipient,BigInteger units,BigInteger maximumFee,Phase phase,long createdAt,String inputMint,String outputMint,BigInteger minimumOutput,String tokenMint) {
+            this(transactionId,recipient,units,maximumFee,phase,createdAt,inputMint,outputMint,minimumOutput,tokenMint,null);
+        }
+        private Record(String transactionId,String recipient,BigInteger units,BigInteger maximumFee,Phase phase,long createdAt,String inputMint,String outputMint,BigInteger minimumOutput,String tokenMint,Perps perps) {
             this.transactionId = transactionId; this.recipient = recipient; this.units = units;
             this.maximumFee = maximumFee; this.phase = phase; this.createdAt = createdAt;
             this.inputMint=inputMint; this.outputMint=outputMint; this.minimumOutput=minimumOutput;
             this.tokenMint=tokenMint;
+            this.perps=perps;
         }
         public boolean pending() { return phase == Phase.UNKNOWN || phase == Phase.SUBMITTED; }
+    }
+
+    /** Descriptive broadcast identity, never signing authority. Perps units are USDC micro-units. */
+    public static final class Perps {
+        public final String asset,position,signedWireSha256;
+        public final int side;
+        private Perps(String asset,int side,String position,String digest,String payer){
+            if(!("BTC".equals(asset)||"ETH".equals(asset)||"SOL".equals(asset))||(side!=1&&side!=2)
+                    ||digest==null||!digest.matches("[0-9a-f]{64}")
+                    ||!DevnetSolana.encode(NativePerpsAddresses.position(payer,asset,side)).equals(position))
+                throw new IllegalArgumentException("Invalid perps journal identity");
+            this.asset=asset;this.side=side;this.position=position;this.signedWireSha256=digest;
+        }
+    }
+
+    /** Caller must finish native review/biometrics first. This records, but never sends. */
+    void beginPerps(NativePerpsSignedEnvelope envelope,NativePerpsOrderIntent intent,BigInteger fee)throws Exception{
+        if(network!=WalletNetwork.SOLANA_MAINNET||envelope==null||intent==null||!owner.solanaAddress.equals(envelope.payer)
+                ||fee==null||fee.signum()<=0||fee.compareTo(BigInteger.valueOf(1000000))>0)
+            throw new IOException("Perps journal owner mismatch");
+        String position=DevnetSolana.encode(NativePerpsAddresses.position(owner.solanaAddress,intent.asset,intent.side));
+        byte[] hash=java.security.MessageDigest.getInstance("SHA-256").digest(envelope.bytes());
+        StringBuilder hex=new StringBuilder();for(byte value:hash)hex.append(String.format(java.util.Locale.ROOT,"%02x",value&255));
+        Perps metadata=new Perps(intent.asset,intent.side,position,hex.toString(),owner.solanaAddress);
+        validate(envelope.transactionId,position,intent.marginUsd,fee);
+        synchronized(LOCK){
+            Record previous=read();
+            if(previous!=null&&(previous.pending()||previous.transactionId.equals(envelope.transactionId)))throw new IOException("Unresolved or recorded transaction");
+            write(new Record(envelope.transactionId,position,intent.marginUsd,fee,Phase.UNKNOWN,System.currentTimeMillis(),null,null,null,null,metadata));
+        }
     }
 
     void beginSwap(String transactionId,NativeSwapService.Preview preview) throws Exception {
@@ -96,7 +131,7 @@ public final class NativeTransferJournal {
             if (previous == null || !previous.transactionId.equals(transactionId)) throw new IOException("Transaction identity mismatch");
             if (previous.phase == next) return;
             if (!previous.pending()) throw new IOException("Final transaction state cannot be replaced");
-            write(new Record(previous.transactionId, previous.recipient, previous.units, previous.maximumFee, next, previous.createdAt,previous.inputMint,previous.outputMint,previous.minimumOutput,previous.tokenMint));
+            write(new Record(previous.transactionId, previous.recipient, previous.units, previous.maximumFee, next, previous.createdAt,previous.inputMint,previous.outputMint,previous.minimumOutput,previous.tokenMint,previous.perps));
         }
     }
 
@@ -142,8 +177,16 @@ public final class NativeTransferJournal {
         }
         String tokenMint=value.has("tokenMint")?value.getString("tokenMint"):null;
         if(tokenMint!=null&&(network!=WalletNetwork.SOLANA_MAINNET||!NativeSolanaTokens.USDC.equals(tokenMint)||value.has("swap")))throw new IOException("Invalid transfer token");
+        Perps perps=null;
+        if(value.has("perps")){
+            if(network!=WalletNetwork.SOLANA_MAINNET||value.has("swap")||tokenMint!=null)throw new IOException("Invalid perps journal network or kind");
+            JSONObject p=value.getJSONObject("perps");Object side=p.get("side");
+            if(!(side instanceof Integer)||p.length()!=4)throw new IOException("Invalid perps journal metadata");
+            perps=new Perps(p.getString("asset"),(Integer)side,p.getString("position"),p.getString("signedWireSha256"),owner.solanaAddress);
+            if(!perps.position.equals(value.getString("recipient")))throw new IOException("Invalid perps journal position");
+        }
         Record record = new Record(value.getString("transactionId"), value.getString("recipient"), new BigInteger(amount),
-            new BigInteger(fee), Phase.valueOf(value.getString("phase")), ((Number) timestamp).longValue(),inputMint,outputMint,minimumOutput,tokenMint);
+            new BigInteger(fee), Phase.valueOf(value.getString("phase")), ((Number) timestamp).longValue(),inputMint,outputMint,minimumOutput,tokenMint,perps);
         validate(record.transactionId, record.recipient, record.units, record.maximumFee);
         return record;
     }
@@ -155,6 +198,8 @@ public final class NativeTransferJournal {
             .put("phase", record.phase.name()).put("createdAt", record.createdAt);
         if(record.inputMint!=null) value.put("swap",new JSONObject().put("inputMint",record.inputMint).put("outputMint",record.outputMint).put("minimumOutput",record.minimumOutput.toString()));
         if(record.tokenMint!=null)value.put("tokenMint",record.tokenMint);
+        if(record.perps!=null)value.put("perps",new JSONObject().put("asset",record.perps.asset).put("side",record.perps.side)
+            .put("position",record.perps.position).put("signedWireSha256",record.perps.signedWireSha256));
         byte[] expected = value.toString().getBytes(StandardCharsets.UTF_8);
         FileOutputStream output = null;
         try {
