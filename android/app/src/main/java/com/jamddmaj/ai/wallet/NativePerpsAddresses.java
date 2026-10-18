@@ -7,6 +7,12 @@ import java.util.Arrays;
 /** Position/request public identities. Derivation never authorizes spending. */
 final class NativePerpsAddresses {
     private NativePerpsAddresses(){}
+    static byte[] perpetuals(){
+        return SolanaProgramAddress.find(NativePerpsCustody.PROGRAM,Arrays.asList("perpetuals".getBytes(StandardCharsets.US_ASCII))).key();
+    }
+    static byte[] eventAuthority(){
+        return SolanaProgramAddress.find(NativePerpsCustody.PROGRAM,Arrays.asList("__event_authority".getBytes(StandardCharsets.US_ASCII))).key();
+    }
     static byte[] position(String owner,String asset,int side){
         return positionDerivation(owner,asset,side).key();
     }

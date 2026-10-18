@@ -31,6 +31,8 @@ final class NativeSolanaAccounts {
         transaction.checkOpeningAccountBindings(resolved);
         NativePerpsCustody market=readPerpsCustody(asset);
         NativePerpsCustody collateral=side==1?market:readPerpsCustody("USDC");
+        market.checkLeverage(intent.leverageTenths);
+        collateral.checkLeverage(intent.leverageTenths);
         byte[] expectedPosition=NativePerpsAddresses.position(DevnetSolana.encode(resolved.key(0)),asset,side);
         for(SolanaMessage.Instruction instruction:transaction.message.instructions){
             if(!NativePerpsCustody.PROGRAM.equals(DevnetSolana.encode(transaction.message.staticKey(instruction.program))))continue;

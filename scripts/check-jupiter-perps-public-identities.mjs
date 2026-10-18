@@ -45,6 +45,18 @@ const [open, ...exits] = perps;
 assert.equal(open.data.length, 42); assert.equal(open.data[25], 1);
 const accounts = (instruction) => instruction.accountIndices.map((index) => keys[index]);
 assert.equal(accounts(open)[2], wallet); assert.equal(accounts(open)[7], custody); assert.equal(accounts(open)[10], custody);
+// Resolve oracle/vault identities from the confirmed program-owned custody,
+// rather than accepting the builder's account list as its own authority.
+const custodyReply=await post('https://api.mainnet-beta.solana.com',{
+  jsonrpc:'2.0',id:1,method:'getAccountInfo',params:[custody,{encoding:'base64',commitment:'confirmed'}],
+});
+assert.equal(custodyReply.error,undefined);const custodyValue=custodyReply.result.value;
+assert.equal(custodyValue.data[1],'base64');
+const custodyCheck=spawnSync(java,['-cp',classpath,'com.jamddmaj.ai.wallet.NativePerpsCustodyCheck',
+  'SOL',custody,custodyValue.owner,String(custodyValue.executable),custodyValue.data[0],...accounts(open)],
+  {encoding:'utf8',timeout:30000});
+if(custodyCheck.error||custodyCheck.status!==0)throw custodyCheck.error||new Error(custodyCheck.stderr);
+console.log(custodyCheck.stdout.trim());
 const positionSeeds = [Buffer.from('position'), encode(wallet), encode(pool), encode(custody), encode(custody), Buffer.from([1])];
 const lines = [`derive ${program} ${positionSeeds.map((seed) => Buffer.from(seed).toString('base64')).join(' ')}`];
 const actual = [accounts(open)[6]];

@@ -4,6 +4,17 @@
   "program": "PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu",
   "slot": 458207867,
   "idlSha256": "1d90a653a1cc88bddb7c5876acee52d3f26c6b1e3306e0833234020dc6f7d653",
+  "custodyOracleLayout": {
+    "source": "Confirmed mainnet Custody account and Anchor IDL, 2026-10-18",
+    "slot": 458413213,
+    "minimumPrefixBytes": 416,
+    "pythOracleOffset": 106,
+    "maxLeverageBpsOffset": 175,
+    "dovesOracleOffset": 320,
+    "jumpRateStateOffset": 352,
+    "jumpRateStateBytes": 32,
+    "dovesAgOracleOffset": 384
+  },
   "instructions": [
     {
       "name": "instantCreateTpsl",
