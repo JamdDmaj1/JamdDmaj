@@ -20,6 +20,7 @@ final class NativeSolanaAccounts {
     void verifyPerpsOrderAccounts(NativePerpsTransaction transaction,NativePerpsOrderIntent intent,long trustedNowSeconds)throws Exception{
         if(transaction==null||intent==null)
             throw new IllegalArgumentException("Invalid perps market intent");
+        NativePerpsComputeBudget.check(transaction.message);
         String asset=intent.asset;int side=intent.side;
         List<NativePerpsInstructionData> orderData=new ArrayList<>();
         for(SolanaMessage.Instruction instruction:transaction.message.instructions)
