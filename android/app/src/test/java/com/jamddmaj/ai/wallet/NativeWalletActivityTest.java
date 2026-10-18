@@ -18,7 +18,7 @@ import static org.junit.Assert.*;
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk=30)
 public class NativeWalletActivityTest {
-    @Test public void perpsNavigationIsReviewOnlyAndDoesNotImportWebTransactionArguments(){
+    @Test public void perpsNavigationRequiresWalletAndNeverImportsWebTransactionArguments(){
         var app=org.robolectric.RuntimeEnvironment.getApplication();
         var intent=new android.content.Intent(app,NativeWalletActivity.class).putExtra("wallet-navigation","perps")
             .putExtra("margin","999").putExtra("serializedTxBase64","untrusted");

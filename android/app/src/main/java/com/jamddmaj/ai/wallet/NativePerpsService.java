@@ -52,16 +52,19 @@ final class NativePerpsService {
         String description(boolean es){
             NativePerpsOrderIntent i=analysis.intent;
             return i.asset+" · "+(i.side==1?"Long":"Short")+" · Jupiter / Solana mainnet\n\n"+analysis.payer+
+                "\n"+(es?"Apalancamiento solicitado: ":"Requested leverage: ")+(i.leverageTenths/10)+"."+(i.leverageTenths%10)+"×"+
+                "\n"+(es?"Deslizamiento máximo: ":"Maximum slippage: ")+i.maxSlippageBps+" bps"+
                 "\n\n"+(es?"Débito USDC: ":"USDC debit: ")+NativePerpsReviewAmounts.usd(amounts.walletDebitUsdc)+
                 "\n"+(es?"Margen acreditado USD: ":"Credited margin USD: ")+NativePerpsReviewAmounts.usd(amounts.creditedCollateralUsd)+
                 "\n"+(es?"Costo estimado USD: ":"Estimated cost USD: ")+NativePerpsReviewAmounts.usd(amounts.estimatedTradingCostUsd)+
                 "\n"+(es?"Nueva exposición USD: ":"New exposure USD: ")+NativePerpsReviewAmounts.usd(amounts.newExposureUsd)+
                 "\n"+(es?"Exposición total USD: ":"Total exposure USD: ")+NativePerpsReviewAmounts.usd(amounts.totalExposureUsd)+
+                "\n"+(es?"Garantía total USD: ":"Total collateral USD: ")+NativePerpsReviewAmounts.usd(amounts.totalCollateralUsd)+
                 "\n"+(es?"Comisión SOL: ":"SOL fee: ")+NativePerpsReviewAmounts.sol(amounts.networkFeeLamports)+
                 "\n"+(es?"Reserva de cuentas SOL: ":"Account rent SOL: ")+NativePerpsReviewAmounts.sol(amounts.rentLockedLamports)+
                 "\n"+(es?"Reembolso de cuentas SOL: ":"Account rent refund SOL: ")+NativePerpsReviewAmounts.sol(amounts.rentRefundedLamports)+
                 "\nSL: "+(i.stopLoss==null?"—":NativePerpsReviewAmounts.usd(i.stopLoss))+" · TP: "+(i.takeProfit==null?"—":NativePerpsReviewAmounts.usd(i.takeProfit))+
-                "\n\n"+(es?"Solo revisión. No autoriza ni envía una orden. Puedes perder todo el margen.":"Review only. This does not authorize or submit an order. You can lose all margin.");
+                "\n\n"+(es?"Esta revisión no firma ni envía. Si confirmas, la siguiente huella autoriza esta orden real. Puedes perder todo el margen. Si caduca o cambian los costos, revisa una orden nueva.":"This review does not sign or send. If you confirm, the next biometric approval authorizes this real order. You can lose all margin. If it expires or costs change, review a fresh order.");
         }
     }
     private final Transport transport;
