@@ -14377,6 +14377,7 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         const initialPrice = Number(selectedMarketPayload?.ticker?.price || selectedMarketPayload?.candles?.at(-1)?.close);
         if (Number.isFinite(initialPrice) && initialPrice > 0) params.set("price", String(initialPrice));
         params.set("lang", resolvedLanguage());
+        params.set("view", "trade");
         location.href = `./private-simulator.html?v=9#${params}`;
       });
       document.getElementById("assetTimeframes").addEventListener("click", (event) => {

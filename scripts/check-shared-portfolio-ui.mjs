@@ -36,6 +36,11 @@ try{
  assert.equal(layout.fullSwap,true);assert.equal(layout.bookRight,true);assert.equal(layout.bookAboveSwap,true);
  const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth);
  assert.equal(overflow,false,'Mobile document must not overflow');
+ await page.goto('about:blank');
+ await page.goto('http://127.0.0.1:8772/private-simulator.html#lang=es&view=trade&symbol=SOL');
+ await page.locator('#tab-trade[aria-selected="true"]').waitFor();
+ assert.match(await page.locator('.finance-inline-buy h2').innerText(),/SOL/);
+ assert.equal(await page.locator('#swap-quote-button').isDisabled(),false);
  assert.deepEqual(errors,[]);
  console.log('PASS: built shared portfolio → Assets USD/QR → Futures balance/slider → inline SOL selector; no page errors or mobile overflow.');
 }finally{await browser.close();}

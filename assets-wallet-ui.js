@@ -51,7 +51,7 @@ export function setupAssetsWallets(language, doc=document, win=window) {
   win.dispatchEvent(new Event('eip6963:requestProvider'));discover();
   connect.onclick=async()=>{
     if(busy)return;const choice=choices[Number(select.value)];if(!choice)return;
-    clear();busy=true;connect.disabled=true;select.disabled=true;const ticket=epoch;
+    forgetExternal();clear();busy=true;connect.disabled=true;select.disabled=true;const ticket=epoch;
     status.textContent=t('Confirma la conexión en tu billetera.','Approve the connection in your wallet.');
     try{
       let account;
@@ -72,6 +72,7 @@ export function setupAssetsWallets(language, doc=document, win=window) {
       if(ticket!==epoch)return;
       active={...choice,...account};identity.textContent=choice.name+' · '+account.network+' · '+account.address;
       if(choice.kind!=='evm')selectWalletAccount(doc,{address:account.address,source:'external',name:choice.name});
+      else selectWalletAccount(doc,null); // EVM funds are not Solana collateral.
       if(choice.kind!=='evm')try{win.localStorage?.setItem('jamd.externalPublicWallet.v1',JSON.stringify({address:account.address,name:choice.name,network:'solana:mainnet'}));}catch{}
       refresh.hidden=disconnect.hidden=false;connect.hidden=true;
       status.textContent=t('Conectada para consulta. No se ha enviado dinero.','Connected for inspection. No funds were sent.');
