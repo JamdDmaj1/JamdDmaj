@@ -15,6 +15,11 @@ final class NativePerpsPreSwapData {
     private NativePerpsPreSwapData(Kind kind,BigInteger amountIn,BigInteger minimumOut){
         this.kind=kind;this.amountIn=amountIn;this.minimumOut=minimumOut;
     }
+    static boolean recognizes(byte[] data){
+        if(data==null||data.length<8)return false;
+        byte[] discriminator=Arrays.copyOf(data,8);
+        return Arrays.equals(discriminator,LEDGER)||Arrays.equals(discriminator,SWAP);
+    }
     static NativePerpsPreSwapData parse(byte[] data){
         if(data==null||data.length<8)throw invalid();
         byte[] discriminator=Arrays.copyOf(data,8);

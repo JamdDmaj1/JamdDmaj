@@ -39,7 +39,11 @@ keys.push(...writable,...readonly);assert.equal(new Set(keys).size,keys.length);
 const custodys=['7xS2gz2bTp3fwCC7knJvUWTEU9Tycczu6VhJYKgi1wdz','G18jKKXQwBbrHeiK3C9MRXhkHsLHf7XgCSisykV46EZa'];
 const snapshots=await rpc('getMultipleAccounts',[custodys,{encoding:'base64',commitment:'confirmed'}]);
 for(const account of snapshots.value){assert.equal(account.owner,program);assert.equal(account.executable,false);assert.equal(account.data[1],'base64');}
-const checked=spawnSync(java,['-cp',classpath,'com.jamddmaj.ai.wallet.NativePerpsPreSwapBindingsCheck',wallet,'SOL','USDC',...snapshots.value.map(account=>account.data[0]),input,...keys],{
+const ledgerInstruction=message.instructions.find(instruction=>keys[instruction.programAddressIndex]===program&&Buffer.from(instruction.data).toString('hex')==='e455b9704e4f4d02');
+assert.ok(ledgerInstruction);const ledgerAddress=keys[ledgerInstruction.accountIndices[0]];
+const ledger=await rpc('getAccountInfo',[ledgerAddress,{encoding:'base64',commitment:'confirmed'}]);
+assert.equal(ledger.value.owner,program);assert.equal(ledger.value.executable,false);assert.equal(ledger.value.data[1],'base64');
+const checked=spawnSync(java,['-cp',classpath,'com.jamddmaj.ai.wallet.NativePerpsPreSwapBindingsCheck',wallet,'SOL','USDC',...snapshots.value.map(account=>account.data[0]),input,ledger.value.data[0],...keys],{
   input:prepared.serializedTxBase64,encoding:'utf8',timeout:30000,
 });
 if(checked.error||checked.status!==0)throw checked.error||Error(checked.stderr);

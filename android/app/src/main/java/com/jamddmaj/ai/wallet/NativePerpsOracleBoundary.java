@@ -15,7 +15,7 @@ final class NativePerpsOracleBoundary {
             // No invoked program may also carry spending or writable authority.
             if(message.isSigner(instruction.program)||message.isWritable(instruction.program))throw invalid();
             String program=DevnetSolana.encode(message.staticKey(instruction.program));
-            if(PERPS.equals(program))opened=true;
+            if(PERPS.equals(program)&&!NativePerpsPreSwapData.recognizes(instruction.data()))opened=true;
             if(!DOVES.equals(program)&&!ED25519.equals(program))continue;
             if(opened)throw invalid();
             byte[] accounts=instruction.accounts();

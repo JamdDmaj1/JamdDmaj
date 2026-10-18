@@ -25,19 +25,25 @@ final class NativeSolanaAccounts {
         String asset=intent.asset;int side=intent.side;
         List<NativePerpsInstructionData> orderData=new ArrayList<>();
         for(SolanaMessage.Instruction instruction:transaction.message.instructions)
-            if(NativePerpsCustody.PROGRAM.equals(DevnetSolana.encode(transaction.message.staticKey(instruction.program))))
+            if(NativePerpsCustody.PROGRAM.equals(DevnetSolana.encode(transaction.message.staticKey(instruction.program)))
+                    &&!NativePerpsPreSwapData.recognizes(instruction.data()))
                 orderData.add(NativePerpsInstructionData.parse(instruction.data()));
         intent.checkInstructions(orderData,trustedNowSeconds);
         SolanaLookupTables.Resolved resolved=resolve(transaction.message);
         NativePerpsTokenBoundary.check(transaction.message,resolved,asset,side);
         transaction.checkOpeningAccountBindings(resolved);
         NativePerpsCustody market=readPerpsCustody(asset);
-        NativePerpsCustody collateral=side==1?market:readPerpsCustody("USDC");
+        NativePerpsCustody usdc=readPerpsCustody("USDC");
+        NativePerpsCustody collateral=side==1?market:usdc;
+        NativePerpsPreSwapPlan.LedgerRequirement ledger=NativePerpsPreSwapPlan.inspect(transaction.message,resolved,intent,usdc,collateral);
+        NativePerpsInstructionPolicy.check(transaction.message,resolved,intent);
+        if(ledger!=null)verifyPerpsTokenLedger(ledger.address);
         market.checkLeverage(intent.leverageTenths);
         collateral.checkLeverage(intent.leverageTenths);
         byte[] expectedPosition=NativePerpsAddresses.position(DevnetSolana.encode(resolved.key(0)),asset,side);
         for(SolanaMessage.Instruction instruction:transaction.message.instructions){
             if(!NativePerpsCustody.PROGRAM.equals(DevnetSolana.encode(transaction.message.staticKey(instruction.program))))continue;
+            if(NativePerpsPreSwapData.recognizes(instruction.data()))continue;
             NativePerpsInstructionData data=NativePerpsInstructionData.parse(instruction.data());
             byte[] indexes=instruction.accounts();byte[][] keys=new byte[indexes.length][];
             for(int i=0;i<indexes.length;i++)keys[i]=resolved.key(indexes[i]&255);
@@ -50,6 +56,23 @@ final class NativeSolanaAccounts {
                     throw new IllegalArgumentException("Perps exit request differs from position and counter");
             }
         }
+    }
+    private void verifyPerpsTokenLedger(String address)throws Exception{
+        DevnetSolana.decode(address,32);rpc.verifyNetwork();
+        BigInteger minimum=NativeWalletBalances.solanaUnits(rpc.request("getSlot",new JSONArray().put(new JSONObject().put("commitment","confirmed"))));
+        JSONObject result=(JSONObject)rpc.request("getAccountInfo",new JSONArray().put(address)
+            .put(new JSONObject().put("commitment","confirmed").put("encoding","base64").put("minContextSlot",minimum)));
+        if(NativeWalletBalances.solanaUnits(result.getJSONObject("context").get("slot")).compareTo(minimum)<0)throw new IOException("Stale perps ledger snapshot");
+        JSONObject value=result.getJSONObject("value");
+        if(!(value.get("executable") instanceof Boolean))throw new IOException("Invalid ledger flags");
+        JSONArray encoded=value.getJSONArray("data");
+        if(encoded.length()!=2||!"base64".equals(encoded.get(1))||!(encoded.get(0) instanceof String))throw new IOException("Invalid ledger encoding");
+        String text=encoded.getString(0);
+        if(text.length()!=64)throw new IOException("Invalid ledger length");
+        byte[] bytes=Base64.decode(text,Base64.NO_WRAP);
+        if(!Base64.encodeToString(bytes,Base64.NO_WRAP).equals(text))throw new IOException("Noncanonical ledger data");
+        NativePerpsTokenLedger.decode(value.getString("owner"),value.getBoolean("executable"),bytes);
+        rpc.verifyNetwork();
     }
     NativePerpsCustody readPerpsCustody(String asset) throws Exception {
         String address=NativePerpsCustody.address(asset);

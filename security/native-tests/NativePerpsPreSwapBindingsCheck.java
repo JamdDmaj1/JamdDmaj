@@ -3,13 +3,13 @@ package com.jamddmaj.ai.wallet;
 /** Diagnostic public RPC snapshots only, not a signing review or policy approval. */
 public final class NativePerpsPreSwapBindingsCheck {
     public static void main(String[] args)throws Exception{
-        if(args.length<7)throw new IllegalArgumentException("Expected public payer, custody snapshots, input and resolved addresses");
+        if(args.length<8)throw new IllegalArgumentException("Expected public payer, custody/ledger snapshots, input and resolved addresses");
         byte[] encoded=System.in.readNBytes(2001);if(encoded.length>2000)throw new IllegalArgumentException("Oversized wire");
         NativePerpsTransaction tx=NativePerpsTransaction.decode(java.util.Base64.getDecoder().decode(new String(encoded,java.nio.charset.StandardCharsets.US_ASCII).trim()),args[0]);
-        if(args.length!=6+tx.message.accountCount)throw new IllegalArgumentException("Invalid resolved key count");
+        if(args.length!=7+tx.message.accountCount)throw new IllegalArgumentException("Invalid resolved key count");
         byte[][] keys=new byte[tx.message.accountCount][];
         for(int i=0;i<keys.length;i++){
-            keys[i]=DevnetSolana.decode(args[6+i],32);
+            keys[i]=DevnetSolana.decode(args[7+i],32);
             if(i<tx.message.staticAccountCount()&&!java.util.Arrays.equals(keys[i],tx.message.staticKey(i)))throw new IllegalArgumentException("Different static key");
         }
         NativePerpsCustody input=custody(args[1],args[3]),output=custody(args[2],args[4]);
@@ -30,8 +30,9 @@ public final class NativePerpsPreSwapBindingsCheck {
             }
         }
         NativePerpsPreSwapBindings.check(swap,ledger,opening,input,output);
+        NativePerpsTokenLedger.decode(NativePerpsCustody.PROGRAM,false,java.util.Base64.getDecoder().decode(args[6]));
         swapData.requireAmounts(new java.math.BigInteger(args[5]),java.math.BigInteger.ONE);
-        System.out.println("PRE_SWAP_ROUTE_BOUND=true INPUT_AMOUNT_MATCH=true OUTPUT_SLIPPAGE_APPROVED=false SIGNING_AUTHORIZED=false SUBMITTED=false");
+        System.out.println("PRE_SWAP_ROUTE_BOUND=true LEDGER_LAYOUT_MATCH=true INPUT_AMOUNT_MATCH=true OUTPUT_SLIPPAGE_APPROVED=false SIGNING_AUTHORIZED=false SUBMITTED=false");
     }
     private static NativePerpsCustody custody(String asset,String data){return NativePerpsCustody.decode(asset,NativePerpsCustody.address(asset),NativePerpsCustody.PROGRAM,false,java.util.Base64.getDecoder().decode(data));}
     private static byte[][] roles(SolanaMessage.Instruction instruction,byte[][] keys){

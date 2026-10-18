@@ -17,6 +17,11 @@ final class NativePerpsAccountBindings {
         java.util.List<byte[][]> exits=new java.util.ArrayList<>();
         for(SolanaMessage.Instruction instruction:message.instructions){
             if(!PROGRAM.equals(DevnetSolana.encode(message.staticKey(instruction.program))))continue;
+            if(NativePerpsPreSwapData.recognizes(instruction.data())){
+                if(opening!=null)throw invalid();
+                NativePerpsPreSwapData.parse(instruction.data());
+                continue; // Full pre-swap plan/custody/ledger checks are separate mandatory gates.
+            }
             NativePerpsInstructionData data=NativePerpsInstructionData.parse(instruction.data());
             byte[] indexes=instruction.accounts();
             if(indexes.length!=20)throw invalid();

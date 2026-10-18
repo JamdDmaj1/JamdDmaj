@@ -51,6 +51,7 @@ final class NativePerpsSimulation {
             List<NativePerpsExitRequest> exits=new ArrayList<>();
             for(SolanaMessage.Instruction instruction:candidate.message.instructions){
                 if(!NativePerpsCustody.PROGRAM.equals(DevnetSolana.encode(keys.key(instruction.program))))continue;
+                if(NativePerpsPreSwapData.recognizes(instruction.data()))continue;
                 NativePerpsInstructionData data=NativePerpsInstructionData.parse(instruction.data());
                 if(data.kind!=NativePerpsInstructionData.Kind.TPSL)continue;
                 byte[] indexes=instruction.accounts();if(indexes.length!=20)throw invalid("Invalid exit state roles");
@@ -71,7 +72,8 @@ final class NativePerpsSimulation {
             NativePerpsPosition post=NativePerpsPosition.decode(address,next.owner,next.executable,next.data(),payer,intent.asset,intent.side);
             NativePerpsInstructionData opening=null;
             for(SolanaMessage.Instruction instruction:candidate.message.instructions)
-                if(NativePerpsCustody.PROGRAM.equals(DevnetSolana.encode(candidate.message.staticKey(instruction.program)))){
+                if(NativePerpsCustody.PROGRAM.equals(DevnetSolana.encode(candidate.message.staticKey(instruction.program)))
+                        &&!NativePerpsPreSwapData.recognizes(instruction.data())){
                     NativePerpsInstructionData data=NativePerpsInstructionData.parse(instruction.data());
                     if(data.kind==NativePerpsInstructionData.Kind.INCREASE){if(opening!=null)throw invalid("Multiple simulated openings");opening=data;}
                 }
@@ -135,6 +137,26 @@ final class NativePerpsSimulation {
         String collateralAccount=deriver.associated(payer,collateralMint,SplTokenAccount.PROGRAM);
         for(SolanaMessage.Instruction instruction:transaction.message.instructions){
             if(!NativePerpsCustody.PROGRAM.equals(DevnetSolana.encode(result.keys.key(instruction.program))))continue;
+            if(NativePerpsPreSwapData.recognizes(instruction.data())){
+                NativePerpsPreSwapData auxiliary=NativePerpsPreSwapData.parse(instruction.data());
+                if(auxiliary.kind==NativePerpsPreSwapData.Kind.SET_LEDGER){
+                    byte[] indexes=instruction.accounts();if(indexes.length!=3)throw invalid("Invalid ledger roles");
+                    String address=role(result,indexes,0),tokenAddress=role(result,indexes,1);
+                    if(!result.before.containsKey(address)||!result.after.containsKey(address)||!result.before.containsKey(tokenAddress))throw invalid("Missing ledger snapshot");
+                    Account old= result.before.get(address),next=result.after.get(address);
+                    if(old==null||next==null||!old.lamports.equals(next.lamports))throw invalid("Missing or changed ledger account");
+                    NativePerpsTokenLedger.decode(old.owner,old.executable,old.data());
+                    Account tokenBefore=result.before.get(tokenAddress);
+                    BigInteger amount=BigInteger.ZERO;
+                    if(tokenBefore!=null&&!NativePerpsFunding.closed(new NativePerpsFunding.State(tokenBefore.owner,tokenBefore.executable,tokenBefore.lamports,tokenBefore.data()))){
+                        SplTokenAccount token=SplTokenAccount.decode(tokenBefore.owner,tokenBefore.executable,tokenBefore.data());
+                        if(!Arrays.equals(token.owner(),DevnetSolana.decode(payer,32))||!Arrays.equals(token.mint(),DevnetSolana.decode(collateralMint,32)))throw invalid("Ledger token owner or mint mismatch");
+                        amount=token.amount;
+                    }
+                    NativePerpsTokenLedger.decode(next.owner,next.executable,next.data()).requireSnapshot(tokenAddress,amount);
+                }
+                continue;
+            }
             byte[] indexes=instruction.accounts();if(indexes.length!=20)throw invalid("Invalid funding roles");
             NativePerpsInstructionData data=NativePerpsInstructionData.parse(instruction.data());
             String actualPosition=role(result,indexes,6);

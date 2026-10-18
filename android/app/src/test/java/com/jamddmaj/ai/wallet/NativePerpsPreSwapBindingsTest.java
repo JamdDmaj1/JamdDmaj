@@ -14,11 +14,13 @@ public class NativePerpsPreSwapBindingsTest {
         if(asset.equals("USDC")){System.arraycopy(key(90),0,bytes,72,32);System.arraycopy(key(91),0,bytes,384,32);}
         return NativePerpsCustody.decode(asset,NativePerpsCustody.address(asset),NativePerpsCustody.PROGRAM,false,bytes);
     }
-    private static final class Fixture {
+    static final class Fixture {
         final NativePerpsCustody input=custody("USDC"),output=custody("SOL");
         final byte[][] swap=new byte[16][],ledger=new byte[3][],opening=new byte[20][];
-        Fixture(){
+        Fixture(){this(null,null,null);}
+        Fixture(byte[] owner,byte[] keeper,byte[] api){
             for(int i=0;i<20;i++)opening[i]=key(i+10);
+            if(owner!=null){opening[2]=owner;opening[0]=keeper;opening[1]=api;}
             swap[0]=opening[2];swap[1]=NativePerpsTokenBoundary.associated(swap[0],input.mint);
             swap[2]=NativePerpsTokenBoundary.associated(swap[0],output.mint);
             swap[3]=NativePerpsAddresses.transferAuthority();swap[4]=NativePerpsAddresses.perpetuals();
