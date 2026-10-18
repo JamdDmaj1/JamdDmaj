@@ -55,14 +55,14 @@ public class NativePerpsJournalTest {
         assertThrows(java.io.IOException.class,()->begin());
     }
     @Test public void rejectsConflictingKindsWrongPositionAndMalformedMetadata()throws Exception{
-        begin();String original=Files.readString(path().toPath());
+        begin();String original=new String(Files.readAllBytes(path().toPath()),StandardCharsets.UTF_8);
         for(String fault:new String[]{"mixed","position","side","digest"}){
             JSONObject value=new JSONObject(original),p=value.getJSONObject("perps");
             if(fault.equals("mixed"))value.put("tokenMint",NativeSolanaTokens.USDC);
             if(fault.equals("position"))p.put("position",owner.solanaAddress);
             if(fault.equals("side"))p.put("side",1.5);
             if(fault.equals("digest"))p.put("signedWireSha256","unverified");
-            Files.writeString(path().toPath(),value.toString(),StandardCharsets.UTF_8);
+            Files.write(path().toPath(),value.toString().getBytes(StandardCharsets.UTF_8));
             assertThrows(Exception.class,()->journal.latest());
         }
     }
