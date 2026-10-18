@@ -57,4 +57,12 @@ public class NativePerpsServiceTest {
         NativePerpsService slow=new NativePerpsService((payer,intent)->response(),(transaction,intent,now)->clock.elapsed+=15001,clock);
         assertThrows(java.io.IOException.class,()->slow.analyze(NativePerpsTransactionTest.payer(),intent()));
     }
+    @Test public void invalidationRevokesAnalysisAndCannotProduceConsent()throws Exception{
+        NativePerpsService service=new NativePerpsService((payer,intent)->response(),(transaction,intent,now)->{},new Clock());
+        NativePerpsService.Analysis analysis=service.analyze(NativePerpsTransactionTest.payer(),intent());
+        assertThrows(java.io.IOException.class,()->service.requireCurrentReview(null));
+        service.invalidate();
+        assertThrows(java.io.IOException.class,()->service.simulate(analysis));
+        assertThrows(java.io.IOException.class,()->service.analyze(NativePerpsTransactionTest.payer(),intent()));
+    }
 }

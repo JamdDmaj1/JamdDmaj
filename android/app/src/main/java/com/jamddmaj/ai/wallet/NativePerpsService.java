@@ -41,11 +41,21 @@ final class NativePerpsService {
             this.exits=exits;
         }
     }
+    /** Verified display snapshot, not biometric consent or spending authority. */
+    static final class Review {
+        final Analysis analysis;
+        final NativePerpsReviewAmounts amounts;
+        private final Evidence evidence;
+        private Review(Analysis analysis,Evidence evidence,NativePerpsReviewAmounts amounts){
+            this.analysis=analysis;this.evidence=evidence;this.amounts=amounts;
+        }
+    }
     private final Transport transport;
     private final Accounts accounts;
     private final NativeSwapService.Clock clock;
     private boolean used;
     private Analysis current;
+    private Review currentReview;
     NativePerpsService(){this(new Live());}
     private NativePerpsService(Live live){this(live::prepare,new NativeSolanaAccounts()::verifyPerpsOrderAccounts,live.clock);}
     NativePerpsService(Transport transport,Accounts accounts,NativeSwapService.Clock clock){
@@ -81,6 +91,24 @@ final class NativePerpsService {
         current=new Analysis(transaction,intent,payer,height,expires);return current;
     }
     Evidence simulate(Analysis analysis)throws Exception{return simulate(analysis,new NativePerpsSimulation());}
+    synchronized Review review(String payer,NativePerpsOrderIntent intent)throws Exception{
+        Analysis analysis=analyze(payer,intent);
+        Evidence evidence=simulate(analysis);
+        String address=DevnetSolana.encode(NativePerpsAddresses.position(payer,intent.asset,intent.side));
+        NativePerpsSimulation.Account old=evidence.simulation.before.get(address);
+        NativePerpsPosition previous=old==null?null:NativePerpsPosition.decode(address,old.owner,old.executable,old.data(),payer,intent.asset,intent.side);
+        NativePerpsReviewAmounts amounts=new NativePerpsReviewAmounts(evidence.funding.usdcDebit,
+            previous==null?BigInteger.ZERO:previous.sizeUsd,previous==null?BigInteger.ZERO:previous.collateralUsd,
+            evidence.position.sizeUsd,evidence.position.collateralUsd,evidence.funding.networkFee,
+            evidence.funding.rentLocked,evidence.funding.rentRefunded);
+        if(clock.wall()>=analysis.expiresAt)throw new IOException("Perps review expired");
+        currentReview=new Review(analysis,evidence,amounts);return currentReview;
+    }
+    synchronized void requireCurrentReview(Review review)throws IOException{
+        if(review==null||review!=currentReview||review.analysis!=current||clock.wall()>=review.analysis.expiresAt
+                ||!review.evidence.simulation.matches(review.analysis.transaction))throw new IOException("Request a fresh perps review");
+    }
+    synchronized void invalidate(){currentReview=null;current=null;used=true;}
     synchronized Evidence simulate(Analysis analysis,NativePerpsSimulation simulator)throws Exception{
         if(analysis==null||analysis!=current||simulator==null||clock.wall()>=analysis.expiresAt)throw new IOException("Missing or expired perps analysis");
         NativePerpsSimulation.Result result=simulator.inspect(analysis.transaction,analysis.intent,analysis.payer,analysis.lastValidBlockHeight);
