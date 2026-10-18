@@ -65,4 +65,16 @@ public class NativePerpsServiceTest {
         assertThrows(java.io.IOException.class,()->service.simulate(analysis));
         assertThrows(java.io.IOException.class,()->service.analyze(NativePerpsTransactionTest.payer(),intent()));
     }
+    @Test public void cancellationDoesNotWaitForInFlightNetworkAndRejectsLateResponse()throws Exception{
+        var entered=new java.util.concurrent.CountDownLatch(1);
+        var release=new java.util.concurrent.CountDownLatch(1);
+        NativePerpsService service=new NativePerpsService((payer,intent)->{entered.countDown();release.await();return response();},
+            (transaction,intent,now)->{},new Clock());
+        var executor=java.util.concurrent.Executors.newSingleThreadExecutor();
+        try{
+            var pending=executor.submit(()->{assertThrows(java.io.IOException.class,()->service.analyze(NativePerpsTransactionTest.payer(),intent()));});
+            assertTrue(entered.await(5,java.util.concurrent.TimeUnit.SECONDS));
+            service.invalidate();release.countDown();pending.get(5,java.util.concurrent.TimeUnit.SECONDS);
+        }finally{release.countDown();executor.shutdownNow();}
+    }
 }

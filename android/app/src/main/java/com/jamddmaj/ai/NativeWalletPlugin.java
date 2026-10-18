@@ -27,18 +27,19 @@ public final class NativeWalletPlugin extends Plugin {
             && page.getPort()==-1 && page.getUserInfo()==null && "/private-simulator.html".equals(page.getPath());
     }
     @PluginMethod public void open(PluginCall call) {
-        openScreen(call,false);
+        openScreen(call,null);
     }
     @PluginMethod public void openSwap(PluginCall call) {
-        openScreen(call,true);
+        openScreen(call,"swap");
     }
-    private void openScreen(PluginCall call,boolean swap) {
+    @PluginMethod public void openPerps(PluginCall call) { openScreen(call,"perps"); }
+    private void openScreen(PluginCall call,String navigation) {
         getActivity().runOnUiThread(()->{
             try {
                 if(!trustedPage(getBridge().getWebView().getUrl())){call.reject("untrusted-wallet-origin");return;}
                 if(Build.VERSION.SDK_INT<30){call.reject("android-11-required");return;}
                 Intent screen=new Intent(getActivity(),NativeWalletActivity.class);
-                if(swap)screen.putExtra("wallet-navigation","swap");
+                if(navigation!=null)screen.putExtra("wallet-navigation",navigation);
                 getActivity().startActivity(screen);
                 call.resolve();
             } catch(Exception unavailable){call.reject("native-wallet-unavailable");}

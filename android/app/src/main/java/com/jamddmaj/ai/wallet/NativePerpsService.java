@@ -49,11 +49,26 @@ final class NativePerpsService {
         private Review(Analysis analysis,Evidence evidence,NativePerpsReviewAmounts amounts){
             this.analysis=analysis;this.evidence=evidence;this.amounts=amounts;
         }
+        String description(boolean es){
+            NativePerpsOrderIntent i=analysis.intent;
+            return i.asset+" · "+(i.side==1?"Long":"Short")+" · Jupiter / Solana mainnet\n\n"+analysis.payer+
+                "\n\n"+(es?"Débito USDC: ":"USDC debit: ")+NativePerpsReviewAmounts.usd(amounts.walletDebitUsdc)+
+                "\n"+(es?"Margen acreditado USD: ":"Credited margin USD: ")+NativePerpsReviewAmounts.usd(amounts.creditedCollateralUsd)+
+                "\n"+(es?"Costo estimado USD: ":"Estimated cost USD: ")+NativePerpsReviewAmounts.usd(amounts.estimatedTradingCostUsd)+
+                "\n"+(es?"Nueva exposición USD: ":"New exposure USD: ")+NativePerpsReviewAmounts.usd(amounts.newExposureUsd)+
+                "\n"+(es?"Exposición total USD: ":"Total exposure USD: ")+NativePerpsReviewAmounts.usd(amounts.totalExposureUsd)+
+                "\n"+(es?"Comisión SOL: ":"SOL fee: ")+NativePerpsReviewAmounts.sol(amounts.networkFeeLamports)+
+                "\n"+(es?"Reserva de cuentas SOL: ":"Account rent SOL: ")+NativePerpsReviewAmounts.sol(amounts.rentLockedLamports)+
+                "\n"+(es?"Reembolso de cuentas SOL: ":"Account rent refund SOL: ")+NativePerpsReviewAmounts.sol(amounts.rentRefundedLamports)+
+                "\nSL: "+(i.stopLoss==null?"—":NativePerpsReviewAmounts.usd(i.stopLoss))+" · TP: "+(i.takeProfit==null?"—":NativePerpsReviewAmounts.usd(i.takeProfit))+
+                "\n\n"+(es?"Solo revisión. No autoriza ni envía una orden. Puedes perder todo el margen.":"Review only. This does not authorize or submit an order. You can lose all margin.");
+        }
     }
     private final Transport transport;
     private final Accounts accounts;
     private final NativeSwapService.Clock clock;
     private boolean used;
+    private volatile boolean invalidated;
     private Analysis current;
     private Review currentReview;
     NativePerpsService(){this(new Live());}
@@ -64,7 +79,7 @@ final class NativePerpsService {
     }
     synchronized Analysis analyze(String payer,NativePerpsOrderIntent intent)throws Exception{
         DevnetSolana.decode(payer,32);if(intent==null)throw new IllegalArgumentException("Missing native order intent");
-        if(used)throw new IOException("Request a fresh perps analysis session");used=true;
+        if(used||invalidated)throw new IOException("Request a fresh perps analysis session");used=true;
         long start=clock.elapsed();
         JSONObject response=transport.prepare(payer,intent);
         if(response==null)throw new IOException("Missing perps preparation");
@@ -84,7 +99,7 @@ final class NativePerpsService {
             throw new IOException("Perps response position differs from native intent");
         accounts.verify(transaction,intent,clock.wall()/1000);
         long duration=clock.elapsed()-start;
-        if(duration<0||duration>15000||clock.wall()>=expires)throw new IOException("Perps analysis expired");
+        if(invalidated||duration<0||duration>15000||clock.wall()>=expires)throw new IOException("Perps analysis expired");
         // Deliberately cannot produce a NativeSwapReview or a signing token.
         // All other instructions, funding/effects and counter-signing remain
         // separate mandatory gates before a perps signing path can be added.
@@ -101,22 +116,23 @@ final class NativePerpsService {
             previous==null?BigInteger.ZERO:previous.sizeUsd,previous==null?BigInteger.ZERO:previous.collateralUsd,
             evidence.position.sizeUsd,evidence.position.collateralUsd,evidence.funding.networkFee,
             evidence.funding.rentLocked,evidence.funding.rentRefunded);
-        if(clock.wall()>=analysis.expiresAt)throw new IOException("Perps review expired");
+        if(invalidated||clock.wall()>=analysis.expiresAt)throw new IOException("Perps review expired");
         currentReview=new Review(analysis,evidence,amounts);return currentReview;
     }
     synchronized void requireCurrentReview(Review review)throws IOException{
-        if(review==null||review!=currentReview||review.analysis!=current||clock.wall()>=review.analysis.expiresAt
+        if(invalidated||review==null||review!=currentReview||review.analysis!=current||clock.wall()>=review.analysis.expiresAt
                 ||!review.evidence.simulation.matches(review.analysis.transaction))throw new IOException("Request a fresh perps review");
     }
-    synchronized void invalidate(){currentReview=null;current=null;used=true;}
+    // Called from UI lifecycle callbacks: never wait for a network-held monitor.
+    void invalidate(){invalidated=true;}
     synchronized Evidence simulate(Analysis analysis,NativePerpsSimulation simulator)throws Exception{
-        if(analysis==null||analysis!=current||simulator==null||clock.wall()>=analysis.expiresAt)throw new IOException("Missing or expired perps analysis");
+        if(invalidated||analysis==null||analysis!=current||simulator==null||clock.wall()>=analysis.expiresAt)throw new IOException("Missing or expired perps analysis");
         NativePerpsSimulation.Result result=simulator.inspect(analysis.transaction,analysis.intent,analysis.payer,analysis.lastValidBlockHeight);
         if(!result.matches(analysis.transaction)||clock.wall()>=analysis.expiresAt)throw new IOException("Perps simulation differs or expired");
         NativePerpsPosition position=result.checkPositionChange(analysis.transaction,analysis.intent,analysis.payer);
         java.util.List<NativePerpsExitRequest> exits=result.checkExitRequests(analysis.transaction,analysis.intent,analysis.payer);
         NativePerpsFunding funding=simulator.checkFunding(result,analysis.transaction,analysis.intent,analysis.payer);
-        if(clock.wall()>=analysis.expiresAt)throw new IOException("Perps funding evidence expired");
+        if(invalidated||clock.wall()>=analysis.expiresAt)throw new IOException("Perps funding evidence expired");
         return new Evidence(result,position,funding,exits);
     }
     static JSONObject body(String payer,NativePerpsOrderIntent intent)throws Exception{

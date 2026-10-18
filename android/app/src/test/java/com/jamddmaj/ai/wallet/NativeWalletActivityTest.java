@@ -18,6 +18,21 @@ import static org.junit.Assert.*;
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk=30)
 public class NativeWalletActivityTest {
+    @Test public void perpsNavigationIsReviewOnlyAndDoesNotImportWebTransactionArguments(){
+        var app=org.robolectric.RuntimeEnvironment.getApplication();
+        var intent=new android.content.Intent(app,NativeWalletActivity.class).putExtra("wallet-navigation","perps")
+            .putExtra("margin","999").putExtra("serializedTxBase64","untrusted");
+        try(var controller=Robolectric.buildActivity(NativeWalletActivity.class,intent).create()){
+            var activity=controller.get();
+            android.view.ViewGroup form=activity.getWindow().getDecorView().findViewWithTag("native-perps-form");
+            assertEquals(View.VISIBLE,form.getVisibility());
+            ArrayList<EditText> inputs=new ArrayList<>();fields(form,inputs);
+            assertEquals(5,inputs.size());for(EditText input:inputs)assertEquals("",input.getText().toString());
+            activity.reviewPerps();
+            assertNull(org.robolectric.Shadows.shadowOf(activity).getNextStartedActivity());
+            assertNull(org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog());
+        }
+    }
     @Test public void swapNavigationOnlyOpensFormWithoutAmountOrAuthorization(){
         var app=org.robolectric.RuntimeEnvironment.getApplication();
         var intent=new android.content.Intent(app,NativeWalletActivity.class).putExtra("wallet-navigation","swap");

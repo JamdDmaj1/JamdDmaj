@@ -44,6 +44,9 @@ public final class NativeWalletActivity extends Activity {
     private EditText swapInput,swapOutput,swapAmount;
     private TextView swapAmountUnit;
     private EditText usdcRecipient,usdcAmount;
+    private Spinner perpsAsset,perpsSide;
+    private EditText perpsMargin,perpsLeverage,perpsPrice,perpsSl,perpsTp;
+    private volatile NativePerpsService perpsService;
     private final java.util.ArrayList<LinearLayout> sections=new java.util.ArrayList<>();
     private LinearLayout backupSection;
     private SeedCreationDialog seedDialog;
@@ -134,7 +137,23 @@ public final class NativeWalletActivity extends Activity {
         usdcAmount.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_DECIMAL);
         action(usdcSection,text("Revisar envío de USDC","Review USDC transfer"),()->reviewUsdc());
         action(usdcSection,text("Consultar última operación de Solana","Check latest Solana operation"),()->checkSolana());
+        LinearLayout perpsSection=section(root,text("Futuros · revisar orden Jupiter","Futures · review Jupiter order"));
+        perpsSection.setTag("native-perps-form");
+        label(perpsSection,text("Solo revisión. El envío de Futuros todavía no está habilitado. No firmará ni moverá fondos.","Review only. Futures submission is not enabled yet. This will not sign or move funds."),16);
+        perpsAsset=new Spinner(this);perpsAsset.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{"BTC","ETH","SOL"}));perpsSection.addView(perpsAsset);
+        perpsSide=new Spinner(this);perpsSide.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{"Long","Short"}));perpsSection.addView(perpsSide);
+        perpsMargin=field(perpsSection,text("Margen que entregas · USDC (mínimo 10)","Margin you pay · USDC (minimum 10)"),false);
+        perpsLeverage=field(perpsSection,text("Apalancamiento · 1.1 a 50","Leverage · 1.1 to 50"),false);
+        perpsPrice=field(perpsSection,text("Precio de referencia · USD","Reference price · USD"),false);
+        perpsSl=field(perpsSection,text("Stop loss · precio USD · opcional","Stop loss · USD price · optional"),false);
+        perpsTp=field(perpsSection,text("Take profit · precio USD · opcional","Take profit · USD price · optional"),false);
+        for(EditText input:new EditText[]{perpsMargin,perpsLeverage,perpsPrice,perpsSl,perpsTp})input.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        action(perpsSection,text("Revisar Futuros sin enviar","Review Futures without sending"),()->reviewPerps());
         action(root,text("Bloquear billetera","Lock wallet"),()->lock());
+        if("perps".equals(getIntent().getStringExtra("wallet-navigation"))){
+            perpsSection.setVisibility(View.VISIBLE);
+            perpsSection.post(()->perpsSection.requestRectangleOnScreen(new android.graphics.Rect(0,0,perpsSection.getWidth(),perpsSection.getHeight()),false));
+        }
         if("swap".equals(getIntent().getStringExtra("wallet-navigation"))){
             swapSection.setVisibility(View.VISIBLE);
             swapSection.post(()->swapSection.requestRectangleOnScreen(new android.graphics.Rect(0,0,swapSection.getWidth(),swapSection.getHeight()),false));
@@ -335,6 +354,28 @@ public final class NativeWalletActivity extends Activity {
                     ()->authorizeSwap(profile,service,draft,ticket),text("Cancelar","Cancel"),()->lock());
             });
         }catch(Exception failure){String check=NativeSwapCheck.publicCode(failure),explanation=NativeSwapCheck.describe(failure,es);runOnUiThread(()->{if(ticket==epoch)status.setText(explanation+"\n"+text("Esta solicitud no se firmó ni se envió.","This request was not signed or submitted.")+"\n"+check);});}});
+    }
+    void reviewPerps(){
+        NativeWalletProfiles.Profile profile=selectedProfile;
+        if(profile==null){status.setText(text("Desbloquea primero la billetera.","Unlock the wallet first."));return;}
+        NativePerpsOrderIntent intent;
+        try{
+            String sl=perpsSl.getText().toString().trim(),tp=perpsTp.getText().toString().trim();
+            intent=new NativePerpsOrderIntent(perpsAsset.getSelectedItem().toString(),perpsSide.getSelectedItemPosition()+1,
+                perpsMargin.getText().toString().trim(),perpsLeverage.getText().toString().trim(),50,
+                perpsPrice.getText().toString().trim(),sl.isEmpty()?null:sl,tp.isEmpty()?null:tp);
+        }catch(Exception invalid){status.setText(text("Revisa margen, apalancamiento, precio y TP/SL.","Check margin, leverage, price and TP/SL."));return;}
+        lock();selectedProfile=profile;long ticket=epoch;
+        NativePerpsService service=new NativePerpsService();perpsService=service;
+        status.setText(text("Verificando orden y simulación. No se firma ni se envía.","Verifying order and simulation. Nothing is signed or sent."));
+        worker.execute(()->{try{
+            NativePerpsService.Review review=service.review(profile.solanaAddress,intent);
+            runOnUiThread(()->{if(ticket!=epoch){service.invalidate();return;}
+                try{service.requireCurrentReview(review);}catch(Exception expired){service.invalidate();status.setText(text("La revisión caducó. Solicita otra.","Review expired. Request another."));return;}
+                WalletReviewDialog.show(this,text("Revisión de Futuros","Futures review"),review.description(es),
+                    text("Cerrar sin enviar","Close without sending"),()->lock(),text("Cancelar","Cancel"),()->lock());
+            });
+        }catch(Exception failure){service.invalidate();runOnUiThread(()->{if(ticket==epoch)status.setText(text("No se pudo verificar la orden: revisa saldo USDC, importe y disponibilidad. No se firmó ni envió nada.","Order could not be verified: check USDC funds, amount and availability. Nothing was signed or sent."));});}});
     }
     private void authorizeSwap(NativeWalletProfiles.Profile profile,NativeSwapTransfers service,NativeSwapTransfers.Draft draft,long ticket){
         if(ticket!=epoch)return;
@@ -576,7 +617,7 @@ public final class NativeWalletActivity extends Activity {
         });
     }
     private void error(long ticket){runOnUiThread(()->{if(ticket!=epoch)return;lock();status.setText(text("No se pudo verificar esta operación. Esto no confirma un cambio de huella. Conserva tu respaldo; no se ha enviado dinero.","This operation could not be verified. This does not confirm a biometric change. Keep your backup; no money was sent."));});}
-    private void lock(){epoch++;selectedProfile=null;if(cancellation!=null)cancellation.cancel();cancellation=null;if(vault!=null)vault.cancel();vault=null;if(enrollment!=null)enrollment.cancel();if(password!=null)password.setText("");if(passwordRepeat!=null)passwordRepeat.setText("");if(addresses!=null)addresses.setText("");if(status!=null)status.setText(text("Billetera bloqueada.","Wallet locked."));}
+    private void lock(){epoch++;NativePerpsService previous=perpsService;perpsService=null;if(previous!=null)previous.invalidate();selectedProfile=null;if(cancellation!=null)cancellation.cancel();cancellation=null;if(vault!=null)vault.cancel();vault=null;if(enrollment!=null)enrollment.cancel();if(password!=null)password.setText("");if(passwordRepeat!=null)passwordRepeat.setText("");if(addresses!=null)addresses.setText("");if(status!=null)status.setText(text("Billetera bloqueada.","Wallet locked."));}
     @Override protected void onStop(){if(seedDialog!=null){seedDialog.dismiss();seedDialog=null;}lock();super.onStop();}
     @Override protected void onDestroy(){lock();worker.shutdownNow();super.onDestroy();}
 }
