@@ -19,6 +19,13 @@ final class NativePerpsReviewAmounts {
         networkFeeLamports=fee;rentLockedLamports=locked;rentRefundedLamports=refunded;
     }
     static String usd(BigInteger units){return decimal(units,6);}
+    boolean sameAs(NativePerpsReviewAmounts other){
+        return other!=null&&walletDebitUsdc.equals(other.walletDebitUsdc)&&creditedCollateralUsd.equals(other.creditedCollateralUsd)
+            &&estimatedTradingCostUsd.equals(other.estimatedTradingCostUsd)&&newExposureUsd.equals(other.newExposureUsd)
+            &&totalExposureUsd.equals(other.totalExposureUsd)&&totalCollateralUsd.equals(other.totalCollateralUsd)
+            &&networkFeeLamports.equals(other.networkFeeLamports)&&rentLockedLamports.equals(other.rentLockedLamports)
+            &&rentRefundedLamports.equals(other.rentRefundedLamports);
+    }
     static String sol(BigInteger units){return decimal(units,9);}
     private static String decimal(BigInteger units,int decimals){
         if(units==null||units.signum()<0)throw new IllegalArgumentException("Invalid display amount");

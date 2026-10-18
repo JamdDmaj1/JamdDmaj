@@ -67,6 +67,7 @@ final class NativePerpsService {
     private final Transport transport;
     private final Accounts accounts;
     private final NativeSwapService.Clock clock;
+    private final NativePerpsSimulation simulator;
     private boolean used;
     private volatile boolean invalidated;
     private Analysis current;
@@ -74,8 +75,12 @@ final class NativePerpsService {
     NativePerpsService(){this(new Live());}
     private NativePerpsService(Live live){this(live::prepare,new NativeSolanaAccounts()::verifyPerpsOrderAccounts,live.clock);}
     NativePerpsService(Transport transport,Accounts accounts,NativeSwapService.Clock clock){
+        this(transport,accounts,clock,new NativePerpsSimulation());
+    }
+    NativePerpsService(Transport transport,Accounts accounts,NativeSwapService.Clock clock,NativePerpsSimulation simulator){
         if(transport==null||accounts==null||clock==null)throw new IllegalArgumentException("Missing perps preparation dependencies");
-        this.transport=transport;this.accounts=accounts;this.clock=clock;
+        if(simulator==null)throw new IllegalArgumentException("Missing perps simulation");
+        this.transport=transport;this.accounts=accounts;this.clock=clock;this.simulator=simulator;
     }
     synchronized Analysis analyze(String payer,NativePerpsOrderIntent intent)throws Exception{
         DevnetSolana.decode(payer,32);if(intent==null)throw new IllegalArgumentException("Missing native order intent");
@@ -105,19 +110,31 @@ final class NativePerpsService {
         // separate mandatory gates before a perps signing path can be added.
         current=new Analysis(transaction,intent,payer,height,expires);return current;
     }
-    Evidence simulate(Analysis analysis)throws Exception{return simulate(analysis,new NativePerpsSimulation());}
+    Evidence simulate(Analysis analysis)throws Exception{return simulate(analysis,simulator);}
     synchronized Review review(String payer,NativePerpsOrderIntent intent)throws Exception{
         Analysis analysis=analyze(payer,intent);
         Evidence evidence=simulate(analysis);
+        NativePerpsReviewAmounts amounts=amounts(analysis,evidence);
+        if(invalidated||clock.wall()>=analysis.expiresAt)throw new IOException("Perps review expired");
+        currentReview=new Review(analysis,evidence,amounts);return currentReview;
+    }
+    private static NativePerpsReviewAmounts amounts(Analysis analysis,Evidence evidence){
+        String payer=analysis.payer;NativePerpsOrderIntent intent=analysis.intent;
         String address=DevnetSolana.encode(NativePerpsAddresses.position(payer,intent.asset,intent.side));
         NativePerpsSimulation.Account old=evidence.simulation.before.get(address);
         NativePerpsPosition previous=old==null?null:NativePerpsPosition.decode(address,old.owner,old.executable,old.data(),payer,intent.asset,intent.side);
-        NativePerpsReviewAmounts amounts=new NativePerpsReviewAmounts(evidence.funding.usdcDebit,
+        return new NativePerpsReviewAmounts(evidence.funding.usdcDebit,
             previous==null?BigInteger.ZERO:previous.sizeUsd,previous==null?BigInteger.ZERO:previous.collateralUsd,
             evidence.position.sizeUsd,evidence.position.collateralUsd,evidence.funding.networkFee,
             evidence.funding.rentLocked,evidence.funding.rentRefunded);
-        if(invalidated||clock.wall()>=analysis.expiresAt)throw new IOException("Perps review expired");
-        currentReview=new Review(analysis,evidence,amounts);return currentReview;
+    }
+    synchronized void revalidate(Review review)throws Exception{
+        requireCurrentReview(review);
+        accounts.verify(review.analysis.transaction,review.analysis.intent,clock.wall()/1000);
+        Evidence fresh=simulate(review.analysis);
+        if(fresh.simulation.slot.compareTo(review.evidence.simulation.slot)<0
+                ||!review.amounts.sameAs(amounts(review.analysis,fresh)))throw new IOException("Perps costs or position changed; review a fresh order");
+        requireCurrentReview(review);
     }
     synchronized void requireCurrentReview(Review review)throws IOException{
         if(invalidated||review==null||review!=currentReview||review.analysis!=current||clock.wall()>=review.analysis.expiresAt
