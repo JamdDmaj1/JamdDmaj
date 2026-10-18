@@ -41,7 +41,9 @@ final class NativePerpsPosition {
                 // Allow only the explicitly requested slippage in effective
                 // leverage after collateral conversion and micro-unit rounding.
                 ||sizeDelta.multiply(BigInteger.valueOf(100000)).compareTo(collateralDelta.multiply(BigInteger.valueOf(intent.leverageTenths))
-                    .multiply(BigInteger.valueOf(10000+intent.maxSlippageBps)))>0)throw invalid();
+                    .multiply(BigInteger.valueOf(10000+intent.maxSlippageBps)))>0
+                ||sizeDelta.multiply(BigInteger.valueOf(100000)).compareTo(collateralDelta.multiply(BigInteger.valueOf(intent.leverageTenths))
+                    .multiply(BigInteger.valueOf(10000-intent.maxSlippageBps)))<0)throw invalid();
     }
     private static boolean key(byte[] bytes,int offset,String expected){return Arrays.equals(Arrays.copyOfRange(bytes,offset,offset+32),DevnetSolana.decode(expected,32));}
     private static BigInteger u64(byte[] bytes,int offset){byte[] big=new byte[8];for(int i=0;i<8;i++)big[i]=bytes[offset+7-i];return new BigInteger(1,big);}

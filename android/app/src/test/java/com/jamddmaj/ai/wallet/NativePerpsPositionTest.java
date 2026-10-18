@@ -49,4 +49,12 @@ public class NativePerpsPositionTest {
         assertThrows(IllegalArgumentException.class,()->NativePerpsPosition.checkIncrease(null,decode(number(fixture(),169,1000000)),opening(20598154),intent()));
         assertThrows(IllegalArgumentException.class,()->NativePerpsPosition.checkIncrease(null,decode(fixture()),opening(20598154),new NativePerpsOrderIntent("ETH",1,"10.304152","2",50,"103",null,null)));
     }
+    @Test public void rejectsUnderLeveragedExposureButMeasuresNetCollateralAfterFees(){
+        assertThrows(IllegalArgumentException.class,()->NativePerpsPosition.checkIncrease(null,
+            decode(number(fixture(),161,1000000)),opening(1000000),intent()));
+        // Protocol costs can reduce credited collateral. Compare leverage to
+        // that actual credit, not to the gross wallet debit.
+        NativePerpsPosition.checkIncrease(null,decode(number(number(fixture(),161,19400000),169,9700000)),
+            opening(19400000),intent());
+    }
 }
