@@ -61,7 +61,7 @@ async function fixture(){
 test('exact-envelope simulation watches writable accounts, validates position deltas and keeps spending disabled',async()=>{
  const f=await fixture(),result=await simulateServerPerpsPositionEffects(f.prepared,{request:f.request,monotonicNow:()=>0});
  assert.equal(result.positionEffects.sizeDeltaUsdUnits,'30000000');assert.equal(result.positionEffects.collateralDeltaUsdUnits,'9990000');
- assert.equal(result.feeLamports,'15100');assert.equal(result.readyForSigning,false);assert.equal(result.requiresFundingRentAndExitChecks,true);
+ assert.equal(result.feeLamports,'15100');assert.equal(result.readyForSigning,false);assert.equal(result.requiresFundingAndRentChecks,true);
  const snapshots=getServerPerpsSimulationSnapshots(result,f.prepared.preparation.serializedTxBase64);
  assert.equal(snapshots.before[f.prepared.custody.position],null);assert.equal(snapshots.after[f.prepared.custody.position].owner,PERPS_PROGRAM);
  assert.equal(Object.isFrozen(snapshots.after),true);assert.equal(Object.isFrozen(snapshots.after[f.prepared.custody.position].data),true);

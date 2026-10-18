@@ -78,7 +78,18 @@ async function fixture({exits=false,lookup=false,trusted=false}={}){
    const data=Buffer.alloc(210);Buffer.from('aabc8fe47a40f7d0','hex').copy(data);
    for(const [offset,key]of [[8,intent.walletAddress],[40,PERPS_POOL],[72,PERPS_CUSTODIES.SOL.address],[104,PERPS_CUSTODIES.SOL.address]])Buffer.from(bs58.decode(key)).copy(data,offset);
    data.writeBigUInt64LE(BigInt(seconds),136);data.writeBigUInt64LE(BigInt(seconds),144);data[152]=1;data.writeBigUInt64LE(100000000n,153);data.writeBigUInt64LE(30000000n,161);data.writeBigUInt64LE(9990000n,169);data[209]=identities.positionBump;
-   return {context:{slot:56},value:{err:null,unitsConsumed:50000,accounts:params[1].accounts.addresses.map(address=>address===identities.position?{owner:PERPS_PROGRAM,executable:false,lamports:2000000,data:[data.toString('base64'),'base64']}:null)}};
+   const states=new Map([[identities.position,data]]);
+   if(exits)for(const profit of [false,true]){
+    const counter=profit?2:1,exit=Buffer.alloc(230);
+    Buffer.from('0c26fac72e9a20d8','hex').copy(exit);
+    for(const [offset,key]of [[8,intent.walletAddress],[40,PERPS_POOL],[72,PERPS_CUSTODIES.SOL.address],[104,identities.position],[136,PERPS_CUSTODIES.USDC.mint]])Buffer.from(bs58.decode(key)).copy(exit,offset);
+    exit.writeBigUInt64LE(BigInt(seconds),168);exit.writeBigUInt64LE(BigInt(seconds),176);exit.writeBigUInt64LE(30000000n,184);
+    exit[200]=2;exit[201]=1;exit[202]=1;exit[206]=1;exit.writeBigUInt64LE(profit?110000000n:95000000n,207);
+    exit[215]=1;exit[216]=Number(profit);exit[217]=1;exit.writeBigUInt64LE(BigInt(counter),220);
+    const [address,bump]=await getProgramDerivedAddress({programAddress:PERPS_PROGRAM,seeds:['position_request',bs58.decode(identities.position),u64(counter),new Uint8Array([2])]});
+    exit[228]=bump;states.set(address,exit);
+   }
+   return {context:{slot:56},value:{err:null,unitsConsumed:50000,accounts:params[1].accounts.addresses.map(address=>states.has(address)?{owner:PERPS_PROGRAM,executable:false,lamports:2000000,data:[states.get(address).toString('base64'),'base64']}:null)}};
   }
   throw Error('UNEXPECTED_RPC');
  };
@@ -99,7 +110,7 @@ test('Telegram settings and builder response feed the complete inspection chain 
  const input={settings:{capital:100,loss:20,positions:2,margin:10,leverage:3,dailyTrades:5},signal:{id:'signal-1',createdAt:new Date(now).toISOString(),pair:'SOLUSDT',side:'LONG',entry:100,sl:95,tp1:110},decision:{ok:true},walletAddress:f.intent.walletAddress,snapshot:{updatedAt:now,walletAddress:f.intent.walletAddress,availableUsd:100,allocatedUsd:0,lossTodayUsd:0,openPositions:0,tradesToday:0},enabled:true,paused:false,maxSlippageBps:50,now};
  const result=await prepareInspectedServerAutomation(input,{nowSeconds:seconds,rpcRequest:f.request,builderRequest:async()=>{builderCalls++;return new Response(JSON.stringify(f.preparation));}});
  assert.equal(builderCalls,1);assert.equal(result.inspection.core.exitCount,2);assert.equal(result.custody.position,f.preparation.positionPubkey);assert.equal(result.custody.exitCount,2);assert.equal(result.readyForSigning,false);assert.equal(result.tradingEnabled,false);
- assert.equal(result.simulation.stage,'SIMULATED_POSITION_ONLY');assert.equal(result.simulation.requiresFundingRentAndExitChecks,true);
+ assert.equal(result.simulation.stage,'SIMULATED_POSITION_AND_EXITS');assert.equal(result.simulation.requiresFundingAndRentChecks,true);assert.equal(result.simulation.exits.length,2);
 });
 test('table identity, bank slot, warmup, activation and distinct addresses fail closed',async()=>{
  for(const mutate of [
