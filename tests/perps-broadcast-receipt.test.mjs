@@ -17,7 +17,7 @@ function fixture({versioned=false,err=null,nonce=4}={}){
  const signatures=privateKeys.map(k=>sign(null,message,k));
  const wire=Buffer.concat([Buffer.from([3]),...signatures,message]),partial=Buffer.from(wire);partial.fill(0,65,129);
  const record={walletAddress:bs58.encode(publicKeys[0]),signature:bs58.encode(signatures[0]),wireHash:createHash('sha256').update(partial).digest('hex')};
- const status={slot:40,confirmationStatus:'confirmed',err};
+ const status={slot:40,confirmationStatus:err===null?'confirmed':'finalized',err};
  const transaction={slot:40,blockTime:time/1000,transaction:[wire.toString('base64'),'base64'],meta:{err}};
  const calls=[];
  const request=async(method,params)=>{calls.push({method,params});
@@ -42,6 +42,20 @@ test('pending or unavailable history does not release a reservation',async()=>{
   const f=fixture();if(mode==='pending')f.status.confirmationStatus='processed';
   const request=async(m,p)=>m==='getTransaction'&&mode==='missing'?null:f.request(m,p);
   assert.equal(await readPerpsBroadcastReceipt(f.record,request,{now:()=>time}),null);
+ }
+});
+test('failure must be finalized before releasing collateral; malformed error never becomes failure proof',async()=>{
+ const f=fixture({err:{InstructionError:[0,'InvalidArgument']}});
+ f.status.confirmationStatus='confirmed';
+ assert.equal(await readPerpsBroadcastReceipt(f.record,f.request,{now:()=>time}),null);
+ assert.equal(f.calls.some(c=>c.method==='getTransaction'),false);
+ f.status.confirmationStatus='finalized';
+ const proof=await readPerpsBroadcastReceipt(f.record,f.request,{now:()=>time});
+ assert.equal(proof.state,'FAILED');
+ assert.equal(f.calls.find(c=>c.method==='getTransaction').params[1].commitment,'finalized');
+ for(const err of [undefined,false,0,[],{},'']){
+  const bad=fixture();bad.status.err=err;bad.transaction.meta.err=err;
+  await assert.rejects(readPerpsBroadcastReceipt(bad.record,bad.request,{now:()=>time}),/UNVERIFIED_PERPS_RECEIPT/);
  }
 });
 test('rejects tampered signer slots, message, identity, metadata and network',async()=>{
