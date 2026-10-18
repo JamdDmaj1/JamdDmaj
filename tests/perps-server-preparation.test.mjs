@@ -62,11 +62,23 @@ async function fixture({exits=false,lookup=false,trusted=false}={}){
  const calls=[];
  const request=async(method,params)=>{calls.push({method,params});
   if(method==='getGenesisHash')return GENESIS;
-  if(method==='getSlot')return 50;
+  if(method==='getSlot')return Math.max(50,params[0]?.minContextSlot||0);
+  if(method==='getBlockHeight')return 10;
+  if(method==='getFeeForMessage')return {context:{slot:55},value:15100};
   if(method==='getMultipleAccounts'){
    if(params[0][0]===tableAddress){assert.deepEqual(params[0],[tableAddress]);return {context:{slot:51},value:[account]};}
-   assert.equal(trusted,true);assert.deepEqual(params[0],[PERPS_CUSTODIES.SOL.address,PERPS_CUSTODIES.USDC.address]);
-   return {context:{slot:52},value:[custodyAccount('SOL'),custodyAccount('USDC')]};
+   if(params[0][0]===PERPS_CUSTODIES.SOL.address){
+    assert.equal(trusted,true);assert.deepEqual(params[0],[PERPS_CUSTODIES.SOL.address,PERPS_CUSTODIES.USDC.address]);
+    return {context:{slot:52},value:[custodyAccount('SOL'),custodyAccount('USDC')]};
+   }
+   return {context:{slot:54},value:params[0].map(()=>null)};
+  }
+  if(method==='simulateTransaction'){
+   assert.equal(params[0],preparation.serializedTxBase64);assert.equal(params[1].replaceRecentBlockhash,false);assert.equal(params[1].sigVerify,false);
+   const data=Buffer.alloc(210);Buffer.from('aabc8fe47a40f7d0','hex').copy(data);
+   for(const [offset,key]of [[8,intent.walletAddress],[40,PERPS_POOL],[72,PERPS_CUSTODIES.SOL.address],[104,PERPS_CUSTODIES.SOL.address]])Buffer.from(bs58.decode(key)).copy(data,offset);
+   data.writeBigUInt64LE(BigInt(seconds),136);data.writeBigUInt64LE(BigInt(seconds),144);data[152]=1;data.writeBigUInt64LE(100000000n,153);data.writeBigUInt64LE(30000000n,161);data.writeBigUInt64LE(9990000n,169);data[209]=identities.positionBump;
+   return {context:{slot:56},value:{err:null,unitsConsumed:50000,accounts:params[1].accounts.addresses.map(address=>address===identities.position?{owner:PERPS_PROGRAM,executable:false,lamports:2000000,data:[data.toString('base64'),'base64']}:null)}};
   }
   throw Error('UNEXPECTED_RPC');
  };
@@ -87,6 +99,7 @@ test('Telegram settings and builder response feed the complete inspection chain 
  const input={settings:{capital:100,loss:20,positions:2,margin:10,leverage:3,dailyTrades:5},signal:{id:'signal-1',createdAt:new Date(now).toISOString(),pair:'SOLUSDT',side:'LONG',entry:100,sl:95,tp1:110},decision:{ok:true},walletAddress:f.intent.walletAddress,snapshot:{updatedAt:now,walletAddress:f.intent.walletAddress,availableUsd:100,allocatedUsd:0,lossTodayUsd:0,openPositions:0,tradesToday:0},enabled:true,paused:false,maxSlippageBps:50,now};
  const result=await prepareInspectedServerAutomation(input,{nowSeconds:seconds,rpcRequest:f.request,builderRequest:async()=>{builderCalls++;return new Response(JSON.stringify(f.preparation));}});
  assert.equal(builderCalls,1);assert.equal(result.inspection.core.exitCount,2);assert.equal(result.custody.position,f.preparation.positionPubkey);assert.equal(result.custody.exitCount,2);assert.equal(result.readyForSigning,false);assert.equal(result.tradingEnabled,false);
+ assert.equal(result.simulation.stage,'SIMULATED_POSITION_ONLY');assert.equal(result.simulation.requiresFundingRentAndExitChecks,true);
 });
 test('table identity, bank slot, warmup, activation and distinct addresses fail closed',async()=>{
  for(const mutate of [
@@ -104,7 +117,7 @@ test('table identity, bank slot, warmup, activation and distinct addresses fail 
 });
 test('changed network, blockhash, expired instruction or mismatched intent cannot pass the combined gate',async()=>{
  const f=await fixture();
- for(const options of [{nowSeconds:seconds+31},{minimumSlot:51},{request:async()=> 'wrong-network'}]){
+ for(const options of [{nowSeconds:seconds+31},{minimumSlot:51,request:(m,p)=>m==='getSlot'?50:f.request(m,p)},{request:async()=> 'wrong-network'}]){
   await assert.rejects(inspectServerPerpsPreparation(f.preparation,f.intent,{request:f.request,nowSeconds:seconds,...options}));
  }
  await assert.rejects(inspectServerPerpsPreparation({...f.preparation,txMetadata:{...f.preparation.txMetadata,blockhash:f.intent.walletAddress}},f.intent,{request:f.request,nowSeconds:seconds}));
