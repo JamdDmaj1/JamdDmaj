@@ -630,3 +630,14 @@ certificate registration, Android publication or Vercel promotion was performed.
 Production identity/HTTPS access, the operational host and activation readiness,
 safe orphan-exit cleanup, real owner provisioning/recovery, and device-level
 verification remain required for the full trading objective.
+
+After the off-host verification, the full local suite was rerun with the same
+result: 567 total, 565 passed, zero failed, two skipped. A fresh read-only service
+check confirmed HTTPS inactive/disabled, controls active/enabled and the old
+Bitget executor inactive/disabled. An unauthenticated request to the fixed public
+`/api/perps-identity` returned HTTP 404 (plain text), so the required identity
+route is not available at that production URL. The public `/api/pro-client-feed`
+returned HTTP 401 JSON without credentials, which is not evidence of a broken
+authenticated observer feed. No credentials were obtained or exposed by these
+checks. Identity-route publication and end-to-end authenticated verification
+remain a concrete production integration gate, not a presumed completed task.
