@@ -3,9 +3,25 @@ import {createHash,createPrivateKey,createPublicKey,sign} from 'node:crypto';
 import bs58 from 'bs58';
 import layout from '../../lib/perps-event-layout.json' with {type:'json'};
 import {PERPS_PROGRAM,PERPS_POOL,PERPS_CUSTODIES,deriveServerPerpsIdentities} from '../../lib/perps-server-custody.js';
+import {readServerPerpsDailyAccount} from '../../lib/perps-server-daily-account.js';
 export const fixtureNow=Date.parse('2026-10-18T12:00:00Z');
 const signer=createPrivateKey({key:Buffer.concat([Buffer.from('302e020100300506032b657004220420','hex'),Buffer.alloc(32,68)]),format:'der',type:'pkcs8'});
 export const fixtureWallet=bs58.encode(createPublicKey(signer).export({format:'der',type:'spki'}).subarray(-32));
+export async function emptyFixtureDailyAccount(walletAddress,{availableUsdcUnits='20000000',monotonicNow=()=>0}={}){
+ const token=Buffer.alloc(165);Buffer.from(bs58.decode(PERPS_CUSTODIES.USDC.mint)).copy(token);Buffer.from(bs58.decode(walletAddress)).copy(token,32);token.writeBigUInt64LE(BigInt(availableUsdcUnits),64);token[108]=1;
+ const request=async(method,params)=>{
+  if(method==='getGenesisHash')return '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
+  if(method==='getMultipleAccounts')return {context:{slot:500000},value:[{owner:'11111111111111111111111111111111',executable:false,lamports:100000000,data:['','base64']},
+   {owner:'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',executable:false,lamports:2039280,data:[token.toString('base64'),'base64']},...Array(6).fill(null)]};
+  if(method==='getSlot')return 500000;
+  if(method==='getBlocks')return [68000];
+  if(method==='getBlockTime')return params[0]===500000?fixtureNow/1000-5:fixtureNow/1000-172800;
+  if(method==='getFirstAvailableBlock')return 100;
+  if(method==='getSignaturesForAddress')return [];
+  throw Error('unexpected fixture-only read');
+ };
+ return readServerPerpsDailyAccount({walletAddress},{request,now:()=>fixtureNow,monotonicNow});
+}
 export async function historyTransaction({name='InstantDecreasePositionEvent',nonce=4,program=PERPS_PROGRAM,pnlDelta='1234567',feeUsd='30000'}={}){
  const identities=await deriveServerPerpsIdentities({walletAddress:fixtureWallet,asset:'SOL',side:'LONG'}),schema=layout.events.find(e=>e.name===name),fields={};
  for(const [k,t]of schema.fields)fields[k]=typeof t==='object'?null:t==='publicKey'?fixtureWallet:t==='bool'?false:t==='u8'?0:'0';

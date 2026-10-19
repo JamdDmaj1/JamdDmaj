@@ -5,12 +5,17 @@ import bs58 from 'bs58';
 import {inspectServerPerpsPreparation,prepareInspectedServerAutomation,readServerPerpsPreparationEvidence} from '../lib/perps-server-preparation.js';
 import {PERPS_CUSTODIES,PERPS_POOL,PERPS_PROGRAM,deriveServerPerpsIdentities} from '../lib/perps-server-custody.js';
 import {getProgramDerivedAddress} from '@solana/kit';
-import {mkdtempSync,rmSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,rmSync} from 'node:fs';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {openPerpsExecutionJournal} from '../lib/perps-execution-journal.js';
 import {reservePreparedServerPerpsAutomation} from '../lib/perps-server-reservation.js';
 import {verifyOwnerSignedServerPerpsEnvelope,readOwnerSignedServerPerpsEnvelope} from '../lib/perps-server-signed-envelope.js';
+import {openPerpsAutomationControls} from '../lib/perps-automation-controls.js';
+import {createPerpsCustodyMasterKey,openPerpsCustodyVault} from '../lib/perps-custody-vault.js';
+import {authorizeServerPerpsSigning} from '../lib/perps-server-signing-authorization.js';
+import {emptyFixtureDailyAccount} from './helpers/perps-history-fixture.mjs';
+import {createServerPerpsBroadcaster} from '../lib/perps-server-broadcast.js';
 const now=Date.parse('2026-10-18T12:00:00Z'),seconds=now/1000;
 const GENESIS='5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
 const u64=n=>{const b=Buffer.alloc(8);b.writeBigUInt64LE(BigInt(n));return b;};
@@ -24,12 +29,13 @@ function custodyAccount(asset){
  data.writeBigUInt64LE(500000n,175);data[199]=1;data[202]=1;data[203]=1;Buffer.alloc(32,120+index).copy(data,384);
  return {owner:PERPS_PROGRAM,executable:false,data:[data.toString('base64'),'base64']};
 }
-async function fixture({exits=false,lookup=false,trusted=false,planMutation=null}={}){
+async function fixture({exits=false,lookup=false,trusted=false,planMutation=null,ownerAddress=null}={}){
  lookup ||= exits||trusted;
  const apiPrivate=createPrivateKey({key:Buffer.concat([Buffer.from('302e020100300506032b657004220420','hex'),Buffer.alloc(32,21)]),format:'der',type:'pkcs8'});
  const keys=Array.from({length:19},(_,i)=>Buffer.alloc(32,i+1));keys[2]=createPublicKey(apiPrivate).export({format:'der',type:'spki'}).subarray(-32);
  const ownerKey=trusted?createPrivateKey({key:Buffer.concat([Buffer.from('302e020100300506032b657004220420','hex'),Buffer.alloc(32,5)]),format:'der',type:'pkcs8'}):null;
  if(ownerKey)keys[0]=createPublicKey(ownerKey).export({format:'der',type:'spki'}).subarray(-32);
+ if(ownerAddress)keys[0]=Buffer.from(bs58.decode(ownerAddress));
  keys.push(Buffer.from(bs58.decode('ComputeBudget111111111111111111111111111111')),Buffer.from(bs58.decode('PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu')));
  const blockhash=bs58.encode(Buffer.alloc(32,40)),tableAddress=bs58.encode(Buffer.alloc(32,60));
  const loaded=Array.from({length:exits?4:1},(_,i)=>Buffer.alloc(32,80+i));
@@ -245,4 +251,108 @@ test('changed network, blockhash, expired instruction or mismatched intent canno
  }
  await assert.rejects(inspectServerPerpsPreparation({...f.preparation,txMetadata:{...f.preparation.txMetadata,blockhash:f.intent.walletAddress}},f.intent,{request:f.request,nowSeconds:seconds}));
  await assert.rejects(inspectServerPerpsPreparation(f.preparation,{...f.intent,side:'SHORT'},{request:f.request,nowSeconds:seconds}));
+});
+
+// Full signing rehearsal: ephemeral, unfunded local keys and mocked read-only
+// RPC/builder responses. No HTTP submission or real account key is involved.
+async function custodySigningFixture(t,{beginSigning=true}={}){
+ const directory=mkdtempSync(join(tmpdir(),'jamd-custody-signing-')),wallets=join(directory,'wallets'),keysDirectory=join(directory,'keys');
+ mkdirSync(wallets,{mode:0o700});mkdirSync(keysDirectory,{mode:0o700});
+ const keyFile=join(keysDirectory,'master.key'),allowNonPosixForTests=process.platform==='win32',ownerAccountHash='a'.repeat(64),clock={value:0};
+ let controls,journal;t.after(()=>{try{controls?.close();}finally{journal?.close();rmSync(directory,{recursive:true,force:true});}});
+ createPerpsCustodyMasterKey(keyFile,{allowNonPosixForTests});const vault=openPerpsCustodyVault({directory:wallets,keyFile,allowNonPosixForTests});
+ const wallet=vault.createExclusiveWallet({ownerAccountHash,explicitCustodyApproval:true}),walletAddress=wallet.walletAddress;
+ let daily=await emptyFixtureDailyAccount(walletAddress,{monotonicNow:()=>clock.value});
+ const settings={capital:100,loss:20,positions:2,margin:10,leverage:3,dailyTrades:5};
+ controls=openPerpsAutomationControls(join(directory,'controls.sqlite'),{now:()=>now,monotonicNow:()=>clock.value,
+  authorizeActivation:async()=>({custodyAuthorized:vault.describe(wallet).exclusive,executionReady:true,dailyAccount:daily})});
+ const initial=controls.provision({ownerAccountHash,walletAddress,settings}),approval=controls.issueActivationChallenge({ownerAccountHash,walletAddress,expectedRevision:initial.revision});
+ const active=await controls.activate({ownerAccountHash,walletAddress,expectedRevision:initial.revision,token:approval.token,explicitApproval:true});
+ journal=openPerpsExecutionJournal(join(directory,'journal.sqlite'),{now:()=>now});
+ const f=await fixture({exits:true,trusted:true,ownerAddress:walletAddress});
+ const input={settings:active.settings,signal:{id:'custody-signal-1',createdAt:new Date(now).toISOString(),pair:'SOLUSDT',side:'LONG',entry:100,sl:95,tp1:110},
+  decision:{ok:true},walletAddress,snapshot:{updatedAt:now,walletAddress,availableUsd:20,allocatedUsd:0,lossTodayUsd:0,openPositions:0,tradesToday:0},enabled:true,paused:false,maxSlippageBps:50,now};
+ const prepared=await prepareInspectedServerAutomation(input,{nowSeconds:seconds,monotonicNow:()=>clock.value,rpcRequest:f.request,builderRequest:async()=>new Response(JSON.stringify(f.preparation))});
+ const args={journal,controls,ownerAccountHash,walletAddress,signalId:input.signal.id,reservationId:'custody-reservation-1',controlRevision:active.revision,
+  readAccount:async()=>daily,monotonicNow:()=>clock.value};
+ await reservePreparedServerPerpsAutomation(prepared,{...args,readControls:async()=>controls.readForExecutor({walletAddress})});
+ if(beginSigning)journal.beginSigning(args.reservationId);
+ return {prepared,args,vault,controls,journal,clock,wallet,daily,async replaceBalance(units){daily=await emptyFixtureDailyAccount(walletAddress,{availableUsdcUnits:units,monotonicNow:()=>clock.value});}};
+}
+
+test('exclusive custody signs only the inspected reserved operation once, preserving keeper/API/message bytes',async t=>{
+ const f=await custodySigningFixture(t),grant=await authorizeServerPerpsSigning(f.prepared,f.args);
+ assert.throws(()=>f.vault.signPrepared({...grant}));
+ const signed=f.vault.signPrepared(grant),original=Buffer.from(f.prepared.preparation.serializedTxBase64,'base64'),wire=Buffer.from(readOwnerSignedServerPerpsEnvelope(signed).signedBase64,'base64');
+ assert.equal(signed.readyForBroadcast,false);assert.equal(signed.walletAddress,f.wallet.walletAddress);
+ assert.notEqual(wire.subarray(1,65).toString('hex'),original.subarray(1,65).toString('hex'));assert.deepEqual(wire.subarray(65),original.subarray(65));
+ assert.equal(signed.signature,bs58.encode(wire.subarray(1,65)));assert.equal(f.journal.read(f.args.reservationId).state,'SIGNING');
+ assert.throws(()=>f.vault.signPrepared(grant));assert.equal(f.journal.pending(f.wallet.walletAddress).length,1);
+});
+test('signing authority requires durable SIGNING state, private daily evidence, owner and exact current configuration',async t=>{
+ const f=await custodySigningFixture(t,{beginSigning:false});
+ await assert.rejects(authorizeServerPerpsSigning(f.prepared,f.args));f.journal.beginSigning(f.args.reservationId);
+ for(const changes of [{ownerAccountHash:'b'.repeat(64)},{controlRevision:'old-revision'},{signalId:'other-signal'},{readAccount:async()=>({...f.daily})}]){
+  await assert.rejects(authorizeServerPerpsSigning(f.prepared,{...f.args,...changes}));
+ }
+ await assert.rejects(authorizeServerPerpsSigning({...f.prepared},f.args));
+ await f.replaceBalance('9999999');await assert.rejects(authorizeServerPerpsSigning(f.prepared,f.args),/INSUFFICIENT_UNRESERVED_BALANCE/);
+ assert.equal(f.journal.read(f.args.reservationId).state,'SIGNING');
+});
+test('a pause or expired short authorization prevents key use and leaves signed-or-unknown funds held',async t=>{
+ const paused=await custodySigningFixture(t),grant=await authorizeServerPerpsSigning(paused.prepared,paused.args);
+ paused.controls.pause({ownerAccountHash:paused.args.ownerAccountHash,walletAddress:paused.wallet.walletAddress});
+ assert.throws(()=>paused.vault.signPrepared(grant));assert.equal(paused.journal.read(paused.args.reservationId).state,'SIGNING');
+ const expired=await custodySigningFixture(t),old=await authorizeServerPerpsSigning(expired.prepared,expired.args);expired.clock.value=2001;
+ assert.throws(()=>expired.vault.signPrepared(old));assert.equal(expired.journal.read(expired.args.reservationId).state,'SIGNING');
+});
+test('pause during the authorization read is rechecked before any custody signature is returned',async t=>{
+ const f=await custodySigningFixture(t);let reads=0;
+ const controls={read(args){const value=f.controls.read(args);if(++reads===3)f.controls.pause(args);return value;}};
+ const grant=await authorizeServerPerpsSigning(f.prepared,{...f.args,controls});
+ assert.throws(()=>f.vault.signPrepared(grant));assert.equal(f.journal.read(f.args.reservationId).state,'SIGNING');
+});
+test('broadcast writes the exact identity before one fixed-endpoint attempt and does not equate an acknowledgement with a position',async t=>{
+ const f=await custodySigningFixture(t),signed=f.vault.signPrepared(await authorizeServerPerpsSigning(f.prepared,f.args));let calls=0;
+ const broadcast=createServerPerpsBroadcaster({...f.args,fetchImpl:async(url,options)=>{
+  calls++;assert.equal(url,'https://perps-api.jup.ag/v2/transaction/execute');assert.equal(options.redirect,'error');assert.equal(options.credentials,'omit');assert.equal(options.method,'POST');
+  const row=f.journal.read(f.args.reservationId);assert.equal(row.state,'UNCERTAIN');assert.equal(row.signature,signed.signature);assert.equal(row.wire_hash,signed.wireHash);
+  const body=JSON.parse(options.body);assert.deepEqual(Object.keys(body).sort(),['action','serializedTxBase64']);assert.equal(body.action,'increase-position');
+  assert.equal(bs58.encode(Buffer.from(body.serializedTxBase64,'base64').subarray(1,65)),signed.signature);
+  return Response.json({action:'increase-position',txid:signed.signature});
+ }});
+ const result=await broadcast(signed,f.args);assert.equal(calls,1);assert.equal(result.stage,'BROADCAST_ACKNOWLEDGED');assert.equal(result.state,'UNCERTAIN');assert.equal(result.readyForRetry,false);
+ assert.equal(f.journal.read(f.args.reservationId).state,'UNCERTAIN');
+ await assert.rejects(broadcast(signed,f.args));assert.equal(calls,1);
+});
+test('transport errors, malformed or oversized replies and wrong acknowledgements hold the reservation without retrying',async t=>{
+ for(const reply of [
+  async()=>{throw Error('private transport detail');},async()=>new Response('unavailable',{status:503}),
+  async()=>Response.json({action:'decrease-position',txid:'wrong'}),async()=>Response.json({action:'increase-position',txid:'wrong'}),
+  async()=>new Response('invalid json',{headers:{'Content-Type':'application/json'}}),
+  async()=>Response.json({data:'x'.repeat(4097)}),async()=>Response.json({},{headers:{'Content-Type':'text/html'}}),
+ ]){
+  const f=await custodySigningFixture(t),signed=f.vault.signPrepared(await authorizeServerPerpsSigning(f.prepared,f.args));let calls=0;
+  const broadcast=createServerPerpsBroadcaster({...f.args,fetchImpl:async()=>{calls++;return reply();}}),result=await broadcast(signed,f.args);
+  assert.equal(calls,1);assert.equal(result.stage,'BROADCAST_UNKNOWN');assert.equal(result.signature,signed.signature);assert.equal(result.readyForRetry,false);
+  assert.equal(f.journal.read(f.args.reservationId).state,'UNCERTAIN');await assert.rejects(broadcast(signed,f.args));assert.equal(calls,1);
+ }
+});
+test('forged output, a foreign journal, paused controls or unverified funds cannot reach the submission transport',async t=>{
+ const f=await custodySigningFixture(t),signed=f.vault.signPrepared(await authorizeServerPerpsSigning(f.prepared,f.args));let calls=0;
+ const fetchImpl=async()=>{calls++;throw Error('must not be called');};
+ const broadcast=createServerPerpsBroadcaster({...f.args,fetchImpl});await assert.rejects(broadcast({...signed},f.args));
+ await assert.rejects(broadcast(signed,{...f.args,ownerAccountHash:'b'.repeat(64)}));
+ await assert.rejects(createServerPerpsBroadcaster({...f.args,fetchImpl,readAccount:async()=>({...f.daily})})(signed,f.args));
+ const wrongJournal={...f.journal};await assert.rejects(createServerPerpsBroadcaster({...f.args,journal:wrongJournal,fetchImpl})(signed,f.args));
+ f.controls.pause(f.args);await assert.rejects(broadcast(signed,f.args));assert.equal(calls,0);assert.equal(f.journal.read(f.args.reservationId).state,'SIGNING');
+});
+test('a failed durable broadcast write stops transmission and concurrent submitters cannot send twice',async t=>{
+ const f=await custodySigningFixture(t),signed=f.vault.signPrepared(await authorizeServerPerpsSigning(f.prepared,f.args));let calls=0;
+ const original=f.journal.recordBroadcastIntent;f.journal.recordBroadcastIntent=()=>{throw Error('disk-full');};
+ const broadcast=createServerPerpsBroadcaster({...f.args,fetchImpl:async()=>{calls++;return Response.json({action:'increase-position',txid:signed.signature});}});
+ await assert.rejects(broadcast(signed,f.args),/disk-full/);assert.equal(calls,0);assert.equal(f.journal.read(f.args.reservationId).state,'SIGNING');
+ f.journal.recordBroadcastIntent=original;
+ const results=await Promise.allSettled([broadcast(signed,f.args),broadcast(signed,f.args)]);
+ assert.equal(results.filter(r=>r.status==='fulfilled').length,1);assert.equal(calls,1);assert.equal(f.journal.read(f.args.reservationId).state,'UNCERTAIN');
 });
