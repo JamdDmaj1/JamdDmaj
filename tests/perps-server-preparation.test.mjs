@@ -5,6 +5,11 @@ import bs58 from 'bs58';
 import {inspectServerPerpsPreparation,prepareInspectedServerAutomation,readServerPerpsPreparationEvidence} from '../lib/perps-server-preparation.js';
 import {PERPS_CUSTODIES,PERPS_POOL,PERPS_PROGRAM,deriveServerPerpsIdentities} from '../lib/perps-server-custody.js';
 import {getProgramDerivedAddress} from '@solana/kit';
+import {mkdtempSync,rmSync} from 'node:fs';
+import {join} from 'node:path';
+import {tmpdir} from 'node:os';
+import {openPerpsExecutionJournal} from '../lib/perps-execution-journal.js';
+import {reservePreparedServerPerpsAutomation} from '../lib/perps-server-reservation.js';
 const now=Date.parse('2026-10-18T12:00:00Z'),seconds=now/1000;
 const GENESIS='5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
 const u64=n=>{const b=Buffer.alloc(8);b.writeBigUInt64LE(BigInt(n));return b;};
@@ -136,7 +141,7 @@ test('combined server gate inspects exact prepared wire, fee, core intent and RP
   assert.equal(f.calls.some(c=>/send|execute|sign/i.test(c.method)),false);
  }
 });
-test('Telegram settings and builder response feed the complete inspection chain but never become signing-ready',async()=>{
+test('Telegram settings and builder response feed the complete inspection chain but never become signing-ready',async t=>{
  const f=await fixture({exits:true,trusted:true});let builderCalls=0;
  const input={settings:{capital:100,loss:20,positions:2,margin:10,leverage:3,dailyTrades:5},signal:{id:'signal-1',createdAt:new Date(now).toISOString(),pair:'SOLUSDT',side:'LONG',entry:100,sl:95,tp1:110},decision:{ok:true},walletAddress:f.intent.walletAddress,snapshot:{updatedAt:now,walletAddress:f.intent.walletAddress,availableUsd:100,allocatedUsd:0,lossTodayUsd:0,openPositions:0,tradesToday:0},enabled:true,paused:false,maxSlippageBps:50,now};
  let monotonic=0;
@@ -154,6 +159,26 @@ test('Telegram settings and builder response feed the complete inspection chain 
  assert.throws(()=>{result.review.marginUsd=1;});assert.throws(()=>{result.plan.body.sizeUsdDelta='1';});
  monotonic=15001;assert.throws(()=>readServerPerpsPreparationEvidence(result,{walletAddress:input.walletAddress,signalId:input.signal.id}));
  monotonic=-1;assert.throws(()=>readServerPerpsPreparationEvidence(result,{walletAddress:input.walletAddress,signalId:input.signal.id}));monotonic=0;
+ const dir=mkdtempSync(join(tmpdir(),'jamd-prepared-reservation-')),path=join(dir,'journal.sqlite');
+ const journal=openPerpsExecutionJournal(path,{now:()=>now});
+ t.after(()=>{journal.close();rmSync(dir,{recursive:true,force:true});});
+ const controls={walletAddress:input.walletAddress,revision:'rev-1',enabled:true,paused:false,settings:input.settings};
+ const account={walletAddress:input.walletAddress,network:'solana-mainnet',balancesComplete:true,observedSlot:56,observedAt:now,day:'2026-10-18',availableUsdcUnits:'100000000',allocatedUsdcUnits:'0',lossTodayUsdcUnits:'0',openPositions:0,tradesToday:0};
+ const reservationOptions={journal,walletAddress:input.walletAddress,signalId:input.signal.id,reservationId:'reserved-signal-1',controlRevision:'rev-1',readControls:async()=>controls,readAccount:async request=>{assert.equal(request.minimumSlot,56);return account;}};
+ for(const changed of [{enabled:false},{paused:true},{revision:'rev-2'},{settings:{...input.settings,margin:11}},{walletAddress:bs58.encode(Buffer.alloc(32,9))}]){
+  await assert.rejects(reservePreparedServerPerpsAutomation(result,{...reservationOptions,readControls:async()=>({...controls,...changed})}));
+ }
+ let controlReads=0;await assert.rejects(reservePreparedServerPerpsAutomation(result,{...reservationOptions,readControls:async()=>++controlReads===1?controls:{...controls,paused:true}}));
+ for(const changed of [{observedSlot:55},{balancesComplete:false},{observedAt:now-10001},{availableUsdcUnits:'9999999'},{network:'solana-devnet'},{lossTodayUsdcUnits:'20000000'}]){
+  await assert.rejects(reservePreparedServerPerpsAutomation(result,{...reservationOptions,readAccount:async()=>({...account,...changed})}));
+ }
+ assert.equal(journal.pending(input.walletAddress).length,0);
+ const reserved=await reservePreparedServerPerpsAutomation(result,reservationOptions);
+ assert.equal(reserved.stage,'RESERVED_NOT_AUTHORIZED');assert.equal(reserved.readyForSigning,false);assert.equal(reserved.reservation.margin,10000000);
+ assert.equal(journal.pending(input.walletAddress).length,1);
+ await assert.rejects(reservePreparedServerPerpsAutomation(result,{...reservationOptions,reservationId:'duplicate'}),/DUPLICATE_SIGNAL/);
+ const reopened=openPerpsExecutionJournal(path,{now:()=>now});try{assert.equal(reopened.read('reserved-signal-1').state,'RESERVED');}finally{reopened.close();}
+ journal.cancelUnsigned('reserved-signal-1');
  let slowClock=0;
  await assert.rejects(prepareInspectedServerAutomation(input,{nowSeconds:seconds,monotonicNow:()=>slowClock,rpcRequest:f.request,builderRequest:async()=>{
   slowClock=15001;return new Response(JSON.stringify(f.preparation));
