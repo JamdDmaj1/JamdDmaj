@@ -8,6 +8,9 @@ import bs58 from 'bs58';
 import {readPerpsBroadcastReceipt,isVerifiedPerpsBroadcastReceipt} from '../lib/perps-broadcast-receipt.js';
 import {openPerpsExecutionJournal} from '../lib/perps-execution-journal.js';
 import {reconcilePendingPerps} from '../lib/perps-pending-recovery.js';
+import {readServerPerpsPositionClosure,reconcileClosedServerPerpsPositions} from '../lib/perps-position-closure.js';
+import {deriveServerPerpsIdentities} from '../lib/perps-server-custody.js';
+import {emptyFixtureDailyAccount} from './helpers/perps-history-fixture.mjs';
 const time=Date.parse('2026-10-18T12:00:00Z');
 // Unfunded deterministic fixture identities only; no RPC or signer service.
 function fixture({versioned=false,err=null,nonce=4}={}){
@@ -117,4 +120,38 @@ test('a failed attempt landing after midnight retains its new-day trade slot but
  assert.throws(()=>journal.reserve(input('new')),/DAILY_TRADE_LIMIT/);
  assert.equal(journal.reserve(input('new',2)).state,'RESERVED');
  assert.throws(()=>journal.reserve(input('old',2)),/DUPLICATE_SIGNAL/);
+});
+async function openClosureFixture(t,{yesterday=true,legacy=false}={}){
+ const f=fixture(),wallet=f.record.walletAddress,position=(await deriveServerPerpsIdentities({walletAddress:wallet,asset:'SOL',side:'LONG'})).position;
+ f.status.confirmationStatus='finalized';if(yesterday)f.transaction.blockTime-=86400;
+ const dir=mkdtempSync(join(tmpdir(),'jamd-closed-position-')),journal=openPerpsExecutionJournal(join(dir,'journal.sqlite'),{now:()=>time});
+ t.after(()=>{journal.close();rmSync(dir,{recursive:true,force:true});});
+ journal.reserve({walletAddress:wallet,signalId:'close-1',reservationId:'close-1',positionAddress:legacy?null:position,marginUsd:'10',
+  limits:{capitalUsd:'100',dailyLossUsd:'100',positions:10,dailyTrades:10},snapshot:{walletAddress:wallet,network:'solana-mainnet',balancesComplete:true,observedAt:time,day:'2026-10-18',availableUsdcUnits:'100000000',allocatedUsdcUnits:'0',lossTodayUsdcUnits:'0',openPositions:0,tradesToday:0}});
+ journal.beginSigning('close-1');journal.recordBroadcastIntent('close-1',f.record);
+ journal.reconcileBroadcast('close-1',await readPerpsBroadcastReceipt(f.record,f.request,{now:()=>time}));
+ return {...f,journal,wallet,position};
+}
+test('a finalized prior-day entry and complete current-day closed account release collateral without erasing entry history',async t=>{
+ const f=await openClosureFixture(t),account=await emptyFixtureDailyAccount(f.wallet),record=f.journal.read('close-1');
+ const proof=await readServerPerpsPositionClosure(record,{request:f.request,readFinalizedAccount:async()=>account,now:()=>time});
+ assert.equal(proof.stage,'FINALIZED_WHOLE_POSITION_CLOSED');assert.equal(f.journal.riskState(f.wallet).activeMarginUsdcUnits,'10000000');
+ assert.throws(()=>f.journal.reconcileClosedPosition('close-1',{...proof}));
+ const closed=f.journal.reconcileClosedPosition('close-1',proof);assert.equal(closed.state,'CLOSED');assert.equal(closed.day,'2026-10-17');assert.equal(closed.closed_slot,500000);
+ assert.equal(f.journal.riskState(f.wallet).activeMarginUsdcUnits,'0');assert.equal(f.journal.riskState(f.wallet).executedToday,0);
+ assert.throws(()=>f.journal.reconcileClosedPosition('close-1',proof));
+});
+test('confirmed-only entries and missing same-day trade accounting cannot free an OPEN reservation',async t=>{
+ const f=await openClosureFixture(t,{yesterday:false}),account=await emptyFixtureDailyAccount(f.wallet),record=f.journal.read('close-1');
+ f.status.confirmationStatus='confirmed';assert.equal(await readServerPerpsPositionClosure(record,{request:f.request,readFinalizedAccount:async()=>account,now:()=>time}),null);
+ f.status.confirmationStatus='finalized';await assert.rejects(readServerPerpsPositionClosure(record,{request:f.request,readFinalizedAccount:async()=>account,now:()=>time}));
+ const result=await reconcileClosedServerPerpsPositions(f.journal,f.wallet,{request:f.request,readFinalizedAccount:async()=>account,now:()=>time});
+ assert.equal(result.unresolved,1);assert.equal(result.closed,0);assert.equal(f.journal.read('close-1').state,'OPEN');
+});
+test('stale closure evidence and legacy rows retain capital instead of guessing a position identity',async t=>{
+ const f=await openClosureFixture(t);let elapsed=0;const account=await emptyFixtureDailyAccount(f.wallet,{monotonicNow:()=>elapsed});
+ const proof=await readServerPerpsPositionClosure(f.journal.read('close-1'),{request:f.request,readFinalizedAccount:async()=>account,now:()=>time});
+ elapsed=10001;assert.throws(()=>f.journal.reconcileClosedPosition('close-1',proof));assert.equal(f.journal.read('close-1').state,'OPEN');
+ const legacy=await openClosureFixture(t,{legacy:true}),result=await reconcileClosedServerPerpsPositions(legacy.journal,legacy.wallet,{request:legacy.request,readFinalizedAccount:async()=>account,now:()=>time});
+ assert.equal(result.legacyReview,1);assert.equal(result.checked,0);assert.equal(legacy.journal.read('close-1').state,'OPEN');
 });

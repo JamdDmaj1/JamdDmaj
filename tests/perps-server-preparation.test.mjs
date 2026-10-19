@@ -367,7 +367,7 @@ async function executorFixture(t,{changeFeed}={}){
  const f=await custodySigningFixture(t,{reserve:false}),initial=await emptyFixtureDailyAccount(f.wallet.walletAddress,{bankSlot:50});
  const calls={feed:0,builder:0,submit:0};
  const readFeed=async()=>{calls.feed++;return changeFeed?changeFeed(f,calls.feed):executorFeed();};
- const options={...f.args,mode:'execute',now:()=>now,readFeed,rpcRequest:f.rpcRequest,
+ const options={...f.args,mode:'execute',now:()=>now,readFeed,rpcRequest:f.rpcRequest,readFinalizedAccount:async()=>f.daily,
   builderRequest:async(...args)=>{calls.builder++;return f.builderRequest(...args);},
   readAccount:async args=>{assert.equal(args.ownerAccountHash,f.args.ownerAccountHash);return args.minimumSlot?f.daily:initial;},
   vault:f.vault,fetchImpl:async(_url,options)=>{calls.submit++;const wire=Buffer.from(JSON.parse(options.body).serializedTxBase64,'base64');return Response.json({action:'increase-position',txid:bs58.encode(wire.subarray(1,65))});}};

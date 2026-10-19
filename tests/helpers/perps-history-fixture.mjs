@@ -22,10 +22,10 @@ export async function emptyFixtureDailyAccount(walletAddress,{availableUsdcUnits
  };
  return readServerPerpsDailyAccount({walletAddress},{request,now:()=>fixtureNow,monotonicNow});
 }
-export async function historyTransaction({name='InstantDecreasePositionEvent',nonce=4,program=PERPS_PROGRAM,pnlDelta='1234567',feeUsd='30000'}={}){
- const identities=await deriveServerPerpsIdentities({walletAddress:fixtureWallet,asset:'SOL',side:'LONG'}),schema=layout.events.find(e=>e.name===name),fields={};
+export async function historyTransaction({name='InstantDecreasePositionEvent',nonce=4,program=PERPS_PROGRAM,pnlDelta='1234567',feeUsd='30000',eventOwner=fixtureWallet}={}){
+ const identities=await deriveServerPerpsIdentities({walletAddress:eventOwner,asset:'SOL',side:'LONG'}),schema=layout.events.find(e=>e.name===name),fields={};
  for(const [k,t]of schema.fields)fields[k]=typeof t==='object'?null:t==='publicKey'?fixtureWallet:t==='bool'?false:t==='u8'?0:'0';
- Object.assign(fields,{owner:fixtureWallet,pool:PERPS_POOL,positionKey:identities.position,positionSide:1,
+ Object.assign(fields,{owner:eventOwner,pool:PERPS_POOL,positionKey:identities.position,positionSide:1,
   positionMint:PERPS_CUSTODIES.SOL.mint,positionCustody:PERPS_CUSTODIES.SOL.address,positionCollateralCustody:PERPS_CUSTODIES.SOL.address,
   pnlDelta,hasProfit:false,feeUsd});
  if(Object.hasOwn(fields,'positionCollateralMint'))fields.positionCollateralMint=PERPS_CUSTODIES.SOL.mint;
@@ -35,9 +35,10 @@ export async function historyTransaction({name='InstantDecreasePositionEvent',no
   const b=Buffer.alloc(8);if(type==='i64')b.writeBigInt64LE(BigInt(value));else b.writeBigUInt64LE(BigInt(value));return b;
  };
  const event=Buffer.concat([createHash('sha256').update('event:'+name).digest().subarray(0,8),...schema.fields.map(([k,t])=>encode(t,fields[k]))]);
- const message=Buffer.concat([Buffer.from([1,0,2,3]),...([fixtureWallet,program,identities.eventAuthority].map(k=>Buffer.from(bs58.decode(k)))),Buffer.alloc(32,nonce),Buffer.from([1,1,1,0,1,42])]);
+ const keys=[fixtureWallet,program,identities.eventAuthority];if(eventOwner!==fixtureWallet)keys.push(eventOwner);
+ const message=Buffer.concat([Buffer.from([1,0,keys.length-1,keys.length]),...(keys.map(k=>Buffer.from(bs58.decode(k)))),Buffer.alloc(32,nonce),Buffer.from([1,1,1,0,1,42])]);
  const signed=sign(null,message,signer),signature=bs58.encode(signed),wire=Buffer.concat([Buffer.from([1]),signed,message]);
  const tx={slot:499990+nonce,blockTime:fixtureNow/1000-10,transaction:[wire.toString('base64'),'base64'],meta:{err:null,fee:5000,loadedAddresses:{writable:[],readonly:[]},
   innerInstructions:program===PERPS_PROGRAM?[{index:0,instructions:[{programIdIndex:1,accounts:[2],stackHeight:2,data:bs58.encode(Buffer.concat([Buffer.from('e445a52e51cb9a1d','hex'),event]))}]}]:[]}};
- return {signature,tx,position:identities.position};
+ return {signature,tx,position:identities.position,event};
 }
