@@ -706,3 +706,65 @@ there was no real transaction signing/submission. This worker composition does
 not complete the public control API's activation readiness callback, reviewed
 shared-state ownership/admission, identity/HTTPS publication, real owner backup,
 orphan-exit cleanup, manual futures or the Android/device end-to-end gate.
+
+## Shared runtime controls and verified HTTPS, 2026-10-19
+
+After the owner reported reviewing/accepting the CA terms and enabling the
+prepared HTTPS unit, read-only checks confirmed HTTPS **active/enabled**. A
+normal TLS-verified request from this PC to `https://157.230.54.133/health`
+returned HTTP 200 and controls-only capabilities (execution/provisioning/trading
+all false). No certificate check was disabled. Existing controls remain active;
+the old Bitget executor remains inactive/disabled. This supersedes the earlier
+HTTPS-disabled observations, not the incomplete financial deployment.
+
+The owner also reported reconnecting Vercel and then explicitly authorizing the
+team. The connector nevertheless returned HTTP 403 for the exact
+`jamd-dmaj-s-projects` scope after that new report; team listing returned no teams.
+The error identified `team_JORXYGzaQKli6kcSkgcGRU33`. No Vercel CLI command was
+available in PATH, so no authenticated CLI fallback existed. No credential files,
+tokens or browser auth state were retrieved. Denied calls were not retried
+without new user-reported authorization. No Vercel release was attempted;
+owner-reported reconnection is not evidence of project-level access.
+
+The runtime now exposes the existing automation API using its **same** private
+controls and account quotas as the worker. Authentication reuses the fixed
+production session ledger, never a saved profile, client-selected owner or
+wallet address. `--controls` adds the bounded loopback HTTP boundary to the
+executable worker and uninstalled service template. Maintenance advertises no
+execution or provisioning. Execution capability requires an actually running,
+explicitly configured execution loop, and grants no owner-specific permission.
+No custody provisioning capability was added to this runtime.
+
+`perps-server-activation.js` supplies the startup activation callback. It checks
+the live execution loop, exact stored owner/revision/settings, exclusive custody,
+private restore-proven backup, absence of uncertain journal entries, and a real
+fresh reconciled daily account. Recorded positions absent from the chain bank
+require maintenance. Existing settings-bound one-use approval and durable risk
+checks remain mandatory. Private readiness is rechecked after asynchronous risk
+reads and immediately before commit, so shutdown, revocation, quarantine or a
+settings change can prevent activation. No request JSON supplies these facts.
+Shutdown rejects new requests, drains authenticated requests and worker work,
+then closes private stores and releases only its own lock. The authentication
+skill informed reuse of the existing session rather than a new login system.
+
+The full local suite passed **580 tests, zero failed, three skipped** (583
+total, including the existing untracked local probe). All **38** runtime and
+preparation/execution cases passed on VPS Node 22.23.1 in the network-disabled
+dynamic-user sandbox. Coverage includes the real CLI/loopback boundary, shared
+authenticated state, identity-read shutdown, revocation after readiness resolves,
+forged evidence/uncertain entry rejection, and explicit activation of an unfunded
+fixture through the real callback. Only ephemeral unfunded identities and mocked
+identity/RPC/builder/submission responses were used. No production bot activation
+or real transaction signing/submission occurred.
+
+Final hash-verified artifacts under
+`/opt/jamddmaj-perps/checks/runtime-controls-91277b4cce3d/`:
+
+- Runtime tests: `91b68626a956380611ccbcb6a0ab4220ec0b2d0f4caa50a193ea5723840a36a9`.
+- Preparation tests: `91277b4cce3decd8b8c89df844fae4fe248bc4a0de1adf6001d853168f90a372`.
+- Worker CLI: `e3a09aee5182210c5d81869fdd8c768aaadb9637ab482db09a1ae62c63dbc860`.
+
+The production controls process was not replaced. Source composition does not
+prove production provisioning/admission/shared-state ownership, real owner backup,
+app activation UI, orphan-exit cleanup, manual futures, identity-route publication,
+APK publication or device end-to-end behavior. Those remain required.

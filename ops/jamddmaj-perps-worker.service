@@ -16,7 +16,7 @@ RuntimeDirectory=jamddmaj-perps-runtime
 RuntimeDirectoryMode=0700
 RuntimeDirectoryPreserve=no
 WorkingDirectory=/opt/jamddmaj-perps/worker
-ExecStart=/usr/bin/node /opt/jamddmaj-perps/worker/perps-server-worker.mjs
+ExecStart=/usr/bin/node /opt/jamddmaj-perps/worker/perps-server-worker.mjs --controls
 Environment=JAMDDMAJ_PERPS_WORKER_MODE=maintenance
 Environment=JAMDDMAJ_PERPS_EXECUTION_APPROVED=false
 Environment=JAMDDMAJ_PERPS_WORKER_POLL_MS=15000

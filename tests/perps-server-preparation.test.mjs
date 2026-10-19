@@ -20,6 +20,7 @@ import {createServerPerpsExecutor} from '../lib/perps-server-executor.js';
 import {readServerPerpsSignalFeed} from '../lib/perps-server-signal-feed.js';
 import {createPerpsCustodyProvisioner} from '../lib/perps-custody-provisioning.js';
 import {createServerPerpsWorker} from '../lib/perps-server-worker.js';
+import {createServerPerpsActivationAuthorizer} from '../lib/perps-server-activation.js';
 import {openPerpsBackupRegistry} from '../lib/perps-backup-registry.js';
 import {initializePerpsOperatorRecovery,createPerpsCustodyRecoveryArchive,restorePerpsCustodyRecoveryArchive} from '../lib/perps-custody-recovery.js';
 const now=Date.parse('2026-10-18T12:00:00Z'),seconds=now/1000;
@@ -304,6 +305,48 @@ test('exclusive custody signs only the inspected reserved operation once, preser
  assert.notEqual(wire.subarray(1,65).toString('hex'),original.subarray(1,65).toString('hex'));assert.deepEqual(wire.subarray(65),original.subarray(65));
  assert.equal(signed.signature,bs58.encode(wire.subarray(1,65)));assert.equal(f.journal.read(f.args.reservationId).state,'SIGNING');
  assert.throws(()=>f.vault.signPrepared(grant));assert.equal(f.journal.pending(f.wallet.walletAddress).length,1);
+});
+test('runtime activation approval binds actual backup, exclusive custody, reconciled account and live worker without activating anything',async t=>{
+ const f=await custodySigningFixture(t,{reserve:false}),state=f.controls.read(f.args);let running=true,reads=0;
+ const options={controls:f.controls,vault:f.vault,backupRegistry:f.backupRegistry,journal:f.journal,readAccount:async()=>{reads++;return f.daily;},isExecutionRunning:()=>running};
+ const input={...f.args,revision:state.revision,settings:state.settings};
+ const approval=await createServerPerpsActivationAuthorizer(options)(input);assert.equal(approval.dailyAccount,f.daily);approval.revalidate();assert.equal(reads,1);
+ running=false;assert.throws(()=>approval.revalidate());await assert.rejects(createServerPerpsActivationAuthorizer(options)(input));assert.equal(reads,1);running=true;
+ f.backupRegistry.revokeArchive({archiveSha256:f.backupArchiveSha,explicitOperatorApproval:true});assert.throws(()=>approval.revalidate());await assert.rejects(createServerPerpsActivationAuthorizer(options)(input));assert.equal(reads,1);
+ assert.equal(f.journal.pending(f.args.walletAddress).length,0);
+});
+test('activation rechecks backup after async risk and rejects forged daily accounts or unresolved entries',async t=>{
+ for(const kind of ['revoke','forged','pending','absent-position','quarantine']){
+  const f=await custodySigningFixture(t,{reserve:kind==='pending'}),state=f.controls.read(f.args);let reads=0;
+  if(kind==='quarantine')writeFileSync(join(f.walletDirectory,PERPS_CUSTODY_RESTORE_REVIEW_MARKER),'{}');
+  const authorize=createServerPerpsActivationAuthorizer({controls:f.controls,vault:f.vault,backupRegistry:f.backupRegistry,
+   journal:kind==='absent-position'?{...f.journal,openPositions:()=>[{position_address:'unreconciled'}]}:f.journal,isExecutionRunning:()=>true,
+   readAccount:async()=>{reads++;if(kind==='revoke')f.backupRegistry.revokeArchive({archiveSha256:f.backupArchiveSha,explicitOperatorApproval:true});return kind==='forged'?{...f.daily}:f.daily;}});
+  await assert.rejects(authorize({...f.args,revision:state.revision,settings:state.settings}));
+  if(['pending','quarantine'].includes(kind))assert.equal(reads,0);
+ }
+});
+test('durable activation commit revalidates private runtime approval after the callback has resolved',async t=>{
+ const f=await custodySigningFixture(t,{reserve:false}),state=f.controls.pause(f.args);
+ const authorizer=createServerPerpsActivationAuthorizer({controls:f.controls,vault:f.vault,backupRegistry:f.backupRegistry,journal:f.journal,readAccount:async()=>f.daily,isExecutionRunning:()=>true});
+ const second=openPerpsAutomationControls(join(f.walletDirectory,'..','controls.sqlite'),{now:()=>now,monotonicNow:()=>f.clock.value,authorizeActivation:async input=>{
+  const approval=await authorizer(input);f.backupRegistry.revokeArchive({archiveSha256:f.backupArchiveSha,explicitOperatorApproval:true});return approval;
+ }});
+ try{
+  const review=second.issueActivationChallenge({...f.args,expectedRevision:state.revision});
+  await assert.rejects(second.activate({...f.args,expectedRevision:state.revision,token:review.token,explicitApproval:true}));
+  assert.equal(second.read(f.args).paused,true);assert.equal(second.read(f.args).revision,state.revision);
+ }finally{second.close();}
+});
+test('the real runtime callback permits one explicit fixture activation only with a verified backup and reconciled budget',async t=>{
+ const f=await custodySigningFixture(t,{reserve:false}),paused=f.controls.pause(f.args);
+ const authorizeActivation=createServerPerpsActivationAuthorizer({controls:f.controls,vault:f.vault,backupRegistry:f.backupRegistry,journal:f.journal,readAccount:async()=>f.daily,isExecutionRunning:()=>true});
+ const second=openPerpsAutomationControls(join(f.walletDirectory,'..','controls.sqlite'),{now:()=>now,monotonicNow:()=>f.clock.value,authorizeActivation});
+ try{
+  const review=second.issueActivationChallenge({...f.args,expectedRevision:paused.revision}),request={...f.args,expectedRevision:paused.revision,token:review.token,explicitApproval:true};
+  const active=await second.activate(request);assert.equal(active.enabled,true);assert.equal(active.paused,false);assert.notEqual(active.revision,paused.revision);
+  await assert.rejects(second.activate(request));assert.equal(f.journal.pending(f.args.walletAddress).length,0);
+ }finally{second.close();}
 });
 test('restore quarantine blocks an already-issued private signing grant and retains pending collateral',async t=>{
  const f=await custodySigningFixture(t),grant=await authorizeServerPerpsSigning(f.prepared,f.args);

@@ -6,7 +6,9 @@ import {join} from 'node:path';
 import {DatabaseSync} from 'node:sqlite';
 import {execFileSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
-import {openServerPerpsRuntime} from '../lib/perps-server-runtime.js';
+import {createServer} from 'node:net';
+import {once} from 'node:events';
+import {openServerPerpsRuntime,startServerPerpsControlBoundary} from '../lib/perps-server-runtime.js';
 import {perpsWorkerEnvironment} from '../lib/perps-server-runtime.js';
 import {openPerpsAutomationControls} from '../lib/perps-automation-controls.js';
 import {openPerpsExecutionJournal} from '../lib/perps-execution-journal.js';
@@ -79,6 +81,41 @@ test('systemd runtime locks remain separate from durable financial state and dis
  const runtime=openServerPerpsRuntime({...f.options,lockDirectory});assert.equal(existsSync(join(f.directory,'worker.lock')),false);assert.equal(existsSync(join(lockDirectory,'worker.lock')),true);
  await runtime.run({once:true});await runtime.close();assert.equal(existsSync(join(lockDirectory,'worker.lock')),false);assert.equal(existsSync(f.journalPath),true);
  assert.equal(perpsWorkerEnvironment({STATE_DIRECTORY:f.directory,RUNTIME_DIRECTORY:lockDirectory}).lockDirectory,lockDirectory);
+});
+test('authenticated runtime controls update the exact worker store and reject foreign ownership or client readiness',async t=>{
+ const f=fixture(t),token='e'.repeat(64),headers={Authorization:'Bearer '+token,'Content-Type':'application/json'};
+ const runtime=openServerPerpsRuntime({...f.options,fetchImpl:async(url,options)=>{
+  assert.equal(url,'https://www.jamddmaj.com/api/perps-identity');assert.equal(options.headers.Authorization,'Bearer '+token);
+  return Response.json({ok:true,accountHash:ownerAccountHash,verifiedAt:Date.now()});
+ }});
+ const request=body=>runtime.handleControlRequest(new Request('https://157.230.54.133/v1/automation',{headers,...body?{method:'POST',body:JSON.stringify(body)}:{}}));
+ try{
+  assert.equal((await runtime.handleControlRequest(new Request('https://157.230.54.133/v1/automation'))).status,401);
+  const initial=(await (await request()).json()).controls;assert.equal(initial.walletAddress,f.identity.walletAddress);
+  const saved=await request({action:'save',walletAddress:initial.walletAddress,expectedRevision:initial.revision,settings:{...initial.settings,margin:20}});assert.equal(saved.status,200);
+  const state=(await saved.json()).controls;assert.equal(state.paused,true);assert.equal(state.settings.margin,20);
+  const check=openPerpsAutomationControls(f.controlsPath);try{assert.equal(check.read(f.identity).revision,state.revision);}finally{check.close();}
+  assert.equal((await request({action:'pause',walletAddress:initial.walletAddress,ownerAccountHash:'b'.repeat(64)})).status,400);
+  const review=(await (await request({action:'activationReview',walletAddress:state.walletAddress,expectedRevision:state.revision})).json()).review;
+  assert.equal((await request({action:'activate',walletAddress:state.walletAddress,expectedRevision:state.revision,token:review.token,explicitApproval:true})).status,503);
+  assert.equal((await runtime.run({once:true})).results.RECONCILIATION_ONLY,1);
+ }finally{await runtime.close();}
+ assert.equal((await request()).status,503);
+});
+test('runtime drains an in-flight authenticated request on shutdown without writing after stores close',async t=>{
+ const f=fixture(t);let started,release;const began=new Promise(resolve=>{started=resolve;});
+ const runtime=openServerPerpsRuntime({...f.options,fetchImpl:async()=>{started();await new Promise(resolve=>{release=resolve;});return Response.json({ok:true,accountHash:ownerAccountHash,verifiedAt:Date.now()});}});
+ const pending=runtime.handleControlRequest(new Request('https://157.230.54.133/v1/automation',{headers:{Authorization:'Bearer '+'e'.repeat(64)}}));
+ await began;let drained=false;const closing=runtime.close().then(()=>{drained=true;});await Promise.resolve();assert.equal(drained,false);
+ release();assert.equal((await pending).status,503);await closing;assert.equal(existsSync(join(f.directory,'worker.lock')),false);
+});
+test('shared control boundary binds loopback and advertises no execution or provisioning in maintenance',async t=>{
+ const f=fixture(t),runtime=openServerPerpsRuntime(f.options),probe=createServer();probe.listen(0,'127.0.0.1');await once(probe,'listening');const port=probe.address().port;await new Promise(resolve=>probe.close(resolve));
+ const boundary=startServerPerpsControlBoundary(runtime,{port});
+ try{
+  await once(boundary.server,'listening');assert.equal(boundary.server.address().address,'127.0.0.1');
+  const health=await fetch('http://127.0.0.1:'+port+'/health');assert.deepEqual(await health.json(),{ok:true,mode:'controls-only',executionAvailable:false,tradingEnabled:false,custodyProvisioningAvailable:false});
+ }finally{await Promise.all([boundary.close(),runtime.close()]);}
 });
 test('the actual Linux worker entry point runs maintenance against unfunded private stores and never enables controls',{skip:process.platform==='win32'},t=>{
  const f=fixture(t,{active:true});
