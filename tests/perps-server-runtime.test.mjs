@@ -74,6 +74,8 @@ test('insecure stores or status destinations are refused without signing or remo
 test('worker environment defaults to maintenance and never exposes a non-POSIX permission bypass',()=>{
  const config=perpsWorkerEnvironment({STATE_DIRECTORY:'/private/runtime',JAMDDMAJ_PERPS_ALLOW_NON_POSIX_FOR_TESTS:'true'});
  assert.equal(config.mode,'maintenance');assert.equal(config.explicitExecutionApproval,false);assert.equal(config.allowNonPosixForTests,undefined);
+ assert.equal(perpsWorkerEnvironment({STATE_DIRECTORY:'/var/lib/jamddmaj-perps-runtime'}).directory,'/var/lib/private/jamddmaj-perps-runtime');
+ assert.equal(perpsWorkerEnvironment({JAMDDMAJ_PERPS_RUNTIME_DIRECTORY:'/var/lib/jamddmaj-perps-runtime'}).directory,'/var/lib/jamddmaj-perps-runtime');
  for(const env of [{},{STATE_DIRECTORY:'/private/runtime',JAMDDMAJ_PERPS_WORKER_MODE:'auto'},{STATE_DIRECTORY:'/private/runtime',JAMDDMAJ_PERPS_EXECUTION_APPROVED:'yes'},{STATE_DIRECTORY:'/private/runtime',JAMDDMAJ_PERPS_WORKER_BATCH_SIZE:'51'}])assert.throws(()=>perpsWorkerEnvironment(env));
 });
 test('systemd runtime locks remain separate from durable financial state and disappear on a clean drain',async t=>{

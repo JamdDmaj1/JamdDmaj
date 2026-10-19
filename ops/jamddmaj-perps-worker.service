@@ -1,5 +1,5 @@
-# Reviewed-state maintenance template. Do not install/start against production
-# custody until state ownership, admission, backups and API composition pass.
+# Maintenance only. Initialize reviewed empty state explicitly before starting.
+# No HTTP boundary/custody admission until the existing controls are migrated.
 [Unit]
 Description=JamdDmaj Perps durable maintenance worker
 After=network-online.target
@@ -10,13 +10,14 @@ StartLimitBurst=3
 [Service]
 Type=simple
 DynamicUser=yes
+User=jamddmaj-perps-runtime
 StateDirectory=jamddmaj-perps-runtime
 StateDirectoryMode=0700
 RuntimeDirectory=jamddmaj-perps-runtime
 RuntimeDirectoryMode=0700
 RuntimeDirectoryPreserve=no
 WorkingDirectory=/opt/jamddmaj-perps/worker
-ExecStart=/usr/bin/node /opt/jamddmaj-perps/worker/perps-server-worker.mjs --controls
+ExecStart=/usr/bin/node /opt/jamddmaj-perps/worker/perps-server-worker.mjs
 Environment=JAMDDMAJ_PERPS_WORKER_MODE=maintenance
 Environment=JAMDDMAJ_PERPS_EXECUTION_APPROVED=false
 Environment=JAMDDMAJ_PERPS_WORKER_POLL_MS=15000

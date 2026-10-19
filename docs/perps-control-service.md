@@ -907,3 +907,59 @@ off-host restore proof, execution integration and live-feed verification remain
 required. Production controls and HTTPS were confirmed active, with the legacy
 Bitget executor still disabled. No production custody was provisioned or bot
 activated by this check.
+
+## Explicit initialization and installed maintenance worker, 2026-10-19
+
+`scripts/perps-runtime-initialize.mjs --approve-empty-runtime <private-dir>`
+now performs one-time operator-only initialization. It refuses nonempty targets,
+missing approval, insecure ownership/modes and existing state. Exclusive writes
+create the master key and empty controls/journal/backup stores, never an owner
+wallet. A durable incomplete marker blocks runtime startup after a partial
+failure; neither startup nor a repeated initializer repairs or rotates keys.
+Its success response keeps funding, backup and signing gates false.
+
+Five initialization tests passed on actual VPS Node 22.23.1, with none skipped,
+inside a network-isolated DynamicUser transient unit. Test source SHA-256:
+`89cb010432ae008638897be2a2a23140d6ef0f460c524d374408e23d063d0507`.
+The initializer bundle SHA-256 is
+`a74cd4c878fa81b7cf8b6c0047eceb04f51ba7ef8d776fa75ae8c22999589c85`.
+The Windows targeted run initially hit the existing numeric-inode comparison:
+NTFS identifiers observed on this PC exceed Number's safe integer range.
+Runtime store uniqueness now uses exact BigInt file IDs; targeted tests pass.
+
+The first real initialization attempt refused systemd's root-owned compatibility
+symlink `/var/lib/jamddmaj-perps-runtime` before creating any files. A separate
+read-only DynamicUser probe confirmed both the alias and its canonical private
+directory were empty. Initialization then succeeded against the canonical
+`/var/lib/private/jamddmaj-perps-runtime` directory. Worker environment handling
+maps only this exact known systemd StateDirectory alias to that private target;
+arbitrary symlinks still fail normal private-path validation.
+
+The approved empty runtime state now exists on the VPS, including a newly
+generated private master key, but **zero owner wallets, zero configured accounts
+and zero enabled accounts**. This master/state has not yet received an off-host
+recovery archive; no deposits or custody admission are enabled. The initializer
+was a one-shot explicit command, not an automatic startup step.
+
+The new `jamddmaj-perps-worker.service` is installed, enabled and running in
+maintenance mode, with no `--controls` or `--custody-setup` argument. It does not
+bind a public or loopback control port, replace Caddy routes or activate any bot.
+The existing controls service remains unchanged. The installed worker bundle
+SHA-256 equals the local built bundle:
+`a848838778e558abc50faabbc95cdd094d125a54ab75260c72ba16392258a1a5`.
+Unit verification passed. systemd reported ActiveState=active,
+SubState=running, ExecMainStatus=0 and NRestarts=0. The worker's actual durable
+status reports `WORKER_CYCLE_COMPLETE`, maintenance, signing false and activation
+requested false. Read-only inspection also confirmed the old controls store has
+zero configured accounts; it has not been migrated or deleted.
+Two live status reads advanced `observedAt` from 1792449054150 to 1792449084197
+with the service still running and NRestarts=0, confirming successive real
+maintenance cycles rather than only an old status file. The final full local
+test suite exited 0 after the canonical-path and inode fixes (platform/optional
+skips remain; this is not a remote signing CI run).
+
+Remaining installation work: preserve/migrate existing control quotas and state,
+cut over the authenticated control boundary to this same worker store, establish
+bounded custody admission, and verify the actual owner wallet's off-host backup
+before funding/signing readiness. The installed daemon is maintenance
+infrastructure, not completed financial execution or a new app publication.
