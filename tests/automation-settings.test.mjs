@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {applyAutomationExits,planDailyLossAction,checkDailyTradeLimit} from '../lib/automation-settings.js';
+import {exactUsdUnits} from '../lib/jupiter-perps-order.js';
 const settings={capital:100,loss:10,positions:2,margin:20,leverage:4,dailyTrades:3};
 test('empty exits preserve Telegram levels; percentages follow long and short',()=>{
  const long={side:'LONG',entry:100,sl:95,tp1:110};
@@ -21,4 +22,20 @@ test('daily count fails closed and loss actions never resume trading',()=>{
   if(lossAction==='reduce-margin')assert.equal(result.nextSettings.margin,10);
   if(lossAction==='reduce-leverage')assert.equal(result.nextSettings.leverage,2);
  }
+});
+test('percentage exits preserve exact micro-dollar precision and round toward entry for both directions',()=>{
+ for(const side of ['LONG','SHORT'])for(const entry of [83257.7,104.776242,0.123456,100.000001]){
+  const result=applyAutomationExits({side,entry,sl:1,tp1:2},{...settings,stopLossPercent:1.23,takeProfitPercent:2.34});
+  const e=BigInt(exactUsdUnits(entry)),sl=BigInt(exactUsdUnits(result.sl)),tp=BigInt(exactUsdUnits(result.tp1)),d=100000000n;
+  assert.ok(side==='LONG'?sl<e&&tp>e:sl>e&&tp<e);
+  const distanceSl=sl>e?sl-e:e-sl,distanceTp=tp>e?tp-e:e-tp;
+  assert.ok(distanceSl*d<=e*1230000n);assert.ok(distanceTp*d<=e*2340000n);
+  assert.ok(e*1230000n-distanceSl*d<d);assert.ok(e*2340000n-distanceTp*d<d);
+ }
+});
+test('unrepresentable percentages, collapsed triggers and nonpositive short targets are rejected',()=>{
+ const signal={side:'LONG',entry:0.000001,sl:0.000001,tp1:0.000002};
+ assert.throws(()=>applyAutomationExits(signal,{...settings,stopLossPercent:.01}));
+ assert.throws(()=>applyAutomationExits({...signal,entry:100},{...settings,stopLossPercent:.0000001}));
+ assert.throws(()=>applyAutomationExits({side:'SHORT',entry:100,sl:105,tp1:90},{...settings,takeProfitPercent:100}));
 });

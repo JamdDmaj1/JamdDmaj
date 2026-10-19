@@ -6,12 +6,12 @@ import {PERPS_PROGRAM,PERPS_POOL,PERPS_CUSTODIES,deriveServerPerpsIdentities} fr
 export const fixtureNow=Date.parse('2026-10-18T12:00:00Z');
 const signer=createPrivateKey({key:Buffer.concat([Buffer.from('302e020100300506032b657004220420','hex'),Buffer.alloc(32,68)]),format:'der',type:'pkcs8'});
 export const fixtureWallet=bs58.encode(createPublicKey(signer).export({format:'der',type:'spki'}).subarray(-32));
-export async function historyTransaction({name='InstantDecreasePositionEvent',nonce=4,program=PERPS_PROGRAM}={}){
+export async function historyTransaction({name='InstantDecreasePositionEvent',nonce=4,program=PERPS_PROGRAM,pnlDelta='1234567',feeUsd='30000'}={}){
  const identities=await deriveServerPerpsIdentities({walletAddress:fixtureWallet,asset:'SOL',side:'LONG'}),schema=layout.events.find(e=>e.name===name),fields={};
  for(const [k,t]of schema.fields)fields[k]=typeof t==='object'?null:t==='publicKey'?fixtureWallet:t==='bool'?false:t==='u8'?0:'0';
  Object.assign(fields,{owner:fixtureWallet,pool:PERPS_POOL,positionKey:identities.position,positionSide:1,
   positionMint:PERPS_CUSTODIES.SOL.mint,positionCustody:PERPS_CUSTODIES.SOL.address,positionCollateralCustody:PERPS_CUSTODIES.SOL.address,
-  pnlDelta:'1234567',hasProfit:false,feeUsd:'30000'});
+  pnlDelta,hasProfit:false,feeUsd});
  if(Object.hasOwn(fields,'positionCollateralMint'))fields.positionCollateralMint=PERPS_CUSTODIES.SOL.mint;
  const encode=(type,value)=>{
   if(typeof type==='object')return Buffer.from([0]);if(type==='publicKey')return Buffer.from(bs58.decode(value));
