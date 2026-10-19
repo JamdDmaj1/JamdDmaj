@@ -570,3 +570,63 @@ returns 8.4.3. The complete local suite passed **556 tests, 0 failed, 1 skipped*
 (557 total). A new Android compile/install and production end-to-end gate are
 still unverified; source and local tooling verification are not a published app
 update. No trading activation or real transaction occurred.
+
+## Restore-proven custody backup gate, 2026-10-19
+
+`perps-backup-registry.js` adds a private durable operator-attestation registry.
+A genuine v3 age archive includes a random challenge inside its ciphertext;
+the registry retains only its hash and exact owner/wallet coverage. Only a
+completed restore writes the private receipt. The operator returns that receipt
+and explicitly verifies it against the expected archive hash. This is a trusted
+operator decryption/restore attestation, not independent hardware or remote
+storage attestation. The registry is deliberately excluded from runtime recovery:
+restoring keys and databases cannot restore signing readiness.
+
+Pending challenges expire after 24 hours. Accepted receipts are idempotent;
+older receipts cannot roll back a newer accepted archive, including after SQLite
+VACUUM. Private two-second proof handles cannot be reconstructed from JSON.
+Revocation, registry closure, changed identity/schema/file permissions, and
+expired proof leases fail closed. Earlier v1/v2 archives remain recoverable but
+do not grant this readiness proof. Restored wallets remain quarantined and their
+controls paused; verification never removes quarantine or activates trading.
+
+The executor checks this proof before consuming new signal/risk capacity.
+Signing authorization and broadcast also recheck the real registry around their
+asynchronous boundaries, so revocation invalidates an issued grant before key
+use and prevents a later POST. Read-only reconciliation remains available while
+the proof is absent. The deployed production host does not yet compose these
+dependencies or advertise custody provisioning.
+
+The complete local suite passed 565 tests, zero failures, two skips (567 total;
+one local untracked probe is not part of committed CI). The Linux network-disabled
+dynamic-user sandbox passed all 29 registry and preparation/execution cases,
+including the actual archive/restore/verify CLI case skipped on Windows.
+The optional external age CLI interoperability case is the other local skip.
+The tested Linux bundles are under
+`/opt/jamddmaj-perps/checks/backup-proof-803ef8000203/`:
+
+- Registry tests: SHA-256 `803ef8000203d5b0795ec2a5b005fffc9b68fd0c983a6a0eb90bbb29765729c2`.
+- Execution tests: SHA-256 `e24b6cebf8c75896bc2b326b269f5cdd1c988056178cb282470034e72142d7cb`.
+- Unfunded fixture helper: SHA-256 `d626c0a7d47cef767f7a6c8e80d8fc9e433289a5b9407e30ef5f6fc049827e5c`.
+- Operator CLI: SHA-256 `9d52d5c703002ec09ed818baa07ba0cf3002b697c3aefec78bfd2eb74ac94ec9`.
+
+An unfunded fixture archive was copied from the VPS to the approved private PC
+recovery folder, restored using the existing operator identity and production
+Windows ACL checks, then only its private receipt was returned to the isolated
+VPS fixture registry. Archive SHA-256:
+`0ec625b1ec07d3b31b30798ceb70c2183ab5a1c3762b4d75b3816b20b50fc705`.
+PC location:
+`C:/Users/JamdDmaj/AppData/Local/JamdDmaj-Recovery/verification-20261019-v3-sequence/restored-UNFUNDED`.
+VPS fixture state:
+`/var/lib/private/jamddmaj-perps-backup-proof-fixture-d626c0a7d47c`.
+The final verify command returned `OPERATOR_RESTORE_VERIFIED`,
+`backupVerified: true`, `readyForSigning: false`, and
+`activationRequested: false`. No operator private identity left the PC. The
+original temporary fixture keys were removed by fixture cleanup. This proves
+only that unfunded fixture backup, not a real user's production recovery.
+
+No production custody wallet/master, financial daemon, real transaction,
+certificate registration, Android publication or Vercel promotion was performed.
+Production identity/HTTPS access, the operational host and activation readiness,
+safe orphan-exit cleanup, real owner provisioning/recovery, and device-level
+verification remain required for the full trading objective.

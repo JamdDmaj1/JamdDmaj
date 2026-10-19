@@ -5,7 +5,7 @@ import bs58 from 'bs58';
 import {inspectServerPerpsPreparation,prepareInspectedServerAutomation,readServerPerpsPreparationEvidence} from '../lib/perps-server-preparation.js';
 import {PERPS_CUSTODIES,PERPS_POOL,PERPS_PROGRAM,deriveServerPerpsIdentities} from '../lib/perps-server-custody.js';
 import {getProgramDerivedAddress} from '@solana/kit';
-import {mkdtempSync,mkdirSync,rmSync,writeFileSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,rmSync,writeFileSync,chmodSync} from 'node:fs';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {openPerpsExecutionJournal} from '../lib/perps-execution-journal.js';
@@ -20,6 +20,8 @@ import {createServerPerpsExecutor} from '../lib/perps-server-executor.js';
 import {readServerPerpsSignalFeed} from '../lib/perps-server-signal-feed.js';
 import {createPerpsCustodyProvisioner} from '../lib/perps-custody-provisioning.js';
 import {createServerPerpsWorker} from '../lib/perps-server-worker.js';
+import {openPerpsBackupRegistry} from '../lib/perps-backup-registry.js';
+import {initializePerpsOperatorRecovery,createPerpsCustodyRecoveryArchive,restorePerpsCustodyRecoveryArchive} from '../lib/perps-custody-recovery.js';
 const now=Date.parse('2026-10-18T12:00:00Z'),seconds=now/1000;
 const GENESIS='5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
 const u64=n=>{const b=Buffer.alloc(8);b.writeBigUInt64LE(BigInt(n));return b;};
@@ -263,7 +265,7 @@ async function custodySigningFixture(t,{beginSigning=true,reserve=true,ownerInde
  const directory=mkdtempSync(join(tmpdir(),'jamd-custody-signing-')),wallets=join(directory,'wallets'),keysDirectory=join(directory,'keys');
  mkdirSync(wallets,{mode:0o700});mkdirSync(keysDirectory,{mode:0o700});
  const keyFile=join(keysDirectory,'master.key'),allowNonPosixForTests=process.platform==='win32',ownerAccountHash='a'.repeat(64),clock={value:0};
- let controls,journal;t.after(()=>{try{controls?.close();}finally{journal?.close();rmSync(directory,{recursive:true,force:true});}});
+ let controls,journal,backupRegistry;t.after(()=>{try{try{backupRegistry?.close();}catch{}controls?.close();}finally{journal?.close();rmSync(directory,{recursive:true,force:true});}});
  createPerpsCustodyMasterKey(keyFile,{allowNonPosixForTests});const vault=openPerpsCustodyVault({directory:wallets,keyFile,allowNonPosixForTests});
  const wallet=vault[ownerIndexed?'createOrReadExclusiveWallet':'createExclusiveWallet']({ownerAccountHash,explicitCustodyApproval:true}),walletAddress=wallet.walletAddress;
  let daily=await emptyFixtureDailyAccount(walletAddress,{monotonicNow:()=>clock.value});
@@ -281,7 +283,16 @@ async function custodySigningFixture(t,{beginSigning=true,reserve=true,ownerInde
  const args={journal,controls,ownerAccountHash,walletAddress,signalId:input.signal.id,reservationId:'custody-reservation-1',controlRevision:active.revision,
   readAccount:async()=>daily,monotonicNow:()=>clock.value};
  if(reserve){await reservePreparedServerPerpsAutomation(prepared,{...args,readControls:async()=>controls.readForExecutor({walletAddress})});if(beginSigning)journal.beginSigning(args.reservationId);}
- return {prepared,args,vault,controls,journal,clock,wallet,daily,walletDirectory:wallets,rpcRequest:f.request,builderRequest:async()=>new Response(JSON.stringify(f.preparation)),
+ // Genuine operator restore proof for this ephemeral UNFUNDED wallet. No mock
+ // readiness boolean is accepted by the production signing/broadcast gates.
+ const recoveryOptions={allowNonPosixForTests,now:()=>now,monotonicNow:()=>clock.value},controlsPath=join(directory,'controls.sqlite'),journalPath=join(directory,'journal.sqlite');
+ for(const path of [controlsPath,journalPath])chmodSync(path,0o600);
+ const operatorDirectory=join(directory,'operator'),operator=await initializePerpsOperatorRecovery({directory:operatorDirectory,...recoveryOptions});
+ const archive=await createPerpsCustodyRecoveryArchive({directory:wallets,keyFile,recipient:operator.recipient,explicitOperatorApproval:true,requireRestoreProof:true,runtimePaths:{controlsPath,journalPath,temporaryDirectory:directory},...recoveryOptions});
+ backupRegistry=openPerpsBackupRegistry(join(directory,'backup.sqlite'),recoveryOptions);await backupRegistry.registerArchive(archive,{explicitOperatorApproval:true});
+ const restored=await restorePerpsCustodyRecoveryArchive({ciphertext:archive.ciphertext,operatorDirectory,destinationDirectory:join(directory,'restored'),explicitOperatorApproval:true,...recoveryOptions});
+ backupRegistry.acceptRestoreProof({proofFile:restored.proofFile,explicitOperatorApproval:true});args.backupRegistry=backupRegistry;
+ return {prepared,args,vault,controls,journal,backupRegistry,backupArchiveSha:archive.sha256,clock,wallet,daily,walletDirectory:wallets,rpcRequest:f.request,builderRequest:async()=>new Response(JSON.stringify(f.preparation)),
   async replaceBalance(units){daily=await emptyFixtureDailyAccount(walletAddress,{availableUsdcUnits:units,monotonicNow:()=>clock.value});}};
 }
 
@@ -375,11 +386,11 @@ function executorFeed(open=[publishedExecutorSignal()],livePaused=false){return 
  fetchImpl:async()=>Response.json({ok:true,clientFeed:true,generatedAt:new Date(now).toISOString(),executor:{livePaused,minScore:12,minLiquidityUsd:3000000},open})});}
 async function executorFixture(t,{changeFeed,ownerIndexed=false}={}){
  const f=await custodySigningFixture(t,{reserve:false,ownerIndexed}),initial=await emptyFixtureDailyAccount(f.wallet.walletAddress,{bankSlot:50});
- const calls={feed:0,builder:0,submit:0};
+ const calls={feed:0,builder:0,submit:0,risk:0};
  const readFeed=async()=>{calls.feed++;return changeFeed?changeFeed(f,calls.feed):executorFeed();};
  const options={...f.args,mode:'execute',now:()=>now,readFeed,rpcRequest:f.rpcRequest,readFinalizedAccount:async()=>f.daily,
   builderRequest:async(...args)=>{calls.builder++;return f.builderRequest(...args);},
-  readAccount:async args=>{assert.equal(args.ownerAccountHash,f.args.ownerAccountHash);return args.minimumSlot?f.daily:initial;},
+  readAccount:async args=>{calls.risk++;assert.equal(args.ownerAccountHash,f.args.ownerAccountHash);return args.minimumSlot?f.daily:initial;},
   vault:f.vault,fetchImpl:async(_url,options)=>{calls.submit++;const wire=Buffer.from(JSON.parse(options.body).serializedTxBase64,'base64');return Response.json({action:'increase-position',txid:bs58.encode(wire.subarray(1,65))});}};
  return {...f,options,calls,executor:createServerPerpsExecutor(options)};
 }
@@ -407,6 +418,30 @@ test('maintenance worker cannot use active consent to sign, while explicit execu
  const restarted=createServerPerpsWorker({...options,mode:'execute'}),next=await restarted.run({once:true});
  assert.equal(next.results.RECONCILIATION_REQUIRED,1);assert.equal(f.calls.submit,1);
  assert.equal(f.journal.pending(f.wallet.walletAddress)[0].state,'UNCERTAIN');assert.ok(reports.every(r=>r.activationRequested===false));
+});
+
+test('unverified or forged backup readiness blocks a new executor entry before risk, signals or builder access',async t=>{
+ const f=await executorFixture(t);f.backupRegistry.revokeArchive({archiveSha256:f.backupArchiveSha,explicitOperatorApproval:true});
+ assert.equal((await f.executor.runOnce(f.args)).stage,'BACKUP_VERIFICATION_REQUIRED');assert.equal(f.calls.risk,0);assert.equal(f.calls.feed,0);assert.equal(f.calls.builder,0);assert.equal(f.calls.submit,0);assert.equal(f.journal.pending(f.wallet.walletAddress).length,0);
+ assert.equal((await f.executor.reconcileOnly(f.args)).stage,'RECONCILIATION_ONLY');assert.equal(f.calls.feed,0);assert.equal(f.calls.risk,0);
+ const g=await executorFixture(t),copy={...g.backupRegistry.readVerified(g.args)},forged={readVerified:()=>copy};
+ assert.equal((await createServerPerpsExecutor({...g.options,backupRegistry:forged}).runOnce(g.args)).stage,'BACKUP_VERIFICATION_REQUIRED');assert.equal(g.calls.risk,0);assert.equal(g.calls.feed,0);
+});
+
+test('revoking the restore attestation invalidates an already-issued custody signing grant without releasing held collateral',async t=>{
+ const f=await custodySigningFixture(t),grant=await authorizeServerPerpsSigning(f.prepared,f.args);
+ f.backupRegistry.revokeArchive({archiveSha256:f.backupArchiveSha,explicitOperatorApproval:true});
+ assert.throws(()=>f.vault.signPrepared(grant));assert.equal(f.journal.read(f.args.reservationId).state,'SIGNING');assert.equal(f.journal.read(f.args.reservationId).signature,null);
+ const g=await custodySigningFixture(t);await assert.rejects(authorizeServerPerpsSigning(g.prepared,{...g.args,backupRegistry:{readVerified:()=>({...g.backupRegistry.readVerified(g.args)})}}));
+});
+
+test('revoked backups cannot reach submission either before or during a fresh funding read',async t=>{
+ for(const timing of ['before','during']){
+  const f=await custodySigningFixture(t),signed=f.vault.signPrepared(await authorizeServerPerpsSigning(f.prepared,f.args));let submits=0;
+  const revoke=()=>f.backupRegistry.revokeArchive({archiveSha256:f.backupArchiveSha,explicitOperatorApproval:true});if(timing==='before')revoke();
+  const broadcaster=createServerPerpsBroadcaster({...f.args,readAccount:async()=>{if(timing==='during')revoke();return f.daily;},fetchImpl:async()=>{submits++;throw Error('must not send');}});
+  await assert.rejects(broadcaster(signed,f.args));assert.equal(submits,0);assert.equal(f.journal.read(f.args.reservationId).state,'SIGNING');assert.equal(f.journal.read(f.args.reservationId).wire_hash,null);
+ }
 });
 test('closed, unpublished, remotely paused or disabled automation never reaches preparation',async t=>{
  for(const changeFeed of [()=>executorFeed([{...publishedExecutorSignal(),status:'CLOSED'}]),()=>executorFeed([{...publishedExecutorSignal(),telegramMessageId:null}]),()=>executorFeed(undefined,true)]){
