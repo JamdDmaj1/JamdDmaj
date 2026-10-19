@@ -98,6 +98,7 @@ await cp(resolve(root, "lib", "finance-activity.js"), resolve(output, "lib", "fi
 await cp(resolve(root, "lib", "automation-panel.js"), resolve(output, "lib", "automation-panel.js"));
 await cp(resolve(root, "lib", "perps-control-panel.js"), resolve(output, "lib", "perps-control-panel.js"));
 await cp(resolve(root, "lib", "perps-navigation.js"), resolve(output, "lib", "perps-navigation.js"));
+await cp(resolve(root, "lib", "finance-route.js"), resolve(output, "lib", "finance-route.js"));
 await build({
   absWorkingDir: root, entryPoints: [resolve(root, "lib", "perps-control-client.js")],
   outfile: resolve(output, "lib", "perps-control-client.js"), bundle: true,

@@ -35,6 +35,25 @@ test('verified session identity, not JSON identity, governs ownership and all re
  assert.equal(foreign.status,403);assert.equal((await foreign.json()).error.code,'controls-unavailable');
  const forged=await f.handler(request({action:'pause',walletAddress,ownerAccountHash:owner}));assert.equal(forged.status,400);
 });
+
+test('public feature discovery does not let one signed-in account read or change another account controls',async t=>{
+ const f=await fixture(t),secondWallet='11111111111111111111111111111111'; // Unfunded fixture identity only.
+ const second=f.controls.provision({ownerAccountHash:otherOwner,walletAddress:secondWallet,settings:{...settings,margin:30}});
+ const ownRead=await f.handler(new Request('https://executor.example/v1/automation',{headers:{Authorization:'Bearer '+otherToken}}));
+ const ownBody=await ownRead.json();assert.equal(ownBody.controls.walletAddress,secondWallet);assert.equal(ownBody.controls.settings.margin,30);
+ assert.equal(JSON.stringify(ownBody).includes(walletAddress),false);
+ const actions=[{action:'pause',walletAddress},{action:'save',walletAddress,expectedRevision:f.first.revision,settings:{...settings,margin:40}},
+  {action:'activationReview',walletAddress,expectedRevision:f.first.revision},
+  {action:'activate',walletAddress,expectedRevision:f.first.revision,token:'e'.repeat(64),explicitApproval:true}];
+ for(const action of actions){
+  const response=await f.handler(request(action,{headers:{Authorization:'Bearer '+otherToken,'Content-Type':'application/json'}}));
+  // Activation is globally unavailable in this fixture; other owner-bound
+  // methods reject ownership before reading or mutating the foreign record.
+  assert.equal(response.status,action.action==='activate'?503:403);const body=await response.text();assert.equal(body.includes(f.first.revision),false);assert.equal(body.includes(owner),false);
+ }
+ assert.equal(f.controls.read({ownerAccountHash:owner,walletAddress}).revision,f.first.revision);
+ assert.equal(f.controls.read({ownerAccountHash:otherOwner,walletAddress:secondWallet}).revision,second.revision);
+});
 test('save/review/pause run against durable controls without exposing provisioning, custody or transaction methods',async t=>{
  const f=await fixture(t),saved=await f.handler(request({action:'save',walletAddress,expectedRevision:f.first.revision,settings:{...settings,leverage:4}}));
  assert.equal(saved.status,200);const state=(await saved.json()).controls;assert.equal(state.paused,true);assert.equal(state.enabled,false);

@@ -276,6 +276,10 @@
 
     .sidebar-footer {
       display: grid;
+      flex: 0 1 auto;
+      min-height: 0;
+      max-height: 56dvh;
+      overflow-y: auto;
       gap: 8px;
       padding: 12px;
       border-top: 1px solid var(--line);
@@ -3827,6 +3831,10 @@
       <div class="history" id="projectsList"></div>
 
       <div class="sidebar-footer">
+        <button class="side-action" id="sideSignalsBtn" type="button"><span>↗</span><span>Pro Signals</span></button>
+        <button class="side-action" id="sideFuturesBtn" type="button"><span>⇅</span><span>Futures</span></button>
+        <button class="side-action" id="sideAutomationBtn" type="button"><span>◷</span><span>Automation 24/7</span></button>
+        <button class="side-action" id="sideAssetsBtn" type="button"><span>◈</span><span>Assets</span></button>
         <button class="side-action" id="sideLearnBtn" type="button"><span>Jl</span><span>JamdDmaj Learn</span></button>
         <button class="side-action mobile-side-action" id="sideVoiceBtn" type="button"><span>◉</span><span>Voice mode</span></button>
         <button class="side-action mobile-side-action" id="sideSaveBtn" type="button"><span>✓</span><span>Save conversation</span></button>
@@ -4216,7 +4224,7 @@
               <button class="pill-btn" id="exitTraderBtn" type="button">Back</button>
             </div>
           </div>
-          <div id="traderStatus" class="backup-status">Tap Scan now. Hidden access: tap the JamdDmaj AI name 5 times.</div>
+          <div id="traderStatus" class="backup-status">Tap Scan now to explore public signals. Your account and wallet stay private.</div>
           <div class="market-direction-card is-hidden" id="marketDirectionCard" data-bias="mixed" role="status" aria-live="polite">
             <div class="market-direction-copy">
               <small id="marketDirectionTitle">Dominant market direction</small>
@@ -5153,7 +5161,7 @@
           hero: "High-quality educational setups with targets, suggested invalidation, trend monitoring, market cap, liquidity, momentum, RSI, MACD, and volume. No automatic orders.",
           scan: "Scan now",
           back: "Back",
-          ready: "Tap Scan now. Hidden access: tap the JamdDmaj AI name 5 times.",
+          ready: "Tap Scan now to explore public signals. Your account and wallet stay private.",
           searchPlaceholder: "Token/stock, e.g. XRP or NVDA",
           searchButton: "Trade",
           chartTitle: "AI chart analysis",
@@ -5221,7 +5229,7 @@
           hero: "Setups educativos de alta calidad con objetivos, invalidacion sugerida, seguimiento de tendencia, market cap, liquidez, momentum, RSI, MACD y volumen. No ejecuta ordenes.",
           scan: "Escanear",
           back: "Volver",
-          ready: "Toca Escanear. Acceso oculto: toca el nombre JamdDmaj AI 5 veces.",
+          ready: "Toca Escanear para explorar las señales públicas. Tu cuenta y tu billetera siguen siendo privadas.",
           searchPlaceholder: "Token/accion, ej. XRP o NVDA",
           searchButton: "Trade",
           chartTitle: "Analizar grafico con IA",
@@ -8034,6 +8042,10 @@
       }
 
       function updateTraderCopy() {
+        const publicLabels = resolvedLanguage() === "es"
+          ? {sideSignalsBtn:"Señales Pro",sideFuturesBtn:"Futuros",sideAutomationBtn:"Automatización 24/7",sideAssetsBtn:"Activos"}
+          : {sideSignalsBtn:"Pro Signals",sideFuturesBtn:"Futures",sideAutomationBtn:"Automation 24/7",sideAssetsBtn:"Assets"};
+        for (const [id,label] of Object.entries(publicLabels)) document.getElementById(id).lastElementChild.textContent = label;
         els.traderEyebrow.textContent = tradeText("eyebrow");
         els.traderHeroTitle.textContent = tradeText("title");
         els.traderHeroText.textContent = tradeText("hero");
@@ -14118,6 +14130,15 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
       document.getElementById("connectOpenRouterBtn").addEventListener("click", connectOpenRouter);
       document.getElementById("learnBtn").addEventListener("click", enterLearnDashboard);
       document.getElementById("sideLearnBtn").addEventListener("click", enterLearnDashboard);
+      // Public discovery only. These links never grant access to another
+      // account, the legacy owner server, signing, or automation activation.
+      document.getElementById("sideSignalsBtn").addEventListener("click", enterTraderMode);
+      for (const [id,view] of [["sideFuturesBtn","futures"],["sideAutomationBtn","automation"],["sideAssetsBtn","assets"]]) {
+        document.getElementById(id).addEventListener("click", () => {
+          const route = new URLSearchParams({view,lang:resolvedLanguage()});
+          location.href = `./private-simulator.html?v=9#${route}`;
+        });
+      }
       document.getElementById("exitLearnBtn").addEventListener("click", exitLearnMode);
       document.getElementById("learnHomeBtn").addEventListener("click", enterLearnDashboard);
       document.getElementById("completeLessonBtn").addEventListener("click", completeLearningLesson);

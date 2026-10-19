@@ -10,6 +10,6 @@ test('built finance entry has a complete browser-loadable module graph, includin
  const result=await build({absWorkingDir:root,entryPoints:['www/lib/terminal-layout.js'],bundle:true,write:false,format:'esm',platform:'browser',target:['es2020'],metafile:true,
   plugins:[{name:'no-bare-browser-imports',setup(builder){builder.onResolve({filter:/^[^./]/},args=>args.kind==='entry-point'?undefined:{errors:[{text:'A shipped browser module contains an unresolved package import: '+args.path}]});}}]});
  const inputs=Object.keys(result.metafile.inputs);
- for(const name of ['perps-navigation.js','perps-control-client.js','perps-control-panel.js'])assert.ok(inputs.includes('www/lib/'+name),name);
+ for(const name of ['perps-navigation.js','perps-control-client.js','perps-control-panel.js','finance-route.js'])assert.ok(inputs.includes('www/lib/'+name),name);
  assert.equal(inputs.some(name=>name.startsWith('node_modules/')),false);
 });

@@ -829,7 +829,44 @@ still reports all financial/provisioning capabilities false.
 This publishes the **web and Edge API update only**, not an Android APK or the
 financial runtime. The owner was asked to use the existing authenticated
 `Consultar servidor` action and report its message, without activation/funding
-or sharing session values. A real authenticated success remains unverified.
+or sharing session values. The owner subsequently reported the exact result:
+`Your account does not yet have a provisioned exclusive wallet. Do not deposit into a test address.`
+This is user-observed evidence that the installed app's authenticated control
+read now reaches the no-owned-wallet state, consistent with disabled production
+provisioning. It is not evidence of wallet creation, recoverable custody,
+execution readiness, or an independently inspected authenticated response.
+No session token or account identity was requested or inferred from this report.
 Production custody/admission and backup, runtime installation, app activation,
 orphan-exit cleanup, manual futures and device/Android verification remain open.
 No transaction was signed/submitted or production bot activated by this release.
+
+## Public feature discovery request, 2026-10-19 (local, not deployed)
+
+The owner requested that all visitors can see application options, while keeping
+private information isolated. Public navigation must not be confused with
+operator administration or financial authorization. No owner allowlist was
+introduced for browsing and no existing session/ownership boundary was removed.
+
+The main sidebar now exposes Signals, Futures, Automation and Assets without
+secret brand taps. Finance routes accept only known public section names;
+Automation opens the existing Futures section with its configuration expanded.
+URL fields cannot select an account, grant readiness, or activate anything.
+Legacy global operator controls remain hidden/authorized; they are not a user's
+personal trading settings and must not become public merely through UI changes.
+
+Verification: 13 focused route/build/API tests pass, including two verified
+fixture accounts reading only their own controls and rejected cross-account
+mutations. A fresh 390x844 headless Edge context, without saved sessions or
+wallets, verified the actual built menu, direct Automation and Assets navigation,
+and Signals entry without hidden taps. All upstream network requests were
+blocked; local API calls returned explicit unavailable fixture responses. The
+private legacy server stayed hidden, no `/v1/automation` request was made by
+navigation, and there were no page JavaScript errors. This browser check proves
+public discovery, not live market feeds, custody availability or trading.
+The full local `node --test --test-reporter=dot tests/*.test.mjs` suite also
+finished with exit code 0. This includes existing optional/platform skips and
+the unrelated pre-existing untracked probe; it is not a remote CI result.
+
+This source change has not been published to Vercel or packaged into a new APK.
+Production custody and execution remain disabled. No production account or
+wallet was created, no keys were accessed, and no transaction was signed/sent.
