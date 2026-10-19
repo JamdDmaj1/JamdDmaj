@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createPrivateKey,createPublicKey,sign} from 'node:crypto';
+import {createHash,createPrivateKey,createPublicKey,sign} from 'node:crypto';
 import bs58 from 'bs58';
 import {inspectServerPerpsPreparation,prepareInspectedServerAutomation} from '../lib/perps-server-preparation.js';
 import {PERPS_CUSTODIES,PERPS_POOL,PERPS_PROGRAM,deriveServerPerpsIdentities} from '../lib/perps-server-custody.js';
@@ -18,8 +18,8 @@ function custodyAccount(asset){
  data.writeBigUInt64LE(500000n,175);data[199]=1;data[202]=1;data[203]=1;Buffer.alloc(32,120+index).copy(data,384);
  return {owner:PERPS_PROGRAM,executable:false,data:[data.toString('base64'),'base64']};
 }
-async function fixture({exits=false,lookup=false,trusted=false}={}){
- lookup ||= exits;
+async function fixture({exits=false,lookup=false,trusted=false,planMutation=null}={}){
+ lookup ||= exits||trusted;
  const apiPrivate=createPrivateKey({key:Buffer.concat([Buffer.from('302e020100300506032b657004220420','hex'),Buffer.alloc(32,21)]),format:'der',type:'pkcs8'});
  const keys=Array.from({length:19},(_,i)=>Buffer.alloc(32,i+1));keys[2]=createPublicKey(apiPrivate).export({format:'der',type:'spki'}).subarray(-32);
  keys.push(Buffer.from(bs58.decode('ComputeBudget111111111111111111111111111111')),Buffer.from(bs58.decode('PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu')));
@@ -40,7 +40,7 @@ async function fixture({exits=false,lookup=false,trusted=false}={}){
    loaded[index+1]=Buffer.from(bs58.decode(await associated(request,PERPS_CUSTODIES.USDC.mint)));
   }
  }
- const table=Buffer.alloc(56+loaded.length*32);table.writeUInt32LE(1,0);table.writeBigUInt64LE(18446744073709551615n,4);table.writeBigUInt64LE(1n,12);loaded.forEach((k,i)=>k.copy(table,56+i*32));
+ let table=Buffer.alloc(56+loaded.length*32);table.writeUInt32LE(1,0);table.writeBigUInt64LE(18446744073709551615n,4);table.writeBigUInt64LE(1n,12);loaded.forEach((k,i)=>k.copy(table,56+i*32));
  const account={owner:'AddressLookupTab1e1111111111111111111111111',executable:false,data:[table.toString('base64'),'base64']};
  const instruction=(program,accounts,data)=>Buffer.concat([Buffer.from([program,accounts.length,...accounts,data.length]),data]);
  const computeLimit=Buffer.alloc(5);computeLimit[0]=2;computeLimit.writeUInt32LE(100000,1);
@@ -54,18 +54,35 @@ async function fixture({exits=false,lookup=false,trusted=false}={}){
   const data=Buffer.concat([Buffer.from('7562427f1e3249b9','hex'),u64(0),u64(30000000),u64(profit?110000000:95000000),Buffer.from([profit?1:0,0]),u64(profit?2:1),u64(seconds)]);
   instructions.push(instruction(20,roles,data));
  }
- const staticKeys=trusted?[...new Map(keys.map(k=>[k.toString('hex'),k])).values()]:keys;
+ let staticKeys=keys,loadedWritable=loaded.length,ledgerAddress=null,collateralAddress=null;
  if(trusted){
-  const remap=i=>i>=21?i-21+staticKeys.length:staticKeys.findIndex(k=>k.equals(keys[i]));
+  const original=[...keys,...loaded],add=address=>{original.push(Buffer.from(bs58.decode(address)));return original.length-1;};
+  collateralAddress=await associated(bs58.encode(keys[0]),PERPS_CUSTODIES.SOL.mint);ledgerAddress=bs58.encode(Buffer.alloc(32,61));
+  const collateral=add(collateralAddress),ledger=add(ledgerAddress),transfer=add(identities.transferAuthority),usdc=add(PERPS_CUSTODIES.USDC.address),oracle=add(bs58.encode(Buffer.alloc(32,121))),vault=add(bs58.encode(Buffer.alloc(32,101))),sysvar=add('Sysvar1nstructions1111111111111111111111111');
+  const longOpening=[...opening];longOpening[3]=collateral;longOpening[14]=ledger;longOpening[15]=20;
+  instructions[2]=instruction(20,longOpening,Buffer.concat([Buffer.from('a47e44b6dfa640b7','hex'),u64(30000000),Buffer.from([0,1]),u64(100500000),u64(seconds)]));
+  const swapRoles=[0,3,collateral,transfer,4,5,usdc,oracle,vault,7,8,13,16,sysvar,18,20];
+  instructions.splice(2,0,instruction(20,[ledger,collateral,16],Buffer.from('e455b9704e4f4d02','hex')),instruction(20,swapRoles,Buffer.concat([Buffer.from('c52656a5c71726ea','hex'),u64(10000000),u64(99500000)])));
+  if(planMutation==='missing-swap')instructions.splice(3,1);
+  if(planMutation==='duplicate-ledger')instructions.splice(3,0,Buffer.from(instructions[2]));
+  if(planMutation==='late-swap')[instructions[3],instructions[4]]=[instructions[4],instructions[3]];
+  if(planMutation==='wrong-minimum')instructions[3].writeBigUInt64LE(99499999n,instructions[3].length-8);
+  const readonly=[keys[16],keys[17],keys[4],keys[18],original[transfer],original[sysvar]].map(b=>b.toString('hex'));
+  staticKeys=[keys[0],keys[1],keys[2],keys[19],keys[20]];
+  const staticHex=staticKeys.map(b=>b.toString('hex')),unique=[...new Map([...loaded,...original].filter(b=>!staticHex.includes(b.toString('hex'))).map(b=>[b.toString('hex'),b])).values()];
+  loaded.length=0;loaded.push(...unique.filter(b=>!readonly.includes(b.toString('hex'))));loadedWritable=loaded.length;loaded.push(...unique.filter(b=>readonly.includes(b.toString('hex'))));
+  const resolved=[...staticKeys,...loaded],remap=i=>resolved.findIndex(b=>b.equals(original[i]));
   for(const instruction of instructions){instruction[0]=remap(instruction[0]);for(let i=0;i<instruction[1];i++)instruction[2+i]=remap(instruction[2+i]);}
+  table=Buffer.alloc(56+loaded.length*32);table.writeUInt32LE(1,0);table.writeBigUInt64LE(18446744073709551615n,4);table.writeBigUInt64LE(1n,12);loaded.forEach((k,i)=>k.copy(table,56+i*32));account.data[0]=table.toString('base64');
  }
  const message=Buffer.concat([Buffer.from(lookup?[128,3,1,2,staticKeys.length]:[3,1,2,staticKeys.length]),...staticKeys,Buffer.from(bs58.decode(blockhash)),Buffer.from([instructions.length]),...instructions,
-  ...(lookup?[Buffer.from([1]),Buffer.from(bs58.decode(tableAddress)),Buffer.from([loaded.length,...loaded.map((_,i)=>i),0])]:[])]);
+  ...(lookup?[Buffer.from([1]),Buffer.from(bs58.decode(tableAddress)),Buffer.from([loadedWritable,...loaded.slice(0,loadedWritable).map((_,i)=>i),loaded.length-loadedWritable,...loaded.slice(loadedWritable).map((_,i)=>i+loadedWritable)])]:[])]);
  const wire=Buffer.concat([Buffer.from([3]),Buffer.alloc(128),sign(null,message,apiPrivate),message]);
  assert.ok(wire.length<=1232);
  const preparation={serializedTxBase64:wire.toString('base64'),positionPubkey:bs58.encode(keys[6]),quote:{side:'long'},txMetadata:{blockhash,lastValidBlockHeight:'100000'}};
  const intent={asset:'SOL',side:'LONG',walletAddress:bs58.encode(keys[0]),marginUsd:'10',leverage:'3',referencePrice:'100',maxSlippageBps:50,stopLoss:exits?'95':null,takeProfit:exits?'110':null};
  const calls=[];
+ const ledgerAccount=()=>{const b=Buffer.alloc(48);createHash('sha256').update('account:TokenLedger').digest().subarray(0,8).copy(b);Buffer.from(bs58.decode(collateralAddress)).copy(b,8);return {owner:PERPS_PROGRAM,executable:false,lamports:2000000,data:[b.toString('base64'),'base64']};};
  const request=async(method,params)=>{calls.push({method,params});
   if(method==='getGenesisHash')return GENESIS;
   if(method==='getSlot')return Math.max(50,params[0]?.minContextSlot||0);
@@ -78,7 +95,7 @@ async function fixture({exits=false,lookup=false,trusted=false}={}){
     assert.equal(trusted,true);assert.deepEqual(params[0],[PERPS_CUSTODIES.SOL.address,PERPS_CUSTODIES.USDC.address]);
     return {context:{slot:52},value:[custodyAccount('SOL'),custodyAccount('USDC')]};
    }
-   return {context:{slot:54},value:params[0].map(address=>address===intent.walletAddress?{owner:'11111111111111111111111111111111',executable:false,lamports:100000000,data:['','base64']}:address===bs58.encode(keys[3])?tokenAccount(intent.walletAddress,20000000):null)};
+   return {context:{slot:54},value:params[0].map(address=>address===intent.walletAddress?{owner:'11111111111111111111111111111111',executable:false,lamports:100000000,data:['','base64']}:address===bs58.encode(keys[3])?tokenAccount(intent.walletAddress,20000000):address===ledgerAddress?ledgerAccount():null)};
   }
   if(method==='simulateTransaction'){
    assert.equal(params[0],preparation.serializedTxBase64);assert.equal(params[1].replaceRecentBlockhash,false);assert.equal(params[1].sigVerify,false);
@@ -100,6 +117,7 @@ async function fixture({exits=false,lookup=false,trusted=false}={}){
     if(states.has(address))return {owner:PERPS_PROGRAM,executable:false,lamports:2000000,data:[states.get(address).toString('base64'),'base64']};
     if(address===intent.walletAddress)return {owner:'11111111111111111111111111111111',executable:false,lamports:100000000-15100-(exits?10000000:2000000),data:['','base64']};
     if(address===bs58.encode(keys[3]))return tokenAccount(intent.walletAddress,10000000);
+    if(address===ledgerAddress)return ledgerAccount();
     if(exits)for(const i of [1,3])if(address===bs58.encode(loaded[i]))return tokenAccount(bs58.encode(loaded[i-1]),0);
     return null;
    })}};
@@ -125,6 +143,12 @@ test('Telegram settings and builder response feed the complete inspection chain 
  assert.equal(builderCalls,1);assert.equal(result.inspection.core.exitCount,2);assert.equal(result.custody.position,f.preparation.positionPubkey);assert.equal(result.custody.exitCount,2);assert.equal(result.readyForSigning,false);assert.equal(result.tradingEnabled,false);
  assert.equal(result.simulation.stage,'SIMULATED_POSITION_AND_EXITS');assert.equal(result.simulation.requiresFundingAndRentChecks,true);assert.equal(result.simulation.exits.length,2);
  assert.equal(result.stage,'SIMULATED_FUNDING_AND_EXITS');assert.equal(result.funding.usdcDebitUnits,'10000000');assert.equal(result.funding.rentLockedLamports,'10000000');assert.equal(result.requiresFullTokenPolicy,true);
+ assert.equal(result.fundingPlan.stage,'PRESWAP_PLAN_ONLY');assert.equal(result.fundingPlan.amountIn,'10000000');
+ for(const planMutation of ['missing-swap','duplicate-ledger','late-swap','wrong-minimum']){
+  const bad=await fixture({exits:true,trusted:true,planMutation});
+  await assert.rejects(prepareInspectedServerAutomation(input,{nowSeconds:seconds,rpcRequest:bad.request,builderRequest:async()=>new Response(JSON.stringify(bad.preparation))}));
+  assert.equal(bad.calls.some(c=>c.method==='simulateTransaction'),false);
+ }
  // A successful program simulation is insufficient: these spending/exit-token
  // mutations must reject the actual configured Telegram preparation pipeline.
  for(const change of ['extra-usdc','extra-sol','exit-token-amount','exit-token-owner','missing-exit-token']){
