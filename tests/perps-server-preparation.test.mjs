@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash,createPrivateKey,createPublicKey,sign} from 'node:crypto';
 import bs58 from 'bs58';
-import {inspectServerPerpsPreparation,prepareInspectedServerAutomation} from '../lib/perps-server-preparation.js';
+import {inspectServerPerpsPreparation,prepareInspectedServerAutomation,readServerPerpsPreparationEvidence} from '../lib/perps-server-preparation.js';
 import {PERPS_CUSTODIES,PERPS_POOL,PERPS_PROGRAM,deriveServerPerpsIdentities} from '../lib/perps-server-custody.js';
 import {getProgramDerivedAddress} from '@solana/kit';
 const now=Date.parse('2026-10-18T12:00:00Z'),seconds=now/1000;
@@ -139,11 +139,25 @@ test('combined server gate inspects exact prepared wire, fee, core intent and RP
 test('Telegram settings and builder response feed the complete inspection chain but never become signing-ready',async()=>{
  const f=await fixture({exits:true,trusted:true});let builderCalls=0;
  const input={settings:{capital:100,loss:20,positions:2,margin:10,leverage:3,dailyTrades:5},signal:{id:'signal-1',createdAt:new Date(now).toISOString(),pair:'SOLUSDT',side:'LONG',entry:100,sl:95,tp1:110},decision:{ok:true},walletAddress:f.intent.walletAddress,snapshot:{updatedAt:now,walletAddress:f.intent.walletAddress,availableUsd:100,allocatedUsd:0,lossTodayUsd:0,openPositions:0,tradesToday:0},enabled:true,paused:false,maxSlippageBps:50,now};
- const result=await prepareInspectedServerAutomation(input,{nowSeconds:seconds,rpcRequest:f.request,builderRequest:async()=>{builderCalls++;return new Response(JSON.stringify(f.preparation));}});
+ let monotonic=0;
+ const result=await prepareInspectedServerAutomation(input,{nowSeconds:seconds,monotonicNow:()=>monotonic,rpcRequest:f.request,builderRequest:async()=>{builderCalls++;return new Response(JSON.stringify(f.preparation));}});
  assert.equal(builderCalls,1);assert.equal(result.inspection.core.exitCount,2);assert.equal(result.custody.position,f.preparation.positionPubkey);assert.equal(result.custody.exitCount,2);assert.equal(result.readyForSigning,false);assert.equal(result.tradingEnabled,false);
  assert.equal(result.simulation.stage,'SIMULATED_POSITION_AND_EXITS');assert.equal(result.simulation.requiresFundingAndRentChecks,true);assert.equal(result.simulation.exits.length,2);
  assert.equal(result.stage,'SIMULATED_FUNDING_AND_EXITS');assert.equal(result.funding.usdcDebitUnits,'10000000');assert.equal(result.funding.rentLockedLamports,'10000000');assert.equal(result.requiresFullTokenPolicy,true);
  assert.equal(result.fundingPlan.stage,'PRESWAP_PLAN_ONLY');assert.equal(result.fundingPlan.amountIn,'10000000');
+ const evidence=readServerPerpsPreparationEvidence(result,{walletAddress:input.walletAddress,signalId:input.signal.id});
+ assert.equal(evidence.readyForSigning,false);assert.equal(evidence.wireHash.length,64);assert.ok(Object.isFrozen(evidence));
+ assert.throws(()=>readServerPerpsPreparationEvidence({...result},{walletAddress:input.walletAddress,signalId:input.signal.id}));
+ assert.throws(()=>readServerPerpsPreparationEvidence(result,{walletAddress:input.walletAddress,signalId:'different'}));
+ assert.throws(()=>readServerPerpsPreparationEvidence(result,{walletAddress:bs58.encode(Buffer.alloc(32,22)),signalId:input.signal.id}));
+ assert.throws(()=>{result.preparation.serializedTxBase64='changed';});assert.throws(()=>{result.preparation.txMetadata.lastValidBlockHeight='999999';});
+ assert.throws(()=>{result.review.marginUsd=1;});assert.throws(()=>{result.plan.body.sizeUsdDelta='1';});
+ monotonic=15001;assert.throws(()=>readServerPerpsPreparationEvidence(result,{walletAddress:input.walletAddress,signalId:input.signal.id}));
+ monotonic=-1;assert.throws(()=>readServerPerpsPreparationEvidence(result,{walletAddress:input.walletAddress,signalId:input.signal.id}));monotonic=0;
+ let slowClock=0;
+ await assert.rejects(prepareInspectedServerAutomation(input,{nowSeconds:seconds,monotonicNow:()=>slowClock,rpcRequest:f.request,builderRequest:async()=>{
+  slowClock=15001;return new Response(JSON.stringify(f.preparation));
+ }}));
  for(const planMutation of ['missing-swap','duplicate-ledger','late-swap','wrong-minimum']){
   const bad=await fixture({exits:true,trusted:true,planMutation});
   await assert.rejects(prepareInspectedServerAutomation(input,{nowSeconds:seconds,rpcRequest:bad.request,builderRequest:async()=>new Response(JSON.stringify(bad.preparation))}));
