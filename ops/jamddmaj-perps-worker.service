@@ -1,0 +1,42 @@
+# Reviewed-state maintenance template. Do not install/start against production
+# custody until state ownership, admission, backups and API composition pass.
+[Unit]
+Description=JamdDmaj Perps durable maintenance worker
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=simple
+DynamicUser=yes
+StateDirectory=jamddmaj-perps-runtime
+StateDirectoryMode=0700
+RuntimeDirectory=jamddmaj-perps-runtime
+RuntimeDirectoryMode=0700
+RuntimeDirectoryPreserve=no
+WorkingDirectory=/opt/jamddmaj-perps/worker
+ExecStart=/usr/bin/node /opt/jamddmaj-perps/worker/perps-server-worker.mjs
+Environment=JAMDDMAJ_PERPS_WORKER_MODE=maintenance
+Environment=JAMDDMAJ_PERPS_EXECUTION_APPROVED=false
+Environment=JAMDDMAJ_PERPS_WORKER_POLL_MS=15000
+Environment=JAMDDMAJ_PERPS_WORKER_BATCH_SIZE=20
+UMask=0077
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+NoNewPrivileges=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+MemoryMax=384M
+TasksMax=32
+LimitNOFILE=256
+# Drain the actual in-flight cycle; never SIGKILL on an observation timeout.
+TimeoutStopSec=infinity
+KillSignal=SIGTERM
+Restart=on-failure
+RestartSec=15
+
+[Install]
+WantedBy=multi-user.target

@@ -641,3 +641,68 @@ returned HTTP 401 JSON without credentials, which is not evidence of a broken
 authenticated observer feed. No credentials were obtained or exposed by these
 checks. Identity-route publication and end-to-end authenticated verification
 remain a concrete production integration gate, not a presumed completed task.
+
+## Durable worker entry point and real store composition, 2026-10-19
+
+`scripts/perps-server-worker.mjs` now composes the existing control store,
+execution journal, custody vault, private backup registry, read-only RPC,
+finalized daily-account reader, exclusive-custody risk reader, published signal
+feed, inspected preparation/signing/broadcast pipeline and paced worker.
+This is an executable worker, not another observer or a readiness boolean.
+It does not expose an HTTP API or create/provision/activate any wallet.
+
+Startup requires existing private canonical state under one directory:
+`controls.sqlite`, `journal.sqlite`, `backup.sqlite`, `wallets/`, and
+`keys/master.key`. It refuses missing stores rather than initializing a new
+financial history. Controls and journal schema/integrity/size are checked
+read-only before opening their normal constructors, so a foreign database is
+not migrated. Duplicate inodes and insecure SQLite companion files are refused.
+Actual owner coverage is checked by the durable worker inventory and custody
+reader; missing backup proof blocks new entries before feed or risk reads.
+
+The default `maintenance` mode uses only `reconcileOnly`, with entry risk, feed,
+builder, signer and broadcast entry paths replaced with rejecting functions.
+It can reconcile recorded positions while an account's saved controls are active
+without using that prior consent for a new entry. `execute` additionally requires
+explicit operator execution configuration and a valid feed token; this does not
+replace per-owner activation or any financial validation. No execution-mode
+process was started against real custody during these checks.
+
+`STATE_DIRECTORY` (or `JAMDDMAJ_PERPS_RUNTIME_DIRECTORY`) selects the durable
+state. `RUNTIME_DIRECTORY`, when supplied by systemd, selects a separate private
+process-lock directory. Without it the lock stays in durable state and a stale
+lock requires explicit operator review; the runtime never guesses from its age
+or steals another instance's lock. The new **uninstalled**
+`ops/jamddmaj-perps-worker.service` template uses systemd-owned private runtime
+storage, removed when its unit stops, so a crash restart can resume durable
+reconciliation without preserving an obsolete PID lock. The durable journal is
+never removed by lock cleanup. SIGTERM drains the actual in-flight worker and
+closes private stores before removing its own lock; observation timeouts do not
+abandon a financial cycle. Aggregate private status excludes owner identifiers,
+wallet addresses, feed credentials and upstream exception text.
+
+The full local suite passed **573 tests, zero failed, three skipped** (576
+total, including the existing untracked local probe). The additional skip is
+the actual Linux-only worker CLI case; it passed in the VPS's network-disabled,
+dynamic-user sandbox, along with all other 15 runtime/worker lifecycle cases.
+The sandbox has private temporary storage, read-only system paths, protected
+home, umask 0077, no new privileges and a 384 MiB memory ceiling. Tests create
+only ephemeral unfunded wallets and private databases. They verify no transport
+calls in maintenance, blocking absent backup readiness in explicitly configured
+execution, no migration of foreign stores, competing/abandoned lock rejection,
+status privacy, shutdown/drain, and a real CLI one-shot maintenance cycle.
+
+Hash-verified Linux artifacts under
+`/opt/jamddmaj-perps/checks/runtime-b125d4abcab6/`:
+
+- Runtime tests: `b125d4abcab6fb3ee504d29061efdf8817580d66e0f8fa428c21b9cd7707beae`.
+- Worker tests: `76a7061c1613d3fd3ccf961ef0785b8ca701c4b5cc5d0d957b907dd508f4a699`.
+- Executable worker: `b044c4eb170efc020ee88764ed153684d3e2108a41d073be34d394d202113dc0`.
+
+Only isolated tests were run on the VPS. The new unit was copied into the check
+artifact directory, not installed, enabled or started. Existing production
+controls were not replaced, real custody/master files were not created, and
+there was no real transaction signing/submission. This worker composition does
+not complete the public control API's activation readiness callback, reviewed
+shared-state ownership/admission, identity/HTTPS publication, real owner backup,
+orphan-exit cleanup, manual futures or the Android/device end-to-end gate.
