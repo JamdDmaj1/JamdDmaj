@@ -33,6 +33,24 @@ function fixture(t,options={}){
  return {path,open};
 }
 function provision(store,changes={}){return store.provision({ownerAccountHash,walletAddress,settings:{...settings,...changes}});}
+
+test('private worker inventory pages paused owners in deterministic order without exposing settings or activation tokens',t=>{
+ const f=fixture(t),store=f.open(),expected=[];
+ for(let i=1;i<=5;i++){
+  const walletAddress=bs58.encode(Buffer.alloc(32,i)),ownerAccountHash=i.toString(16).repeat(64);
+  const state=store.provision({ownerAccountHash,walletAddress,settings});store.issueActivationChallenge({ownerAccountHash,walletAddress,expectedRevision:state.revision});expected.push(walletAddress);
+ }
+ expected.sort();let afterWallet=null;const seen=[];
+ while(true){const page=store.listForWorker({afterWallet,limit:2});if(!page.length)break;
+  for(const row of page){assert.equal(row.paused,true);assert.equal(row.enabled,false);assert.deepEqual(Object.keys(row).sort(),['enabled','ownerAccountHash','paused','revision','walletAddress']);seen.push(row.walletAddress);}
+  afterWallet=page.at(-1).walletAddress;
+ }
+ assert.deepEqual(seen,expected);assert.equal(store.listForWorker({afterWallet,limit:2}).length,0);
+ for(const args of [{limit:0},{limit:51},{limit:1.5},{afterWallet:'not-a-wallet'}])assert.throws(()=>store.listForWorker(args));
+ assert.deepEqual(f.open().listForWorker().map(row=>row.walletAddress),expected);
+ store.provision({ownerAccountHash:'1'.repeat(64),walletAddress:bs58.encode(Buffer.alloc(32,6)),settings});
+ assert.throws(()=>store.listForWorker());
+});
 function issue(store,value){return store.issueActivationChallenge({ownerAccountHash,walletAddress,expectedRevision:value.revision});}
 function activate(store,challenge,changes={}){return store.activate({ownerAccountHash,walletAddress,expectedRevision:challenge.revision,token:challenge.token,explicitApproval:true,...changes});}
 

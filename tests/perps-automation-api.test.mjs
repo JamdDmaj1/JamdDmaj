@@ -53,7 +53,7 @@ test('origin, method, path, body size, duplicate parameters and unknown readines
  assert.equal((await f.handler(request({action:'pause',walletAddress},{headers:{Authorization:'Bearer '+token,Origin:'https://attacker.example','Content-Type':'application/json'}}))).status,403);
  for(const method of ['DELETE','PUT','PATCH'])assert.equal((await f.handler(new Request('https://executor.example/v1/automation',{method}))).status,405);
  assert.equal((await f.handler(new Request('https://executor.example/admin'))).status,404);
- for(const body of [null,[],{action:'activate',walletAddress,executionReady:true},{action:'activate',walletAddress,custodyAuthorized:true},{action:'__proto__',walletAddress},
+ for(const body of [null,[],{action:'listForWorker'},{action:'activate',walletAddress,executionReady:true},{action:'activate',walletAddress,custodyAuthorized:true},{action:'__proto__',walletAddress},
   {action:'save',walletAddress,settings:{...settings,note:'x'.repeat(5000)}}])assert.equal((await f.handler(request(body))).status,400);
  for(const suffix of ['?walletAddress='+walletAddress+'&walletAddress='+walletAddress,'?walletAddress='+walletAddress+'&owner='+owner]){
   assert.equal((await f.handler(new Request('https://executor.example/v1/automation'+suffix,{headers:{Authorization:'Bearer '+token}}))).status,400);

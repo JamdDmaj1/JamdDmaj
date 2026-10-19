@@ -403,3 +403,63 @@ Fixture signatures belong only to ephemeral unfunded test identities and mocked
 RPC history, not production accounts or submitted transactions. This is a source
 correction, not installation/activation of a financial daemon, a new Android
 release, or completion of the live backup/execution/app integration gates above.
+
+## Worker lifecycle foundation, 2026-10-19
+
+`lib/perps-server-worker.js` now connects the durable private controls inventory
+to the bounded executor in paced, nonoverlapping cycles. It defaults to
+`maintenance`, which invokes only the executor's new `reconcileOnly` entry.
+That entry returns before entry-risk reads, signal selection, preparation,
+reservation, signing or broadcasting, even if a stored user consent is active.
+The separately selected private `execute` mode uses the existing complete
+executor gates and stored per-account activation; starting a loop never calls
+activation or provisioning. A host must still verify actual backup/readiness
+and provide the reviewed transports before exposing financial activation.
+
+The private `controls.listForWorker` pages both paused and enabled owners in
+binary wallet order (20 accounts per default batch, maximum 50). It returns no
+settings, challenge tokens or keys. Multiple wallet mappings for a single owner
+fail review instead of multiplying that owner's capital allowance. The entire
+page is validated before dispatch, and the API continues to reject inventory
+enumeration as an unknown action. The database schema is unchanged.
+
+The worker waits after every bounded page, including empty inventories. An
+account-level failure cannot starve later accounts or leak upstream error text
+into the aggregate report. Reports contain stage counts, not account identities
+or credentials. A failed inventory/status operation fails the loop instead of
+claiming it is healthy. `activationRequested: false` means no activation was
+requested by the worker, not that the risk manager cannot pause an account.
+
+One in-process promise is published before any dependency runs, preventing
+overlapping loops and synchronous callback reentry. Aborting the provided signal
+stops subsequent dispatches and waits for the already-running cycle to settle;
+it does not abandon a signing/broadcast operation via a timeout race. A host
+must wire process signals to that abort signal, await completion, and configure
+an appropriate stop grace period. Journal uncertainty survives independent
+worker instances and process restart; the loop has no resend shortcut.
+
+A full integration test uses real temporary custody/control/journal stores,
+published fixture signals, mocked read-only RPC/builder responses, and a mocked
+submission transport. Maintenance leaves an actively approved fixture untouched
+with zero feed, builder or signing/submission activity. Explicit execution
+produces exactly one mocked submission. A fresh worker then sees the durable
+`UNCERTAIN` reservation, reports reconciliation required, and never resends.
+No production key, real transaction or live financial endpoint is used.
+
+Verification: the full local suite passed **544 tests, 0 failed, 1 skipped**
+(545 total). On the approved VPS's Node 22.23.1, all **26** worker-lifecycle and
+full-preparation/execution fixture tests passed in a transient network-disabled
+dynamic-user sandbox with protected home, read-only system paths, private `/tmp`
+and a 384 MiB memory ceiling. Current bundles are under
+`/opt/jamddmaj-perps/checks/worker-lifecycle-dc0c50729335/`:
+
+- `perps-server-worker.test.mjs`, SHA-256
+  `dc0c50729335559cdb685354b1bf9920449c6adf09ffee39ebfb550923922ee6`.
+- `perps-server-preparation.test.mjs`, SHA-256
+  `5f8ebff0cb1a412347e65abc6898d3aeaf8da2b1c98e21089572b2a0890c843d`.
+
+This is the worker lifecycle library and verified integration, **not yet an
+installed executable production host or enabled systemd financial service**.
+No production master/wallet, actual backup/receipt gate, TLS registration,
+transport configuration, app publication, or user activation was inferred from
+these fixture results. Those end-to-end production gates remain incomplete.

@@ -19,6 +19,7 @@ import {createServerPerpsBroadcaster} from '../lib/perps-server-broadcast.js';
 import {createServerPerpsExecutor} from '../lib/perps-server-executor.js';
 import {readServerPerpsSignalFeed} from '../lib/perps-server-signal-feed.js';
 import {createPerpsCustodyProvisioner} from '../lib/perps-custody-provisioning.js';
+import {createServerPerpsWorker} from '../lib/perps-server-worker.js';
 const now=Date.parse('2026-10-18T12:00:00Z'),seconds=now/1000;
 const GENESIS='5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
 const u64=n=>{const b=Buffer.alloc(8);b.writeBigUInt64LE(BigInt(n));return b;};
@@ -394,6 +395,18 @@ test('complete executor cycle binds published Telegram signal to controls, simul
  assert.equal(f.calls.builder,1);assert.equal(f.calls.submit,1);assert.equal(f.calls.feed,4);
  const row=f.journal.readSignal(f.wallet.walletAddress,'custody-signal-1');assert.equal(row.state,'UNCERTAIN');assert.equal(row.signature,result.signature);
  const again=await f.executor.runOnce(f.args);assert.equal(again.stage,'RECONCILIATION_REQUIRED');assert.equal(f.calls.submit,1);
+});
+
+test('maintenance worker cannot use active consent to sign, while explicit execution and restart retain the one-send journal',async t=>{
+ const f=await executorFixture(t,{ownerIndexed:true}),reports=[];
+ const options={controls:f.controls,executor:f.executor,saveStatus:r=>reports.push(r)};
+ const maintenance=createServerPerpsWorker(options),first=await maintenance.run({once:true});
+ assert.equal(first.results.RECONCILIATION_ONLY,1);assert.equal(f.calls.feed,0);assert.equal(f.calls.builder,0);assert.equal(f.calls.submit,0);
+ const active=createServerPerpsWorker({...options,mode:'execute'}),submitted=await active.run({once:true});
+ assert.equal(submitted.results.BROADCAST_ACKNOWLEDGED,1);assert.equal(f.calls.submit,1);
+ const restarted=createServerPerpsWorker({...options,mode:'execute'}),next=await restarted.run({once:true});
+ assert.equal(next.results.RECONCILIATION_REQUIRED,1);assert.equal(f.calls.submit,1);
+ assert.equal(f.journal.pending(f.wallet.walletAddress)[0].state,'UNCERTAIN');assert.ok(reports.every(r=>r.activationRequested===false));
 });
 test('closed, unpublished, remotely paused or disabled automation never reaches preparation',async t=>{
  for(const changeFeed of [()=>executorFeed([{...publishedExecutorSignal(),status:'CLOSED'}]),()=>executorFeed([{...publishedExecutorSignal(),telegramMessageId:null}]),()=>executorFeed(undefined,true)]){
