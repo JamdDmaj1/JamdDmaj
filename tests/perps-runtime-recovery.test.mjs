@@ -11,7 +11,7 @@ import {openPerpsAutomationControls} from '../lib/perps-automation-controls.js';
 import {openPerpsExecutionJournal} from '../lib/perps-execution-journal.js';
 import {createPerpsCustodyMasterKey,openPerpsCustodyVault} from '../lib/perps-custody-vault.js';
 import {initializePerpsOperatorRecovery,createPerpsCustodyRecoveryArchive,restorePerpsCustodyRecoveryArchive} from '../lib/perps-custody-recovery.js';
-import {withLockedPerpsRuntimeRecoverySnapshot,readPerpsRuntimeRecoverySnapshot} from '../lib/perps-runtime-recovery.js';
+import {withLockedPerpsRuntimeRecoverySnapshot,readPerpsRuntimeRecoverySnapshot,inspectExistingPerpsRuntimeDatabases} from '../lib/perps-runtime-recovery.js';
 const allowNonPosixForTests=process.platform==='win32',ownerAccountHash='e'.repeat(64),now=Date.now(),day=new Date(now).toISOString().slice(0,10);
 const settings={capital:100,loss:90,positions:10,margin:10,leverage:3,dailyTrades:10};
 async function fixture(t){
@@ -91,6 +91,24 @@ test('snapshot locks both source databases, includes committed WAL rows and rele
  });
  assert.throws(()=>readPerpsRuntimeRecoverySnapshot(captured));
  for(const path of [f.controlsPath,f.journalPath]){const db=new DatabaseSync(path,{timeout:0});try{db.exec('BEGIN IMMEDIATE;ROLLBACK;');}finally{db.close();}}
+});
+
+test('encrypted recovery preserves uncertain cancellation identities and the startup gate refuses automatic legacy migration',async t=>{
+ for(const state of ['SIGNING','UNCERTAIN']){
+  const f=await fixture(t),raw=new DatabaseSync(f.journalPath),parent=f.journal.read('open'),address=JSON.parse(parent.entry_exit_plan).exits[0].address;
+  raw.prepare('INSERT INTO perps_exit_cancellations(id,address,reservation,wallet,state,created,updated,fee_lamports,wire_hash,signature) VALUES(?,?,?,?,?,?,?,?,?,?)')
+   .run('recovery-cancel',address,'open',f.wallet.walletAddress,state,now,now,15200,state==='UNCERTAIN'?'a'.repeat(64):null,state==='UNCERTAIN'?bs58.encode(Buffer.alloc(64,80)):null);raw.close();
+  const archive=await createPerpsCustodyRecoveryArchive(f.request),restored=await restorePerpsCustodyRecoveryArchive({...f.restore,ciphertext:archive.ciphertext});
+  const store=openPerpsExecutionJournal(join(restored.runtimeDirectory,'journal.sqlite'),{now:()=>now});f.restoredStores.push(store);
+  assert.deepEqual(store.readExitCancellation('recovery-cancel'),f.journal.readExitCancellation('recovery-cancel'));
+  assert.equal(store.pendingExitCancellations(f.wallet.walletAddress).length,1);assert.equal(store.read('open').state,'OPEN');
+ }
+ const f=await fixture(t),raw=new DatabaseSync(f.journalPath);raw.exec('DROP TABLE perps_exit_cancellations');raw.close();
+ assert.throws(()=>inspectExistingPerpsRuntimeDatabases({...f.runtimePaths,...f.common}));
+ const check=new DatabaseSync(f.journalPath,{readOnly:true});assert.equal(check.prepare("SELECT count(*) AS n FROM sqlite_master WHERE name='perps_exit_cancellations'").get().n,0);check.close();
+ // A recognized old archive remains recoverable; startup itself never upgrades it.
+ const archive=await createPerpsCustodyRecoveryArchive(f.request);assert.equal(archive.runtimeStateIncluded,true);
+ const restored=await restorePerpsCustodyRecoveryArchive({...f.restore,ciphertext:archive.ciphertext});assert.equal(restored.readyForSigning,false);
 });
 
 test('backup lock contention never changes live policy and releases previously acquired locks after failure',async t=>{

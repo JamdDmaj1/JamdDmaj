@@ -10,7 +10,8 @@ export async function cancellationFixture(cleanup,{legacyClose=false,createAta=f
  const derive=async who=>(await getProgramDerivedAddress({programAddress:ATA,seeds:[bs58.decode(who),bs58.decode(TOKEN),bs58.decode(mint)]}))[0];
  const [ownerAta,requestAta,ids]=await Promise.all([derive(owner),derive(exit),deriveServerPerpsIdentities({walletAddress:owner,asset:'SOL',side:'LONG'})]);
  const apiPrivate=createPrivateKey({key:Buffer.concat([Buffer.from('302e020100300506032b657004220420','hex'),Buffer.alloc(32,23)]),format:'der',type:'pkcs8'});
- const api=bs58.encode(createPublicKey(apiPrivate).export({format:'der',type:'spki'}).subarray(-32)),keeper=bs58.encode(Buffer.alloc(32,42));
+ const keeperPrivate=createPrivateKey({key:Buffer.concat([Buffer.from('302e020100300506032b657004220420','hex'),Buffer.alloc(32,42)]),format:'der',type:'pkcs8'});
+ const api=bs58.encode(createPublicKey(apiPrivate).export({format:'der',type:'spki'}).subarray(-32)),keeper=bs58.encode(createPublicKey(keeperPrivate).export({format:'der',type:'spki'}).subarray(-32));
  const writable=[ownerAta,PERPS_POOL,exit,...versioned?[]:[requestAta]],readonly=[ids.position,mint,TOKEN,SYSTEM,ATA,ids.eventAuthority,PERPS_PROGRAM,COMPUTE];
  const keys=[owner,keeper,api,...writable,...readonly],resolvedKeys=[...keys,...versioned?[requestAta]:[]],index=key=>resolvedKeys.indexOf(key);
  const limit=Buffer.alloc(5);limit[0]=2;limit.writeUInt32LE(200000,1);
@@ -65,4 +66,20 @@ export function cancellationSimulationFixture(inspection,{requestAccount,positio
   throw Error('unexpected fixture-only simulation method');
  };
  return {state,calls,request};
+}
+
+export function cancellationReceiptFixture(inspection,now,{err=null,confirmationStatus='finalized',slot=499999}={}){
+ const ownerPrivate=createPrivateKey({key:Buffer.concat([Buffer.from('302e020100300506032b657004220420','hex'),Buffer.alloc(32,68)]),format:'der',type:'pkcs8'});
+ const keeperPrivate=createPrivateKey({key:Buffer.concat([Buffer.from('302e020100300506032b657004220420','hex'),Buffer.alloc(32,42)]),format:'der',type:'pkcs8'});
+ if(bs58.encode(createPublicKey(ownerPrivate).export({format:'der',type:'spki'}).subarray(-32))!==inspection.walletAddress)throw Error('UNFUNDED_FIXTURE_IDENTITY_ONLY');
+ const wire=Buffer.from(inspection.envelope.serializedTxBase64,'base64'),message=wire.subarray(193);
+ sign(null,message,ownerPrivate).copy(wire,1);const partial=Buffer.from(wire);sign(null,message,keeperPrivate).copy(wire,65);
+ const record={walletAddress:inspection.walletAddress,signature:bs58.encode(wire.subarray(1,65)),wireHash:createHash('sha256').update(partial).digest('hex')};
+ const status={slot,confirmationStatus,err},transaction={slot,blockTime:now/1000-1,transaction:[wire.toString('base64'),'base64'],meta:{err}};
+ const calls=[],request=async(method,params)=>{calls.push({method,params});
+  if(method==='getGenesisHash')return '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
+  if(method==='getSignatureStatuses')return {context:{slot:500010},value:[status]};if(method==='getTransaction')return transaction;
+  throw Error('unexpected fixture-only receipt method');
+ };
+ return {record,status,transaction,request,calls};
 }

@@ -1283,3 +1283,61 @@ submit a real financial transaction, activate the bot, change production service
 flags, or release an app/worker update. Runtime cleanup integration, live unsigned
 compatibility, authorization and crash-safe cancellation reconciliation remain
 incomplete; trading readiness is still not established.
+
+## Durable cancellation restart ledger, 2026-10-19
+
+Added a separate cancellation-attempt table within the execution journal. A
+fresh private simulation/inspection/cleanup chain must match the exact durable
+OPEN entry, signed entry identity, original exit plan and request binding before
+SIGNING is persisted. It grants no signing permission. Only one unresolved
+attempt per wallet and one non-failed attempt per request can exist. Signed
+identity is recorded as UNCERTAIN before any future send capability. A duplicate
+identity is rejected, including after a finalized failed attempt.
+
+Restart recovery queries only recorded signatures and requires finalized,
+identity-verified receipts. Missing history, timeout, confirmed-only status and
+SIGNING without a known signature never clear the record or prepare a retry.
+A finalized failure permits a new separately recorded, freshly simulated attempt;
+there is no replacement-builder or sender in this recovery module. Even a
+successful finalized cancellation leaves the parent entry OPEN. Its capital can
+only be released by the separate finalized-closure proof, after all requests are
+absent at a bank at least as new as every recorded cancellation confirmation.
+
+The executor's maintenance path now reconciles these attempts before deciding
+whether entries may run. Pending cancellation records also block reservation,
+entry signing revalidation and activation checks. Conversely, cancellation setup
+cannot race a SIGNING/UNCERTAIN entry. No cancellation signer or sender has been
+connected; the runtime still cannot perform a complete automatic cleanup.
+
+Recovery snapshots preserve the cancellation records. The new exact journal
+schema hash is
+`60e023d5a9fa36ae45b37402ad3956d2a9a8ab906b7df143f96d7ed89802591f`.
+The previous known journal schema remains accepted for encrypted backup/restore,
+but is refused by the new runtime startup preflight without migration. Startup
+does not silently upgrade production. Cancellation wallet/entry/request bindings
+are checked in backup inventory. Before deploying this worker version, an
+explicit paused-store migration and a newly verified complete backup are still
+required. The actual production stores were not changed in this step.
+
+Three new selected durable/recovery cases passed on actual VPS Node 22 in a
+network-disabled DynamicUser transient unit with unfunded temporary state; none
+skipped. Tests cover independent connections, crashes before/after signature
+identity, duplicate attempts, unknown/confirmed-only/finalized outcomes,
+unreleased parent risk, native-absence ordering, encrypted restoration and
+legacy preflight refusal. Test signatures use deterministic unfunded fixture
+keys, never the real owner's wallet. The final full local suite exited 0 with
+existing optional/platform skips. Artifacts:
+`/opt/jamddmaj-perps/checks/exit-cancellation-journal-20261019/`.
+Journal source SHA-256:
+`d508324a2da912962c0236efc4ee62343394fbb78d868f61b537056413e95349`.
+Cancellation recovery source SHA-256:
+`ec68c0ed2325ca2b67402f98cd8439149e61497612135056e32c297b0ffa9ba6`.
+Runtime recovery source SHA-256:
+`291b27dd229a75a984a8286a5deea243fd1d373e7984a08057cd0ccce98a77b7`.
+
+Normal production HTTPS health was rechecked: 200, controls-only,
+executionAvailable=false, tradingEnabled=false. No production migration,
+activation, real signature, financial submission, app release or worker
+installation occurred. Narrow cancellation authorization/key-use, one-send
+transport, non-trade cancellation daily-account handling, live unsigned
+compatibility and final integrated release verification remain incomplete.

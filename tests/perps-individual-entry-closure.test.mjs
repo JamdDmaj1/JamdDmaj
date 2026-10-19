@@ -15,8 +15,9 @@ import {openPerpsExecutionJournal} from '../lib/perps-execution-journal.js';
 import {canonicalServerPerpsEntryExitPlan} from '../lib/perps-entry-exit-plan.js';
 import {createServerPerpsExecutor} from '../lib/perps-server-executor.js';
 import {inspectServerPerpsExitCancellation,requireInspectedPerpsExitCancellation} from '../lib/perps-exit-cancellation.js';
-import {cancellationFixture,cancellationSimulationFixture} from './helpers/perps-cancellation-fixture.mjs';
+import {cancellationFixture,cancellationSimulationFixture,cancellationReceiptFixture} from './helpers/perps-cancellation-fixture.mjs';
 import {simulateServerPerpsExitCancellation,requireSimulatedPerpsExitCancellation} from '../lib/perps-exit-cancellation-simulation.js';
+import {reconcilePendingPerpsExitCancellations} from '../lib/perps-exit-cancellation-recovery.js';
 const genesis='5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d',tokenProgram='TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
 const baseIdentity=await deriveServerPerpsIdentities({walletAddress:wallet,asset:'SOL',side:'LONG'});
 const derivedRequests=await Promise.all([1n,2n,3n].map(async counter=>{
@@ -262,6 +263,56 @@ test('cancellation effects reject missing closures, diverted balances, altered n
  const expired=cancellationSimulationFixture(inspection,options),request=async(method,params)=>{const value=await expired.request(method,params);if(method==='simulateTransaction')f.expire();return value;};
  await assert.rejects(simulateServerPerpsExitCancellation(inspection,{request}));assert.equal(f.journal.read('entry-0').state,'OPEN');
  await assert.rejects(simulateServerPerpsExitCancellation({...inspection},expired));
+});
+
+test('durable cancellation attempts survive restart, never resend unknown signatures and release no parent risk on acknowledgement',async t=>{
+ const f=await fixture(t,{liveSibling:true}),{inspection,options}=await inspectedCancellation(f),simulation=await simulateServerPerpsExitCancellation(inspection,cancellationSimulationFixture(inspection,options));
+ assert.throws(()=>f.journal.beginExitCancellation('forged',{...simulation}));
+ const first=f.journal.beginExitCancellation('cancel-1',simulation);assert.equal(first.state,'SIGNING');
+ assert.throws(()=>f.journal.beginExitCancellation('cancel-2',simulation));assert.throws(()=>f.journal.cancelUnsigned('cancel-1'));
+ const reopened=openPerpsExecutionJournal(f.path,{now:()=>now});
+ try{
+  assert.equal(reopened.pendingExitCancellations(wallet).length,1);
+  assert.throws(()=>reopened.reserve({walletAddress:wallet,signalId:'blocked-new-entry',reservationId:'blocked-new-entry',marginUsd:'10',limits:f.limits,snapshot:f.snapshot}),/RECONCILIATION_REQUIRED/);
+  const manual=await reconcilePendingPerpsExitCancellations(reopened,wallet,{request:async()=>{throw Error('must not read without a signature');},now:()=>now});
+  assert.equal(manual.manualReview,1);assert.equal(manual.checked,0);
+  const receipt=cancellationReceiptFixture(inspection,now,{confirmationStatus:'confirmed'});
+  assert.equal(reopened.recordExitCancellationBroadcastIntent('cancel-1',receipt.record).state,'UNCERTAIN');
+  assert.throws(()=>reopened.recordExitCancellationBroadcastIntent('cancel-1',receipt.record));
+  const unknown=await reconcilePendingPerpsExitCancellations(reopened,wallet,{request:async(method,params)=>method==='getSignatureStatuses'?{context:{slot:500010},value:[null]}:receipt.request(method,params),now:()=>now});
+  assert.equal(unknown.unresolved,1);assert.equal(reopened.readExitCancellation('cancel-1').state,'UNCERTAIN');
+  const confirmedOnly=await readPerpsBroadcastReceipt(receipt.record,receipt.request,{now:()=>now});assert.throws(()=>reopened.reconcileExitCancellation('cancel-1',confirmedOnly));
+  assert.equal((await reconcilePendingPerpsExitCancellations(reopened,wallet,{request:receipt.request,now:()=>now})).unresolved,1);
+  const closure=await readServerPerpsPositionClosure(f.journal.read('entry-0'),{...f.options,request:async(method,params)=>{
+   if(method==='getMultipleAccounts'&&params[0].length===2)return {context:{slot:500000},value:[null,null]};return f.request(method,params);
+  }});
+  assert.throws(()=>reopened.reconcileClosedPosition('entry-0',closure));
+  receipt.status.confirmationStatus='finalized';const finalized=await readPerpsBroadcastReceipt(receipt.record,receipt.request,{now:()=>now,requireFinalized:true});
+  assert.throws(()=>reopened.reconcileExitCancellation('cancel-1',{...finalized}));
+  assert.equal((await reconcilePendingPerpsExitCancellations(reopened,wallet,{request:receipt.request,now:()=>now})).confirmed,1);
+  assert.equal(reopened.readExitCancellation('cancel-1').state,'CONFIRMED');assert.equal(reopened.read('entry-0').state,'OPEN');
+  assert.equal(reopened.riskState(wallet).activeMarginUsdcUnits,'20000000');
+  assert.equal(reopened.reconcileClosedPosition('entry-0',closure).state,'CLOSED');assert.equal(reopened.riskState(wallet).activeMarginUsdcUnits,'10000000');
+  assert.ok(receipt.calls.every(call=>!['sendTransaction','simulateTransaction'].includes(call.method)));
+ }finally{reopened.close();}
+});
+
+test('only finalized cancellation failure allows a fresh separately recorded attempt; late absence cannot predate confirmation',async t=>{
+ const f=await fixture(t,{liveSibling:true}),{inspection,options}=await inspectedCancellation(f),simulation=await simulateServerPerpsExitCancellation(inspection,cancellationSimulationFixture(inspection,options));
+ f.journal.beginExitCancellation('failed-attempt',simulation);
+ const receipt=cancellationReceiptFixture(inspection,now,{err:{InstructionError:[2,'Custom']}});
+ f.journal.recordExitCancellationBroadcastIntent('failed-attempt',receipt.record);
+ assert.equal((await reconcilePendingPerpsExitCancellations(f.journal,wallet,{request:receipt.request,now:()=>now})).failed,1);
+ assert.equal(f.journal.read('entry-0').state,'OPEN');assert.equal(f.journal.beginExitCancellation('new-attempt',simulation).state,'SIGNING');
+ // The exact previously attempted transaction identity may never be reused.
+ assert.throws(()=>f.journal.recordExitCancellationBroadcastIntent('new-attempt',receipt.record));
+ assert.equal(f.journal.readExitCancellation('new-attempt').state,'SIGNING');assert.equal(f.journal.riskState(wallet).activeMarginUsdcUnits,'20000000');
+ const g=await fixture(t,{liveSibling:true}),next=await inspectedCancellation(g),second=await simulateServerPerpsExitCancellation(next.inspection,cancellationSimulationFixture(next.inspection,next.options));
+ g.journal.beginExitCancellation('later-confirmation',second);const late=cancellationReceiptFixture(next.inspection,now,{slot:500001});
+ g.journal.recordExitCancellationBroadcastIntent('later-confirmation',late.record);
+ await reconcilePendingPerpsExitCancellations(g.journal,wallet,{request:late.request,now:()=>now});
+ const earlier=await readServerPerpsPositionClosure(g.journal.read('entry-0'),{...g.options,request:async(method,params)=>method==='getMultipleAccounts'&&params[0].length===2?{context:{slot:500000},value:[null,null]}:g.request(method,params)});
+ assert.throws(()=>g.journal.reconcileClosedPosition('entry-0',earlier));assert.equal(g.journal.read('entry-0').state,'OPEN');
 });
 
 test('executor stops new entries on orphan triggers or legacy unresolved bindings without signing or cancelling anything',async t=>{
