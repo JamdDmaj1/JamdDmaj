@@ -768,3 +768,68 @@ The production controls process was not replaced. Source composition does not
 prove production provisioning/admission/shared-state ownership, real owner backup,
 app activation UI, orphan-exit cleanup, manual futures, identity-route publication,
 APK publication or device end-to-end behavior. Those remain required.
+
+## CLI access recovery and verified web publication, 2026-10-19
+
+The owner completed the local Vercel login. CLI 64.7.0 confirmed user
+`jamddmaj1`, team `jamd-dmaj-s-projects` / `team_JORXYGzaQKli6kcSkgcGRU33`,
+and explicit project inspection confirmed `jamd-dmaj` /
+`prj_MDNgTRQMQhZHy0Np4HuKiqTKbsjd`. This resolves the operational access
+blocker through the CLI; it is not proof that the separate connector's cached
+authorization changed. No login credentials or token files were read.
+
+Before release, production inspection identified the October 13 deployment
+`dpl_F9RMK47ZTA8fvoho41X5gQdHTxHU` behind `www.jamddmaj.com`. Its missing
+identity route was the concrete transport break. The new secret-free prebuilt
+packager uses the existing web build and Edge runtime, preserving all existing
+29 API routes, 57 web assets, and global security headers. No runtime migration,
+financial worker or schedule is introduced. Builds receive only OS executable/
+temporary-directory variables, not service/session/provider credentials; Edge
+runtime variables are declared by source-derived names, never embedded values.
+The fresh candidate directory contains only generated static/function artifacts,
+public project IDs and private provenance metadata outside the public static
+tree. It excludes native edits, screenshots, local keys and untracked probes.
+This is not a signing CI run or a remote install/build with secrets.
+
+Candidate source: `ce8658938c05d2dea0d625319fea41c59a04cb00`.
+Private local packaging directory:
+`C:/Users/JamdDmaj/Desktop/jamddmaj-trading-release/.perps-build/vercel-ce86589-candidate`.
+Manifest SHA-256:
+`dc4bdb7cfc592f7a8a9e8f4fcce99e7d7577d7702fe29925e4b8f3de84da2428`.
+Full local tests: **582 passed, zero failed, three skipped** (585 total,
+including the existing untracked local probe, which is not a committed CI case).
+
+The prebuilt candidate was staged with production environment and `--skip-domain`
+as `dpl_6XNJNzMK5z3essSVKpVAwS715u7L`:
+`https://jamd-dmaj-6jyxrh81d-jamd-dmaj-s-projects.vercel.app`.
+Vercel still assigned its team convenience alias automatically. The custom
+`www` domain was confirmed unchanged, and the convenience alias was explicitly
+restored to the exact previous deployment before testing. Protected requests
+used the CLI's own deployment-protection support; its automatically generated
+project bypass credential was not printed or read, and protection was not
+disabled. An initial CLI call misplaced `--cwd` as a curl argument and failed
+before reaching the route; the corrected calls used the candidate working
+directory and global scope before `curl`.
+
+The staged homepage returned 200 with the existing security headers, status
+returned 200 with `ready:true` / `webVersion:1.37.99`, and identity returned the
+application's JSON 401 `login-required` both without a bearer session and with
+an invented invalid fixture session. It did not return a protection login page,
+404, or a fabricated authenticated account. No real user's session was accessed.
+
+After those checks, the exact staged production deployment was promoted without
+rebuilding. Explicit inspection of `https://www.jamddmaj.com` now resolves to
+`dpl_6XNJNzMK5z3essSVKpVAwS715u7L`, READY. Public fetches verify homepage and
+`/lib/perps-control-client.js` byte hashes equal the candidate manifest. Public
+status returns 200; public identity returns JSON 401/no-store rather than 404.
+The VPS also reaches that fixed identity URL over normal verified TLS. HTTPS
+and controls remain active; Bitget remains inactive/disabled, and control health
+still reports all financial/provisioning capabilities false.
+
+This publishes the **web and Edge API update only**, not an Android APK or the
+financial runtime. The owner was asked to use the existing authenticated
+`Consultar servidor` action and report its message, without activation/funding
+or sharing session values. A real authenticated success remains unverified.
+Production custody/admission and backup, runtime installation, app activation,
+orphan-exit cleanup, manual futures and device/Android verification remain open.
+No transaction was signed/submitted or production bot activated by this release.
