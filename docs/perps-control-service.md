@@ -1439,3 +1439,63 @@ daily accounting for non-trade cancellation transactions, a safe pre-sign failur
 lifecycle (so async validation cannot strand a never-signed attempt), live
 unsigned compatibility, paused migration/new recovery verification and the full
 manual/automatic trading and release audit. Trading is not yet ready.
+
+## Execute-only cleanup coordinator and provably unsigned failures, 2026-10-19
+
+Integrated a bounded one-request coordinator into the execute-mode runtime and
+executor. It obtains a finalized private orphan proof from a journalled entry,
+prepares the exact request through a fixed bounded unsigned DELETE /v2/tpsl
+builder, checks owner/request metadata and transaction version, then runs wire
+inspection, effects simulation, authorization, purpose-specific custody signing
+and the one-attempt broadcaster. Each asynchronous boundary rechecks controls,
+backup and runtime readiness. Existing pending entries/cancellations or unknown
+position evidence block dispatch. One cycle never continues into a new entry
+after a cleanup attempt. A surviving sibling is handled in a later reconciled
+cycle, not an unbounded batch of sends.
+
+Maintenance/read-only execution has no coordinator or cancellation signer;
+mode execute still needs explicit process configuration and an actually running
+worker. Pausing new entries does not prevent cleanup of an already-proven closed
+entry's orphan. It does not activate the bot or request closure of open positions.
+The native funding reader used for cleanup is distinct from daily entry-risk
+accounting. Worker reports whitelist only bounded result stages, not wallet data.
+The backend guidance was used to retain the existing persistent single-host VPS
+and private SQLite design, not move custody into stateless Vercel requests.
+
+Cancellation records now begin PREPARED, which cannot reach any key. Successful
+authorization atomically persists SIGNING only after asynchronous checks finish;
+a second authorization for that SIGNING attempt is refused. PREPARED failures
+can be cancelled safely by the coordinator or restart recovery; SIGNING and
+UNCERTAIN cannot. This avoids stranding never-signed attempts when an RPC check
+or proof lease expires before authorization. Both entry reservation/signing and
+activation see PREPARED as pending risk work.
+
+Latest journal schema hash:
+`0f4ab1216a89d4d32e97af1c98707943d2add7702150ba577f206fe19f9a41d7`.
+Both recognized prior schemas remain recoverable, but startup requires this
+latest schema and will not migrate production implicitly. The actual VPS stores
+were not upgraded. The earlier staged cancellation schema was never installed
+in the production worker.
+
+Seven selected cases passed on VPS Node 22 in a network-disabled DynamicUser
+unit, with no skipped selected tests. They cover the complete mock-builder/
+mock-send coordinator path with encrypted synthetic custody and verified backup,
+safe unsigned failure cleanup, retained signing/transport uncertainty, default
+runtime isolation, explicit execution requirements, encrypted recovery and
+maintenance versus execute dispatch. The full local suite exited 0 with existing
+optional/platform skips. Artifacts:
+`/opt/jamddmaj-perps/checks/exit-cleanup-coordinator-20261019/`.
+Coordinator source SHA-256:
+`65a0a96908f8822c5beaf1d5ebf8811dc850c9963d93fe6c9064c2da5718690e`.
+Journal source SHA-256:
+`85500cb105af266aefa44c7a88e03ac87636e83afd6a973c8d340bbbce7eb5df`.
+Authorization source SHA-256:
+`9545b6f1ca28e63a4ba9bf6552f1c1046f437e224c681355b2388ef9e1928ba9`.
+
+No real cancellation builder/execute call, financial key use, bot activation,
+production migration, worker installation or app release occurred. Remaining
+audit includes daily-account handling of non-trade cancellation receipts,
+cached-template rejection before re-signing a previously failed attempt, live
+unsigned compatibility, paused schema migration with a fresh verified recovery
+archive, and the complete manual/automatic trading and publication requirements.
+These mock-flow tests are not a claim that production trading is ready.

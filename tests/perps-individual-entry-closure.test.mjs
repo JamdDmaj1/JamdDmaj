@@ -25,6 +25,7 @@ import {openPerpsBackupRegistry} from '../lib/perps-backup-registry.js';
 import {initializePerpsOperatorRecovery,createPerpsCustodyRecoveryArchive,restorePerpsCustodyRecoveryArchive} from '../lib/perps-custody-recovery.js';
 import {readServerPerpsAccount} from '../lib/perps-server-account.js';
 import {createServerPerpsExitCancellationBroadcaster} from '../lib/perps-exit-cancellation-broadcast.js';
+import {createServerPerpsExitCleanupCoordinator} from '../lib/perps-exit-cleanup.js';
 const genesis='5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d',tokenProgram='TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
 const baseIdentity=await deriveServerPerpsIdentities({walletAddress:wallet,asset:'SOL',side:'LONG'});
 const derivedRequests=await Promise.all([1n,2n,3n].map(async counter=>{
@@ -266,6 +267,35 @@ async function signedCancellation(f){
   args:{ownerAccountHash:custody.ownerAccountHash,controlRevision:custody.args.controlRevision}};
 }
 
+async function cleanupCoordinatorFixture(f,{mode='ok'}={}){
+ const custody=await custodyForCancellation(f),cleanup=await readServerPerpsExitCleanup(f.journal.read('entry-0'),f.options),c=await cancellationFixture(cleanup);
+ const inspection=await inspectServerPerpsExitCancellation(c.preparation,cleanup,c),native=(await f.request('getMultipleAccounts',[plan.exits.map(exit=>exit.address),{}])).value[1];
+ const position=(await f.request('getMultipleAccounts',[Array(8).fill(wallet),{}])).value[6];
+ const simulation=cancellationSimulationFixture(inspection,{requestAccount:native,positionAccount:position}),calls={builder:0,signer:0,send:0};
+ const request=async(method,params)=>{
+  if(['getSignatureStatuses','getTransaction','getSignaturesForAddress'].includes(method))return f.request(method,params);
+  if(method==='getMultipleAccounts'&&(params[0].length===8||params[0][0]===keys[0]))return f.request(method,params);
+  return simulation.request(method,params);
+ };
+ const coordinator=createServerPerpsExitCleanupCoordinator({controls:custody.controls,journal:f.journal,backupRegistry:custody.registry,
+  vault:{describe:identity=>custody.vault.describe(identity),signExitCancellation:grant=>{calls.signer++;if(mode==='signer-failure')throw Error('unknown signer failure');return custody.vault.signExitCancellation(grant);}},
+  rpcRequest:request,readFinalizedAccount:async()=>f.account,
+  readAccount:mode==='poor'?()=>readServerPerpsAccount({walletAddress:wallet},{now:()=>now,monotonicNow:()=>0,request:async(method,params)=>{
+   const response=await f.request(method,params);if(method==='getMultipleAccounts'&&params[0].length===8){response.value=structuredClone(response.value);response.value[0].lamports=1000;}return response;
+  }}):custody.args.readAccount,
+  isExecutionRunning:()=>custody.state.running,now:()=>now,monotonicNow:()=>0,
+  builderRequest:async(url,options)=>{calls.builder++;assert.equal(url,'https://perps-api.jup.ag/v2/tpsl');assert.equal(options.method,'DELETE');assert.equal(options.redirect,'error');
+   assert.deepEqual(JSON.parse(options.body),{positionRequestPubkey:keys[1]});
+   if(mode==='changed-controls'){const state=custody.controls.read({ownerAccountHash:custody.ownerAccountHash,walletAddress:wallet});custody.controls.save({ownerAccountHash:custody.ownerAccountHash,walletAddress:wallet,expectedRevision:state.revision,settings:{...state.settings,dailyTrades:4}});}
+   return Response.json({...c.preparation,requireKeeperSignature:mode!=='bad-builder',transactionType:'legacy'});
+  },
+  fetchImpl:async(url,options)=>{calls.send++;assert.equal(url,'https://perps-api.jup.ag/v2/transaction/execute');assert.equal(JSON.parse(options.body).action,'cancel-tpsl');
+   const [row]=f.journal.pendingExitCancellations(wallet);assert.equal(row.state,'UNCERTAIN');if(mode==='send-failure')throw Error('private service details');
+   return Response.json({action:'cancel-tpsl',txid:row.signature});}
+ });
+ return {coordinator,custody,calls,args:{ownerAccountHash:custody.ownerAccountHash,walletAddress:wallet}};
+}
+
 test('exact-wire orphan cancellation simulation returns all USDC and rent, preserves pool/positions and grants no authority',async t=>{
  for(const positionClosed of [false,true])for(const newOwnerAta of [false,true])for(const versioned of [false,true])for(const requestTokens of [0n,2500000n]){
   const f=await fixture(t,{liveSibling:true,positionClosed}),{c,inspection,options}=await inspectedCancellation(f,{newOwnerAta,versioned});
@@ -311,7 +341,7 @@ test('cancellation effects reject missing closures, diverted balances, altered n
 test('durable cancellation attempts survive restart, never resend unknown signatures and release no parent risk on acknowledgement',async t=>{
  const f=await fixture(t,{liveSibling:true}),{inspection,options}=await inspectedCancellation(f),simulation=await simulateServerPerpsExitCancellation(inspection,cancellationSimulationFixture(inspection,options));
  assert.throws(()=>f.journal.beginExitCancellation('forged',{...simulation}));
- const first=f.journal.beginExitCancellation('cancel-1',simulation);assert.equal(first.state,'SIGNING');
+ const first=f.journal.beginExitCancellation('cancel-1',simulation);assert.equal(first.state,'PREPARED');f.journal.beginExitCancellationSigning('cancel-1',simulation);
  assert.throws(()=>f.journal.beginExitCancellation('cancel-2',simulation));assert.throws(()=>f.journal.cancelUnsigned('cancel-1'));
  const reopened=openPerpsExecutionJournal(f.path,{now:()=>now});
  try{
@@ -343,15 +373,16 @@ test('durable cancellation attempts survive restart, never resend unknown signat
 test('only finalized cancellation failure allows a fresh separately recorded attempt; late absence cannot predate confirmation',async t=>{
  const f=await fixture(t,{liveSibling:true}),{inspection,options}=await inspectedCancellation(f),simulation=await simulateServerPerpsExitCancellation(inspection,cancellationSimulationFixture(inspection,options));
  f.journal.beginExitCancellation('failed-attempt',simulation);
+ f.journal.beginExitCancellationSigning('failed-attempt',simulation);
  const receipt=cancellationReceiptFixture(inspection,now,{err:{InstructionError:[2,'Custom']}});
  f.journal.recordExitCancellationBroadcastIntent('failed-attempt',receipt.record);
  assert.equal((await reconcilePendingPerpsExitCancellations(f.journal,wallet,{request:receipt.request,now:()=>now})).failed,1);
- assert.equal(f.journal.read('entry-0').state,'OPEN');assert.equal(f.journal.beginExitCancellation('new-attempt',simulation).state,'SIGNING');
+ assert.equal(f.journal.read('entry-0').state,'OPEN');assert.equal(f.journal.beginExitCancellation('new-attempt',simulation).state,'PREPARED');f.journal.beginExitCancellationSigning('new-attempt',simulation);
  // The exact previously attempted transaction identity may never be reused.
  assert.throws(()=>f.journal.recordExitCancellationBroadcastIntent('new-attempt',receipt.record));
  assert.equal(f.journal.readExitCancellation('new-attempt').state,'SIGNING');assert.equal(f.journal.riskState(wallet).activeMarginUsdcUnits,'20000000');
  const g=await fixture(t,{liveSibling:true}),next=await inspectedCancellation(g),second=await simulateServerPerpsExitCancellation(next.inspection,cancellationSimulationFixture(next.inspection,next.options));
- g.journal.beginExitCancellation('later-confirmation',second);const late=cancellationReceiptFixture(next.inspection,now,{slot:500001});
+ g.journal.beginExitCancellation('later-confirmation',second);g.journal.beginExitCancellationSigning('later-confirmation',second);const late=cancellationReceiptFixture(next.inspection,now,{slot:500001});
  g.journal.recordExitCancellationBroadcastIntent('later-confirmation',late.record);
  await reconcilePendingPerpsExitCancellations(g.journal,wallet,{request:late.request,now:()=>now});
  const earlier=await readServerPerpsPositionClosure(g.journal.read('entry-0'),{...g.options,request:async(method,params)=>method==='getMultipleAccounts'&&params[0].length===2?{context:{slot:500000},value:[null,null]}:g.request(method,params)});
@@ -381,8 +412,11 @@ test('cancellation authority rejects missing runtime approval, forged bank/backu
  for(const change of [{isExecutionRunning:()=>false},{ownerAccountHash:'b'.repeat(64)},{backupRegistry:{readVerified:()=>({backupVerified:true})}},
   {readAccount:async()=>({...await custody.args.readAccount()})},{walletAddress:keys[2]}])await assert.rejects(authorizeServerPerpsExitCancellation(simulation,{...args,...change}));
  const expired=await authorizeServerPerpsExitCancellation(simulation,args);custody.state.mono=2001;assert.throws(()=>custody.vault.signExitCancellation(expired));custody.state.mono=0;
- const quarantined=await authorizeServerPerpsExitCancellation(simulation,args);
- writeFileSync(join(custody.directory,PERPS_CUSTODY_RESTORE_REVIEW_MARKER),'{}',{mode:0o600});assert.throws(()=>custody.vault.signExitCancellation(quarantined));
+ await assert.rejects(authorizeServerPerpsExitCancellation(simulation,args)); // Never mint another grant after SIGNING, even if unused/expired.
+ const g=await fixture(t,{liveSibling:true}),restored=await custodyForCancellation(g),next=await inspectedCancellation(g),nextFixture=cancellationSimulationFixture(next.inspection,next.options);
+ const nextSimulation=await simulateServerPerpsExitCancellation(next.inspection,nextFixture);g.journal.beginExitCancellation('quarantine-cancel',nextSimulation);
+ const quarantined=await authorizeServerPerpsExitCancellation(nextSimulation,{...restored.args,cancellationId:'quarantine-cancel',request:nextFixture.request});
+ writeFileSync(join(restored.directory,PERPS_CUSTODY_RESTORE_REVIEW_MARKER),'{}',{mode:0o600});assert.throws(()=>restored.vault.signExitCancellation(quarantined));
  assert.equal(f.journal.readExitCancellation('gated-cancel').state,'SIGNING');
 });
 
@@ -465,6 +499,36 @@ test('concurrent cancellation submissions cannot both pass the durable SIGNING t
  assert.equal(calls,1);assert.equal(f.journal.readExitCancellation('broadcast-cancel').state,'UNCERTAIN');
 });
 
+test('prepared cancellation failures and restart discard only provably unsigned attempts, never SIGNING',async t=>{
+ const f=await fixture(t,{liveSibling:true}),{inspection,options}=await inspectedCancellation(f),simulation=await simulateServerPerpsExitCancellation(inspection,cancellationSimulationFixture(inspection,options));
+ f.journal.beginExitCancellation('before-authorization',simulation);
+ const result=await reconcilePendingPerpsExitCancellations(f.journal,wallet,{request:async()=>{throw Error('unsigned recovery must not query a signature');},now:()=>now});
+ assert.equal(result.cancelledUnsigned,1);assert.equal(f.journal.readExitCancellation('before-authorization').state,'CANCELLED');
+ f.journal.beginExitCancellation('after-authorization',simulation);f.journal.beginExitCancellationSigning('after-authorization',simulation);
+ assert.throws(()=>f.journal.cancelPreparedExitCancellation('after-authorization'));assert.equal(f.journal.readExitCancellation('after-authorization').state,'SIGNING');
+});
+
+test('cleanup coordinator connects private closure, builder, simulation, authority, custody and one attempt while entries remain paused',async t=>{
+ const f=await fixture(t,{liveSibling:true}),c=await cleanupCoordinatorFixture(f),result=await c.coordinator.runOnce(c.args);
+ assert.equal(result.stage,'CANCELLATION_BROADCAST_ACKNOWLEDGED');assert.equal(result.state,'UNCERTAIN');assert.equal(result.readyForRetry,false);
+ assert.deepEqual(c.calls,{builder:1,signer:1,send:1});assert.equal(c.custody.controls.read(c.args).enabled,false);
+ assert.equal(f.journal.read('entry-0').state,'OPEN');assert.equal(f.journal.riskState(wallet).activeMarginUsdcUnits,'20000000');
+ assert.equal((await c.coordinator.runOnce(c.args)).stage,'RECONCILIATION_REQUIRED');assert.deepEqual(c.calls,{builder:1,signer:1,send:1});
+});
+
+test('cleanup coordinator refuses maintenance, changed preparation and unverified costs, retaining only genuine signing uncertainty',async t=>{
+ for(const mode of ['maintenance','changed-controls','bad-builder','poor','signer-failure','send-failure']){
+  const f=await fixture(t,{liveSibling:true}),c=await cleanupCoordinatorFixture(f,{mode});if(mode==='maintenance')c.custody.state.running=false;
+  const result=await c.coordinator.runOnce(c.args);
+  if(mode==='maintenance'){assert.equal(result.stage,'EXIT_CLEANUP_REQUIRED');assert.deepEqual(c.calls,{builder:0,signer:0,send:0});continue;}
+  if(mode==='send-failure'){assert.equal(result.stage,'CANCELLATION_BROADCAST_UNKNOWN');assert.equal(f.journal.readExitCancellation(result.cancellationId).state,'UNCERTAIN');}
+  else {assert.equal(result.stage,'EXIT_CLEANUP_BLOCKED');assert.equal(c.calls.send,0);}
+  if(mode==='poor'){assert.equal(result.state,'CANCELLED');assert.equal(c.calls.signer,0);assert.equal(f.journal.pendingExitCancellations(wallet).length,0);}
+  if(mode==='signer-failure'){assert.equal(result.state,'SIGNING');const before={...c.calls};assert.equal((await c.coordinator.runOnce(c.args)).stage,'RECONCILIATION_REQUIRED');assert.deepEqual(c.calls,before);}
+  assert.equal(f.journal.read('entry-0').state,'OPEN');assert.equal(f.journal.riskState(wallet).activeMarginUsdcUnits,'20000000');
+ }
+});
+
 test('executor stops new entries on orphan triggers or legacy unresolved bindings without signing or cancelling anything',async t=>{
  const f=await fixture(t,{liveSibling:true}),ownerAccountHash='a'.repeat(64),forbidden=()=>{throw Error('financial capability must not be called');};
  const controls={read:()=>({walletAddress:wallet,enabled:true,paused:false}),pauseForRisk:forbidden};
@@ -495,14 +559,20 @@ test('previous-day index failures, wrong metadata and unrooted exit-account bank
  }
 });
 
-function pausedExecutor(f,{readState=()=>({enabled:false,paused:true}),readFinalizedAccount=async()=>f.account}={}){
+function pausedExecutor(f,{readState=()=>({enabled:false,paused:true}),readFinalizedAccount=async()=>f.account,cleanupCoordinator=null}={}){
  const ownerAccountHash='a'.repeat(64),calls={financial:0},forbidden=()=>{calls.financial++;throw Error('no new risk during paused maintenance');};
- const options={mode:'execute',journal:f.journal,now:()=>now,rpcRequest:f.request,readFinalizedAccount,
+ const options={mode:'execute',journal:f.journal,now:()=>now,rpcRequest:f.request,readFinalizedAccount,cleanupCoordinator,
   controls:{read:()=>({walletAddress:wallet,...readState()}),pauseForRisk:forbidden},
   vault:{describe:()=>({walletAddress:wallet,ownerAccountHash,exclusive:true,purpose:'jamddmaj-perps-automation'}),signPrepared:forbidden},
   readFeed:forbidden,readAccount:forbidden,builderRequest:forbidden,fetchImpl:forbidden};
  return {executor:createServerPerpsExecutor(options),args:{walletAddress:wallet,ownerAccountHash},calls};
 }
+
+test('executor dispatches bounded orphan cleanup only in execute cycles, never read-only maintenance or entry callbacks',async t=>{
+ const f=await fixture(t,{liveSibling:true});let dispatched=0;const cleanupCoordinator={runOnce:async()=>{dispatched++;return {stage:'CANCELLATION_BROADCAST_UNKNOWN',cancellationId:'fixture-cancel',signature:wallet};}};
+ const p=pausedExecutor(f,{cleanupCoordinator});assert.equal((await p.executor.reconcileOnly(p.args)).stage,'EXIT_CLEANUP_REQUIRED');assert.equal(dispatched,0);
+ assert.equal((await p.executor.runOnce(p.args)).stage,'CANCELLATION_BROADCAST_UNKNOWN');assert.equal(dispatched,1);assert.equal(p.calls.financial,0);
+});
 
 test('paused automation reconciles a finalized full exit without reading signals, preparing, signing or sending',async t=>{
  const f=await fixture(t),p=pausedExecutor(f),result=await p.executor.runOnce(p.args);
