@@ -165,3 +165,68 @@ Starting the HTTPS unit would enable transport only, not the financial bot. It
 does not make the production identity endpoint, custody provisioning, encrypted
 backup, execution worker or final release gates complete. These source changes
 must not be described as already available in the installed Android app.
+
+## Idempotent custody provisioning: source verification, 2026-10-19
+
+The private vault now supports explicitly approved, owner-bound idempotent
+creation. The authenticated owner binding and encrypted seed are committed in
+one immutable `owner-<accountHash>.json` record, avoiding a separate owner index
+that could be lost between writes. Reopening the vault or repeating a completed
+request returns the same public wallet. The legacy address-named format remains
+readable; existing control mappings are verified rather than silently replaced.
+If no owner-bound record exists, exactly one authenticated legacy wallet can be
+adopted without changing its key. Multiple legacy wallets for the owner require
+review. The legacy lookup is bounded and never treats unreadable records as
+proof that no old wallet exists.
+
+A partial, corrupt, symlinked, hard-linked, or insecurely permissioned owner
+record is rejected without overwriting it or generating a replacement address.
+A concurrent incomplete write may fail a request safely; a later explicit retry
+reads the completed record. Successful creation makes the file and its directory
+durable before returning. The seed remains AES-256-GCM encrypted, owner/purpose/
+address-bound, and unavailable through any public export method.
+
+The new private provisioning coordinator validates server-side sizing and
+explicit custody consent before key creation. It binds the resulting wallet to
+paused durable controls, recovers from lost responses or interrupted control
+writes, and preserves existing settings/revisions on repeated requests. It
+rejects caller-selected wallets, imported keys and seeds. Its ownership argument
+must come from the verified session adapter, not forwarded user JSON. The
+coordinator is not itself a login mechanism: the HTTP adapter must supply identity;
+this coordinator is **not yet exposed by the deployed controls-only service**.
+
+Provisioning reports `backupVerified: false`, `fundingAvailable: false`, and
+`readyForSigning: false`. It does not bootstrap a production master key, create
+an off-host backup, enable a worker, send funds or grant signing authority. Those
+gates remain incomplete. A restored encrypted owner record plus its separately
+matching master key recovers the same fixture wallet; that restore test is not
+proof that a production recovery copy has been installed.
+
+Verification: the complete local suite passed **517 tests**. The full mocked
+Telegram execution cycle now also uses the new owner-bound provisioning path,
+retaining all preparation/reservation/signing/reconciliation gates. Any fixture
+signature and submission in that cycle belongs only to ephemeral unfunded test
+keys and an injected mock transport, never a production transaction.
+
+On the approved VPS, **16 custody/provisioning tests passed** on Node 22.23.1
+inside a transient dynamic-user service with network disabled, a private `/tmp`,
+read-only system paths, protected home directories and a 384 MB memory ceiling.
+The concurrent case used four Linux processes (eight in the local suite). The
+worker refuses files outside its own isolated test directory. All temporary
+keys and databases were fixture data, not a production custody wallet.
+
+Artifacts under `/opt/jamddmaj-perps/checks/provisioning-7630a2f39eac/`:
+
+- `perps-custody-provisioning.test.mjs`, SHA-256
+  `7630a2f39eac921b8795ee740e3c0b30f50d75cf90b04c7cc9d8f7761371479c`.
+- `perps-provisioning-worker.mjs`, SHA-256
+  `8e809c225b5f71aafb63dc0cc73c30f39db44d9a9eefe85a9560c2f4aa179601`.
+- `perps-custody-vault.test.mjs`, SHA-256
+  `4fb9189ef0e8418e8fc47d714abdccafdb5ac1aa41babd06d9d0d77aaeb98f80`.
+
+Android workflow `39200943000`, source
+`9801e2bf2c621e6b7c8c70270746b14b7cc65968`, completed successfully. Its APK
+artifact is not a new published user release and predates the provisioning
+changes in this section. The HTTPS unit was still inactive and disabled when
+checked; no owner certificate-registration action was inferred from goal
+continuations. Bitget remained inactive and disabled.

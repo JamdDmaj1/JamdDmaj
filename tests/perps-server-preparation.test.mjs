@@ -18,6 +18,7 @@ import {emptyFixtureDailyAccount} from './helpers/perps-history-fixture.mjs';
 import {createServerPerpsBroadcaster} from '../lib/perps-server-broadcast.js';
 import {createServerPerpsExecutor} from '../lib/perps-server-executor.js';
 import {readServerPerpsSignalFeed} from '../lib/perps-server-signal-feed.js';
+import {createPerpsCustodyProvisioner} from '../lib/perps-custody-provisioning.js';
 const now=Date.parse('2026-10-18T12:00:00Z'),seconds=now/1000;
 const GENESIS='5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
 const u64=n=>{const b=Buffer.alloc(8);b.writeBigUInt64LE(BigInt(n));return b;};
@@ -257,18 +258,19 @@ test('changed network, blockhash, expired instruction or mismatched intent canno
 
 // Full signing rehearsal: ephemeral, unfunded local keys and mocked read-only
 // RPC/builder responses. No HTTP submission or real account key is involved.
-async function custodySigningFixture(t,{beginSigning=true,reserve=true}={}){
+async function custodySigningFixture(t,{beginSigning=true,reserve=true,ownerIndexed=false}={}){
  const directory=mkdtempSync(join(tmpdir(),'jamd-custody-signing-')),wallets=join(directory,'wallets'),keysDirectory=join(directory,'keys');
  mkdirSync(wallets,{mode:0o700});mkdirSync(keysDirectory,{mode:0o700});
  const keyFile=join(keysDirectory,'master.key'),allowNonPosixForTests=process.platform==='win32',ownerAccountHash='a'.repeat(64),clock={value:0};
  let controls,journal;t.after(()=>{try{controls?.close();}finally{journal?.close();rmSync(directory,{recursive:true,force:true});}});
  createPerpsCustodyMasterKey(keyFile,{allowNonPosixForTests});const vault=openPerpsCustodyVault({directory:wallets,keyFile,allowNonPosixForTests});
- const wallet=vault.createExclusiveWallet({ownerAccountHash,explicitCustodyApproval:true}),walletAddress=wallet.walletAddress;
+ const wallet=vault[ownerIndexed?'createOrReadExclusiveWallet':'createExclusiveWallet']({ownerAccountHash,explicitCustodyApproval:true}),walletAddress=wallet.walletAddress;
  let daily=await emptyFixtureDailyAccount(walletAddress,{monotonicNow:()=>clock.value});
  const settings={capital:100,loss:20,positions:2,margin:10,leverage:3,dailyTrades:5};
  controls=openPerpsAutomationControls(join(directory,'controls.sqlite'),{now:()=>now,monotonicNow:()=>clock.value,
   authorizeActivation:async()=>({custodyAuthorized:vault.describe(wallet).exclusive,executionReady:true,dailyAccount:daily})});
- const initial=controls.provision({ownerAccountHash,walletAddress,settings}),approval=controls.issueActivationChallenge({ownerAccountHash,walletAddress,expectedRevision:initial.revision});
+ const initial=ownerIndexed?createPerpsCustodyProvisioner({vault,controls}).provision({ownerAccountHash,settings,explicitCustodyApproval:true}).controls:controls.provision({ownerAccountHash,walletAddress,settings});
+ const approval=controls.issueActivationChallenge({ownerAccountHash,walletAddress,expectedRevision:initial.revision});
  const active=await controls.activate({ownerAccountHash,walletAddress,expectedRevision:initial.revision,token:approval.token,explicitApproval:true});
  journal=openPerpsExecutionJournal(join(directory,'journal.sqlite'),{now:()=>now});
  const f=await fixture({exits:true,trusted:true,ownerAddress:walletAddress});
@@ -363,8 +365,8 @@ function publishedExecutorSignal(){return {id:'custody-signal-1',pair:'SOLUSDT',
  marketAlignment:'with-market',higherTrend:'bullish 4h alignment',microTrend:'bullish 15m alignment',volumeRatio:1.3,adx:26,spreadPercent:.0015,liquidityUsd:25000000,freshness:{status:'fresh'}};}
 function executorFeed(open=[publishedExecutorSignal()],livePaused=false){return readServerPerpsSignalFeed({feedToken:'fixture-only-feed-token-not-live'},{now:()=>now,monotonicNow:()=>0,
  fetchImpl:async()=>Response.json({ok:true,clientFeed:true,generatedAt:new Date(now).toISOString(),executor:{livePaused,minScore:12,minLiquidityUsd:3000000},open})});}
-async function executorFixture(t,{changeFeed}={}){
- const f=await custodySigningFixture(t,{reserve:false}),initial=await emptyFixtureDailyAccount(f.wallet.walletAddress,{bankSlot:50});
+async function executorFixture(t,{changeFeed,ownerIndexed=false}={}){
+ const f=await custodySigningFixture(t,{reserve:false,ownerIndexed}),initial=await emptyFixtureDailyAccount(f.wallet.walletAddress,{bankSlot:50});
  const calls={feed:0,builder:0,submit:0};
  const readFeed=async()=>{calls.feed++;return changeFeed?changeFeed(f,calls.feed):executorFeed();};
  const options={...f.args,mode:'execute',now:()=>now,readFeed,rpcRequest:f.rpcRequest,readFinalizedAccount:async()=>f.daily,
@@ -379,7 +381,8 @@ test('observation mode lists only authenticated published candidates and has no 
  await assert.rejects(createServerPerpsExecutor({readFeed:async()=>({candidates:[publishedExecutorSignal()]})}).runOnce());
 });
 test('complete executor cycle binds published Telegram signal to controls, simulated wire, durable reservation, custody signature and one send',async t=>{
- const f=await executorFixture(t),result=await f.executor.runOnce(f.args);
+ const f=await executorFixture(t,{ownerIndexed:true}),result=await f.executor.runOnce(f.args);
+ assert.equal(f.vault.createOrReadExclusiveWallet({ownerAccountHash:f.args.ownerAccountHash,explicitCustodyApproval:true}).walletAddress,f.wallet.walletAddress);
  assert.equal(result.stage,'BROADCAST_ACKNOWLEDGED');assert.equal(result.state,'UNCERTAIN');assert.equal(result.readyForRetry,false);
  assert.equal(f.calls.builder,1);assert.equal(f.calls.submit,1);assert.equal(f.calls.feed,4);
  const row=f.journal.readSignal(f.wallet.walletAddress,'custody-signal-1');assert.equal(row.state,'UNCERTAIN');assert.equal(row.signature,result.signature);
