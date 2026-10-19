@@ -60,8 +60,11 @@ that build.
 5. Wire the durable execution daemon to the real validated providers, keeper
    transport, published Telegram feed and risk readers. Do not enable it during
    tests. Validate supported markets instead of offering arbitrary tokens.
-6. Finish partial-position/individual-exit reconciliation: currently logical
-   entry risk remains held until the aggregate position is fully closed.
+6. Complete explicit safe handling of leftover sibling exits, including reviewed
+   cancellation and its own durable/signing/reconciliation policy. Full-size
+   request-bound individual exits are now reconciled in source (see below), but
+   arbitrary partial/manual decreases do not release a logical entry. The engine
+   stops new entries if an executed exit still has live sibling requests.
 7. Verify all requested controls and manual execution through the actual app,
    including balances, limits, SL/TP inheritance, pausing, daily loss responses,
    restart recovery and unknown-transaction reconciliation.
@@ -70,3 +73,42 @@ that build.
 
 No production custody master key or exclusive wallet was created by this
 control-service deployment, and no funds were moved.
+
+## Individual entry reconciliation: source verification, 2026-10-19
+
+Preparation now privately binds the exact opening size and simulated SL/TP
+request addresses, sizes, prices and counters to the durable reservation. Exit
+addresses cannot be assigned to multiple entries, even across separate database
+connections. Signing authorization, signed-envelope verification and broadcast
+revalidation reject changed or missing durable bindings.
+
+A finalized, verified full-size decrease tied to that exact exit request can
+close its logical entry while another entry in the same aggregate position stays
+open. The finalized account must remain fresh and all that entry's exit requests
+must be absent in a rooted account bank. Closure proofs bind the complete exit
+plan; replacing it with an empty plan cannot bypass pending-order checks.
+
+After a restart or a UTC day change, the reader can recover positive exit
+evidence through the recorded request addresses and signature-verified finalized
+transactions. Reads are bounded (40 index rows per request, at most 12 extra
+transaction reads per entry). Unavailable, pruned, excessive or inconsistent
+history leaves capital held. Prior-day exits do not count as current-day losses
+or erase the original entry day. Consumed event identities are durably unique.
+
+If a sibling exit remains live after closure, the coordinator returns
+`EXIT_CLEANUP_REQUIRED` and starts no new entries. It performs no cancellation.
+Unknown recovery results or legacy rows without proven exit bindings also stop
+new entries instead of guessing missing metadata.
+
+Verification: the complete local suite passed **493 tests**. The eight dedicated
+entry-closure tests also passed on Node 22.23.1 on the approved VPS under a
+transient dynamic-user service with `PrivateNetwork=yes`, `PrivateTmp=yes`,
+`ProtectHome=yes`, `ProtectSystem=strict` and no financial service activation.
+Only deterministic unfunded fixtures and injected RPC responses were used.
+
+Linux test artifact:
+`/opt/jamddmaj-perps/checks/entry-exit-d2ecfd33f337/perps-individual-entry-closure.test.mjs`.
+SHA-256: `d2ecfd33f33765260a734f7b29191eafc405765a3bae94a7968b02aae670b23a`.
+The transient check finished successfully; this artifact is **not** a running
+executor or user release. The deployed controls-only bundle remains the one
+identified above. The production app-to-Jupiter verification gates remain open.

@@ -399,3 +399,14 @@ test('a pause before signing cancels only its own unsigned reservation; a pause 
   assert.equal(f.journal.readSignal(f.wallet.walletAddress,'custody-signal-1').state,at===3?'CANCELLED':'SIGNING');
  }
 });
+
+test('custody authorization rejects changed or missing durable position/exit bindings before any key use',async t=>{
+ const f=await custodySigningFixture(t),row=f.journal.read(f.args.reservationId),evidence=readServerPerpsPreparationEvidence(f.prepared,{walletAddress:f.wallet.walletAddress,signalId:f.args.signalId});
+ assert.equal(row.position_address,evidence.positionAddress);
+ assert.deepEqual(JSON.parse(row.entry_exit_plan),evidence.entryExitPlan);
+ for(const change of [{position_address:null},{entry_exit_plan:null},{entry_exit_plan:'{}'}]){
+  const journal={...f.journal,read:id=>({...f.journal.read(id),...change})};
+  await assert.rejects(authorizeServerPerpsSigning(f.prepared,{...f.args,journal}));
+  assert.equal(f.journal.read(f.args.reservationId).state,'SIGNING');
+ }
+});

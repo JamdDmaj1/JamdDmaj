@@ -126,7 +126,7 @@ async function openClosureFixture(t,{yesterday=true,legacy=false}={}){
  f.status.confirmationStatus='finalized';if(yesterday)f.transaction.blockTime-=86400;
  const dir=mkdtempSync(join(tmpdir(),'jamd-closed-position-')),journal=openPerpsExecutionJournal(join(dir,'journal.sqlite'),{now:()=>time});
  t.after(()=>{journal.close();rmSync(dir,{recursive:true,force:true});});
- journal.reserve({walletAddress:wallet,signalId:'close-1',reservationId:'close-1',positionAddress:legacy?null:position,marginUsd:'10',
+ journal.reserve({walletAddress:wallet,signalId:'close-1',reservationId:'close-1',positionAddress:legacy?null:position,entryExitPlan:legacy?null:{sizeUsdUnits:'30000000',exits:[]},marginUsd:'10',
   limits:{capitalUsd:'100',dailyLossUsd:'100',positions:10,dailyTrades:10},snapshot:{walletAddress:wallet,network:'solana-mainnet',balancesComplete:true,observedAt:time,day:'2026-10-18',availableUsdcUnits:'100000000',allocatedUsdcUnits:'0',lossTodayUsdcUnits:'0',openPositions:0,tradesToday:0}});
  journal.beginSigning('close-1');journal.recordBroadcastIntent('close-1',f.record);
  journal.reconcileBroadcast('close-1',await readPerpsBroadcastReceipt(f.record,f.request,{now:()=>time}));
