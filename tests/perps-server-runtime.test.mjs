@@ -175,6 +175,18 @@ test('shared control boundary binds loopback and advertises no execution or prov
  }finally{await Promise.all([boundary.close(),runtime.close()]);}
 });
 
+test('actual authenticated runtime enforces custody capacity before creating another user wallet',async t=>{
+ const f=fixture(t),runtime=openServerPerpsRuntime({...f.options,custodyProvisioning:true,custodyWalletLimit:1,
+  fetchImpl:async()=>Response.json({ok:true,accountHash:'d'.repeat(64),verifiedAt:Date.now()})});
+ try{
+  const response=await runtime.handleControlRequest(new Request('https://157.230.54.133/v1/automation',{method:'POST',
+   headers:{Authorization:'Bearer '+'e'.repeat(64),'Content-Type':'application/json'},
+   body:JSON.stringify({action:'provision',explicitCustodyApproval:true,settings:{capital:100,loss:50,positions:2,margin:20,leverage:3,dailyTrades:3}})}));
+  assert.equal(response.status,503);assert.equal((await response.json()).error.code,'custody-capacity');
+  assert.equal(readdirSync(join(f.directory,'wallets')).length,1);assert.equal(runtime.capabilities().executionAvailable,false);
+ }finally{await runtime.close();}
+});
+
 test('shutdown while custody authentication is pending cannot create a wallet or advertise setup readiness',async t=>{
  const f=fixture(t);let started,release;const began=new Promise(resolve=>{started=resolve;});
  const runtime=openServerPerpsRuntime({...f.options,custodyProvisioning:true,fetchImpl:async()=>{

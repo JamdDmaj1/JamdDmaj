@@ -7,7 +7,7 @@ import {spawn} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {createPerpsCustodyMasterKey,openPerpsCustodyVault} from '../lib/perps-custody-vault.js';
 import {openPerpsAutomationControls} from '../lib/perps-automation-controls.js';
-import {createPerpsCustodyProvisioner} from '../lib/perps-custody-provisioning.js';
+import {createPerpsCustodyProvisioner,createBoundedPerpsCustodyProvisioner} from '../lib/perps-custody-provisioning.js';
 const ownerAccountHash='a'.repeat(64),otherOwner='b'.repeat(64),settings={capital:100,loss:50,positions:2,margin:20,leverage:3,dailyTrades:3};
 const request={ownerAccountHash,settings,explicitCustodyApproval:true},now=Date.parse('2026-10-19T12:00:00Z');
 const allowNonPosixForTests=process.platform==='win32';
@@ -74,4 +74,25 @@ test('competing provisioning processes converge to a single encrypted wallet and
  assert.equal(new Set(successful.map(reply=>reply.wallet)).size,1);const recovered=f.provisioner.provision(request);
  assert.equal(recovered.walletAddress,successful[0].wallet);assert.equal(recovered.controls.enabled,false);assert.equal(recovered.controls.paused,true);
  assert.deepEqual(readdirSync(f.wallets),['owner-'+ownerAccountHash+'.json']);assert.equal(f.controls.audit({ownerAccountHash,walletAddress:recovered.walletAddress}).length,1);
+});
+
+test('bounded runtime admission refuses new owners at capacity while preserving idempotent access for existing owners',t=>{
+ const f=fixture(t),options={directory:f.wallets,vault:f.vault,controls:f.controls,maximumWalletFiles:1,allowNonPosixForTests};
+ const bounded=createBoundedPerpsCustodyProvisioner(options),first=bounded.provision(request);
+ assert.throws(()=>bounded.provision({...request,ownerAccountHash:otherOwner}),/PERPS_CUSTODY_CAPACITY_REACHED/);
+ assert.equal(bounded.provision(request).walletAddress,first.walletAddress);assert.equal(readdirSync(f.wallets).length,1);
+ assert.equal(f.controls.readForOwner({ownerAccountHash:otherOwner}),null);assert.equal(first.readyForSigning,false);
+ for(const maximumWalletFiles of [0,257,'1',NaN,Infinity])assert.throws(()=>createBoundedPerpsCustodyProvisioner({...options,maximumWalletFiles}));
+});
+
+test('a persisted wallet with a failed controls write counts against capacity but its owner can recover at full capacity',t=>{
+ const f=fixture(t),broken={...f.controls,provision(){throw Error('fixture write failure');}};
+ const options={directory:f.wallets,vault:f.vault,maximumWalletFiles:1,allowNonPosixForTests};
+ assert.throws(()=>createBoundedPerpsCustodyProvisioner({...options,controls:broken}).provision(request));
+ assert.equal(f.controls.readForOwner({ownerAccountHash}),null);
+ const bytes=readFileSync(join(f.wallets,'owner-'+ownerAccountHash+'.json'));
+ const bounded=createBoundedPerpsCustodyProvisioner({...options,controls:f.controls});
+ assert.throws(()=>bounded.provision({...request,ownerAccountHash:otherOwner}),/PERPS_CUSTODY_CAPACITY_REACHED/);
+ const recovered=bounded.provision(request);assert.equal(recovered.walletAddress,JSON.parse(bytes).walletAddress);
+ assert.deepEqual(readFileSync(join(f.wallets,'owner-'+ownerAccountHash+'.json')),bytes);assert.equal(recovered.controls.paused,true);
 });

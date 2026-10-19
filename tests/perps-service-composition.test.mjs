@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const worker=readFileSync(new URL('../ops/jamddmaj-perps-worker.service',import.meta.url),'utf8');
 const https=readFileSync(new URL('../ops/jamddmaj-perps-https.service',import.meta.url),'utf8');
+const setup=readFileSync(new URL('../ops/jamddmaj-perps-custody-setup.conf',import.meta.url),'utf8');
 const value=(text,key)=>text.split(/\r?\n/).filter(line=>line.startsWith(key+'=')).map(line=>line.slice(key.length+1));
 
 test('HTTPS depends on the shared controls worker, never the retired competing port listener',()=>{
@@ -20,4 +21,11 @@ test('installed service composition shares the original private controls without
   'JAMDDMAJ_PERPS_WORKER_MODE=maintenance','JAMDDMAJ_PERPS_EXECUTION_APPROVED=false'])assert.ok(value(worker,'Environment').includes(entry));
  assert.equal(worker.includes('--custody-setup'),false);assert.equal(worker.includes('JAMDDMAJ_PERPS_EXECUTION_APPROVED=true'),false);
  assert.deepEqual(value(worker,'TimeoutStopSec'),['infinity']);
+});
+
+test('optional custody setup overrides only the control command, never execution approval, keys or account identity',()=>{
+ assert.deepEqual(value(setup,'ExecStart'),['','/usr/bin/node /opt/jamddmaj-perps/worker/perps-server-worker.mjs --controls --custody-setup']);
+ assert.deepEqual(value(setup,'Environment'),[]);assert.deepEqual(value(setup,'EnvironmentFile'),[]);
+ assert.equal(setup.includes('MODE=execute'),false);assert.equal(setup.includes('master.key'),false);
+ assert.equal(setup.includes('ownerAccountHash'),false);
 });

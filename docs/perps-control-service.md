@@ -1024,3 +1024,51 @@ The final full local test run exited 0. Post-install checks confirmed worker and
 HTTPS both active/running with NRestarts=0, a fresh maintenance cycle, no signing
 readiness and no activation request. Platform/optional test skips remain; no
 remote APK/signing CI was run or bypassed.
+
+## Bounded consented custody admission enabled, 2026-10-19
+
+The single-host runtime now uses a synchronous bounded custody coordinator,
+under its existing exclusive worker lock. Initial admission is limited to 20
+private wallet-directory entries, conservatively including orphan records and
+unexpected files; this is not a distributed quota. Valid existing owner mappings
+and persisted owner-indexed wallets can still be recovered at capacity, without
+rotating a key or resetting saved limits. A failed controls write therefore
+cannot permit unbounded new key creation. New owners at capacity receive a
+bounded 503 `custody-capacity` response. No account identity comes from JSON.
+
+The base service remains maintenance-only. An optional operator drop-in changes
+only ExecStart to `--controls --custody-setup`; it does not change execution
+approval, secrets, session verification or financial readiness. The first enable
+attempt did not confirm readiness and restored the previous binary/command.
+Journal inspection showed no worker startup error. A subsequent attempt checked
+the actual loaded command and bounded live readiness; it confirmed setup true
+on its first observation. Recovery copies remain under
+`/opt/jamddmaj-perps/backups/custody-admission-20261019` and its `-b` sibling.
+No wallet was created by either deployment command.
+
+The installed drop-in is
+`/etc/systemd/system/jamddmaj-perps-worker.service.d/20-custody-setup.conf`.
+The installed worker SHA-256 equals the local built artifact:
+`bfcb959b5734fcb0b87c2ceacc193e7793f20bc1f29ec2821d019068bc99a16c`.
+Normal public HTTPS health now reports custodyProvisioningAvailable=true while
+executionAvailable=false and tradingEnabled=false. Anonymous reads and a setup
+POST bearing an invented invalid session both return JSON 401. The deploy-time
+aggregate still showed zero stored owner-wallet files. No real session was
+borrowed, fabricated, or inferred from request-quota rows.
+
+Verification: 25 runtime/provisioning cases passed on actual VPS Node 22.23.1,
+none skipped, in a network-isolated DynamicUser transient unit. The full local
+test suite exited 0, with the existing optional/platform skips. Runtime test
+source SHA-256:
+`8a217cf8a1f39802fb92cb26542317835f216a5ca833fc0dda642349786b7132`.
+Provisioning test source SHA-256:
+`9d0badabfd8fb56b681836aa3ea708028719185ae3617930ac3ed1f1f7e54894`.
+Artifacts: `/opt/jamddmaj-perps/checks/custody-admission-8a217cf8a1f3/`.
+
+The owner has been asked to use their real session to read controls, review their
+own limits, explicitly confirm separate custody if still desired, and press
+Prepare bot wallet, reporting only the resulting message. They were told not to
+deposit, activate, or share keys/codes. This actual owner-wallet setup and its
+off-host encrypted restore proof remain unverified. Setup always returns
+fundingAvailable=false, backupVerified=false and readyForSigning=false and keeps
+the account paused; enabling admission is not funding or execution readiness.
