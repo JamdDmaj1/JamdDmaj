@@ -14,6 +14,8 @@ import {readServerPerpsPositionClosure,reconcileClosedServerPerpsPositions,readS
 import {openPerpsExecutionJournal} from '../lib/perps-execution-journal.js';
 import {canonicalServerPerpsEntryExitPlan} from '../lib/perps-entry-exit-plan.js';
 import {createServerPerpsExecutor} from '../lib/perps-server-executor.js';
+import {inspectServerPerpsExitCancellation,requireInspectedPerpsExitCancellation} from '../lib/perps-exit-cancellation.js';
+import {cancellationFixture} from './helpers/perps-cancellation-fixture.mjs';
 const genesis='5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d',tokenProgram='TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
 const baseIdentity=await deriveServerPerpsIdentities({walletAddress:wallet,asset:'SOL',side:'LONG'});
 const derivedRequests=await Promise.all([1n,2n,3n].map(async counter=>{
@@ -166,6 +168,49 @@ test('orphan discovery rejects altered native owner, position, size, trigger, co
  const request=async(method,params)=>{const result=await f.request(method,params);if(method==='getMultipleAccounts'&&params[0].length===2)result.context.slot=499999;return result;};
  await assert.rejects(readServerPerpsExitCleanup(f.journal.read('entry-0'),{...f.options,request}));
  assert.equal(f.journal.read('entry-0').state,'OPEN');assert.equal(f.journal.riskState(wallet).activeMarginUsdcUnits,'20000000');
+});
+
+test('cancellation inspection binds exact orphan, derived return ATAs and legacy or RPC-resolved v0 accounts without signing',async t=>{
+ const f=await fixture(t,{liveSibling:true}),cleanup=await readServerPerpsExitCleanup(f.journal.read('entry-0'),f.options);
+ for(const versioned of [false,true])for(const legacyClose of [false,true])for(const createAta of [false,true])for(const readonlyKeeper of legacyClose?[false,true]:[false]){
+  const c=await cancellationFixture(cleanup,{versioned,legacyClose,createAta,readonlyKeeper});
+  const value=await inspectServerPerpsExitCancellation(c.preparation,cleanup,c);
+  assert.equal(requireInspectedPerpsExitCancellation(value),value);assert.throws(()=>requireInspectedPerpsExitCancellation({...value}));
+  assert.equal(value.exitAddress,keys[1]);assert.equal(value.reservationId,'entry-0');assert.equal(value.positionAddress,baseIdentity.position);
+  assert.equal(value.readyForSigning,false);assert.equal(value.requiresSameWireSimulation,true);assert.equal(value.requiresDurableCancellationRecord,true);
+  assert.ok(c.calls.every(call=>['getGenesisHash','getSlot','getMultipleAccounts'].includes(call.method)));
+  assert.equal(c.calls.find(call=>call.method==='getSlot').params[0].minContextSlot,cleanup.requestObservedSlot);
+ }
+ assert.equal(f.journal.riskState(wallet).activeMarginUsdcUnits,'20000000');assert.equal(f.journal.read('entry-0').state,'OPEN');
+ const c=await cancellationFixture(cleanup);await assert.rejects(inspectServerPerpsExitCancellation(c.preparation,{...cleanup},c));
+ await assert.rejects(inspectServerPerpsExitCancellation(c.preparation,cleanup,{...c,exitAddress:keys[2]}));
+ const readonly=await cancellationFixture(cleanup,{readonlyKeeper:true});await assert.rejects(inspectServerPerpsExitCancellation(readonly.preparation,cleanup,readonly));
+ f.expire();await assert.rejects(inspectServerPerpsExitCancellation(c.preparation,cleanup,c));
+});
+
+test('cancellation inspection rejects foreign roles, duplicate cancellation, transfer instructions and incorrect native discriminator',async t=>{
+ const f=await fixture(t,{liveSibling:true}),cleanup=await readServerPerpsExitCleanup(f.journal.read('entry-0'),f.options);
+ const changes=[
+  ...[0,1,2,3,4,5,6,7,8,9,10,11,12].map(role=>ctx=>{const ix=ctx.instructions.at(-1),mintIndex=ctx.index(ctx.mint);ix.accounts[role]=ix.accounts[role]===mintIndex?0:mintIndex;}),
+  ctx=>{ctx.instructions.at(-1).data=Buffer.from('ca671b324c72017f','hex');},
+  ctx=>{ctx.instructions.at(-1).data=Buffer.concat([ctx.instructions.at(-1).data,Buffer.from([0])]);},
+  ctx=>{ctx.instructions.push({...ctx.instructions.at(-1)});},
+  ctx=>{ctx.instructions.push({program:ctx.index(tokenProgram),accounts:[0],data:Buffer.from([9])});},
+  ctx=>{ctx.instructions[2].data=Buffer.from([0]);},
+  ctx=>{ctx.instructions[2].accounts[1]=ctx.index(ctx.requestAta);}
+ ];
+ for(const mutate of changes){
+  const c=await cancellationFixture(cleanup,{createAta:true,mutate});
+  await assert.rejects(inspectServerPerpsExitCancellation(c.preparation,cleanup,c));
+ }
+ for(const kind of ['foreign-network','stale-table']){
+  const c=await cancellationFixture(cleanup,{versioned:true}),request=async(method,params)=>{
+   const value=await c.request(method,params);if(kind==='foreign-network'&&method==='getGenesisHash')return 'wrong';
+   if(kind==='stale-table'&&method==='getMultipleAccounts')return {...value,context:{slot:cleanup.requestObservedSlot-1}};return value;
+  };
+  await assert.rejects(inspectServerPerpsExitCancellation(c.preparation,cleanup,{...c,request}));
+ }
+ assert.equal(f.journal.riskState(wallet).activeMarginUsdcUnits,'20000000');
 });
 
 test('executor stops new entries on orphan triggers or legacy unresolved bindings without signing or cancelling anything',async t=>{

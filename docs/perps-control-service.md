@@ -1190,3 +1190,46 @@ Remaining work includes exact cancellation-wire inspection/simulation, narrowly
 scoped authorization, durable one-send/restart reconciliation and finalized
 absence before the journal can release an entry's risk. Production remains on
 the previously installed recovery-status bundle, with execution disabled.
+
+## Cancellation wire inspection, 2026-10-19
+
+Added a separate no-authority inspection boundary for one proven orphan request.
+It requires the distinct fresh cleanup proof and a selected pending request from
+that proof, verifies the API-signed/owner-and-keeper-unsigned envelope, resolves
+v0 lookup tables through the existing bounded mainnet resolver, and binds the
+minimum bank slot to the finalized orphan observation. The entry preparation
+path shares that resolver; its prior capability/intent checks remain mandatory.
+
+The supported closePositionRequest/closePositionRequest2 layouts come from the
+[IDL sample linked by Jupiter's developer documentation](https://github.com/julianfssen/jupiter-perps-anchor-idl-parsing/blob/main/src/idl/jupiter-perpetuals-idl-json.json).
+Inspection permits one exact close instruction, bounded compute settings and at
+most one idempotent creation of the owner's derived USDC ATA. It binds the
+request, request USDC ATA, owner USDC ATA, pool, position, keeper and event/program
+identities, checks writable roles (including close2's writable keeper), and rejects
+transfers, updates, opening instructions, additional closes or foreign writable
+accounts. The resulting immutable private inspection proof still explicitly
+requires same-wire simulation, fresh orphan evidence and a durable cancellation
+record. It cannot sign, submit, release journal risk or be replaced by a copy.
+
+Seventeen closure/cancellation tests passed, with no skips, on VPS Node 22 under
+network-isolated DynamicUser and unfunded temporary fixtures. They include
+legacy/v0, old/new close layouts, correct signer mutability, optional owner ATA
+creation, all role substitutions, duplicate/wrong instructions, network/table
+failures and unchanged journal risk. The final full local suite exited 0 with
+the existing optional/platform skips. Artifacts:
+`/opt/jamddmaj-perps/checks/exit-cancellation-inspection-20261019/`.
+Policy source SHA-256:
+`b47b215342023c48af6a7f8cbfe95a04599f7584ea358edd5281e87fa2886302`.
+Closure test SHA-256:
+`8117723f86837ea6fb6d9e507d2830ca214f0c3fb951c5fe8ae3934fbd55488b`.
+Synthetic cancellation helper SHA-256:
+`e50a97ac35819331f6acdb6364e537235e0650dc2f5ad78066e75ffdafef7b795`.
+
+Compatibility with a real current Jupiter cancellation response is not yet
+proven by these synthetic tests. A bounded public-chain read-only observation
+found no matching cancellation among nine decoded transactions and then received
+RPC -32015; it stopped without further reads, signatures or submissions. No
+real owner's cancellation builder was called. The inspection feature has not
+been installed into the production worker or released to the app. Full effects
+simulation, precise authorization, durable one-send/restart handling and
+finalized request absence remain required before automatic cleanup is usable.
