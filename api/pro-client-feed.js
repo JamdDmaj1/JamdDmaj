@@ -86,6 +86,10 @@ function safeSignal(signal = {}) {
     bitgetPair: String(signal.bitgetPair || "").slice(0, 40),
     side: String(signal.side || "").slice(0, 12),
     status: String(signal.status || "").slice(0, 20),
+    // Preserve confirmed publication identity for the Jupiter consumer. It must
+    // never execute an unpublished scanner candidate or infer Telegram delivery.
+    telegramMessageId: Number.isSafeInteger(signal.telegramMessageId) && signal.telegramMessageId > 0 ? signal.telegramMessageId : null,
+    telegramSentAt: typeof signal.telegramSentAt === "string" && Number.isFinite(Date.parse(signal.telegramSentAt)) ? signal.telegramSentAt : null,
     score: Number(signal.score || 0),
     rawScore: Number(signal.rawScore || signal.score || 0),
     baseSymbol: String(signal.baseSymbol || "").slice(0, 24),

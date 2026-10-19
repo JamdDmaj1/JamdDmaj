@@ -195,12 +195,12 @@ test("the executor feed rejects missing or URL-only credentials", { concurrency:
   }
 });
 
-test("the executor feed sends only fresh Bitget-ready signals", { concurrency: false }, async () => {
+test("the executor feed sends fresh legacy signals and preserves only verified Telegram publication metadata", { concurrency: false }, async () => {
   const previousFetch = globalThis.fetch;
   const previousSecret = process.env.JAMDDMAJ_CRON_SECRET;
   process.env.JAMDDMAJ_CRON_SECRET = "test-secret";
   globalThis.fetch = mockRedisState([
-    signal("fresh", 60_000, true),
+    {...signal("fresh", 60_000, true),telegramMessageId:123,telegramSentAt:new Date(Date.now()-59000).toISOString()},
     signal("old", 10 * 60_000, true),
     signal("study", 60_000, false)
   ]);
@@ -212,6 +212,10 @@ test("the executor feed sends only fresh Bitget-ready signals", { concurrency: f
     assert.equal(response.status, 200);
     assert.deepEqual(body.signals.map((item) => item.id), ["fresh"]);
     assert.deepEqual(body.open.map((item) => item.id), ["fresh", "old", "study"]);
+    assert.equal(body.open[0].telegramMessageId,123);
+    assert.ok(Number.isFinite(Date.parse(body.open[0].telegramSentAt)));
+    assert.equal(body.open[1].telegramMessageId,null);
+    assert.equal(body.open[1].telegramSentAt,null);
   } finally {
     globalThis.fetch = previousFetch;
     if (previousSecret === undefined) delete process.env.JAMDDMAJ_CRON_SECRET;
