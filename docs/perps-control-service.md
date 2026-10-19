@@ -525,3 +525,48 @@ actual off-host backup/receipt verification, and the reviewed operational host.
 The authenticated identity route and HTTPS transport must be published and
 verified end to end. No production host was replaced, no capability flag was
 enabled, and no Android update was published by this source change.
+
+## Publication access check and scoped dependency remediation, 2026-10-19
+
+The authoritative VPS check still showed HTTPS inactive/disabled, controls and
+the read-only signal observer active, and the legacy Bitget executor inactive/
+disabled. No certificate registration or service activation was performed.
+The owner was asked to review the Let's Encrypt subscriber terms and, only if
+accepted, personally enable the prepared transport from the DigitalOcean
+console. The owner was separately asked to reconnect the existing Vercel
+connection to the account/team that owns `jamd-dmaj-s-projects`. Plugin discovery
+confirmed that Vercel is already installed/enabled; that is not evidence of
+project-level access. No duplicate plugin was suggested and no prior denied
+project request was blindly retried. No credentials were requested or retrieved.
+
+The existing Android branch-build workflow was inspected before considering a
+push: it builds for `codex/native-wallet-protection` and can use the permanent
+APK signing secrets. A branch push is therefore not treated as a secret-free
+test. The protected-branch/reviewer conditions for a new secret-bearing run were
+not verified in this check; no push, signing workflow dispatch, production
+promotion, release/tag or APK publication was performed.
+
+While those owner actions remain pending, the two previously reported vulnerable
+development-tooling packages were updated within their existing parent ranges:
+
+- `@xmldom/xmldom` 0.9.10 -> 0.9.12, used by Capacitor's `plist` tooling.
+  [Maintainer release](https://github.com/xmldom/xmldom/releases/tag/0.9.12) and
+  [maintainer raw-text advisory](https://github.com/xmldom/xmldom/security/advisories/GHSA-6mj3-qw4j-hgrw).
+- `brace-expansion` 5.0.9 -> 5.0.12, used through `minimatch`/`glob`/`rimraf` by
+  Capacitor CLI. [Maintainer rewrite advisory](https://github.com/juliangruber/brace-expansion/security/advisories/GHSA-q2hr-2g5m-vwhr).
+
+Only those two lockfile resolutions/integrities changed; `package.json`, parent
+dependencies, the Capacitor version, and financial runtime dependencies remain
+unchanged. The update used `--ignore-scripts`, not a blanket audit fix. Fresh
+`npm audit` reports **zero known vulnerabilities** in this local dependency
+tree. This supersedes the earlier two-finding snapshot, not a claim that the
+entire app, native code, deployed bundle, or financial system has been audited.
+
+Four new regressions verify the reviewed same-line lock entries, the real
+Android manifest parse and plist round trip without editing project files,
+bounded mixed-case raw-text serialization, and compatible brace path expansion
+with bounded adversarial nesting/rewrites. `npx --no-install cap --version`
+returns 8.4.3. The complete local suite passed **556 tests, 0 failed, 1 skipped**
+(557 total). A new Android compile/install and production end-to-end gate are
+still unverified; source and local tooling verification are not a published app
+update. No trading activation or real transaction occurred.
