@@ -1223,7 +1223,7 @@ Policy source SHA-256:
 Closure test SHA-256:
 `8117723f86837ea6fb6d9e507d2830ca214f0c3fb951c5fe8ae3934fbd55488b`.
 Synthetic cancellation helper SHA-256:
-`e50a97ac35819331f6acdb6364e537235e0650dc2f5ad78066e75ffdafef7b795`.
+`e50a97ac35819331f6acdb6364e537235e0650dc2f5ad78066e75ffdafe7b795`.
 
 Compatibility with a real current Jupiter cancellation response is not yet
 proven by these synthetic tests. A bounded public-chain read-only observation
