@@ -154,3 +154,48 @@ test('previous-day index failures, wrong metadata and unrooted exit-account bank
   assert.equal(f.journal.riskState(wallet).activeMarginUsdcUnits,'20000000');
  }
 });
+
+function pausedExecutor(f,{readState=()=>({enabled:false,paused:true}),readFinalizedAccount=async()=>f.account}={}){
+ const ownerAccountHash='a'.repeat(64),calls={financial:0},forbidden=()=>{calls.financial++;throw Error('no new risk during paused maintenance');};
+ const options={mode:'execute',journal:f.journal,now:()=>now,rpcRequest:f.request,readFinalizedAccount,
+  controls:{read:()=>({walletAddress:wallet,...readState()}),pauseForRisk:forbidden},
+  vault:{describe:()=>({walletAddress:wallet,ownerAccountHash,exclusive:true,purpose:'jamddmaj-perps-automation'}),signPrepared:forbidden},
+  readFeed:forbidden,readAccount:forbidden,builderRequest:forbidden,fetchImpl:forbidden};
+ return {executor:createServerPerpsExecutor(options),args:{walletAddress:wallet,ownerAccountHash},calls};
+}
+
+test('paused automation reconciles a finalized full exit without reading signals, preparing, signing or sending',async t=>{
+ const f=await fixture(t),p=pausedExecutor(f),result=await p.executor.runOnce(p.args);
+ assert.equal(result.stage,'AUTOMATION_INACTIVE');assert.equal(f.journal.read('entry-0').state,'CLOSED');assert.equal(f.journal.read('entry-1').state,'OPEN');
+ assert.equal(f.journal.riskState(wallet).activeMarginUsdcUnits,'10000000');assert.equal(p.calls.financial,0);
+ assert.equal((await p.executor.runOnce(p.args)).stage,'AUTOMATION_INACTIVE');assert.equal(p.calls.financial,0);
+});
+
+test('an unknown pending signature does not prevent read-only recovery of independently closed positions while paused',async t=>{
+ const f=await fixture(t);f.journal.reserve({walletAddress:wallet,signalId:'unsigned-unknown',reservationId:'unsigned-unknown',marginUsd:'10',limits:f.limits,snapshot:f.snapshot});
+ f.journal.beginSigning('unsigned-unknown');const p=pausedExecutor(f),result=await p.executor.runOnce(p.args);
+ assert.equal(result.stage,'RECONCILIATION_REQUIRED');assert.equal(f.journal.read('entry-0').state,'CLOSED');assert.equal(f.journal.read('entry-1').state,'OPEN');
+ assert.equal(f.journal.read('unsigned-unknown').state,'SIGNING');assert.equal(f.journal.riskState(wallet).pendingMarginUsdcUnits,'10000000');assert.equal(p.calls.financial,0);
+});
+
+test('pausing does not guess away a live sibling exit or partially closed entry',async t=>{
+ for(const options of [{liveSibling:true},{exitSize:'29999999'},{failedExit:true}]){
+  const f=await fixture(t,options),p=pausedExecutor(f),result=await p.executor.runOnce(p.args);
+  assert.equal(result.stage,options.liveSibling?'EXIT_CLEANUP_REQUIRED':'AUTOMATION_INACTIVE');
+  assert.equal(f.journal.read('entry-0').state,'OPEN');assert.equal(f.journal.riskState(wallet).activeMarginUsdcUnits,'20000000');assert.equal(p.calls.financial,0);
+ }
+});
+
+test('activation arriving during paused recovery cannot start a financial entry in that same cycle',async t=>{
+ const f=await fixture(t);let activated=false;
+ const p=pausedExecutor(f,{readState:()=>({enabled:activated,paused:!activated}),readFinalizedAccount:async()=>{activated=true;return f.account;}});
+ assert.equal((await p.executor.runOnce(p.args)).stage,'AUTOMATION_INACTIVE');assert.equal(activated,true);
+ assert.equal(f.journal.read('entry-0').state,'CLOSED');assert.equal(p.calls.financial,0);
+});
+
+test('pause arriving during active recovery is checked before reading entry risk or published signals',async t=>{
+ const f=await fixture(t);let active=true;
+ const p=pausedExecutor(f,{readState:()=>({enabled:active,paused:!active,revision:'fixture-revision'}),readFinalizedAccount:async()=>{active=false;return f.account;}});
+ assert.equal((await p.executor.runOnce(p.args)).stage,'EXECUTION_BLOCKED');assert.equal(active,false);
+ assert.equal(f.journal.read('entry-0').state,'CLOSED');assert.equal(p.calls.financial,0);
+});

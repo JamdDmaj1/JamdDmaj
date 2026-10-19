@@ -367,3 +367,39 @@ At the final server check, the legacy Bitget worker and prepared HTTPS service
 were still inactive/disabled; controls remained active in controls-only mode.
 Vercel project authorization and owner action on certificate registration remain
 external integration gates; no acceptance or additional access was inferred.
+
+## Paused-cycle reconciliation correction, 2026-10-19
+
+Source review found that the bounded executor returned `AUTOMATION_INACTIVE`
+before examining existing journal rows. That could leave a closed position
+consuming a logical slot while paused, preventing the fresh risk check needed
+for reactivation. The executor now verifies ownership/exclusive custody first,
+then performs read-only reconciliation of recorded sends and finalized position
+closures even when new entries are disabled. It does not close positions or
+cancel exit orders. Recovery still needs the existing privately branded,
+fresh, request-bound chain evidence.
+
+An unresolved pending send no longer prevents independent recovery of a known
+closed position. It still blocks every new entry and retains its full pending
+collateral. Live sibling exits retain `EXIT_CLEANUP_REQUIRED`; partial, failed,
+ambiguous, stale or legacy exits never become closure proof. A cycle that began
+paused cannot open a new entry merely because activation arrives during the
+read-only checks. Conversely, a pause/revision change arriving during an active
+cycle is rechecked before entry-risk reads, feed reads or preparation.
+
+Five regression cases cover paused confirmed closure, unknown `SIGNING` plus an
+independent closure, partial/live-sibling exits, concurrent activation, and
+concurrent pause. Forbidden financial capabilities are counted and remain at
+zero in those cases. The full local suite passed **535 tests, 0 failed, 1
+skipped** (536 total). The complete 13-case individual-closure/executor corpus
+also passed on the VPS's Node 22.23.1 inside the network-disabled transient
+dynamic-user sandbox with private `/tmp`, protected home, read-only system paths,
+and a 384 MiB memory ceiling.
+
+Verified fixture bundle:
+`/opt/jamddmaj-perps/checks/paused-reconciliation-5abae598b2b5/perps-paused-reconciliation.test.mjs`,
+SHA-256 `5abae598b2b5506d1d6a6652e02b080dfc8cabdd893bb4c3673ca2c4a92721ea`.
+Fixture signatures belong only to ephemeral unfunded test identities and mocked
+RPC history, not production accounts or submitted transactions. This is a source
+correction, not installation/activation of a financial daemon, a new Android
+release, or completion of the live backup/execution/app integration gates above.
