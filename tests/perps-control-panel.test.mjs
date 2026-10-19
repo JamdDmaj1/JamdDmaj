@@ -29,3 +29,16 @@ test('invalid draft values are explained locally without losing the confirmed ac
  let writes=0;const f=fixture({read:async()=>state,save:async()=>{writes++;return state;}});await f.connect.onclick();f.fields.margin.value='1000';
  await f.save.onclick();assert.equal(writes,0);assert.match(f.status.textContent,/Revisa capital/);assert.equal(f.save.disabled,false);
 });
+
+test('exclusive wallet setup needs an explicit empty-account read and unchecked-by-default custody consent',async()=>{
+ const calls=[],f=fixture({read:async()=>null,provision:async args=>{calls.push(args);return {controls:state};}});
+ assert.equal(f.provision.disabled,true);assert.equal(f.consent.checked,false);await f.provision.onclick();assert.equal(calls.length,0);
+ await f.connect.onclick();assert.equal(f.provision.disabled,true);f.consent.checked=true;f.consent.onchange();assert.equal(f.provision.disabled,false);
+ await f.provision.onclick();assert.equal(calls.length,1);assert.equal(calls[0].explicitCustodyApproval,true);assert.equal(f.provision.disabled,true);assert.equal(f.consent.checked,false);
+ assert.match(f.status.textContent,/No deposites todavía/);assert.match(f.status.textContent,/respaldo/);assert.equal(f.save.disabled,false);
+});
+
+test('failed provisioning is treated as unconfirmed and must be read again before retrying',async()=>{
+ const f=fixture({read:async()=>null,provision:async()=>{throw Error('private detail');}});await f.connect.onclick();f.consent.checked=true;f.consent.onchange();await f.provision.onclick();
+ assert.equal(f.provision.disabled,true);assert.equal(f.save.disabled,true);assert.match(f.status.textContent,/No se pudo confirmar/);assert.doesNotMatch(f.status.textContent,/private/);
+});

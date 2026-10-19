@@ -7,11 +7,11 @@ const token='a'.repeat(64),revision='12345678-1234-4123-8123-123456789abc';
 const settings={capital:100,loss:50,positions:2,margin:20,leverage:3,dailyTrades:3};
 const health={ok:true,mode:'controls-only',tradingEnabled:false,executionAvailable:false,custodyProvisioningAvailable:false};
 const state={walletAddress:wallet,revision,settings,enabled:false,paused:true,reason:'SETTINGS_CHANGED',updatedAt:0};
-function fixture({readSessionToken=()=>token,reply=()=>Response.json({ok:true,controls:state})}={}){
+function fixture({readSessionToken=()=>token,healthReply=health,reply=()=>Response.json({ok:true,controls:state})}={}){
  const calls=[],client=createPerpsControlClient({readSessionToken,validateSettings:validateAutomationSettings,fetchImpl:async(url,options)=>{
   calls.push({url,options});assert.ok(url.startsWith(PERPS_CONTROL_ORIGIN+'/'));
   assert.equal(options.redirect,'error');assert.equal(options.cache,'no-store');assert.equal(options.credentials,'omit');
-  if(url.endsWith('/health')){assert.equal(options.headers.Authorization,undefined);return Response.json(health);}
+  if(url.endsWith('/health')){assert.equal(options.headers.Authorization,undefined);return Response.json(healthReply);}
   assert.equal(options.headers.Authorization,'Bearer '+readSessionToken());return reply(url,options);
  }});return {client,calls};
 }
@@ -20,7 +20,36 @@ test('app control client uses fixed HTTPS and the existing session, never sends 
  await f.client.save({walletAddress:wallet,expectedRevision:revision,settings});await f.client.pause({walletAddress:wallet});
  const actions=f.calls.filter(call=>call.options.body).map(call=>JSON.parse(call.options.body));
  assert.deepEqual(actions.map(body=>body.action),['save','pause']);assert.ok(actions.every(body=>!Object.hasOwn(body,'ownerAccountHash')&&!Object.hasOwn(body,'enabled')));
- assert.equal(f.client.activate,undefined);assert.equal(f.client.provision,undefined);assert.equal(f.client.sign,undefined);
+ assert.equal(f.client.activate,undefined);assert.equal(typeof f.client.provision,'function');assert.equal(f.client.sign,undefined);
+});
+
+test('explicit custody setup requires consent, protocol sizing and server capability before an authenticated mutation',async()=>{
+ const f=fixture();assert.throws(()=>f.client.provision({settings}),/custody-approval-required/);
+ assert.throws(()=>f.client.provision({settings:{...settings,margin:5},explicitCustodyApproval:true}),/invalid-settings/);assert.equal(f.calls.length,0);
+ await assert.rejects(f.client.provision({settings,explicitCustodyApproval:true}),/custody-unavailable/);assert.equal(f.calls.length,1);assert.equal(f.calls[0].options.body,undefined);
+ const setup={stage:'BACKUP_VERIFICATION_REQUIRED',backupVerified:false,fundingAvailable:false,readyForSigning:false};
+ const ready=fixture({healthReply:{...health,custodyProvisioningAvailable:true},reply:(_url,options)=>{
+  assert.deepEqual(Object.keys(JSON.parse(options.body)).sort(),['action','explicitCustodyApproval','settings']);return Response.json({ok:true,controls:state,setup});
+ }});
+ const result=await ready.client.provision({settings,explicitCustodyApproval:true});assert.equal(result.controls.walletAddress,wallet);assert.deepEqual(result.setup,setup);assert.equal(ready.calls.length,2);
+});
+
+test('custody setup never accepts active controls or a response that claims deposits or signing are ready',async()=>{
+ const setup={stage:'BACKUP_VERIFICATION_REQUIRED',backupVerified:false,fundingAvailable:false,readyForSigning:false};
+ for(const overrides of [{controls:{...state,enabled:true,paused:false}},{setup:{...setup,backupVerified:true}},{setup:{...setup,fundingAvailable:true}},{setup:{...setup,readyForSigning:true}},{setup:null}]){
+  const f=fixture({healthReply:{...health,custodyProvisioningAvailable:true},reply:()=>Response.json({ok:true,controls:state,setup,...overrides})});
+  await assert.rejects(f.client.provision({settings,explicitCustodyApproval:true}),/controls-unavailable/);assert.equal(f.calls.length,2);
+ }
+});
+
+test('a session switch after custody setup was sent cannot display that wallet under the new session or automatically retry',async()=>{
+ let current=token,calls=0;
+ const client=createPerpsControlClient({validateSettings:validateAutomationSettings,readSessionToken:()=>current,fetchImpl:async(url,options)=>{
+  calls++;if(url.endsWith('/health'))return Response.json({...health,custodyProvisioningAvailable:true});
+  assert.equal(options.headers.Authorization,'Bearer '+token);current='b'.repeat(64);
+  return Response.json({ok:true,controls:state,setup:{stage:'BACKUP_VERIFICATION_REQUIRED',backupVerified:false,fundingAvailable:false,readyForSigning:false}});
+ }});
+ await assert.rejects(client.provision({settings,explicitCustodyApproval:true}),/session-changed/);assert.equal(calls,2);
 });
 test('missing sessions and changes during a request do not authorize or display another account',async()=>{
  const missing=fixture({readSessionToken:()=>''});await assert.rejects(missing.client.read(),/login-required/);assert.equal(missing.calls.length,0);

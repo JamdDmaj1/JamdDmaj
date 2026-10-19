@@ -463,3 +463,65 @@ installed executable production host or enabled systemd financial service**.
 No production master/wallet, actual backup/receipt gate, TLS registration,
 transport configuration, app publication, or user activation was inferred from
 these fixture results. Those end-to-end production gates remain incomplete.
+
+## Authenticated app-to-custody setup path, 2026-10-19
+
+The controls API now recognizes explicit `provision` requests only when the host
+injects the private custody provisioner. The deployed controls-only host has no
+such dependency and remains unavailable for custody setup. The request accepts
+settings and `explicitCustodyApproval: true`, never a client-selected owner,
+wallet, seed, readiness flag or activation field. Existing verified opaque
+Google-linked session introspection and durable per-owner rate limits remain
+mandatory; no authentication provider migration or credential copy was added.
+Protocol sizing is validated before the private provisioner is invoked.
+
+After the private coordinator returns, the API independently rereads the
+authenticated owner's durable mapping and requires a matching paused/disabled
+wallet. A callback cannot supply another owner's identity as the returned
+control state. The setup response explicitly reports
+`BACKUP_VERIFICATION_REQUIRED`, `backupVerified: false`,
+`fundingAvailable: false`, and `readyForSigning: false`. An active or
+readiness-claiming setup result is refused, not silently paused or treated as
+fundable. Repeated valid requests retain the same encrypted owner-bound wallet
+and its existing revision/settings; they do not rotate keys or overwrite limits.
+
+The fixed-HTTPS app client exposes an explicit `provision` method, not automatic
+creation. It validates custody consent and protocol minimums locally, checks
+that the server actually advertises custody setup before forwarding a session
+token in the POST, verifies the paused/nonfundable response, and rechecks that
+the session did not change in flight. It never activates, signs, retries, or
+forwards an owner hash. Failure after a POST is unconfirmed rather than proof
+that no wallet was created; the next action is an explicit server read.
+
+The Finance panel now permits setup only after an explicit read confirms that
+the current account has no wallet and the user checks the initially unchecked
+server-custody consent. The checkbox uses the existing JamdDmaj settings layout.
+Successful setup displays the exclusive public wallet with an explicit **do not
+deposit yet** warning. No deposit QR, funding action or activation action is
+introduced. Connection/session failures clear stale identity and require a new
+read before retry. Preparing a wallet does not transfer the principal/Phantom
+balance into bot capital.
+
+Verification: **552 passed, 0 failed, 1 skipped** in the complete local suite
+(553 total), including the shipped Finance module graph. A full in-memory
+app-panel -> fixed-origin client -> session ledger -> API -> real temporary
+custody/control-store test passed using unfunded fixtures. Replay preserves the
+same wallet/settings, foreign reads are denied, and a session change after the
+POST cannot display that wallet for the new session. On the VPS's Node 22.23.1,
+all **8** authenticated API/integration cases passed in the network-disabled
+dynamic-user sandbox with private `/tmp`, read-only system paths, protected home
+and a 384 MiB memory ceiling.
+
+Verified bundle:
+`/opt/jamddmaj-perps/checks/authenticated-custody-fcfe215cdcfc/perps-authenticated-custody.test.mjs`,
+SHA-256 `fcfe215cdcfcfc8acf153d314e216a0773e3528a0705e884482d1b86a9279853`.
+No real wallet or master was created, funded, signed for, or submitted from.
+The test's advertised setup capability and session ledger were injected fixture
+dependencies, not evidence of a publicly reachable production flow.
+
+Before the host may advertise custody setup, it still needs private production
+key storage, admission/capacity policy compatible with the backup envelope,
+actual off-host backup/receipt verification, and the reviewed operational host.
+The authenticated identity route and HTTPS transport must be published and
+verified end to end. No production host was replaced, no capability flag was
+enabled, and no Android update was published by this source change.
