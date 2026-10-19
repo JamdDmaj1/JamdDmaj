@@ -1,0 +1,35 @@
+[Unit]
+Description=JamdDmaj authenticated Perps controls (execution disabled)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+DynamicUser=yes
+WorkingDirectory=/opt/jamddmaj-perps/controls
+Environment=JAMDDMAJ_PERPS_SERVICE_MODE=controls-only
+ExecStart=/usr/bin/node /opt/jamddmaj-perps/controls/perps-control-service.mjs
+Restart=on-failure
+RestartSec=10s
+TimeoutStopSec=15s
+StateDirectory=jamddmaj-perps-controls
+StateDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+LockPersonality=yes
+SystemCallArchitectures=native
+MemoryMax=192M
+TasksMax=32
+
+[Install]
+WantedBy=multi-user.target
