@@ -5,16 +5,22 @@ import {mkdtempSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import bs58 from 'bs58';
+import {getProgramDerivedAddress} from '@solana/kit';
 import {fixtureNow as now,fixtureWallet as wallet,historyTransaction} from './helpers/perps-history-fixture.mjs';
 import {PERPS_CUSTODIES,PERPS_POOL,PERPS_PROGRAM,deriveServerPerpsIdentities} from '../lib/perps-server-custody.js';
 import {readPerpsBroadcastReceipt} from '../lib/perps-broadcast-receipt.js';
 import {readServerPerpsDailyAccount} from '../lib/perps-server-daily-account.js';
-import {readServerPerpsPositionClosure,reconcileClosedServerPerpsPositions} from '../lib/perps-position-closure.js';
+import {readServerPerpsPositionClosure,reconcileClosedServerPerpsPositions,readServerPerpsExitCleanup,requireVerifiedServerPerpsExitCleanup,requireVerifiedServerPerpsPositionClosure} from '../lib/perps-position-closure.js';
 import {openPerpsExecutionJournal} from '../lib/perps-execution-journal.js';
 import {canonicalServerPerpsEntryExitPlan} from '../lib/perps-entry-exit-plan.js';
 import {createServerPerpsExecutor} from '../lib/perps-server-executor.js';
 const genesis='5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d',tokenProgram='TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
-const keys=[90,91,92].map(n=>bs58.encode(Buffer.alloc(32,n))),size='30000000';
+const baseIdentity=await deriveServerPerpsIdentities({walletAddress:wallet,asset:'SOL',side:'LONG'});
+const derivedRequests=await Promise.all([1n,2n,3n].map(async counter=>{
+ const bytes=Buffer.alloc(8);bytes.writeBigUInt64LE(counter);
+ return getProgramDerivedAddress({programAddress:PERPS_PROGRAM,seeds:['position_request',bs58.decode(baseIdentity.position),bytes,new Uint8Array([2])]});
+}));
+const keys=derivedRequests.map(([address])=>address),size='30000000';
 const plan={sizeUsdUnits:size,exits:keys.slice(0,2).map((address,index)=>({address,kind:index?'TP':'SL',sizeUsdUnits:size,triggerPriceUsdUnits:index?'110000000':'95000000',counter:String(index+1)}))};
 async function fixture(t,{yesterday=false,exitSize=size,exitAddress=keys[0],entrySize=size,failedExit=false,liveSibling=false,positionClosed=false}={}){
  const first=await historyTransaction({name:'InstantIncreasePositionEvent',nonce:4,threeSigners:true,fieldOverrides:{sizeUsdDelta:entrySize}});
@@ -23,6 +29,10 @@ async function fixture(t,{yesterday=false,exitSize=size,exitAddress=keys[0],entr
  if(failedExit)exit.tx.meta.err={InstructionError:[0,'InvalidArgument']};
  const transactions=[first,second,exit];if(yesterday)for(const value of transactions)value.tx.blockTime-=86400;
  const ids=await deriveServerPerpsIdentities({walletAddress:wallet,asset:'SOL',side:'LONG'});
+ const sibling=Buffer.alloc(230);Buffer.from('0c26fac72e9a20d8','hex').copy(sibling);
+ for(const [offset,key]of [[8,wallet],[40,PERPS_POOL],[72,PERPS_CUSTODIES.SOL.address],[104,ids.position],[136,PERPS_CUSTODIES.USDC.mint]])Buffer.from(bs58.decode(key)).copy(sibling,offset);
+ sibling.writeBigUInt64LE(1000n,168);sibling.writeBigUInt64LE(1001n,176);sibling.writeBigUInt64LE(BigInt(size),184);
+ sibling[200]=2;sibling[201]=1;sibling[202]=1;sibling[206]=1;sibling.writeBigUInt64LE(110000000n,207);sibling[215]=1;sibling[216]=1;sibling[217]=1;sibling.writeBigUInt64LE(2n,220);sibling[228]=derivedRequests[1][1];
  const position=Buffer.alloc(210);Buffer.from('aabc8fe47a40f7d0','hex').copy(position);
  for(const [offset,key]of [[8,wallet],[40,PERPS_POOL],[72,PERPS_CUSTODIES.SOL.address],[104,PERPS_CUSTODIES.SOL.address]])Buffer.from(bs58.decode(key)).copy(position,offset);
  position.writeBigUInt64LE(1000n,136);position.writeBigUInt64LE(1001n,144);position[152]=1;position.writeBigUInt64LE(100000000n,153);position.writeBigUInt64LE(30000000n,161);position.writeBigUInt64LE(10000000n,169);position[209]=ids.positionBump;
@@ -34,7 +44,7 @@ async function fixture(t,{yesterday=false,exitSize=size,exitAddress=keys[0],entr
  const request=async(method,params)=>{
   calls.push({method,params});
   if(method==='getGenesisHash')return genesis;
-  if(method==='getMultipleAccounts')return params[0].length===8?{context:{slot:500000},value:bank}:{context:{slot:500000},value:params[0].map(address=>liveSibling&&address===keys[1]?{owner:PERPS_PROGRAM}:null)};
+  if(method==='getMultipleAccounts')return params[0].length===8?{context:{slot:500000},value:bank}:{context:{slot:500000},value:params[0].map(address=>liveSibling&&address===keys[1]?{owner:PERPS_PROGRAM,executable:false,lamports:2000000,data:[sibling.toString('base64'),'base64']}:null)};
   if(method==='getSlot')return 500000;
   if(method==='getBlocks')return [68000];
   if(method==='getBlockTime')return params[0]===500000?now/1000-5:now/1000-172800;
@@ -52,7 +62,7 @@ async function fixture(t,{yesterday=false,exitSize=size,exitAddress=keys[0],entr
  const snapshot={walletAddress:wallet,network:'solana-mainnet',balancesComplete:true,observedAt:now,day:'2026-10-18',availableUsdcUnits:'100000000',allocatedUsdcUnits:'0',lossTodayUsdcUnits:'0',openPositions:0,tradesToday:0};
  const limits={capitalUsd:'100',dailyLossUsd:'100',positions:10,dailyTrades:10};
  for(const [index,value]of [first,second].entries()){
-  const reservationId='entry-'+index,entryExitPlan=index?{sizeUsdUnits:size,exits:[{...plan.exits[0],address:keys[2]}]}:plan;
+  const reservationId='entry-'+index,entryExitPlan=index?{sizeUsdUnits:size,exits:[{...plan.exits[0],address:keys[2],counter:'3'}]}:plan;
   journal.reserve({walletAddress:wallet,signalId:reservationId,reservationId,positionAddress:ids.position,entryExitPlan,marginUsd:'10',limits,snapshot});journal.beginSigning(reservationId);
   const partial=Buffer.from(value.tx.transaction[0],'base64');partial.fill(0,65,129);
   const record={walletAddress:wallet,signature:value.signature,wireHash:createHash('sha256').update(partial).digest('hex')};
@@ -123,6 +133,39 @@ test('whole-position closure also waits for sibling orders instead of forgetting
  assert.equal((await readServerPerpsPositionClosure(closed.journal.read('entry-0'),closed.options)).stage,'FINALIZED_WHOLE_POSITION_CLOSED');
  const legacy={...closed.journal.read('entry-0'),entry_exit_plan:null};
  assert.equal(await readServerPerpsPositionClosure(legacy,closed.options),null);
+});
+
+test('orphan discovery proves a finalized closed entry and its exact native pending sibling without releasing journal risk',async t=>{
+ for(const positionClosed of [false,true]){
+  const f=await fixture(t,{liveSibling:true,positionClosed}),row=f.journal.read('entry-0');
+  const proof=await readServerPerpsExitCleanup(row,f.options);
+  assert.equal(requireVerifiedServerPerpsExitCleanup(proof),proof);assert.throws(()=>requireVerifiedServerPerpsExitCleanup({...proof}));
+  assert.equal(proof.stage,'FINALIZED_ENTRY_EXIT_CLEANUP_REQUIRED');assert.equal(proof.readyForSigning,false);
+  assert.equal(proof.closureStage,positionClosed?'FINALIZED_WHOLE_POSITION_CLOSED':'FINALIZED_INDIVIDUAL_ENTRY_CLOSED');
+  assert.deepEqual(proof.pendingExits.map(exit=>({address:exit.address,kind:exit.kind,counter:exit.counter})),[{address:keys[1],kind:'TP',counter:'2'}]);
+  assert.equal(proof.requestObservedSlot,500000);assert.ok(Object.isFrozen(proof.pendingExits));
+  assert.throws(()=>requireVerifiedServerPerpsPositionClosure(proof));assert.throws(()=>f.journal.reconcileClosedPosition('entry-0',proof));
+  assert.equal(f.journal.riskState(wallet).activeMarginUsdcUnits,'20000000');
+  assert.equal(await readServerPerpsExitCleanup(f.journal.read('entry-1'),f.options),null);
+  assert.ok(f.calls.every(call=>!['sendTransaction','simulateTransaction'].includes(call.method)));
+  f.expire();assert.throws(()=>requireVerifiedServerPerpsExitCleanup(proof));
+ }
+ const closed=await fixture(t);assert.equal(await readServerPerpsExitCleanup(closed.journal.read('entry-0'),closed.options),null);
+ const partial=await fixture(t,{liveSibling:true,exitSize:'29999999'});assert.equal(await readServerPerpsExitCleanup(partial.journal.read('entry-0'),partial.options),null);
+});
+
+test('orphan discovery rejects altered native owner, position, size, trigger, counter, executed state and stale banks',async t=>{
+ const f=await fixture(t,{liveSibling:true});
+ for(const offset of [8,40,72,104,136,184,200,201,202,207,216,218,220,228]){
+  const request=async(method,params)=>{const result=await f.request(method,params);
+   if(method==='getMultipleAccounts'&&params[0].length===2){const native=result.value[1],bytes=Buffer.from(native.data[0],'base64');bytes[offset]^=1;native.data[0]=bytes.toString('base64');}
+   return result;
+  };
+  await assert.rejects(readServerPerpsExitCleanup(f.journal.read('entry-0'),{...f.options,request}));
+ }
+ const request=async(method,params)=>{const result=await f.request(method,params);if(method==='getMultipleAccounts'&&params[0].length===2)result.context.slot=499999;return result;};
+ await assert.rejects(readServerPerpsExitCleanup(f.journal.read('entry-0'),{...f.options,request}));
+ assert.equal(f.journal.read('entry-0').state,'OPEN');assert.equal(f.journal.riskState(wallet).activeMarginUsdcUnits,'20000000');
 });
 
 test('executor stops new entries on orphan triggers or legacy unresolved bindings without signing or cancelling anything',async t=>{

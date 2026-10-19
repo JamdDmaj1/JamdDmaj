@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import bs58 from 'bs58';
 import {getProgramDerivedAddress} from '@solana/kit';
 import {PERPS_PROGRAM,PERPS_POOL,PERPS_CUSTODIES,deriveServerPerpsIdentities} from '../lib/perps-server-custody.js';
-import {decodeServerPerpsExit,checkServerPerpsSimulatedExits} from '../lib/perps-server-exits.js';
+import {decodeServerPerpsExit,decodeRecordedServerPerpsExit,checkServerPerpsSimulatedExits} from '../lib/perps-server-exits.js';
 
 async function fixture(asset='SOL',side='LONG',profit=false){
  const intent={asset,side,walletAddress:bs58.encode(Buffer.alloc(32,1)),stopLoss:side==='LONG'?'95':'105',takeProfit:side==='LONG'?'110':'90'};
@@ -23,6 +23,18 @@ test('pending SL and TP bind to derived request, exact size and direction for ev
  for(const asset of ['BTC','ETH','SOL'])for(const side of ['LONG','SHORT'])for(const profit of [false,true]){
   const f=await fixture(asset,side,profit),result=await decodeServerPerpsExit(f.address,f.account(),f.intent,f.instruction.toString('base64'));
   assert.equal(result.kind,profit?'TP':'SL');assert.equal(result.sizeUsdUnits,'30000000');assert.equal(result.counter,'18446744073709551615');assert.equal(result.readyForSigning,false);assert.ok(Object.isFrozen(result));
+ }
+});
+
+test('recorded sibling inspection reconstructs only expected fields for all markets and directions, not signing authority',async()=>{
+ for(const asset of ['BTC','ETH','SOL'])for(const side of ['LONG','SHORT'])for(const profit of [false,true]){
+  const f=await fixture(asset,side,profit),binding={address:f.address,kind:profit?'TP':'SL',sizeUsdUnits:'30000000',
+   triggerPriceUsdUnits:f.instruction.readBigUInt64LE(24).toString(),counter:'18446744073709551615'};
+  const proof=await decodeRecordedServerPerpsExit(binding,f.account(),{walletAddress:f.intent.walletAddress,asset,side});
+  assert.equal(proof.kind,binding.kind);assert.equal(proof.stage,'EXIT_STATE_ONLY');assert.equal(proof.readyForSigning,false);
+  for(const change of [{counter:'18446744073709551616'},{counter:'01'},{sizeUsdUnits:'0'},{triggerPriceUsdUnits:'0'},{kind:'MARKET'},{triggerPriceUsdUnits:'1'}]){
+   await assert.rejects(decodeRecordedServerPerpsExit({...binding,...change},f.account(),f.intent));
+  }
  }
 });
 test('mismatched exit identities, amounts, options, timestamps and executed state fail closed',async()=>{

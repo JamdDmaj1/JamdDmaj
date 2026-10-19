@@ -1149,3 +1149,44 @@ for a production authenticated read. The new UI remains local-only: no Vercel
 promotion, push, Android signing or APK publication was performed in this step.
 This closes the backup-status data path, not the remaining execution/exit,
 funding readiness, activation or release requirements.
+
+## Native orphan-exit discovery proof, 2026-10-19
+
+Official references checked read-only:
+[PositionRequest lifecycle](https://developers.jup.ag/docs/perps/position-request-account),
+[Perps API cancellation schema](https://perps-api.jup.ag/v1/docs), and
+[official CLI close/cancel usage](https://github.com/jup-ag/cli/blob/main/docs/perps.md).
+TP/SL cancellation is a separate transaction action; neither a missing index row
+nor the position disappearing alone permits forgetting a recorded live request.
+
+The closure reader now has a separate readServerPerpsExitCleanup discovery path.
+It first proves the finalized full entry exit (or whole-position closure), then
+reads the recorded request accounts at a finalized bank no older than the risk
+snapshot. Every surviving request is decoded against the original wallet,
+position, custody, mint, request PDA, counter, size, kind and trigger price. A
+still-present executed request is not accepted as its own orphan sibling. The
+result has a distinct private proof identity, an expiry, an immutable pending
+request list and readyForSigning=false. Copies are invalid, and the execution
+journal's closure method rejects this cleanup proof instead of releasing risk.
+The ordinary closure reader still requires every recorded request to be absent.
+
+Tests now derive actual fixture request PDAs instead of arbitrary request keys.
+They cover overlapping same-pair entries, whole-position closure, both directions
+and all supported markets, partial/failed/unrelated exits, stale banks/proofs,
+altered native identities/amounts/options, and unchanged reserved capital. All
+19 selected closure/native-exit cases passed on VPS Node 22 in a DynamicUser
+transient unit with PrivateNetwork and temporary unfunded stores; none skipped.
+The full local test suite also exited 0, with existing optional/platform skips.
+Artifacts: `/opt/jamddmaj-perps/checks/exit-cleanup-discovery-20261019/`.
+Source hashes: closure test
+`c39d8db83e1fdbf6c5964eed5562bc0c6e96ff80e072fdd1f5f5a8cb244676ea`,
+native exits test
+`e31224d2308ba1d85b5c080d0e3b6b4c1fc2a2af0e998ab69be368ed434fe44b`.
+
+This is discovery evidence, not cancellation authority or a completed cleanup
+workflow. No cancellation builder was called, no real financial signature or
+transaction was produced, and no new worker/UI/APK was deployed in this step.
+Remaining work includes exact cancellation-wire inspection/simulation, narrowly
+scoped authorization, durable one-send/restart reconciliation and finalized
+absence before the journal can release an entry's risk. Production remains on
+the previously installed recovery-status bundle, with execution disabled.
