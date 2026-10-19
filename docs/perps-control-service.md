@@ -963,3 +963,64 @@ cut over the authenticated control boundary to this same worker store, establish
 bounded custody admission, and verify the actual owner wallet's off-host backup
 before funding/signing readiness. The installed daemon is maintenance
 infrastructure, not completed financial execution or a new app publication.
+
+## Shared production control boundary cutover, 2026-10-19
+
+The worker now supports an operator-configured canonical private
+`controlsDirectory`, with the same ownership/mode/schema checks as its local
+store. Production uses the **original** database at
+`/var/lib/private/jamddmaj-perps-controls/controls.sqlite`, not a copied or reset
+database. Wallet/journal/backup state stays under
+`/var/lib/private/jamddmaj-perps-runtime`. The service runs as the existing
+controls DynamicUser with both StateDirectories; explicit server-only paths
+avoid ambiguity in systemd's colon-separated StateDirectory environment value.
+Future recovery archives must use this actual external controls path, not the
+unused empty `controls.sqlite` left in the runtime root by initialization.
+
+The service now starts `--controls`, still in maintenance with execution approval
+false and without `--custody-setup`. The old standalone controls listener is
+stopped/disabled to prevent a competing port listener after reboot. HTTPS now
+Requires/After the shared worker. No Caddy routes, DNS, certificate-trust settings, application
+session credentials or financial activation settings were changed.
+
+Deployment preflight required zero configured accounts, no wallets, no journal
+reservations and a maintenance status. Before touching the active services, the
+first attempt failed because the rollback parent directory did not yet exist;
+both services were confirmed still active and that directory was created.
+Prior unit/binary and aggregate database metadata were then preserved privately
+at `/opt/jamddmaj-perps/backups/controls-cutover-20261019`. The original database
+file identity and aggregates remained identical across cutover: zero configured
+accounts, one quota row, three quota requests. No account identity or session
+token was read to obtain those aggregates.
+
+The first external check correctly detected connection refusal on 443: the old
+HTTPS unit still required the retired controls service and had stopped with it.
+The HTTPS dependency was updated to the shared worker and the service restarted.
+Two new regression cases verify this dependency graph and that the installed
+composition cannot enable custody or execution. Actual public TLS requests then
+returned health 200/no-store with all financial/provisioning gates false;
+anonymous and invented invalid-session automation reads returned JSON 401;
+allowed-origin preflight returned 204. No authenticated production mutation or
+real financial request was made.
+
+Sixteen runtime cases passed on the actual VPS in a network-isolated DynamicUser
+unit, including reuse of exhausted per-account quotas. A further Windows run
+exposed another pre-existing rounded-inode comparison in runtime recovery;
+database identity checks in that helper now use exact BigInt IDs too. The
+corrected runtime passed the same 16 isolated Linux cases. The final installed
+worker bundle SHA-256 is
+`ab8d823437b863dd45449d75f2d2bfd269b92ae3bdc50f63034c49a8354583a8`.
+Source runtime test SHA-256:
+`3cf7a6711e279273d28931b97acc187c035ba23e70d3b5974fdc48c559d9cbfd`.
+Artifacts: `/opt/jamddmaj-perps/checks/shared-controls-3cf7a6711e27/`.
+
+This connects the app's existing authenticated API to the worker's controls; it
+does not prove a new real authenticated device read, fund a wallet, authorize
+signing, enable custody admission, publish an APK or complete trading.
+The existing HTTPS isolation test was updated to require the new dependency;
+all original certificate-isolation and no-custody/no-execution assertions remain.
+Its three cases and the two new service-graph cases passed after that update.
+The final full local test run exited 0. Post-install checks confirmed worker and
+HTTPS both active/running with NRestarts=0, a fresh maintenance cycle, no signing
+readiness and no activation request. Platform/optional test skips remain; no
+remote APK/signing CI was run or bypassed.

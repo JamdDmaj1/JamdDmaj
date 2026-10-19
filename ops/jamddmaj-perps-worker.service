@@ -1,5 +1,5 @@
 # Maintenance only. Initialize reviewed empty state explicitly before starting.
-# No HTTP boundary/custody admission until the existing controls are migrated.
+# Shared existing controls; financial execution and custody setup stay disabled.
 [Unit]
 Description=JamdDmaj Perps durable maintenance worker
 After=network-online.target
@@ -10,14 +10,17 @@ StartLimitBurst=3
 [Service]
 Type=simple
 DynamicUser=yes
-User=jamddmaj-perps-runtime
-StateDirectory=jamddmaj-perps-runtime
+User=jamddmaj-perps-controls
+StateDirectory=jamddmaj-perps-runtime jamddmaj-perps-controls
 StateDirectoryMode=0700
 RuntimeDirectory=jamddmaj-perps-runtime
 RuntimeDirectoryMode=0700
 RuntimeDirectoryPreserve=no
 WorkingDirectory=/opt/jamddmaj-perps/worker
-ExecStart=/usr/bin/node /opt/jamddmaj-perps/worker/perps-server-worker.mjs
+ExecStart=/usr/bin/node /opt/jamddmaj-perps/worker/perps-server-worker.mjs --controls
+Environment=JAMDDMAJ_PERPS_RUNTIME_DIRECTORY=/var/lib/private/jamddmaj-perps-runtime
+Environment=JAMDDMAJ_PERPS_CONTROLS_DIRECTORY=/var/lib/private/jamddmaj-perps-controls
+Environment=JAMDDMAJ_PERPS_TRUST_LOOPBACK_PROXY=true
 Environment=JAMDDMAJ_PERPS_WORKER_MODE=maintenance
 Environment=JAMDDMAJ_PERPS_EXECUTION_APPROVED=false
 Environment=JAMDDMAJ_PERPS_WORKER_POLL_MS=15000

@@ -24,6 +24,6 @@ test('TLS proxy exposes only bounded control routes to loopback and replaces unt
 
 test('HTTPS unit isolates certificate state and has no custody keys, funding or executor configuration',()=>{
  for(const directive of ['DynamicUser=yes','ProtectSystem=strict','ProtectHome=yes','NoNewPrivileges=yes','PrivateTmp=yes','StateDirectoryMode=0700','CapabilityBoundingSet=CAP_NET_BIND_SERVICE'])assert.ok(unit.includes(directive));
- assert.match(unit,/Requires=jamddmaj-perps-controls\.service/);
+ assert.match(unit,/Requires=jamddmaj-perps-worker\.service/);
  assert.doesNotMatch(unit,/EnvironmentFile=|master\.key|custody|\.env|bitget|MODE=execute|PrivateKey/);
 });

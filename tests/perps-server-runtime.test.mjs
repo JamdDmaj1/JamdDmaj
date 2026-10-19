@@ -76,6 +76,8 @@ test('worker environment defaults to maintenance and never exposes a non-POSIX p
  assert.equal(config.mode,'maintenance');assert.equal(config.explicitExecutionApproval,false);assert.equal(config.allowNonPosixForTests,undefined);
  assert.equal(perpsWorkerEnvironment({STATE_DIRECTORY:'/var/lib/jamddmaj-perps-runtime'}).directory,'/var/lib/private/jamddmaj-perps-runtime');
  assert.equal(perpsWorkerEnvironment({JAMDDMAJ_PERPS_RUNTIME_DIRECTORY:'/var/lib/jamddmaj-perps-runtime'}).directory,'/var/lib/jamddmaj-perps-runtime');
+ const shared=perpsWorkerEnvironment({STATE_DIRECTORY:'/var/lib/runtime:/var/lib/controls',JAMDDMAJ_PERPS_RUNTIME_DIRECTORY:'/private/runtime',JAMDDMAJ_PERPS_CONTROLS_DIRECTORY:'/private/controls'});
+ assert.equal(shared.directory,'/private/runtime');assert.equal(shared.controlsDirectory,'/private/controls');
  for(const env of [{},{STATE_DIRECTORY:'/private/runtime',JAMDDMAJ_PERPS_WORKER_MODE:'auto'},{STATE_DIRECTORY:'/private/runtime',JAMDDMAJ_PERPS_EXECUTION_APPROVED:'yes'},{STATE_DIRECTORY:'/private/runtime',JAMDDMAJ_PERPS_WORKER_BATCH_SIZE:'51'}])assert.throws(()=>perpsWorkerEnvironment(env));
 });
 test('systemd runtime locks remain separate from durable financial state and disappear on a clean drain',async t=>{
@@ -110,6 +112,21 @@ test('runtime drains an in-flight authenticated request on shutdown without writ
  const pending=runtime.handleControlRequest(new Request('https://157.230.54.133/v1/automation',{headers:{Authorization:'Bearer '+'e'.repeat(64)}}));
  await began;let drained=false;const closing=runtime.close().then(()=>{drained=true;});await Promise.resolve();assert.equal(drained,false);
  release();assert.equal((await pending).status,503);await closing;assert.equal(existsSync(join(f.directory,'worker.lock')),false);
+});
+
+test('shared private controls retain existing ownership and exhausted quotas without copying, migrating or replacing the original store',async t=>{
+ const f=fixture(t),controlsDirectory=join(f.directory,'original-controls');mkdirSync(controlsDirectory,{mode:0o700});
+ const sharedPath=join(controlsDirectory,'controls.sqlite');renameSync(f.controlsPath,sharedPath);
+ const now=()=>1800000000000,existing=openPerpsAutomationControls(sharedPath,{now});
+ for(let i=0;i<60;i++)assert.equal(existing.consumeRequestQuota({ownerAccountHash}),true);existing.close();
+ const runtime=openServerPerpsRuntime({...f.options,controlsDirectory,now,fetchImpl:async()=>Response.json({ok:true,accountHash:ownerAccountHash,verifiedAt:now()})});
+ try{
+  const response=await runtime.handleControlRequest(new Request('https://157.230.54.133/v1/automation',{headers:{Authorization:'Bearer '+'e'.repeat(64)}}));
+  assert.equal(response.status,429);assert.equal(existsSync(f.controlsPath),false);
+  assert.equal((await runtime.run({once:true})).results.RECONCILIATION_ONLY,1);
+  const verify=openPerpsAutomationControls(sharedPath,{now});try{assert.equal(verify.read(f.identity).walletAddress,f.identity.walletAddress);assert.equal(verify.consumeRequestQuota({ownerAccountHash}),false);}finally{verify.close();}
+ }finally{await runtime.close();}
+ assert.equal(existsSync(f.controlsPath),false);
 });
 
 test('opt-in runtime custody setup creates separate paused wallets for verified users, survives restart, and never enables funding or execution',async t=>{

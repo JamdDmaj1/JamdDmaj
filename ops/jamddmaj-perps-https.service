@@ -1,8 +1,8 @@
 [Unit]
 Description=JamdDmaj Perps HTTPS transport (no financial execution)
-After=network-online.target jamddmaj-perps-controls.service
+After=network-online.target jamddmaj-perps-worker.service
 Wants=network-online.target
-Requires=jamddmaj-perps-controls.service
+Requires=jamddmaj-perps-worker.service
 
 [Service]
 Type=notify
