@@ -15,7 +15,8 @@ import {openPerpsExecutionJournal} from '../lib/perps-execution-journal.js';
 import {canonicalServerPerpsEntryExitPlan} from '../lib/perps-entry-exit-plan.js';
 import {createServerPerpsExecutor} from '../lib/perps-server-executor.js';
 import {inspectServerPerpsExitCancellation,requireInspectedPerpsExitCancellation} from '../lib/perps-exit-cancellation.js';
-import {cancellationFixture} from './helpers/perps-cancellation-fixture.mjs';
+import {cancellationFixture,cancellationSimulationFixture} from './helpers/perps-cancellation-fixture.mjs';
+import {simulateServerPerpsExitCancellation,requireSimulatedPerpsExitCancellation} from '../lib/perps-exit-cancellation-simulation.js';
 const genesis='5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d',tokenProgram='TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
 const baseIdentity=await deriveServerPerpsIdentities({walletAddress:wallet,asset:'SOL',side:'LONG'});
 const derivedRequests=await Promise.all([1n,2n,3n].map(async counter=>{
@@ -211,6 +212,56 @@ test('cancellation inspection rejects foreign roles, duplicate cancellation, tra
   await assert.rejects(inspectServerPerpsExitCancellation(c.preparation,cleanup,{...c,request}));
  }
  assert.equal(f.journal.riskState(wallet).activeMarginUsdcUnits,'20000000');
+});
+
+async function inspectedCancellation(f,{newOwnerAta=false,versioned=false}={}){
+ const cleanup=await readServerPerpsExitCleanup(f.journal.read('entry-0'),f.options),c=await cancellationFixture(cleanup,{createAta:newOwnerAta,versioned});
+ const inspection=await inspectServerPerpsExitCancellation(c.preparation,cleanup,c);
+ const native=(await f.request('getMultipleAccounts',[plan.exits.map(exit=>exit.address),{}])).value[1];
+ const position=(await f.request('getMultipleAccounts',[Array(8).fill(wallet),{}])).value[6];
+ return {c,inspection,options:{requestAccount:native,positionAccount:position,newOwnerAta}};
+}
+
+test('exact-wire orphan cancellation simulation returns all USDC and rent, preserves pool/positions and grants no authority',async t=>{
+ for(const positionClosed of [false,true])for(const newOwnerAta of [false,true])for(const versioned of [false,true])for(const requestTokens of [0n,2500000n]){
+  const f=await fixture(t,{liveSibling:true,positionClosed}),{c,inspection,options}=await inspectedCancellation(f,{newOwnerAta,versioned});
+  const simulation=cancellationSimulationFixture(inspection,{...options,requestTokens});
+  c.preparation.txMetadata.lastValidBlockHeight='1'; // Inspection owns its metadata snapshot.
+  const value=await simulateServerPerpsExitCancellation(inspection,simulation);
+  assert.equal(requireSimulatedPerpsExitCancellation(value),value);assert.throws(()=>requireSimulatedPerpsExitCancellation({...value}));
+  assert.equal(value.stage,'EXIT_CANCELLATION_SIMULATED_NOT_AUTHORIZED');assert.equal(value.readyForSigning,false);assert.equal(value.returnedUsdcUnits,requestTokens.toString());
+  assert.equal(value.addedOwnerAtaRentLamports,newOwnerAta?'2039280':'0');assert.equal(value.recoveredRentLamports,'4039280');
+  const sent=simulation.calls.filter(call=>call.method==='simulateTransaction');assert.equal(sent.length,1);assert.equal(sent[0].params[0],inspection.envelope.serializedTxBase64);
+  assert.equal(sent[0].params[1].sigVerify,false);assert.equal(sent[0].params[1].replaceRecentBlockhash,false);
+  assert.equal(f.journal.riskState(wallet).activeMarginUsdcUnits,'20000000');assert.equal(f.journal.read('entry-0').state,'OPEN');
+  assert.ok(simulation.calls.every(call=>!['sendTransaction','requestAirdrop'].includes(call.method)));
+  f.expire();assert.throws(()=>requireSimulatedPerpsExitCancellation(value));
+ }
+});
+
+test('cancellation effects reject missing closures, diverted balances, altered native request, position, fees and expired evidence',async t=>{
+ const f=await fixture(t,{liveSibling:true}),{inspection,options}=await inspectedCancellation(f);
+ const tamperData=(account,offset)=>{const data=Buffer.from(account.data[0],'base64');data[offset]^=1;account.data[0]=data.toString('base64');};
+ const mutations=[
+  s=>{s.after[inspection.exitAddress]=structuredClone(s.before[inspection.exitAddress]);},
+  s=>{s.after[inspection.requestAta]=structuredClone(s.before[inspection.requestAta]);},
+  s=>{s.after[inspection.walletAddress].lamports--;},s=>{s.after[inspection.walletAddress].lamports++;},
+  s=>{tamperData(s.after[inspection.ownerAta],64);},s=>{tamperData(s.after[inspection.ownerAta],72);},
+  s=>{s.after[inspection.resolvedKeys[1]].lamports++;},s=>{tamperData(s.after[PERPS_POOL],0);},
+  s=>{tamperData(s.after[inspection.positionAddress],161);},s=>{tamperData(s.before[inspection.exitAddress],220);},
+  s=>{s.before[PERPS_POOL].owner=wallet;s.after[PERPS_POOL].owner=wallet;},
+  s=>{s.before[inspection.positionAddress].owner=wallet;s.after[inspection.positionAddress].owner=wallet;},
+  s=>{tamperData(s.before[inspection.requestAta],72);},
+  s=>{s.after[inspection.ownerAta].lamports++;},s=>{s.fee=1000001;},s=>{s.fee=null;},
+  s=>{s.slot=499999;},s=>{s.height=600001;},s=>{s.err={InstructionError:[0,'InvalidArgument']};},
+  s=>{s.replacementBlockhash={blockhash:wallet,lastValidBlockHeight:600002};},s=>{s.unitsConsumed=200001;}
+ ];
+ for(const change of mutations){const simulation=cancellationSimulationFixture(inspection,options);change(simulation.state);await assert.rejects(simulateServerPerpsExitCancellation(inspection,simulation));}
+ const newer=await inspectedCancellation(f,{newOwnerAta:true}),badRent=cancellationSimulationFixture(newer.inspection,newer.options);badRent.state.rent++;
+ await assert.rejects(simulateServerPerpsExitCancellation(newer.inspection,badRent));
+ const expired=cancellationSimulationFixture(inspection,options),request=async(method,params)=>{const value=await expired.request(method,params);if(method==='simulateTransaction')f.expire();return value;};
+ await assert.rejects(simulateServerPerpsExitCancellation(inspection,{request}));assert.equal(f.journal.read('entry-0').state,'OPEN');
+ await assert.rejects(simulateServerPerpsExitCancellation({...inspection},expired));
 });
 
 test('executor stops new entries on orphan triggers or legacy unresolved bindings without signing or cancelling anything',async t=>{

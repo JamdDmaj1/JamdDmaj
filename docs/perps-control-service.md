@@ -1233,3 +1233,53 @@ real owner's cancellation builder was called. The inspection feature has not
 been installed into the production worker or released to the app. Full effects
 simulation, precise authorization, durable one-send/restart handling and
 finalized request absence remain required before automatic cleanup is usable.
+
+## Exact-wire cancellation effects simulation, 2026-10-19
+
+Implemented a separate read-only simulation gate after the private cancellation
+inspection proof. It uses the original owner/keeper-unsigned wire, sigVerify=false
+and replaceRecentBlockhash=false, as supported by the
+[Solana simulation RPC](https://solana.com/docs/rpc/http/simulatetransaction).
+It checks the mainnet genesis, nondecreasing bank slots, inspected block height,
+the [same-message fee](https://solana.com/docs/rpc/http/getfeeformessage), compute
+budget and the absence of simulation errors or blockhash replacement. Inspection
+now owns an immutable metadata/intent snapshot rather than borrowing a mutable
+builder response. The existing entry simulation snapshot normalizer is reused.
+
+Before simulation, the recorded native orphan is decoded again at the newer
+bank, the fixed pool has its program owner/discriminator checked, and a surviving
+position must decode to the same derived identity. After simulation, the request
+and its USDC account must be closed. All request USDC must be credited to the
+owner's derived USDC ATA, with no delegate/native-token/foreign-close authority.
+An existing owner's token account cannot otherwise change. A new owner ATA has
+an exact bounded rent calculation. The SOL payer delta must equal recovered
+request/token rent minus the actual message fee and any added owner ATA rent.
+Pool, keeper and position snapshots must remain unchanged. No unexplained
+lamport/token difference is accepted. These expected effects are intentionally
+not a claim that current live Jupiter responses have already been validated.
+
+The immutable result has a distinct private identity and readyForSigning=false;
+copies or expired inspection/cleanup evidence are rejected. It does not invoke
+a builder, signer, transaction sender, activation method or journal closure.
+Finalized absence and a durable authorized one-send lifecycle remain mandatory.
+
+All 19 closure/inspection/simulation cases passed on actual VPS Node 22 in an
+isolated DynamicUser transient unit with networking disabled, temporary unfunded
+wallets and no skips. Cases include empty/nonempty request tokens, an existing
+or new owner ATA, legacy/v0 wires, surviving/closed positions, altered balances,
+owner/program fields, native counters, request closure, fee/height/slot failures,
+simulation errors, compute limits, replacement blockhash and expired proof.
+The final full local suite exited 0 with existing optional/platform skips.
+Artifacts: `/opt/jamddmaj-perps/checks/exit-cancellation-simulation-20261019/`.
+Simulation source SHA-256:
+`8cd9b1ba875727deaafe3aa3dac489d8d229064a6744aa23dc66b2d1cbb8b237`.
+Closure test SHA-256:
+`6d8fd897b883684f6621fa056e2276210ab094215ece4c2e38994d51f63475d7`.
+Fixture helper SHA-256:
+`aaabdcae2c3593fbd0017ba57085f83b718fd9189edea3507a2b9eff4f5ca852`.
+
+This step did not simulate a real owner's cancellation against mainnet, sign or
+submit a real financial transaction, activate the bot, change production service
+flags, or release an app/worker update. Runtime cleanup integration, live unsigned
+compatibility, authorization and crash-safe cancellation reconciliation remain
+incomplete; trading readiness is still not established.

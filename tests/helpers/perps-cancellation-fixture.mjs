@@ -1,6 +1,6 @@
 // Synthetic unsigned owner/keeper slots, signed only by an unfunded fixture API
 // seed. No mainnet wallet or submission transport is used by this helper.
-import {createPrivateKey,createPublicKey,sign} from 'node:crypto';
+import {createPrivateKey,createPublicKey,createHash,sign} from 'node:crypto';
 import bs58 from 'bs58';
 import {getProgramDerivedAddress} from '@solana/kit';
 import {PERPS_PROGRAM,PERPS_POOL,PERPS_CUSTODIES,deriveServerPerpsIdentities} from '../../lib/perps-server-custody.js';
@@ -36,4 +36,33 @@ export async function cancellationFixture(cleanup,{legacyClose=false,createAta=f
   throw Error('unexpected fixture-only RPC');
  };
  return {preparation:{serializedTxBase64:wire.toString('base64'),txMetadata:{blockhash,lastValidBlockHeight:'600000'}},request,calls,exitAddress:exit};
+}
+
+export function cancellationSimulationFixture(inspection,{requestAccount,positionAccount,newOwnerAta=false,requestTokens=2500000n}={}){
+ const system=lamports=>({owner:SYSTEM,executable:false,lamports,data:['','base64']});
+ const token=(owner,amount)=>{const data=Buffer.alloc(165);Buffer.from(bs58.decode(PERPS_CUSTODIES.USDC.mint)).copy(data);Buffer.from(bs58.decode(owner)).copy(data,32);data.writeBigUInt64LE(amount,64);data[108]=1;
+  return {owner:TOKEN,executable:false,lamports:2039280,data:[data.toString('base64'),'base64']};};
+ const wallet=inspection.walletAddress,keeper=inspection.resolvedKeys[1],fee=15200,oldTokens=newOwnerAta?0n:1000000n;
+ const before={
+  [wallet]:system(100000000),[keeper]:system(10000000),[inspection.ownerAta]:newOwnerAta?null:token(wallet,oldTokens),
+  [PERPS_POOL]:{owner:PERPS_PROGRAM,executable:false,lamports:10000000,data:[createHash('sha256').update('account:Pool').digest().subarray(0,8).toString('base64'),'base64']},
+  [inspection.exitAddress]:structuredClone(requestAccount),[inspection.requestAta]:token(inspection.exitAddress,requestTokens),[inspection.positionAddress]:structuredClone(positionAccount)
+ };
+ const after=structuredClone(before);after[inspection.exitAddress]=null;after[inspection.requestAta]=null;
+ after[inspection.ownerAta]=token(wallet,oldTokens+requestTokens);
+ after[wallet].lamports+=Number(requestAccount.lamports)+2039280-fee-(newOwnerAta?2039280:0);
+ const calls=[],state={before,after,slot:inspection.observedSlot,fee,height:500001,err:null,unitsConsumed:100000,replacementBlockhash:null,rent:2039280};
+ const request=async(method,params)=>{
+  calls.push({method,params});
+  if(method==='getGenesisHash')return '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
+  if(method==='getSlot')return state.slot;
+  if(method==='getBlockHeight')return state.height;
+  if(method==='getMultipleAccounts')return {context:{slot:state.slot},value:params[0].map(address=>structuredClone(state.before[address]??null))};
+  if(method==='getFeeForMessage')return {context:{slot:state.slot},value:state.fee};
+  if(method==='simulateTransaction')return {context:{slot:state.slot},value:{err:state.err,unitsConsumed:state.unitsConsumed,replacementBlockhash:state.replacementBlockhash,
+   accounts:params[1].accounts.addresses.map(address=>structuredClone(state.after[address]??null))}};
+  if(method==='getMinimumBalanceForRentExemption')return state.rent;
+  throw Error('unexpected fixture-only simulation method');
+ };
+ return {state,calls,request};
 }
