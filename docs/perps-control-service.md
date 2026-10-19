@@ -112,3 +112,56 @@ SHA-256: `d2ecfd33f33765260a734f7b29191eafc405765a3bae94a7968b02aae670b23a`.
 The transient check finished successfully; this artifact is **not** a running
 executor or user release. The deployed controls-only bundle remains the one
 identified above. The production app-to-Jupiter verification gates remain open.
+
+## Finance controls client and prepared HTTPS, 2026-10-19
+
+The Finance automation panel now has explicit server read, save-and-pause and
+pause controls. The client uses only `https://157.230.54.133`, requires the
+existing opaque JamdDmaj session, and verifies the public health response before
+sending authorization. It follows no redirects, sends no cookies, retries no
+mutations, bounds response bodies, rejects account changes during a request and
+does not export provisioning, signing or activation methods.
+
+Finance is a separate same-origin page. The session reader therefore uses the
+main page's session helper when present and otherwise reads the existing
+`jamdWebTrialSession` from sessionStorage. It does not authenticate from a saved
+Google profile, device ID, main wallet or Phantom connection. The automation
+capital display no longer labels the main-wallet balance as exclusive bot funds.
+
+The local integration test connects that actual app client through the real
+local HTTP boundary and session-ledger interface to owner-scoped SQLite
+controls. It proves read/save/pause behavior without financial activation, not a
+production HTTPS or trading flow. The built Finance module graph is also checked:
+the previously missing `perps-navigation.js` is now emitted, and the control
+client's package dependency is bundled for browsers rather than shipped as a
+bare unresolved import. The complete local suite passed **507 tests** and the web
+build succeeded.
+
+HTTPS preparation on the approved VPS:
+
+- Caddy version: **2.11.7**, downloaded from the official GitHub release.
+- Archive SHA-256:
+  `727b91701a392de6ebc5027509f548bf39979e5216340d0faed8fa5e69c84f8b`.
+- Installed binary: `/opt/jamddmaj-perps/https/caddy`, SHA-256
+  `678ade3bfc088749c81a681adc603333ee0bb023b6a6cfe3c0f58bef8ff854e9`.
+- Config: `/etc/jamddmaj-perps/Caddyfile`, adapted successfully by that binary.
+- Unit: `jamddmaj-perps-https.service`, installed but **inactive and disabled**.
+- Only a public ACME issuer with the `shortlived` IP profile is configured; there
+  is no internal/self-signed issuer fallback or disabled TLS validation.
+- Only the two controls paths are proxied to loopback. Cookies are stripped,
+  forwarding headers replaced, and request sizes/timeouts bounded. No access
+  logging of authorization headers is configured.
+- No certificate-provider account was registered by the agent. Certificate
+  registration remains an owner-handled step after reviewing the provider's
+  subscriber agreement. The owner may start the prepared HTTPS unit directly
+  from their console if they accept that step; the agent must not treat pending
+  or prospective acceptance as completed registration.
+- A read-only socket check still showed no listener on 80/443. Public certificate
+  issuance, chain validation, renewal and app access are **not yet verified**.
+- `perps.jamddmaj.com` currently resolves away from this VPS; no DNS record was
+  changed and Vercel deployment protection was not bypassed.
+
+Starting the HTTPS unit would enable transport only, not the financial bot. It
+does not make the production identity endpoint, custody provisioning, encrypted
+backup, execution worker or final release gates complete. These source changes
+must not be described as already available in the installed Android app.

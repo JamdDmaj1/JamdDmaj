@@ -11,6 +11,8 @@ import {createPerpsServiceAuthenticator} from '../lib/perps-service-auth.js';
 import {createPerpsSessionIdentityHandler} from '../lib/perps-session-identity.js';
 import {authenticateTrial} from '../lib/web-trial-session.js';
 import {fixtureWallet as walletAddress,fixtureNow as now} from './helpers/perps-history-fixture.mjs';
+import {createPerpsControlClient,PERPS_CONTROL_ORIGIN} from '../lib/perps-control-client.js';
+import {validateAutomationSettings} from '../lib/automation-panel.js';
 const owner='a'.repeat(64),token='c'.repeat(64),settings={capital:100,loss:50,positions:2,margin:20,leverage:3,dailyTrades:3};
 async function fixture(t){
  const directory=mkdtempSync(join(tmpdir(),'jamd-control-http-')),controls=openPerpsAutomationControls(join(directory,'controls.sqlite'),{now:()=>now});
@@ -70,4 +72,14 @@ test('HTTP preflight does not authenticate and untrusted forwarding cannot bypas
  }
  const limited=await fetch(f.base+'/health',{headers:{'X-Forwarded-For':'198.51.100.8'}});
  assert.equal(limited.status,429);assert.equal(f.authCalls(),0);
+});
+
+test('actual app client -> local HTTP service -> session ledger -> durable controls reads, saves and pauses without financial activation',async t=>{
+ const f=await fixture(t),client=createPerpsControlClient({readSessionToken:()=>token,validateSettings:validateAutomationSettings,fetchImpl:(url,options)=>{
+  assert.equal(new URL(url).origin,PERPS_CONTROL_ORIGIN);return fetch(f.base+new URL(url).pathname,options);
+ }});
+ const initial=await client.read();assert.equal(initial.walletAddress,walletAddress);
+ const saved=await client.save({walletAddress,expectedRevision:initial.revision,settings:{...settings,leverage:4}});
+ assert.equal(saved.enabled,false);assert.equal(saved.paused,true);assert.equal(f.controls.readForOwner({ownerAccountHash:owner}).settings.leverage,4);
+ assert.equal((await client.pause({walletAddress})).reason,'USER_PAUSED');assert.equal(f.authCalls(),3);
 });

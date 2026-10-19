@@ -1,0 +1,52 @@
+# Prepared configuration only. Do not start certificate registration before
+# the server owner has handled the certificate provider's agreement.
+{
+ admin off
+ auto_https disable_redirects
+ skip_install_trust
+ servers {
+  protocols h1 h2
+  max_header_size 8KB
+  timeouts {
+   read_header 5s
+   read_body 5s
+   write 15s
+   idle 30s
+  }
+ }
+}
+
+https://157.230.54.133 {
+ tls {
+  protocols tls1.2 tls1.3
+  issuer acme {
+   dir https://acme-v02.api.letsencrypt.org/directory
+   profile shortlived
+   disable_http_challenge
+  }
+ }
+ header {
+  -Server
+  Cache-Control "no-store"
+  X-Content-Type-Options "nosniff"
+  Referrer-Policy "no-referrer"
+ }
+ @controls path /health /v1/automation
+ handle @controls {
+  request_body {
+   max_size 4096
+  }
+  reverse_proxy 127.0.0.1:8788 {
+   header_up -Cookie
+   header_up X-Forwarded-For {remote_host}
+   header_up -X-Forwarded-Host
+   transport http {
+    dial_timeout 2s
+    response_header_timeout 10s
+   }
+  }
+ }
+ handle {
+  respond "Not found" 404
+ }
+}

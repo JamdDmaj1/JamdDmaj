@@ -1,0 +1,52 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createPerpsControlClient,PERPS_CONTROL_ORIGIN,readExistingPerpsControlSession} from '../lib/perps-control-client.js';
+import {validateAutomationSettings} from '../lib/automation-panel.js';
+import {fixtureWallet as wallet} from './helpers/perps-history-fixture.mjs';
+const token='a'.repeat(64),revision='12345678-1234-4123-8123-123456789abc';
+const settings={capital:100,loss:50,positions:2,margin:20,leverage:3,dailyTrades:3};
+const health={ok:true,mode:'controls-only',tradingEnabled:false,executionAvailable:false,custodyProvisioningAvailable:false};
+const state={walletAddress:wallet,revision,settings,enabled:false,paused:true,reason:'SETTINGS_CHANGED',updatedAt:0};
+function fixture({readSessionToken=()=>token,reply=()=>Response.json({ok:true,controls:state})}={}){
+ const calls=[],client=createPerpsControlClient({readSessionToken,validateSettings:validateAutomationSettings,fetchImpl:async(url,options)=>{
+  calls.push({url,options});assert.ok(url.startsWith(PERPS_CONTROL_ORIGIN+'/'));
+  assert.equal(options.redirect,'error');assert.equal(options.cache,'no-store');assert.equal(options.credentials,'omit');
+  if(url.endsWith('/health')){assert.equal(options.headers.Authorization,undefined);return Response.json(health);}
+  assert.equal(options.headers.Authorization,'Bearer '+readSessionToken());return reply(url,options);
+ }});return {client,calls};
+}
+test('app control client uses fixed HTTPS and the existing session, never sends authority in JSON or activates on load',async()=>{
+ const f=fixture();assert.equal(f.calls.length,0);const read=await f.client.read();assert.equal(read.walletAddress,wallet);assert.equal(Object.isFrozen(read.settings),true);
+ await f.client.save({walletAddress:wallet,expectedRevision:revision,settings});await f.client.pause({walletAddress:wallet});
+ const actions=f.calls.filter(call=>call.options.body).map(call=>JSON.parse(call.options.body));
+ assert.deepEqual(actions.map(body=>body.action),['save','pause']);assert.ok(actions.every(body=>!Object.hasOwn(body,'ownerAccountHash')&&!Object.hasOwn(body,'enabled')));
+ assert.equal(f.client.activate,undefined);assert.equal(f.client.provision,undefined);assert.equal(f.client.sign,undefined);
+});
+test('missing sessions and changes during a request do not authorize or display another account',async()=>{
+ const missing=fixture({readSessionToken:()=>''});await assert.rejects(missing.client.read(),/login-required/);assert.equal(missing.calls.length,0);
+ let current=token,count=0;
+ const client=createPerpsControlClient({validateSettings:validateAutomationSettings,readSessionToken:()=>current,fetchImpl:async()=>{count++;current='b'.repeat(64);return Response.json(health);}});
+ await assert.rejects(client.read(),/session-changed/);assert.equal(count,1);
+});
+test('bad or private provider responses are bounded, cannot impersonate control errors and never cause automatic retries',async()=>{
+ for(const reply of [()=>Response.json({private:'do-not-expose'},{status:503}),()=>Response.json({ok:true,controls:{...state,walletAddress:'invalid'}}),
+  ()=>new Response('<html>login</html>',{headers:{'Content-Type':'text/html'}}),()=>Response.json({ok:true,data:'x'.repeat(9000)}),
+  ()=>{throw Object.assign(Error('private-token-must-not-escape'),{code:'login-required'});}]){
+  const f=fixture({reply});await assert.rejects(f.client.read(),error=>!error.message.includes('private')&&['controls-unavailable','invalid-request'].includes(error.code));assert.equal(f.calls.length,2);
+ }
+ const denied=fixture({reply:()=>Response.json({error:{code:'ignored'}},{status:401})});await assert.rejects(denied.client.read(),/login-required/);
+});
+test('save requires matching wallet, valid revision and a paused server result instead of assuming success',async()=>{
+ const f=fixture();assert.throws(()=>f.client.save({walletAddress:wallet,expectedRevision:'old',settings}),/invalid-request/);assert.equal(f.calls.length,0);
+ const active=fixture({reply:()=>Response.json({ok:true,controls:{...state,enabled:true,paused:false}})});
+ await assert.rejects(active.client.save({walletAddress:wallet,expectedRevision:revision,settings}),/controls-unavailable/);
+ await assert.rejects(active.client.pause({walletAddress:wallet}),/controls-unavailable/);
+});
+
+test('finance navigation reads the existing same-origin session without confusing a saved profile or wallet with login',()=>{
+ const storage={getItem:key=>key==='jamdWebTrialSession'?token:''};
+ assert.equal(readExistingPerpsControlSession({sessionStorage:storage}),token);
+ assert.equal(readExistingPerpsControlSession({JamdTrial:{getToken:()=>''},sessionStorage:storage}),'');
+ assert.equal(readExistingPerpsControlSession({localStorage:storage,JamdAccountProfile:{linked:true}}),'');
+ assert.equal(readExistingPerpsControlSession({get sessionStorage(){throw Error('blocked');}}),'');
+});

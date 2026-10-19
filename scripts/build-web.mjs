@@ -96,6 +96,13 @@ await cp(resolve(root, "lib", "finance-depth.js"), resolve(output, "lib", "finan
 await cp(resolve(root, "lib", "finance-candles.js"), resolve(output, "lib", "finance-candles.js"));
 await cp(resolve(root, "lib", "finance-activity.js"), resolve(output, "lib", "finance-activity.js"));
 await cp(resolve(root, "lib", "automation-panel.js"), resolve(output, "lib", "automation-panel.js"));
+await cp(resolve(root, "lib", "perps-control-panel.js"), resolve(output, "lib", "perps-control-panel.js"));
+await cp(resolve(root, "lib", "perps-navigation.js"), resolve(output, "lib", "perps-navigation.js"));
+await build({
+  absWorkingDir: root, entryPoints: [resolve(root, "lib", "perps-control-client.js")],
+  outfile: resolve(output, "lib", "perps-control-client.js"), bundle: true,
+  format: "esm", platform: "browser", target: ["es2020"], legalComments: "none"
+});
 await cp(resolve(root, "lib", "finance-polish.js"), resolve(output, "lib", "finance-polish.js"));
 await cp(resolve(root, "lib", "markets-catalog.js"), resolve(output, "lib", "markets-catalog.js"));
 await cp(resolve(root, "lib", "swap-quote-ui.js"), resolve(output, "lib", "swap-quote-ui.js"));
