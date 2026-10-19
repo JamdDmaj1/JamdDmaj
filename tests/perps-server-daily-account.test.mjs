@@ -5,8 +5,8 @@ import {mkdtempSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {openPerpsExecutionJournal} from '../lib/perps-execution-journal.js';
-import {readServerPerpsDailyAccount,requireFreshServerPerpsDailyAccount,createServerPerpsDailyAccountReader} from '../lib/perps-server-daily-account.js';
-import {PERPS_CUSTODIES} from '../lib/perps-server-custody.js';
+import {readServerPerpsDailyAccount,requireFreshServerPerpsDailyAccount,createServerPerpsDailyAccountReader,createServerPerpsCustodyRiskReader} from '../lib/perps-server-daily-account.js';
+import {PERPS_CUSTODIES,PERPS_POOL,PERPS_PROGRAM,deriveServerPerpsIdentities} from '../lib/perps-server-custody.js';
 import {fixtureNow as now,fixtureWallet as walletAddress,historyTransaction} from './helpers/perps-history-fixture.mjs';
 const genesis='5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d',day='2026-10-18';
 async function fixture(){
@@ -95,4 +95,48 @@ test('durable journal enforces the actual reconciled loss and daily trade count 
  assert.equal(journal.reserve(reservation).state,'RESERVED');
  assert.throws(()=>journal.reserve({...reservation,signalId:'published-signal-2',reservationId:'r2'}),/DAILY_LOSS_LIMIT/);
  assert.equal(journal.pending(walletAddress).length,1);
+});
+async function custodyRiskFixture(t){
+ const f=await fixture();f.transactions.clear();let elapsed=0;
+ const directory=mkdtempSync(join(tmpdir(),'jamd-custody-risk-')),journal=openPerpsExecutionJournal(join(directory,'risk.sqlite'),{now:()=>now});
+ t.after(()=>{journal.close();rmSync(directory,{recursive:true,force:true});});
+ const current=structuredClone(f.accounts);current.context.slot=500050;
+ const request=async(method,params)=>method==='getMultipleAccounts'&&params[1].commitment==='confirmed'?structuredClone(current):f.request(method,params);
+ const verifyExclusiveCustody=async identity=>({...identity,exclusive:true,purpose:'jamddmaj-perps-automation'});
+ const read=createServerPerpsCustodyRiskReader({request,journal,verifyExclusiveCustody,now:()=>now,monotonicNow:()=>elapsed});
+ return {...f,current,journal,read,request,verifyExclusiveCustody,setClock(value){elapsed=value;}};
+}
+async function positionAccount(asset,side,collateral){
+ const ids=await deriveServerPerpsIdentities({walletAddress,asset,side}),data=Buffer.alloc(210),collateralAsset=side==='LONG'?asset:'USDC';
+ Buffer.from('aabc8fe47a40f7d0','hex').copy(data);
+ for(const [offset,key]of [[8,walletAddress],[40,PERPS_POOL],[72,PERPS_CUSTODIES[asset].address],[104,PERPS_CUSTODIES[collateralAsset].address]])Buffer.from(bs58.decode(key)).copy(data,offset);
+ data.writeBigUInt64LE(1000n,136);data.writeBigUInt64LE(1001n,144);data[152]=side==='LONG'?1:2;data.writeBigUInt64LE(100000000n,153);data.writeBigUInt64LE(30000000n,161);data.writeBigUInt64LE(BigInt(collateral),169);data[209]=ids.positionBump;
+ return {owner:PERPS_PROGRAM,executable:false,lamports:2000000,data:[data.toString('base64'),'base64']};
+}
+test('exclusive custody reader uses a fresh confirmed bank without waiting for finality and retains journal collateral',async t=>{
+ const f=await custodyRiskFixture(t),identity={walletAddress,ownerAccountHash:'a'.repeat(64),minimumSlot:500040};
+ const first=await f.read(identity);assert.equal(first.observedSlot,500050);assert.equal(first.historyThroughSlot,500000);assert.equal(first.requiresExclusiveCustodyJournal,true);
+ assert.equal(requireFreshServerPerpsDailyAccount(first,{walletAddress,minimumSlot:500040,journal:f.journal}),first);
+ assert.throws(()=>requireFreshServerPerpsDailyAccount(first,{walletAddress,journal:{...f.journal}}));
+ const limits={capitalUsd:'20',dailyLossUsd:'20',positions:2,dailyTrades:2};
+ f.journal.reserve({walletAddress,signalId:'one',reservationId:'one',marginUsd:'10',limits,snapshot:first});
+ f.journal.beginSigning('one');const second=await f.read(identity);
+ assert.equal(second.pendingMarginUsdcUnits,'10000000');assert.equal(second.pendingCount,1);
+ f.journal.revalidateSigning('one',{limits,snapshot:second});
+ f.journal.reserve({walletAddress,signalId:'two',reservationId:'two',marginUsd:'10',limits,snapshot:second});
+ assert.throws(()=>f.journal.reserve({walletAddress,signalId:'three',reservationId:'three',marginUsd:'10',limits,snapshot:second}),/CAPITAL_LIMIT/);
+ assert.equal(f.calls.filter(c=>c.method==='getSignaturesForAddress').length,7);
+ f.setClock(5001);await f.read(identity);assert.equal(f.calls.filter(c=>c.method==='getSignaturesForAddress').length,14);
+});
+test('confirmed closures cannot release finalized collateral, and different markets keep both risk allocations',async t=>{
+ const f=await custodyRiskFixture(t);f.accounts.value[2]=await positionAccount('BTC','LONG','10000000');
+ f.current.value[5]=await positionAccount('ETH','SHORT','12000000');
+ const value=await f.read({walletAddress,ownerAccountHash:'a'.repeat(64)});
+ assert.equal(value.allocatedUsdcUnits,'22000000');assert.equal(value.openPositions,2);assert.equal(value.observedOpenPositions,1);assert.equal(value.finalizedOpenPositions,1);
+});
+test('imported/unverified identities, unavailable confirmed banks and stale baseline facts never grant current risk evidence',async t=>{
+ const f=await custodyRiskFixture(t),identity={walletAddress,ownerAccountHash:'a'.repeat(64)};
+ const denied=createServerPerpsCustodyRiskReader({request:f.request,journal:f.journal,verifyExclusiveCustody:async i=>({...i,exclusive:false}),now:()=>now});
+ await assert.rejects(denied(identity));await assert.rejects(f.read({...identity,ownerAccountHash:undefined}));
+ f.current.context.slot=499999;await assert.rejects(f.read({...identity,minimumSlot:500040}));
 });

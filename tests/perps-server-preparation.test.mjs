@@ -16,6 +16,8 @@ import {createPerpsCustodyMasterKey,openPerpsCustodyVault} from '../lib/perps-cu
 import {authorizeServerPerpsSigning} from '../lib/perps-server-signing-authorization.js';
 import {emptyFixtureDailyAccount} from './helpers/perps-history-fixture.mjs';
 import {createServerPerpsBroadcaster} from '../lib/perps-server-broadcast.js';
+import {createServerPerpsExecutor} from '../lib/perps-server-executor.js';
+import {readServerPerpsSignalFeed} from '../lib/perps-server-signal-feed.js';
 const now=Date.parse('2026-10-18T12:00:00Z'),seconds=now/1000;
 const GENESIS='5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
 const u64=n=>{const b=Buffer.alloc(8);b.writeBigUInt64LE(BigInt(n));return b;};
@@ -255,7 +257,7 @@ test('changed network, blockhash, expired instruction or mismatched intent canno
 
 // Full signing rehearsal: ephemeral, unfunded local keys and mocked read-only
 // RPC/builder responses. No HTTP submission or real account key is involved.
-async function custodySigningFixture(t,{beginSigning=true}={}){
+async function custodySigningFixture(t,{beginSigning=true,reserve=true}={}){
  const directory=mkdtempSync(join(tmpdir(),'jamd-custody-signing-')),wallets=join(directory,'wallets'),keysDirectory=join(directory,'keys');
  mkdirSync(wallets,{mode:0o700});mkdirSync(keysDirectory,{mode:0o700});
  const keyFile=join(keysDirectory,'master.key'),allowNonPosixForTests=process.platform==='win32',ownerAccountHash='a'.repeat(64),clock={value:0};
@@ -275,9 +277,9 @@ async function custodySigningFixture(t,{beginSigning=true}={}){
  const prepared=await prepareInspectedServerAutomation(input,{nowSeconds:seconds,monotonicNow:()=>clock.value,rpcRequest:f.request,builderRequest:async()=>new Response(JSON.stringify(f.preparation))});
  const args={journal,controls,ownerAccountHash,walletAddress,signalId:input.signal.id,reservationId:'custody-reservation-1',controlRevision:active.revision,
   readAccount:async()=>daily,monotonicNow:()=>clock.value};
- await reservePreparedServerPerpsAutomation(prepared,{...args,readControls:async()=>controls.readForExecutor({walletAddress})});
- if(beginSigning)journal.beginSigning(args.reservationId);
- return {prepared,args,vault,controls,journal,clock,wallet,daily,async replaceBalance(units){daily=await emptyFixtureDailyAccount(walletAddress,{availableUsdcUnits:units,monotonicNow:()=>clock.value});}};
+ if(reserve){await reservePreparedServerPerpsAutomation(prepared,{...args,readControls:async()=>controls.readForExecutor({walletAddress})});if(beginSigning)journal.beginSigning(args.reservationId);}
+ return {prepared,args,vault,controls,journal,clock,wallet,daily,rpcRequest:f.request,builderRequest:async()=>new Response(JSON.stringify(f.preparation)),
+  async replaceBalance(units){daily=await emptyFixtureDailyAccount(walletAddress,{availableUsdcUnits:units,monotonicNow:()=>clock.value});}};
 }
 
 test('exclusive custody signs only the inspected reserved operation once, preserving keeper/API/message bytes',async t=>{
@@ -355,4 +357,45 @@ test('a failed durable broadcast write stops transmission and concurrent submitt
  f.journal.recordBroadcastIntent=original;
  const results=await Promise.allSettled([broadcast(signed,f.args),broadcast(signed,f.args)]);
  assert.equal(results.filter(r=>r.status==='fulfilled').length,1);assert.equal(calls,1);assert.equal(f.journal.read(f.args.reservationId).state,'UNCERTAIN');
+});
+function publishedExecutorSignal(){return {id:'custody-signal-1',pair:'SOLUSDT',side:'LONG',status:'OPEN',score:12.5,entry:100,sl:95,tp1:110,
+ createdAt:new Date(now-60000).toISOString(),telegramSentAt:new Date(now-59000).toISOString(),telegramMessageId:123,contractMultiplier:1,
+ marketAlignment:'with-market',higherTrend:'bullish 4h alignment',microTrend:'bullish 15m alignment',volumeRatio:1.3,adx:26,spreadPercent:.0015,liquidityUsd:25000000,freshness:{status:'fresh'}};}
+function executorFeed(open=[publishedExecutorSignal()],livePaused=false){return readServerPerpsSignalFeed({feedToken:'fixture-only-feed-token-not-live'},{now:()=>now,monotonicNow:()=>0,
+ fetchImpl:async()=>Response.json({ok:true,clientFeed:true,generatedAt:new Date(now).toISOString(),executor:{livePaused,minScore:12,minLiquidityUsd:3000000},open})});}
+async function executorFixture(t,{changeFeed}={}){
+ const f=await custodySigningFixture(t,{reserve:false}),initial=await emptyFixtureDailyAccount(f.wallet.walletAddress,{bankSlot:50});
+ const calls={feed:0,builder:0,submit:0};
+ const readFeed=async()=>{calls.feed++;return changeFeed?changeFeed(f,calls.feed):executorFeed();};
+ const options={...f.args,mode:'execute',now:()=>now,readFeed,rpcRequest:f.rpcRequest,
+  builderRequest:async(...args)=>{calls.builder++;return f.builderRequest(...args);},
+  readAccount:async args=>{assert.equal(args.ownerAccountHash,f.args.ownerAccountHash);return args.minimumSlot?f.daily:initial;},
+  vault:f.vault,fetchImpl:async(_url,options)=>{calls.submit++;const wire=Buffer.from(JSON.parse(options.body).serializedTxBase64,'base64');return Response.json({action:'increase-position',txid:bs58.encode(wire.subarray(1,65))});}};
+ return {...f,options,calls,executor:createServerPerpsExecutor(options)};
+}
+test('observation mode lists only authenticated published candidates and has no custody, reservation or submission path',async()=>{
+ const executor=createServerPerpsExecutor({readFeed:()=>executorFeed()});
+ const result=await executor.runOnce();assert.equal(result.stage,'OBSERVATION_ONLY');assert.equal(result.tradingEnabled,false);assert.equal(result.signals[0].id,'custody-signal-1');
+ await assert.rejects(createServerPerpsExecutor({readFeed:async()=>({candidates:[publishedExecutorSignal()]})}).runOnce());
+});
+test('complete executor cycle binds published Telegram signal to controls, simulated wire, durable reservation, custody signature and one send',async t=>{
+ const f=await executorFixture(t),result=await f.executor.runOnce(f.args);
+ assert.equal(result.stage,'BROADCAST_ACKNOWLEDGED');assert.equal(result.state,'UNCERTAIN');assert.equal(result.readyForRetry,false);
+ assert.equal(f.calls.builder,1);assert.equal(f.calls.submit,1);assert.equal(f.calls.feed,4);
+ const row=f.journal.readSignal(f.wallet.walletAddress,'custody-signal-1');assert.equal(row.state,'UNCERTAIN');assert.equal(row.signature,result.signature);
+ const again=await f.executor.runOnce(f.args);assert.equal(again.stage,'RECONCILIATION_REQUIRED');assert.equal(f.calls.submit,1);
+});
+test('closed, unpublished, remotely paused or disabled automation never reaches preparation',async t=>{
+ for(const changeFeed of [()=>executorFeed([{...publishedExecutorSignal(),status:'CLOSED'}]),()=>executorFeed([{...publishedExecutorSignal(),telegramMessageId:null}]),()=>executorFeed(undefined,true)]){
+  const f=await executorFixture(t,{changeFeed}),result=await f.executor.runOnce(f.args);
+  assert.ok(['NO_NEW_PUBLISHED_SIGNAL','REMOTE_PAUSED'].includes(result.stage));assert.equal(f.calls.builder,0);assert.equal(f.calls.submit,0);
+ }
+ const f=await executorFixture(t);f.controls.pause(f.args);assert.equal((await f.executor.runOnce(f.args)).stage,'AUTOMATION_INACTIVE');assert.equal(f.calls.feed,0);
+});
+test('a pause before signing cancels only its own unsigned reservation; a pause after signing quarantines it without sending',async t=>{
+ for(const at of [3,4]){
+  const f=await executorFixture(t,{changeFeed:(f,n)=>{if(n===at)f.controls.pause(f.args);return executorFeed();}}),result=await f.executor.runOnce(f.args);
+  assert.equal(result.stage,'EXECUTION_BLOCKED');assert.equal(f.calls.submit,0);
+  assert.equal(f.journal.readSignal(f.wallet.walletAddress,'custody-signal-1').state,at===3?'CANCELLED':'SIGNING');
+ }
 });
