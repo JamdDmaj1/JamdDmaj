@@ -230,3 +230,64 @@ artifact is not a new published user release and predates the provisioning
 changes in this section. The HTTPS unit was still inactive and disabled when
 checked; no owner certificate-registration action was inferred from goal
 continuations. Bitget remained inactive and disabled.
+
+## Operator recovery destination approved and initialized, 2026-10-19
+
+The owner selected this PC with a dedicated recovery encryption identity. The
+operator identity was initialized outside Git and cloud-synced document folders:
+`C:\Users\JamdDmaj\AppData\Local\JamdDmaj-Recovery`. Windows ACL verification
+permits only the current user and SYSTEM. Initialization is idempotent and does
+not replace an existing identity. A missing identity with an existing recipient
+is an error, not permission to rotate the recovery key.
+
+The private `operator-age-identity.txt` stays on this PC. Never print, commit,
+send through chat, copy to the VPS, or reuse it as an SSH or Solana signing key.
+Only `operator-age-recipient.txt` is public. This is an operator-controlled
+custody recovery mechanism, not a user-facing seed export or HTTP endpoint.
+Keep access to this PC restricted: possession of a future archive and its
+operator identity would permit recovery of every custody key in that archive.
+Loss of this PC and identity would make those archives unrecoverable. A separate
+offline copy of the operator identity needs an owner-selected secure destination;
+none was inferred or created.
+
+`lib/perps-custody-recovery.js` encrypts bounded, authenticated custody records
+and their matching master directly in memory using age-encryption 0.3.1. No
+plaintext archive is written. Restoration validates age authentication, every
+record MAC, owner/address bindings, checksums, paths, format, and network before
+creating a fresh private destination. It never overwrites an existing target.
+It installs `.restore-review-required.json` before writing recovered keys.
+The vault then reports nonexclusive/review-required and refuses creation and
+signing, including previously issued private signing grants. No HTTP/browser
+API can remove this hold. There is no automatic resume or marker-removal command.
+
+**This archive contains custody keys only, not the controls database, execution
+journal, or chain reconciliation state.** It always reports
+`runtimeStateIncluded: false`, `backupVerified: false`, and
+`readyForSigning: false`. Restoring keys alone must never authorize operation.
+Full operational backup, fresh state reconciliation, reviewed hold release,
+actual production custody provisioning, and an off-host production restore drill
+remain required before capital or activation. No production custody master or
+wallet was created in this verification; no actual funded wallet backup exists.
+
+Verification: full local suite **524 passed, 0 failed, 1 skipped** (525 total;
+the optional external age CLI check is skipped locally). The local Windows ACL
+test used only a disposable temporary operator identity before initializing the
+approved real operator identity. On the VPS, six recovery tests passed in a
+transient dynamic-user service with networking disabled, private temporary
+storage, read-only system paths, and a 384 MB memory limit; the Windows-only
+case was skipped. Official age CLI 1.3.2 interoperated with the SDK in both
+directions using ephemeral unfunded fixtures. No actual signing or transaction
+submission occurred during this recovery check.
+
+Isolated VPS artifacts: `/opt/jamddmaj-perps/checks/recovery-193646fb3086/`.
+Test bundle SHA-256:
+`193646fb308636dcbe295c3f2fed21c1a6b185d48ed980817ea4dbc3322616e0`.
+The official Linux age 1.3.2 download was checked against SHA-256
+`cbe24006683f8eb669266162894b9a522a1af52f2665fbc63a4bb032ed26ac10`.
+The binary is only a test artifact, not a production backup service.
+
+Dependency audit still reports the two pre-existing high-severity dependency
+findings for `@xmldom/xmldom` 0.9.10 and `brace-expansion` 5.0.9. Their versions
+were unchanged by the recovery dependency installation. Do not describe the
+whole dependency tree as audit-clean or release-ready; scoped remediation and
+regression verification remain open. No blanket dependency rewrite was run.

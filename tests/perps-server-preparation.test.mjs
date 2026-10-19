@@ -5,14 +5,14 @@ import bs58 from 'bs58';
 import {inspectServerPerpsPreparation,prepareInspectedServerAutomation,readServerPerpsPreparationEvidence} from '../lib/perps-server-preparation.js';
 import {PERPS_CUSTODIES,PERPS_POOL,PERPS_PROGRAM,deriveServerPerpsIdentities} from '../lib/perps-server-custody.js';
 import {getProgramDerivedAddress} from '@solana/kit';
-import {mkdtempSync,mkdirSync,rmSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,rmSync,writeFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {openPerpsExecutionJournal} from '../lib/perps-execution-journal.js';
 import {reservePreparedServerPerpsAutomation} from '../lib/perps-server-reservation.js';
 import {verifyOwnerSignedServerPerpsEnvelope,readOwnerSignedServerPerpsEnvelope} from '../lib/perps-server-signed-envelope.js';
 import {openPerpsAutomationControls} from '../lib/perps-automation-controls.js';
-import {createPerpsCustodyMasterKey,openPerpsCustodyVault} from '../lib/perps-custody-vault.js';
+import {createPerpsCustodyMasterKey,openPerpsCustodyVault,PERPS_CUSTODY_RESTORE_REVIEW_MARKER} from '../lib/perps-custody-vault.js';
 import {authorizeServerPerpsSigning} from '../lib/perps-server-signing-authorization.js';
 import {emptyFixtureDailyAccount} from './helpers/perps-history-fixture.mjs';
 import {createServerPerpsBroadcaster} from '../lib/perps-server-broadcast.js';
@@ -280,7 +280,7 @@ async function custodySigningFixture(t,{beginSigning=true,reserve=true,ownerInde
  const args={journal,controls,ownerAccountHash,walletAddress,signalId:input.signal.id,reservationId:'custody-reservation-1',controlRevision:active.revision,
   readAccount:async()=>daily,monotonicNow:()=>clock.value};
  if(reserve){await reservePreparedServerPerpsAutomation(prepared,{...args,readControls:async()=>controls.readForExecutor({walletAddress})});if(beginSigning)journal.beginSigning(args.reservationId);}
- return {prepared,args,vault,controls,journal,clock,wallet,daily,rpcRequest:f.request,builderRequest:async()=>new Response(JSON.stringify(f.preparation)),
+ return {prepared,args,vault,controls,journal,clock,wallet,daily,walletDirectory:wallets,rpcRequest:f.request,builderRequest:async()=>new Response(JSON.stringify(f.preparation)),
   async replaceBalance(units){daily=await emptyFixtureDailyAccount(walletAddress,{availableUsdcUnits:units,monotonicNow:()=>clock.value});}};
 }
 
@@ -293,6 +293,13 @@ test('exclusive custody signs only the inspected reserved operation once, preser
  assert.equal(signed.signature,bs58.encode(wire.subarray(1,65)));assert.equal(f.journal.read(f.args.reservationId).state,'SIGNING');
  assert.throws(()=>f.vault.signPrepared(grant));assert.equal(f.journal.pending(f.wallet.walletAddress).length,1);
 });
+test('restore quarantine blocks an already-issued private signing grant and retains pending collateral',async t=>{
+ const f=await custodySigningFixture(t),grant=await authorizeServerPerpsSigning(f.prepared,f.args);
+ writeFileSync(join(f.walletDirectory,PERPS_CUSTODY_RESTORE_REVIEW_MARKER),'{}',{mode:0o600});
+ assert.equal(f.vault.describe(f.wallet).exclusive,false);assert.throws(()=>f.vault.signPrepared(grant));
+ assert.equal(f.journal.read(f.args.reservationId).state,'SIGNING');assert.equal(f.journal.pending(f.wallet.walletAddress).length,1);
+});
+
 test('signing authority requires durable SIGNING state, private daily evidence, owner and exact current configuration',async t=>{
  const f=await custodySigningFixture(t,{beginSigning:false});
  await assert.rejects(authorizeServerPerpsSigning(f.prepared,f.args));f.journal.beginSigning(f.args.reservationId);
