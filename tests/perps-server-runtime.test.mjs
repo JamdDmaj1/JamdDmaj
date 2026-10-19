@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,mkdirSync,chmodSync,rmSync,rmdirSync,readFileSync,writeFileSync,existsSync,renameSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,chmodSync,rmSync,rmdirSync,readFileSync,writeFileSync,existsSync,renameSync,readdirSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {DatabaseSync} from 'node:sqlite';
@@ -109,6 +109,44 @@ test('runtime drains an in-flight authenticated request on shutdown without writ
  await began;let drained=false;const closing=runtime.close().then(()=>{drained=true;});await Promise.resolve();assert.equal(drained,false);
  release();assert.equal((await pending).status,503);await closing;assert.equal(existsSync(join(f.directory,'worker.lock')),false);
 });
+
+test('opt-in runtime custody setup creates separate paused wallets for verified users, survives restart, and never enables funding or execution',async t=>{
+ const f=fixture(t),firstOwner='d'.repeat(64),secondOwner='e'.repeat(64),firstToken='a'.repeat(64),secondToken='b'.repeat(64);
+ const settings={capital:100,loss:50,positions:2,margin:20,leverage:3,dailyTrades:3};
+ const fetchImpl=async(url,options)=>{
+  assert.equal(url,'https://www.jamddmaj.com/api/perps-identity');
+  const accountHash=new Map([['Bearer '+firstToken,firstOwner],['Bearer '+secondToken,secondOwner]]).get(options.headers.Authorization);
+  return accountHash?Response.json({ok:true,accountHash,verifiedAt:Date.now()}):Response.json({error:{code:'login-required'}},{status:401});
+ };
+ const options={...f.options,fetchImpl};let runtime=openServerPerpsRuntime(options);
+ const request=(token,body)=>runtime.handleControlRequest(new Request('https://157.230.54.133/v1/automation',{
+  headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},...body?{method:'POST',body:JSON.stringify(body)}:{}}));
+ const body={action:'provision',settings,explicitCustodyApproval:true};
+ assert.equal((await request(firstToken,body)).status,503);await runtime.close();
+ for(const bad of ['true',1,null])assert.throws(()=>openServerPerpsRuntime({...options,custodyProvisioning:bad}));
+ runtime=openServerPerpsRuntime({...options,custodyProvisioning:true});
+ try{
+  assert.deepEqual(runtime.capabilities(),{mode:'controls-only',executionAvailable:false,tradingEnabled:false,custodyProvisioningAvailable:true});
+  assert.equal((await request('f'.repeat(64),body)).status,401);
+  assert.equal((await request(firstToken,{...body,explicitCustodyApproval:false})).status,400);
+  assert.equal((await request(firstToken,{...body,ownerAccountHash:secondOwner})).status,400);
+  assert.equal(readdirSync(join(f.directory,'wallets')).length,1);
+  const [firstResponse,secondResponse]=await Promise.all([request(firstToken,body),request(secondToken,body)]);
+  assert.equal(firstResponse.status,200);assert.equal(secondResponse.status,200);
+  const first=await firstResponse.json(),second=await secondResponse.json();
+  assert.notEqual(first.controls.walletAddress,second.controls.walletAddress);
+  for(const response of [first,second]){
+   assert.deepEqual(response.setup,{stage:'BACKUP_VERIFICATION_REQUIRED',backupVerified:false,fundingAvailable:false,readyForSigning:false});
+   assert.equal(response.controls.enabled,false);assert.equal(response.controls.paused,true);assert.equal(JSON.stringify(response).includes('ciphertext'),false);
+  }
+  const read=await (await request(firstToken)).json();assert.equal(read.controls.walletAddress,first.controls.walletAddress);assert.equal(JSON.stringify(read).includes(second.controls.walletAddress),false);
+  await runtime.close();assert.equal(runtime.capabilities().custodyProvisioningAvailable,false);
+  runtime=openServerPerpsRuntime({...options,custodyProvisioning:true});
+  const repeated=await (await request(firstToken,body)).json();assert.equal(repeated.controls.walletAddress,first.controls.walletAddress);assert.equal(repeated.controls.revision,first.controls.revision);
+  assert.equal(readdirSync(join(f.directory,'wallets')).length,3);
+  const report=await runtime.run({once:true});assert.equal(report.results.RECONCILIATION_ONLY,3);assert.equal(f.calls.length,0);
+ }finally{await runtime.close();}
+});
 test('shared control boundary binds loopback and advertises no execution or provisioning in maintenance',async t=>{
  const f=fixture(t),runtime=openServerPerpsRuntime(f.options),probe=createServer();probe.listen(0,'127.0.0.1');await once(probe,'listening');const port=probe.address().port;await new Promise(resolve=>probe.close(resolve));
  const boundary=startServerPerpsControlBoundary(runtime,{port});
@@ -117,6 +155,18 @@ test('shared control boundary binds loopback and advertises no execution or prov
   const health=await fetch('http://127.0.0.1:'+port+'/health');assert.deepEqual(await health.json(),{ok:true,mode:'controls-only',executionAvailable:false,tradingEnabled:false,custodyProvisioningAvailable:false});
  }finally{await Promise.all([boundary.close(),runtime.close()]);}
 });
+
+test('shutdown while custody authentication is pending cannot create a wallet or advertise setup readiness',async t=>{
+ const f=fixture(t);let started,release;const began=new Promise(resolve=>{started=resolve;});
+ const runtime=openServerPerpsRuntime({...f.options,custodyProvisioning:true,fetchImpl:async()=>{
+  started();await new Promise(resolve=>{release=resolve;});return Response.json({ok:true,accountHash:'d'.repeat(64),verifiedAt:Date.now()});
+ }});
+ const pending=runtime.handleControlRequest(new Request('https://157.230.54.133/v1/automation',{method:'POST',
+  headers:{Authorization:'Bearer '+'e'.repeat(64),'Content-Type':'application/json'},
+  body:JSON.stringify({action:'provision',explicitCustodyApproval:true,settings:{capital:100,loss:50,positions:2,margin:20,leverage:3,dailyTrades:3}})}));
+ await began;const closing=runtime.close();assert.equal(runtime.capabilities().custodyProvisioningAvailable,false);
+ release();assert.equal((await pending).status,503);await closing;assert.equal(readdirSync(join(f.directory,'wallets')).length,1);
+});
 test('the actual Linux worker entry point runs maintenance against unfunded private stores and never enables controls',{skip:process.platform==='win32'},t=>{
  const f=fixture(t,{active:true});
  const cli=process.env.JAMDDMAJ_TEST_PERPS_WORKER_CLI||fileURLToPath(new URL('../scripts/perps-server-worker.mjs',import.meta.url));
@@ -124,4 +174,14 @@ test('the actual Linux worker entry point runs maintenance against unfunded priv
  const status=JSON.parse(readFileSync(join(f.directory,'worker-status.json'),'utf8'));assert.equal(status.mode,'maintenance');assert.equal(status.results.RECONCILIATION_ONLY,1);assert.equal(status.readyForSigning,false);
  assert.equal(existsSync(join(f.directory,'worker.lock')),false);
  const controls=openPerpsAutomationControls(f.controlsPath);try{assert.equal(controls.read(f.identity).enabled,true);}finally{controls.close();}
+});
+
+test('the actual Linux CLI requires a control boundary for custody setup and leaves all existing accounts paused',{skip:process.platform==='win32'},t=>{
+ const f=fixture(t),cli=process.env.JAMDDMAJ_TEST_PERPS_WORKER_CLI||fileURLToPath(new URL('../scripts/perps-server-worker.mjs',import.meta.url));
+ const options={env:{PATH:process.env.PATH,STATE_DIRECTORY:f.directory},encoding:'utf8',timeout:15000,stdio:['ignore','pipe','pipe']};
+ assert.throws(()=>execFileSync(process.execPath,[cli,'--once','--custody-setup'],options));assert.equal(existsSync(join(f.directory,'worker.lock')),false);
+ execFileSync(process.execPath,[cli,'--once','--controls','--custody-setup'],options);
+ assert.equal(JSON.parse(readFileSync(join(f.directory,'worker-status.json'),'utf8')).mode,'maintenance');
+ assert.equal(readdirSync(join(f.directory,'wallets')).length,1);
+ const controls=openPerpsAutomationControls(f.controlsPath);try{const state=controls.read(f.identity);assert.equal(state.enabled,false);assert.equal(state.paused,true);}finally{controls.close();}
 });

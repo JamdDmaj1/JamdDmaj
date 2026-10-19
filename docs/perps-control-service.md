@@ -870,3 +870,40 @@ the unrelated pre-existing untracked probe; it is not a remote CI result.
 This source change has not been published to Vercel or packaged into a new APK.
 Production custody and execution remain disabled. No production account or
 wallet was created, no keys were accessed, and no transaction was signed/sent.
+
+## Shared runtime custody composition, 2026-10-19 (source and isolated tests)
+
+The durable worker can now explicitly opt into the existing authenticated
+custody coordinator with `--controls --custody-setup`. The new setup flag is
+rejected without the HTTP control boundary and is absent from the uninstalled
+maintenance service template. The runtime option `custodyProvisioning` is a
+strict boolean, false by default, independent of execution approval. Startup
+still requires reviewed existing stores and a master key: it never bootstraps
+missing financial state or creates a wallet just because the process starts.
+
+When opted in, each authenticated session can explicitly consent to creating
+its own distinct encrypted wallet through the same durable controls used by
+the worker. Setup retains paused/disabled controls and returns all three gates
+false: backup verification, funding availability and signing readiness. Lost
+responses and runtime restarts reuse the exact owner wallet and revision. A
+shutdown while session verification is pending prevents subsequent custody
+creation and immediately stops advertising setup availability.
+
+Verification: the full local test suite exited 0. On the actual VPS Node
+22.23.1, **15 runtime tests passed, none skipped**, including the real CLI,
+two-user setup, restart idempotency and shutdown race. They ran as a transient
+DynamicUser unit with PrivateNetwork/PrivateTmp, ProtectSystem=strict,
+ProtectHome, NoNewPrivileges, UMask=0077 and MemoryMax=384M. No outside network
+or funded accounts were available to the tests. Test source SHA-256:
+`c84f910654338f641f25506fb5b8f425bb7fd41bbb8bab02260039f79c48c518`.
+Worker CLI source SHA-256:
+`7aeb1bb4b14da1e68f4e14099b12b1b846ffb9e47040265baefcb115afff01ee`.
+Bundled test/worker directory:
+`/opt/jamddmaj-perps/checks/runtime-setup-c84f91065433/`.
+
+This is not installation of the production worker or permission to accept
+deposits. Production initialization/admission capacity, real wallet backup and
+off-host restore proof, execution integration and live-feed verification remain
+required. Production controls and HTTPS were confirmed active, with the legacy
+Bitget executor still disabled. No production custody was provisioned or bot
+activated by this check.

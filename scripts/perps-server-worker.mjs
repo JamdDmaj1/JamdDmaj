@@ -8,8 +8,9 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).hr
  let runtime,boundary;
  const stop=()=>{void Promise.all([boundary?.close(),runtime?.close()]).catch(()=>{process.exitCode=1;});};
  try{
-  if(process.argv.slice(2).some(arg=>!['--once','--controls'].includes(arg)))throw Error();
-  runtime=openServerPerpsRuntime(perpsWorkerEnvironment(process.env));
+  if(process.argv.slice(2).some(arg=>!['--once','--controls','--custody-setup'].includes(arg))
+    ||process.argv.includes('--custody-setup')&&!process.argv.includes('--controls'))throw Error();
+  runtime=openServerPerpsRuntime({...perpsWorkerEnvironment(process.env),custodyProvisioning:process.argv.includes('--custody-setup')});
   process.once('SIGTERM',stop);process.once('SIGINT',stop);
   if(process.argv.includes('--controls')){
    boundary=startServerPerpsControlBoundary(runtime,{port:Number(process.env.JAMDDMAJ_PERPS_CONTROL_PORT??8788),trustLoopbackProxy:process.env.JAMDDMAJ_PERPS_TRUST_LOOPBACK_PROXY==='true'});
