@@ -79,3 +79,16 @@ test('finance navigation reads the existing same-origin session without confusin
  assert.equal(readExistingPerpsControlSession({localStorage:storage,JamdAccountProfile:{linked:true}}),'');
  assert.equal(readExistingPerpsControlSession({get sessionStorage(){throw Error('blocked');}}),'');
 });
+
+test('read-only recovery projection binds the returned wallet and never accepts funding or signing readiness',async()=>{
+ const recovery={walletAddress:wallet,stage:'BACKUP_VERIFIED_EXECUTION_PENDING',backupVerified:true,verifiedAt:123,fundingAvailable:false,readyForSigning:false};
+ const good=fixture({reply:()=>Response.json({ok:true,controls:state,recovery})});
+ const result=await good.client.readStatus();assert.equal(result.controls.walletAddress,wallet);assert.deepEqual(result.recovery,recovery);
+ assert.equal(Object.isFrozen(result.recovery),true);assert.ok(good.calls.every(call=>!call.options.body));
+ const old=await fixture().client.readStatus();assert.equal(old.recovery,null);
+ for(const changed of [{walletAddress:'11111111111111111111111111111111'},{fundingAvailable:true},{readyForSigning:true},{verifiedAt:-1},{stage:'READY'}]){
+  const f=fixture({reply:()=>Response.json({ok:true,controls:state,recovery:{...recovery,...changed}})});
+  await assert.rejects(f.client.readStatus(),/controls-unavailable/);
+ }
+ const empty=fixture({reply:()=>Response.json({ok:true,controls:null,recovery})});await assert.rejects(empty.client.readStatus(),/controls-unavailable/);
+});

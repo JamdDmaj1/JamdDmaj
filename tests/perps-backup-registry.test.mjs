@@ -10,6 +10,10 @@ import {openPerpsBackupRegistry,requireVerifiedPerpsCustodyBackup} from '../lib/
 import {createPerpsCustodyMasterKey,openPerpsCustodyVault} from '../lib/perps-custody-vault.js';
 import {openPerpsAutomationControls} from '../lib/perps-automation-controls.js';
 import {openPerpsExecutionJournal} from '../lib/perps-execution-journal.js';
+import {createPerpsAutomationApi} from '../lib/perps-automation-api.js';
+import {createPerpsControlClient} from '../lib/perps-control-client.js';
+import {setupPerpsControlPanel} from '../lib/perps-control-panel.js';
+import {validateAutomationSettings} from '../lib/automation-panel.js';
 import {initializePerpsOperatorRecovery,createPerpsCustodyRecoveryArchive,restorePerpsCustodyRecoveryArchive,readPerpsCustodyRecoveryChallenge} from '../lib/perps-custody-recovery.js';
 const allowNonPosixForTests=process.platform==='win32',ownerAccountHash='a'.repeat(64);
 async function fixture(t){
@@ -39,6 +43,38 @@ test('only a complete encrypted archive restored with the matching operator iden
  const proof=f.registry.readVerified(f.identity);assert.equal(requireVerifiedPerpsCustodyBackup(proof,f.identity),proof);assert.throws(()=>requireVerifiedPerpsCustodyBackup({...proof},f.identity));
  assert.throws(()=>requireVerifiedPerpsCustodyBackup(proof,{...f.identity,ownerAccountHash:'b'.repeat(64)}));
  assert.equal(openPerpsCustodyVault({...restored,...f.common}).describe(f.identity).exclusive,false);assert.equal(f.controls.read(f.identity).enabled,false);
+});
+
+test('authenticated recovery status projects a real operator proof without exposing it or authorizing funds',async t=>{
+ const f=await fixture(t);let account=ownerAccountHash,proofReads=0;
+ const api=createPerpsAutomationApi({controls:f.controls,authenticate:async()=>account,rateLimit:async()=>true,
+  readBackupProof:who=>{proofReads++;return f.registry.readVerified(who);}});
+ const read=()=>api(new Request('https://executor.example/v1/automation',{headers:{Authorization:'Bearer '+'c'.repeat(64)}}));
+ const pending=await (await read()).json();assert.equal(pending.recovery.backupVerified,false);assert.equal(pending.recovery.verifiedAt,null);
+ const archive=await f.archive(),restored=await f.restore(archive);f.registry.acceptRestoreProof({proofFile:restored.proofFile,explicitOperatorApproval:true});
+ const response=await read(),body=await response.json();assert.equal(response.headers.get('cache-control'),'no-store, max-age=0');
+ assert.deepEqual(body.recovery,{walletAddress:f.identity.walletAddress,stage:'BACKUP_VERIFIED_EXECUTION_PENDING',backupVerified:true,
+  verifiedAt:f.clock.wall,fundingAvailable:false,readyForSigning:false});
+ assert.equal(body.controls.enabled,false);assert.equal(body.controls.paused,true);
+ const encoded=JSON.stringify(body);for(const privateValue of [ownerAccountHash,archive.sha256,'verificationToken','bindings'])assert.equal(encoded.includes(privateValue),false);
+ const sent=[],client=createPerpsControlClient({readSessionToken:()=>'c'.repeat(64),validateSettings:validateAutomationSettings,fetchImpl:async(url,options)=>{
+  sent.push(options.method);if(url.endsWith('/health'))return Response.json({ok:true,mode:'controls-only',executionAvailable:false,custodyProvisioningAvailable:true,tradingEnabled:false});
+  const response=await api(new Request(url,options));assert.equal(response.status,200);return response;
+ }});
+ const element=()=>({children:[],append(...items){this.children.push(...items);},setAttribute(){}});
+ const fields=Object.fromEntries(Object.entries(body.controls.settings).map(([key,value])=>[key,{value:value??''}]));
+ const panel=setupPerpsControlPanel({panel:element(),fields,client,validateSettings:validateAutomationSettings,language:'es',doc:{createElement:element}});
+ const clientRead=await client.readStatus();assert.equal(clientRead.recovery.backupVerified,true);
+ await panel.connect.onclick();assert.match(panel.status.textContent,/Respaldo cifrado verificado/);assert.match(panel.status.textContent,/No deposites todavía/);
+ assert.ok(sent.every(method=>method==='GET'));assert.equal(panel.provision.disabled,true);
+ account='b'.repeat(64);const before=proofReads,other=await (await read()).json();assert.equal(other.controls,null);assert.equal(other.recovery,null);assert.equal(proofReads,before);
+ account=ownerAccountHash;f.registry.revokeArchive({archiveSha256:archive.sha256,explicitOperatorApproval:true});
+ assert.equal((await (await read()).json()).recovery.backupVerified,false);
+ await panel.connect.onclick();assert.match(panel.status.textContent,/Falta verificar el respaldo/);assert.doesNotMatch(panel.status.textContent,/Respaldo cifrado verificado/);
+ const forged=createPerpsAutomationApi({controls:f.controls,authenticate:async()=>account,rateLimit:async()=>true,
+  readBackupProof:()=>({...f.identity,backupVerified:true,verifiedAt:f.clock.wall})});
+ const denied=await forged(new Request('https://executor.example/v1/automation',{headers:{Authorization:'Bearer '+'c'.repeat(64)}}));
+ assert.equal((await denied.json()).recovery.backupVerified,false);
 });
 test('hash/token, owner/wallet, timestamps and archive mismatches cannot produce a verified registry entry',async t=>{
  const f=await fixture(t),archive=await f.archive(),restored=await f.restore(archive),original=JSON.parse(readFileSync(restored.proofFile,'utf8'));

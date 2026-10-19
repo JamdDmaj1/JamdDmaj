@@ -14,6 +14,7 @@ import {openPerpsAutomationControls} from '../lib/perps-automation-controls.js';
 import {openPerpsExecutionJournal} from '../lib/perps-execution-journal.js';
 import {openPerpsBackupRegistry} from '../lib/perps-backup-registry.js';
 import {createPerpsCustodyMasterKey,openPerpsCustodyVault} from '../lib/perps-custody-vault.js';
+import {initializePerpsOperatorRecovery,createPerpsCustodyRecoveryArchive,restorePerpsCustodyRecoveryArchive} from '../lib/perps-custody-recovery.js';
 const allowNonPosixForTests=process.platform==='win32',ownerAccountHash='c'.repeat(64);
 function fixture(t,{active=false}={}){
  const directory=mkdtempSync(join(tmpdir(),'jamd-runtime-unfunded-'));chmodSync(directory,0o700);
@@ -45,6 +46,28 @@ test('execution requires explicit operator configuration and still cannot bypass
  let runtime=openServerPerpsRuntime(args);assert.equal((await runtime.run({once:true})).results.AUTOMATION_INACTIVE,1);await runtime.close();
  const db=new DatabaseSync(f.controlsPath);db.exec('UPDATE perps_automation_controls SET enabled=1,paused=0');db.close();
  runtime=openServerPerpsRuntime(args);try{assert.equal((await runtime.run({once:true})).results.BACKUP_VERIFICATION_REQUIRED,1);assert.equal(f.calls.length,0);}finally{await runtime.close();}
+});
+
+test('composed authenticated runtime reads the durable restored-backup registry without granting execution',async t=>{
+ const f=fixture(t),common={allowNonPosixForTests},operatorDirectory=join(f.directory,'operator');
+ const operator=await initializePerpsOperatorRecovery({directory:operatorDirectory,...common});
+ const archive=await createPerpsCustodyRecoveryArchive({directory:join(f.directory,'wallets'),keyFile:join(f.directory,'keys','master.key'),
+  recipient:operator.recipient,explicitOperatorApproval:true,requireRestoreProof:true,...common,
+  runtimePaths:{controlsPath:f.controlsPath,journalPath:f.journalPath,temporaryDirectory:f.directory}});
+ const registry=openPerpsBackupRegistry(f.backupPath,common);
+ await registry.registerArchive(archive,{explicitOperatorApproval:true});
+ const restored=await restorePerpsCustodyRecoveryArchive({ciphertext:archive.ciphertext,operatorDirectory,destinationDirectory:join(f.directory,'restored'),explicitOperatorApproval:true,...common});
+ registry.acceptRestoreProof({proofFile:restored.proofFile,explicitOperatorApproval:true});
+ const runtime=openServerPerpsRuntime({...f.options,fetchImpl:async()=>Response.json({ok:true,accountHash:ownerAccountHash,verifiedAt:Date.now()})});
+ const request=()=>runtime.handleControlRequest(new Request('https://157.230.54.133/v1/automation',{headers:{Authorization:'Bearer '+'e'.repeat(64)}}));
+ try{
+  const response=await request(),body=await response.json();assert.equal(response.status,200);assert.equal(body.recovery.backupVerified,true);
+  assert.equal(body.recovery.walletAddress,f.identity.walletAddress);assert.equal(body.recovery.readyForSigning,false);assert.equal(body.recovery.fundingAvailable,false);
+  assert.equal(body.controls.enabled,false);assert.equal(runtime.capabilities().executionAvailable,false);
+  registry.revokeArchive({archiveSha256:archive.sha256,explicitOperatorApproval:true});
+  assert.equal((await (await request()).json()).recovery.backupVerified,false);
+  assert.equal(f.calls.length,0);
+ }finally{await runtime.close();registry.close();}
 });
 test('runtime never creates missing stores, keys or replacement wallets and does not migrate a foreign database',async t=>{
  const f=fixture(t);renameSync(f.journalPath,f.journalPath+'.saved');assert.throws(()=>openServerPerpsRuntime(f.options));assert.equal(existsSync(f.journalPath),false);

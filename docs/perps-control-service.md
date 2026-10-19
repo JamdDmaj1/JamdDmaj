@@ -1109,3 +1109,43 @@ risk limits. Required capital and margin minimums match the server. Invalid
 settings do not send a provisioning request or change consent/settings. The
 focused tests and final full local test run exited 0 with existing optional and
 platform skips. These UI changes have not been published to web or Android.
+
+## Private recovery status connected, 2026-10-19
+
+Authenticated GET controls now include an informational recovery projection for
+the durable owner/wallet binding. The runtime reads its actual backup registry;
+the API requires the private, fresh registry proof rather than accepting a plain
+backupVerified boolean. The projection contains only the owner's wallet, bounded
+stage, verification timestamp and false funding/signing flags. Archive identity,
+owner hash, restore token and proof handle are never serialized. Missing/revoked
+proof stays unverified; an empty account does not query another wallet's backup.
+The existing authentication, rate quota, no-store and ownership checks apply.
+
+The local client adds readStatus without changing read's return contract, checks
+the recovery-wallet binding, refuses funding/signing claims and rechecks the
+session after the request. The local panel explains verified backup separately
+from execution. An older server's missing projection is unknown, not verified.
+Refresh failure clears the account display; revocation removes verified status
+on the next read. No polling, auto-provisioning or activation was added.
+
+The initial new full-flow test failed because its synthetic health response
+omitted ok=true; fixing the fixture to match the real health contract made the
+flow pass without weakening client checks. The focused run passed 48 cases with
+three existing platform skips; the subsequent full local test suite exited 0.
+The web asset build succeeded. The registry/API/client/panel flow and composed
+runtime registry flow also both passed on actual VPS Node 22 in a network-isolated
+DynamicUser unit, with temporary unfunded wallets and no skipped selected cases.
+Artifacts: `/opt/jamddmaj-perps/checks/recovery-status-20261019/`.
+
+The backend bundle was installed after checking the old artifact hash, paused
+accounts and loaded service command, preserving the actual controls database
+inode. Its SHA-256 is
+`04dac73bfb767bdd24bb437e259e11c6532d4bb19aa142a4a71e23a69831458b`.
+Previous binary: `/opt/jamddmaj-perps/backups/recovery-status-20261019/`.
+Worker and HTTPS returned active; normal public HTTPS health returned 200 with
+controls-only, executionAvailable=false and tradingEnabled=false. Anonymous
+controls returned JSON 401 and no-store. No actual owner session was borrowed
+for a production authenticated read. The new UI remains local-only: no Vercel
+promotion, push, Android signing or APK publication was performed in this step.
+This closes the backup-status data path, not the remaining execution/exit,
+funding readiness, activation or release requirements.

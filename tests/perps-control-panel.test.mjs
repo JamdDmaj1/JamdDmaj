@@ -42,3 +42,11 @@ test('failed provisioning is treated as unconfirmed and must be read again befor
  const f=fixture({read:async()=>null,provision:async()=>{throw Error('private detail');}});await f.connect.onclick();f.consent.checked=true;f.consent.onchange();await f.provision.onclick();
  assert.equal(f.provision.disabled,true);assert.equal(f.save.disabled,true);assert.match(f.status.textContent,/No se pudo confirmar/);assert.doesNotMatch(f.status.textContent,/private/);
 });
+
+test('server recovery status explains verified backup separately from execution and is cleared on refresh failure',async()=>{
+ let verified=true,fail=false,reads=0;const f=fixture({readStatus:async()=>{reads++;if(fail)throw Error('private');return {controls:state,recovery:{backupVerified:verified}};}});
+ await f.connect.onclick();assert.equal(reads,1);assert.match(f.status.textContent,/Respaldo cifrado verificado/);assert.match(f.status.textContent,/No deposites todavía/);
+ assert.match(f.status.textContent,/aún no está habilitada/);assert.equal(f.provision.disabled,true);
+ verified=false;await f.connect.onclick();assert.match(f.status.textContent,/Falta verificar el respaldo/);
+ fail=true;await f.connect.onclick();assert.equal(f.identity.textContent,'');assert.doesNotMatch(f.status.textContent,/Respaldo cifrado verificado/);assert.equal(f.save.disabled,true);
+});
