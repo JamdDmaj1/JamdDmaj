@@ -24,6 +24,7 @@ import {openPerpsAutomationControls} from '../lib/perps-automation-controls.js';
 import {openPerpsBackupRegistry} from '../lib/perps-backup-registry.js';
 import {initializePerpsOperatorRecovery,createPerpsCustodyRecoveryArchive,restorePerpsCustodyRecoveryArchive} from '../lib/perps-custody-recovery.js';
 import {readServerPerpsAccount} from '../lib/perps-server-account.js';
+import {createServerPerpsExitCancellationBroadcaster} from '../lib/perps-exit-cancellation-broadcast.js';
 const genesis='5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d',tokenProgram='TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
 const baseIdentity=await deriveServerPerpsIdentities({walletAddress:wallet,asset:'SOL',side:'LONG'});
 const derivedRequests=await Promise.all([1n,2n,3n].map(async counter=>{
@@ -255,6 +256,16 @@ async function inspectedCancellation(f,{newOwnerAta=false,versioned=false}={}){
  return {c,inspection,options:{requestAccount:native,positionAccount:position,newOwnerAta}};
 }
 
+async function signedCancellation(f){
+ const custody=await custodyForCancellation(f),{inspection,options}=await inspectedCancellation(f),simFixture=cancellationSimulationFixture(inspection,options);
+ const simulation=await simulateServerPerpsExitCancellation(inspection,simFixture),hooks={onRead:null,reads:0};
+ f.journal.beginExitCancellation('broadcast-cancel',simulation);
+ const base=custody.args.readAccount,grant=await authorizeServerPerpsExitCancellation(simulation,{...custody.args,cancellationId:'broadcast-cancel',request:simFixture.request,
+  readAccount:async input=>{const value=await base(input);hooks.reads++;if(hooks.onRead)await hooks.onRead();return value;}});
+ return {custody,inspection,simulation,simFixture,hooks,signed:custody.vault.signExitCancellation(grant),
+  args:{ownerAccountHash:custody.ownerAccountHash,controlRevision:custody.args.controlRevision}};
+}
+
 test('exact-wire orphan cancellation simulation returns all USDC and rent, preserves pool/positions and grants no authority',async t=>{
  for(const positionClosed of [false,true])for(const newOwnerAta of [false,true])for(const versioned of [false,true])for(const requestTokens of [0n,2500000n]){
   const f=await fixture(t,{liveSibling:true,positionClosed}),{c,inspection,options}=await inspectedCancellation(f,{newOwnerAta,versioned});
@@ -396,6 +407,62 @@ test('cancellation grant rechecks native state, SOL funding, controls and backup
  const revoked=async input=>{const account=await custody.args.readAccount(input);custody.registry.revokeArchive({archiveSha256:custody.archive.sha256,explicitOperatorApproval:true});return account;};
  await assert.rejects(authorizeServerPerpsExitCancellation(simulation,{...args,readAccount:revoked}));
  assert.equal(f.journal.readExitCancellation('recheck-cancel').signature,null);assert.equal(f.journal.read('entry-0').state,'OPEN');
+});
+
+test('cancellation broadcaster persists exact identity before its sole attempt and acknowledgement never closes a position',async t=>{
+ const f=await fixture(t,{liveSibling:true}),s=await signedCancellation(f);let calls=0;
+ const before=readOwnerSignedPerpsExitCancellation(s.signed).signedBase64;
+ const submit=createServerPerpsExitCancellationBroadcaster({journal:f.journal,fetchImpl:async(url,options)=>{
+  calls++;assert.equal(url,'https://perps-api.jup.ag/v2/transaction/execute');assert.equal(options.method,'POST');assert.equal(options.redirect,'error');assert.equal(options.credentials,'omit');assert.equal(options.cache,'no-store');
+  assert.deepEqual(JSON.parse(options.body),{action:'cancel-tpsl',serializedTxBase64:before});
+  const row=f.journal.readExitCancellation('broadcast-cancel');assert.equal(row.state,'UNCERTAIN');assert.equal(row.signature,s.signed.signature);assert.equal(row.wire_hash,s.signed.wireHash);
+  return Response.json({action:'cancel-tpsl',txid:s.signed.signature});
+ }});
+ const result=await submit(s.signed,s.args);assert.equal(result.stage,'CANCELLATION_BROADCAST_ACKNOWLEDGED');assert.equal(result.state,'UNCERTAIN');assert.equal(result.readyForRetry,false);
+ assert.equal(calls,1);assert.equal(s.hooks.reads,2);assert.equal(f.journal.read('entry-0').state,'OPEN');assert.equal(f.journal.riskState(wallet).activeMarginUsdcUnits,'20000000');
+ await assert.rejects(submit(s.signed,s.args));assert.equal(calls,1);
+});
+
+test('cancellation transport exceptions and malformed acknowledgements retain uncertainty without automatic retries',async t=>{
+ for(const mode of ['throw','wrong-action','wrong-signature','private-error','bad-json','large-body','html']){
+  const f=await fixture(t,{liveSibling:true}),s=await signedCancellation(f);let calls=0;
+  const submit=createServerPerpsExitCancellationBroadcaster({journal:f.journal,fetchImpl:async()=>{
+   calls++;if(mode==='throw')throw Error('private network details');
+   if(mode==='wrong-action')return Response.json({action:'increase-position',txid:s.signed.signature});
+   if(mode==='wrong-signature')return Response.json({action:'cancel-tpsl',txid:wallet});
+   if(mode==='private-error')return Response.json({error:'private service details'},{status:503});
+   if(mode==='bad-json')return new Response('invalid',{headers:{'content-type':'application/json'}});
+   if(mode==='large-body')return Response.json({action:'cancel-tpsl',txid:s.signed.signature,padding:'x'.repeat(5000)});
+   return new Response('<html>login</html>',{headers:{'content-type':'text/html'}});
+  }});
+  const result=await submit(s.signed,s.args);assert.equal(result.stage,'CANCELLATION_BROADCAST_UNKNOWN');assert.equal(result.readyForRetry,false);
+  assert.equal(JSON.stringify(result).includes('private'),false);assert.equal(f.journal.readExitCancellation('broadcast-cancel').state,'UNCERTAIN');
+  await assert.rejects(submit(s.signed,s.args));assert.equal(calls,1);assert.equal(f.journal.read('entry-0').state,'OPEN');
+ }
+});
+
+test('cancellation broadcaster rejects foreign handles, changed controls/backups/native state and failed persistence before any attempt',async t=>{
+ for(const mode of ['foreign-owner','foreign-journal','copy','controls','backup','runtime','native','write-failure']){
+  const f=await fixture(t,{liveSibling:true}),s=await signedCancellation(f);let calls=0;
+  if(mode==='controls')s.hooks.onRead=()=>{const value=s.custody.controls.read({ownerAccountHash:s.args.ownerAccountHash,walletAddress:wallet});s.custody.controls.save({ownerAccountHash:s.args.ownerAccountHash,walletAddress:wallet,expectedRevision:value.revision,settings:{...value.settings,dailyTrades:4}});};
+  if(mode==='backup')s.hooks.onRead=()=>s.custody.registry.revokeArchive({archiveSha256:s.custody.archive.sha256,explicitOperatorApproval:true});
+  if(mode==='runtime')s.custody.state.running=false;
+  if(mode==='native'){const account=s.simFixture.state.before[s.inspection.exitAddress],data=Buffer.from(account.data[0],'base64');data[220]^=1;account.data[0]=data.toString('base64');}
+  const original=f.journal.recordExitCancellationBroadcastIntent;if(mode==='write-failure')f.journal.recordExitCancellationBroadcastIntent=()=>{throw Error('durability failure');};
+  try{
+   const submit=createServerPerpsExitCancellationBroadcaster({journal:mode==='foreign-journal'?{...f.journal}:f.journal,fetchImpl:async()=>{calls++;throw Error('must not send');}});
+   await assert.rejects(submit(mode==='copy'?{...s.signed}:s.signed,{...s.args,...mode==='foreign-owner'?{ownerAccountHash:'b'.repeat(64)}:{}}));
+   assert.equal(calls,0);assert.equal(f.journal.readExitCancellation('broadcast-cancel').state,'SIGNING');assert.equal(f.journal.read('entry-0').state,'OPEN');
+  }finally{f.journal.recordExitCancellationBroadcastIntent=original;}
+ }
+});
+
+test('concurrent cancellation submissions cannot both pass the durable SIGNING transition',async t=>{
+ const f=await fixture(t,{liveSibling:true}),s=await signedCancellation(f);let calls=0;
+ const submit=createServerPerpsExitCancellationBroadcaster({journal:f.journal,fetchImpl:async()=>{calls++;return Response.json({action:'cancel-tpsl',txid:s.signed.signature});}});
+ const outcomes=await Promise.allSettled([submit(s.signed,s.args),submit(s.signed,s.args)]);
+ assert.equal(outcomes.filter(value=>value.status==='fulfilled').length,1);assert.equal(outcomes.filter(value=>value.status==='rejected').length,1);
+ assert.equal(calls,1);assert.equal(f.journal.readExitCancellation('broadcast-cancel').state,'UNCERTAIN');
 });
 
 test('executor stops new entries on orphan triggers or legacy unresolved bindings without signing or cancelling anything',async t=>{

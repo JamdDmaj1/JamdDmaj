@@ -1391,3 +1391,51 @@ production migration, worker/app release, real signature, financial submission
 or bot activation occurred. The cancellation broadcaster, complete coordinator,
 daily-account non-trade handling, live unsigned compatibility and integrated
 deployment verification are still required; this is not trading readiness.
+
+## One-attempt cancellation broadcast boundary, 2026-10-19
+
+Implemented a separate cancellation broadcaster with no implicit live transport.
+It accepts only a private owner-signed cancellation handle from the same journal,
+owner and control revision. Before recording an attempt, it repeats the private
+native request/token/rent, chain account, runtime, control, backup and expiry
+checks bound into the authorization. Submission arguments cannot replace those
+readers or choose a URL, action, wallet or raw signed wire.
+
+The exact signature and pre-keeper wire hash are durably UNCERTAIN before the
+single injected transport attempt. A failed write stops transmission. Concurrent
+callers cannot both transition the SIGNING record. The fixed request is POST
+`https://perps-api.jup.ag/v2/transaction/execute`, action cancel-tpsl, without
+cookies, redirects, caching or fallback/retry. Replies are bounded to 4 KiB with
+an eight-second abort. Only the exact action/signature acknowledgement is
+recognized; exceptions, non-200 responses, malformed content and wrong replies
+remain unknown. Even an acknowledgement leaves the attempt UNCERTAIN and the
+parent entry OPEN, pending finalized chain reconciliation and request absence.
+
+The [public API documentation](https://perps-api.jup.ag/v2/docs) was rechecked;
+it documents cancel-tpsl but still advertises v1 server URLs even when retrieved
+under /v2/docs. The pinned v2 route is consistent with the app's existing Perps
+integration, not proof of live cancellation compatibility. No execute endpoint
+was called during verification.
+
+Four new selected broadcaster cases passed on VPS Node 22 inside a DynamicUser
+unit with networking disabled, no skips and temporary unfunded synthetic
+wallets. All transport calls were in-memory mocks. They cover exact payload and
+write-before-send ordering, one attempt, concurrent calls, unknown/error/HTML/
+oversized/malformed/wrong acknowledgements, foreign/copied handles, revoked
+backup, changed controls/native state, stopped runtime and persistence failure.
+The full local suite exited 0 with existing optional/platform skips.
+Artifacts: `/opt/jamddmaj-perps/checks/exit-cancellation-broadcast-20261019/`.
+Broadcaster source SHA-256:
+`16a01e4f6bd26efc603b11e9e0eaa119317e75feac6327845b0d1a03da2b4239`.
+Authorization source SHA-256:
+`f16be26759f4148cf02de00a59c2d5ca0a8f6cc3a2cb1c2cabd6e68fbb623038`.
+Closure/broadcast test SHA-256:
+`50773e6061aab870bcb9afcbbb876718db85360ee59086a61941c1cd0df33b91`.
+
+The worker still does not call this broadcaster. No production schema migration,
+app/worker installation, real signing/submission or bot activation occurred.
+Remaining integration includes the bounded cleanup coordinator/unsigned builder,
+daily accounting for non-trade cancellation transactions, a safe pre-sign failure
+lifecycle (so async validation cannot strand a never-signed attempt), live
+unsigned compatibility, paused migration/new recovery verification and the full
+manual/automatic trading and release audit. Trading is not yet ready.
