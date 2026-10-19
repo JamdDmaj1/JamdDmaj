@@ -27,7 +27,7 @@ test('refresh preserves edits typed while it is in flight and duplicate clicks d
 
 test('invalid draft values are explained locally without losing the confirmed account or making a server mutation',async()=>{
  let writes=0;const f=fixture({read:async()=>state,save:async()=>{writes++;return state;}});await f.connect.onclick();f.fields.margin.value='1000';
- await f.save.onclick();assert.equal(writes,0);assert.match(f.status.textContent,/Revisa capital/);assert.equal(f.save.disabled,false);
+ await f.save.onclick();assert.equal(writes,0);assert.match(f.status.textContent,/Margen por trade/);assert.equal(f.save.disabled,false);
 });
 
 test('exclusive wallet setup needs an explicit empty-account read and unchecked-by-default custody consent',async()=>{

@@ -1072,3 +1072,40 @@ deposit, activate, or share keys/codes. This actual owner-wallet setup and its
 off-host encrypted restore proof remain unverified. Setup always returns
 fundingAvailable=false, backupVerified=false and readyForSigning=false and keeps
 the account paused; enabling admission is not funding or execution readiness.
+
+## Actual owner recovery verified, 2026-10-19
+
+The owner reported successful authenticated preparation of the exclusive wallet,
+paused and awaiting backup. An operator archive of the actual production wallet,
+master and runtime snapshots was encrypted to the existing PC recovery recipient.
+Only the public recipient was placed on the VPS; the private recovery identity
+remained on the PC, outside the repository. Archive SHA-256:
+`2c450aa90600680163e0fc744325a58f38298a8ad6c7e2dbf13144ed131f78d7`.
+
+The encrypted archive was copied into the private PC recovery directory
+`production-bot-20261019-3AXFGU5E`. Restoration with real Windows ACL enforcement
+recovered the matching public wallet and runtime snapshots into a quarantined
+directory with trading disabled. Its private restore proof was returned to the
+VPS and accepted by the actual production backup registry, under the same
+DynamicUser identity and with network access disabled. The verifier returned
+OPERATOR_RESTORE_VERIFIED, walletCount=1, backupVerified=true,
+readyForSigning=false and activationRequested=false. This was not the earlier
+unfunded fixture proof. No financial transaction was signed or submitted.
+
+Automatic cleanup of the temporary restored directory was rejected by execution
+policy before it ran. The restored copy and proof therefore remain in their
+private, quarantined PC directory alongside the encrypted archive; do not claim
+that only the encrypted copy remains. No private key or proof token was printed.
+
+Post-verification public health still reports controls-only, tradingEnabled=false
+and executionAvailable=false. Worker and HTTPS are active; the legacy Bitget
+executor remains disabled. Registry verification does not itself enable deposits,
+funding, execution or activation. The current app setup response does not yet
+reflect the operator registry's verified backup state.
+
+Local-only form diagnostics now identify and focus the invalid field, expand
+advanced controls when needed and retain the existing canonical validation and
+risk limits. Required capital and margin minimums match the server. Invalid
+settings do not send a provisioning request or change consent/settings. The
+focused tests and final full local test run exited 0 with existing optional and
+platform skips. These UI changes have not been published to web or Android.

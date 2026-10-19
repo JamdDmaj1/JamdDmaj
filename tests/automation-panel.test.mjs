@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {validateAutomationDraft,validateAutomationSettings,setupAutomationPanel,telegramSignalCards} from '../lib/automation-panel.js';
+import {validateAutomationDraft,validateAutomationSettings,validatePerpsAutomationForm,setupAutomationPanel,telegramSignalCards} from '../lib/automation-panel.js';
 test('Telegram cards exclude unpublished, closed, future, expired and malformed signals',()=>{
  const now=Date.parse('2026-10-13T12:00:00Z');
  const signal={id:'a',pair:'BTCUSDT',side:'LONG',status:'OPEN',entry:60000,sl:59000,tp1:62000,telegramMessageId:123,telegramSentAt:'2026-10-13T11:00:00Z'};
@@ -23,4 +23,13 @@ test('settings reject invalid sizing and reduction without persisting activation
  const value={capital:100,loss:10,positions:2,margin:10,leverage:3,dailyTrades:5};
  assert.equal(validateAutomationSettings({...value,enabled:true}).enabled,undefined);
  for(const extra of [{margin:101},{leverage:0},{dailyTrades:1.5},{stopLossPercent:100},{reductionPercent:0}])assert.throws(()=>validateAutomationSettings({...value,...extra}));
+});
+
+test('server form reports the exact invalid field without weakening the existing limits or filling in risk choices',()=>{
+ const value={capital:100,loss:10,positions:2,margin:10,leverage:3,dailyTrades:5};
+ for(const [field,bad] of [['capital',''],['loss',''],['positions',''],['margin',5],['leverage',1],['dailyTrades',1.5],['stopLossPercent',0],['takeProfitPercent',10000],['reductionPercent',0]]){
+  const input={...value,[field]:bad},before=JSON.stringify(input);assert.throws(()=>validatePerpsAutomationForm(input),error=>error.field===field);assert.equal(JSON.stringify(input),before);
+ }
+ assert.throws(()=>validatePerpsAutomationForm({...value,capital:5,loss:1,margin:5}),error=>error.field==='capital');
+ assert.deepEqual(validatePerpsAutomationForm({...value,stopLossPercent:'',takeProfitPercent:''}),validateAutomationSettings(value));
 });
