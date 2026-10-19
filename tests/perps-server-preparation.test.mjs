@@ -10,6 +10,7 @@ import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {openPerpsExecutionJournal} from '../lib/perps-execution-journal.js';
 import {reservePreparedServerPerpsAutomation} from '../lib/perps-server-reservation.js';
+import {verifyOwnerSignedServerPerpsEnvelope,readOwnerSignedServerPerpsEnvelope} from '../lib/perps-server-signed-envelope.js';
 const now=Date.parse('2026-10-18T12:00:00Z'),seconds=now/1000;
 const GENESIS='5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
 const u64=n=>{const b=Buffer.alloc(8);b.writeBigUInt64LE(BigInt(n));return b;};
@@ -27,6 +28,8 @@ async function fixture({exits=false,lookup=false,trusted=false,planMutation=null
  lookup ||= exits||trusted;
  const apiPrivate=createPrivateKey({key:Buffer.concat([Buffer.from('302e020100300506032b657004220420','hex'),Buffer.alloc(32,21)]),format:'der',type:'pkcs8'});
  const keys=Array.from({length:19},(_,i)=>Buffer.alloc(32,i+1));keys[2]=createPublicKey(apiPrivate).export({format:'der',type:'spki'}).subarray(-32);
+ const ownerKey=trusted?createPrivateKey({key:Buffer.concat([Buffer.from('302e020100300506032b657004220420','hex'),Buffer.alloc(32,5)]),format:'der',type:'pkcs8'}):null;
+ if(ownerKey)keys[0]=createPublicKey(ownerKey).export({format:'der',type:'spki'}).subarray(-32);
  keys.push(Buffer.from(bs58.decode('ComputeBudget111111111111111111111111111111')),Buffer.from(bs58.decode('PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu')));
  const blockhash=bs58.encode(Buffer.alloc(32,40)),tableAddress=bs58.encode(Buffer.alloc(32,60));
  const loaded=Array.from({length:exits?4:1},(_,i)=>Buffer.alloc(32,80+i));
@@ -129,7 +132,7 @@ async function fixture({exits=false,lookup=false,trusted=false,planMutation=null
   }
   throw Error('UNEXPECTED_RPC');
  };
- return {preparation,intent,request,calls,account,table,loaded};
+ return {preparation,intent,request,calls,account,table,loaded,ownerKey};
 }
 test('combined server gate inspects exact prepared wire, fee, core intent and RPC-resolved addresses without signing permission',async()=>{
  for(const lookup of [false,true]){
@@ -178,7 +181,20 @@ test('Telegram settings and builder response feed the complete inspection chain 
  assert.equal(journal.pending(input.walletAddress).length,1);
  await assert.rejects(reservePreparedServerPerpsAutomation(result,{...reservationOptions,reservationId:'duplicate'}),/DUPLICATE_SIGNAL/);
  const reopened=openPerpsExecutionJournal(path,{now:()=>now});try{assert.equal(reopened.read('reserved-signal-1').state,'RESERVED');}finally{reopened.close();}
- journal.cancelUnsigned('reserved-signal-1');
+ const signed=Buffer.from(result.preparation.serializedTxBase64,'base64');sign(null,signed.subarray(193),f.ownerKey).copy(signed,1);
+ const signatureOptions={journal,reservationId:'reserved-signal-1',walletAddress:input.walletAddress,signalId:input.signal.id};
+ assert.throws(()=>verifyOwnerSignedServerPerpsEnvelope(result,signed.toString('base64'),signatureOptions));
+ journal.beginSigning('reserved-signal-1');
+ const checkedSignature=verifyOwnerSignedServerPerpsEnvelope(result,signed.toString('base64'),signatureOptions);
+ assert.equal(checkedSignature.readyForBroadcast,false);assert.equal(checkedSignature.signature,bs58.encode(signed.subarray(1,65)));
+ assert.equal(readOwnerSignedServerPerpsEnvelope(checkedSignature).signedBase64,signed.toString('base64'));
+ assert.throws(()=>readOwnerSignedServerPerpsEnvelope({...checkedSignature}));
+ for(const offset of [0,1,65,129,193,signed.length-1]){const changed=Buffer.from(signed);changed[offset]^=1;assert.throws(()=>verifyOwnerSignedServerPerpsEnvelope(result,changed.toString('base64'),signatureOptions));}
+ assert.throws(()=>verifyOwnerSignedServerPerpsEnvelope(result,signed.toString('base64')+'\n',signatureOptions));
+ assert.throws(()=>journal.cancelUnsigned('reserved-signal-1'),/RECONCILIATION_REQUIRED/);
+ monotonic=15001;assert.throws(()=>readOwnerSignedServerPerpsEnvelope(checkedSignature));monotonic=0;
+ journal.recordBroadcastIntent('reserved-signal-1',{wireHash:checkedSignature.wireHash,signature:checkedSignature.signature});
+ assert.throws(()=>readOwnerSignedServerPerpsEnvelope(checkedSignature));assert.equal(journal.read('reserved-signal-1').state,'UNCERTAIN');
  let slowClock=0;
  await assert.rejects(prepareInspectedServerAutomation(input,{nowSeconds:seconds,monotonicNow:()=>slowClock,rpcRequest:f.request,builderRequest:async()=>{
   slowClock=15001;return new Response(JSON.stringify(f.preparation));
