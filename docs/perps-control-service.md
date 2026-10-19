@@ -291,3 +291,79 @@ findings for `@xmldom/xmldom` 0.9.10 and `brace-expansion` 5.0.9. Their versions
 were unchanged by the recovery dependency installation. Do not describe the
 whole dependency tree as audit-clean or release-ready; scoped remediation and
 regression verification remain open. No blanket dependency rewrite was run.
+
+## Runtime-aware recovery v2: verified source and unfunded off-host drill
+
+The preceding custody-only v1 format remains supported. The new optional v2
+archive additionally contains standalone SQLite snapshots of controls and the
+execution journal. `runtimePaths` must name both existing private databases and
+a private temporary directory. An explicit operator approval is required before
+accessing them. Ordered `BEGIN IMMEDIATE` locks prevent writers on both databases
+while separate read connections use SQLite's WAL-aware backup API. The locks and
+private in-process snapshot handle are released on success or failure. Existing
+live policy is not paused, revised, or activated by taking a snapshot.
+
+The snapshot includes committed WAL rows, all six reservation states, exact
+signature/hash and exit-plan bindings, consumed exit events, cancellation/signal
+history, settings, daily risk markers, request quotas, and audit records. Both
+database schemas are pinned to the reviewed source schema fingerprints. Unknown
+tables, triggers, views, changed schemas, invalid integrity/foreign keys, excessive
+size, and wallets without matching custody/control ownership are rejected.
+Each database is bounded at 8 MiB and the complete decrypted archive at 24 MiB;
+larger deployments need an explicitly reviewed capacity/streaming update, not a
+truncated backup. No untrusted archive SQL is executed.
+
+Restoration verifies all keys and both database snapshots before creating the
+fresh destination. It preserves journal rows exactly, including unknown sends
+and already-consumed exits. The restored controls get new revisions, disabled/
+paused state, `RESTORE_REVIEW_REQUIRED`, cleared activation challenges, and a
+`RESTORE_AND_PAUSE` audit record. Original risk markers, sizes and quotas survive.
+The custody quarantine marker remains mandatory, including for keys-only v1
+restores; this tool cannot release it. A snapshot is historical evidence, not
+proof that no transactions occurred after its cutoff. Fresh complete on-chain
+reconciliation and reviewed recovery remain mandatory before any resumption.
+
+The operator CLI now supports a hash-pinned restore into a fresh private target:
+
+```
+node scripts/perps-recovery-operator.mjs restore --directory ABS_OPERATOR_DIR --archive ABS_ARCHIVE --destination ABS_FRESH_TARGET --expected-sha256 ARCHIVE_SHA256
+```
+
+It prints only public identities, paths and review-required status. It cannot
+export the operator identity, replace an existing target, remove quarantine,
+enable controls, sign, or submit. The shared private-files module enforces POSIX
+ownership/modes and actual Windows ACLs; the Windows restore test uses real ACL
+checks rather than the isolated fixture override.
+
+Verification: **530 passed, 0 failed, 1 skipped** in the complete local suite
+(531 total). On the VPS's Node 22.23.1, five runtime recovery cases passed in a
+network-disabled transient dynamic-user sandbox; the Windows case was skipped.
+The current verified bundle is under
+`/opt/jamddmaj-perps/checks/runtime-recovery-13e38aaff477/`, SHA-256
+`13e38aaff477668edcd2d3fe2d786cae791526da632fd82d041d1f66b7329d49`.
+Its unfunded fixture generator has SHA-256
+`70931a38e9ba6ce478e97e4526928adaedc949d2897d77a0b3db1f56eda90f1b`.
+
+A separate end-to-end off-host drill generated a **new ephemeral unfunded**
+wallet, disabled controls and an unsigned `SIGNING` reservation in the VPS
+sandbox, encrypted the whole archive to this PC's real operator public
+recipient, then copied only the encrypted archive to the PC. The operator
+private identity never left the PC. The 99,590-byte encrypted fixture has
+SHA-256 `4840425233734a0814bc135604df3475ba066e71cf2b9e27df200f6e5db59e9b`.
+It was restored with native Windows permissions under
+`C:\Users\JamdDmaj\AppData\Local\JamdDmaj-Recovery\verification-20261019-runtime\restored-UNFUNDED`.
+Read-only checks verified matching ownership, disabled/paused controls, cleared
+challenges, the custody quarantine, and the retained 10 USDC fixture margin in
+`SIGNING` with no signature. That is fictitious reservation data, not funded
+capital or an actual operation. No real transaction was signed or submitted.
+This drill used the earlier bundle under `runtime-recovery-ae6f7aa0ba33`; the
+later verified bundle adds the explicit all-six-state and consumed-exit corpus.
+
+No production custody wallet/master was created, no actual production wallet
+backup exists, and no production scheduled backup/PC synchronization service
+has been installed. `backupVerified` and `readyForSigning` remain false. The
+new source is not evidence of a published Android release or activated worker.
+At the final server check, the legacy Bitget worker and prepared HTTPS service
+were still inactive/disabled; controls remained active in controls-only mode.
+Vercel project authorization and owner action on certificate registration remain
+external integration gates; no acceptance or additional access was inferred.
