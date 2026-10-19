@@ -20,8 +20,10 @@ test('exclusive wallet creation is explicit, encrypted, restorable and never act
  const record=JSON.parse(readFileSync(join(f.wallets,first.walletAddress+'.json'),'utf8'));
  assert.equal(Buffer.from(record.ciphertext,'base64').length,32);assert.equal(Buffer.from(record.iv,'base64').length,12);assert.equal(Buffer.from(record.tag,'base64').length,16);
  assert.deepEqual(openPerpsCustodyVault(f.options).describe(first),first);
- assert.deepEqual(Object.keys(f.vault).sort(),['createExclusiveWallet','createOrReadExclusiveWallet','describe','signPrepared']);
+ assert.deepEqual(Object.keys(f.vault).sort(),['createExclusiveWallet','createOrReadExclusiveWallet','describe','signExitCancellation','signPrepared']);
  assert.throws(()=>f.vault.signPrepared({walletAddress:first.walletAddress,readyForSigning:true}));
+ assert.throws(()=>f.vault.signExitCancellation({walletAddress:first.walletAddress,readyForSigning:true}));
+ assert.equal(f.vault.signMessage,undefined);assert.equal(f.vault.exportSeed,undefined);
  assert.throws(()=>f.vault.describe({...first,ownerAccountHash:'b'.repeat(64)}));
  if(process.platform!=='win32'){assert.equal(statSync(f.keyFile).mode&0o077,0);assert.equal(statSync(join(f.wallets,first.walletAddress+'.json')).mode&0o077,0);}
 });

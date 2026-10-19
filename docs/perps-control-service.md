@@ -1341,3 +1341,53 @@ activation, real signature, financial submission, app release or worker
 installation occurred. Narrow cancellation authorization/key-use, one-send
 transport, non-trade cancellation daily-account handling, live unsigned
 compatibility and final integrated release verification remain incomplete.
+
+## Separate cancellation-only custody authority, 2026-10-19
+
+Added a distinct two-second, one-use private cancellation grant, separate from
+entry signing. It binds the simulated wire, exact SIGNING cancellation row,
+original OPEN entry identity/exit plan, owner control revision and the actual
+verified backup proof. A live execution-runtime callback must approve; a plain
+boolean or UI readiness value is not accepted. Paused-entry controls can still
+permit proven orphan cleanup, without enabling new entries or closing positions.
+Unknown entry attempts or competing cancellation records block the grant.
+
+The pending native request and request USDC account are re-read twice around a
+fresh, privately verified chain-account read. Their exact identity, refund tokens
+and recovered rent must still match simulation. SOL must cover the simulated
+fee, any added owner ATA rent and a 1,000,000-lamport reserve. Mainnet identity,
+minimum slots and block height remain checked. Controls, backup, runtime state,
+native proof and bank freshness are rechecked after asynchronous reads.
+
+The vault exposes only the new purpose-specific signExitCancellation method,
+not a message/transfer signer or seed export. It consumes the distinct grant,
+checks restore quarantine before and after decryption/signing, and changes only
+the owner signature slot. Output verification checks the exact untouched message,
+API bytes and empty keeper slot and verifies the owner signature. A separate
+private signed-output handle is required for any future broadcast. Copied,
+spent, expired, foreign, revoked or quarantined capabilities fail closed.
+
+Three new selected cases passed on VPS Node 22 in a network-disabled DynamicUser
+unit with no skipped selected cases. All custody records and signatures in these
+tests use deterministic synthetic fixture seeds and temporary unfunded state;
+no real owner's wallet or recovery identity was read. They cover grant copies,
+cross-purpose use, one-use consumption, exact output bytes, revoked backup,
+runtime refusal, account/owner substitution, low SOL, stale grants, changed native
+state/control revision during reads, and restored-wallet quarantine. The initial
+full local run failed only the old exact vault-method allowlist assertion; that
+test now explicitly permits this narrowly scoped method and separately rejects
+plain readiness objects, generic message signing and seed export. The subsequent
+full local suite exited 0 with existing optional/platform skips.
+Artifacts: `/opt/jamddmaj-perps/checks/exit-cancellation-authority-20261019/`.
+Authorization source SHA-256:
+`1c2caa88128bcd81004c029d7134afd4ce0a5b75c364a39e9742180dc81bb647`.
+Vault source SHA-256:
+`614e2d60801ec279415096c3c555d6af6f91f2aac24a31fab3905ab84db1a604`.
+Closure/authority test SHA-256:
+`66ff9231e5dfff00fca08d7199b964a55117d94367472d7b62ecf531141f9926`.
+
+The actual runtime/executor does not yet call this new signing method. No
+production migration, worker/app release, real signature, financial submission
+or bot activation occurred. The cancellation broadcaster, complete coordinator,
+daily-account non-trade handling, live unsigned compatibility and integrated
+deployment verification are still required; this is not trading readiness.

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createHash} from 'node:crypto';
-import {mkdtempSync,rmSync} from 'node:fs';
+import {createHash,createCipheriv,randomBytes} from 'node:crypto';
+import {mkdtempSync,rmSync,mkdirSync,chmodSync,readFileSync,writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import bs58 from 'bs58';
@@ -18,6 +18,12 @@ import {inspectServerPerpsExitCancellation,requireInspectedPerpsExitCancellation
 import {cancellationFixture,cancellationSimulationFixture,cancellationReceiptFixture} from './helpers/perps-cancellation-fixture.mjs';
 import {simulateServerPerpsExitCancellation,requireSimulatedPerpsExitCancellation} from '../lib/perps-exit-cancellation-simulation.js';
 import {reconcilePendingPerpsExitCancellations} from '../lib/perps-exit-cancellation-recovery.js';
+import {authorizeServerPerpsExitCancellation,readOwnerSignedPerpsExitCancellation} from '../lib/perps-exit-cancellation-signing.js';
+import {createPerpsCustodyMasterKey,openPerpsCustodyVault,PERPS_CUSTODY_RESTORE_REVIEW_MARKER} from '../lib/perps-custody-vault.js';
+import {openPerpsAutomationControls} from '../lib/perps-automation-controls.js';
+import {openPerpsBackupRegistry} from '../lib/perps-backup-registry.js';
+import {initializePerpsOperatorRecovery,createPerpsCustodyRecoveryArchive,restorePerpsCustodyRecoveryArchive} from '../lib/perps-custody-recovery.js';
+import {readServerPerpsAccount} from '../lib/perps-server-account.js';
 const genesis='5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d',tokenProgram='TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
 const baseIdentity=await deriveServerPerpsIdentities({walletAddress:wallet,asset:'SOL',side:'LONG'});
 const derivedRequests=await Promise.all([1n,2n,3n].map(async counter=>{
@@ -62,7 +68,7 @@ async function fixture(t,{yesterday=false,exitSize=size,exitAddress=keys[0],entr
   throw Error('unexpected fixture-only read');
  };
  const directory=mkdtempSync(join(tmpdir(),'jamd-entry-close-')),path=join(directory,'journal.sqlite'),journal=openPerpsExecutionJournal(path,{now:()=>now});
- t.after(()=>{journal.close();rmSync(directory,{recursive:true,force:true});});
+ const resources=[];t.after(()=>{for(const close of resources.reverse())close();journal.close();rmSync(directory,{recursive:true,force:true});});
  const snapshot={walletAddress:wallet,network:'solana-mainnet',balancesComplete:true,observedAt:now,day:'2026-10-18',availableUsdcUnits:'100000000',allocatedUsdcUnits:'0',lossTodayUsdcUnits:'0',openPositions:0,tradesToday:0};
  const limits={capitalUsd:'100',dailyLossUsd:'100',positions:10,dailyTrades:10};
  for(const [index,value]of [first,second].entries()){
@@ -74,7 +80,33 @@ async function fixture(t,{yesterday=false,exitSize=size,exitAddress=keys[0],entr
  }
  const readFinalizedAccount=()=>readServerPerpsDailyAccount({walletAddress:wallet},{request,now:()=>now,monotonicNow:()=>elapsed});
  const account=await readFinalizedAccount();
- return {journal,path,request,account,calls,first,second,exit,snapshot,limits,readFinalizedAccount,options:{request,readFinalizedAccount:async()=>account,now:()=>now},expire(){elapsed=10001;}};
+ return {journal,path,directory,closeResource:close=>resources.push(close),request,account,calls,first,second,exit,snapshot,limits,readFinalizedAccount,options:{request,readFinalizedAccount:async()=>account,now:()=>now},expire(){elapsed=10001;}};
+}
+
+async function custodyForCancellation(f){
+ const allowNonPosixForTests=process.platform==='win32',common={allowNonPosixForTests,now:()=>now},ownerAccountHash='a'.repeat(64),state={mono:0,running:true};
+ const directory=join(f.directory,'signing-wallets'),keys=join(f.directory,'signing-keys'),keyFile=join(keys,'master.key');
+ for(const path of [f.directory,directory,keys]){if(path!==f.directory)mkdirSync(path,{mode:0o700});chmodSync(path,0o700);}
+ createPerpsCustodyMasterKey(keyFile,common);
+ // Build an encrypted deterministic UNFUNDED fixture record directly. The
+ // production vault deliberately has no import/export or generic signer API.
+ const key=readFileSync(keyFile),seed=Buffer.alloc(32,68),iv=randomBytes(12),purpose='jamddmaj-perps-automation';
+ const cipher=createCipheriv('aes-256-gcm',key,iv);cipher.setAAD(Buffer.from(JSON.stringify({version:1,purpose,ownerAccountHash,walletAddress:wallet})));
+ const ciphertext=Buffer.concat([cipher.update(seed),cipher.final()]);key.fill(0);seed.fill(0);
+ writeFileSync(join(directory,wallet+'.json'),JSON.stringify({version:1,purpose,ownerAccountHash,walletAddress:wallet,iv:iv.toString('base64'),ciphertext:ciphertext.toString('base64'),tag:cipher.getAuthTag().toString('base64')}),{flag:'wx',mode:0o600});
+ const vault=openPerpsCustodyVault({directory,keyFile,...common}),controlsPath=join(f.directory,'signing-controls.sqlite'),controls=openPerpsAutomationControls(controlsPath,{now:()=>now});
+ f.closeResource(()=>controls.close());const current=controls.provision({ownerAccountHash,walletAddress:wallet,settings:{capital:100,loss:50,positions:2,margin:10,leverage:3,dailyTrades:5}});
+ for(const path of [controlsPath,f.path])chmodSync(path,0o600);
+ const registry=openPerpsBackupRegistry(join(f.directory,'signing-backup.sqlite'),{...common,monotonicNow:()=>state.mono});f.closeResource(()=>registry.close());
+ const operatorDirectory=join(f.directory,'operator'),operator=await initializePerpsOperatorRecovery({directory:operatorDirectory,...common});
+ const archive=await createPerpsCustodyRecoveryArchive({directory,keyFile,recipient:operator.recipient,explicitOperatorApproval:true,requireRestoreProof:true,...common,
+  runtimePaths:{controlsPath,journalPath:f.path,temporaryDirectory:f.directory}});
+ await registry.registerArchive(archive,{explicitOperatorApproval:true});
+ const restored=await restorePerpsCustodyRecoveryArchive({ciphertext:archive.ciphertext,operatorDirectory,destinationDirectory:join(f.directory,'restored'),explicitOperatorApproval:true,...common});
+ registry.acceptRestoreProof({proofFile:restored.proofFile,explicitOperatorApproval:true});
+ const readAccount=()=>readServerPerpsAccount({walletAddress:wallet},{request:f.request,now:()=>now,monotonicNow:()=>state.mono});
+ return {vault,controls,registry,archive,state,directory,ownerAccountHash,args:{controls,journal:f.journal,backupRegistry:registry,readAccount,
+  isExecutionRunning:()=>state.running,ownerAccountHash,walletAddress:wallet,controlRevision:current.revision,monotonicNow:()=>state.mono}};
 }
 
 test('one request-bound full-size exit closes only its own logical entry while the same pair remains open',async t=>{
@@ -313,6 +345,57 @@ test('only finalized cancellation failure allows a fresh separately recorded att
  await reconcilePendingPerpsExitCancellations(g.journal,wallet,{request:late.request,now:()=>now});
  const earlier=await readServerPerpsPositionClosure(g.journal.read('entry-0'),{...g.options,request:async(method,params)=>method==='getMultipleAccounts'&&params[0].length===2?{context:{slot:500000},value:[null,null]}:g.request(method,params)});
  assert.throws(()=>g.journal.reconcileClosedPosition('entry-0',earlier));assert.equal(g.journal.read('entry-0').state,'OPEN');
+});
+
+test('exclusive fixture vault consumes only a one-use cancellation grant and preserves all non-owner bytes',async t=>{
+ const f=await fixture(t,{liveSibling:true}),custody=await custodyForCancellation(f),{inspection,options}=await inspectedCancellation(f);
+ const simFixture=cancellationSimulationFixture(inspection,options),simulation=await simulateServerPerpsExitCancellation(inspection,simFixture);
+ f.journal.beginExitCancellation('owner-cancel',simulation);
+ const grant=await authorizeServerPerpsExitCancellation(simulation,{...custody.args,cancellationId:'owner-cancel',request:simFixture.request});
+ assert.equal(custody.controls.read({ownerAccountHash:custody.ownerAccountHash,walletAddress:wallet}).enabled,false);
+ assert.throws(()=>custody.vault.signExitCancellation({...grant}));assert.throws(()=>custody.vault.signPrepared(grant));
+ const signed=custody.vault.signExitCancellation(grant),envelope=readOwnerSignedPerpsExitCancellation(signed,{journal:f.journal});
+ assert.equal(signed.readyForBroadcast,false);assert.equal(signed.exitAddress,keys[1]);assert.throws(()=>custody.vault.signExitCancellation(grant));
+ const original=Buffer.from(inspection.envelope.serializedTxBase64,'base64'),wire=Buffer.from(envelope.signedBase64,'base64');
+ assert.ok(wire.subarray(65).equals(original.subarray(65)));assert.ok(wire.subarray(65,129).every(n=>n===0));
+ assert.equal(signed.wireHash,createHash('sha256').update(wire).digest('hex'));assert.throws(()=>readOwnerSignedPerpsExitCancellation({...signed}));
+ assert.equal(f.journal.readExitCancellation('owner-cancel').state,'SIGNING');assert.equal(f.journal.riskState(wallet).activeMarginUsdcUnits,'20000000');
+ custody.registry.revokeArchive({archiveSha256:custody.archive.sha256,explicitOperatorApproval:true});assert.throws(()=>readOwnerSignedPerpsExitCancellation(signed));
+});
+
+test('cancellation authority rejects missing runtime approval, forged bank/backup, changed owner, clock expiry and restore quarantine',async t=>{
+ const f=await fixture(t,{liveSibling:true}),custody=await custodyForCancellation(f),{inspection,options}=await inspectedCancellation(f);
+ const simFixture=cancellationSimulationFixture(inspection,options),simulation=await simulateServerPerpsExitCancellation(inspection,simFixture);
+ f.journal.beginExitCancellation('gated-cancel',simulation);const args={...custody.args,cancellationId:'gated-cancel',request:simFixture.request};
+ for(const change of [{isExecutionRunning:()=>false},{ownerAccountHash:'b'.repeat(64)},{backupRegistry:{readVerified:()=>({backupVerified:true})}},
+  {readAccount:async()=>({...await custody.args.readAccount()})},{walletAddress:keys[2]}])await assert.rejects(authorizeServerPerpsExitCancellation(simulation,{...args,...change}));
+ const expired=await authorizeServerPerpsExitCancellation(simulation,args);custody.state.mono=2001;assert.throws(()=>custody.vault.signExitCancellation(expired));custody.state.mono=0;
+ const quarantined=await authorizeServerPerpsExitCancellation(simulation,args);
+ writeFileSync(join(custody.directory,PERPS_CUSTODY_RESTORE_REVIEW_MARKER),'{}',{mode:0o600});assert.throws(()=>custody.vault.signExitCancellation(quarantined));
+ assert.equal(f.journal.readExitCancellation('gated-cancel').state,'SIGNING');
+});
+
+test('cancellation grant rechecks native state, SOL funding, controls and backup after asynchronous reads',async t=>{
+ const f=await fixture(t,{liveSibling:true}),custody=await custodyForCancellation(f),{inspection,options}=await inspectedCancellation(f);
+ const simFixture=cancellationSimulationFixture(inspection,options),simulation=await simulateServerPerpsExitCancellation(inspection,simFixture);
+ f.journal.beginExitCancellation('recheck-cancel',simulation);
+ const args={...custody.args,cancellationId:'recheck-cancel',request:simFixture.request};
+ const poor=()=>readServerPerpsAccount({walletAddress:wallet},{now:()=>now,monotonicNow:()=>0,request:async(method,params)=>{
+  const response=await f.request(method,params);if(method==='getMultipleAccounts'&&params[0].length===8){response.value=structuredClone(response.value);response.value[0].lamports=1000;}return response;
+ }});
+ await assert.rejects(authorizeServerPerpsExitCancellation(simulation,{...args,readAccount:poor}));
+ const changedState=async input=>{const account=await custody.args.readAccount(input);custody.state.running=false;return account;};
+ await assert.rejects(authorizeServerPerpsExitCancellation(simulation,{...args,readAccount:changedState}));custody.state.running=true;
+ const changedNative=async input=>{const account=await custody.args.readAccount(input),native=simFixture.state.before[inspection.exitAddress],data=Buffer.from(native.data[0],'base64');data[220]^=1;native.data[0]=data.toString('base64');return account;};
+ await assert.rejects(authorizeServerPerpsExitCancellation(simulation,{...args,readAccount:changedNative}));
+ simFixture.state.before[inspection.exitAddress]=structuredClone(options.requestAccount);
+ const revision=async input=>{const account=await custody.args.readAccount(input);const state=custody.controls.read({ownerAccountHash:custody.ownerAccountHash,walletAddress:wallet});
+  custody.controls.save({ownerAccountHash:custody.ownerAccountHash,walletAddress:wallet,expectedRevision:state.revision,settings:{...state.settings,dailyTrades:4}});return account;};
+ await assert.rejects(authorizeServerPerpsExitCancellation(simulation,{...args,readAccount:revision}));
+ args.controlRevision=custody.controls.read({ownerAccountHash:custody.ownerAccountHash,walletAddress:wallet}).revision;
+ const revoked=async input=>{const account=await custody.args.readAccount(input);custody.registry.revokeArchive({archiveSha256:custody.archive.sha256,explicitOperatorApproval:true});return account;};
+ await assert.rejects(authorizeServerPerpsExitCancellation(simulation,{...args,readAccount:revoked}));
+ assert.equal(f.journal.readExitCancellation('recheck-cancel').signature,null);assert.equal(f.journal.read('entry-0').state,'OPEN');
 });
 
 test('executor stops new entries on orphan triggers or legacy unresolved bindings without signing or cancelling anything',async t=>{
