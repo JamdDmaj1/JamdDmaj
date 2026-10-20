@@ -2463,3 +2463,57 @@ The controls-only server remains the installed configuration. Full close
 authorization, minimum-return handling/review, remaining protocol policy,
 durable financial state/finalization, native integration, fee budgets and final
 end-to-end release verification remain outstanding. The goal is not achieved.
+
+### Minimum-return API and native-request feasibility research (2026-10-20)
+
+Primary sources were rechecked: https://perps-api.jup.ag/v2/docs describes
+maxSlippageBps for decrease but no request parameter fixing the final USDC
+minimum. https://github.com/jup-ag/cli/blob/main/docs/perps.md documents closing
+into USDC or the position's collateral token, and defaults to collateral.
+Neither source proves a guaranteed minimum payout for our instant USDC route.
+
+The program-owned mainnet IDL was fetched at confirmed slot 459332711. Both
+CreateDecreasePositionMarketRequestParams and CreateDecreasePositionRequest2Params
+contain an optional jupiterMinimumOut u64. That field's existence is NOT proof
+that the live program accepts or enforces it for this route. A temporary local
+constructor encoded a positive one-microUSDC minimum, entirePosition Some(true),
+USDC destination, native position/market/collateral PDAs, no referral, a fresh
+counter and the existing independent absolute close-price limit. Legacy request
+and Request2/Market variants were researched with exact native IDL field order.
+
+All probes were unsigned read-only simulations using a public third-party
+position, never an owned wallet or bot wallet. No transaction or request was
+actually created on-chain. Results:
+
+- Legacy MarketRequest, zero size: source slot 459333961 / simulation 459333964,
+  InvalidArgument 6015 at create_decrease_position_market_request.rs:175.
+- Legacy MarketRequest, full native size: source 459334171 / simulation
+  459334173, same rejection.
+- Request2/Market, full native size and positive minimum: source 459334649 /
+  simulation 459334652, InvalidArgument 6015 at
+  create_decrease_position_request2.rs:188.
+- Diagnostic CONTROL ONLY removing the optional minimum: source 459334851 /
+  simulation 459334853, successful request creation in simulated state only;
+  this is not a position close or payout and is not an authorized fallback.
+- A concurrent candidate/control comparison again returned 6015 versus success,
+  but its banks were DIFFERENT (459335207 and 459335208). Failed simulations did
+  not supply comparable position state. Therefore do not call that comparison
+  same-bank proof or claim a universal causal/protocol incompatibility verdict.
+
+The evidence is sufficient to reject presenting the positive-minimum candidate
+as a verified working path, not to bypass its failed native validation. The
+temporary constructor and its layout-only tests were REMOVED instead of leaving
+a known-rejected speculative path in production lib/. No signing or execution
+capability was added. Read-only RPC now permits getLatestBlockhash (official
+reference https://solana.com/docs/rpc/http/getlatestblockhash), with the existing
+bounded transport and a regression; signing, airdrop and send methods remain
+blocked before networking.
+
+The owner was asked to choose between implementing a two-leg close-to-collateral
+then protected USDC conversion (two operations, extra fees, possible waiting and
+intermediate token exposure), or the supported direct-USDC API close with an
+explicit disclosure of price-limit protection but no guaranteed minimum USDC.
+Neither choice activates the bot or authorizes sending a test transaction. No
+choice has been assumed, no live settings/state changed, and no publication
+occurred. Other native closing, durable financial finalization, full integration
+and release requirements still remain; the goal is not achieved.

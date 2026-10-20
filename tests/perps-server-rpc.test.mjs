@@ -5,6 +5,8 @@ function response(body,options={}){return new Response(JSON.stringify(body),{hea
 test('read-only transport binds each JSON-RPC response and sends no credentials or redirects',async()=>{
  const calls=[];const rpc=createServerPerpsReadOnlyRpc({fetchImpl:async(url,options)=>{calls.push({url,options});const body=JSON.parse(options.body);return response({jsonrpc:'2.0',id:body.id,result:body.method==='getGenesisHash'?'mainnet':{value:null}});}});
  assert.equal(await rpc('getGenesisHash',[]),'mainnet');assert.deepEqual(await rpc('getMultipleAccounts',[[],{commitment:'confirmed'}]),{value:null});
+ assert.deepEqual(await rpc('getLatestBlockhash',[{commitment:'confirmed',minContextSlot:100}]),{value:null});
+ assert.equal(JSON.parse(calls[2].options.body).method,'getLatestBlockhash');
  assert.equal(calls[0].url,'https://api.mainnet-beta.solana.com/');assert.equal(calls[0].options.redirect,'error');assert.equal(calls[0].options.cache,'no-store');assert.equal(calls[0].options.headers.Authorization,undefined);
  assert.notEqual(JSON.parse(calls[0].options.body).id,JSON.parse(calls[1].options.body).id);
 });
