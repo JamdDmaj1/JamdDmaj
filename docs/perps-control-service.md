@@ -1733,3 +1733,28 @@ suite exited 0 with existing optional/platform skips. Artifacts:
 `/opt/jamddmaj-perps/checks/journal-upgrade-rehearsal-20261020/`.
 Actual migration, new verified recovery archive, worker installation, manual
 closing lifecycle and full current-amount unsigned compatibility remain pending.
+
+### Paused empty journal upgrade operator (2026-10-20)
+
+The explicit operator upgrade uses the same reviewed cancellation DDL as normal
+journal initialization, without accepting caller SQL. It acquires worker.lock
+in the worker's actual private RuntimeDirectory, freezes controls and journal,
+requires the exact known source schemas, all accounts paused, no financial rows,
+and fresh privately branded verified-backup evidence for every mapped account.
+It writes private WAL-aware rollback copies and rehearses the candidate before
+applying DDL in one SQLite transaction. Controls and custody keys are not changed.
+Backup proof is checked again before COMMIT. A post-COMMIT verification failure
+retains the worker lease for operator review rather than allowing a blind restart.
+Successful structural migration still requires a new verified recovery archive
+and does not grant trading or funding authority.
+
+Four synthetic cases passed on actual VPS Node 22 in a network-disabled
+DynamicUser unit, no skips: preserved rollback files/control state; active,
+nonempty, foreign, unbacked and already-locked refusals; proof loss after DDL
+rolling back schema; and competing coordinators yielding only one upgrade.
+The full local suite also exited 0 with existing optional/platform skips.
+Artifacts: `/opt/jamddmaj-perps/checks/paused-journal-upgrade-20261020/`.
+Candidate maintenance worker SHA-256:
+`3dfc332b8d4f4a45185fba6e95e306fd7aa501a1b5b08f7e2673ba838d607e19`.
+The actual installation result is recorded separately below, not inferred from
+these tests or the prepared artifact.
