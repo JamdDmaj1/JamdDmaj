@@ -1985,3 +1985,57 @@ The full local Node test glob also exited zero after this simulation
 implementation. The final additional expiry/fee/network regression was verified
 in the subsequent sixteen-test focused run; no Android build or live funded
 close was implied by these results.
+
+### Evidence-driven correction: close plus collateral post-swap (2026-10-20)
+
+Before implementing rent/SOL accounting, a bounded read-only scan of finalized
+public Perps history found a successful close whose Perps sequence was
+setTokenLedger -> instantDecreasePosition -> swapWithTokenLedger. The observed
+transaction was at slot 459191845, signature
+`5eCUbVqkL9sVM6xooWGBDC3ixBZ9Be7ioutazcNz13GCQDkPXTKKShHLwxzDiCqbMAMMTqdVKxeT8mFQmQKEF43j`.
+It closed USDC-collateral exposure and converted the resulting amount to SOL;
+the close instruction's USDC receiving account was therefore not the final
+requested token. This is public third-party historical evidence, NOT our own
+wallet or a submitted test. A subsequent bounded eight-transaction scan found
+no additional close; it did not establish positive LONG-to-USDC compatibility.
+
+The earlier one-core-only/always-direct-USDC candidate was insufficient for the
+requested complete lifecycle. A new program-owned confirmed IDL read at slot
+459192018 returned the same recorded raw IDL hash and confirmed
+swapWithTokenLedger: discriminator 8b8deec529d3ac13, 16 bytes, minAmountOut u64,
+17 account roles. Its layout and the public observation are now recorded in
+the security fixture. Official API reference remains
+https://perps-api.jup.ag/v2/docs; the official CLI also documents closing with
+an explicit receive token at https://github.com/jup-ag/cli/blob/main/docs/perps.md.
+
+The close binding candidate now distinguishes the native collateral receiving
+account from the final owner USDC ATA. LONG-to-USDC requires a single ledger
+before the close and the bound collateral-to-USDC swap after it. All 17 swap
+roles are pinned to independently decoded collateral/USDC vaults and oracles,
+the original owner, derived ATAs/authorities and the same ledger. Ledger identity
+cannot alias funds, positions, custodies, vaults, oracles or request accounts.
+SHORT-to-USDC keeps its direct path. Both native custody snapshots are fetched
+for either direction. Variant-2 request ATA derivation follows the core's
+collateral mint; actual funded variant-2 compatibility is still unproven.
+
+The swap's minimum output is reported and the exact-wire simulation must meet
+it in final USDC, not intermediate collateral. This does NOT establish that a
+provider-supplied zero minimum is an acceptable risk policy: the inspection
+explicitly requires a separate minimum-return check before signing. No custody
+signer consumes these candidate results. The observed USDC-to-SOL transaction
+would not be authorized by the USDC-final-receipt path.
+
+Nineteen focused synthetic tests passed, including LONG complete-envelope
+inspection/simulation, every swap-role substitution, missing/duplicate/reordered
+ledger and swap, malformed data, copied custody and insufficient final USDC.
+An initial added minimum-output test mutated an old uncaptured fixture instead
+of the captured wire; the test was corrected to build/inspect a distinct wire,
+and the intended rejection passed without weakening the production check.
+Rent/SOL conservation, complete other-account/oracle/token effects, independent
+minimum-return risk, durable close accounting, native UI confirmation and
+funded unsigned compatibility remain unfinished. No owned transaction builder,
+financial signer/send, bot activation, deployment or app release was invoked.
+
+The full local Node test glob subsequently exited zero with this post-swap
+correction in place. That result is not a funded close, Android build or
+publication proof.

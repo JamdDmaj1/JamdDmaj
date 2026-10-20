@@ -20,6 +20,9 @@ test('both close data layouts match the recorded confirmed program-owned Anchor 
   assert.equal(bytes.length,layout.someEntirePositionBytes);assert.equal(bytes.subarray(0,8).toString('hex'),layout.discriminatorHex);
   assert.equal(layout.accounts.length,22);assert.equal(layout.accounts[7],'position');
  }
+ assert.equal(idl.closePostSwapInstructionLayout.swapWithTokenLedger.discriminatorHex,'8b8deec529d3ac13');
+ assert.equal(idl.closePostSwapInstructionLayout.swapWithTokenLedger.bytes,16);
+ assert.equal(idl.closePostSwapInstructionLayout.swapWithTokenLedger.accounts.length,17);
 });
 async function fixture(side='LONG',asset='SOL'){
  const ids=await deriveServerPerpsIdentities({walletAddress:wallet,asset,side}),data=Buffer.alloc(210);
@@ -94,33 +97,38 @@ async function boundFixture(side='LONG',asset='SOL',version=1){
   const id=PERPS_CUSTODIES[asset],n=['BTC','ETH','SOL','USDC'].indexOf(asset),data=Buffer.alloc(416);
   Buffer.from('01b830515d833f91','hex').copy(data);Buffer.from(bs58.decode(PERPS_POOL)).copy(data,8);Buffer.from(bs58.decode(id.mint)).copy(data,40);
   Buffer.alloc(32,20+n).copy(data,72);data[104]=id.decimals;data[105]=Number(id.stable);Buffer.alloc(32,30+n).copy(data,106);data[138]=2;
-  data.writeBigUInt64LE(500000n,175);data[202]=1;data[203]=1;Buffer.alloc(32,40+n).copy(data,384);
+  data.writeBigUInt64LE(500000n,175);data[199]=1;data[202]=1;data[203]=1;Buffer.alloc(32,40+n).copy(data,384);
   const account={owner:PERPS_PROGRAM,executable:false,data:[data.toString('base64'),'base64']};
   return {account,decoded:decodeServerPerpsCustody(asset,id.address,account)};
  }
- const m=custody(asset),c=side==='LONG'?m:custody('USDC'),market=m.decoded,collateral=c.decoded;
- const associated=async owner=>(await getProgramDerivedAddress({programAddress:ATA,seeds:[bs58.decode(owner),bs58.decode(TOKEN),bs58.decode(PERPS_CUSTODIES.USDC.mint)]}))[0];
- const recipient=await associated(wallet),keeper=bs58.encode(Buffer.alloc(32,2)),api=bs58.encode(Buffer.alloc(32,3));
+ const m=custody(asset),u=custody('USDC'),c=side==='LONG'?m:u,market=m.decoded,collateral=c.decoded,usdc=u.decoded;
+ const associated=async(owner,mint=PERPS_CUSTODIES.USDC.mint)=>(await getProgramDerivedAddress({programAddress:ATA,seeds:[bs58.decode(owner),bs58.decode(TOKEN),bs58.decode(mint)]}))[0];
+ const recipient=await associated(wallet),collateralAccount=await associated(wallet,collateral.mint),keeper=bs58.encode(Buffer.alloc(32,2)),api=bs58.encode(Buffer.alloc(32,3)),ledger=bs58.encode(Buffer.alloc(32,66));
  const [requestAddress]=await getProgramDerivedAddress({programAddress:PERPS_PROGRAM,seeds:['position_request',bs58.decode(f.ids.position),Buffer.from('0700000000000000','hex'),new Uint8Array([2])]});
- const requestAta=await associated(requestAddress);
- const common=[keeper,api,wallet,recipient,f.ids.transferAuthority,f.ids.perpetuals,PERPS_POOL,f.ids.position,market.address,market.dovesAgOracle];
- const roles=version===1?[...common,market.oracle,collateral.address,collateral.dovesAgOracle,collateral.oracle,collateral.tokenAccount,PERPS_CUSTODIES.USDC.mint,PERPS_PROGRAM,TOKEN,ATA,SYSTEM,f.ids.eventAuthority,PERPS_PROGRAM]
-  :[...common,collateral.address,collateral.dovesAgOracle,collateral.tokenAccount,PERPS_CUSTODIES.USDC.mint,PERPS_PROGRAM,requestAddress,requestAta,TOKEN,ATA,SYSTEM,f.ids.eventAuthority,PERPS_PROGRAM];
+ const requestAta=await associated(requestAddress,collateral.mint);
+ const common=[keeper,api,wallet,collateralAccount,f.ids.transferAuthority,f.ids.perpetuals,PERPS_POOL,f.ids.position,market.address,market.dovesAgOracle];
+ const roles=version===1?[...common,market.dovesAgOracle,collateral.address,collateral.dovesAgOracle,collateral.dovesAgOracle,collateral.tokenAccount,collateral.mint,PERPS_PROGRAM,TOKEN,ATA,SYSTEM,f.ids.eventAuthority,PERPS_PROGRAM]
+  :[...common,collateral.address,collateral.dovesAgOracle,collateral.tokenAccount,collateral.mint,PERPS_PROGRAM,requestAddress,requestAta,TOKEN,ATA,SYSTEM,f.ids.eventAuthority,PERPS_PROGRAM];
+ const swapRoles=[wallet,collateralAccount,recipient,f.ids.transferAuthority,f.ids.perpetuals,PERPS_POOL,collateral.address,collateral.dovesAgOracle,collateral.tokenAccount,usdc.address,usdc.dovesAgOracle,usdc.tokenAccount,ledger,TOKEN,'Sysvar1nstructions1111111111111111111111111',f.ids.eventAuthority,PERPS_PROGRAM];
  const writeRoles=version===1?[3,6,7,8,11,14]:[3,6,7,8,10,12,15,16];
- const writes=[...new Set(writeRoles.map(i=>roles[i]))];
- const reads=[...new Set([...roles,COMPUTE].filter(key=>![wallet,keeper,api,...writes].includes(key)))];
+ const writes=[...new Set([...writeRoles.map(i=>roles[i]),...(side==='LONG'?[recipient,usdc.address,usdc.tokenAccount,ledger]:[])])];
+ const reads=[...new Set([...roles,...(side==='LONG'?swapRoles:[]),COMPUTE].filter(key=>![wallet,keeper,api,...writes].includes(key)))];
  const keys=[wallet,keeper,api,...writes,...reads];
  const unit=Buffer.alloc(5);unit[0]=2;unit.writeUInt32LE(1000000,1);
  const price=Buffer.alloc(9);price[0]=3;price.writeBigUInt64LE(1n,1);
  const ix={program:keys.indexOf(PERPS_PROGRAM),accounts:roles.map(key=>keys.indexOf(key)),dataBase64:core(version,{price:BigInt(plan.priceLimitUsdUnits)})};
+ const instruction=(roles,data)=>({program:keys.indexOf(PERPS_PROGRAM),accounts:roles.map(key=>keys.indexOf(key)),dataBase64:data.toString('base64')});
+ const ledgerIx=instruction([ledger,collateralAccount,TOKEN],Buffer.from('e455b9704e4f4d02','hex'));
+ const swapIx=instruction(swapRoles,Buffer.from('8b8deec529d3ac130000000000000000','hex'));
  const envelope={stage:'STRUCTURE_ONLY',staticKeys:[...keys],accountCount:keys.length,readonlySigned:2,readonlyUnsigned:reads.length,lookups:[],instructions:[
   {program:keys.indexOf(COMPUTE),accounts:[],dataBase64:unit.toString('base64')},
-  {program:keys.indexOf(COMPUTE),accounts:[],dataBase64:price.toString('base64')},ix]};
- return {...f,plan,market,collateral,custodyAccounts:side==='LONG'?[m.account]:[m.account,c.account],inspection:{envelope,resolvedKeys:keys},ix,recipient,requestAddress,requestAta};
+  {program:keys.indexOf(COMPUTE),accounts:[],dataBase64:price.toString('base64')},...(side==='LONG'?[ledgerIx,ix,swapIx]:[ix])]};
+ return {...f,plan,market,collateral,usdc,custodyAccounts:[m.account,u.account],inspection:{envelope,resolvedKeys:keys},ix,ledgerIx,swapIx,recipient,requestAddress,requestAta};
 }
+const checkBindings=f=>checkServerPerpsFullCloseBindings(f.inspection,f.plan,f.market,f.collateral,now,f.usdc);
 test('both close variants bind all six markets/directions to owned recipient and independently decoded custody roles',async()=>{
  for(const asset of ['BTC','ETH','SOL'])for(const side of ['LONG','SHORT'])for(const version of [1,2]){
-  const f=await boundFixture(side,asset,version),checked=await checkServerPerpsFullCloseBindings(f.inspection,f.plan,f.market,f.collateral,now);
+  const f=await boundFixture(side,asset,version),checked=await checkBindings(f);
   assert.equal(checked.positionAddress,f.ids.position);assert.equal(checked.recipient,f.recipient);
   assert.equal(checked.requestAddress,version===2?f.requestAddress:null);assert.equal(checked.requestAta,version===2?f.requestAta:null);
   assert.equal(checked.readyForSigning,false);assert.equal(checked.requiresFullInstructionPolicy,true);assert.equal(checked.requiresSameWireSimulation,true);
@@ -130,14 +138,14 @@ test('every close role substitution, added opening, copied custody and expired p
  for(const version of [1,2]){
   for(let role=0;role<22;role++){
    const f=await boundFixture('SHORT','BTC',version);f.ix.accounts[role]=role===2?1:0;
-   await assert.rejects(checkServerPerpsFullCloseBindings(f.inspection,f.plan,f.market,f.collateral,now));
+   await assert.rejects(checkBindings(f));
   }
   const f=await boundFixture('LONG','ETH',version);
-  await assert.rejects(checkServerPerpsFullCloseBindings(f.inspection,f.plan,{...f.market},f.collateral,now));
+  await assert.rejects(checkServerPerpsFullCloseBindings(f.inspection,f.plan,{...f.market},f.collateral,now,f.usdc));
   f.inspection.envelope.instructions.push({...f.ix});
-  await assert.rejects(checkServerPerpsFullCloseBindings(f.inspection,f.plan,f.market,f.collateral,now));
+  await assert.rejects(checkBindings(f));
   f.inspection.envelope.instructions.pop();f.expire();
-  await assert.rejects(checkServerPerpsFullCloseBindings(f.inspection,f.plan,f.market,f.collateral,now));
+  await assert.rejects(checkBindings(f));
  }
 });
 test('close inspection rejects a provider-selected foreign position before contacting any RPC',async()=>{
@@ -150,11 +158,11 @@ test('close bindings require writable recipient, vault, position and request acc
   const f=await boundFixture('SHORT','SOL',version),envelope=f.inspection.envelope;
   const correct=envelope.readonlyUnsigned;
   envelope.readonlyUnsigned=envelope.staticKeys.length-3;
-  await assert.rejects(checkServerPerpsFullCloseBindings(f.inspection,f.plan,f.market,f.collateral,now));
+  await assert.rejects(checkBindings(f));
   envelope.readonlyUnsigned=0;
-  await assert.rejects(checkServerPerpsFullCloseBindings(f.inspection,f.plan,f.market,f.collateral,now));
+  await assert.rejects(checkBindings(f));
   envelope.readonlyUnsigned=correct;
-  assert.equal((await checkServerPerpsFullCloseBindings(f.inspection,f.plan,f.market,f.collateral,now)).readyForSigning,false);
+  assert.equal((await checkBindings(f)).readyForSigning,false);
  }
 });
 function preparationFixture(f){
@@ -178,7 +186,7 @@ test('unsigned close preparation resolves the exact envelope then fetches indepe
    if(method==='getGenesisHash')return '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
    if(method==='getSlot')return 101;
    assert.equal(method,'getMultipleAccounts');assert.equal(params[1].minContextSlot,101);
-   assert.deepEqual(params[0],side==='LONG'?[PERPS_CUSTODIES.SOL.address]:[PERPS_CUSTODIES.SOL.address,PERPS_CUSTODIES.USDC.address]);
+   assert.deepEqual(params[0],[PERPS_CUSTODIES.SOL.address,PERPS_CUSTODIES.USDC.address]);
    return {context:{slot:102},value:f.custodyAccounts};
   };
   const result=await inspectServerPerpsFullClosePreparation(preparation,f.plan,{request,nowSeconds:now});
@@ -207,14 +215,16 @@ test('close preparation rejects wrong-network, missing/stale/foreign custody ban
 });
 test('an in-flight account-list mutation cannot replace the captured close instruction',async()=>{
  const f=await boundFixture('LONG','SOL',2);
- const pending=checkServerPerpsFullCloseBindings(f.inspection,f.plan,f.market,f.collateral,now);
+ const pending=checkBindings(f);
  f.ix.accounts[3]=0;f.ix.dataBase64=core(2,{entire:0});
  const checked=await pending;
  assert.equal(checked.recipient,f.recipient);assert.equal(checked.core.entirePosition,true);
- await assert.rejects(checkServerPerpsFullCloseBindings(f.inspection,f.plan,f.market,f.collateral,now));
+ await assert.rejects(checkBindings(f));
 });
-async function simulationFixture(){
- const f=await boundFixture('SHORT','SOL',2),preparation=preparationFixture(f);
+async function simulationFixture(side='SHORT',minimumOut=0n){
+ const f=await boundFixture(side,'SOL',2);
+ if(side==='LONG'){const data=Buffer.from(f.swapIx.dataBase64,'base64');data.writeBigUInt64LE(minimumOut,8);f.swapIx.dataBase64=data.toString('base64');}
+ const preparation=preparationFixture(f);
  const inspection=await inspectServerPerpsFullClosePreparation(preparation,f.plan,{nowSeconds:now,request:async(method)=>{
   if(method==='getGenesisHash')return '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
   if(method==='getSlot')return 101;
@@ -293,4 +303,42 @@ test('close simulation fails on an expired blockhash, wrong network, unknown fee
   };
   await assert.rejects(simulateServerPerpsFullCloseEffects(f.inspection,{request,monotonicNow:()=>mode==='clock'?tick++===0?0:10001:0}),mode);
  }
+});
+test('LONG closure uses a ledger-bound collateral-to-USDC post-swap instead of pretending the close pays USDC directly',async()=>{
+ for(const version of [1,2]){
+  const f=await boundFixture('LONG','SOL',version),checked=await checkBindings(f);
+  assert.notEqual(checked.collateralAccount,checked.recipient);assert(checked.tokenLedger);
+  assert.equal(checked.swapMinimumOutUsdcUnits,'0');assert.equal(checked.requiresMinimumReturnCheck,true);
+  assert.equal(checked.readyForSigning,false);
+  const data=Buffer.from(f.swapIx.dataBase64,'base64');data.writeBigUInt64LE(7000000n,8);f.swapIx.dataBase64=data.toString('base64');
+  assert.equal((await checkBindings(f)).swapMinimumOutUsdcUnits,'7000000');
+ }
+});
+test('every post-swap role, missing or reordered ledger, duplicate swap and destination replacement fail closed',async()=>{
+ for(let role=0;role<17;role++){
+  const f=await boundFixture('LONG','SOL',1);f.swapIx.accounts[role]=role===0?1:0;
+  await assert.rejects(checkBindings(f));
+ }
+ for(const mode of ['noLedger','noSwap','swapBeforeClose','ledgerAfterClose','twoLedgers','twoSwaps','ledgerSource','ledgerProgram','ledgerBytes','swapBytes','copiedUsdc']){
+  const f=await boundFixture('LONG','ETH',2),instructions=f.inspection.envelope.instructions;
+  if(mode==='noLedger')instructions.splice(2,1);
+  if(mode==='noSwap')instructions.pop();
+  if(mode==='swapBeforeClose')[instructions[3],instructions[4]]=[instructions[4],instructions[3]];
+  if(mode==='ledgerAfterClose')[instructions[2],instructions[3]]=[instructions[3],instructions[2]];
+  if(mode==='twoLedgers')instructions.splice(3,0,{...f.ledgerIx});
+  if(mode==='twoSwaps')instructions.push({...f.swapIx});
+  if(mode==='ledgerSource')f.ledgerIx.accounts[1]=0;
+  if(mode==='ledgerProgram')f.ledgerIx.accounts[2]=0;
+  if(mode==='ledgerBytes')f.ledgerIx.dataBase64=Buffer.concat([Buffer.from(f.ledgerIx.dataBase64,'base64'),Buffer.from([0])]).toString('base64');
+  if(mode==='swapBytes')f.swapIx.dataBase64=Buffer.from('8b8deec529d3ac13','hex').toString('base64');
+  if(mode==='copiedUsdc')f.usdc={...f.usdc};
+  await assert.rejects(checkBindings(f),mode);
+ }
+});
+test('LONG simulation follows the captured complete close/post-swap wire and measures final USDC, not intermediate collateral',async()=>{
+ const f=await simulationFixture('LONG'),result=await simulateServerPerpsFullCloseEffects(f.inspection,{request:f.request});
+ assert.equal(result.receivedUsdcUnits,'8000000');assert.equal(result.readyForSigning,false);
+ assert.notEqual(f.inspection.bindings.collateralAccount,f.inspection.bindings.recipient);
+ const lower=await simulationFixture('LONG',8000001n);
+ await assert.rejects(simulateServerPerpsFullCloseEffects(lower.inspection,{request:lower.request}));
 });
