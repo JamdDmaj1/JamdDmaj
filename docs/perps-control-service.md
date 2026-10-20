@@ -2039,3 +2039,56 @@ financial signer/send, bot activation, deployment or app release was invoked.
 The full local Node test glob subsequently exited zero with this post-swap
 correction in place. That result is not a funded close, Android build or
 publication proof.
+
+### Close wallet conservation and connected unsigned preparation (2026-10-20)
+
+`lib/perps-server-close-funding.js` consumes the private exact-wire simulation
+snapshots, not caller-supplied balances. It checks the owner's SOL account and
+the exact equation: pre-SOL + observed refunded rents - chain-message fee -
+new ATA rent = post-SOL. At least the network fee must exist before execution.
+Recipient metadata and existing rent cannot change apart from its USDC amount;
+new ATAs use independently queried rent, preserving any pre-funded lamports.
+Position rent is refunded only when that exact account was actually closed.
+
+For LONG post-swap, pre-existing collateral tokens must remain intact; closing
+the empty collateral ATA refunds only its observed lamports. Wrapped SOL's
+native reserve/amount/lamports must agree. TokenLedger must remain a real
+program-owned 48-byte ledger with unchanged rent and the captured collateral
+account/pre-balance. Variant-2 request accounts must be initially absent and
+closed at the end; a retained request ATA may hold only zero collateral tokens
+at exact rent. Other wallet-owned/delegated/close-authority token accounts in
+the writable snapshots cannot change. Extra SOL debits or credits, inflated
+rent, altered token authority, reused requests and leftover request funds fail.
+
+`lib/perps-server-close-preparation.js` connects fresh native ownership ->
+privately branded plan -> one bounded unsigned provider request -> exact
+envelope/custody inspection -> same-wire simulation -> wallet conservation.
+The only provider route is POST https://perps-api.jup.ag/v1/positions/decrease
+with x-perps-api-version=v2, omitted credentials, forbidden redirects, an
+eight-second timeout and 64 KiB streamed response cap. The canonical unsigned
+envelope, API cosignature, position, blockhash and block-height format are
+checked; provider fee/rent/quote assertions are not used as evidence. There is
+no financial execute endpoint, retry, signer or journal mutation in this module.
+
+Twenty-five focused synthetic tests passed locally and as a bundled fixture
+on the actual VPS Node runtime. The latter ran under a distinct DynamicUser,
+PrivateNetwork=yes, ProtectHome=yes, ProtectSystem=strict, NoNewPrivileges=yes
+and a 384 MiB memory limit, without custody state-directory access. The unit
+jamddmaj-close-funding-check-20261020 exited status 0 with 25/25 passing. Bundle:
+`/opt/jamddmaj-perps/checks/close-funding-20261020/tests/test.mjs`, SHA-256
+`430a19383778ace3ec3abb8457090a5805fbe7063fe398d4c18539e155e0233c`.
+This is an isolated test artifact, not a deployed worker update. The full
+local Node test glob also exited zero. Subsequent read-only service checks
+showed worker/HTTPS active and public health controls-only,
+tradingEnabled=false, executionAvailable=false.
+
+The connected result remains FULL_CLOSE_SIMULATED_WALLET_ONLY,
+readyForSigning=false. Wallet conservation does NOT validate all protocol
+pool/vault/oracle effects or all top-level instructions, independently approve
+a provider's minimum return, implement durable close/finalization, or provide
+native review/biometric confirmation. Transient intra-transaction rent funding
+still relies on simulation; this is not a completed future network-fee budget
+reservation policy. Actual funded unsigned compatibility, native integration,
+final audit and app publication remain pending. No owned live provider request,
+real financial signature/submission, activation, APK release or worker restart
+was performed for these fixture tests.

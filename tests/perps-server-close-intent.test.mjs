@@ -9,6 +9,8 @@ import {PERPS_PROGRAM,PERPS_POOL,PERPS_CUSTODIES,deriveServerPerpsIdentities,dec
 import {planServerPerpsFullClose,requireFreshServerPerpsFullClosePlan,checkServerPerpsFullCloseCore} from '../lib/perps-server-close-intent.js';
 import {checkServerPerpsFullCloseBindings,inspectServerPerpsFullClosePreparation} from '../lib/perps-server-close-bindings.js';
 import {simulateServerPerpsFullCloseEffects,readServerPerpsFullCloseSimulation} from '../lib/perps-server-close-simulation.js';
+import {checkServerPerpsFullCloseFunding,readServerPerpsFullCloseFunding} from '../lib/perps-server-close-funding.js';
+import {buildUnsignedServerPerpsFullClose,prepareSimulatedServerPerpsFullClose} from '../lib/perps-server-close-preparation.js';
 const wallet=bs58.encode(Buffer.alloc(32,1)),now=1802865600;
 test('both close data layouts match the recorded confirmed program-owned Anchor IDL',()=>{
  const idl=JSON.parse(readFileSync(new URL('../security/native-tests/jupiter-perps-idl-layout.json',import.meta.url),'utf8'));
@@ -341,4 +343,140 @@ test('LONG simulation follows the captured complete close/post-swap wire and mea
  assert.notEqual(f.inspection.bindings.collateralAccount,f.inspection.bindings.recipient);
  const lower=await simulationFixture('LONG',8000001n);
  await assert.rejects(simulateServerPerpsFullCloseEffects(lower.inspection,{request:lower.request}));
+});
+async function fundingFixture(side='SHORT'){
+ const f=await simulationFixture(side);
+ function tokenFor(owner,mint,amount=0n){
+  const data=Buffer.alloc(165);Buffer.from(bs58.decode(mint)).copy(data);Buffer.from(bs58.decode(owner)).copy(data,32);
+  data[108]=1;data.writeBigUInt64LE(amount,64);
+  if(mint===PERPS_CUSTODIES.SOL.mint){data.writeUInt32LE(1,109);data.writeBigUInt64LE(2039280n,113);}
+  return {owner:TOKEN,executable:false,lamports:Number(2039280n+(mint===PERPS_CUSTODIES.SOL.mint?amount:0n)),data:[data.toString('base64'),'base64']};
+ }
+ if(side==='LONG'){
+  const address=f.inspection.bindings.collateralAccount,token=tokenFor(wallet,PERPS_CUSTODIES.SOL.mint);
+  f.before.set(address,token);f.after.set(address,structuredClone(token));
+  const data=Buffer.alloc(48);createHash('sha256').update('account:TokenLedger').digest().copy(data,0,0,8);Buffer.from(bs58.decode(address)).copy(data,8);
+  const ledger={owner:PERPS_PROGRAM,executable:false,lamports:1000000,data:[data.toString('base64'),'base64']};
+  f.before.set(f.inspection.bindings.tokenLedger,ledger);f.after.set(f.inspection.bindings.tokenLedger,structuredClone(ledger));
+ }
+ f.after.set(wallet,{owner:SYSTEM,executable:false,lamports:181995000,data:['','base64']});
+ const rentCalls=[],fundingRequest=async(method,params)=>{
+  rentCalls.push({method,params});
+  if(method==='getGenesisHash')return '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
+  assert.equal(method,'getMinimumBalanceForRentExemption');assert.equal(params[0],165);return 2039280;
+ };
+ return {...f,tokenFor,fundingRequest,rentCalls};
+}
+test('close funding conserves exact wallet SOL, observed position rent and USDC for direct and post-swap paths',async()=>{
+ for(const side of ['LONG','SHORT']){
+  const f=await fundingFixture(side),simulation=await simulateServerPerpsFullCloseEffects(f.inspection,{request:f.request});
+  const result=await checkServerPerpsFullCloseFunding(simulation,{request:f.fundingRequest});
+  assert.equal(result.networkFeeLamports,'5000');assert.equal(result.rentRefundedLamports,'2000000');assert.equal(result.rentLockedLamports,'0');
+  assert.equal(result.walletSolChangeLamports,'1995000');assert.equal(result.receivedUsdcUnits,'8000000');
+  assert.equal(result.readyForSigning,false);assert.equal(result.requiresFullInstructionAndProtocolEffectsPolicy,true);
+  assert.equal(readServerPerpsFullCloseFunding(result).simulation,simulation);
+  assert.throws(()=>readServerPerpsFullCloseFunding({...result}));f.expire();assert.throws(()=>readServerPerpsFullCloseFunding(result));
+ }
+});
+test('new recipient ATA rent, zeroed retained position, empty collateral closure and retained empty request ATA have exact SOL effects',async()=>{
+ for(const mode of ['recipient','retainedPosition','collateralClosed','requestAta']){
+  const f=await fundingFixture('LONG'),bindings=f.inspection.bindings;
+  if(mode==='recipient'){
+   f.before.set(f.recipient,null);f.after.set(wallet,{owner:SYSTEM,executable:false,lamports:179955720,data:['','base64']});
+  }
+  if(mode==='retainedPosition'){
+   const account=structuredClone(f.nativePositionAccount),data=Buffer.from(account.data[0],'base64');data.writeBigUInt64LE(0n,161);data.writeBigUInt64LE(0n,169);account.data[0]=data.toString('base64');
+   f.after.set(f.ids.position,account);f.after.set(wallet,{owner:SYSTEM,executable:false,lamports:179995000,data:['','base64']});
+  }
+  if(mode==='collateralClosed'){
+   f.after.set(bindings.collateralAccount,null);f.after.set(wallet,{owner:SYSTEM,executable:false,lamports:184034280,data:['','base64']});
+  }
+  if(mode==='requestAta'){
+   f.after.set(bindings.requestAta,f.tokenFor(bindings.requestAddress,PERPS_CUSTODIES.SOL.mint));f.after.set(wallet,{owner:SYSTEM,executable:false,lamports:179955720,data:['','base64']});
+  }
+  const simulation=await simulateServerPerpsFullCloseEffects(f.inspection,{request:f.request});
+  const result=await checkServerPerpsFullCloseFunding(simulation,{request:f.fundingRequest});assert.equal(result.readyForSigning,false);
+  assert.equal(result.rentLockedLamports,['recipient','requestAta'].includes(mode)?'2039280':'0');
+  assert.equal(result.rentRefundedLamports,mode==='collateralClosed'?'4039280':mode==='retainedPosition'?'0':'2000000');
+ }
+});
+test('unexplained SOL debit/credit, added rent, token-authority change, preexisting request and ledger alteration fail wallet funding',async()=>{
+ for(const mode of ['debit','credit','recipientLamports','recipientAuthority','positionLamports','collateralSpent','collateralAuthority','ledgerAmount','ledgerOwner','requestBefore','requestRetained','requestTokens','otherWalletToken']){
+  const f=await fundingFixture('LONG'),bindings=f.inspection.bindings;
+  if(mode==='debit')f.after.get(wallet).lamports--;
+  if(mode==='credit')f.after.get(wallet).lamports++;
+  if(mode==='recipientLamports')f.after.get(f.recipient).lamports++;
+  if(mode==='recipientAuthority'){
+   const account=f.after.get(f.recipient),data=Buffer.from(account.data[0],'base64');data.writeUInt32LE(1,129);Buffer.from(bs58.decode(wallet)).copy(data,133);account.data[0]=data.toString('base64');
+  }
+  if(mode==='positionLamports'){
+   const account=structuredClone(f.nativePositionAccount),data=Buffer.from(account.data[0],'base64');data.writeBigUInt64LE(0n,161);data.writeBigUInt64LE(0n,169);account.data[0]=data.toString('base64');account.lamports++;f.after.set(f.ids.position,account);
+  }
+  if(mode==='collateralSpent')f.before.set(bindings.collateralAccount,f.tokenFor(wallet,PERPS_CUSTODIES.SOL.mint,1n));
+  if(mode==='collateralAuthority'){
+   const account=f.after.get(bindings.collateralAccount),data=Buffer.from(account.data[0],'base64');data.writeUInt32LE(1,129);Buffer.from(bs58.decode(wallet)).copy(data,133);account.data[0]=data.toString('base64');
+  }
+  if(mode==='ledgerAmount'){
+   const account=f.after.get(bindings.tokenLedger),data=Buffer.from(account.data[0],'base64');data.writeBigUInt64LE(1n,40);account.data[0]=data.toString('base64');
+  }
+  if(mode==='ledgerOwner')f.after.get(bindings.tokenLedger).owner=SYSTEM;
+  if(mode==='requestBefore')f.before.set(bindings.requestAddress,{owner:PERPS_PROGRAM,executable:false,lamports:1,data:['','base64']});
+  if(mode==='requestRetained')f.after.set(bindings.requestAddress,{owner:PERPS_PROGRAM,executable:false,lamports:1,data:['','base64']});
+  if(mode==='requestTokens')f.after.set(bindings.requestAta,f.tokenFor(bindings.requestAddress,PERPS_CUSTODIES.SOL.mint,1n));
+  if(mode==='otherWalletToken'){
+   f.before.set(f.market.tokenAccount,f.tokenFor(wallet,PERPS_CUSTODIES.USDC.mint,100n));f.after.set(f.market.tokenAccount,f.tokenFor(wallet,PERPS_CUSTODIES.USDC.mint,99n));
+  }
+  const simulation=await simulateServerPerpsFullCloseEffects(f.inspection,{request:f.request});
+  await assert.rejects(checkServerPerpsFullCloseFunding(simulation,{request:f.fundingRequest}),mode);
+ }
+});
+test('unsigned close builder uses only the fixed v2 decrease endpoint and ignores provider fee/rent assertions',async()=>{
+ const f=await boundFixture('SHORT','SOL',1),preparation=preparationFixture(f);let calls=0;
+ const result=await buildUnsignedServerPerpsFullClose(f.plan,{fetchImpl:async(url,options)=>{
+  calls++;assert.equal(url,'https://perps-api.jup.ag/v1/positions/decrease');assert.equal(options.method,'POST');
+  assert.equal(options.redirect,'error');assert.equal(options.credentials,'omit');assert.equal(options.headers['x-perps-api-version'],'v2');
+  assert.deepEqual(JSON.parse(options.body),f.plan.body);
+  return new Response(JSON.stringify({...preparation,txMetadata:{...preparation.txMetadata,transactionFeeLamports:'0',accountRentLamports:'0'}}),{headers:{'Content-Type':'application/json'}});
+ }});
+ assert.equal(calls,1);assert.equal(result.serializedTxBase64,preparation.serializedTxBase64);assert(Object.isFrozen(result));
+ assert.deepEqual(Object.keys(result.txMetadata).sort(),['blockhash','lastValidBlockHeight']);
+ await assert.rejects(buildUnsignedServerPerpsFullClose({...f.plan},{fetchImpl:async()=>{throw Error('SHOULD_NOT_FETCH');}}));
+});
+test('unsigned builder rejects redirects, provider errors, huge/invalid bodies, changed position/wire/height and expiry without retry',async()=>{
+ for(const mode of ['redirect','422','huge','type','json','position','wire','blockhash','height','expired']){
+  const f=await boundFixture('SHORT','SOL',1),preparation=preparationFixture(f);let calls=0;
+  const fetchImpl=async()=>{
+   calls++;
+   if(mode==='redirect')return {ok:true,redirected:true};
+   if(mode==='422')return new Response('{}',{status:422,headers:{'Content-Type':'application/json'}});
+   if(mode==='huge')return new Response(' '.repeat(65537),{headers:{'Content-Type':'application/json'}});
+   if(mode==='type')return new Response(JSON.stringify(preparation),{headers:{'Content-Type':'text/html'}});
+   if(mode==='json')return new Response('bad json',{headers:{'Content-Type':'application/json'}});
+   if(mode==='position')preparation.positionPubkey=wallet;
+   if(mode==='wire')preparation.serializedTxBase64='AA==';
+   if(mode==='blockhash')preparation.txMetadata.blockhash=bs58.encode(Buffer.alloc(32,10));
+   if(mode==='height')preparation.txMetadata.lastValidBlockHeight='1e3';
+   if(mode==='expired')f.expire();
+   return new Response(JSON.stringify(preparation),{headers:{'Content-Type':'application/json'}});
+  };
+  await assert.rejects(buildUnsignedServerPerpsFullClose(f.plan,{fetchImpl}),mode);assert.equal(calls,1);
+ }
+});
+test('combined close path reads native ownership, builds once, inspects, simulates and checks wallet conservation without any signing/send transport',async()=>{
+ for(const side of ['LONG','SHORT']){
+  const f=await fundingFixture(side);let slotReads=0,builds=0;
+  const request=async(method,params)=>{
+   if(method==='getSlot')return ++slotReads===1?101:103;
+   if(method==='getMultipleAccounts'&&params[0].length===8)return {context:{slot:100},value:params[0].map(address=>f.before.get(address)??null)};
+   if(method==='getMultipleAccounts'&&params[0].length===2&&params[0][0]===PERPS_CUSTODIES.SOL.address)return {context:{slot:102},value:f.custodyAccounts};
+   if(method==='getMinimumBalanceForRentExemption')return f.fundingRequest(method,params);
+   return f.request(method,params);
+  };
+  const result=await prepareSimulatedServerPerpsFullClose(f.options,{request,now:()=>now*1000,monotonicNow:()=>0,fetchImpl:async()=>{
+   builds++;return new Response(JSON.stringify(f.preparation),{headers:{'Content-Type':'application/json'}});
+  }});
+  assert.equal(builds,1);assert.equal(result.stage,'FULL_CLOSE_SIMULATED_WALLET_ONLY');assert.equal(result.readyForSigning,false);assert.equal(result.tradingEnabled,false);
+  assert.equal(result.funding.rentRefundedLamports,'2000000');assert.equal(result.funding.receivedUsdcUnits,'8000000');
+  assert.equal(result.requiresFullInstructionAndProtocolEffectsPolicy,true);assert.equal(result.requiresNativeReviewAndConfirmation,true);
+ }
 });
