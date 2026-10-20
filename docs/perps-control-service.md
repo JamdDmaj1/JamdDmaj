@@ -2396,3 +2396,70 @@ wallets and activation settings were unchanged; no financial signatures, send,
 new Android package or publication occurred. Full close authorization/send/
 finalization, native UI integration, complete remaining policy/risk budget,
 end-to-end audit and publication remain unfinished. The goal stays active.
+
+### Exact-bank close oracle price effects (2026-10-20)
+
+The DOVES program-owned IDL was re-read at confirmed slot 459329135. Its
+AgPriceFeed and PriceFeed field order agrees with the recorded price/exponent/
+timestamp prefixes. Separate public account reads observed aggregate maxAge=10
+and maxFeedAge=60, with second-based timestamps close to local UTC, for SOL and
+USDC; they are observations, not assumed universal constants. The recorded
+layout now includes maxFeedAge's u32 offset 189. Jupiter's primary account
+references remain https://developers.jup.ag/docs/perps/custody-account and
+https://developers.jup.ag/docs/perps/position-account.
+
+prepareSimulatedServerPerpsFullClose now always obtains privately derived
+oracle configuration, including when no update instruction is present. The
+same-wire simulator captures both aggregate and configured Lazer accounts in
+its paired before/after bank, including read-only accounts. An earlier context
+read is not substituted for exact-bank price evidence.
+
+lib/perps-server-close-oracle-effects.js consumes the private reserve/vault/
+funding/simulation/policy/context chain for that exact inspection. It preserves
+owner, lamports, allocation and ALL serialized oracle configuration/tail bytes;
+only the 17-byte price/exponent/timestamp region may differ. Timestamps cannot
+regress from context to before-state or before to simulated state; aggregate
+age is capped by both native maxAge and 30 seconds, feed age by native
+maxFeedAge and 60 seconds, with at most two seconds of future clock tolerance.
+Zero raw prices and unsupported exponents reject. Integer lower/upper microUSD
+bounds avoid rounding a sub-microUSD price violation into acceptance: a LONG
+price must cover the compiled sell floor, and a SHORT price fit the buy ceiling.
+The proof remains ORACLE_PRICE_EFFECTS_ONLY: it is not full payload provenance,
+all pool economics, minimum-return protection or a financial signing grant.
+
+preparePositionClose now requires this private oracle-effects proof before
+durable preparation; an older reserves-only proof cannot bypass price checking.
+The journal DDL/hash is unchanged from the previous preparation-only version.
+No signing, broadcast or finalized-close state transition was added in this
+step; no claimed finalization or payout is inferred from a simulation.
+
+Two independent public unsigned preparations were tested, without owner keys.
+The first, source bank 459330304 / reference SOL 105.955670 USD, rejected at the
+existing PERPS_CLOSE_CORE_PRICE gate before simulation; no limit was relaxed.
+The second, source bank 459330615 / reference 105.824343 USD, passed the complete
+current coordinator and oracle-effects check with one build and two same-wire
+read-only simulations (bank pairing), owner signatures created=0, broadcasts=0.
+The caller sell floor was 105295222 microUSD and compiled floor 105308197.
+Simulated oracle intervals were SOL [105817884,105817885] microUSD and USDC
+[999821,999822] microUSD, both timestamp 1792521177. Public example position:
+5vupiyvpiPdTUiDR98zfxA3sLHZvmpBUcB51WuQWbkLs. It is not an owned-wallet trade.
+The same response's swapWithTokenLedger minimumOut was ZERO: do not claim
+protected minimum proceeds or clear the remaining minimum-return requirement
+merely because a favorable simulation passed. No raw response/wire was saved.
+
+The final full local test glob exited zero. The final bundled close/position/
+journal selection passed 61/61 on the VPS under the isolated unit
+jamddmaj-close-oracles-check-20261020, exit 0, with DynamicUser, PrivateNetwork,
+PrivateTmp, ProtectHome, ProtectSystem=strict, NoNewPrivileges, UMask=0077 and
+MemoryMax=384M. No private custody directory was mounted. Bundle:
+/opt/jamddmaj-perps/checks/close-oracles-20261020/tests/test.mjs, SHA-256
+da3a6d7712bd3fdf36ee01ecfaa924505fd64a82d560cea1b3d19d63e4aebae6.
+Tests cover six asset/direction paths, stale/future/regressed/zero oracle data,
+configuration/rent mutation, both inward price bounds, missing or foreign
+context, old banks, and mandatory price evidence before journal preparation.
+
+Production code/stores and Android release were not changed or published.
+The controls-only server remains the installed configuration. Full close
+authorization, minimum-return handling/review, remaining protocol policy,
+durable financial state/finalization, native integration, fee budgets and final
+end-to-end release verification remain outstanding. The goal is not achieved.

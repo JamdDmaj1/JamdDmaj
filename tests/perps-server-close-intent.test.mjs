@@ -20,6 +20,7 @@ import {checkServerPerpsFullCloseInstructionPolicy,readServerPerpsFullClosePolic
 import {readServerPerpsCloseOracles,readServerPerpsCloseOracleContext,CLOSE_DOVES_PROGRAM,CLOSE_PYTH_LAZER} from '../lib/perps-close-oracle-context.js';
 import {checkServerPerpsFullCloseVaults,readServerPerpsFullCloseVaults} from '../lib/perps-server-close-vaults.js';
 import {checkServerPerpsFullCloseReserves,readServerPerpsFullCloseReserves} from '../lib/perps-server-close-reserves.js';
+import {checkServerPerpsFullCloseOracleEffects,readServerPerpsFullCloseOracleEffects} from '../lib/perps-server-close-oracle-effects.js';
 const wallet=bs58.encode(Buffer.alloc(32,1)),now=1802865600;
 test('both close data layouts match the recorded confirmed program-owned Anchor IDL',()=>{
  const idl=JSON.parse(readFileSync(new URL('../security/native-tests/jupiter-perps-idl-layout.json',import.meta.url),'utf8'));
@@ -36,6 +37,8 @@ test('both close data layouts match the recorded confirmed program-owned Anchor 
  assert.equal(idl.closePostSwapInstructionLayout.swapWithTokenLedger.accounts.length,17);
  assert.equal(idl.closeOracleContextLayout.idlSha256,'1ae8e5e335beec1646d5484671d8f07902fb5ac55581c3028701893b998025f5');
  assert.equal(idl.closeOracleContextLayout.aggregate.lazerFeedOffset,202);
+ assert.equal(idl.closeOracleContextLayout.aggregate.priceOffset,168);assert.equal(idl.closeOracleContextLayout.aggregate.maxFeedAgeOffset,189);
+ assert.equal(idl.closeOracleContextLayout.priceFeed.priceOffset,73);assert.equal(idl.closeOracleContextLayout.priceFeed.timestampOffset,82);
  assert.equal(idl.closeOracleContextLayout.program,CLOSE_DOVES_PROGRAM);
  assert.equal(idl.closeOracleContextLayout.pythLazer.treasury,CLOSE_PYTH_LAZER.treasury);
  assert.equal(idl.closeReserveAccountingLayout.position.lockedAmount.offset,201);
@@ -539,11 +542,12 @@ test('unsigned builder rejects redirects, provider errors, huge/invalid bodies, 
 });
 test('combined close path reads native ownership, builds once, inspects, simulates and checks wallet conservation without any signing/send transport',async()=>{
  for(const side of ['LONG','SHORT']){
-  const f=await fundingFixture(side);let slotReads=0,builds=0;
+  const f=await oracleEffectsFixture(side);let slotReads=0,builds=0;
   const request=async(method,params)=>{
-   if(method==='getSlot')return ++slotReads===1?101:103;
+   if(method==='getSlot')return ++slotReads===1?101:104;
    if(method==='getMultipleAccounts'&&params[0].length===8)return {context:{slot:100},value:params[0].map(address=>f.before.get(address)??null)};
    if(method==='getMultipleAccounts'&&params[0].length===2&&params[0][0]===PERPS_CUSTODIES.SOL.address)return {context:{slot:102},value:f.custodyAccounts};
+   if(method==='getMultipleAccounts'&&[f.feeds[0].address,f.feeds[0].lazerFeed].includes(params[0][0]))return {context:{slot:104},value:params[0].map(key=>f.oracleAccounts.get(key)??null)};
    if(method==='getMinimumBalanceForRentExemption')return f.fundingRequest(method,params);
    return f.request(method,params);
   };
@@ -556,6 +560,7 @@ test('combined close path reads native ownership, builds once, inspects, simulat
   assert.equal(result.policy.stage,'FULL_CLOSE_INSTRUCTION_POLICY_ONLY');assert.equal(result.policy.readyForSigning,false);
   assert.equal(result.vaults.usdcVaultDebitUnits,'8000000');assert.equal(result.vaults.readyForSigning,false);
   assert.equal(result.reserves.removedShortSizeUsdUnits,side==='SHORT'?'30000000':'0');assert.equal(result.reserves.readyForSigning,false);
+  assert.equal(result.oracleEffects.stage,'FULL_CLOSE_ORACLE_PRICE_EFFECTS_ONLY');assert.equal(result.oracleEffects.readyForSigning,false);
  }
 });
 async function inspectPolicyFixture(f,options={}){
@@ -842,10 +847,7 @@ test('bank pairing is bounded, never replaces the wire and does not retry a simu
 });
 
 async function closeJournalFixture(t,{parents=2}={}){
- const f=await fundingFixture(),policy=checkServerPerpsFullCloseInstructionPolicy(f.inspection);
- const simulation=await simulateServerPerpsFullCloseEffects(f.inspection,{request:f.request});
- const funding=await checkServerPerpsFullCloseFunding(simulation,{request:f.fundingRequest});
- const reserves=checkServerPerpsFullCloseReserves(await checkServerPerpsFullCloseVaults(funding,policy));
+ const f=await oracleEffectsFixture(),reserves=await f.reserves(),oracleEffects=checkServerPerpsFullCloseOracleEffects(reserves,{nowSeconds:now});
  const directory=mkdtempSync(join(tmpdir(),'jamd-close-journal-')),path=join(directory,'journal.sqlite'),journals=[];
  const open=()=>{const journal=openPerpsExecutionJournal(path,{now:()=>now*1000});journals.push(journal);return journal;};
  t.after(()=>{for(const j of journals)try{j.close();}catch{}rmSync(directory,{recursive:true,force:true});});
@@ -853,17 +855,17 @@ async function closeJournalFixture(t,{parents=2}={}){
  for(let i=0;i<parents;i++)raw.prepare("INSERT INTO perps_reservations(wallet,signal,reservation,day,margin,state,created,updated,signature,wire_hash,position_address,confirmed_slot,entry_exit_plan) VALUES(?,?,?,?,?,'OPEN',?,?,?,?,?,?,?)")
   .run(wallet,'signal-'+i,'entry-'+i,new Date(now*1000).toISOString().slice(0,10),10000000,now*1000,now*1000,
    bs58.encode(Buffer.alloc(64,80+i)),String(i).repeat(64),f.ids.position,100,JSON.stringify({sizeUsdUnits:'15000000',exits:[]}));
- raw.close();return {...f,journal,path,open,reserves};
+ raw.close();return {...f,journal,path,open,reserves,oracleEffects};
 }
 
 test('prepared full close persists exact wire and all position entries across restart without releasing risk',async t=>{
- const f=await closeJournalFixture(t),risk=f.journal.riskState(wallet),row=f.journal.preparePositionClose('close-one',f.reserves);
+ const f=await closeJournalFixture(t),risk=f.journal.riskState(wallet),row=f.journal.preparePositionClose('close-one',f.oracleEffects);
  assert.equal(row.state,'PREPARED');assert.equal(row.wallet,wallet);assert.equal(row.position,f.ids.position);
  assert.equal(row.fee_lamports,5000);assert.equal(row.unsigned_wire_hash,createHash('sha256').update(Buffer.from(f.preparation.serializedTxBase64,'base64')).digest('hex'));
  assert.deepEqual(JSON.parse(row.entries).map(e=>e.reservation),['entry-0','entry-1']);
  assert.deepEqual(f.journal.riskState(wallet),risk);assert(f.journal.openPositions(wallet).every(e=>e.state==='OPEN'));
  const other=f.open();assert.deepEqual(other.readPositionClose('close-one'),row);assert.equal(other.pendingPositionCloses(wallet).length,1);
- assert.throws(()=>other.preparePositionClose('duplicate',f.reserves),/RECONCILIATION_REQUIRED/);
+ assert.throws(()=>other.preparePositionClose('duplicate',f.oracleEffects),/RECONCILIATION_REQUIRED/);
  assert.equal(typeof other.beginPositionCloseSigning,'undefined');assert.equal(typeof other.recordPositionCloseBroadcast,'undefined');
  assert.throws(()=>other.reserve({walletAddress:wallet,signalId:'next',reservationId:'next',marginUsd:'10',limits:{capitalUsd:'100',dailyLossUsd:'100',positions:10,dailyTrades:10},
   snapshot:{walletAddress:wallet,network:'solana-mainnet',balancesComplete:true,day:new Date(now*1000).toISOString().slice(0,10),observedAt:now*1000,
@@ -876,15 +878,15 @@ test('prepared full close persists exact wire and all position entries across re
 
 test('close preparation requires original fresh reserve proof and confirmed journal parents',async t=>{
  const f=await closeJournalFixture(t);
- for(const proof of [null,{...f.reserves},{readyForSigning:true}])assert.throws(()=>f.journal.preparePositionClose('forged',proof));
+ for(const proof of [null,f.reserves,{...f.oracleEffects},{readyForSigning:true}])assert.throws(()=>f.journal.preparePositionClose('forged',proof));
  assert.equal(f.journal.pendingPositionCloses(wallet).length,0);
- f.expire();assert.throws(()=>f.journal.preparePositionClose('expired',f.reserves));
- const empty=await closeJournalFixture(t,{parents:0});assert.throws(()=>empty.journal.preparePositionClose('unowned',empty.reserves),/VERIFIED_RECONCILIATION_REQUIRED/);
+ f.expire();assert.throws(()=>f.journal.preparePositionClose('expired',f.oracleEffects));
+ const empty=await closeJournalFixture(t,{parents:0});assert.throws(()=>empty.journal.preparePositionClose('unowned',empty.oracleEffects),/VERIFIED_RECONCILIATION_REQUIRED/);
  for(const fault of ['state','wallet','position','slot','legacy']){
   const a=await closeJournalFixture(t,{parents:1}),raw=new DatabaseSync(a.path);
   const sql={state:"UPDATE perps_reservations SET state='CLOSED'",wallet:`UPDATE perps_reservations SET wallet='${bs58.encode(Buffer.alloc(32,3))}'`,
    position:`UPDATE perps_reservations SET position_address='${bs58.encode(Buffer.alloc(32,4))}'`,slot:'UPDATE perps_reservations SET confirmed_slot=106',legacy:'UPDATE perps_reservations SET entry_exit_plan=NULL'};
-  raw.exec(sql[fault]);raw.close();assert.throws(()=>a.journal.preparePositionClose('bad-parent',a.reserves),/VERIFIED_RECONCILIATION_REQUIRED/);
+  raw.exec(sql[fault]);raw.close();assert.throws(()=>a.journal.preparePositionClose('bad-parent',a.oracleEffects),/VERIFIED_RECONCILIATION_REQUIRED/);
  }
 });
 
@@ -897,7 +899,91 @@ test('an outstanding entry or cancellation blocks close preparation atomically',
     .run('cancel',address,'entry-0',wallet,now*1000,now*1000,5000,'b'.repeat(64));
   }else raw.prepare('INSERT INTO perps_reservations(wallet,signal,reservation,day,margin,state,created,updated) VALUES(?,?,?,?,?,?,?,?)')
    .run(wallet,'pending','pending',new Date(now*1000).toISOString().slice(0,10),10000000,state,now*1000,now*1000);
-  raw.close();assert.throws(()=>f.journal.preparePositionClose('blocked',f.reserves),/RECONCILIATION_REQUIRED/);
+  raw.close();assert.throws(()=>f.journal.preparePositionClose('blocked',f.oracleEffects),/RECONCILIATION_REQUIRED/);
   assert.equal(f.journal.pendingPositionCloses(wallet).length,0);assert.equal(f.journal.read('entry-0').state,'OPEN');
  }
+});
+
+async function oracleEffectsFixture(side='SHORT',asset='SOL'){
+ const f=await fundingFixture(side,asset),oracleAccounts=new Map(),feeds=[];
+ for(const [i,a]of [asset,'USDC'].entries()){
+  const [address,bump]=f.agKeys[a],lazerFeed=bs58.encode(Buffer.alloc(32,110+i));
+  const data=Buffer.alloc(394);Buffer.from('70f98bd9d7d0f936','hex').copy(data);
+  Buffer.from(bs58.decode(PERPS_CUSTODIES[a].mint)).copy(data,8);
+  data[201]=bump;Buffer.from(bs58.decode(lazerFeed)).copy(data,202);
+  const value=a==='USDC'?100000000n:10000000000n;
+  data.writeBigUInt64LE(value,168);data.writeInt8(-8,176);data.writeBigInt64LE(BigInt(now)-1n,177);data.writeUInt32LE(10,185);data.writeUInt32LE(60,189);
+  const ag={owner:CLOSE_DOVES_PROGRAM,executable:false,lamports:3633120,data:[data.toString('base64'),'base64']};
+  const p=Buffer.alloc(283);Buffer.from('bd67fc179823f39c','hex').copy(p);p.writeBigUInt64LE(value,73);p.writeInt8(-8,81);p.writeBigInt64LE(BigInt(now)-1n,82);
+  const feed={owner:CLOSE_DOVES_PROGRAM,executable:false,lamports:2860560,data:[p.toString('base64'),'base64']};
+  oracleAccounts.set(address,ag);oracleAccounts.set(lazerFeed,feed);feeds.push({address,lazerFeed});
+  for(const [key,account]of [[address,ag],[lazerFeed,feed]]){f.before.set(key,account);f.after.set(key,structuredClone(account));}
+ }
+ oracleAccounts.set(CLOSE_PYTH_LAZER.storage,{owner:CLOSE_PYTH_LAZER.program,executable:false,lamports:2000000,data:[Buffer.alloc(8).toString('base64'),'base64']});
+ oracleAccounts.set(CLOSE_PYTH_LAZER.treasury,{owner:SYSTEM,executable:false,lamports:2000000,data:['','base64']});
+ const context=await readServerPerpsCloseOracles(f.inspection,{request:async(method,params)=>{
+  if(method==='getGenesisHash')return '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
+  assert.equal(method,'getMultipleAccounts');return {context:{slot:104},value:params[0].map(key=>oracleAccounts.get(key)??null)};
+ }});
+ const policy=checkServerPerpsFullCloseInstructionPolicy(f.inspection,{oracleContext:context});
+ async function reserves(){
+  const request=(method,params)=>method==='getSlot'?104:f.request(method,params);
+  const simulation=await simulateServerPerpsFullCloseEffects(f.inspection,{request,oracleContext:context,minimumSlot:104});
+  const funding=await checkServerPerpsFullCloseFunding(simulation,{request:f.fundingRequest});
+  return checkServerPerpsFullCloseReserves(await checkServerPerpsFullCloseVaults(funding,policy));
+ }
+ return {...f,context,feeds,reserves,oracleAccounts};
+}
+
+test('close oracle effects use exact-bank prices and immutable native configuration across all six paths',async()=>{
+ for(const asset of ['BTC','ETH','SOL'])for(const side of ['LONG','SHORT']){
+  const f=await oracleEffectsFixture(side,asset),reserves=await f.reserves(),result=checkServerPerpsFullCloseOracleEffects(reserves,{nowSeconds:now});
+  assert.equal(result.stage,'FULL_CLOSE_ORACLE_PRICE_EFFECTS_ONLY');assert.equal(result.observedSlot,105);
+  assert.equal(result.prices[0].priceLowerUsdUnits,'100000000');assert.equal(result.prices[1].priceLowerUsdUnits,'1000000');
+  assert.equal(result.readyForSigning,false);assert.equal(result.requiresOraclePayloadProvenance,true);
+  assert.equal(readServerPerpsFullCloseOracleEffects(result).reserves,reserves);
+  assert.throws(()=>readServerPerpsFullCloseOracleEffects({...result}));f.expire();assert.throws(()=>readServerPerpsFullCloseOracleEffects(result));
+ }
+});
+
+test('oracle effects reject stale, future, regressed and invalid prices, config changes and lamport loss',async()=>{
+ for(const mode of ['stale','future','regressed','zero','exponent','config','lamports','missing','feedStale','feedConfig','feedRegressed','feedZero']){
+  const f=await oracleEffectsFixture(),key=mode.startsWith('feed')?f.feeds[0].lazerFeed:f.feeds[0].address;
+  const account=f.after.get(key),data=Buffer.from(account.data[0],'base64');
+  if(mode==='stale')data.writeBigInt64LE(BigInt(now)-11n,177);
+  if(mode==='future')data.writeBigInt64LE(BigInt(now)+3n,177);
+  if(mode==='regressed')data.writeBigInt64LE(BigInt(now)-2n,177);
+  if(mode==='zero')data.writeBigUInt64LE(0n,168);
+  if(mode==='exponent')data.writeInt8(-19,176);
+  if(mode==='config')data[8]^=1;
+  if(mode==='lamports')account.lamports--;
+  if(mode==='feedStale')data.writeBigInt64LE(BigInt(now)-61n,82);
+  if(mode==='feedConfig')data[10]^=1;
+  if(mode==='feedRegressed')data.writeBigInt64LE(BigInt(now)-2n,82);
+  if(mode==='feedZero')data.writeBigUInt64LE(0n,73);
+  account.data[0]=data.toString('base64');if(mode==='missing')f.after.set(key,null);
+  const reserves=await f.reserves();assert.throws(()=>checkServerPerpsFullCloseOracleEffects(reserves,{nowSeconds:now}),/UNVERIFIED_PERPS_CLOSE_ORACLE_EFFECTS/,mode);
+ }
+});
+
+test('actual simulated market price must satisfy the compiled LONG floor or SHORT ceiling with inward microUSD rounding',async()=>{
+ for(const side of ['LONG','SHORT']){
+  const f=await oracleEffectsFixture(side),account=f.after.get(f.feeds[0].address),data=Buffer.from(account.data[0],'base64');
+  // One ten-thousandth of a microUSD outside the compiled integer bound must
+  // not be rounded into an apparent successful execution price.
+  data.writeInt8(-10,176);data.writeBigUInt64LE(side==='LONG'?994999999999n:1005000000001n,168);account.data[0]=data.toString('base64');
+  const reserves=await f.reserves();assert.throws(()=>checkServerPerpsFullCloseOracleEffects(reserves,{nowSeconds:now}),/UNVERIFIED_PERPS_CLOSE_ORACLE_EFFECTS/);
+ }
+});
+
+test('oracle effects cannot be skipped, copied from a different inspection or paired with an older simulation bank',async()=>{
+ const f=await oracleEffectsFixture(),other=await oracleEffectsFixture();
+ for(const oracleContext of [{...f.context},other.context])await assert.rejects(simulateServerPerpsFullCloseEffects(f.inspection,{request:f.request,oracleContext,minimumSlot:104}));
+ await assert.rejects(simulateServerPerpsFullCloseEffects(f.inspection,{request:f.request,oracleContext:f.context,minimumSlot:103}));
+ const old=await fundingFixture(),simulation=await simulateServerPerpsFullCloseEffects(old.inspection,{request:old.request});
+ const funding=await checkServerPerpsFullCloseFunding(simulation,{request:old.fundingRequest});
+ const vaults=await checkServerPerpsFullCloseVaults(funding,checkServerPerpsFullCloseInstructionPolicy(old.inspection));
+ assert.throws(()=>checkServerPerpsFullCloseOracleEffects(checkServerPerpsFullCloseReserves(vaults),{nowSeconds:now}));
+ const valid=await f.reserves();
+ for(const nowSeconds of [undefined,NaN,now+0.5,29])assert.throws(()=>checkServerPerpsFullCloseOracleEffects(valid,{nowSeconds}),/UNVERIFIED_PERPS_CLOSE_ORACLE_EFFECTS/);
 });
