@@ -1577,3 +1577,44 @@ No production schema migration, worker/app publication, real financial key use,
 transaction submission or activation occurred. Read-only production checks
 confirmed the exclusive-wallet backup is accepted and health still reports
 controls-only, tradingEnabled=false and executionAvailable=false.
+
+### Network fees in the daily USD risk budget (2026-10-19, source only)
+
+The runtime composition now supplies a bounded read-only SOL/USD fee valuation
+reader to both finalized accounting and the exclusive-custody risk overlay.
+For each authenticated finalized receipt paid by this wallet, including failed
+transactions and non-trade cancellations, it charges actual lamports times the
+Coinbase SOL-USD closed-minute high, rounded upward to integer USD micro-units.
+This is an explicit risk valuation convention, not an execution price or proof
+of a universal market-price upper bound. Market P/L and protocol fees remain
+conservatively charged separately. Standalone diagnostic readers without the
+valuation dependency still explicitly report networkFeesIncludedInUsdLoss=false;
+the production runtime does not omit this dependency.
+
+Only exact matching one-minute buckets are accepted, at least five seconds
+after their end. Missing, partial, malformed, duplicated or substituted buckets,
+an unavailable service, response overflow, or an expired proof cannot supply
+zero expense. Requests are GET-only to the fixed public Coinbase endpoint,
+without credentials, redirects, custody addresses or transaction signatures.
+Only validated closed historical prices are cached within the UTC day; daily
+totals, receipt identities and ten-second freshness evidence are rebuilt.
+This deliberately may delay new entries until a recent fee's minute is closed.
+The pending/new transaction's future fee allowance remains a separate risk
+boundary to review before declaring the full lifecycle complete.
+
+Reference: https://docs.cdp.coinbase.com/api-reference/exchange-api/rest-api/products/get-product-candles
+The initially checked Pyth Hermes price-update endpoints returned HTTP 401;
+no key was requested, provisioned or bypassed. Coinbase returned HTTP 200 from
+both PC and VPS. A live public-price read with an unfunded synthetic receipt
+passed the real parser. This does not establish real trade execution.
+
+All 15 selected accounting/valuation cases passed on VPS Node 22 in a
+network-disabled DynamicUser unit, without skips. They include a durable risk
+reservation that passes without network fees but fails specifically with
+DAILY_LOSS_LIMIT when fees are included, plus bad service data, copies, expired
+proofs, failed receipt charges, and exact source/request constraints.
+Artifacts: `/opt/jamddmaj-perps/checks/network-fee-valuation-20261019/`.
+The full local test glob exited 0 with existing optional/platform skips.
+No production migration, installed-worker replacement, app release, real
+financial signing/submission or bot activation occurred; actual health still
+reports controls-only, tradingEnabled=false and executionAvailable=false.

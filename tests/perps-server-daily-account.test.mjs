@@ -8,6 +8,7 @@ import {openPerpsExecutionJournal} from '../lib/perps-execution-journal.js';
 import {readServerPerpsDailyAccount,requireFreshServerPerpsDailyAccount,createServerPerpsDailyAccountReader,createServerPerpsCustodyRiskReader} from '../lib/perps-server-daily-account.js';
 import {PERPS_CUSTODIES,PERPS_POOL,PERPS_PROGRAM,deriveServerPerpsIdentities} from '../lib/perps-server-custody.js';
 import {fixtureNow as now,fixtureWallet as walletAddress,historyTransaction} from './helpers/perps-history-fixture.mjs';
+import {createPerpsNetworkFeeValuationReader} from '../lib/perps-network-fee-valuation.js';
 const genesis='5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d',day='2026-10-18';
 async function fixture(){
  const entry=await historyTransaction({name:'InstantIncreasePositionEvent',nonce:4}),exit=await historyTransaction({nonce:5}),failed=await historyTransaction({nonce:6});
@@ -44,6 +45,25 @@ test('an actually exhausted retained history proves zero trades, but failed hist
  const f=await fixture();f.transactions.clear();const proof=await readServerPerpsDailyAccount({walletAddress},f.options);
  assert.equal(proof.lossTodayUsdcUnits,'0');assert.equal(proof.tradesToday,0);assert.equal(proof.transactions.length,0);
  await assert.rejects(readServerPerpsDailyAccount({walletAddress},{...f.options,request:async(m,p)=>m==='getSignaturesForAddress'?null:f.request(m,p)}));
+});
+
+test('runtime-style daily accounting includes failed transaction fees and rejects missing or forged dollar valuation',async t=>{
+ const f=await fixture(),minute=Math.floor(f.entry.tx.blockTime/60)*60,clock=()=>now+10000;
+ const readNetworkFees=createPerpsNetworkFeeValuationReader({now:clock,fetchImpl:async()=>Response.json([[minute,100,105,102,103,20]])});
+ const proof=await readServerPerpsDailyAccount({walletAddress},{...f.options,now:clock,readNetworkFees});
+ assert.equal(proof.networkFeesIncludedInUsdLoss,true);assert.equal(proof.networkFeeUsdUnits,'1575');
+ assert.equal(proof.lossTodayUsdcUnits,'1296142');assert.equal(proof.failedTransactions,1);
+ assert.equal(proof.networkFeeValuationBasis,'COINBASE_SOL_USD_CLOSED_MINUTE_HIGH_CEILING');
+ await assert.rejects(()=>readServerPerpsDailyAccount({walletAddress},{...f.options,readNetworkFees:async()=>({networkFeeUsdUnits:'0'})}));
+ await assert.rejects(()=>readServerPerpsDailyAccount({walletAddress},{...f.options,readNetworkFees:createPerpsNetworkFeeValuationReader({now:clock,fetchImpl:async()=>Response.json([])})}));
+ const directory=mkdtempSync(join(tmpdir(),'jamd-fee-risk-')),journal=openPerpsExecutionJournal(join(directory,'journal.sqlite'),{now:clock});
+ t.after(()=>{journal.close();rmSync(directory,{recursive:true,force:true});});
+ const reservation={walletAddress,signalId:'fee-limit',reservationId:'fee-limit',positionAddress:f.entry.position,marginUsd:'10',
+  limits:{capitalUsd:'100',dailyLossUsd:'11.295',positions:2,dailyTrades:10}};
+ assert.throws(()=>journal.reserve({...reservation,snapshot:proof}),/DAILY_LOSS_LIMIT/);
+ assert.equal(journal.pending(walletAddress).length,0);
+ const unvalued=await readServerPerpsDailyAccount({walletAddress},{...f.options,now:clock});
+ assert.equal(journal.reserve({...reservation,snapshot:unvalued}).state,'RESERVED');
 });
 test('missing or mismatched receipts and newer account activity prevent an apparently reconciled snapshot',async()=>{
  for(const mutate of [
