@@ -1546,3 +1546,34 @@ finalized signed-wire/journal binding, strict cancellation account policy and
 actual token/SOL effect verification, with its network fee retained in daily
 accounting. Live unsigned compatibility, a reviewed migration/new recovery
 proof, complete manual/automatic functionality and release remain unverified.
+
+### Finalized cancellation accounting (2026-10-19, source only)
+
+Finalized receipts now retain a private immutable copy of signed wire, resolved
+keys and actual RPC metadata. A cancellation without trade events is accepted
+only when its owner/keeper wire hashes match the durable cancellation row, its
+parent and request match the recorded exit plan, the shared native cancellation
+policy passes, and actual SOL rent/fee and USDC effects match exactly. Other
+event-less Perps operations remain rejected. These proofs cannot authorize
+signing, substitute for a trade exit or release a journal reservation.
+
+The daily reader retains the cancellation network fee and does not increment
+trade count or market P/L. Individual-entry closure accepts the separately
+branded non-trade claim, including in request-index historical reads; native
+request absence and durable reconciliation are still required. SOL network fees
+are still reported separately, not converted into the USD daily-loss budget;
+that risk-accounting boundary remains unfinished. Prefunded non-token owner
+ATA creation is not supported and conservatively fails validation.
+
+Two selected integration cases passed on actual VPS Node 22 in a network-disabled
+DynamicUser unit, with temporary unfunded synthetic custody and injected mock
+transports. Cases cover exact effects, altered fee/balance/owner/missing or
+duplicate metadata, journal-hash mismatch, private-proof copies, immutable RPC
+evidence, strict refusal without a journal, daily fee/trade totals and finalized
+entry closure. Artifacts:
+`/opt/jamddmaj-perps/checks/cancellation-accounting-20261019/`.
+The full local test glob also exited 0 with existing optional/platform skips.
+No production schema migration, worker/app publication, real financial key use,
+transaction submission or activation occurred. Read-only production checks
+confirmed the exclusive-wallet backup is accepted and health still reports
+controls-only, tradingEnabled=false and executionAvailable=false.

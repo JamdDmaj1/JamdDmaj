@@ -68,14 +68,25 @@ export function cancellationSimulationFixture(inspection,{requestAccount,positio
  return {state,calls,request};
 }
 
-export function cancellationReceiptFixture(inspection,now,{err=null,confirmationStatus='finalized',slot=499999}={}){
+export function cancellationReceiptFixture(inspection,now,{err=null,confirmationStatus='finalized',slot=499999,newOwnerAta=false,requestTokens=2500000n}={}){
  const ownerPrivate=createPrivateKey({key:Buffer.concat([Buffer.from('302e020100300506032b657004220420','hex'),Buffer.alloc(32,68)]),format:'der',type:'pkcs8'});
  const keeperPrivate=createPrivateKey({key:Buffer.concat([Buffer.from('302e020100300506032b657004220420','hex'),Buffer.alloc(32,42)]),format:'der',type:'pkcs8'});
  if(bs58.encode(createPublicKey(ownerPrivate).export({format:'der',type:'spki'}).subarray(-32))!==inspection.walletAddress)throw Error('UNFUNDED_FIXTURE_IDENTITY_ONLY');
  const wire=Buffer.from(inspection.envelope.serializedTxBase64,'base64'),message=wire.subarray(193);
  sign(null,message,ownerPrivate).copy(wire,1);const partial=Buffer.from(wire);sign(null,message,keeperPrivate).copy(wire,65);
  const record={walletAddress:inspection.walletAddress,signature:bs58.encode(wire.subarray(1,65)),wireHash:createHash('sha256').update(partial).digest('hex')};
- const status={slot,confirmationStatus,err},transaction={slot,blockTime:now/1000-1,transaction:[wire.toString('base64'),'base64'],meta:{err}};
+ const keys=inspection.resolvedKeys,index=key=>keys.indexOf(key),ownerAta=index(inspection.ownerAta),requestIndex=index(inspection.exitAddress),requestAta=index(inspection.requestAta);
+ const pre=keys.map(()=>1);pre[0]=100000000;pre[1]=10000000;pre[index(PERPS_POOL)]=10000000;pre[index(inspection.positionAddress)]=2000000;
+ pre[ownerAta]=newOwnerAta?0:2039280;pre[requestIndex]=2000000;pre[requestAta]=2039280;
+ const post=[...pre],fee=15200,old=newOwnerAta?0n:1000000n;
+ post[0]+=pre[requestIndex]+pre[requestAta]-fee-(newOwnerAta?2039280:0);post[requestIndex]=0;post[requestAta]=0;post[ownerAta]=2039280;
+ const balance=(accountIndex,owner,amount)=>({accountIndex,owner,mint:PERPS_CUSTODIES.USDC.mint,programId:TOKEN,uiTokenAmount:{amount:amount.toString(),decimals:6}});
+ const preTokenBalances=[...newOwnerAta?[]:[balance(ownerAta,inspection.walletAddress,old)],balance(requestAta,inspection.exitAddress,requestTokens)];
+ const postTokenBalances=[balance(ownerAta,inspection.walletAddress,old+requestTokens)],staticCount=inspection.envelope.staticKeys.length;
+ const writableCount=inspection.envelope.lookups.reduce((n,table)=>n+table.writable.length,0);
+ const status={slot,confirmationStatus,err},transaction={slot,blockTime:now/1000-1,transaction:[wire.toString('base64'),'base64'],meta:{err,fee,innerInstructions:[],
+  loadedAddresses:{writable:keys.slice(staticCount,staticCount+writableCount),readonly:keys.slice(staticCount+writableCount)},preBalances:pre,
+  postBalances:err===null?post:pre.map((value,i)=>i===0?value-fee:value),preTokenBalances,postTokenBalances:err===null?postTokenBalances:structuredClone(preTokenBalances)}};
  const calls=[],request=async(method,params)=>{calls.push({method,params});
   if(method==='getGenesisHash')return '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
   if(method==='getSignatureStatuses')return {context:{slot:500010},value:[status]};if(method==='getTransaction')return transaction;

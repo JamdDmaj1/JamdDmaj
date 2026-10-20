@@ -26,6 +26,8 @@ import {initializePerpsOperatorRecovery,createPerpsCustodyRecoveryArchive,restor
 import {readServerPerpsAccount} from '../lib/perps-server-account.js';
 import {createServerPerpsExitCancellationBroadcaster} from '../lib/perps-exit-cancellation-broadcast.js';
 import {createServerPerpsExitCleanupCoordinator} from '../lib/perps-exit-cleanup.js';
+import {readServerPerpsTradeTransaction} from '../lib/perps-server-trade-transaction.js';
+import {readJournalledPerpsCancellation,requireVerifiedPerpsCancellationHistory} from '../lib/perps-cancellation-history.js';
 const genesis='5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d',tokenProgram='TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
 const baseIdentity=await deriveServerPerpsIdentities({walletAddress:wallet,asset:'SOL',side:'LONG'});
 const derivedRequests=await Promise.all([1n,2n,3n].map(async counter=>{
@@ -518,6 +520,71 @@ test('cleanup coordinator connects private closure, builder, simulation, authori
  assert.deepEqual(c.calls,{builder:1,signer:1,send:1});assert.equal(c.custody.controls.read(c.args).enabled,false);
  assert.equal(f.journal.read('entry-0').state,'OPEN');assert.equal(f.journal.riskState(wallet).activeMarginUsdcUnits,'20000000');
  assert.equal((await c.coordinator.runOnce(c.args)).stage,'RECONCILIATION_REQUIRED');assert.deepEqual(c.calls,{builder:1,signer:1,send:1});
+});
+
+test('finalized cancellation accounting requires journal-bound wire and exact SOL and USDC effects',async t=>{
+ const f=await fixture(t,{liveSibling:true}),c=await cleanupCoordinatorFixture(f),sent=await c.coordinator.runOnce(c.args);
+ const receipt=cancellationReceiptFixture(c.inspection,now);
+ assert.equal(receipt.record.signature,sent.signature);
+ const read=()=>readServerPerpsTradeTransaction({walletAddress:wallet,signature:receipt.record.signature,day:'2026-10-18'},
+  {request:receipt.request,now:()=>now,requireTradeEvent:false});
+ const transaction=await read(),proof=await readJournalledPerpsCancellation(transaction,{journal:f.journal});
+ assert.equal(proof.stage,'FINALIZED_NON_TRADE_CANCELLATION');assert.equal(proof.networkFeeLamports,'15200');
+ assert.equal(proof.realizedTradingLossUsdUnits,'0');assert.equal(proof.returnedUsdcUnits,'2500000');assert.equal(proof.readyForSigning,false);
+ assert.equal(requireVerifiedPerpsCancellationHistory(proof,{transaction}),proof);
+ assert.throws(()=>requireVerifiedPerpsCancellationHistory({...proof},{transaction}));
+ assert.equal(await readJournalledPerpsCancellation(transaction),null);
+ assert.equal(await readJournalledPerpsCancellation(transaction,{journal:{...f.journal,readExitCancellationBySignature:()=>null}}),null);
+ const original=structuredClone(receipt.transaction.meta);
+ const mutations=[
+  meta=>meta.postBalances[0]++,meta=>meta.postBalances[1]++,meta=>meta.fee++,
+  meta=>meta.postBalances[c.inspection.resolvedKeys.indexOf(c.inspection.exitAddress)]=1,
+  meta=>meta.postTokenBalances[0].uiTokenAmount.amount='3499999',
+  meta=>meta.postTokenBalances[0].owner=PERPS_POOL,
+  meta=>meta.preTokenBalances.push(structuredClone(meta.preTokenBalances[0])),
+  meta=>delete meta.preTokenBalances,
+ ];
+ for(const mutate of mutations){receipt.transaction.meta=structuredClone(original);mutate(receipt.transaction.meta);
+  await assert.rejects(async()=>readJournalledPerpsCancellation(await read(),{journal:f.journal}));}
+ receipt.transaction.meta=original;
+ // Evidence is a private snapshot: later mutation of the provider response
+ // cannot turn a verified transaction into different accounting evidence.
+ receipt.transaction.meta.postBalances[0]++;
+ assert.equal((await readJournalledPerpsCancellation(transaction,{journal:f.journal})).networkFeeLamports,'15200');
+ const changed={...f.journal,readExitCancellationBySignature:args=>({...f.journal.readExitCancellationBySignature(args),unsigned_wire_hash:'a'.repeat(64)})};
+ await assert.rejects(()=>readJournalledPerpsCancellation(transaction,{journal:changed}));
+});
+
+test('daily account retains cancellation network fee without counting another trade and closure waits for reconciliation',async t=>{
+ const f=await fixture(t,{liveSibling:true}),c=await cleanupCoordinatorFixture(f),sent=await c.coordinator.runOnce(c.args);
+ const receipt=cancellationReceiptFixture(c.inspection,now),meta=receipt.transaction.meta;
+ receipt.transaction.blockTime=now/1000-6;
+ const request=async(method,params)=>{
+  if(method==='getTransaction'&&params[0]===sent.signature)return structuredClone(receipt.transaction);
+  if(method==='getSignatureStatuses'&&params[0].includes(sent.signature))return receipt.request(method,params);
+  if(method==='getSignaturesForAddress'){
+   const rows=await f.request(method,params);
+   return [wallet,baseIdentity.position].includes(params[0])?[{signature:sent.signature,slot:receipt.transaction.slot,blockTime:receipt.transaction.blockTime,err:null,confirmationStatus:'finalized'},...rows].sort((a,b)=>b.slot-a.slot):rows;
+  }
+  if(method==='getMultipleAccounts'){
+   const response=structuredClone(await f.request(method,params));
+   if(params[0].length===8){response.value[0].lamports=meta.postBalances[0];const data=Buffer.from(response.value[1].data[0],'base64');
+    data.writeBigUInt64LE(BigInt(meta.postTokenBalances[0].uiTokenAmount.amount),64);response.value[1].data[0]=data.toString('base64');}
+   else response.value=response.value.map((value,index)=>params[0][index]===c.inspection.exitAddress?null:value);
+   return response;
+  }
+  return f.request(method,params);
+ };
+ const options={request,now:()=>now,monotonicNow:()=>0,journal:f.journal};
+ await assert.rejects(()=>readServerPerpsDailyAccount({walletAddress:wallet},{...options,journal:undefined}));
+ const account=await readServerPerpsDailyAccount({walletAddress:wallet},options);
+ assert.equal(account.cancellations.length,1);assert.equal(account.tradesToday,f.account.tradesToday);
+ assert.equal(account.lossTodayUsdcUnits,f.account.lossTodayUsdcUnits);
+ assert.equal(BigInt(account.walletNetworkFeesLamports),BigInt(f.account.walletNetworkFeesLamports)+15200n);
+ assert.equal(f.journal.read('entry-0').state,'OPEN');
+ assert.equal((await reconcilePendingPerpsExitCancellations(f.journal,wallet,{request:receipt.request,now:()=>now})).confirmed,1);
+ const proof=await readServerPerpsPositionClosure(f.journal.read('entry-0'),{...options,readFinalizedAccount:async()=>account});
+ assert.equal(requireVerifiedServerPerpsPositionClosure(proof),proof);
 });
 
 test('cleanup coordinator refuses maintenance, changed preparation and unverified costs, retaining only genuine signing uncertainty',async t=>{
