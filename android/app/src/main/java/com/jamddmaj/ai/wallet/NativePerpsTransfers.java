@@ -5,8 +5,8 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.function.BooleanSupplier;
 
-/** Manual lifecycle. UI must invoke signing only inside a bound biometric callback.
- * Not exposed through the WebView bridge or connected to submission buttons yet. */
+/** Manual lifecycle. UI invokes signing only inside a bound biometric callback.
+ * No generic signer or submission method is exposed through the WebView bridge. */
 final class NativePerpsTransfers {
     private final NativeWalletProfiles.Profile owner;
     private final NativePerpsService service;

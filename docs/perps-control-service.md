@@ -1669,3 +1669,25 @@ test skips remain). These source/UI changes are not published or installed.
 Production schema migration, current unsigned full-amount USDC compatibility,
 pending fee allowances, native/manual execution and final publication still
 require verification; no complete execution-readiness claim is made.
+
+### Native manual funding preflight (2026-10-20, verification pending)
+
+Source inspection confirmed the manual ticket already routes to native review
+and an independently bound biometric confirmation; it is not a generic WebView
+signer. Its live preparation now first reads the derived owner USDC ATA and SOL
+payer in one confirmed mainnet bank, bracketed by genesis identity checks. The
+bank must be at least the requested minimum slot; incomplete, noncanonical or
+unsafe token accounts cannot become zero or available collateral. USDC below
+the exact requested margin and zero SOL produce separate bounded native UI
+messages. No automatic swap, deposit or signer is introduced. Having positive
+SOL is only an early check; exact fee, rent, full same-wire simulation and
+biometric checks remain mandatory afterward.
+
+A standalone Java 21 harness using synthetic public account bytes passed local
+compilation and execution. Added Android integration tests exercise the derived
+bank and identity/slot/encoding failures; full Android compilation and those
+Robolectric cases still require the native CI job, since this PC has Java but
+no configured Android SDK. A dedicated non-release verification branch is used
+for that check, rather than triggering the permanent-key APK workflow on the
+main development branch. No APK release or execution-readiness claim follows
+from the standalone harness.

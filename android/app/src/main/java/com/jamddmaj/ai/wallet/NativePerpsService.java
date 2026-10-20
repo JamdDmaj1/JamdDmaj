@@ -169,6 +169,7 @@ final class NativePerpsService {
     private static final class Live {
         final NativeSwapClock clock=new NativeSwapClock(SystemClock::elapsedRealtime);
         JSONObject prepare(String payer,NativePerpsOrderIntent intent)throws Exception{
+            new NativeSolanaAccounts().requirePerpsInitialFunds(payer,intent.marginUsd);
             HttpsURLConnection connection=(HttpsURLConnection)new URL("https://perps-api.jup.ag/v1/positions/increase").openConnection();
             connection.setInstanceFollowRedirects(false);connection.setUseCaches(false);connection.setConnectTimeout(10000);connection.setReadTimeout(10000);
             connection.setRequestMethod("POST");connection.setDoOutput(true);

@@ -15,6 +15,28 @@ final class NativeSolanaAccounts {
     private final NativeWalletRpc rpc;
     NativeSolanaAccounts() { this(null); }
     NativeSolanaAccounts(NativeWalletRpc.Transport fixture) { rpc = new NativeWalletRpc(WalletNetwork.SOLANA_MAINNET,fixture); }
+    /** One native bank before requesting a builder. Never replaces simulation. */
+    void requirePerpsInitialFunds(String payer,BigInteger margin)throws Exception{
+        byte[] wallet=DevnetSolana.decode(payer,32),mint=DevnetSolana.decode(NativePerpsFunding.USDC,32);
+        String source=DevnetSolana.encode(SolanaProgramAddress.find("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+            java.util.Arrays.asList(wallet,DevnetSolana.decode(SplTokenAccount.PROGRAM,32),mint)).key());
+        rpc.verifyNetwork();
+        BigInteger minimum=NativeWalletBalances.solanaUnits(rpc.request("getSlot",new JSONArray().put(new JSONObject().put("commitment","confirmed"))));
+        JSONObject reply=(JSONObject)rpc.request("getMultipleAccounts",new JSONArray().put(new JSONArray().put(payer).put(source))
+            .put(new JSONObject().put("commitment","confirmed").put("encoding","base64").put("minContextSlot",minimum)));
+        BigInteger slot=NativeWalletBalances.solanaUnits(reply.getJSONObject("context").get("slot"));
+        JSONArray values=reply.getJSONArray("value");if(slot.compareTo(minimum)<0||values.length()!=2)throw new IOException("PERPS_BALANCE_UNVERIFIED");
+        NativePerpsFundsPreflight.Account owner=fundsAccount(values,0),funding=fundsAccount(values,1);
+        rpc.verifyNetwork();NativePerpsFundsPreflight.check(wallet,mint,margin,owner,funding);
+    }
+    private static NativePerpsFundsPreflight.Account fundsAccount(JSONArray values,int index)throws Exception{
+        if(values.isNull(index))return null;JSONObject value=values.getJSONObject(index);JSONArray encoded=value.getJSONArray("data");
+        if(!(value.get("owner") instanceof String)||!(value.get("executable") instanceof Boolean)||encoded.length()!=2||!"base64".equals(encoded.get(1))
+            ||!(encoded.get(0) instanceof String)||encoded.getString(0).length()>220)throw new IOException("PERPS_BALANCE_UNVERIFIED");
+        String text=encoded.getString(0);byte[] data=Base64.decode(text,Base64.NO_WRAP);
+        if(!Base64.encodeToString(data,Base64.NO_WRAP).equals(text))throw new IOException("PERPS_BALANCE_UNVERIFIED");
+        return new NativePerpsFundsPreflight.Account(value.getString("owner"),value.getBoolean("executable"),NativeWalletBalances.solanaUnits(value.get("lamports")),data);
+    }
     /** Market-account checks only. Funding, PDAs, remaining instructions and
      * simulated effects must still pass before any signing review can exist. */
     void verifyPerpsOrderAccounts(NativePerpsTransaction transaction,NativePerpsOrderIntent intent,long trustedNowSeconds)throws Exception{

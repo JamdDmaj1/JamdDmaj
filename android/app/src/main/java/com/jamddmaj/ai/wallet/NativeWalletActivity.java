@@ -386,7 +386,16 @@ public final class NativeWalletActivity extends Activity {
                 WalletReviewDialog.show(this,text("Revisión de Futuros","Futures review"),draft.review.description(es),
                     text("Confirmar con huella","Confirm with biometrics"),()->authorizePerps(profile,service,draft,ticket),text("Cancelar","Cancel"),()->lock());
             });
-        }catch(Exception failure){service.invalidate();runOnUiThread(()->{if(ticket==epoch)status.setText(text("No se pudo verificar la orden: revisa saldo USDC, importe y disponibilidad. No se firmó ni envió nada.","Order could not be verified: check USDC funds, amount and availability. Nothing was signed or sent."));});}});
+        }catch(Exception failure){service.invalidate();
+            String explanation=text("No se pudo verificar la orden: revisa saldo USDC, importe y disponibilidad. No se firmó ni envió nada.","Order could not be verified: check USDC funds, amount and availability. Nothing was signed or sent.");
+            if(failure instanceof NativePerpsFundsPreflight.Failure){
+                NativePerpsFundsPreflight.Failure funds=(NativePerpsFundsPreflight.Failure)failure;
+                if("PERPS_INSUFFICIENT_USDC".equals(funds.reason))explanation=text("USDC insuficiente en esta billetera. Disponible: ","Insufficient USDC in this wallet. Available: ")+
+                    NativePerpsReviewAmounts.usd(funds.availableUsdc)+text(" USDC. Margen solicitado: "," USDC. Requested margin: ")+NativePerpsReviewAmounts.usd(funds.requiredUsdc)+
+                    text(" USDC. El saldo SOL no se convierte automáticamente en garantía. No se firmó ni envió nada."," USDC. SOL is not automatically converted into collateral. Nothing was signed or sent.");
+                else if("PERPS_MISSING_SOL_FEES".equals(funds.reason))explanation=text("Esta billetera no tiene SOL para pagar comisiones de red. El saldo USDC no paga esas comisiones. No se firmó ni envió nada.","This wallet has no SOL for network fees. USDC does not pay those fees. Nothing was signed or sent.");
+            }
+            final String message=explanation;runOnUiThread(()->{if(ticket==epoch)status.setText(message);});}});
     }
     private void authorizePerps(NativeWalletProfiles.Profile profile,NativePerpsTransfers service,NativePerpsTransfers.Draft draft,long ticket){
         if(ticket!=epoch)return;
