@@ -4,6 +4,18 @@
   "program": "PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu",
   "slot": 458207867,
   "idlSha256": "1d90a653a1cc88bddb7c5876acee52d3f26c6b1e3306e0833234020dc6f7d653",
+  "closeOracleContextLayout": {
+    "source": "Confirmed program-owned DOVES Anchor IDL and aggregate/price accounts, 2026-10-20",
+    "idlAccount": "4D2RLxRVWjGUp7E45noWC6x7BfmSQbQ4mQevHvTV5ai6",
+    "slot": 459304963,
+    "idlSha256": "1ae8e5e335beec1646d5484671d8f07902fb5ac55581c3028701893b998025f5",
+    "program": "DoVEsk76QybCEHQGzkvYPWLQu9gzNoZZZt3TPiL597e",
+    "aggregate": {"discriminatorHex": "70f98bd9d7d0f936", "minimumPrefixBytes": 266, "mintOffset": 8, "clFeedOffset": 72, "priceOffset": 168, "expoOffset": 176, "timestampOffset": 177, "maxAgeOffset": 185, "bumpOffset": 201, "lazerFeedOffset": 202, "redstoneFeedOffset": 234, "pdaSeed": "ag_feed"},
+    "priceFeed": {"discriminatorHex": "bd67fc179823f39c", "minimumPrefixBytes": 96, "priceOffset": 73, "expoOffset": 81, "timestampOffset": 82, "bumpOffset": 90, "lazerFeedIdOffset": 91, "lazerChannelOffset": 95},
+    "updateManyWithPythLazer": {"discriminatorHex": "cb3b5fb0ec154999", "accounts": ["signer", "pyth_lazer_storage", "pyth_lazer_treasury", "pyth_lazer_program", "system_program", "instructions_sysvar"], "remainingAccounts": "configured PriceFeed accounts", "args": ["message_data:bytes", "ed25519_instruction_index:u16", "signature_index:u8", "raise:bool"]},
+    "updateAgPrice2": {"discriminatorHex": "3d413ce5eb8efa75", "bytes": 8, "accounts": ["signer", "ag_price_feed", "pyth_lazer_feed", "cl_feed", "redstone_feed"]},
+    "pythLazer": {"source": "https://docs.pyth.network/price-feeds/pro/integrate-as-consumer/svm", "program": "pytd2yyk641x7ak7mkaasSJVXh6YYZnC7wTmtgAyxPt", "storage": "3rdJbqfnagQ4yx9HXJViD4zc4xpiSqmFsKpPuSCQVyQL", "treasury": "Gx4MBPb1vqZLJajZmsKLg8fGw9ErhoKsR8LeKcCKFyak"}
+  },
   "closePostSwapInstructionLayout": {
     "source": "Confirmed program-owned mainnet Anchor IDL, 2026-10-20",
     "slot": 459192018,

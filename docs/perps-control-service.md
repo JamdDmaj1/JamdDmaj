@@ -2092,3 +2092,66 @@ reservation policy. Actual funded unsigned compatibility, native integration,
 final audit and app publication remain pending. No owned live provider request,
 real financial signature/submission, activation, APK release or worker restart
 was performed for these fixture tests.
+
+### Close instruction boundary and independently bound oracle configuration (2026-10-20)
+
+`lib/perps-server-close-policy.js` now checks the complete top-level instruction
+list before simulation in the close coordinator. It rejects unknown writable
+accounts, arbitrary token spending/approval, incorrect or early collateral
+cleanup, unrelated ATA setup, setup after an account has been used, duplicates
+and oracle instructions requesting pool/owner spending capability. Allowed ATA
+creation is idempotent and bound to the owner/counter-request's exact mint and
+derived account; collateral cleanup is possible only after the LONG post-swap.
+This is a capability boundary, not approval of every oracle/protocol effect.
+
+A first candidate allowed only aggregate-oracle writes. Read-only inspection of
+the existing finalized public close at slot 459191845 showed that this was too
+narrow: DOVES update_many_with_pyth_lazer also writes its configured PriceFeed
+and the Pyth treasury. The keeper, not the owner, lost one lamport in that
+observation; aggregate-oracle lamports did not change. No transaction was
+created or submitted to obtain this evidence.
+
+The independently derived DOVES Anchor IDL account
+`4D2RLxRVWjGUp7E45noWC6x7BfmSQbQ4mQevHvTV5ai6` was read with confirmed
+program ownership at slot 459304963. Raw IDL SHA-256:
+`1ae8e5e335beec1646d5484671d8f07902fb5ac55581c3028701893b998025f5`.
+The instruction layouts, aggregate/PriceFeed prefix offsets and constant
+accounts are recorded in the security fixture. Live SOL/USDC aggregate PDAs,
+mint fields and bumps matched derivation using ['ag_feed', mint]; their configured
+Lazer, CL and Redstone feed keys were also observed read-only. Official Pyth
+account identities were checked against
+https://docs.pyth.network/price-feeds/pro/integrate-as-consumer/svm and
+https://docs.pyth.network/price-feeds/pro/contract-addresses.
+
+`lib/perps-close-oracle-context.js` fetches those aggregate accounts from a bank
+no older than the exact close inspection, verifies native ownership/PDA/mint/
+bump/layout, then fetches the configured PriceFeeds and pinned Pyth storage and
+treasury in a no-older bank. It checks mainnet around these reads and binds a
+private non-copyable context to the exact inspection and its original lease.
+DOVES update roles must then match that context and the official fixed Pyth
+identities, not builder-supplied extra addresses. The Borsh message length,
+raise boolean, prior Ed25519 instruction index and signature-table index are
+bounded; the aggregate update's CL/Redstone/PriceFeed roles must match config.
+Simulation now supports an explicit minimum bank slot and the coordinator uses
+the oracle-context bank when updates are present.
+
+Thirty focused synthetic tests passed locally, bundled locally, and under VPS
+Node in the isolated DynamicUser/PrivateNetwork test unit
+jamddmaj-close-policy-check-20261020 (30/30, exit 0). The full local test glob
+also exited zero. Fixture bundle:
+`/opt/jamddmaj-perps/checks/close-policy-20261020/tests/test.mjs`, SHA-256
+`b3268ec64e6c1da27ffb8c740fc5e96fe1d6523e5ca20f083a2fbe7914d3da56`.
+The oracle-capability fixture uses a synthetic signed Ed25519 payload and
+configured fake accounts: it is NOT a trusted Pyth price message or proof of a
+successful native oracle update. All existing unsigned close/funding tests
+still pass. No permanent key or execution-enabled runtime was loaded.
+
+The existing VPS Node architecture was retained; no new Vercel platform product
+or framework was introduced. No worker/HTTPS restart, secret change, activation,
+APK build/release or financial request was made. After isolated tests, both
+production services remained active and health returned controls-only,
+tradingEnabled=false, executionAvailable=false. Pool/vault and complete oracle
+payload/price/post-state validation, independent minimum-return risk, durable
+close/finalization, native confirmation, pending-fee budgeting, actual funded
+unsigned compatibility and final publication/audit remain incomplete. No
+financial signer consumes this capability-only result.

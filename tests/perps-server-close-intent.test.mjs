@@ -11,6 +11,8 @@ import {checkServerPerpsFullCloseBindings,inspectServerPerpsFullClosePreparation
 import {simulateServerPerpsFullCloseEffects,readServerPerpsFullCloseSimulation} from '../lib/perps-server-close-simulation.js';
 import {checkServerPerpsFullCloseFunding,readServerPerpsFullCloseFunding} from '../lib/perps-server-close-funding.js';
 import {buildUnsignedServerPerpsFullClose,prepareSimulatedServerPerpsFullClose} from '../lib/perps-server-close-preparation.js';
+import {checkServerPerpsFullCloseInstructionPolicy,readServerPerpsFullClosePolicy} from '../lib/perps-server-close-policy.js';
+import {readServerPerpsCloseOracles,readServerPerpsCloseOracleContext,CLOSE_DOVES_PROGRAM,CLOSE_PYTH_LAZER} from '../lib/perps-close-oracle-context.js';
 const wallet=bs58.encode(Buffer.alloc(32,1)),now=1802865600;
 test('both close data layouts match the recorded confirmed program-owned Anchor IDL',()=>{
  const idl=JSON.parse(readFileSync(new URL('../security/native-tests/jupiter-perps-idl-layout.json',import.meta.url),'utf8'));
@@ -25,6 +27,10 @@ test('both close data layouts match the recorded confirmed program-owned Anchor 
  assert.equal(idl.closePostSwapInstructionLayout.swapWithTokenLedger.discriminatorHex,'8b8deec529d3ac13');
  assert.equal(idl.closePostSwapInstructionLayout.swapWithTokenLedger.bytes,16);
  assert.equal(idl.closePostSwapInstructionLayout.swapWithTokenLedger.accounts.length,17);
+ assert.equal(idl.closeOracleContextLayout.idlSha256,'1ae8e5e335beec1646d5484671d8f07902fb5ac55581c3028701893b998025f5');
+ assert.equal(idl.closeOracleContextLayout.aggregate.lazerFeedOffset,202);
+ assert.equal(idl.closeOracleContextLayout.program,CLOSE_DOVES_PROGRAM);
+ assert.equal(idl.closeOracleContextLayout.pythLazer.treasury,CLOSE_PYTH_LAZER.treasury);
 });
 async function fixture(side='LONG',asset='SOL'){
  const ids=await deriveServerPerpsIdentities({walletAddress:wallet,asset,side}),data=Buffer.alloc(210);
@@ -95,11 +101,12 @@ test('SHORT buy limit and LONG sell limit use inward integer rounding',async()=>
 const TOKEN='TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',ATA='ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL',SYSTEM='11111111111111111111111111111111',COMPUTE='ComputeBudget111111111111111111111111111111';
 async function boundFixture(side='LONG',asset='SOL',version=1){
  const f=await fixture(side,asset),plan=planServerPerpsFullClose(f.account,f.options);
+ const agKeys=Object.fromEntries(await Promise.all(['BTC','ETH','SOL','USDC'].map(async asset=>[asset,await getProgramDerivedAddress({programAddress:CLOSE_DOVES_PROGRAM,seeds:['ag_feed',bs58.decode(PERPS_CUSTODIES[asset].mint)]})])));
  function custody(asset){
   const id=PERPS_CUSTODIES[asset],n=['BTC','ETH','SOL','USDC'].indexOf(asset),data=Buffer.alloc(416);
   Buffer.from('01b830515d833f91','hex').copy(data);Buffer.from(bs58.decode(PERPS_POOL)).copy(data,8);Buffer.from(bs58.decode(id.mint)).copy(data,40);
   Buffer.alloc(32,20+n).copy(data,72);data[104]=id.decimals;data[105]=Number(id.stable);Buffer.alloc(32,30+n).copy(data,106);data[138]=2;
-  data.writeBigUInt64LE(500000n,175);data[199]=1;data[202]=1;data[203]=1;Buffer.alloc(32,40+n).copy(data,384);
+  data.writeBigUInt64LE(500000n,175);data[199]=1;data[202]=1;data[203]=1;Buffer.from(bs58.decode(agKeys[asset][0])).copy(data,384);
   const account={owner:PERPS_PROGRAM,executable:false,data:[data.toString('base64'),'base64']};
   return {account,decoded:decodeServerPerpsCustody(asset,id.address,account)};
  }
@@ -125,7 +132,7 @@ async function boundFixture(side='LONG',asset='SOL',version=1){
  const envelope={stage:'STRUCTURE_ONLY',staticKeys:[...keys],accountCount:keys.length,readonlySigned:2,readonlyUnsigned:reads.length,lookups:[],instructions:[
   {program:keys.indexOf(COMPUTE),accounts:[],dataBase64:unit.toString('base64')},
   {program:keys.indexOf(COMPUTE),accounts:[],dataBase64:price.toString('base64')},...(side==='LONG'?[ledgerIx,ix,swapIx]:[ix])]};
- return {...f,plan,market,collateral,usdc,custodyAccounts:[m.account,u.account],inspection:{envelope,resolvedKeys:keys},ix,ledgerIx,swapIx,recipient,requestAddress,requestAta};
+ return {...f,plan,market,collateral,usdc,agKeys,custodyAccounts:[m.account,u.account],inspection:{envelope,resolvedKeys:keys},ix,ledgerIx,swapIx,recipient,requestAddress,requestAta};
 }
 const checkBindings=f=>checkServerPerpsFullCloseBindings(f.inspection,f.plan,f.market,f.collateral,now,f.usdc);
 test('both close variants bind all six markets/directions to owned recipient and independently decoded custody roles',async()=>{
@@ -167,15 +174,27 @@ test('close bindings require writable recipient, vault, position and request acc
   assert.equal((await checkBindings(f)).readyForSigning,false);
  }
 });
-function preparationFixture(f){
+function preparationFixture(f,{useLookup=false,writableKeys=[]}={}){
  // Unfunded, synthetic provider cosignature, never a live wallet signature.
  const api=generateKeyPairSync('ed25519'),keys=[...f.inspection.resolvedKeys];keys[2]=bs58.encode(api.publicKey.export({format:'der',type:'spki'}).subarray(-32));
  const blockhash=bs58.encode(Buffer.alloc(32,9)),envelope=f.inspection.envelope;
+ let ordered=keys,staticKeys=keys,readonlyUnsigned=envelope.readonlyUnsigned,lookup=[];
+ if(useLookup){
+  const invoked=new Set(envelope.instructions.map(ix=>keys[ix.program]));
+  const isWrite=key=>keys.indexOf(key)>=3&&(keys.indexOf(key)<keys.length-envelope.readonlyUnsigned||writableKeys.includes(key));
+  const writes=keys.filter(isWrite),readonly=keys.slice(3).filter(key=>!isWrite(key));
+  const staticReadonly=readonly.filter(key=>invoked.has(key)),loaded=readonly.filter(key=>!invoked.has(key));
+  staticKeys=[...keys.slice(0,3),...writes,...staticReadonly];ordered=[...staticKeys,...loaded];readonlyUnsigned=staticReadonly.length;
+  const address=bs58.encode(Buffer.alloc(32,80)),data=Buffer.alloc(56+loaded.length*32);data.writeUInt32LE(1);data.writeBigUInt64LE(18446744073709551615n,4);
+  loaded.forEach((key,i)=>Buffer.from(bs58.decode(key)).copy(data,56+i*32));
+  f.lookupFixture={address,account:{owner:'AddressLookupTab1e1111111111111111111111111',executable:false,data:[data.toString('base64'),'base64']}};
+  lookup=[Buffer.from([1]),Buffer.from(bs58.decode(address)),Buffer.from([0,loaded.length,...loaded.map((_,i)=>i)])];
+ }
  const instructions=envelope.instructions.map(ix=>{
   const data=Buffer.from(ix.dataBase64,'base64');assert(data.length<128);assert(ix.accounts.length<128);
-  return Buffer.concat([Buffer.from([ix.program,ix.accounts.length,...ix.accounts,data.length]),data]);
+  return Buffer.concat([Buffer.from([ordered.indexOf(keys[ix.program]),ix.accounts.length,...ix.accounts.map(i=>ordered.indexOf(keys[i])),data.length]),data]);
  });
- const message=Buffer.concat([Buffer.from([3,envelope.readonlySigned,envelope.readonlyUnsigned,keys.length]),...keys.map(key=>Buffer.from(bs58.decode(key))),Buffer.from(bs58.decode(blockhash)),Buffer.from([instructions.length]),...instructions]);
+ const message=Buffer.concat([Buffer.from(useLookup?[128,3,envelope.readonlySigned,readonlyUnsigned,staticKeys.length]:[3,envelope.readonlySigned,readonlyUnsigned,staticKeys.length]),...staticKeys.map(key=>Buffer.from(bs58.decode(key))),Buffer.from(bs58.decode(blockhash)),Buffer.from([instructions.length]),...instructions,...lookup]);
  const wire=Buffer.concat([Buffer.from([3]),Buffer.alloc(128),sign(null,message,api.privateKey),message]);
  assert(wire.length<=1232);
  return {serializedTxBase64:wire.toString('base64'),positionPubkey:f.plan.positionAddress,txMetadata:{blockhash,lastValidBlockHeight:'1000'}};
@@ -478,5 +497,137 @@ test('combined close path reads native ownership, builds once, inspects, simulat
   assert.equal(builds,1);assert.equal(result.stage,'FULL_CLOSE_SIMULATED_WALLET_ONLY');assert.equal(result.readyForSigning,false);assert.equal(result.tradingEnabled,false);
   assert.equal(result.funding.rentRefundedLamports,'2000000');assert.equal(result.funding.receivedUsdcUnits,'8000000');
   assert.equal(result.requiresFullInstructionAndProtocolEffectsPolicy,true);assert.equal(result.requiresNativeReviewAndConfirmation,true);
+  assert.equal(result.policy.stage,'FULL_CLOSE_INSTRUCTION_POLICY_ONLY');assert.equal(result.policy.readyForSigning,false);
+ }
+});
+async function inspectPolicyFixture(f,options={}){
+ return inspectServerPerpsFullClosePreparation(preparationFixture(f,options),f.plan,{nowSeconds:now,request:async(method,params)=>{
+  if(method==='getGenesisHash')return '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
+  if(method==='getSlot')return 101;assert.equal(method,'getMultipleAccounts');
+  if(f.lookupFixture&&params[0][0]===f.lookupFixture.address)return {context:{slot:101},value:[f.lookupFixture.account]};
+  return {context:{slot:102},value:f.custodyAccounts};
+ }});
+}
+function addPolicyKey(f,key,write=false){
+ const {envelope,resolvedKeys:keys}=f.inspection;
+ if(keys.includes(key))return keys.indexOf(key);
+ const at=write?3:keys.length;
+ for(const ix of envelope.instructions){if(ix.program>=at)ix.program++;ix.accounts=ix.accounts.map(i=>i>=at?i+1:i);}
+ keys.splice(at,0,key);envelope.staticKeys.splice(at,0,key);envelope.accountCount++;
+ if(!write)envelope.readonlyUnsigned++;
+ return at;
+}
+function ataInstruction(f,address,tokenOwner,mint){
+ addPolicyKey(f,mint);
+ const keys=f.inspection.resolvedKeys;
+ return {program:keys.indexOf(ATA),accounts:[0,keys.indexOf(address),keys.indexOf(tokenOwner),keys.indexOf(mint),keys.indexOf(SYSTEM),keys.indexOf(TOKEN)],dataBase64:'AQ=='};
+}
+test('close instruction policy binds allowed idempotent setup and post-swap empty collateral cleanup without conferring authority',async()=>{
+ const f=await boundFixture('LONG','SOL',1),keys=f.inspection.resolvedKeys,collateralAccount=keys[f.ix.accounts[3]];
+ const collateralCreate=ataInstruction(f,collateralAccount,wallet,PERPS_CUSTODIES.SOL.mint);
+ const recipientCreate=ataInstruction(f,f.recipient,wallet,PERPS_CUSTODIES.USDC.mint);
+ f.inspection.envelope.instructions.splice(2,0,collateralCreate);
+ f.inspection.envelope.instructions.splice(5,0,recipientCreate);
+ f.inspection.envelope.instructions.push({program:keys.indexOf(TOKEN),accounts:[keys.indexOf(collateralAccount),0,0],dataBase64:'CQ=='});
+ const inspection=await inspectPolicyFixture(f),result=checkServerPerpsFullCloseInstructionPolicy(inspection);
+ assert.deepEqual(result.createdAccounts,[collateralAccount,f.recipient]);assert.equal(result.closedCollateralAccount,collateralAccount);
+ assert.equal(result.readyForSigning,false);assert.equal(result.requiresProtocolAndOracleEffects,true);
+ assert.equal(readServerPerpsFullClosePolicy(result).inspection,inspection);
+ assert.throws(()=>readServerPerpsFullClosePolicy({...result}));f.expire();assert.throws(()=>readServerPerpsFullClosePolicy(result));
+});
+test('close policy rejects token spending, wrong cleanup, unexpected writable authority and malformed/late/duplicate setup',async()=>{
+ for(const mode of ['transfer','approve','wrongDestination','earlyClose','unknownWrite','foreignAta','lateAta','duplicateAta','wrongAtaOwner']){
+  const f=await boundFixture('LONG','SOL',1),keys=f.inspection.resolvedKeys,ixs=f.inspection.envelope.instructions,collateralAccount=keys[f.ix.accounts[3]];
+  if(mode==='transfer'||mode==='approve')ixs.push({program:keys.indexOf(TOKEN),accounts:[keys.indexOf(f.recipient),keys.indexOf(collateralAccount),0],dataBase64:Buffer.from([mode==='transfer'?3:4,1,0,0,0,0,0,0,0]).toString('base64')});
+  if(mode==='wrongDestination')ixs.push({program:keys.indexOf(TOKEN),accounts:[keys.indexOf(collateralAccount),1,0],dataBase64:'CQ=='});
+  if(mode==='earlyClose')ixs.splice(2,0,{program:keys.indexOf(TOKEN),accounts:[keys.indexOf(collateralAccount),0,0],dataBase64:'CQ=='});
+  if(mode==='unknownWrite')addPolicyKey(f,bs58.encode(Buffer.alloc(32,67)),true);
+  if(mode==='foreignAta'){
+   const address=bs58.encode(Buffer.alloc(32,68));addPolicyKey(f,address,true);
+   ixs.splice(2,0,ataInstruction(f,address,wallet,PERPS_CUSTODIES.USDC.mint));
+  }
+  if(mode==='lateAta')ixs.push(ataInstruction(f,collateralAccount,wallet,PERPS_CUSTODIES.SOL.mint));
+  if(mode==='duplicateAta'){
+   const ix=ataInstruction(f,collateralAccount,wallet,PERPS_CUSTODIES.SOL.mint);ixs.splice(2,0,ix,structuredClone(ix));
+  }
+  if(mode==='wrongAtaOwner'){
+   const ix=ataInstruction(f,collateralAccount,wallet,PERPS_CUSTODIES.SOL.mint);ix.accounts[2]=1;ixs.splice(2,0,ix);
+  }
+  const inspection=await inspectPolicyFixture(f);
+  assert.throws(()=>checkServerPerpsFullCloseInstructionPolicy(inspection),mode);
+ }
+});
+test('oracle update instructions cannot gain writable access to the pool or owner funds',async()=>{
+ const DOVES='DoVEsk76QybCEHQGzkvYPWLQu9gzNoZZZt3TPiL597e';
+ const f=await boundFixture('SHORT','SOL',1),program=addPolicyKey(f,DOVES),keys=f.inspection.resolvedKeys;
+ f.inspection.envelope.instructions.splice(2,0,{program,accounts:[keys.indexOf(PERPS_POOL)],dataBase64:'AA=='});
+ const inspection=await inspectPolicyFixture(f);
+ assert.throws(()=>checkServerPerpsFullCloseInstructionPolicy(inspection));
+});
+async function oraclePolicyFixture(mutate=null){
+ const f=await boundFixture('SHORT','SOL',1),byKey=new Map(),feeds=[];
+ for(const [i,asset]of ['SOL','USDC'].entries()){
+  const [address,bump]=f.agKeys[asset],lazerFeed=bs58.encode(Buffer.alloc(32,90+i)),clFeed=bs58.encode(Buffer.alloc(32,92+i)),redstoneFeed=bs58.encode(Buffer.alloc(32,94+i));
+  const data=Buffer.alloc(394);Buffer.from('70f98bd9d7d0f936','hex').copy(data);Buffer.from(bs58.decode(PERPS_CUSTODIES[asset].mint)).copy(data,8);
+  Buffer.from(bs58.decode(clFeed)).copy(data,72);data[201]=bump;Buffer.from(bs58.decode(lazerFeed)).copy(data,202);Buffer.from(bs58.decode(redstoneFeed)).copy(data,234);
+  byKey.set(address,{owner:CLOSE_DOVES_PROGRAM,executable:false,lamports:3633120,data:[data.toString('base64'),'base64']});
+  const price=Buffer.alloc(96);Buffer.from('bd67fc179823f39c','hex').copy(price);
+  byKey.set(lazerFeed,{owner:CLOSE_DOVES_PROGRAM,executable:false,lamports:2860560,data:[price.toString('base64'),'base64']});
+  feeds.push({address,lazerFeed,clFeed,redstoneFeed});
+ }
+ byKey.set(CLOSE_PYTH_LAZER.storage,{owner:CLOSE_PYTH_LAZER.program,executable:false,lamports:2000000,data:[Buffer.alloc(8).toString('base64'),'base64']});
+ byKey.set(CLOSE_PYTH_LAZER.treasury,{owner:SYSTEM,executable:false,lamports:2000000,data:['','base64']});
+ const ED='Ed25519SigVerify111111111111111111111111111',feed=feeds[0];
+ for(const key of [CLOSE_DOVES_PROGRAM,ED,CLOSE_PYTH_LAZER.storage,CLOSE_PYTH_LAZER.treasury,CLOSE_PYTH_LAZER.program,'Sysvar1nstructions1111111111111111111111111',feed.lazerFeed,feed.clFeed,feed.redstoneFeed])addPolicyKey(f,key);
+ f.inspection.envelope.readonlySigned=1;
+ const keys=f.inspection.resolvedKeys,index=key=>keys.indexOf(key),oracleKey=generateKeyPairSync('ed25519'),payload=Buffer.from([0]);
+ const edData=Buffer.alloc(113);edData[0]=1;
+ for(const [offset,value]of [[2,48],[4,65535],[6,16],[8,65535],[10,112],[12,1],[14,65535]])edData.writeUInt16LE(value,offset);
+ oracleKey.publicKey.export({format:'der',type:'spki'}).subarray(-32).copy(edData,16);sign(null,payload,oracleKey.privateKey).copy(edData,48);payload.copy(edData,112);
+ const ed={program:index(ED),accounts:[],dataBase64:edData.toString('base64')};
+ const data=Buffer.alloc(17);Buffer.from('cb3b5fb0ec154999','hex').copy(data);data.writeUInt32LE(1,8);data.writeUInt16LE(2,13);data[16]=1;
+ const many={program:index(CLOSE_DOVES_PROGRAM),accounts:[1,index(CLOSE_PYTH_LAZER.storage),index(CLOSE_PYTH_LAZER.treasury),index(CLOSE_PYTH_LAZER.program),index(SYSTEM),index('Sysvar1nstructions1111111111111111111111111'),index(feed.lazerFeed)],dataBase64:data.toString('base64')};
+ const ag={program:index(CLOSE_DOVES_PROGRAM),accounts:[1,index(feed.address),index(feed.lazerFeed),index(feed.clFeed),index(feed.redstoneFeed)],dataBase64:Buffer.from('3d413ce5eb8efa75','hex').toString('base64')};
+ f.inspection.envelope.instructions.splice(2,0,ed,many,ag);
+ if(mutate)mutate({f,many,ag,ed,byKey,feed});
+ const inspection=await inspectPolicyFixture(f,{useLookup:true,writableKeys:[feed.address,feed.lazerFeed,CLOSE_PYTH_LAZER.treasury]});
+ const request=async(method,params)=>{
+  if(method==='getGenesisHash')return '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
+  assert.equal(method,'getMultipleAccounts');return {context:{slot:params[0][0]===feeds[0].address?103:104},value:params[0].map(key=>byKey.get(key)??null)};
+ };
+ return {f,inspection,request,byKey};
+}
+test('oracle context independently binds derived aggregate feeds, configured Lazer feeds and official Pyth treasury before accepting update capabilities',async()=>{
+ const f=await oraclePolicyFixture(),context=await readServerPerpsCloseOracles(f.inspection,{request:f.request});
+ assert.equal(context.observedSlot,104);assert.equal(context.feeds.length,2);assert.equal(context.treasury,CLOSE_PYTH_LAZER.treasury);
+ assert.equal(context.readyForSigning,false);assert.equal(context.requiresOraclePayloadAndEffects,true);
+ const result=checkServerPerpsFullCloseInstructionPolicy(f.inspection,{oracleContext:context});
+ assert.equal(result.readyForSigning,false);assert.equal(result.requiresProtocolAndOracleEffects,true);
+ assert.equal(readServerPerpsCloseOracleContext(context,f.inspection).inspection,f.inspection);
+ assert.throws(()=>readServerPerpsCloseOracleContext({...context},f.inspection));
+ assert.throws(()=>checkServerPerpsFullCloseInstructionPolicy(f.inspection));
+});
+test('configured oracle ownership/mint/bump/feed and exact update roles or signature references cannot be substituted',async()=>{
+ for(const mode of ['mint','bump','owner','lazerOwner','treasuryOwner','storageOwner','treasuryRole','bufferRole','clRole','signatureIndex','edIndex']){
+  const fixture=await oraclePolicyFixture(({f,many,ag,byKey,feed})=>{
+   if(['mint','bump'].includes(mode)){
+    const account=byKey.get(feed.address),data=Buffer.from(account.data[0],'base64');data[mode==='mint'?8:201]^=1;account.data[0]=data.toString('base64');
+   }
+   if(mode==='owner')byKey.get(feed.address).owner=SYSTEM;
+   if(mode==='lazerOwner')byKey.get(feed.lazerFeed).owner=SYSTEM;
+   if(mode==='treasuryOwner')byKey.get(CLOSE_PYTH_LAZER.treasury).owner=CLOSE_DOVES_PROGRAM;
+   if(mode==='storageOwner')byKey.get(CLOSE_PYTH_LAZER.storage).owner=SYSTEM;
+   if(mode==='treasuryRole')many.accounts[2]=f.ix.accounts[3];
+   if(mode==='bufferRole')many.accounts[6]=f.inspection.resolvedKeys.indexOf(PERPS_POOL);
+   if(mode==='clRole')ag.accounts[3]=f.inspection.resolvedKeys.indexOf(PERPS_POOL);
+   if(mode==='signatureIndex'||mode==='edIndex'){
+    const data=Buffer.from(many.dataBase64,'base64');if(mode==='signatureIndex')data[15]=1;else data.writeUInt16LE(3,13);many.dataBase64=data.toString('base64');
+   }
+  });
+  if(['mint','bump','owner','lazerOwner','treasuryOwner','storageOwner'].includes(mode))await assert.rejects(readServerPerpsCloseOracles(fixture.inspection,{request:fixture.request}),mode);
+  else{
+   const context=await readServerPerpsCloseOracles(fixture.inspection,{request:fixture.request});
+   assert.throws(()=>checkServerPerpsFullCloseInstructionPolicy(fixture.inspection,{oracleContext:context}),mode);
+  }
  }
 });
