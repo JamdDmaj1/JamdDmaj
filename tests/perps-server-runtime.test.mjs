@@ -15,6 +15,9 @@ import {openPerpsExecutionJournal} from '../lib/perps-execution-journal.js';
 import {openPerpsBackupRegistry} from '../lib/perps-backup-registry.js';
 import {createPerpsCustodyMasterKey,openPerpsCustodyVault} from '../lib/perps-custody-vault.js';
 import {initializePerpsOperatorRecovery,createPerpsCustodyRecoveryArchive,restorePerpsCustodyRecoveryArchive} from '../lib/perps-custody-recovery.js';
+import {createPerpsControlClient} from '../lib/perps-control-client.js';
+import {setupPerpsControlPanel} from '../lib/perps-control-panel.js';
+import {validateAutomationSettings} from '../lib/automation-panel.js';
 const allowNonPosixForTests=process.platform==='win32',ownerAccountHash='c'.repeat(64);
 function fixture(t,{active=false}={}){
  const directory=mkdtempSync(join(tmpdir(),'jamd-runtime-unfunded-'));chmodSync(directory,0o700);
@@ -39,6 +42,29 @@ test('the composed default runtime reconciles existing active accounts without f
  assert.equal(JSON.stringify(status).includes(f.identity.walletAddress),false);assert.equal(JSON.stringify(status).includes(ownerAccountHash),false);
  await runtime.close();assert.equal(existsSync(join(f.directory,'worker.lock')),false);
  assert.throws(()=>runtime.run());const again=openServerPerpsRuntime(f.options);await again.close();
+});
+
+test('composed authenticated runtime carries native exclusive balance through client to panel without financial transports',async t=>{
+ const f=fixture(t),calls=[],runtime=openServerPerpsRuntime({...f.options,fetchImpl:async(url,options)=>{
+  calls.push(url);
+  if(url==='https://www.jamddmaj.com/api/perps-identity')return Response.json({ok:true,accountHash:ownerAccountHash,verifiedAt:Date.now()});
+  assert.equal(url,'https://api.mainnet-beta.solana.com/');const rpc=JSON.parse(options.body);
+  assert.ok(['getGenesisHash','getMultipleAccounts'].includes(rpc.method));
+  if(rpc.method==='getMultipleAccounts')assert.equal(rpc.params[0][0],f.identity.walletAddress);
+  return Response.json({jsonrpc:'2.0',id:rpc.id,result:rpc.method==='getGenesisHash'?'5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d':{context:{slot:500000},value:Array(8).fill(null)}});
+ }});
+ try{
+  const client=createPerpsControlClient({readSessionToken:()=>'e'.repeat(64),validateSettings:validateAutomationSettings,fetchImpl:async(url,options)=>{
+   assert.equal(options.method,'GET');return url.endsWith('/health')?Response.json({ok:true,...runtime.capabilities()}):runtime.handleControlRequest(new Request(url,options));
+  }});
+  const node=()=>({children:[],append(...items){this.children.push(...items);},setAttribute(){}}),doc={createElement:node};
+  const fields=Object.fromEntries(Object.entries({capital:100,loss:80,positions:2,margin:10,leverage:3,dailyTrades:5}).map(([key,value])=>[key,{value:String(value)}]));
+  const panel=setupPerpsControlPanel({panel:node(),fields,client,validateSettings:validateAutomationSettings,language:'es',doc});
+  assert.equal(calls.length,0);await panel.connect.onclick();assert.match(panel.funds.textContent,/0 USDC · 0 SOL/);
+  assert.match(panel.funds.textContent,/no cubre el margen/);assert.match(panel.funds.textContent,/No deposites/);
+  assert.equal(runtime.capabilities().executionAvailable,false);assert.equal((await runtime.run({once:true})).results.RECONCILIATION_ONLY,1);
+  assert.equal(calls.filter(url=>url.includes('perps-api')).length,0);
+ }finally{await runtime.close();}
 });
 test('execution requires explicit operator configuration and still cannot bypass paused controls or a real backup proof',async t=>{
  const f=fixture(t);for(const extra of [{mode:'execute'},{mode:'execute',explicitExecutionApproval:true},{mode:'execute',explicitExecutionApproval:true,feedToken:'short'}])assert.throws(()=>openServerPerpsRuntime({...f.options,...extra}));

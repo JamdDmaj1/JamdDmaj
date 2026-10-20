@@ -1618,3 +1618,54 @@ The full local test glob exited 0 with existing optional/platform skips.
 No production migration, installed-worker replacement, app release, real
 financial signing/submission or bot activation occurred; actual health still
 reports controls-only, tradingEnabled=false and executionAvailable=false.
+
+### Live unsigned boundary and exclusive-wallet funds display (2026-10-20 UTC)
+
+Read-only mainnet account inspection confirmed the approved exclusive bot wallet
+has zero USDC, zero SOL and no open positions. An unsigned 10-USDC SOL-short
+preparation request returned HTTP 422 simulation_error, Anchor 3012 specifically
+on funding_account (AccountNotInitialized). A smaller USDC diagnostic on the
+owner's separately funded main wallet returned collateral_size_below_minimum
+and explicitly required at least $10 collateral for new positions. No deposit,
+activation, owner signature, financial execute endpoint or on-chain submission
+was performed. These are concrete compatibility/funding boundaries, not a
+successful complete futures rehearsal.
+
+A separate SOL-funded main-wallet diagnostic returned HTTP 200 and passed the
+three-signature structural decoder. Its native SOL system transfer was rejected
+by the existing USDC-only server capability policy as designed. That diagnostic
+does not establish USDC intent/funding correctness or justify permitting generic
+system transfers. No wire was persisted and production minimums were not lowered.
+Reference: https://perps-api.jup.ag/v2/docs (versioned request contract still uses
+the documented /v1/positions/increase endpoint and x-perps-api-version: v2).
+
+Authenticated automation GET now optionally projects a fresh independently
+branded native account snapshot for the wallet in the verified owner's durable
+controls. Unknown sessions, foreign-wallet reads and denied quotas cannot invoke
+the funding reader. RPC failure, copied evidence or mismatched identity yields
+an explicit funds-unavailable object without invented zero balances. Replies
+expose only public balance units, configured margin, chain observation and
+insufficient-collateral information, never private recovery material or trading
+authority. fundingAvailable and readyForSigning remain false even if collateral
+is sufficient. Existing authentication, custody approval, risk and activation
+gates are unchanged; no new identity provider was installed.
+
+The client binds balances to its returned wallet and configured margin, checks
+integer units and rejects forged readiness or contradictory sufficient-funds
+flags. The automation header now shows that actual exclusive-wallet USDC
+snapshot, while the server section gives SOL and margin context. Refresh,
+changed settings or failed requests clear the previous display; unavailable
+balances remain unknown rather than borrowing the main/Phantom wallet balance.
+This was guided by the authentication skill's server-side ownership/session
+verification principle, keeping the established JamdDmaj session ledger.
+
+Four selected cases passed on VPS Node 22 with DynamicUser and PrivateNetwork,
+no skips. They include the actual composed runtime -> authenticated API ->
+fixed-origin client -> panel path, only mocked unfunded read-only RPC responses,
+ownership denial, bad metadata and no financial transport. Artifacts:
+`/opt/jamddmaj-perps/checks/exclusive-funds-status-20261020/`.
+The full local test glob and web build exited 0 (existing optional/platform
+test skips remain). These source/UI changes are not published or installed.
+Production schema migration, current unsigned full-amount USDC compatibility,
+pending fee allowances, native/manual execution and final publication still
+require verification; no complete execution-readiness claim is made.

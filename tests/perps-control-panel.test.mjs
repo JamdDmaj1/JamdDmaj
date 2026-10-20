@@ -15,6 +15,17 @@ test('server controls connect only on explicit click and saving or pausing never
  await f.save.onclick();await f.pause.onclick();assert.equal(actions[0],'read');assert.equal(actions[1].expectedRevision,'server-revision');assert.equal(actions[1].settings.margin,20);
  assert.deepEqual(actions[2],{walletAddress:'exclusive-public-wallet'});assert.match(f.status.textContent,/no la activa/);
 });
+
+test('exclusive bot funds show exact token amounts separately from main wallet and disappear after failed refresh or changed limits',async()=>{
+ let fail=false;const f=fixture({readStatus:async()=>{if(fail)throw Error('private');return {controls:state,recovery:{backupVerified:true},funding:{stage:'OBSERVED_EXCLUSIVE_WALLET_FUNDS',
+  availableUsdcUnits:'5141387',payerLamports:'144669689',configuredMarginUsdcUnits:'20000000',hasConfiguredCollateral:false}};},save:async()=>state});
+ await f.connect.onclick();assert.match(f.funds.textContent,/5\.141387 USDC/);assert.match(f.funds.textContent,/0\.144669689 SOL/);
+ assert.match(f.funds.textContent,/no cubre el margen/);assert.match(f.funds.textContent,/No deposites/);
+ await f.save.onclick();assert.equal(f.funds.textContent,'');
+ await f.connect.onclick();fail=true;await f.connect.onclick();assert.equal(f.funds.textContent,'');
+ const unknown=fixture({readStatus:async()=>({controls:state,funding:null})});await unknown.connect.onclick();assert.match(unknown.funds.textContent,/no verificado/);
+ assert.doesNotMatch(unknown.funds.textContent,/0 USDC/);
+});
 test('missing exclusive wallet, connection failures and uncertain pause do not show a funded or stopped bot',async()=>{
  const empty=fixture({read:async()=>null});await empty.connect.onclick();assert.equal(empty.save.disabled,true);assert.match(empty.status.textContent,/aún no tiene/);
  const failed=fixture({read:async()=>state,pause:async()=>{throw Error('private detail');}});await failed.connect.onclick();await failed.pause.onclick();

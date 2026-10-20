@@ -23,6 +23,21 @@ test('app control client uses fixed HTTPS and the existing session, never sends 
  assert.equal(f.client.activate,undefined);assert.equal(typeof f.client.provision,'function');assert.equal(f.client.sign,undefined);
 });
 
+test('observed bot balances are bound to returned ownership and configured margin without accepting financial readiness',async()=>{
+ const funding={walletAddress:wallet,stage:'OBSERVED_EXCLUSIVE_WALLET_FUNDS',availableUsdcUnits:'25000000',payerLamports:'10000000',configuredMarginUsdcUnits:'20000000',
+  hasConfiguredCollateral:true,observedAt:123,observedSlot:500000,fundingAvailable:false,readyForSigning:false};
+ const result=await fixture({reply:()=>Response.json({ok:true,controls:state,funding})}).client.readStatus();
+ assert.deepEqual(result.funding,funding);assert.equal(Object.isFrozen(result.funding),true);
+ for(const changed of [{walletAddress:'11111111111111111111111111111111'},{configuredMarginUsdcUnits:'10000000'},{hasConfiguredCollateral:false},
+  {availableUsdcUnits:'-1'},{availableUsdcUnits:'18446744073709551616'},{payerLamports:1},{observedSlot:-1},{readyForSigning:true},{fundingAvailable:true}]){
+  await assert.rejects(()=>fixture({reply:()=>Response.json({ok:true,controls:state,funding:{...funding,...changed}})}).client.readStatus());
+ }
+ const unknown={walletAddress:wallet,stage:'EXCLUSIVE_WALLET_FUNDS_UNAVAILABLE',fundingAvailable:false,readyForSigning:false};
+ assert.deepEqual((await fixture({reply:()=>Response.json({ok:true,controls:state,funding:unknown})}).client.readStatus()).funding,unknown);
+ await assert.rejects(()=>fixture({reply:()=>Response.json({ok:true,controls:state,funding:{...unknown,availableUsdcUnits:'0'}})}).client.readStatus());
+ assert.equal((await fixture().client.readStatus()).funding,null);
+});
+
 test('explicit custody setup requires consent, protocol sizing and server capability before an authenticated mutation',async()=>{
  const f=fixture();assert.throws(()=>f.client.provision({settings}),/custody-approval-required/);
  assert.throws(()=>f.client.provision({settings:{...settings,margin:5},explicitCustodyApproval:true}),/invalid-settings/);assert.equal(f.calls.length,0);

@@ -13,6 +13,7 @@ import {validateAutomationSettings,validatePerpsAutomationForm} from '../lib/aut
 import {authenticateTrial} from '../lib/web-trial-session.js';
 import {hashIdentifier} from '../lib/server.js';
 import {fixtureWallet as walletAddress,fixtureNow as now} from './helpers/perps-history-fixture.mjs';
+import {readServerPerpsAccount} from '../lib/perps-server-account.js';
 const owner='a'.repeat(64),otherOwner='b'.repeat(64),token='c'.repeat(64),otherToken='d'.repeat(64),settings={capital:100,loss:50,positions:2,margin:20,leverage:3,dailyTrades:3};
 async function fixture(t,overrides={}){
  const dir=mkdtempSync(join(tmpdir(),'jamd-perps-api-')),controls=openPerpsAutomationControls(join(dir,'controls.sqlite'),{now:()=>now});
@@ -34,6 +35,26 @@ test('verified session identity, not JSON identity, governs ownership and all re
  const foreign=await f.handler(new Request('https://executor.example/v1/automation?walletAddress='+walletAddress,{headers:{Authorization:'Bearer '+otherToken}}));
  assert.equal(foreign.status,403);assert.equal((await foreign.json()).error.code,'controls-unavailable');
  const forged=await f.handler(request({action:'pause',walletAddress,ownerAccountHash:owner}));assert.equal(forged.status,400);
+});
+
+test('exclusive funding status uses fresh native owner-bound evidence and never equates unknown with zero or trading authority',async t=>{
+ let reads=0,mode='zero';
+ const account=await readServerPerpsAccount({walletAddress},{now:()=>now,request:async method=>{
+  if(method==='getGenesisHash')return '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
+  if(method==='getMultipleAccounts')return {context:{slot:500000},value:Array(8).fill(null)};
+  throw Error('unexpected read');
+ }});
+ const f=await fixture(t,{readFundingAccount:async who=>{reads++;assert.equal(who.ownerAccountHash,owner);assert.equal(who.walletAddress,walletAddress);
+  if(mode==='error')throw Error('private RPC credential');return mode==='copy'?{...account}:account;
+ }});
+ const read=authorization=>f.handler(new Request('https://executor.example/v1/automation?walletAddress='+walletAddress,{headers:authorization?{Authorization:'Bearer '+authorization}:{}}));
+ assert.equal((await read()).status,401);assert.equal((await read(otherToken)).status,403);assert.equal(reads,0);
+ const response=await read(token),body=await response.json();assert.equal(response.status,200);assert.equal(body.funding.availableUsdcUnits,'0');
+ assert.equal(body.funding.payerLamports,'0');assert.equal(body.funding.configuredMarginUsdcUnits,'20000000');assert.equal(body.funding.hasConfiguredCollateral,false);
+ assert.equal(body.funding.readyForSigning,false);assert.equal(body.funding.fundingAvailable,false);assert.equal(body.controls.enabled,false);
+ for(mode of ['error','copy']){const value=await (await read(token)).json();assert.equal(value.funding.stage,'EXCLUSIVE_WALLET_FUNDS_UNAVAILABLE');
+  assert.equal(Object.hasOwn(value.funding,'availableUsdcUnits'),false);assert.equal(JSON.stringify(value).includes('credential'),false);}
+ assert.equal(f.controls.readForOwner({ownerAccountHash:owner}).revision,f.first.revision);
 });
 
 test('public feature discovery does not let one signed-in account read or change another account controls',async t=>{
