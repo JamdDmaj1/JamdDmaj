@@ -2712,3 +2712,95 @@ https://solana.com/docs/rpc/json-structures. The existing public close oracle
 extension discrepancy, signed close lifecycle/journal transitions, protected
 conversion, complete fees/recovery/native integration and publication still
 remain. The goal is not complete; live production code/state is unchanged.
+
+### Minimum-protected standalone conversion, 2026-10-20
+
+The proposed Swap2 second-leg route was constructed and simulated unsigned
+against a public third-party wallet. No owner/keeper/API key was requested,
+loaded or used, and no transaction was sent. The initial prototype succeeded
+with a positive minimum, while a separate high-minimum diagnostic was rejected
+by the native program at swap2.rs:248, code 6020 InsufficientAmountReturned.
+Its initial before/simulation banks differed, so that first observation was not
+accepted as wallet-conservation proof. The high-minimum controls also ran in
+different banks from their base cases; do not describe them as same-bank causal
+comparisons.
+
+`perps-close-conversion-wire.js` now constructs this fixed route with one EMPTY
+owner signature, independent decoded source/USDC custodies and derived owner
+ATAs / pool authorities. It encodes exact u64 amountIn and mandatory positive
+minAmountOut. Native SOL input uses explicit ATA creation, exact SOL transfer,
+SyncNative and optional owner-only cleanup; token input never spends native SOL
+except fees/rent. It has no arbitrary router, lookup tables, ledger, API signer,
+tip, signer service or submission call. A frozen private construction proof
+prevents a copied/altered result from being used by its simulator. A separate
+integer-only rounding helper computes an inward minimum using sold-token lower
+USD and USDC upper USD oracle bounds; it never assumes a fixed one-dollar USDC.
+Caller-supplied prices to this pure helper are not authenticated evidence.
+
+`perps-close-conversion-simulation.js` now validates the exact constructed wire
+using bounded read-only mainnet transport. It requires native blockhash/height
+liveness, exact-message fee, bounded compute and up to three paired before /
+simulation attempts of the SAME unsigned wire. A failed simulation is never
+retried or given a replacement blockhash. A bank mismatch discards both sides.
+In a shared bank it checks:
+
+- derived, mint-bound DOVES aggregate ownership/configuration, unchanged oracle
+  state, fresh prices and an independently enforced minimum (maximum 100 bps);
+- unchanged native custody configuration, reserve/guaranteed/short exposure
+  totals, stable pool rent/identity and legacy token authority/metadata;
+- exact source-vault credit, USDC-vault debit and owner USDC increment;
+- only the requested source-token decrease / native SOL wrapping, preservation
+  of existing WSOL and unsynchronized excess, explicit cleanup and exact ATA rent;
+- exact owner SOL conservation after input, message fee, locked/refunded rent.
+
+Successful effects still explicitly require finalized-proceeds and durable
+close-journal binding, fresh signing revalidation and explicit authorization.
+No signing or durable financial transition was introduced by these modules.
+In particular, this does NOT authorize converting a wallet's entire balance or
+substituting the close quote estimate for its independently finalized return.
+
+Observed public probes of the real library code:
+
+- Native constructor: source 459406745 / oracle 459406747 / paired bank
+  459406750 (two read-only attempts). Input 100000 lamports, compiled minimum
+  10543 microUSDC, simulated USDC delta 10601, message fee 5400 lamports.
+- Extended manual conservation diagnostic: source/oracle 459407916 / paired bank
+  459407917. Input 100000, minimum 10531, USDC return/debit 10591, source-vault
+  credit 100000, zero locked/refunded rent, owner SOL delta -105400; all checked.
+- Real production simulator module: source 459410989 / oracle 459410990 / paired
+  bank 459410993 (one attempt). Compiled minimum 10532, independent bank-price
+  minimum 10531, USDC return 10590, fee 5400, zero rent, owner SOL delta -105400.
+  Result PROTECTED_CONVERSION_EFFECTS_SIMULATED, readyForSigning false. A
+  high-minimum control of 1053200 at 459410995 was rejected as
+  PERPS_CONVERSION_MINIMUM_NOT_MET (native 6020), not retried.
+
+The final simulator run uses 99 bps when constructing the quote bound and checks
+against 100 bps in the simulation bank, leaving a 1 bp unsigned-read headroom
+without widening the independently enforced limit. A larger market move still
+fails. No oracle-update instruction is included in this swap wire: it consumes
+fresh cached native aggregate feeds read-only, so it does not rely on ignoring
+the unresolved first-leg Lazer extension mutations. That first-leg guard has
+not been relaxed or removed.
+
+Remaining integration includes binding the exact finalized first-leg receipt
+and current signed journal record to this second-leg amount, durable close /
+conversion signing and uncertain-receipt states, custody authorizations, final
+USDC receipt accounting, daily risk/fees, native review and end-to-end release.
+The first-leg oracle issue also remains. These successful unsigned public
+simulations are not an owned-wallet or bot execution test and do not establish
+that the app can yet execute the full workflow. No deployment or activation
+has occurred; production state and the active goal remain unchanged.
+
+Verification for these conversion modules: the full local test glob exited zero.
+The VPS Node 22 isolated expanded bundle completed 108 tests: 107 passed, one
+Windows-only ACL test skipped, zero failures. The nine new constructor/effects
+tests cover all supported asset inputs, native/token SOL, native IDL roles,
+exact u64 amounts, mandatory minimum, no extra signer/router, depeg-aware inward
+rounding, same-bank pairing, no retry of native errors, old balances, newly
+created ATAs, rent, WSOL excess and adversarial fee/oracle/custody effects.
+Artifact `/opt/jamddmaj-perps/checks/close-conversion-20261020/tests/test.mjs`,
+SHA-256 b790325e28731bf3c321c4d8c2b9d2866bb893e1bb325ae6846fffc48ba50ab3;
+unit `jamddmaj-close-conversion-check-20261020`, PrivateNetwork/PrivateTmp,
+DynamicUser, ProtectHome/ProtectSystem=strict, no production state directories.
+This is neither a worker deployment nor permission to trade. No active process
+from these checks remains after the successful test unit exited.

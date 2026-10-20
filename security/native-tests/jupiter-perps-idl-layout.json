@@ -29,6 +29,17 @@
     "swapWithTokenLedger": {"discriminatorHex": "8b8deec529d3ac13", "bytes": 16, "minimumOutOffset": 8, "accounts": ["owner", "fundingAccount", "receivingAccount", "transferAuthority", "perpetuals", "pool", "receivingCustody", "receivingCustodyDovesPriceAccount", "receivingCustodyTokenAccount", "dispensingCustody", "dispensingCustodyDovesPriceAccount", "dispensingCustodyTokenAccount", "tokenLedger", "tokenProgram", "instruction", "eventAuthority", "program"]},
     "observedFinalizedClose": {"slot": 459191845, "signature": "5eCUbVqkL9sVM6xooWGBDC3ixBZ9Be7ioutazcNz13GCQDkPXTKKShHLwxzDiCqbMAMMTqdVKxeT8mFQmQKEF43j", "perpsInstructionTags": ["e455b9704e4f4d02", "2e17f02c1e8a5e8c", "8b8deec529d3ac13"], "collateralMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", "finalReceiveMint": "So11111111111111111111111111111111111111112", "note": "Public third-party finalized history observed read-only, not an owned-wallet integration test or authorization to receive SOL in the USDC close path."}
   },
+  "closeConversionSwap2Layout": {
+    "source": "Confirmed program-owned mainnet Anchor IDL, 2026-10-20",
+    "slot": 459402097,
+    "idlSha256": "1d90a653a1cc88bddb7c5876acee52d3f26c6b1e3306e0833234020dc6f7d653",
+    "discriminatorHex": "414b3f4ceb5b5b88",
+    "bytes": 24,
+    "amountInOffset": 8,
+    "minimumOutOffset": 16,
+    "accounts": ["owner", "fundingAccount", "receivingAccount", "transferAuthority", "perpetuals", "pool", "receivingCustody", "receivingCustodyDovesPriceAccount", "receivingCustodyPythnetPriceAccount", "receivingCustodyTokenAccount", "dispensingCustody", "dispensingCustodyDovesPriceAccount", "dispensingCustodyPythnetPriceAccount", "dispensingCustodyTokenAccount", "tokenProgram", "eventAuthority", "program"],
+    "unsignedDiagnostic": {"sourceSlot": 459406745, "pairedBeforeAndSimulationSlot": 459406750, "minimumUsdcUnits": "10543", "simulatedUsdcDelta": "10601", "inputLamports": "100000", "feeLamports": "5400", "highMinimumControlSlot": 459406751, "highMinimumUsdcUnits": "1054300", "highMinimumError": 6020, "sameBankControlComparison": false, "signaturesAdded": false, "transactionsSent": false, "notAuthorization": true}
+  },
   "fullCloseInstructionLayout": {
     "source": "Confirmed program-owned mainnet Anchor IDL, 2026-10-20",
     "slot": 459186694,
