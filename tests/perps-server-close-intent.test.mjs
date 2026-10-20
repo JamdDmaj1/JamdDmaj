@@ -65,7 +65,7 @@ function core(version=1,patch={}){
 test('full close plans exactly one chain-owned position for USDC without increasing exposure or authorizing',async()=>{
  for(const asset of ['BTC','ETH','SOL'])for(const side of ['LONG','SHORT']){
   const f=await fixture(side,asset),plan=planServerPerpsFullClose(f.account,f.options);
-  assert.deepEqual(plan.body,{positionPubkey:f.options.positionAddress,receiveToken:'USDC',entirePosition:true,maxSlippageBps:'50'});
+  assert.deepEqual(plan.body,{positionPubkey:f.options.positionAddress,receiveToken:'USDC',entirePosition:true,maxSlippageBps:'49'});
   assert.equal(plan.readyForSigning,false);assert.equal(plan.side,side);assert.equal(plan.asset,asset);
   assert.equal(plan.priceLimitUsdUnits,side==='LONG'?'99500000':'100500000');
   assert(Object.isFrozen(plan));assert(Object.isFrozen(plan.body));
@@ -84,6 +84,30 @@ test('forged, copied, expired, absent, foreign and stale-slot plans fail before 
  assert.throws(()=>checkServerPerpsFullCloseCore(core(),{...plan},now));
  f.expire();assert.throws(()=>requireFreshServerPerpsFullClosePlan(plan));
  assert.throws(()=>planServerPerpsFullClose(f.account,f.options));
+});
+
+test('tighter builder quote absorbs small independent price drift without widening the absolute close limit',async()=>{
+ for(const side of ['LONG','SHORT']){
+  const f=await fixture(side);
+  for(const bps of [1,2,50,100]){
+   const plan=planServerPerpsFullClose(f.account,{...f.options,maxSlippageBps:bps});
+   assert.equal(plan.maxSlippageBps,bps);
+   assert.equal(plan.body.maxSlippageBps,String(Math.max(1,bps-1)));
+   const limit=BigInt(plan.priceLimitUsdUnits);
+   assert.doesNotThrow(()=>checkServerPerpsFullCloseCore(core(1,{price:limit}),plan,now));
+   assert.throws(()=>checkServerPerpsFullCloseCore(core(1,{price:limit+(side==='LONG'?-1n:1n)}),plan,now),/PERPS_CLOSE_CORE_PRICE/);
+  }
+ }
+ // Actual public unsigned diagnostic on 2026-10-20: asking for
+ // 50 bps against a slightly newer price produced 105817864, below the
+ // independently authorized sell floor 105818155. Do not accept that wire.
+ const f=await fixture(),plan=planServerPerpsFullClose(f.account,{...f.options,referencePrice:'106.349904'});
+ assert.equal(plan.priceLimitUsdUnits,'105818155');
+ assert.throws(()=>checkServerPerpsFullCloseCore(core(1,{price:105817864n}),plan,now),/PERPS_CLOSE_CORE_PRICE/);
+ // 49 bps against the same inferred builder price (106349612 microUSD)
+ // remains inside the original 50 bp authorization, not a new wider limit.
+ const tighterPrice=106349612n*9951n/10000n;
+ assert.doesNotThrow(()=>checkServerPerpsFullCloseCore(core(1,{price:tighterPrice}),plan,now));
 });
 test('core rejects partial closes, oversized deltas, altered tags, noncanonical/trailing bytes and signed-time abuse',async()=>{
  const f=await fixture(),plan=planServerPerpsFullClose(f.account,f.options);

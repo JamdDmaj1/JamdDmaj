@@ -2295,3 +2295,51 @@ submission, Android build or publication occurred. The unsuccessful unsigned
 public probe, remaining economics/oracle validation, independent return risk,
 durable closing/finalization, native confirmation, fee budgeting and final
 publication/audit still need completion. The goal is not achieved.
+
+### Public unsigned close compatibility and conservative quote headroom (2026-10-20)
+
+A fresh public-example diagnostic now identified the former generic rejection
+as PERPS_CLOSE_CORE_PRICE, not a clock, size or whole-position mismatch.
+The independently read SOL reference was 106.349904 USD, its 50 bp sell floor
+105818155 microUSD, and the provider encoded 105817864 microUSD. The original
+wire remains rejected: there is no exception for a small mismatch.
+
+The official decrease endpoint supports maxSlippageBps but has no absolute
+price-limit request field (https://perps-api.jup.ag/v2/docs). Its price can
+change between the caller's reference read and preparation. The planner now
+requests one basis point less than the caller permits, floored at 1 bp. This
+provides conservative quote headroom; it does not rebase or widen the caller's
+independently calculated absolute limit. For an input of 1 bp there is no
+headroom. Larger movement still rejects and there is no automatic builder
+retry. A regression covers both directions and 1/2/50/100 bp limits, one-unit
+boundary rejection, and the actual observed mismatch above.
+
+Three separate public unsigned preparations were made during this diagnostic
+turn: the original mismatch, a post-change response rejected by the strict
+envelope gate (the diagnostic's extra decoder also threw; no precise signature
+failure was retained), and a final bounded independent preparation. The
+envelope guard was not relaxed. No raw response/wire was persisted.
+
+The final public reference read was at confirmed slot 459325579 with SOL
+106.287604 USD, position 5vupiyvpiPdTUiDR98zfxA3sLHZvmpBUcB51WuQWbkLs.
+The complete prepareSimulatedServerPerpsFullClose path returned
+FULL_CLOSE_SIMULATED_WALLET_ONLY: one builder response (1111 bytes), exactly
+three signature slots, owner and keeper empty, API cosignature present and
+structurally verified. Two same-wire read-only simulations returned no error;
+the same-bank retry mechanism was used, not another build or broadcast. The
+coordinator's account bindings, oracle capabilities, wallet funding, vault
+conservation and exact reserve-release gates all passed. Owner signatures
+created=0, transactions submitted=0, readyForSigning=false. This is public
+compatibility evidence, NOT an owned-wallet trade, confirmed payout, complete
+economic/oracle validation, native close confirmation or production readiness.
+
+Forty-six close/position tests passed locally (exit 0). The complete local
+`node --test --test-reporter=dot tests/*.test.mjs` also exited zero after the
+change. Source tracing confirms the close coordinator is still not imported
+by the production runtime or connected to native UI; the first end-to-end
+boundary remains incomplete. Do not interpret the public simulation as app
+readiness. Production was not
+changed. A separate read-only backup-registry check confirmed the approved bot
+wallet's ACCEPTED restore record; health still reports controls-only,
+tradingEnabled=false and executionAvailable=false. Remaining close accounting,
+native authorization, complete final audit and publication are still required.
