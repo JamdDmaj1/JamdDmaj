@@ -4,6 +4,13 @@
   "program": "PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu",
   "slot": 458207867,
   "idlSha256": "1d90a653a1cc88bddb7c5876acee52d3f26c6b1e3306e0833234020dc6f7d653",
+  "closeReserveAccountingLayout": {
+    "source": "Confirmed program-owned mainnet Anchor IDL, 2026-10-20",
+    "slot": 459311182,
+    "position": {"realisedPnlUsd": {"offset": 177, "type": "i64"}, "cumulativeInterestSnapshot": {"offset": 185, "type": "u128"}, "lockedAmount": {"offset": 201, "type": "u64"}},
+    "custodyAssets": {"offset": 214, "fields": ["feesReserves:u64", "owned:u64", "locked:u64", "guaranteedUsd:u64", "globalShortSizes:u64", "globalShortAveragePrices:u64"]},
+    "custodyFunding": {"cumulativeInterestRate": {"offset": 262, "type": "u128"}, "lastUpdate": {"offset": 278, "type": "i64"}}
+  },
   "closeOracleContextLayout": {
     "source": "Confirmed program-owned DOVES Anchor IDL and aggregate/price accounts, 2026-10-20",
     "idlAccount": "4D2RLxRVWjGUp7E45noWC6x7BfmSQbQ4mQevHvTV5ai6",

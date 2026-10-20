@@ -2212,3 +2212,86 @@ Android build or app publication occurred. Pool-economic/oracle-price effects,
 independent minimum-return risk, durable close/finalization, native confirmation,
 pending-fee budget, actual funded unsigned compatibility and final publication/
 audit still require completion. No signer consumes this conservation-only result.
+
+### Reserve release, same-bank snapshots and an unsuccessful public unsigned probe (2026-10-20)
+
+A fresh confirmed program-owned Perps IDL read at slot 459311182 retained the
+recorded raw IDL hash. Position decoding now preserves realisedPnlUsd (signed
+i64), cumulativeInterestSnapshot (full u128) and lockedAmount (u64), without
+floating-point rounding. The native layout offsets and the custody Assets /
+FundingRateState offsets are in the security fixture. Official account
+semantics were reviewed at:
+https://developers.jup.ag/docs/perps/position-account and
+https://developers.jup.ag/docs/perps/custody-account. A retained closed position
+must clear its size, collateral, locked reserve and realized-PNL record.
+
+`lib/perps-server-close-reserves.js` consumes the private vault/simulation proof
+of the same close. The collateral custody must release exactly the selected
+position's locked token amount. Other custodies' locked reserves cannot change.
+A SHORT removes precisely its size from the market custody's aggregate short
+size; unrelated short exposure cannot change. Unrelated short-average values
+are preserved, interest counters/timestamps cannot regress, and the selected
+position's interest snapshot cannot be ahead of its collateral custody. This
+does not reconstruct guaranteedUsd, complete ownership/fees/PnL accounting or
+the SHORT weighted-average formula. Those remaining economics/oracle effects
+are explicitly not marked complete, and no financial authority is produced.
+
+Review also exposed a consistency flaw in the earlier close simulator: merely
+nondecreasing context slots did not make pre-state and simulated post-state
+the same bank. Other traders' activity between those banks could contaminate
+vault/exposure deltas. The previous synthetic successes were not proof of
+live same-bank conservation. The close simulator now gets the exact-message
+fee first, then requests pre-state and exact-wire simulation concurrently at
+confirmed commitment. It accepts a pair only when both context slots match.
+Mismatched pairs are discarded; at most three read-only pairs are attempted,
+with the same original wire/blockhash and the existing freshness/compute/fee
+limits. Simulation errors are not retried. Failure to pair yields
+PERPS_CLOSE_SNAPSHOT_BANK_CHANGED, not a signing-ready result. Private evidence
+records both slots, and the vault gate independently requires their equality.
+This is RPC confirmed-bank consistency, not a new cryptographic account-state
+proof. RPC interfaces reviewed:
+https://solana.com/docs/rpc/http/getmultipleaccounts and
+https://solana.com/docs/rpc/http/simulatetransaction.
+
+For a bounded compatibility diagnostic, public finalized history was queried
+read-only. The primary shared RPC failed during transaction discovery; an
+officially documented PublicNode mainnet endpoint was used only for secondary
+history lookup after checking genesis. Native account state still came from
+the primary RPC; production RPC configuration was not changed. The public
+source transaction was
+`4qsuChmK8N6NirL8CXTZoYxoQdzNrKCJ4rm2sDXj1dBQ4Q3gbXiFT8mPk4vuzyS4YMzwBA5TeWZG3P1fyNe26v2X`.
+It is not an owned account or evidence of a completed trade.
+
+Exactly one unsigned /v1/positions/decrease preparation was requested for a
+public example, not the owner's wallet or bot wallet. Its Perps tags were
+setTokenLedger / instantDecreasePosition / swapWithTokenLedger. The local
+core-intent validator rejected it with PERPS_CLOSE_INTENT_MISMATCH before any
+simulateTransaction call: unsigned builds=1, live simulations=0, owner signatures
+created=0, transactions submitted=0. The response/unsigned wire was not persisted.
+Thus funded unsigned compatibility remains unproven. The precise failing field
+was not captured; no price/size/time conclusion is inferred. A local-vs-chain
+Clock observation showed one second of skew at that sample, not a broad clock
+accuracy guarantee. Core errors now distinguish encoding, whole-position,
+size, price and time, without changing any acceptance limit. The next diagnostic
+must identify the actual mismatch, not weaken a guard to pass this example.
+
+Forty-five focused tests (close and position suites) passed locally and as a
+bundle under the isolated VPS unit jamddmaj-close-reserves-check-20261020
+(45/45, exit 0; DynamicUser, PrivateNetwork, ProtectHome, ProtectSystem=strict,
+NoNewPrivileges, 384 MiB limit; no private custody state access). The full local
+test glob after runtime changes also exited zero; the final layout assertions
+were included in the bundled run. Bundle:
+`/opt/jamddmaj-perps/checks/close-reserves-20261020/tests/test.mjs`, SHA-256
+`68d26b5bccb61a7ae491ec40c41eff120e149051603da6719c53f7fe94f523ed`.
+Tests cover six market/direction paths, one-unit reserve/exposure errors,
+interest regression, retained reserve/PNL, u128 precision, distinct core error
+reasons, same-bank pairing, bounded retries of reads only and no retry of a
+simulation error. These fixtures do not prove a successful live close.
+
+Production worker/HTTPS remained active and health controls-only,
+tradingEnabled=false, executionAvailable=false. No worker deployment/restart,
+secret change, account activation, owner/keeper financial signature, execution
+submission, Android build or publication occurred. The unsuccessful unsigned
+public probe, remaining economics/oracle validation, independent return risk,
+durable closing/finalization, native confirmation, fee budgeting and final
+publication/audit still need completion. The goal is not achieved.

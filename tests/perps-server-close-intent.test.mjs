@@ -14,6 +14,7 @@ import {buildUnsignedServerPerpsFullClose,prepareSimulatedServerPerpsFullClose} 
 import {checkServerPerpsFullCloseInstructionPolicy,readServerPerpsFullClosePolicy} from '../lib/perps-server-close-policy.js';
 import {readServerPerpsCloseOracles,readServerPerpsCloseOracleContext,CLOSE_DOVES_PROGRAM,CLOSE_PYTH_LAZER} from '../lib/perps-close-oracle-context.js';
 import {checkServerPerpsFullCloseVaults,readServerPerpsFullCloseVaults} from '../lib/perps-server-close-vaults.js';
+import {checkServerPerpsFullCloseReserves,readServerPerpsFullCloseReserves} from '../lib/perps-server-close-reserves.js';
 const wallet=bs58.encode(Buffer.alloc(32,1)),now=1802865600;
 test('both close data layouts match the recorded confirmed program-owned Anchor IDL',()=>{
  const idl=JSON.parse(readFileSync(new URL('../security/native-tests/jupiter-perps-idl-layout.json',import.meta.url),'utf8'));
@@ -32,6 +33,9 @@ test('both close data layouts match the recorded confirmed program-owned Anchor 
  assert.equal(idl.closeOracleContextLayout.aggregate.lazerFeedOffset,202);
  assert.equal(idl.closeOracleContextLayout.program,CLOSE_DOVES_PROGRAM);
  assert.equal(idl.closeOracleContextLayout.pythLazer.treasury,CLOSE_PYTH_LAZER.treasury);
+ assert.equal(idl.closeReserveAccountingLayout.position.lockedAmount.offset,201);
+ assert.equal(idl.closeReserveAccountingLayout.position.cumulativeInterestSnapshot.type,'u128');
+ assert.equal(idl.closeReserveAccountingLayout.custodyAssets.offset,214);
 });
 async function fixture(side='LONG',asset='SOL'){
  const ids=await deriveServerPerpsIdentities({walletAddress:wallet,asset,side}),data=Buffer.alloc(210);
@@ -39,6 +43,7 @@ async function fixture(side='LONG',asset='SOL'){
  for(const [offset,key]of [[8,wallet],[40,PERPS_POOL],[72,PERPS_CUSTODIES[asset].address],[104,PERPS_CUSTODIES[side==='LONG'?asset:'USDC'].address]])Buffer.from(bs58.decode(key)).copy(data,offset);
  data.writeBigUInt64LE(1000n,136);data.writeBigUInt64LE(1001n,144);data[152]=side==='LONG'?1:2;
  data.writeBigUInt64LE(100000000n,153);data.writeBigUInt64LE(30000000n,161);data.writeBigUInt64LE(10000000n,169);data[209]=ids.positionBump;
+ data.writeBigUInt64LE(1000n,185);data.writeBigUInt64LE(side==='LONG'?3n*10n**BigInt(PERPS_CUSTODIES[asset].decimals-1):30000000n,201);
  let elapsed=0;
  const request=async(method,params)=>{
   if(method==='getGenesisHash')return '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
@@ -258,27 +263,28 @@ async function simulationFixture(side='SHORT',minimumOut=0n,asset='SOL'){
  }
  const before=new Map([[wallet,{owner:SYSTEM,executable:false,lamports:180000000,data:['','base64']}],[f.recipient,token(1000000n)],[f.ids.position,f.nativePositionAccount]]);
  const after=new Map([[wallet,{owner:SYSTEM,executable:false,lamports:179995000,data:['','base64']}],[f.recipient,token(9000000n)],[f.ids.position,null]]);
- const response={context:{slot:106},value:{err:null,unitsConsumed:400000,accounts:null}},calls=[];
+ const response={context:{slot:105},value:{err:null,unitsConsumed:400000,accounts:null}},calls=[];
  const request=async(method,params)=>{
   calls.push({method,params});
   if(method==='getGenesisHash')return '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
   if(method==='getSlot')return 103;
   if(method==='getBlockHeight')return 500;
-  if(method==='getMultipleAccounts')return {context:{slot:104},value:params[0].map(address=>before.get(address)??null)};
+  if(method==='getMultipleAccounts')return {context:{slot:105},value:params[0].map(address=>before.get(address)??null)};
   if(method==='getFeeForMessage')return {context:{slot:105},value:5000};
   assert.equal(method,'simulateTransaction');assert.equal(params[0],preparation.serializedTxBase64);
-  assert.equal(params[1].sigVerify,false);assert.equal(params[1].replaceRecentBlockhash,false);assert.equal(params[1].minContextSlot,105);
+  assert.equal(params[1].sigVerify,false);assert.equal(params[1].replaceRecentBlockhash,false);assert(params[1].minContextSlot>=105);
   return {...response,value:{...response.value,accounts:response.value.accounts??params[1].accounts.addresses.map(address=>after.get(address)??null)}};
  };
  return {...f,preparation,inspection,before,after,response,calls,request,token};
 }
 test('exact-wire close simulation proves position removal and actual owner USDC increase without signing authority',async()=>{
  const f=await simulationFixture(),result=await simulateServerPerpsFullCloseEffects(f.inspection,{request:f.request});
- assert.equal(result.receivedUsdcUnits,'8000000');assert.equal(result.feeLamports,'5000');assert.equal(result.observedSlot,106);
+ assert.equal(result.receivedUsdcUnits,'8000000');assert.equal(result.feeLamports,'5000');assert.equal(result.observedSlot,105);
  assert.equal(result.readyForSigning,false);assert.equal(result.tradingEnabled,false);assert.equal(result.requiresFundingRentAndOtherAccountChecks,true);
  const proof=readServerPerpsFullCloseSimulation(result);assert.equal(proof.wire,f.preparation.serializedTxBase64);
  assert.equal(proof.after[f.ids.position],null);assert(Object.isFrozen(proof.before));
- assert.deepEqual(f.calls.map(call=>call.method),['getGenesisHash','getSlot','getBlockHeight','getMultipleAccounts','getFeeForMessage','simulateTransaction','getBlockHeight','getGenesisHash']);
+ assert.equal(proof.beforeSlot,proof.simulationSlot);assert.equal(result.snapshotBankAttempts,1);
+ assert.deepEqual(f.calls.map(call=>call.method),['getGenesisHash','getSlot','getBlockHeight','getFeeForMessage','getMultipleAccounts','simulateTransaction','getBlockHeight','getGenesisHash']);
  assert.throws(()=>readServerPerpsFullCloseSimulation({...result}));
  await assert.rejects(simulateServerPerpsFullCloseEffects({...f.inspection},{request:f.request}));
  f.expire();assert.throws(()=>readServerPerpsFullCloseSimulation(result));
@@ -308,7 +314,7 @@ test('close simulation rejects stale/replaced/failed wires, partial closure, cha
 });
 test('native zeroed-position closure and zero proceeds are represented without inventing returned margin',async()=>{
  const f=await simulationFixture(),account=structuredClone(f.nativePositionAccount),data=Buffer.from(account.data[0],'base64');
- data.writeBigUInt64LE(0n,161);data.writeBigUInt64LE(0n,169);data.writeBigUInt64LE(1002n,144);account.data[0]=data.toString('base64');
+ data.writeBigUInt64LE(0n,161);data.writeBigUInt64LE(0n,169);data.writeBigUInt64LE(0n,201);data.writeBigUInt64LE(1002n,144);account.data[0]=data.toString('base64');
  f.after.set(f.ids.position,account);f.after.set(f.recipient,f.token(1000000n));
  const result=await simulateServerPerpsFullCloseEffects(f.inspection,{request:f.request});assert.equal(result.receivedUsdcUnits,'0');assert.equal(result.readyForSigning,false);
 });
@@ -319,7 +325,7 @@ test('close simulation fails on an expired blockhash, wrong network, unknown fee
    if(mode==='height'&&method==='getBlockHeight')return 1001;
    if(mode==='network'&&method==='getGenesisHash')return 'devnet';
    if(mode==='fee'&&method==='getFeeForMessage')return {context:{slot:105},value:null};
-   if(mode==='feeSlot'&&method==='getFeeForMessage')return {context:{slot:103},value:5000};
+   if(mode==='feeSlot'&&method==='getFeeForMessage')return {context:{slot:102},value:5000};
    if(mode==='bank'&&method==='getMultipleAccounts')return {context:{slot:102},value:params[0].map(address=>f.before.get(address)??null)};
    return f.request(method,params);
   };
@@ -383,7 +389,15 @@ async function fundingFixture(side='SHORT',asset='SOL'){
  const pool={owner:PERPS_PROGRAM,executable:false,lamports:6000000,data:[Buffer.concat([createHash('sha256').update('account:Pool').digest().subarray(0,8),Buffer.alloc(256)]).toString('base64'),'base64']};
  f.before.set(PERPS_POOL,pool);f.after.set(PERPS_POOL,structuredClone(pool));
  for(const [i,c]of [f.market,f.usdc].entries()){
-  const account={...structuredClone(f.custodyAccounts[i]),lamports:3000000};f.before.set(c.address,account);f.after.set(c.address,structuredClone(account));
+  const account={...structuredClone(f.custodyAccounts[i]),lamports:3000000},data=Buffer.from(account.data[0],'base64');
+  data.writeBigUInt64LE(1000000000n,222);data.writeBigUInt64LE(800000000n,230);
+  data.writeBigUInt64LE(c.asset===asset?500000000n:0n,246);data.writeBigUInt64LE(c.asset===asset?100000000n:0n,254);
+  data.writeBigUInt64LE(1000n,262);data.writeBigInt64LE(1000n,278);account.data[0]=data.toString('base64');
+  const next=structuredClone(account),after=Buffer.from(data);
+  if(c.address===f.collateral.address)after.writeBigUInt64LE(800000000n-BigInt(f.account.positions[0].lockedTokenUnits),230);
+  if(side==='SHORT'&&c.asset===asset)after.writeBigUInt64LE(470000000n,246);
+  after.writeBigUInt64LE(1001n,262);after.writeBigInt64LE(1001n,278);next.data[0]=after.toString('base64');
+  f.before.set(c.address,account);f.after.set(c.address,next);
  }
  const usdcVault=tokenFor(f.ids.transferAuthority,PERPS_CUSTODIES.USDC.mint,1000000000n);
  f.before.set(f.usdc.tokenAccount,usdcVault);f.after.set(f.usdc.tokenAccount,tokenFor(f.ids.transferAuthority,PERPS_CUSTODIES.USDC.mint,992000000n));
@@ -417,7 +431,7 @@ test('new recipient ATA rent, zeroed retained position, empty collateral closure
    f.before.set(f.recipient,null);f.after.set(wallet,{owner:SYSTEM,executable:false,lamports:179955720,data:['','base64']});
   }
   if(mode==='retainedPosition'){
-   const account=structuredClone(f.nativePositionAccount),data=Buffer.from(account.data[0],'base64');data.writeBigUInt64LE(0n,161);data.writeBigUInt64LE(0n,169);account.data[0]=data.toString('base64');
+   const account=structuredClone(f.nativePositionAccount),data=Buffer.from(account.data[0],'base64');data.writeBigUInt64LE(0n,161);data.writeBigUInt64LE(0n,169);data.writeBigUInt64LE(0n,201);account.data[0]=data.toString('base64');
    f.after.set(f.ids.position,account);f.after.set(wallet,{owner:SYSTEM,executable:false,lamports:179995000,data:['','base64']});
   }
   if(mode==='collateralClosed'){
@@ -442,7 +456,7 @@ test('unexplained SOL debit/credit, added rent, token-authority change, preexist
    const account=f.after.get(f.recipient),data=Buffer.from(account.data[0],'base64');data.writeUInt32LE(1,129);Buffer.from(bs58.decode(wallet)).copy(data,133);account.data[0]=data.toString('base64');
   }
   if(mode==='positionLamports'){
-   const account=structuredClone(f.nativePositionAccount),data=Buffer.from(account.data[0],'base64');data.writeBigUInt64LE(0n,161);data.writeBigUInt64LE(0n,169);account.data[0]=data.toString('base64');account.lamports++;f.after.set(f.ids.position,account);
+   const account=structuredClone(f.nativePositionAccount),data=Buffer.from(account.data[0],'base64');data.writeBigUInt64LE(0n,161);data.writeBigUInt64LE(0n,169);data.writeBigUInt64LE(0n,201);account.data[0]=data.toString('base64');account.lamports++;f.after.set(f.ids.position,account);
   }
   if(mode==='collateralSpent')f.before.set(bindings.collateralAccount,f.tokenFor(wallet,PERPS_CUSTODIES.SOL.mint,1n));
   if(mode==='collateralAuthority'){
@@ -512,6 +526,7 @@ test('combined close path reads native ownership, builds once, inspects, simulat
   assert.equal(result.requiresFullInstructionAndProtocolEffectsPolicy,true);assert.equal(result.requiresNativeReviewAndConfirmation,true);
   assert.equal(result.policy.stage,'FULL_CLOSE_INSTRUCTION_POLICY_ONLY');assert.equal(result.policy.readyForSigning,false);
   assert.equal(result.vaults.usdcVaultDebitUnits,'8000000');assert.equal(result.vaults.readyForSigning,false);
+  assert.equal(result.reserves.removedShortSizeUsdUnits,side==='SHORT'?'30000000':'0');assert.equal(result.reserves.readyForSigning,false);
  }
 });
 async function inspectPolicyFixture(f,options={}){
@@ -715,4 +730,84 @@ test('vault proofs cannot mix a policy from another exact transaction',async()=>
  const f=await fundingFixture(),other=await fundingFixture(),simulation=await simulateServerPerpsFullCloseEffects(f.inspection,{request:f.request});
  const funding=await checkServerPerpsFullCloseFunding(simulation,{request:f.fundingRequest}),foreignPolicy=checkServerPerpsFullCloseInstructionPolicy(other.inspection);
  await assert.rejects(checkServerPerpsFullCloseVaults(funding,foreignPolicy));
+});
+test('full closes release exactly their own locked collateral and remove only their market short exposure across six paths',async()=>{
+ for(const asset of ['BTC','ETH','SOL'])for(const side of ['LONG','SHORT']){
+  const f=await fundingFixture(side,asset),policy=checkServerPerpsFullCloseInstructionPolicy(f.inspection),simulation=await simulateServerPerpsFullCloseEffects(f.inspection,{request:f.request});
+  const funding=await checkServerPerpsFullCloseFunding(simulation,{request:f.fundingRequest}),vaults=await checkServerPerpsFullCloseVaults(funding,policy);
+  const result=checkServerPerpsFullCloseReserves(vaults);
+  assert.equal(result.releasedCollateralTokenUnits,f.account.positions[0].lockedTokenUnits);assert.equal(result.removedShortSizeUsdUnits,side==='SHORT'?'30000000':'0');
+  assert.equal(result.readyForSigning,false);assert.equal(result.requiresRemainingPoolEconomicsAndOracleEffects,true);
+  assert.equal(readServerPerpsFullCloseReserves(result).vaults,vaults);assert.throws(()=>readServerPerpsFullCloseReserves({...result}));f.expire();assert.throws(()=>readServerPerpsFullCloseReserves(result));
+ }
+});
+test('reserve checks reject one-unit mistakes, effects on other exposures, regressed interest and a position interest snapshot ahead of custody',async()=>{
+ for(const side of ['LONG','SHORT'])for(const mode of ['ownLocked','otherLocked','marketShort','otherShort','average','interest','updated','snapshot']){
+  const f=await fundingFixture(side),custody=mode==='otherLocked'?(side==='LONG'?f.usdc:f.market):mode==='otherShort'?f.usdc:mode==='snapshot'?f.collateral:mode==='average'&&side==='SHORT'?f.usdc:f.market;
+  const target=mode==='snapshot'?f.before:f.after,a=target.get(custody.address),data=Buffer.from(a.data[0],'base64');
+  if(mode==='ownLocked'){
+   const own=f.after.get(f.collateral.address),bytes=Buffer.from(own.data[0],'base64');bytes.writeBigUInt64LE(bytes.readBigUInt64LE(230)+1n,230);own.data[0]=bytes.toString('base64');
+  }else{
+   if(mode==='otherLocked')data.writeBigUInt64LE(data.readBigUInt64LE(230)+1n,230);
+   if(mode==='marketShort'||mode==='otherShort')data.writeBigUInt64LE(data.readBigUInt64LE(246)+1n,246);
+   if(mode==='average')data.writeBigUInt64LE(data.readBigUInt64LE(254)+1n,254);
+   if(mode==='interest'||mode==='snapshot')data.writeBigUInt64LE(999n,262);
+   if(mode==='updated')data.writeBigInt64LE(999n,278);
+   a.data[0]=data.toString('base64');
+  }
+  const policy=checkServerPerpsFullCloseInstructionPolicy(f.inspection),simulation=await simulateServerPerpsFullCloseEffects(f.inspection,{request:f.request});
+  const funding=await checkServerPerpsFullCloseFunding(simulation,{request:f.fundingRequest}),vaults=await checkServerPerpsFullCloseVaults(funding,policy);
+  assert.throws(()=>checkServerPerpsFullCloseReserves(vaults),side+':'+mode);
+ }
+});
+test('a retained closed position cannot keep locked collateral or nonzero realized PNL',async()=>{
+ for(const mode of ['locked','realised']){
+  const f=await fundingFixture(),a=structuredClone(f.nativePositionAccount),data=Buffer.from(a.data[0],'base64');
+  data.writeBigUInt64LE(0n,161);data.writeBigUInt64LE(0n,169);data.writeBigUInt64LE(mode==='locked'?1n:0n,201);data.writeBigInt64LE(mode==='realised'?1n:0n,177);a.data[0]=data.toString('base64');f.after.set(f.ids.position,a);
+  await assert.rejects(simulateServerPerpsFullCloseEffects(f.inspection,{request:f.request}));
+ }
+});
+test('close core diagnostics distinguish price, time, size and whole-position rejection without relaxing any guard',async()=>{
+ const f=await fixture(),plan=planServerPerpsFullClose(f.account,f.options);
+ for(const [patch,code]of [[{price:99499999n},'PRICE'],[{time:BigInt(now)-31n},'TIME'],[{size:30000001n},'SIZE'],[{entire:0},'ENTIRE_POSITION']]){
+  assert.throws(()=>checkServerPerpsFullCloseCore(core(1,patch),plan,now),{message:'PERPS_CLOSE_CORE_'+code});
+ }
+});
+test('close snapshots discard different confirmed banks and pair only the same exact bank without rebuilding or sending',async()=>{
+ const f=await fundingFixture(),banks=[],requests=[];let pairs=0;
+ const request=async(method,params)=>{
+  requests.push(method);
+  if(method==='getMultipleAccounts'){
+   const bank=pairs===0?105:106;banks.push(bank);
+   return {context:{slot:bank},value:params[0].map(address=>f.before.get(address)??null)};
+  }
+  if(method==='simulateTransaction'){
+   pairs++;assert.equal(params[0],f.preparation.serializedTxBase64);assert.equal(params[1].replaceRecentBlockhash,false);assert.equal(params[1].sigVerify,false);
+   assert.equal(params[1].minContextSlot,pairs===1?105:106);
+   return {context:{slot:106},value:{err:null,unitsConsumed:400000,accounts:params[1].accounts.addresses.map(address=>f.after.get(address)??null)}};
+  }
+  return f.request(method,params);
+ };
+ const simulation=await simulateServerPerpsFullCloseEffects(f.inspection,{request});
+ assert.equal(simulation.snapshotBankAttempts,2);assert.equal(simulation.observedSlot,106);
+ const proof=readServerPerpsFullCloseSimulation(simulation);assert.equal(proof.beforeSlot,106);assert.equal(proof.simulationSlot,106);
+ assert.deepEqual(banks,[105,106]);assert.equal(requests.filter(method=>method==='getFeeForMessage').length,1);
+ const funding=await checkServerPerpsFullCloseFunding(simulation,{request:f.fundingRequest}),policy=checkServerPerpsFullCloseInstructionPolicy(f.inspection);
+ const vaults=await checkServerPerpsFullCloseVaults(funding,policy);assert.equal(checkServerPerpsFullCloseReserves(vaults).readyForSigning,false);
+});
+test('bank pairing is bounded, never replaces the wire and does not retry a simulation error',async()=>{
+ for(const mode of ['movingBank','simulationError']){
+  const f=await simulationFixture();let attempts=0;
+  const request=async(method,params)=>{
+   if(method==='getMultipleAccounts')return {context:{slot:105+attempts},value:params[0].map(address=>f.before.get(address)??null)};
+   if(method==='simulateTransaction'){
+    attempts++;assert.equal(params[0],f.preparation.serializedTxBase64);
+    return {context:{slot:105+attempts},value:{err:mode==='simulationError'?{InstructionError:[2,'Custom']}:null,unitsConsumed:400000,accounts:params[1].accounts.addresses.map(address=>f.after.get(address)??null)}};
+   }
+   return f.request(method,params);
+  };
+  if(mode==='movingBank')await assert.rejects(simulateServerPerpsFullCloseEffects(f.inspection,{request}),{message:'PERPS_CLOSE_SNAPSHOT_BANK_CHANGED'});
+  else await assert.rejects(simulateServerPerpsFullCloseEffects(f.inspection,{request}));
+  assert.equal(attempts,mode==='movingBank'?3:1);
+ }
 });

@@ -31,6 +31,11 @@ test('position decoder rejects owner, market, side, bump, extension and time sub
   await assert.rejects(decodeServerPerpsPosition(f.address,f.account,intent));
  }
 });
+test('position native accounting offsets preserve signed realized PNL, full u128 interest and locked collateral without numeric rounding',async()=>{
+ const f=await fixture();f.data.writeBigInt64LE(-1234567n,177);f.data.writeBigUInt64LE(2n,185);f.data.writeBigUInt64LE(1n,193);f.data.writeBigUInt64LE(300000000n,201);f.account.data[0]=f.data.toString('base64');
+ const p=await decodeServerPerpsPosition(f.address,f.account,intent);
+ assert.equal(p.realisedPnlUsdUnits,'-1234567');assert.equal(p.cumulativeInterestSnapshotUnits,'18446744073709551618');assert.equal(p.lockedTokenUnits,'300000000');
+});
 test('existing exposure is compared by deltas; forged snapshots and replayed smaller/larger size fail',async()=>{
  const old=await fixture(intent,{size:45000000n,collateral:15000000n}),next=await fixture(intent,{size:75000000n,collateral:24990000n});
  const before=await decodeServerPerpsPosition(old.address,old.account,intent),after=await decodeServerPerpsPosition(next.address,next.account,intent);
