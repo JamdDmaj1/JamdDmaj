@@ -13,6 +13,7 @@ import {checkServerPerpsFullCloseFunding,readServerPerpsFullCloseFunding} from '
 import {buildUnsignedServerPerpsFullClose,prepareSimulatedServerPerpsFullClose} from '../lib/perps-server-close-preparation.js';
 import {checkServerPerpsFullCloseInstructionPolicy,readServerPerpsFullClosePolicy} from '../lib/perps-server-close-policy.js';
 import {readServerPerpsCloseOracles,readServerPerpsCloseOracleContext,CLOSE_DOVES_PROGRAM,CLOSE_PYTH_LAZER} from '../lib/perps-close-oracle-context.js';
+import {checkServerPerpsFullCloseVaults,readServerPerpsFullCloseVaults} from '../lib/perps-server-close-vaults.js';
 const wallet=bs58.encode(Buffer.alloc(32,1)),now=1802865600;
 test('both close data layouts match the recorded confirmed program-owned Anchor IDL',()=>{
  const idl=JSON.parse(readFileSync(new URL('../security/native-tests/jupiter-perps-idl-layout.json',import.meta.url),'utf8'));
@@ -242,8 +243,8 @@ test('an in-flight account-list mutation cannot replace the captured close instr
  assert.equal(checked.recipient,f.recipient);assert.equal(checked.core.entirePosition,true);
  await assert.rejects(checkBindings(f));
 });
-async function simulationFixture(side='SHORT',minimumOut=0n){
- const f=await boundFixture(side,'SOL',2);
+async function simulationFixture(side='SHORT',minimumOut=0n,asset='SOL'){
+ const f=await boundFixture(side,asset,2);
  if(side==='LONG'){const data=Buffer.from(f.swapIx.dataBase64,'base64');data.writeBigUInt64LE(minimumOut,8);f.swapIx.dataBase64=data.toString('base64');}
  const preparation=preparationFixture(f);
  const inspection=await inspectServerPerpsFullClosePreparation(preparation,f.plan,{nowSeconds:now,request:async(method)=>{
@@ -363,8 +364,8 @@ test('LONG simulation follows the captured complete close/post-swap wire and mea
  const lower=await simulationFixture('LONG',8000001n);
  await assert.rejects(simulateServerPerpsFullCloseEffects(lower.inspection,{request:lower.request}));
 });
-async function fundingFixture(side='SHORT'){
- const f=await simulationFixture(side);
+async function fundingFixture(side='SHORT',asset='SOL'){
+ const f=await simulationFixture(side,0n,asset);
  function tokenFor(owner,mint,amount=0n){
   const data=Buffer.alloc(165);Buffer.from(bs58.decode(mint)).copy(data);Buffer.from(bs58.decode(owner)).copy(data,32);
   data[108]=1;data.writeBigUInt64LE(amount,64);
@@ -372,13 +373,25 @@ async function fundingFixture(side='SHORT'){
   return {owner:TOKEN,executable:false,lamports:Number(2039280n+(mint===PERPS_CUSTODIES.SOL.mint?amount:0n)),data:[data.toString('base64'),'base64']};
  }
  if(side==='LONG'){
-  const address=f.inspection.bindings.collateralAccount,token=tokenFor(wallet,PERPS_CUSTODIES.SOL.mint);
+  const address=f.inspection.bindings.collateralAccount,token=tokenFor(wallet,PERPS_CUSTODIES[asset].mint);
   f.before.set(address,token);f.after.set(address,structuredClone(token));
   const data=Buffer.alloc(48);createHash('sha256').update('account:TokenLedger').digest().copy(data,0,0,8);Buffer.from(bs58.decode(address)).copy(data,8);
   const ledger={owner:PERPS_PROGRAM,executable:false,lamports:1000000,data:[data.toString('base64'),'base64']};
   f.before.set(f.inspection.bindings.tokenLedger,ledger);f.after.set(f.inspection.bindings.tokenLedger,structuredClone(ledger));
  }
  f.after.set(wallet,{owner:SYSTEM,executable:false,lamports:181995000,data:['','base64']});
+ const pool={owner:PERPS_PROGRAM,executable:false,lamports:6000000,data:[Buffer.concat([createHash('sha256').update('account:Pool').digest().subarray(0,8),Buffer.alloc(256)]).toString('base64'),'base64']};
+ f.before.set(PERPS_POOL,pool);f.after.set(PERPS_POOL,structuredClone(pool));
+ for(const [i,c]of [f.market,f.usdc].entries()){
+  const account={...structuredClone(f.custodyAccounts[i]),lamports:3000000};f.before.set(c.address,account);f.after.set(c.address,structuredClone(account));
+ }
+ const usdcVault=tokenFor(f.ids.transferAuthority,PERPS_CUSTODIES.USDC.mint,1000000000n);
+ f.before.set(f.usdc.tokenAccount,usdcVault);f.after.set(f.usdc.tokenAccount,tokenFor(f.ids.transferAuthority,PERPS_CUSTODIES.USDC.mint,992000000n));
+ if(side==='LONG'){
+  const vault=tokenFor(f.ids.transferAuthority,PERPS_CUSTODIES[asset].mint,1000000000n);
+  if(asset==='SOL')vault.lamports+=5; // Legitimate unsynchronized native excess.
+  f.before.set(f.collateral.tokenAccount,vault);f.after.set(f.collateral.tokenAccount,structuredClone(vault));
+ }
  const rentCalls=[],fundingRequest=async(method,params)=>{
   rentCalls.push({method,params});
   if(method==='getGenesisHash')return '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
@@ -498,6 +511,7 @@ test('combined close path reads native ownership, builds once, inspects, simulat
   assert.equal(result.funding.rentRefundedLamports,'2000000');assert.equal(result.funding.receivedUsdcUnits,'8000000');
   assert.equal(result.requiresFullInstructionAndProtocolEffectsPolicy,true);assert.equal(result.requiresNativeReviewAndConfirmation,true);
   assert.equal(result.policy.stage,'FULL_CLOSE_INSTRUCTION_POLICY_ONLY');assert.equal(result.policy.readyForSigning,false);
+  assert.equal(result.vaults.usdcVaultDebitUnits,'8000000');assert.equal(result.vaults.readyForSigning,false);
  }
 });
 async function inspectPolicyFixture(f,options={}){
@@ -630,4 +644,75 @@ test('configured oracle ownership/mint/bump/feed and exact update roles or signa
    assert.throws(()=>checkServerPerpsFullCloseInstructionPolicy(fixture.inspection,{oracleContext:context}),mode);
   }
  }
+});
+test('close vault checks bind all six market/direction paths to the exact wallet payout without signing authority',async()=>{
+ for(const asset of ['BTC','ETH','SOL'])for(const side of ['LONG','SHORT']){
+  const f=await fundingFixture(side,asset),policy=checkServerPerpsFullCloseInstructionPolicy(f.inspection);
+  const simulation=await simulateServerPerpsFullCloseEffects(f.inspection,{request:f.request});
+  const funding=await checkServerPerpsFullCloseFunding(simulation,{request:f.fundingRequest});
+  const result=await checkServerPerpsFullCloseVaults(funding,policy);
+  assert.equal(result.usdcVaultDebitUnits,'8000000');assert.equal(result.collateralVaultNetDebitUnits,side==='LONG'?'0':'8000000');
+  assert.equal(result.readyForSigning,false);assert.equal(result.requiresPoolAccountingAndOracleEffects,true);
+  assert.equal(readServerPerpsFullCloseVaults(result).funding,funding);
+  assert.throws(()=>readServerPerpsFullCloseVaults({...result}));f.expire();assert.throws(()=>readServerPerpsFullCloseVaults(result));
+ }
+});
+test('vault conservation rejects wrong mint/authority, altered custody/pool, unaccounted vault debit and native balance loss',async()=>{
+ for(const mode of ['poolOwner','poolTag','poolRent','poolSize','custodyConfig','custodyRent','usdcDebit','vaultAuthority','vaultDelegate','vaultMint','vaultRent','collateralDebit','nativeUnderfunded','vaultProgram']){
+  const f=await fundingFixture('LONG');
+  if(mode==='poolOwner')f.after.get(PERPS_POOL).owner=SYSTEM;
+  if(mode==='poolTag'){
+   const a=f.after.get(PERPS_POOL),b=Buffer.from(a.data[0],'base64');b[0]^=1;a.data[0]=b.toString('base64');
+  }
+  if(mode==='poolRent')f.after.get(PERPS_POOL).lamports++;
+  if(mode==='poolSize'){
+   const a=f.after.get(PERPS_POOL);a.data[0]=Buffer.concat([Buffer.from(a.data[0],'base64'),Buffer.from([0])]).toString('base64');
+  }
+  if(mode==='custodyConfig'){
+   const a=f.after.get(f.market.address),b=Buffer.from(a.data[0],'base64');b[72]^=1;a.data[0]=b.toString('base64');
+  }
+  if(mode==='custodyRent')f.after.get(f.usdc.address).lamports++;
+  if(mode==='usdcDebit')f.after.set(f.usdc.tokenAccount,f.tokenFor(f.ids.transferAuthority,PERPS_CUSTODIES.USDC.mint,991999999n));
+  if(['vaultAuthority','vaultDelegate','vaultMint','vaultProgram'].includes(mode)){
+   for(const map of [f.before,f.after]){
+    const a=map.get(f.usdc.tokenAccount),b=Buffer.from(a.data[0],'base64');
+    if(mode==='vaultAuthority')Buffer.alloc(32,70).copy(b,32);
+    if(mode==='vaultDelegate'){b.writeUInt32LE(1,72);Buffer.alloc(32,70).copy(b,76);}
+    if(mode==='vaultMint')Buffer.from(bs58.decode(PERPS_CUSTODIES.ETH.mint)).copy(b);
+    if(mode==='vaultProgram')a.owner='TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
+    a.data[0]=b.toString('base64');
+   }
+  }
+  if(mode==='vaultRent')f.after.get(f.usdc.tokenAccount).lamports++;
+  if(mode==='collateralDebit'){
+   const a=f.after.get(f.collateral.tokenAccount),b=Buffer.from(a.data[0],'base64');b.writeBigUInt64LE(999999999n,64);a.data[0]=b.toString('base64');
+  }
+  if(mode==='nativeUnderfunded')f.after.get(f.collateral.tokenAccount).lamports=1;
+  const policy=checkServerPerpsFullCloseInstructionPolicy(f.inspection),simulation=await simulateServerPerpsFullCloseEffects(f.inspection,{request:f.request});
+  const funding=await checkServerPerpsFullCloseFunding(simulation,{request:f.fundingRequest});
+  await assert.rejects(checkServerPerpsFullCloseVaults(funding,policy),mode);
+ }
+});
+test('legitimate unsynchronized WSOL excess is preserved or exactly refunded, never treated as spendable token amount',async()=>{
+ for(const close of [false,true]){
+  const f=await fundingFixture('LONG'),address=f.inspection.bindings.collateralAccount;
+  f.before.get(address).lamports+=7;
+  if(close){f.after.set(address,null);f.after.get(wallet).lamports+=2039287;}
+  else f.after.get(address).lamports+=7;
+  const simulation=await simulateServerPerpsFullCloseEffects(f.inspection,{request:f.request});
+  const funding=await checkServerPerpsFullCloseFunding(simulation,{request:f.fundingRequest});
+  assert.equal(funding.rentRefundedLamports,close?'4039287':'2000000');assert.equal(funding.receivedUsdcUnits,'8000000');
+  const policy=checkServerPerpsFullCloseInstructionPolicy(f.inspection);
+  assert.equal((await checkServerPerpsFullCloseVaults(funding,policy)).readyForSigning,false);
+ }
+ const f=await fundingFixture('LONG'),address=f.inspection.bindings.requestAta;
+ const a=f.tokenFor(f.inspection.bindings.requestAddress,PERPS_CUSTODIES.SOL.mint),b=Buffer.from(a.data[0],'base64');b.writeBigUInt64LE(2039279n,113);a.data[0]=b.toString('base64');
+ f.after.set(address,a);f.after.get(wallet).lamports-=2039280;
+ const simulation=await simulateServerPerpsFullCloseEffects(f.inspection,{request:f.request});
+ await assert.rejects(checkServerPerpsFullCloseFunding(simulation,{request:f.fundingRequest}));
+});
+test('vault proofs cannot mix a policy from another exact transaction',async()=>{
+ const f=await fundingFixture(),other=await fundingFixture(),simulation=await simulateServerPerpsFullCloseEffects(f.inspection,{request:f.request});
+ const funding=await checkServerPerpsFullCloseFunding(simulation,{request:f.fundingRequest}),foreignPolicy=checkServerPerpsFullCloseInstructionPolicy(other.inspection);
+ await assert.rejects(checkServerPerpsFullCloseVaults(funding,foreignPolicy));
 });

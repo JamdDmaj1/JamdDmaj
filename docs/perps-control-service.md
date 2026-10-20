@@ -2155,3 +2155,60 @@ payload/price/post-state validation, independent minimum-return risk, durable
 close/finalization, native confirmation, pending-fee budgeting, actual funded
 unsigned compatibility and final publication/audit remain incomplete. No
 financial signer consumes this capability-only result.
+
+### Close custody/vault conservation and native-SOL compatibility (2026-10-20)
+
+`lib/perps-server-close-vaults.js` is now called by the unsigned close
+coordinator after instruction policy, simulation and wallet funding. Its inputs
+must be private proofs of the same exact inspection; a policy from a different
+transaction cannot be mixed in. It binds pre/post vault token owners to the
+derived transfer authority, exact mints and legacy SPL account metadata. USDC
+vault debit must exactly equal the owner's simulated USDC increase. A LONG
+collateral withdrawal/post-swap must leave the collateral vault's final token
+and lamport balances intact; its incremental collateral has returned through
+the bound swap, not consumed pre-existing wallet tokens. SHORT's collateral
+is USDC, so its net collateral-vault debit is the USDC payout, not zero.
+
+Native before/after custody snapshots must decode to the same exposed custody
+configuration/identities as the independently inspected accounts, with stable
+length and rent. Pool owner, Anchor discriminator, size and rent are checked.
+This does NOT decode all mutable pool/economic counters or every custody field;
+the result remains FULL_CLOSE_VAULT_CONSERVATION_ONLY and explicitly requires
+pool accounting/oracle effects, independent minimum return and durable closing.
+
+A read-only mainnet SOL/USDC vault observation at slot 459308487 showed that a
+strict equality between recorded WSOL amount plus native reserve and account
+lamports is not a valid universal invariant. Solana's official SyncNative
+documentation explains unsynchronized native deposits:
+https://solana.com/docs/tokens/basics/sync-native. The close token decoder now
+requires lamports >= recorded amount + reserve, never invents token amount
+from excess, and still requires exact before/after metadata/lamport preservation
+or an observed zero-token closure/refund. New native ATAs must store the exact
+independently queried rent reserve. This changes an incorrect account-model
+assumption, not the wallet SOL debit/conservation boundary.
+
+A subsequent bounded read-only native vault-format check at slot 459309934
+decoded the real BTC, ETH, SOL and USDC vaults successfully with that decoder
+and the derived transfer authority. This is not an owned-wallet close or
+proof of funded builder/simulation compatibility.
+
+Thirty-four focused tests passed locally, bundled locally and under VPS Node
+in jamddmaj-close-vaults-check-20261020 (34/34, exit 0) with DynamicUser,
+PrivateNetwork, ProtectHome, ProtectSystem=strict, NoNewPrivileges and a 384 MiB
+limit, without private custody state access. The full local Node test glob
+also exited zero. Bundle:
+`/opt/jamddmaj-perps/checks/close-vaults-20261020/tests/test.mjs`, SHA-256
+`42277b02fec7ddf17e294c710941fa3ec71e81907ea529b24ff3865a3857f142`.
+Tests cover six market/direction combinations, vault/custody/pool substitutions,
+wrong mint/authority/delegation/program, one-unit unexplained vault changes,
+native underfunding, legitimate WSOL excess/refunds and mixed transaction proofs.
+The protocol snapshots remain synthetic and do not establish full pool-economic
+or trusted oracle-price correctness.
+
+After isolated tests the production worker/HTTPS remained active; health was
+controls-only, tradingEnabled=false, executionAvailable=false. No worker
+deployment/restart, secret change, financial signature/submission, activation,
+Android build or app publication occurred. Pool-economic/oracle-price effects,
+independent minimum-return risk, durable close/finalization, native confirmation,
+pending-fee budget, actual funded unsigned compatibility and final publication/
+audit still require completion. No signer consumes this conservation-only result.
