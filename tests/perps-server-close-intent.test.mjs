@@ -22,6 +22,45 @@ import {checkServerPerpsFullCloseVaults,readServerPerpsFullCloseVaults} from '..
 import {checkServerPerpsFullCloseReserves,readServerPerpsFullCloseReserves} from '../lib/perps-server-close-reserves.js';
 import {checkServerPerpsFullCloseOracleEffects,readServerPerpsFullCloseOracleEffects} from '../lib/perps-server-close-oracle-effects.js';
 const wallet=bs58.encode(Buffer.alloc(32,1)),now=1802865600;
+test('chosen two-step settlement returns only collateral, preserves existing balances and leaves conversion pending across all six paths',async()=>{
+ for(const asset of ['BTC','ETH','SOL'])for(const side of ['LONG','SHORT']){
+  const f=await oracleEffectsFixture(side,asset,'COLLATERAL_THEN_USDC');
+  assert.equal(f.plan.body.receiveToken,side==='LONG'?asset:'USDC');
+  assert.equal(f.plan.requiresSeparateUsdcConversion,side==='LONG');
+  assert.equal(f.inspection.bindings.tokenLedger,null);
+  const reserves=await f.reserves();
+  const result=checkServerPerpsFullCloseOracleEffects(reserves,{nowSeconds:now});
+  const {vaults}=readServerPerpsFullCloseReserves(reserves),{funding}=readServerPerpsFullCloseVaults(vaults);
+  assert.equal(funding.receivedUsdcUnits,side==='LONG'?'0':'8000000');
+  assert.equal(funding.receivedCollateralUnits,side==='LONG'?'8000000':'0');
+  assert.equal(result.readyForSigning,false);
+ }
+});
+test('collateral-only close rejects an internal swap or ledger and invalid settlement choices',async()=>{
+ const f=await boundFixture();
+ const plan=planServerPerpsFullClose(f.account,{...f.options,settlement:'COLLATERAL_THEN_USDC'});
+ await assert.rejects(checkServerPerpsFullCloseBindings(f.inspection,plan,f.market,f.collateral,now,f.usdc));
+ for(const settlement of [null,'AUTO','collateral','USDC',{}])assert.throws(()=>planServerPerpsFullClose(f.account,{...f.options,settlement}));
+});
+test('collateral payout cannot consume previous tokens, invent SOL credits or debit unrelated USDC',async()=>{
+ for(const mode of ['nativeCredit','nativeShortfall','oldWrappedBalance','tokenShortfall','usdcPayout','usdcDebit','vaultRent']){
+  const asset=mode==='tokenShortfall'?'ETH':'SOL',f=await fundingFixture('LONG',asset,'COLLATERAL_THEN_USDC');
+  const address=f.inspection.bindings.collateralAccount;
+  if(mode==='nativeCredit')f.after.get(wallet).lamports++;
+  if(mode==='nativeShortfall')f.after.get(wallet).lamports--;
+  if(mode==='oldWrappedBalance')f.before.set(address,f.tokenFor(wallet,PERPS_CUSTODIES.SOL.mint,1n));
+  if(mode==='tokenShortfall')f.after.set(address,f.tokenFor(wallet,PERPS_CUSTODIES.ETH.mint,7999999n));
+  if(mode==='usdcPayout')f.after.set(f.recipient,f.token(1000001n));
+  if(mode==='usdcDebit')f.after.set(f.usdc.tokenAccount,f.tokenFor(f.ids.transferAuthority,PERPS_CUSTODIES.USDC.mint,999999999n));
+  if(mode==='vaultRent')f.after.get(f.collateral.tokenAccount).lamports--;
+  await assert.rejects(async()=>{
+   const policy=checkServerPerpsFullCloseInstructionPolicy(f.inspection);
+   const sim=await simulateServerPerpsFullCloseEffects(f.inspection,{request:f.request});
+   const funding=await checkServerPerpsFullCloseFunding(sim,{request:f.fundingRequest});
+   await checkServerPerpsFullCloseVaults(funding,policy);
+  },mode);
+ }
+});
 test('both close data layouts match the recorded confirmed program-owned Anchor IDL',()=>{
  const idl=JSON.parse(readFileSync(new URL('../security/native-tests/jupiter-perps-idl-layout.json',import.meta.url),'utf8'));
  assert.equal(idl.fullCloseInstructionLayout.slot,459186694);
@@ -137,8 +176,8 @@ test('SHORT buy limit and LONG sell limit use inward integer rounding',async()=>
  }
 });
 const TOKEN='TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',ATA='ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL',SYSTEM='11111111111111111111111111111111',COMPUTE='ComputeBudget111111111111111111111111111111';
-async function boundFixture(side='LONG',asset='SOL',version=1){
- const f=await fixture(side,asset),plan=planServerPerpsFullClose(f.account,f.options);
+async function boundFixture(side='LONG',asset='SOL',version=1,settlement='DIRECT_USDC'){
+ const f=await fixture(side,asset),plan=planServerPerpsFullClose(f.account,{...f.options,settlement}),separate=plan.requiresSeparateUsdcConversion;
  const agKeys=Object.fromEntries(await Promise.all(['BTC','ETH','SOL','USDC'].map(async asset=>[asset,await getProgramDerivedAddress({programAddress:CLOSE_DOVES_PROGRAM,seeds:['ag_feed',bs58.decode(PERPS_CUSTODIES[asset].mint)]})])));
  function custody(asset){
   const id=PERPS_CUSTODIES[asset],n=['BTC','ETH','SOL','USDC'].indexOf(asset),data=Buffer.alloc(416);
@@ -158,8 +197,8 @@ async function boundFixture(side='LONG',asset='SOL',version=1){
   :[...common,collateral.address,collateral.dovesAgOracle,collateral.tokenAccount,collateral.mint,PERPS_PROGRAM,requestAddress,requestAta,TOKEN,ATA,SYSTEM,f.ids.eventAuthority,PERPS_PROGRAM];
  const swapRoles=[wallet,collateralAccount,recipient,f.ids.transferAuthority,f.ids.perpetuals,PERPS_POOL,collateral.address,collateral.dovesAgOracle,collateral.tokenAccount,usdc.address,usdc.dovesAgOracle,usdc.tokenAccount,ledger,TOKEN,'Sysvar1nstructions1111111111111111111111111',f.ids.eventAuthority,PERPS_PROGRAM];
  const writeRoles=version===1?[3,6,7,8,11,14]:[3,6,7,8,10,12,15,16];
- const writes=[...new Set([...writeRoles.map(i=>roles[i]),...(side==='LONG'?[recipient,usdc.address,usdc.tokenAccount,ledger]:[])])];
- const reads=[...new Set([...roles,...(side==='LONG'?swapRoles:[]),COMPUTE].filter(key=>![wallet,keeper,api,...writes].includes(key)))];
+ const writes=[...new Set([...writeRoles.map(i=>roles[i]),...(side==='LONG'&&!separate?[recipient,usdc.address,usdc.tokenAccount,ledger]:[])])];
+ const reads=[...new Set([...roles,...(side==='LONG'&&!separate?swapRoles:[]),COMPUTE].filter(key=>![wallet,keeper,api,...writes].includes(key)))];
  const keys=[wallet,keeper,api,...writes,...reads];
  const unit=Buffer.alloc(5);unit[0]=2;unit.writeUInt32LE(1000000,1);
  const price=Buffer.alloc(9);price[0]=3;price.writeBigUInt64LE(1n,1);
@@ -169,7 +208,8 @@ async function boundFixture(side='LONG',asset='SOL',version=1){
  const swapIx=instruction(swapRoles,Buffer.from('8b8deec529d3ac130000000000000000','hex'));
  const envelope={stage:'STRUCTURE_ONLY',staticKeys:[...keys],accountCount:keys.length,readonlySigned:2,readonlyUnsigned:reads.length,lookups:[],instructions:[
   {program:keys.indexOf(COMPUTE),accounts:[],dataBase64:unit.toString('base64')},
-  {program:keys.indexOf(COMPUTE),accounts:[],dataBase64:price.toString('base64')},...(side==='LONG'?[ledgerIx,ix,swapIx]:[ix])]};
+  {program:keys.indexOf(COMPUTE),accounts:[],dataBase64:price.toString('base64')},...(side==='LONG'&&!separate?[ledgerIx,ix,swapIx]:[ix]),
+  ...(separate&&asset==='SOL'?[{program:keys.indexOf(TOKEN),accounts:[keys.indexOf(collateralAccount),0,0],dataBase64:'CQ=='}]:[])]};
  return {...f,plan,market,collateral,usdc,agKeys,custodyAccounts:[m.account,u.account],inspection:{envelope,resolvedKeys:keys},ix,ledgerIx,swapIx,recipient,requestAddress,requestAta};
 }
 const checkBindings=f=>checkServerPerpsFullCloseBindings(f.inspection,f.plan,f.market,f.collateral,now,f.usdc);
@@ -280,9 +320,9 @@ test('an in-flight account-list mutation cannot replace the captured close instr
  assert.equal(checked.recipient,f.recipient);assert.equal(checked.core.entirePosition,true);
  await assert.rejects(checkBindings(f));
 });
-async function simulationFixture(side='SHORT',minimumOut=0n,asset='SOL'){
- const f=await boundFixture(side,asset,2);
- if(side==='LONG'){const data=Buffer.from(f.swapIx.dataBase64,'base64');data.writeBigUInt64LE(minimumOut,8);f.swapIx.dataBase64=data.toString('base64');}
+async function simulationFixture(side='SHORT',minimumOut=0n,asset='SOL',settlement='DIRECT_USDC'){
+ const f=await boundFixture(side,asset,2,settlement);
+ if(side==='LONG'&&!f.plan.requiresSeparateUsdcConversion){const data=Buffer.from(f.swapIx.dataBase64,'base64');data.writeBigUInt64LE(minimumOut,8);f.swapIx.dataBase64=data.toString('base64');}
  const preparation=preparationFixture(f);
  const inspection=await inspectServerPerpsFullClosePreparation(preparation,f.plan,{nowSeconds:now,request:async(method)=>{
   if(method==='getGenesisHash')return '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
@@ -402,8 +442,8 @@ test('LONG simulation follows the captured complete close/post-swap wire and mea
  const lower=await simulationFixture('LONG',8000001n);
  await assert.rejects(simulateServerPerpsFullCloseEffects(lower.inspection,{request:lower.request}));
 });
-async function fundingFixture(side='SHORT',asset='SOL'){
- const f=await simulationFixture(side,0n,asset);
+async function fundingFixture(side='SHORT',asset='SOL',settlement='DIRECT_USDC'){
+ const f=await simulationFixture(side,0n,asset,settlement);
  function tokenFor(owner,mint,amount=0n){
   const data=Buffer.alloc(165);Buffer.from(bs58.decode(mint)).copy(data);Buffer.from(bs58.decode(owner)).copy(data,32);
   data[108]=1;data.writeBigUInt64LE(amount,64);
@@ -437,6 +477,17 @@ async function fundingFixture(side='SHORT',asset='SOL'){
   const vault=tokenFor(f.ids.transferAuthority,PERPS_CUSTODIES[asset].mint,1000000000n);
   if(asset==='SOL')vault.lamports+=5; // Legitimate unsynchronized native excess.
   f.before.set(f.collateral.tokenAccount,vault);f.after.set(f.collateral.tokenAccount,structuredClone(vault));
+ }
+ if(f.plan.requiresSeparateUsdcConversion){
+  const payout=8000000n,address=f.inspection.bindings.collateralAccount;
+  f.after.set(f.recipient,structuredClone(f.before.get(f.recipient)));
+  f.after.set(f.usdc.tokenAccount,structuredClone(f.before.get(f.usdc.tokenAccount)));
+  const vault=tokenFor(f.ids.transferAuthority,PERPS_CUSTODIES[asset].mint,1000000000n-payout);
+  if(asset==='SOL'){
+   vault.lamports+=5;
+   f.after.set(address,null);f.after.get(wallet).lamports+=Number(payout)+2039280;
+  }else f.after.set(address,tokenFor(wallet,PERPS_CUSTODIES[asset].mint,payout));
+  f.after.set(f.collateral.tokenAccount,vault);
  }
  const rentCalls=[],fundingRequest=async(method,params)=>{
   rentCalls.push({method,params});
@@ -846,8 +897,8 @@ test('bank pairing is bounded, never replaces the wire and does not retry a simu
  }
 });
 
-async function closeJournalFixture(t,{parents=2}={}){
- const f=await oracleEffectsFixture(),reserves=await f.reserves(),oracleEffects=checkServerPerpsFullCloseOracleEffects(reserves,{nowSeconds:now});
+async function closeJournalFixture(t,{parents=2,side='SHORT',settlement='DIRECT_USDC'}={}){
+ const f=await oracleEffectsFixture(side,'SOL',settlement),reserves=await f.reserves(),oracleEffects=checkServerPerpsFullCloseOracleEffects(reserves,{nowSeconds:now});
  const directory=mkdtempSync(join(tmpdir(),'jamd-close-journal-')),path=join(directory,'journal.sqlite'),journals=[];
  const open=()=>{const journal=openPerpsExecutionJournal(path,{now:()=>now*1000});journals.push(journal);return journal;};
  t.after(()=>{for(const j of journals)try{j.close();}catch{}rmSync(directory,{recursive:true,force:true});});
@@ -874,6 +925,21 @@ test('prepared full close persists exact wire and all position entries across re
  assert.throws(()=>other.cancelPreparedPositionClose('close-one'),/RECONCILIATION_REQUIRED/);
  assert.deepEqual(other.riskState(wallet),risk);
  f.journal.close();assert.equal(f.open().readPositionClose('close-one').state,'CANCELLED');
+});
+
+test('legacy direct-USDC journal cannot lose the required second leg of a collateral-only close',async t=>{
+ const f=await closeJournalFixture(t,{side:'LONG',settlement:'COLLATERAL_THEN_USDC'}),risk=f.journal.riskState(wallet);
+ assert.throws(()=>f.journal.preparePositionClose('not-direct-usdc',f.oracleEffects),/TWO_STEP_CLOSE_JOURNAL_REQUIRED/);
+ assert.equal(f.journal.pendingPositionCloses(wallet).length,0);
+ assert.deepEqual(f.journal.riskState(wallet),risk);
+});
+
+test('undocumented oracle extension mutations still fail closed in the chosen collateral route',async()=>{
+ const f=await oracleEffectsFixture('LONG','SOL','COLLATERAL_THEN_USDC'),feed=f.context.feeds[0];
+ const account=f.after.get(feed.lazerFeed),data=Buffer.from(account.data[0],'base64');
+ data[96]=1;account.data[0]=data.toString('base64');
+ const reserves=await f.reserves();
+ assert.throws(()=>checkServerPerpsFullCloseOracleEffects(reserves,{nowSeconds:now}),/UNVERIFIED_PERPS_CLOSE_ORACLE_EFFECTS_CONFIGURATION/);
 });
 
 test('close preparation requires original fresh reserve proof and confirmed journal parents',async t=>{
@@ -904,8 +970,8 @@ test('an outstanding entry or cancellation blocks close preparation atomically',
  }
 });
 
-async function oracleEffectsFixture(side='SHORT',asset='SOL'){
- const f=await fundingFixture(side,asset),oracleAccounts=new Map(),feeds=[];
+async function oracleEffectsFixture(side='SHORT',asset='SOL',settlement='DIRECT_USDC'){
+ const f=await fundingFixture(side,asset,settlement),oracleAccounts=new Map(),feeds=[];
  for(const [i,a]of [asset,'USDC'].entries()){
   const [address,bump]=f.agKeys[a],lazerFeed=bs58.encode(Buffer.alloc(32,110+i));
   const data=Buffer.alloc(394);Buffer.from('70f98bd9d7d0f936','hex').copy(data);

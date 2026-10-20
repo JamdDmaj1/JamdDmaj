@@ -2517,3 +2517,70 @@ Neither choice activates the bot or authorizes sending a test transaction. No
 choice has been assumed, no live settings/state changed, and no publication
 occurred. Other native closing, durable financial finalization, full integration
 and release requirements still remain; the goal is not achieved.
+
+### Owner-selected collateral settlement, 2026-10-20 (implementation in progress)
+
+The owner subsequently explicitly chose the two-operation route: close into the
+collateral token, then convert only those proceeds to USDC with a protected
+minimum. This supersedes the undecided choice above. It does not authorize bot
+activation or a funded signing/broadcast test. The existing VPS/SQLite executor
+architecture is retained; no new server, account, deployment or custody key was
+created for this change.
+
+An explicit `COLLATERAL_THEN_USDC` planning mode now requests the native market
+token for a LONG and USDC for a SHORT. The LONG first leg rejects a token ledger
+or an internal post-swap rather than inheriting its unprotected USDC minimum.
+SHORT collateral is already USDC and needs no conversion. The old direct-USDC
+mode remains isolated for existing tests, not selected as an automatic fallback.
+
+Public read-only discovery found the prior example closed. A bounded recent
+history lookup found another public owner and its position, independently
+verified on the primary RPC. An unsigned SOL preparation at source slot
+459387407 returned oracle updates, the bound full-close instruction and an SPL
+CloseAccount to unwrap the owner's SOL ATA; no internal swap or ledger. Neither
+owner nor keeper slots were signed; no transaction was sent.
+
+The collateral path now measures the exact collateral-vault debit separately
+from USDC. Wallet checks bind that debit to the token increment, or, for an
+unwrapped SOL return, to the owner's SOL increment after exact fee/rent effects.
+It preserves pre-existing balances and unsynchronized WSOL excess, rejects
+unwrapping a pre-existing nonzero WSOL token amount, and checks the native vault
+lamport decrease against its token decrease. Read-only USDC/custody/vault
+snapshots remain sampled in the same bank, even if absent from the first-leg
+message. The LONG oracle context requires only the market/collateral price;
+there is no USDC price-consuming instruction in that wire. SHORT/direct-USDC
+retain their two-feed requirements.
+
+First public combined probes passed wallet, vault and reserve gates, but did
+NOT pass the final oracle gate. Diagnostic simulations at slots 459389043 and
+459389135 rejected `UNVERIFIED_PERPS_CLOSE_ORACLE_EFFECTS_CONFIGURATION`.
+At 459389135 the Lazer PriceFeed changed bytes 96, 97 and 98 in addition to the
+documented price/timestamp fields. The program-owned DOVES IDL was independently
+read at 459389258: owner DoVEsk76QybCEHQGzkvYPWLQu9gzNoZZZt3TPiL597e,
+JSON hash 1ae8e5e335beec1646d5484671d8f07902fb5ac55581c3028701893b998025f5.
+Its PriceFeed description ends at byte 96 (PythLazerConfig feed_id u32 and
+channel_id u8). It does not explain these changing extension bytes. They remain
+rejected; no arbitrary padding allowance or freshness/price-limit relaxation
+was introduced to make the live probe pass. More specific oracle failure codes
+now distinguish configuration, stale/future time, regression and price limit.
+
+The current durable close table represents unsigned direct-USDC preparation
+only. It explicitly rejects a collateral-only LONG with
+`TWO_STEP_CLOSE_JOURNAL_REQUIRED`, leaving parents/risk unchanged, rather than
+losing the second leg on restart. A finalized first-leg receipt, durable
+conversion-pending state, independently protected conversion wire, fee budget,
+unknown-signature recovery and native owner review are still required. A
+simulated collateral return is not finalized proceeds or usable USDC capital.
+The public oracle-extension discrepancy also remains unresolved. Thus this is
+not live trading readiness and has not been published or deployed to the worker.
+
+Verification: the full local `tests/*.test.mjs` suite exited zero. The focused
+collateral/close/position/journal bundle passed 66/66 on VPS Node 22 in unit
+`jamddmaj-close-collateral-check-20261020-r2`, PrivateNetwork/PrivateTmp,
+DynamicUser, ProtectHome/ProtectSystem, no state directory or custody access.
+Artifact `/opt/jamddmaj-perps/checks/close-collateral-20261020/tests/test.mjs`,
+SHA-256 1776b8c244f5fb94567e20ad7837757fdf7be23168091e83d6010761dfe614a1.
+The first isolated invocation could not traverse SCP-created root-only fixture
+directories; only the new public test directories were made traversable and the
+second invocation passed. No production permissions, database or service were
+changed. Fixture success does not override the live oracle rejection above.
