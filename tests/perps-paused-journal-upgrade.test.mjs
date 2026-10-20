@@ -11,12 +11,12 @@ import {openPerpsBackupRegistry} from '../lib/perps-backup-registry.js';
 import {upgradePausedEmptyPerpsJournal} from '../lib/perps-paused-journal-upgrade.js';
 import {inspectExistingPerpsRuntimeDatabases} from '../lib/perps-runtime-recovery.js';
 const owner='a'.repeat(64),wallet='11111111111111111111111111111111',now=1792454400000;
-function fixture(t){
+function fixture(t,{withCancellations=false}={}){
  let registry;const root=mkdtempSync(join(tmpdir(),'jamd-paused-upgrade-'));chmodSync(root,0o700);t.after(()=>{registry?.close();rmSync(root,{recursive:true,force:true});});
  const lockDirectory=join(root,'runtime'),backupDirectory=join(root,'backups');for(const path of [lockDirectory,backupDirectory])mkdirSync(path,{mode:0o700});
  const controlsPath=join(root,'controls.sqlite'),journalPath=join(root,'journal.sqlite'),registryPath=join(root,'backup.sqlite'),allowNonPosixForTests=process.platform==='win32';
  const controls=openPerpsAutomationControls(controlsPath,{now:()=>now});const before=controls.provision({ownerAccountHash:owner,walletAddress:wallet,settings:{capital:100,loss:50,positions:2,margin:10,leverage:3,dailyTrades:5}});controls.close();
- const journal=openPerpsExecutionJournal(journalPath);journal.close();const raw=new DatabaseSync(journalPath);raw.exec('DROP TABLE perps_exit_cancellations');raw.close();
+ const journal=openPerpsExecutionJournal(journalPath);journal.close();const raw=new DatabaseSync(journalPath);raw.exec('DROP TABLE perps_position_closes');if(!withCancellations)raw.exec('DROP TABLE perps_exit_cancellations');raw.close();
  registry=openPerpsBackupRegistry(registryPath,{allowNonPosixForTests,now:()=>now});registry.close();
  // Persistence corpus only, no real wallet/key/archive. The cryptographic
  // restore acceptance path has separate tests; this case uses its persisted
@@ -30,6 +30,14 @@ function fixture(t){
   input:{controlsPath,journalPath,lockDirectory,backupDirectory,readBackupProof:who=>registry.readVerified(who),explicitMigrationApproval:true,allowNonPosixForTests}};
 }
 function liveRows(f){const c=new DatabaseSync(f.controlsPath,{readOnly:true}),j=new DatabaseSync(f.journalPath,{readOnly:true});try{return {controls:c.prepare('SELECT * FROM perps_automation_controls').all(),schema:j.prepare("SELECT type,name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name").all()};}finally{c.close();j.close();}}
+
+test('the current production cancellation-aware empty schema has an explicit paused upgrade path',async t=>{
+ const f=fixture(t,{withCancellations:true}),before=liveRows(f),result=await upgradePausedEmptyPerpsJournal(f.input);
+ assert.equal(result.sourceSchema,'cba66ff21abc8f2dd3db1bbebbbc3908a9d8cda2fa24b41a2191e184c5477e54');
+ assert.equal(result.targetSchema,'8200534af55b955bb73f2dd8bd207eeac04b248381885f415e19584e5cebeddd');
+ assert.deepEqual(liveRows(f).controls,before.controls);
+ assert.equal(inspectExistingPerpsRuntimeDatabases(f.input).stage,'EXISTING_RUNTIME_STORES_VERIFIED');
+});
 test('atomic paused upgrade retains exact rollback copies, controls, and zero financial rows without keys or execution',async t=>{
  const f=fixture(t),before=liveRows(f),result=await upgradePausedEmptyPerpsJournal(f.input);
  assert.equal(result.stage,'PAUSED_EMPTY_JOURNAL_UPGRADED');assert.equal(result.custodyKeysRead,false);assert.equal(result.controlsChanged,false);

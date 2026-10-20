@@ -2,6 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash,generateKeyPairSync,sign} from 'node:crypto';
 import {readFileSync} from 'node:fs';
+import {mkdtempSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {DatabaseSync} from 'node:sqlite';
+import {openPerpsExecutionJournal} from '../lib/perps-execution-journal.js';
 import bs58 from 'bs58';
 import {getProgramDerivedAddress} from '@solana/kit';
 import {readServerPerpsAccount} from '../lib/perps-server-account.js';
@@ -833,5 +838,66 @@ test('bank pairing is bounded, never replaces the wire and does not retry a simu
   if(mode==='movingBank')await assert.rejects(simulateServerPerpsFullCloseEffects(f.inspection,{request}),{message:'PERPS_CLOSE_SNAPSHOT_BANK_CHANGED'});
   else await assert.rejects(simulateServerPerpsFullCloseEffects(f.inspection,{request}));
   assert.equal(attempts,mode==='movingBank'?3:1);
+ }
+});
+
+async function closeJournalFixture(t,{parents=2}={}){
+ const f=await fundingFixture(),policy=checkServerPerpsFullCloseInstructionPolicy(f.inspection);
+ const simulation=await simulateServerPerpsFullCloseEffects(f.inspection,{request:f.request});
+ const funding=await checkServerPerpsFullCloseFunding(simulation,{request:f.fundingRequest});
+ const reserves=checkServerPerpsFullCloseReserves(await checkServerPerpsFullCloseVaults(funding,policy));
+ const directory=mkdtempSync(join(tmpdir(),'jamd-close-journal-')),path=join(directory,'journal.sqlite'),journals=[];
+ const open=()=>{const journal=openPerpsExecutionJournal(path,{now:()=>now*1000});journals.push(journal);return journal;};
+ t.after(()=>{for(const j of journals)try{j.close();}catch{}rmSync(directory,{recursive:true,force:true});});
+ const journal=open(),raw=new DatabaseSync(path);
+ for(let i=0;i<parents;i++)raw.prepare("INSERT INTO perps_reservations(wallet,signal,reservation,day,margin,state,created,updated,signature,wire_hash,position_address,confirmed_slot,entry_exit_plan) VALUES(?,?,?,?,?,'OPEN',?,?,?,?,?,?,?)")
+  .run(wallet,'signal-'+i,'entry-'+i,new Date(now*1000).toISOString().slice(0,10),10000000,now*1000,now*1000,
+   bs58.encode(Buffer.alloc(64,80+i)),String(i).repeat(64),f.ids.position,100,JSON.stringify({sizeUsdUnits:'15000000',exits:[]}));
+ raw.close();return {...f,journal,path,open,reserves};
+}
+
+test('prepared full close persists exact wire and all position entries across restart without releasing risk',async t=>{
+ const f=await closeJournalFixture(t),risk=f.journal.riskState(wallet),row=f.journal.preparePositionClose('close-one',f.reserves);
+ assert.equal(row.state,'PREPARED');assert.equal(row.wallet,wallet);assert.equal(row.position,f.ids.position);
+ assert.equal(row.fee_lamports,5000);assert.equal(row.unsigned_wire_hash,createHash('sha256').update(Buffer.from(f.preparation.serializedTxBase64,'base64')).digest('hex'));
+ assert.deepEqual(JSON.parse(row.entries).map(e=>e.reservation),['entry-0','entry-1']);
+ assert.deepEqual(f.journal.riskState(wallet),risk);assert(f.journal.openPositions(wallet).every(e=>e.state==='OPEN'));
+ const other=f.open();assert.deepEqual(other.readPositionClose('close-one'),row);assert.equal(other.pendingPositionCloses(wallet).length,1);
+ assert.throws(()=>other.preparePositionClose('duplicate',f.reserves),/RECONCILIATION_REQUIRED/);
+ assert.equal(typeof other.beginPositionCloseSigning,'undefined');assert.equal(typeof other.recordPositionCloseBroadcast,'undefined');
+ assert.throws(()=>other.reserve({walletAddress:wallet,signalId:'next',reservationId:'next',marginUsd:'10',limits:{capitalUsd:'100',dailyLossUsd:'100',positions:10,dailyTrades:10},
+  snapshot:{walletAddress:wallet,network:'solana-mainnet',balancesComplete:true,day:new Date(now*1000).toISOString().slice(0,10),observedAt:now*1000,
+   availableUsdcUnits:'100000000',allocatedUsdcUnits:'20000000',lossTodayUsdcUnits:'0',openPositions:2,tradesToday:2}}),/RECONCILIATION_REQUIRED/);
+ assert.equal(other.cancelPreparedPositionClose('close-one').state,'CANCELLED');assert.equal(other.pendingPositionCloses(wallet).length,0);
+ assert.throws(()=>other.cancelPreparedPositionClose('close-one'),/RECONCILIATION_REQUIRED/);
+ assert.deepEqual(other.riskState(wallet),risk);
+ f.journal.close();assert.equal(f.open().readPositionClose('close-one').state,'CANCELLED');
+});
+
+test('close preparation requires original fresh reserve proof and confirmed journal parents',async t=>{
+ const f=await closeJournalFixture(t);
+ for(const proof of [null,{...f.reserves},{readyForSigning:true}])assert.throws(()=>f.journal.preparePositionClose('forged',proof));
+ assert.equal(f.journal.pendingPositionCloses(wallet).length,0);
+ f.expire();assert.throws(()=>f.journal.preparePositionClose('expired',f.reserves));
+ const empty=await closeJournalFixture(t,{parents:0});assert.throws(()=>empty.journal.preparePositionClose('unowned',empty.reserves),/VERIFIED_RECONCILIATION_REQUIRED/);
+ for(const fault of ['state','wallet','position','slot','legacy']){
+  const a=await closeJournalFixture(t,{parents:1}),raw=new DatabaseSync(a.path);
+  const sql={state:"UPDATE perps_reservations SET state='CLOSED'",wallet:`UPDATE perps_reservations SET wallet='${bs58.encode(Buffer.alloc(32,3))}'`,
+   position:`UPDATE perps_reservations SET position_address='${bs58.encode(Buffer.alloc(32,4))}'`,slot:'UPDATE perps_reservations SET confirmed_slot=106',legacy:'UPDATE perps_reservations SET entry_exit_plan=NULL'};
+  raw.exec(sql[fault]);raw.close();assert.throws(()=>a.journal.preparePositionClose('bad-parent',a.reserves),/VERIFIED_RECONCILIATION_REQUIRED/);
+ }
+});
+
+test('an outstanding entry or cancellation blocks close preparation atomically',async t=>{
+ for(const state of ['RESERVED','SIGNING','UNCERTAIN','cancellation']){
+  const f=await closeJournalFixture(t,{parents:1}),raw=new DatabaseSync(f.path);
+  if(state==='cancellation'){
+   const address=bs58.encode(Buffer.alloc(32,90));raw.prepare('INSERT INTO perps_exit_request_bindings(address,reservation) VALUES(?,?)').run(address,'entry-0');
+   raw.prepare("INSERT INTO perps_exit_cancellations(id,address,reservation,wallet,state,created,updated,fee_lamports,unsigned_wire_hash) VALUES(?,?,?,?,'PREPARED',?,?,?,?)")
+    .run('cancel',address,'entry-0',wallet,now*1000,now*1000,5000,'b'.repeat(64));
+  }else raw.prepare('INSERT INTO perps_reservations(wallet,signal,reservation,day,margin,state,created,updated) VALUES(?,?,?,?,?,?,?,?)')
+   .run(wallet,'pending','pending',new Date(now*1000).toISOString().slice(0,10),10000000,state,now*1000,now*1000);
+  raw.close();assert.throws(()=>f.journal.preparePositionClose('blocked',f.reserves),/RECONCILIATION_REQUIRED/);
+  assert.equal(f.journal.pendingPositionCloses(wallet).length,0);assert.equal(f.journal.read('entry-0').state,'OPEN');
  }
 });

@@ -82,6 +82,21 @@ test('complete encrypted recovery preserves all reservation states, limits, risk
  assert.equal(readdirSync(f.root).some(name=>name.startsWith('jamd-runtime-recovery-')),false);
 });
 
+test('encrypted recovery preserves prepared and cancelled close bindings without releasing parent collateral',async t=>{
+ for(const state of ['PREPARED','CANCELLED']){
+  const f=await fixture(t),parent=f.journal.read('open'),raw=new DatabaseSync(f.journalPath);
+  // Persistence-only corpus in an unfunded fixture, not a signing proof.
+  const entries=[{reservation:parent.reservation,signature:parent.signature,wire_hash:parent.wire_hash,confirmed_slot:parent.confirmed_slot,entry_exit_plan:parent.entry_exit_plan}];
+  raw.prepare('INSERT INTO perps_position_closes(id,wallet,position,state,created,updated,observed_slot,fee_lamports,unsigned_wire_hash,entries) VALUES(?,?,?,?,?,?,?,?,?,?)')
+   .run('restore-close',parent.wallet,parent.position_address,state,now,now,105,5000,'d'.repeat(64),JSON.stringify(entries));raw.close();
+  const archive=await createPerpsCustodyRecoveryArchive(f.request),restored=await restorePerpsCustodyRecoveryArchive({...f.restore,ciphertext:archive.ciphertext});
+  const journal=openPerpsExecutionJournal(join(restored.runtimeDirectory,'journal.sqlite'),{now:()=>now});f.restoredStores.push(journal);
+  assert.deepEqual(journal.readPositionClose('restore-close'),f.journal.readPositionClose('restore-close'));
+  assert.equal(journal.pendingPositionCloses(parent.wallet).length,state==='PREPARED'?1:0);
+  assert.equal(journal.read('open').state,'OPEN');assert.deepEqual(journal.riskState(parent.wallet),f.journal.riskState(parent.wallet));
+ }
+});
+
 test('snapshot locks both source databases, includes committed WAL rows and releases locks and private handles on completion',async t=>{
  const f=await fixture(t);let captured;
  await withLockedPerpsRuntimeRecoverySnapshot({...f.runtimePaths,...f.common},async handle=>{
@@ -103,7 +118,7 @@ test('encrypted recovery preserves uncertain cancellation identities and the sta
   assert.deepEqual(store.readExitCancellation('recovery-cancel'),f.journal.readExitCancellation('recovery-cancel'));
   assert.equal(store.pendingExitCancellations(f.wallet.walletAddress).length,1);assert.equal(store.read('open').state,'OPEN');
  }
- const f=await fixture(t),raw=new DatabaseSync(f.journalPath);raw.exec('DROP TABLE perps_exit_cancellations');raw.close();
+ const f=await fixture(t),raw=new DatabaseSync(f.journalPath);raw.exec('DROP TABLE perps_position_closes; DROP TABLE perps_exit_cancellations');raw.close();
  assert.throws(()=>inspectExistingPerpsRuntimeDatabases({...f.runtimePaths,...f.common}));
  const check=new DatabaseSync(f.journalPath,{readOnly:true});assert.equal(check.prepare("SELECT count(*) AS n FROM sqlite_master WHERE name='perps_exit_cancellations'").get().n,0);check.close();
  // A recognized old archive remains recoverable; startup itself never upgrades it.

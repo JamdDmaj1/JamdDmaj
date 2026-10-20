@@ -2343,3 +2343,56 @@ changed. A separate read-only backup-registry check confirmed the approved bot
 wallet's ACCEPTED restore record; health still reports controls-only,
 tradingEnabled=false and executionAvailable=false. Remaining close accounting,
 native authorization, complete final audit and publication are still required.
+
+### Durable unsigned close preparation and recovery (2026-10-20)
+
+The existing execution journal now records an independently simulated close
+preparation in perps_position_closes, in the SAME SQLite database and BEGIN
+IMMEDIATE transaction domain as entries/cancellations. The preparation consumes
+the private reserves -> vaults -> funding -> same-wire simulation -> inspection
+proof chain, not JSON flags or a caller's quote. It binds the exact unsigned
+wire SHA-256, wallet, position, observed bank, independently read network fee,
+and every OPEN journal entry sharing that position (including original entry
+signatures, hashes, confirmed slots and exit plans). Absent/foreign/legacy or
+later-than-simulation parents and competing entry/cancellation attempts reject.
+
+This is intentionally only PREPARED/CANCELLED persistence. No close signing,
+broadcast or finalization transition exists yet; recording a preparation does
+not grant authority to sign. OPEN parent collateral, loss and daily accounting
+are NOT released. A wallet-unique PREPARED index and atomic guards prevent new
+reservations, entry signing/revalidation, exit cancellation and position release
+while a close is prepared. Other connections/restarts observe the same record.
+Only a provably unsigned prepared close can be cancelled. Future financial
+transitions require a separate reviewed state-machine extension, minimum-return
+and full policy proof, one-use custody/native authority and finalized receipt
+accounting; none is implied by this preparation record.
+
+Recovery inventory checks close entries against their bound parent wallet,
+position and recorded identities. Encrypted backup/restore preserves prepared
+and cancelled attempts and continues to force a fresh pause; it never treats
+restoration as closure or releases parent collateral. The target journal schema
+is now 8200534af55b955bb73f2dd8bd207eeac04b248381885f415e19584e5cebeddd.
+The former cancellation-aware cba66ff21abc8f2dd3db1bbebbbc3908a9d8cda2fa24b41a2191e184c5477e54
+is accepted as recoverable LEGACY, not silently admitted by new worker startup.
+The explicit paused EMPTY operator migration and disposable rehearsal now cover
+both that schema and the older f4c79e66 source, verify exact rollback copies and
+recheck restore proof before atomic DDL. Historical/active stores still refuse
+this bounded empty-only migration. No production migration was performed.
+
+The directed local run passed 66 tests before adding the encrypted-close
+recovery case; the full local test glob then exited zero with that case included.
+The final bundled 67-test selection ran on the VPS under
+jamddmaj-close-journal-check-20261020: 66 passed, zero failed, one Windows-only
+ACL case skipped on Linux, exit 0. Its eight-process synthetic entry contention
+test used a separately bundled journal module; no private custody state was
+accessible. DynamicUser, PrivateNetwork, PrivateTmp, ProtectSystem=strict,
+ProtectHome, NoNewPrivileges, UMask=0077 and MemoryMax=384M were applied.
+Bundle /opt/jamddmaj-perps/checks/close-journal-20261020/tests/test.mjs SHA-256:
+f871194f78fbe1e97dc9b4ffc9c2d70ddbb5c0321a35ca23e6f1d317fc599b56.
+
+The actual production health was rechecked: controls-only, tradingEnabled=false,
+executionAvailable=false. Production worker/state, encrypted operator archives,
+wallets and activation settings were unchanged; no financial signatures, send,
+new Android package or publication occurred. Full close authorization/send/
+finalization, native UI integration, complete remaining policy/risk budget,
+end-to-end audit and publication remain unfinished. The goal stays active.
