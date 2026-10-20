@@ -1691,3 +1691,45 @@ no configured Android SDK. A dedicated non-release verification branch is used
 for that check, rather than triggering the permanent-key APK workflow on the
 main development branch. No APK release or execution-readiness claim follows
 from the standalone harness.
+
+### Verified native CI and live-copy journal rehearsal (2026-10-20)
+
+Native CI for source `b6419c270cddc51d7c0f96760b61fa5c583624c7` completed
+successfully: https://github.com/JamdDmaj1/JamdDmaj/actions/runs/39397214316
+The Android unit/RPC-failure step, cryptographic encoding checks, APK compilation,
+manifest isolation and preview identity checks all passed. This was the dedicated
+`codex/perps-funds-preflight-validation` branch, not the signed main-app release
+workflow or an installed user update. This supersedes the pending native-CI
+status above, not the remaining complete execution requirements.
+
+Added an operator-only paused-empty legacy journal upgrade rehearsal. It locks
+and snapshots the existing reviewed controls/journal, requires paused accounts
+and zero reservations/bindings/consumed events, upgrades a fresh private copy,
+and checks the exact current schema. Unknown schemas, active controls or even
+cancelled historical reservations are refused; this is deliberately not a
+generic financial-row migration. Copies are removed only from the freshly
+created verified temporary child. The helper never replaces live stores, reads
+custody keys, enables controls, or invokes a financial transport.
+
+Both selected cases passed on VPS Node 22 in a network-disabled DynamicUser
+unit. A rehearsal using the actual private production stores then passed with
+the existing service UID and explicit StateDirectoryMode=0700. It found one
+paused account and zero reservations, source schema
+`f4c79e669461914ff30fe59063f6ca11270d951600fc320c6ce87dcd616ca786`, target
+`cba66ff21abc8f2dd3db1bbebbbc3908a9d8cda2fa24b41a2191e184c5477e54`.
+Source snapshot SHA-256:
+`7ba2ce003d0c8a1496548ee3adc3b2fc47495590758386a021c2a3393359878f`;
+candidate snapshot SHA-256:
+`46f319d5a7e5c798863b77e1c0b6f324b8d866a369715512b6024bdc98686831`.
+
+The initial transient-unit invocation omitted StateDirectoryMode=0700 and
+returned an unavailable result. The retry with the correct explicit mode passed.
+The worker reported one restart; subsequent checks confirmed active/running,
+both private directories at 0700, and health controls-only with execution false.
+A final independent read confirmed the LIVE journal still has the old source
+schema, zero reservations, and zero active accounts. No live schema replacement,
+key access, financial signing/submission or activation occurred. The full local
+suite exited 0 with existing optional/platform skips. Artifacts:
+`/opt/jamddmaj-perps/checks/journal-upgrade-rehearsal-20261020/`.
+Actual migration, new verified recovery archive, worker installation, manual
+closing lifecycle and full current-amount unsigned compatibility remain pending.
