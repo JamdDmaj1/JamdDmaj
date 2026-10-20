@@ -1758,3 +1758,54 @@ Candidate maintenance worker SHA-256:
 `3dfc332b8d4f4a45185fba6e95e306fd7aa501a1b5b08f7e2673ba838d607e19`.
 The actual installation result is recorded separately below, not inferred from
 these tests or the prepared artifact.
+
+### Production paused cutover and renewed off-host recovery (2026-10-20)
+
+The approved empty production journal was upgraded with the explicit operator
+tool after stopping the worker. The HTTPS service also stopped through its
+existing dependency, then both were restarted after installing the tested worker.
+No execution flag, owner activation or custody identity was changed. The operator
+reported one paused account, zero reservations, controlsChanged=false and
+custodyKeysRead=false for the structural migration. Final independent read-only
+inspection confirmed the live target journal schema, zero reservations,
+zero cancellation attempts and zero active accounts.
+
+Actual installed worker, source `daba21d` plus its preceding reviewed commits:
+`/opt/jamddmaj-perps/worker/perps-server-worker.mjs`, SHA-256
+`3dfc332b8d4f4a45185fba6e95e306fd7aa501a1b5b08f7e2673ba838d607e19`.
+Previous worker is retained at
+`/opt/jamddmaj-perps/backups/paused-journal-upgrade-20261020/worker-before.mjs`
+with SHA-256 `04dac73bfb767bdd24bb437e259e11c6532d4bb19aa142a4a71e23a69831458b`.
+Private SQL rollback copies and the admission manifest remain in
+`/var/lib/private/jamddmaj-perps-runtime/jamd-journal-upgrade-xvwVTL/`.
+Rollback must use the matching schema/runtime pair, never restart an old worker
+against a schema it rejects. No automatic rollback or database replacement was
+performed.
+
+The first immediate post-start health request preceded HTTP readiness; the same
+service was rechecked without restarting it. Actual health then returned HTTP
+200 controls-only, executionAvailable=false, tradingEnabled=false; unauthenticated
+automation returned HTTP 401. Both services were active, NRestarts=0 for the new
+worker, and custody setup remained separately available. This is an installed
+backend update, NOT a new Android APK or Vercel frontend publication.
+
+A new v3 encrypted archive includes the actual upgraded runtime and the existing
+exclusive wallet. It was downloaded to the approved private PC recovery folder,
+its SHA-256 matched, and a full local quarantined restore recovered the same
+public wallet and paused runtime. Archive SHA-256:
+`fcf1692e777bb60b6c59a17a8cc829fea277b172ab53e56f67559701bacc0ce6`.
+Encrypted PC copy:
+`C:\Users\JamdDmaj\AppData\Local\JamdDmaj-Recovery\production-bot-20261020-upgraded-3AXFGU5E\bot-wallet.age`.
+The private restored test copy and proof remain under `restored-QUARANTINED`;
+this does not claim that the encrypted archive is the only local recovery data.
+The operator identity never left this PC; no key bytes or proof token were
+printed. Only the opaque proof file was returned privately to the VPS.
+
+The live registry accepted the matching proof as OPERATOR_RESTORE_VERIFIED,
+walletCount=1, backupVerified=true, readyForSigning=false and
+activationRequested=false. A final independent read confirmed one accepted
+backup for the exact new archive. All real financial signing, transaction
+submission and bot activation remain prohibited during verification. Feed
+configuration, pending/new fee allowances, manual closing lifecycle, current
+funded-amount unsigned compatibility and final app publication still require
+completion; this cutover is not a complete trading-readiness claim.
