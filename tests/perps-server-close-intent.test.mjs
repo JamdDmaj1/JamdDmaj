@@ -1,11 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createHash} from 'node:crypto';
+import {createHash,generateKeyPairSync,sign} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import bs58 from 'bs58';
+import {getProgramDerivedAddress} from '@solana/kit';
 import {readServerPerpsAccount} from '../lib/perps-server-account.js';
-import {PERPS_PROGRAM,PERPS_POOL,PERPS_CUSTODIES,deriveServerPerpsIdentities} from '../lib/perps-server-custody.js';
+import {PERPS_PROGRAM,PERPS_POOL,PERPS_CUSTODIES,deriveServerPerpsIdentities,decodeServerPerpsCustody} from '../lib/perps-server-custody.js';
 import {planServerPerpsFullClose,requireFreshServerPerpsFullClosePlan,checkServerPerpsFullCloseCore} from '../lib/perps-server-close-intent.js';
+import {checkServerPerpsFullCloseBindings,inspectServerPerpsFullClosePreparation} from '../lib/perps-server-close-bindings.js';
 const wallet=bs58.encode(Buffer.alloc(32,1)),now=1802865600;
 test('both close data layouts match the recorded confirmed program-owned Anchor IDL',()=>{
  const idl=JSON.parse(readFileSync(new URL('../security/native-tests/jupiter-perps-idl-layout.json',import.meta.url),'utf8'));
@@ -32,7 +34,7 @@ async function fixture(side='LONG',asset='SOL'){
  };
  const account=await readServerPerpsAccount({walletAddress:wallet},{request,now:()=>now*1000,monotonicNow:()=>elapsed});
  const options={walletAddress:wallet,positionAddress:ids.position,referencePrice:'100',maxSlippageBps:50,minimumSlot:100};
- return {account,options,expire(){elapsed=10001;}};
+ return {account,options,ids,expire(){elapsed=10001;}};
 }
 function core(version=1,patch={}){
  const v={collateral:0n,size:0n,price:99500000n,time:BigInt(now),option:1,entire:1,counter:7n,...patch};
@@ -83,4 +85,130 @@ test('SHORT buy limit and LONG sell limit use inward integer rounding',async()=>
   assert.doesNotThrow(()=>checkServerPerpsFullCloseCore(core(2,{price:expected}),plan,now));
   assert.throws(()=>checkServerPerpsFullCloseCore(core(2,{price:expected+(side==='LONG'?-1n:1n)}),plan,now));
  }
+});
+const TOKEN='TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',ATA='ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL',SYSTEM='11111111111111111111111111111111',COMPUTE='ComputeBudget111111111111111111111111111111';
+async function boundFixture(side='LONG',asset='SOL',version=1){
+ const f=await fixture(side,asset),plan=planServerPerpsFullClose(f.account,f.options);
+ function custody(asset){
+  const id=PERPS_CUSTODIES[asset],n=['BTC','ETH','SOL','USDC'].indexOf(asset),data=Buffer.alloc(416);
+  Buffer.from('01b830515d833f91','hex').copy(data);Buffer.from(bs58.decode(PERPS_POOL)).copy(data,8);Buffer.from(bs58.decode(id.mint)).copy(data,40);
+  Buffer.alloc(32,20+n).copy(data,72);data[104]=id.decimals;data[105]=Number(id.stable);Buffer.alloc(32,30+n).copy(data,106);data[138]=2;
+  data.writeBigUInt64LE(500000n,175);data[202]=1;data[203]=1;Buffer.alloc(32,40+n).copy(data,384);
+  const account={owner:PERPS_PROGRAM,executable:false,data:[data.toString('base64'),'base64']};
+  return {account,decoded:decodeServerPerpsCustody(asset,id.address,account)};
+ }
+ const m=custody(asset),c=side==='LONG'?m:custody('USDC'),market=m.decoded,collateral=c.decoded;
+ const associated=async owner=>(await getProgramDerivedAddress({programAddress:ATA,seeds:[bs58.decode(owner),bs58.decode(TOKEN),bs58.decode(PERPS_CUSTODIES.USDC.mint)]}))[0];
+ const recipient=await associated(wallet),keeper=bs58.encode(Buffer.alloc(32,2)),api=bs58.encode(Buffer.alloc(32,3));
+ const [requestAddress]=await getProgramDerivedAddress({programAddress:PERPS_PROGRAM,seeds:['position_request',bs58.decode(f.ids.position),Buffer.from('0700000000000000','hex'),new Uint8Array([2])]});
+ const requestAta=await associated(requestAddress);
+ const common=[keeper,api,wallet,recipient,f.ids.transferAuthority,f.ids.perpetuals,PERPS_POOL,f.ids.position,market.address,market.dovesAgOracle];
+ const roles=version===1?[...common,market.oracle,collateral.address,collateral.dovesAgOracle,collateral.oracle,collateral.tokenAccount,PERPS_CUSTODIES.USDC.mint,PERPS_PROGRAM,TOKEN,ATA,SYSTEM,f.ids.eventAuthority,PERPS_PROGRAM]
+  :[...common,collateral.address,collateral.dovesAgOracle,collateral.tokenAccount,PERPS_CUSTODIES.USDC.mint,PERPS_PROGRAM,requestAddress,requestAta,TOKEN,ATA,SYSTEM,f.ids.eventAuthority,PERPS_PROGRAM];
+ const writeRoles=version===1?[3,6,7,8,11,14]:[3,6,7,8,10,12,15,16];
+ const writes=[...new Set(writeRoles.map(i=>roles[i]))];
+ const reads=[...new Set([...roles,COMPUTE].filter(key=>![wallet,keeper,api,...writes].includes(key)))];
+ const keys=[wallet,keeper,api,...writes,...reads];
+ const unit=Buffer.alloc(5);unit[0]=2;unit.writeUInt32LE(1000000,1);
+ const price=Buffer.alloc(9);price[0]=3;price.writeBigUInt64LE(1n,1);
+ const ix={program:keys.indexOf(PERPS_PROGRAM),accounts:roles.map(key=>keys.indexOf(key)),dataBase64:core(version,{price:BigInt(plan.priceLimitUsdUnits)})};
+ const envelope={stage:'STRUCTURE_ONLY',staticKeys:[...keys],accountCount:keys.length,readonlySigned:2,readonlyUnsigned:reads.length,lookups:[],instructions:[
+  {program:keys.indexOf(COMPUTE),accounts:[],dataBase64:unit.toString('base64')},
+  {program:keys.indexOf(COMPUTE),accounts:[],dataBase64:price.toString('base64')},ix]};
+ return {...f,plan,market,collateral,custodyAccounts:side==='LONG'?[m.account]:[m.account,c.account],inspection:{envelope,resolvedKeys:keys},ix,recipient,requestAddress,requestAta};
+}
+test('both close variants bind all six markets/directions to owned recipient and independently decoded custody roles',async()=>{
+ for(const asset of ['BTC','ETH','SOL'])for(const side of ['LONG','SHORT'])for(const version of [1,2]){
+  const f=await boundFixture(side,asset,version),checked=await checkServerPerpsFullCloseBindings(f.inspection,f.plan,f.market,f.collateral,now);
+  assert.equal(checked.positionAddress,f.ids.position);assert.equal(checked.recipient,f.recipient);
+  assert.equal(checked.requestAddress,version===2?f.requestAddress:null);assert.equal(checked.requestAta,version===2?f.requestAta:null);
+  assert.equal(checked.readyForSigning,false);assert.equal(checked.requiresFullInstructionPolicy,true);assert.equal(checked.requiresSameWireSimulation,true);
+ }
+});
+test('every close role substitution, added opening, copied custody and expired plan is rejected',async()=>{
+ for(const version of [1,2]){
+  for(let role=0;role<22;role++){
+   const f=await boundFixture('SHORT','BTC',version);f.ix.accounts[role]=role===2?1:0;
+   await assert.rejects(checkServerPerpsFullCloseBindings(f.inspection,f.plan,f.market,f.collateral,now));
+  }
+  const f=await boundFixture('LONG','ETH',version);
+  await assert.rejects(checkServerPerpsFullCloseBindings(f.inspection,f.plan,{...f.market},f.collateral,now));
+  f.inspection.envelope.instructions.push({...f.ix});
+  await assert.rejects(checkServerPerpsFullCloseBindings(f.inspection,f.plan,f.market,f.collateral,now));
+  f.inspection.envelope.instructions.pop();f.expire();
+  await assert.rejects(checkServerPerpsFullCloseBindings(f.inspection,f.plan,f.market,f.collateral,now));
+ }
+});
+test('close inspection rejects a provider-selected foreign position before contacting any RPC',async()=>{
+ const f=await fixture(),plan=planServerPerpsFullClose(f.account,f.options);let calls=0;
+ await assert.rejects(inspectServerPerpsFullClosePreparation({positionPubkey:wallet},plan,{nowSeconds:now,request:async()=>{calls++;throw Error('UNEXPECTED');}}));
+ assert.equal(calls,0);
+});
+test('close bindings require writable recipient, vault, position and request accounts but never writable programs',async()=>{
+ for(const version of [1,2]){
+  const f=await boundFixture('SHORT','SOL',version),envelope=f.inspection.envelope;
+  const correct=envelope.readonlyUnsigned;
+  envelope.readonlyUnsigned=envelope.staticKeys.length-3;
+  await assert.rejects(checkServerPerpsFullCloseBindings(f.inspection,f.plan,f.market,f.collateral,now));
+  envelope.readonlyUnsigned=0;
+  await assert.rejects(checkServerPerpsFullCloseBindings(f.inspection,f.plan,f.market,f.collateral,now));
+  envelope.readonlyUnsigned=correct;
+  assert.equal((await checkServerPerpsFullCloseBindings(f.inspection,f.plan,f.market,f.collateral,now)).readyForSigning,false);
+ }
+});
+function preparationFixture(f){
+ // Unfunded, synthetic provider cosignature, never a live wallet signature.
+ const api=generateKeyPairSync('ed25519'),keys=[...f.inspection.resolvedKeys];keys[2]=bs58.encode(api.publicKey.export({format:'der',type:'spki'}).subarray(-32));
+ const blockhash=bs58.encode(Buffer.alloc(32,9)),envelope=f.inspection.envelope;
+ const instructions=envelope.instructions.map(ix=>{
+  const data=Buffer.from(ix.dataBase64,'base64');assert(data.length<128);assert(ix.accounts.length<128);
+  return Buffer.concat([Buffer.from([ix.program,ix.accounts.length,...ix.accounts,data.length]),data]);
+ });
+ const message=Buffer.concat([Buffer.from([3,envelope.readonlySigned,envelope.readonlyUnsigned,keys.length]),...keys.map(key=>Buffer.from(bs58.decode(key))),Buffer.from(bs58.decode(blockhash)),Buffer.from([instructions.length]),...instructions]);
+ const wire=Buffer.concat([Buffer.from([3]),Buffer.alloc(128),sign(null,message,api.privateKey),message]);
+ assert(wire.length<=1232);
+ return {serializedTxBase64:wire.toString('base64'),positionPubkey:f.plan.positionAddress,txMetadata:{blockhash,lastValidBlockHeight:'1000'}};
+}
+test('unsigned close preparation resolves the exact envelope then fetches independent custody identities without broadcasting',async()=>{
+ for(const version of [1,2])for(const side of ['LONG','SHORT']){
+  const f=await boundFixture(side,'SOL',version),preparation=preparationFixture(f),calls=[];
+  const request=async(method,params)=>{
+   calls.push(method);
+   if(method==='getGenesisHash')return '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
+   if(method==='getSlot')return 101;
+   assert.equal(method,'getMultipleAccounts');assert.equal(params[1].minContextSlot,101);
+   assert.deepEqual(params[0],side==='LONG'?[PERPS_CUSTODIES.SOL.address]:[PERPS_CUSTODIES.SOL.address,PERPS_CUSTODIES.USDC.address]);
+   return {context:{slot:102},value:f.custodyAccounts};
+  };
+  const result=await inspectServerPerpsFullClosePreparation(preparation,f.plan,{request,nowSeconds:now});
+  assert.equal(result.stage,'FULL_CLOSE_INSPECTED_NOT_AUTHORIZED');assert.equal(result.observedSlot,102);
+  assert.equal(result.readyForSigning,false);assert.equal(result.tradingEnabled,false);
+  assert.equal(result.bindings.recipient,f.recipient);assert.equal(result.requiresFullInstructionPolicy,true);
+  assert.deepEqual(calls,['getGenesisHash','getSlot','getGenesisHash','getGenesisHash','getMultipleAccounts','getGenesisHash']);
+ }
+});
+test('close preparation rejects wrong-network, missing/stale/foreign custody banks and revoked decrease permission',async()=>{
+ for(const mode of ['network','missing','stale','owner','disabled','expired']){
+  const f=await boundFixture('SHORT','SOL',2),preparation=preparationFixture(f);
+  const request=async(method)=>{
+   if(method==='getGenesisHash')return mode==='network'?'devnet':'5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
+   if(method==='getSlot')return 101;
+   assert.equal(method,'getMultipleAccounts');
+   const value=structuredClone(f.custodyAccounts);
+   if(mode==='missing')value.pop();
+   if(mode==='owner')value[0].owner=wallet;
+   if(mode==='disabled'){const bytes=Buffer.from(value[1].data[0],'base64');bytes[203]=0;value[1].data[0]=bytes.toString('base64');}
+   if(mode==='expired')f.expire();
+   return {context:{slot:mode==='stale'?100:102},value};
+  };
+  await assert.rejects(inspectServerPerpsFullClosePreparation(preparation,f.plan,{request,nowSeconds:now}));
+ }
+});
+test('an in-flight account-list mutation cannot replace the captured close instruction',async()=>{
+ const f=await boundFixture('LONG','SOL',2);
+ const pending=checkServerPerpsFullCloseBindings(f.inspection,f.plan,f.market,f.collateral,now);
+ f.ix.accounts[3]=0;f.ix.dataBase64=core(2,{entire:0});
+ const checked=await pending;
+ assert.equal(checked.recipient,f.recipient);assert.equal(checked.core.entirePosition,true);
+ await assert.rejects(checkServerPerpsFullCloseBindings(f.inspection,f.plan,f.market,f.collateral,now));
 });

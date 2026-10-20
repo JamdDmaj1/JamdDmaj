@@ -1902,3 +1902,45 @@ UI yet. Account-role/custody/oracle/token checks, exact-wire simulation, durable
 close accounting, native review/biometric integration and funded unsigned
 compatibility still need completion before a real close can be authorized.
 No new APK, worker deployment, activation or financial transaction occurred.
+
+### Close envelope and custody-account inspection (2026-10-20)
+
+`lib/perps-server-close-bindings.js` connects the full-close plan/data gate to
+the existing canonical three-signer/API-cosignature envelope decoder and
+independent lookup-table resolver. It requires the provider position to equal
+the selected, fresh native position before RPC access, then fetches the
+program-owned custody accounts in one confirmed bank no older than the
+resolved transaction. Mainnet genesis is checked around those reads.
+
+Both close variants bind all 22 roles to the derived owner USDC recipient,
+position, pool, transfer/perpetuals/event authorities, actual decoded market
+and collateral custody vaults/oracles, known programs and USDC mint. The
+optional referral must be the absent-account program sentinel. Variant 2's
+request/USDC ATA are derived using the existing decrease-request PDA seed
+convention and its exact counter. A funded positive close still needs to
+confirm full builder/program compatibility; synthetic vectors do not prove it.
+
+The gate requires native writable capabilities for recipient, position,
+custodies, vault and request accounts and forbids signer-role substitution.
+Oracle role write upgrades are explicitly left for the subsequent oracle
+policy, not silently treated as authorization. It permits exactly one Perps
+core instruction; extra opens, closes or pre-swap instructions fail. Caller
+structure is copied before asynchronous derivations; the original account
+proof is checked again at completion.
+
+Twelve focused local tests passed, including all three markets/two directions/
+two variants, every core role substitution, unsafe capabilities, copied or
+expired proofs, wrong-network/stale/missing/foreign/disabled custody snapshots,
+and an in-flight mutation. Four synthetic exact-envelope integration cases
+exercise the real decoder/resolver and custody read sequence without a network
+or financial transaction. The neighboring account/custody/preparation runtime
+suite also exited zero (40 tests at that run). These results remain
+FULL_CLOSE_INSPECTED_NOT_AUTHORIZED: complete oracle/token/side-effect policy,
+same-wire simulation, durable close lifecycle, native confirmation and actual
+funded unsigned compatibility are still required. No deployment, account
+activation or real financial signing/submission occurred.
+
+The full local Node test glob also exited zero after the binding/permission
+implementation; the final added mutation regression passed in the subsequent
+twelve-test focused run. This does not imply Android compilation or a published
+APK for these server-only changes.
