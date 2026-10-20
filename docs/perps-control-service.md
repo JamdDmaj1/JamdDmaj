@@ -1944,3 +1944,44 @@ The full local Node test glob also exited zero after the binding/permission
 implementation; the final added mutation regression passed in the subsequent
 twelve-test focused run. This does not imply Android compilation or a published
 APK for these server-only changes.
+
+### Exact-wire close position/recipient simulation (2026-10-20)
+
+`lib/perps-server-close-simulation.js` now consumes a privately branded close
+inspection, not an object with a matching public stage label. The inspection
+remains bound to the original fresh native position proof and immutable exact
+API-cosigned, owner/keeper-unsigned envelope. It records every writable account
+in the pre/post snapshots, checks mainnet, increasing bank slots, block-height
+expiry before/after simulation, the fee for the exact message and the explicit
+compute limit. simulateTransaction uses the original wire, sigVerify=false and
+replaceRecentBlockhash=false; no substitute transaction or refreshed message
+is accepted.
+
+The native before-position must exactly match the originally selected decoded
+position, including timestamps, collateral, size and identity. After simulation,
+the selected position must be closed or retain a valid native zero-size,
+zero-collateral record with a non-regressed timestamp. The receiving account
+must be the owner's initialized, undelegated USDC token account; its balance
+cannot decrease. Returned USDC is the actual simulated delta, not the original
+margin or provider quote. Zero proceeds remain representable as a complete
+loss, not invented reimbursement. The private snapshot evidence is immutable,
+non-copyable and invalid once the underlying position-proof lease expires.
+
+Sixteen focused tests passed, including synthetic exact-envelope simulation,
+all prior close gates, incomplete closure, remaining collateral, a changed
+before-position, wrong recipient authority, recipient loss, absent snapshots,
+stale banks, unknown fee, expired blockhash, wrong network, failed simulation,
+substituted blockhash, excessive computation, clock expiry and copied proofs.
+These are unfunded fixture simulations with no real wallet signing or send.
+
+This remains FULL_CLOSE_POSITION_AND_RECIPIENT_SIMULATED, readyForSigning=false,
+tradingEnabled=false. Snapshot collection does NOT yet validate every pool,
+oracle or other writable-account side effect, token setup or rent/SOL movement;
+the result explicitly requires those checks and durable close accounting. No
+custody signer consumes it. Complete native review/confirmation, funded unsigned
+compatibility and app publication still remain; production was not changed.
+
+The full local Node test glob also exited zero after this simulation
+implementation. The final additional expiry/fee/network regression was verified
+in the subsequent sixteen-test focused run; no Android build or live funded
+close was implied by these results.
