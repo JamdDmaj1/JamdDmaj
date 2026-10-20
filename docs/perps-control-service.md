@@ -2584,3 +2584,59 @@ The first isolated invocation could not traverse SCP-created root-only fixture
 directories; only the new public test directories were made traversable and the
 second invocation passed. No production permissions, database or service were
 changed. Fixture success does not override the live oracle rejection above.
+
+### Durable unsigned settlement description, 2026-10-20
+
+The earlier `TWO_STEP_CLOSE_JOURNAL_REQUIRED` rejection is now superseded for
+unsigned preparation only. The close journal requires a `settlement` column
+containing canonical versioned JSON derived from the original private oracle /
+reserve / vault / wallet simulation proof. It records the selected mode,
+wallet/position, market/side, receive asset/mint/account, collateral ATA, actual
+simulated delivery type (native SOL or token), estimated collateral/USDC units,
+conversion-required flag and the checked close price bound. Native SOL delivery
+comes from the observed wallet effects, not merely the presence of a cleanup
+instruction. No finalized output amount is fabricated from the estimate.
+
+Both close modes can now persist PREPARED/CANCELLED records across independent
+connections/restart while retaining all OPEN parent reservations and capital /
+daily-loss exclusion. This adds no signing, broadcast, finalized-close or
+conversion-complete setter. A prepared two-leg LONG cannot be represented as
+already received USDC. SHORT collateral is USDC, so its descriptor correctly
+requires no separate conversion. Copied/expired proofs and incompatible metadata
+remain rejected before recording.
+
+Runtime encrypted backup/restore validates canonical metadata against the
+recorded wallet/position and retains the route, delivery and pending-conversion
+distinction. It rejects missing fields, foreign wallet binding, false estimated
+USDC for a collateral return, added finalized claims and noncanonical encoding.
+Restoration still forces pause, retains parent risk and grants no signing. The
+previous 8200534a... direct-close schema remains readable in an old recovery
+archive, but strict startup rejects it; it is not silently upgraded or given a
+fabricated settlement descriptor.
+
+New local expected journal schema SHA-256:
+1657eaa7e4eb82efe0e045597e1ec06dd736b9bdc9f2b6a88125c987dc6ea563.
+The explicit EMPTY paused migration/rehearsal from f4c79e... or the actual
+cba66ff2... production source now targets that schema. No automatic migration of
+prepared/historical close records was added. The actual VPS production journal,
+worker and verified recovery archive have not been upgraded/replaced. Deployment
+will still require a coordinated paused migration and a matching newly verified
+backup; do not start the new worker against the old production schema.
+
+Verification: full local test glob exited zero. The focused close / position /
+journal / encrypted recovery / empty upgrade / rehearsal bundle exited zero on
+VPS Node 22: 84 tests, 83 passed and the Windows-only ACL test skipped on Linux.
+The Windows ACL test passed locally in the earlier focused run. Artifact
+`/opt/jamddmaj-perps/checks/close-settlement-20261020/tests/test.mjs`, SHA-256
+0281bed97eec648be5ea25f2462850aee2a859b767765b692ec0c40769e35be8;
+unit `jamddmaj-close-settlement-check-20261020`, DynamicUser, PrivateNetwork,
+PrivateTmp, ProtectHome, ProtectSystem=strict, no production state directories.
+These tests use temporary unfunded fixture wallets and cannot move funds.
+
+Still missing: a finalized first-leg payout receipt bound to the recorded signed
+wire, durable financial close/conversion phase transitions, protected second-leg
+quote/wire validation, actual receipt reconciliation, fees and uncertain-signature
+recovery, native review/confirmation and final end-to-end publication. The public
+oracle extension discrepancy remains unresolved; this turn did not repeat that
+network probe or relax the guard. Trading has not been activated or declared
+ready. Goal completion remains unproven.

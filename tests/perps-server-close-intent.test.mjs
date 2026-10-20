@@ -21,6 +21,7 @@ import {readServerPerpsCloseOracles,readServerPerpsCloseOracleContext,CLOSE_DOVE
 import {checkServerPerpsFullCloseVaults,readServerPerpsFullCloseVaults} from '../lib/perps-server-close-vaults.js';
 import {checkServerPerpsFullCloseReserves,readServerPerpsFullCloseReserves} from '../lib/perps-server-close-reserves.js';
 import {checkServerPerpsFullCloseOracleEffects,readServerPerpsFullCloseOracleEffects} from '../lib/perps-server-close-oracle-effects.js';
+import {describeSimulatedPerpsCloseSettlement,canonicalPerpsCloseSettlement} from '../lib/perps-close-settlement.js';
 const wallet=bs58.encode(Buffer.alloc(32,1)),now=1802865600;
 test('chosen two-step settlement returns only collateral, preserves existing balances and leaves conversion pending across all six paths',async()=>{
  for(const asset of ['BTC','ETH','SOL'])for(const side of ['LONG','SHORT']){
@@ -927,11 +928,35 @@ test('prepared full close persists exact wire and all position entries across re
  f.journal.close();assert.equal(f.open().readPositionClose('close-one').state,'CANCELLED');
 });
 
-test('legacy direct-USDC journal cannot lose the required second leg of a collateral-only close',async t=>{
+test('collateral-only close records its required second leg durably, keeps parent risk and can cancel only unsigned preparation',async t=>{
  const f=await closeJournalFixture(t,{side:'LONG',settlement:'COLLATERAL_THEN_USDC'}),risk=f.journal.riskState(wallet);
- assert.throws(()=>f.journal.preparePositionClose('not-direct-usdc',f.oracleEffects),/TWO_STEP_CLOSE_JOURNAL_REQUIRED/);
- assert.equal(f.journal.pendingPositionCloses(wallet).length,0);
+ const row=f.journal.preparePositionClose('two-step',f.oracleEffects),settlement=JSON.parse(row.settlement);
+ assert.equal(row.state,'PREPARED');assert.equal(settlement.conversionRequired,true);
+ assert.equal(settlement.estimatedCollateralUnits,'8000000');assert.equal(settlement.estimatedUsdcUnits,'0');
+ assert.equal(settlement.receiveAsset,'SOL');assert.equal(settlement.receiveAccount,wallet);
+ assert.equal(settlement.mode,'COLLATERAL_THEN_USDC');
+ assert.equal(f.open().readPositionClose('two-step').settlement,row.settlement);
+ assert.equal(f.journal.pendingPositionCloses(wallet).length,1);
  assert.deepEqual(f.journal.riskState(wallet),risk);
+ assert.equal(f.journal.cancelPreparedPositionClose('two-step').state,'CANCELLED');
+ assert.deepEqual(f.journal.riskState(wallet),risk);
+ assert.equal(typeof f.journal.recordCloseSettlement,'undefined');
+});
+
+test('settlement description is canonical, distinguishes all six payouts and cannot be forged into finalized proceeds',async()=>{
+ for(const asset of ['BTC','ETH','SOL'])for(const side of ['LONG','SHORT']){
+  const f=await oracleEffectsFixture(side,asset,'COLLATERAL_THEN_USDC'),reserves=await f.reserves();
+  const effects=checkServerPerpsFullCloseOracleEffects(reserves,{nowSeconds:now});
+  const description=describeSimulatedPerpsCloseSettlement(effects),v=JSON.parse(description.encoded);
+  assert.equal(description.readyForSigning,false);assert.equal(description.requiresFinalizedCloseReceipt,true);
+  assert.equal(v.conversionRequired,side==='LONG');assert.equal(v.receiveAsset,side==='LONG'?asset:'USDC');
+  assert.equal(v.delivery,side==='LONG'&&asset==='SOL'?'NATIVE_SOL':'TOKEN');
+  assert.equal(canonicalPerpsCloseSettlement(v,f.plan),description.encoded);
+  assert.throws(()=>describeSimulatedPerpsCloseSettlement({...effects}));
+  for(const patch of [{mode:'AUTO'},{conversionRequired:!v.conversionRequired},{estimatedCollateralUnits:'01'},
+   {receiveMint:wallet},{walletAddress:f.ids.position},{positionAddress:wallet},{closePriceLimitUsdUnits:'0'},
+   {phase:'SETTLED'},{delivery:'AUTO'},side==='LONG'?{estimatedUsdcUnits:'1'}:{estimatedCollateralUnits:'1'}])assert.throws(()=>canonicalPerpsCloseSettlement({...v,...patch},f.plan));
+ }
 });
 
 test('undocumented oracle extension mutations still fail closed in the chosen collateral route',async()=>{

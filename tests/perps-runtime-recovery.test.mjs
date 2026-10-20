@@ -8,10 +8,12 @@ import {createHash} from 'node:crypto';
 import {Encrypter,Decrypter} from 'age-encryption';
 import bs58 from 'bs58';
 import {openPerpsAutomationControls} from '../lib/perps-automation-controls.js';
-import {openPerpsExecutionJournal} from '../lib/perps-execution-journal.js';
+import {openPerpsExecutionJournal,PERPS_POSITION_CLOSE_SCHEMA_SQL} from '../lib/perps-execution-journal.js';
 import {createPerpsCustodyMasterKey,openPerpsCustodyVault} from '../lib/perps-custody-vault.js';
 import {initializePerpsOperatorRecovery,createPerpsCustodyRecoveryArchive,restorePerpsCustodyRecoveryArchive} from '../lib/perps-custody-recovery.js';
 import {withLockedPerpsRuntimeRecoverySnapshot,readPerpsRuntimeRecoverySnapshot,inspectExistingPerpsRuntimeDatabases} from '../lib/perps-runtime-recovery.js';
+import {canonicalPerpsCloseSettlement} from '../lib/perps-close-settlement.js';
+import {PERPS_CUSTODIES} from '../lib/perps-server-custody.js';
 const allowNonPosixForTests=process.platform==='win32',ownerAccountHash='e'.repeat(64),now=Date.now(),day=new Date(now).toISOString().slice(0,10);
 const settings={capital:100,loss:90,positions:10,margin:10,leverage:3,dailyTrades:10};
 async function fixture(t){
@@ -83,18 +85,63 @@ test('complete encrypted recovery preserves all reservation states, limits, risk
 });
 
 test('encrypted recovery preserves prepared and cancelled close bindings without releasing parent collateral',async t=>{
- for(const state of ['PREPARED','CANCELLED']){
+ for(const state of ['PREPARED','CANCELLED'])for(const mode of ['DIRECT_USDC','COLLATERAL_THEN_USDC']){
   const f=await fixture(t),parent=f.journal.read('open'),raw=new DatabaseSync(f.journalPath);
   // Persistence-only corpus in an unfunded fixture, not a signing proof.
   const entries=[{reservation:parent.reservation,signature:parent.signature,wire_hash:parent.wire_hash,confirmed_slot:parent.confirmed_slot,entry_exit_plan:parent.entry_exit_plan}];
-  raw.prepare('INSERT INTO perps_position_closes(id,wallet,position,state,created,updated,observed_slot,fee_lamports,unsigned_wire_hash,entries) VALUES(?,?,?,?,?,?,?,?,?,?)')
-   .run('restore-close',parent.wallet,parent.position_address,state,now,now,105,5000,'d'.repeat(64),JSON.stringify(entries));raw.close();
+  const settlement=recoverySettlement(parent,mode);
+  raw.prepare('INSERT INTO perps_position_closes(id,wallet,position,state,created,updated,observed_slot,fee_lamports,unsigned_wire_hash,entries,settlement) VALUES(?,?,?,?,?,?,?,?,?,?,?)')
+   .run('restore-close',parent.wallet,parent.position_address,state,now,now,105,5000,'d'.repeat(64),JSON.stringify(entries),settlement);raw.close();
   const archive=await createPerpsCustodyRecoveryArchive(f.request),restored=await restorePerpsCustodyRecoveryArchive({...f.restore,ciphertext:archive.ciphertext});
   const journal=openPerpsExecutionJournal(join(restored.runtimeDirectory,'journal.sqlite'),{now:()=>now});f.restoredStores.push(journal);
   assert.deepEqual(journal.readPositionClose('restore-close'),f.journal.readPositionClose('restore-close'));
   assert.equal(journal.pendingPositionCloses(parent.wallet).length,state==='PREPARED'?1:0);
+  const v=JSON.parse(journal.readPositionClose('restore-close').settlement);
+  assert.equal(v.conversionRequired,mode==='COLLATERAL_THEN_USDC');
+  assert.equal(v.estimatedUsdcUnits,mode==='COLLATERAL_THEN_USDC'?'0':'8000000');
   assert.equal(journal.read('open').state,'OPEN');assert.deepEqual(journal.riskState(parent.wallet),f.journal.riskState(parent.wallet));
  }
+});
+
+function recoverySettlement(parent,mode){
+ const separate=mode==='COLLATERAL_THEN_USDC',collateralAccount=bs58.encode(Buffer.alloc(32,22));
+ return canonicalPerpsCloseSettlement({version:1,mode,walletAddress:parent.wallet,positionAddress:parent.position_address,
+  asset:'SOL',side:'LONG',receiveAsset:separate?'SOL':'USDC',receiveMint:PERPS_CUSTODIES[separate?'SOL':'USDC'].mint,
+  receiveAccount:separate?parent.wallet:bs58.encode(Buffer.alloc(32,23)),collateralAccount,delivery:separate?'NATIVE_SOL':'TOKEN',
+  estimatedCollateralUnits:separate?'8000000':'0',estimatedUsdcUnits:separate?'0':'8000000',conversionRequired:separate,
+  closePriceLimitUsdUnits:'99500000'},{walletAddress:parent.wallet,positionAddress:parent.position_address});
+}
+
+test('recovery refuses settlement metadata that loses pending conversion or binds a foreign wallet',async t=>{
+ for(const mode of ['missing','foreign','usdc','extra','encoding']){
+  const f=await fixture(t),parent=f.journal.read('open'),raw=new DatabaseSync(f.journalPath);
+  const v=JSON.parse(recoverySettlement(parent,'COLLATERAL_THEN_USDC'));
+  if(mode==='missing')delete v.conversionRequired;
+  if(mode==='foreign')v.walletAddress=bs58.encode(Buffer.alloc(32,9));
+  if(mode==='usdc')v.estimatedUsdcUnits='8000000';
+  if(mode==='extra')v.finalized=true;
+  const entries=[{reservation:parent.reservation,signature:parent.signature,wire_hash:parent.wire_hash,confirmed_slot:parent.confirmed_slot,entry_exit_plan:parent.entry_exit_plan}];
+  raw.prepare('INSERT INTO perps_position_closes(id,wallet,position,state,created,updated,observed_slot,fee_lamports,unsigned_wire_hash,entries,settlement) VALUES(?,?,?,?,?,?,?,?,?,?,?)')
+   .run('bad-settlement',parent.wallet,parent.position_address,'PREPARED',now,now,105,5000,'d'.repeat(64),JSON.stringify(entries),JSON.stringify(v)+(mode==='encoding'?' ':''));raw.close();
+  await assert.rejects(createPerpsCustodyRecoveryArchive(f.request),mode);
+ }
+});
+
+test('previous direct-close schema remains recoverable but cannot silently start or invent settlement metadata',async t=>{
+ const f=await fixture(t),parent=f.journal.read('open'),raw=new DatabaseSync(f.journalPath);
+ raw.exec('DROP TABLE perps_position_closes');raw.exec(PERPS_POSITION_CLOSE_SCHEMA_SQL.replace(', settlement TEXT NOT NULL',''));
+ const entries=[{reservation:parent.reservation,signature:parent.signature,wire_hash:parent.wire_hash,confirmed_slot:parent.confirmed_slot,entry_exit_plan:parent.entry_exit_plan}];
+ raw.prepare('INSERT INTO perps_position_closes(id,wallet,position,state,created,updated,observed_slot,fee_lamports,unsigned_wire_hash,entries) VALUES(?,?,?,?,?,?,?,?,?,?)')
+  .run('old-direct',parent.wallet,parent.position_address,'PREPARED',now,now,105,5000,'d'.repeat(64),JSON.stringify(entries));raw.close();
+ assert.throws(()=>inspectExistingPerpsRuntimeDatabases({...f.runtimePaths,...f.common}));
+ const archive=await createPerpsCustodyRecoveryArchive(f.request),restored=await restorePerpsCustodyRecoveryArchive({...f.restore,ciphertext:archive.ciphertext});
+ assert.equal(restored.readyForSigning,false);assert.equal(restored.tradingEnabled,false);
+ const journalPath=join(restored.runtimeDirectory,'journal.sqlite'),db=new DatabaseSync(journalPath,{readOnly:true});
+ try{
+  assert.equal(db.prepare('SELECT * FROM perps_position_closes').get().state,'PREPARED');
+  assert.equal(db.prepare('PRAGMA table_info(perps_position_closes)').all().some(r=>r.name==='settlement'),false);
+ }finally{db.close();}
+ assert.throws(()=>inspectExistingPerpsRuntimeDatabases({controlsPath:join(restored.runtimeDirectory,'controls.sqlite'),journalPath,...f.common}));
 });
 
 test('snapshot locks both source databases, includes committed WAL rows and releases locks and private handles on completion',async t=>{

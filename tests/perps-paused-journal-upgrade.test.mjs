@@ -34,7 +34,7 @@ function liveRows(f){const c=new DatabaseSync(f.controlsPath,{readOnly:true}),j=
 test('the current production cancellation-aware empty schema has an explicit paused upgrade path',async t=>{
  const f=fixture(t,{withCancellations:true}),before=liveRows(f),result=await upgradePausedEmptyPerpsJournal(f.input);
  assert.equal(result.sourceSchema,'cba66ff21abc8f2dd3db1bbebbbc3908a9d8cda2fa24b41a2191e184c5477e54');
- assert.equal(result.targetSchema,'8200534af55b955bb73f2dd8bd207eeac04b248381885f415e19584e5cebeddd');
+ assert.equal(result.targetSchema,'1657eaa7e4eb82efe0e045597e1ec06dd736b9bdc9f2b6a88125c987dc6ea563');
  assert.deepEqual(liveRows(f).controls,before.controls);
  assert.equal(inspectExistingPerpsRuntimeDatabases(f.input).stage,'EXISTING_RUNTIME_STORES_VERIFIED');
 });
