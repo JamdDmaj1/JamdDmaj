@@ -5,7 +5,7 @@ import bs58 from 'bs58';
 import {getProgramDerivedAddress} from '@solana/kit';
 import {PERPS_PROGRAM,PERPS_POOL,PERPS_CUSTODIES,deriveServerPerpsIdentities} from '../../lib/perps-server-custody.js';
 const TOKEN='TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',ATA='ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL',SYSTEM='11111111111111111111111111111111',COMPUTE='ComputeBudget111111111111111111111111111111';
-export async function cancellationFixture(cleanup,{legacyClose=false,createAta=false,versioned=false,readonlyKeeper=false,mutate=()=>{}}={}){
+export async function cancellationFixture(cleanup,{legacyClose=false,createAta=false,versioned=false,readonlyKeeper=false,blockhashByte=29,mutate=()=>{}}={}){
  const owner=cleanup.walletAddress,exit=cleanup.pendingExits[0].address,mint=PERPS_CUSTODIES.USDC.mint;
  const derive=async who=>(await getProgramDerivedAddress({programAddress:ATA,seeds:[bs58.decode(who),bs58.decode(TOKEN),bs58.decode(mint)]}))[0];
  const [ownerAta,requestAta,ids]=await Promise.all([derive(owner),derive(exit),deriveServerPerpsIdentities({walletAddress:owner,asset:'SOL',side:'LONG'})]);
@@ -23,7 +23,7 @@ export async function cancellationFixture(cleanup,{legacyClose=false,createAta=f
   :[keeper,owner,ownerAta,PERPS_POOL,exit,requestAta,ids.position,mint,TOKEN,SYSTEM,ATA,ids.eventAuthority,PERPS_PROGRAM]).map(index),
   data:Buffer.from(legacyClose?'2869d9bcdc2d6d6e':'7944a21cd82fc842','hex')});
  mutate({keys,resolvedKeys,instructions,index,ownerAta,requestAta,keeper,owner,exit,mint,ids});
- const blockhash=bs58.encode(Buffer.alloc(32,29)),lookup=bs58.encode(Buffer.alloc(32,43));
+ const blockhash=bs58.encode(Buffer.alloc(32,blockhashByte)),lookup=bs58.encode(Buffer.alloc(32,43));
  const header=Buffer.from([...(versioned?[128]:[]),3,readonlyKeeper?2:1,readonly.length,keys.length]);
  const message=Buffer.concat([header,...keys.map(key=>Buffer.from(bs58.decode(key))),Buffer.from(bs58.decode(blockhash)),Buffer.from([instructions.length]),
   ...instructions.map(ix=>Buffer.concat([Buffer.from([ix.program,ix.accounts.length,...ix.accounts,ix.data.length]),ix.data])),

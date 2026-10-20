@@ -293,7 +293,7 @@ async function cleanupCoordinatorFixture(f,{mode='ok'}={}){
    const [row]=f.journal.pendingExitCancellations(wallet);assert.equal(row.state,'UNCERTAIN');if(mode==='send-failure')throw Error('private service details');
    return Response.json({action:'cancel-tpsl',txid:row.signature});}
  });
- return {coordinator,custody,calls,args:{ownerAccountHash:custody.ownerAccountHash,walletAddress:wallet}};
+ return {coordinator,custody,calls,inspection,args:{ownerAccountHash:custody.ownerAccountHash,walletAddress:wallet}};
 }
 
 test('exact-wire orphan cancellation simulation returns all USDC and rent, preserves pool/positions and grants no authority',async t=>{
@@ -377,7 +377,11 @@ test('only finalized cancellation failure allows a fresh separately recorded att
  const receipt=cancellationReceiptFixture(inspection,now,{err:{InstructionError:[2,'Custom']}});
  f.journal.recordExitCancellationBroadcastIntent('failed-attempt',receipt.record);
  assert.equal((await reconcilePendingPerpsExitCancellations(f.journal,wallet,{request:receipt.request,now:()=>now})).failed,1);
- assert.equal(f.journal.read('entry-0').state,'OPEN');assert.equal(f.journal.beginExitCancellation('new-attempt',simulation).state,'PREPARED');f.journal.beginExitCancellationSigning('new-attempt',simulation);
+ assert.equal(f.journal.read('entry-0').state,'OPEN');assert.throws(()=>f.journal.beginExitCancellation('cached-attempt',simulation));assert.equal(f.journal.readExitCancellation('cached-attempt'),null);
+ const cleanup=await readServerPerpsExitCleanup(f.journal.read('entry-0'),f.options),fresh=await cancellationFixture(cleanup,{blockhashByte:30});
+ const freshInspection=await inspectServerPerpsExitCancellation(fresh.preparation,cleanup,fresh),freshSimulation=await simulateServerPerpsExitCancellation(freshInspection,cancellationSimulationFixture(freshInspection,options));
+ assert.equal(f.journal.beginExitCancellation('new-attempt',freshSimulation).state,'PREPARED');assert.throws(()=>f.journal.beginExitCancellationSigning('new-attempt',simulation));
+ f.journal.beginExitCancellationSigning('new-attempt',freshSimulation);
  // The exact previously attempted transaction identity may never be reused.
  assert.throws(()=>f.journal.recordExitCancellationBroadcastIntent('new-attempt',receipt.record));
  assert.equal(f.journal.readExitCancellation('new-attempt').state,'SIGNING');assert.equal(f.journal.riskState(wallet).activeMarginUsdcUnits,'20000000');
@@ -527,6 +531,18 @@ test('cleanup coordinator refuses maintenance, changed preparation and unverifie
   if(mode==='signer-failure'){assert.equal(result.state,'SIGNING');const before={...c.calls};assert.equal((await c.coordinator.runOnce(c.args)).stage,'RECONCILIATION_REQUIRED');assert.deepEqual(c.calls,before);}
   assert.equal(f.journal.read('entry-0').state,'OPEN');assert.equal(f.journal.riskState(wallet).activeMarginUsdcUnits,'20000000');
  }
+});
+
+test('cached failed cancellation wire is rejected durably before a second key use, including after reopening the journal',async t=>{
+ const f=await fixture(t,{liveSibling:true}),c=await cleanupCoordinatorFixture(f),first=await c.coordinator.runOnce(c.args);
+ const receipt=cancellationReceiptFixture(c.inspection,now,{err:{InstructionError:[2,'Custom']}});
+ assert.equal(receipt.record.signature,first.signature);
+ assert.equal((await reconcilePendingPerpsExitCancellations(f.journal,wallet,{request:receipt.request,now:()=>now})).failed,1);
+ const before={...c.calls},second=await c.coordinator.runOnce(c.args);
+ assert.equal(second.stage,'EXIT_CLEANUP_BLOCKED');assert.equal(c.calls.builder,before.builder+1);assert.equal(c.calls.signer,before.signer);assert.equal(c.calls.send,before.send);
+ assert.equal(f.journal.pendingExitCancellations(wallet).length,0);assert.equal(f.journal.read('entry-0').state,'OPEN');
+ const old=f.journal.readExitCancellation(first.cancellationId),reopened=openPerpsExecutionJournal(f.path,{now:()=>now});
+ try{assert.equal(reopened.readExitCancellation(first.cancellationId).unsigned_wire_hash,old.unsigned_wire_hash);assert.match(old.unsigned_wire_hash,/^[a-f0-9]{64}$/);}finally{reopened.close();}
 });
 
 test('executor stops new entries on orphan triggers or legacy unresolved bindings without signing or cancelling anything',async t=>{

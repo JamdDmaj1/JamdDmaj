@@ -1499,3 +1499,50 @@ cached-template rejection before re-signing a previously failed attempt, live
 unsigned compatibility, paused schema migration with a fresh verified recovery
 archive, and the complete manual/automatic trading and publication requirements.
 These mock-flow tests are not a claim that production trading is ready.
+
+## Cached cancellation rejection before key use, 2026-10-19
+
+Cancellation preparation now persists a hash of the exact canonical unsigned
+wire (including API signature, with owner/keeper slots still empty). A partial
+unique index reserves that hash for every state except CANCELLED. SIGNING,
+UNCERTAIN, CONFIRMED and even finalized FAILED attempts cannot reuse it. A
+never-authorized PREPARED attempt explicitly discarded as CANCELLED can reuse
+the wire, because no key-use capability could have existed in that state.
+Both the signing transition and private grant recheck the stored unsigned hash
+against the actual simulated inspection, preventing a different wire from being
+substituted into an existing PREPARED row.
+
+The integrated coordinator test now finalizes a synthetic cancellation failure,
+receives the same cached builder wire again and rejects it before a second vault
+call or transport attempt, leaving no ambiguous SIGNING row. A genuinely new
+synthetic blockhash/message is separately simulated and may prepare the next
+attempt. A reopened journal retains the deduplication identity; the existing
+signed-hash/signature uniqueness guards remain in place.
+
+Latest journal schema:
+`cba66ff21abc8f2dd3db1bbebbbc3908a9d8cda2fa24b41a2191e184c5477e54`.
+The previous PREPARED schema joins the recognized backup/restore-only legacy
+set. Runtime startup still refuses implicit production migration. The backend
+architecture guidance was reapplied to retain the existing private VPS store;
+no Vercel storage or custody migration was introduced.
+
+Four selected cases passed on actual VPS Node 22 in a network-disabled
+DynamicUser unit, no skips, using temporary unfunded synthetic custody and mock
+transports. They cover cached failure rejection, fresh-message acceptance,
+unsigned recovery, persisted identities and encrypted recovery compatibility.
+The full local suite exited 0 with existing optional/platform skips.
+Artifacts: `/opt/jamddmaj-perps/checks/cancellation-wire-once-20261019/`.
+Journal source SHA-256:
+`54f430735ae6c2aa1dca48751c7061d760485864bae57fb7bcbbb60a445f796e`.
+Inspection source SHA-256:
+`1a0126e12b57fc8c4af7293b8020f35ffedf8f69b865e62c9118b25a2132369b`.
+Authorization source SHA-256:
+`1afa4ca88ea232eee15bf19507a5748ae754272321390911e69e4c42b05a7940`.
+
+No production migration, worker/app release, real financial key use, submission
+or activation occurred. The next accounting boundary must not simply allow all
+event-less Perps transactions: an accepted non-trade cancellation needs exact
+finalized signed-wire/journal binding, strict cancellation account policy and
+actual token/SOL effect verification, with its network fee retained in daily
+accounting. Live unsigned compatibility, a reviewed migration/new recovery
+proof, complete manual/automatic functionality and release remain unverified.

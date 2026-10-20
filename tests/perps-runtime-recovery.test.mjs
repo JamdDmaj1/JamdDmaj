@@ -96,8 +96,8 @@ test('snapshot locks both source databases, includes committed WAL rows and rele
 test('encrypted recovery preserves uncertain cancellation identities and the startup gate refuses automatic legacy migration',async t=>{
  for(const state of ['PREPARED','SIGNING','UNCERTAIN']){
   const f=await fixture(t),raw=new DatabaseSync(f.journalPath),parent=f.journal.read('open'),address=JSON.parse(parent.entry_exit_plan).exits[0].address;
-  raw.prepare('INSERT INTO perps_exit_cancellations(id,address,reservation,wallet,state,created,updated,fee_lamports,wire_hash,signature) VALUES(?,?,?,?,?,?,?,?,?,?)')
-   .run('recovery-cancel',address,'open',f.wallet.walletAddress,state,now,now,15200,state==='UNCERTAIN'?'a'.repeat(64):null,state==='UNCERTAIN'?bs58.encode(Buffer.alloc(64,80)):null);raw.close();
+  raw.prepare('INSERT INTO perps_exit_cancellations(id,address,reservation,wallet,state,created,updated,fee_lamports,wire_hash,signature,unsigned_wire_hash) VALUES(?,?,?,?,?,?,?,?,?,?,?)')
+   .run('recovery-cancel',address,'open',f.wallet.walletAddress,state,now,now,15200,state==='UNCERTAIN'?'a'.repeat(64):null,state==='UNCERTAIN'?bs58.encode(Buffer.alloc(64,80)):null,'c'.repeat(64));raw.close();
   const archive=await createPerpsCustodyRecoveryArchive(f.request),restored=await restorePerpsCustodyRecoveryArchive({...f.restore,ciphertext:archive.ciphertext});
   const store=openPerpsExecutionJournal(join(restored.runtimeDirectory,'journal.sqlite'),{now:()=>now});f.restoredStores.push(store);
   assert.deepEqual(store.readExitCancellation('recovery-cancel'),f.journal.readExitCancellation('recovery-cancel'));
