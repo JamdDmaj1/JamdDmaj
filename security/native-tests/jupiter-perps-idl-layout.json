@@ -4,6 +4,21 @@
   "program": "PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu",
   "slot": 458207867,
   "idlSha256": "1d90a653a1cc88bddb7c5876acee52d3f26c6b1e3306e0833234020dc6f7d653",
+  "fullCloseInstructionLayout": {
+    "source": "Confirmed program-owned mainnet Anchor IDL, 2026-10-20",
+    "slot": 459186694,
+    "instantDecreasePosition": {
+      "discriminatorHex": "2e17f02c1e8a5e8c",
+      "someEntirePositionBytes": 42,
+      "accounts": ["keeper", "apiKeeper", "owner", "receivingAccount", "transferAuthority", "perpetuals", "pool", "position", "custody", "custodyDovesPriceAccount", "custodyPythnetPriceAccount", "collateralCustody", "collateralCustodyDovesPriceAccount", "collateralCustodyPythnetPriceAccount", "collateralCustodyTokenAccount", "desiredMint", "referral", "tokenProgram", "associatedTokenProgram", "systemProgram", "eventAuthority", "program"]
+    },
+    "instantDecreasePosition2": {
+      "discriminatorHex": "a2bfc83e8b3eb011",
+      "someEntirePositionBytes": 50,
+      "accounts": ["keeper", "apiKeeper", "owner", "receivingAccount", "transferAuthority", "perpetuals", "pool", "position", "custody", "custodyDovesPriceAccount", "collateralCustody", "collateralCustodyDovesPriceAccount", "collateralCustodyTokenAccount", "desiredMint", "referral", "positionRequest", "positionRequestAta", "tokenProgram", "associatedTokenProgram", "systemProgram", "eventAuthority", "program"]
+    },
+    "params": {"collateralUsdDelta": {"offset": 8, "type": "u64"}, "sizeUsdDelta": {"offset": 16, "type": "u64"}, "priceSlippage": {"offset": 24, "type": "u64"}, "entirePosition": {"offset": 32, "type": "option<bool>"}, "requestTimeWhenSome": {"offset": 34, "type": "i64"}, "counterInVariant2WhenSome": {"offset": 42, "type": "u64"}}
+  },
   "preSwapInstructionLayout": {
     "source": "Confirmed program-owned mainnet Anchor IDL, 2026-10-18",
     "slot": 458417659,

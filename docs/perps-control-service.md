@@ -1874,3 +1874,31 @@ a summary and no error records. This is not a claim of complete historical
 monitoring or configured drains. The dedicated read credential is deliberately
 separate from the wallet recovery archive and can be independently rotated if
 the server is replaced. Full trading lifecycle and app release remain pending.
+
+### Full-position close intent and instruction-data gate (2026-10-20)
+
+A new read-only mainnet query at confirmed slot 459186694 verified the
+program-owned Anchor IDL account and the same raw IDL SHA-256 recorded above.
+The fixture now records both instantDecreasePosition layouts, their 22 account
+roles and Borsh fields. The official v2 API documentation describes
+POST /v1/positions/decrease with an explicit entirePosition flag; no close
+builder or financial endpoint was called during this work.
+
+`lib/perps-server-close-intent.js` plans a full close of exactly one position
+from the existing private, fresh native account proof. It selects USDC as the
+recipient token, preserves the observed position identity and rejects copied
+or expired proofs and absent/foreign positions. LONG sell-floor and SHORT
+buy-ceiling limits use inward micro-USD rounding and explicit bounded slippage.
+The instruction-data check accepts only the two confirmed discriminators,
+exact full-close wire lengths, Some(true), bounded redundant position deltas
+and a signed request time within the freshness interval. Unknown instructions,
+partial closes, trailing bytes and one-micro-unit tolerance violations fail.
+
+Five new local tests passed, the neighboring account/opening-intent tests
+passed, and the full local Node test glob exited zero. These are synthetic
+unfunded tests and a read-only IDL observation, not successful live closing.
+The new module is deliberately NOT connected to custody signing or the Android
+UI yet. Account-role/custody/oracle/token checks, exact-wire simulation, durable
+close accounting, native review/biometric integration and funded unsigned
+compatibility still need completion before a real close can be authorized.
+No new APK, worker deployment, activation or financial transaction occurred.
