@@ -2640,3 +2640,75 @@ recovery, native review/confirmation and final end-to-end publication. The publi
 oracle extension discrepancy remains unresolved; this turn did not repeat that
 network probe or relax the guard. Trading has not been activated or declared
 ready. Goal completion remains unproven.
+
+### Finalized first-leg payout reader, 2026-10-20
+
+`perps-close-payout-receipt.js` adds a read-only reader for the selected
+COLLATERAL_THEN_USDC mode, not an execution or journal-transition API. It binds a
+captured prepared/uncertain record, its owner-signed wire identity and original
+unsigned-wire hash to finalized status and a fully signature-verified native
+transaction. Missing/unfinalized status returns no receipt. Failed execution,
+changed wire/record/position generation, partial closure or additional Perps
+roots cannot provide a payout proof.
+
+New simulated settlement descriptions use version 2, retaining native position
+size, collateral and opening time. Version 1 remains canonical/recoverable for
+old unsigned records but cannot provide this new finalized receipt; the reader
+does not invent the missing generation. The SQL schema hash remains 1657eaa7...
+(no new schema change). The transaction reader's private evidence now includes
+its already signature-verified decoded instruction list, still returned by copy.
+
+The payout reader requires one matching InstantDecreasePositionEvent from the
+native event-authority self-CPI in the bound close root. It checks the event's
+full size, original collateral, generation and actual transferToken value against
+the native vault debit, token Transfer/TransferChecked CPI and owner balance
+effects. Current finalized native account evidence must show that position
+absent/zero, not merely missing from an API. Reopened native positions fail.
+It separates SOL payout from network fee, position/WSOL rent refunds, new owner
+ATA rent and retained empty v2 request-ATA rent. Existing wallet tokens are not
+counted as proceeds; unrelated USDC cannot change in a collateral LONG receipt.
+Zero returned tokens is represented as a complete loss, not permission to spend
+pre-existing capital on a conversion. Results carry a private short-lived proof
+and explicitly still require signed-close journal binding, protected conversion
+and complete daily accounting. They cannot release journal risk or sign funds.
+
+Verification: full local test glob exited zero. VPS isolated Node 22 bundle
+passed 98 of 99 tests (one Windows-only ACL test skipped), including eight new
+receipt tests, all six market/direction paths, both core variants, legacy/v0
+transactions, fresh/retained rent, valid reopened positions, partial/multi-root
+rejection, actual returns differing from quotes, total loss and adversarial
+metadata. All signatures are public deterministic unfunded fixtures; no real
+financial transaction was signed or submitted. Artifact
+`/opt/jamddmaj-perps/checks/close-payout-20261020/tests/test.mjs`, SHA-256
+52e946436b7784ce6c9607325f9a07af4c2527d8c24d4d0fe1da56ad44fb2a87,
+unit `jamddmaj-close-payout-check-20261020` (private network/tmp, dynamic user,
+strict filesystem/home protection, no production state-directory access).
+
+A bounded read-only public-history search checked four signatures of the old
+public example and six recent SOL-custody signatures. It found no matching
+single-root whole close into SOL in those samples. Therefore no public-historical
+reader success or owned-wallet end-to-end result is claimed. No builder,
+signature, transaction, live journal transition, deployment or activation was
+performed by this research.
+
+For the still-missing protected conversion, the program-owned mainnet Perps IDL
+was read at slot 459402097 and again matched JSON hash
+1d90a653a1cc88bddb7c5876acee52d3f26c6b1e3306e0833234020dc6f7d653.
+It defines `swap2` with amountIn u64 and minAmountOut u64, a single owner signer,
+and 17 roles: owner, fundingAccount, receivingAccount, transferAuthority,
+perpetuals, pool, receivingCustody, receivingCustodyDovesPriceAccount,
+receivingCustodyPythnetPriceAccount, receivingCustodyTokenAccount,
+dispensingCustody, dispensingCustodyDovesPriceAccount,
+dispensingCustodyPythnetPriceAccount, dispensingCustodyTokenAccount, tokenProgram,
+eventAuthority, program. Anchor's global:swap2 discriminator is
+414b3f4ceb5b5b88 (24 bytes with the two u64 arguments). This is a concrete
+candidate for an independently minimum-protected second leg, not proof of live
+acceptance, oracle compatibility or safe execution. It has not been constructed,
+simulated, authorized or integrated yet. A bounded unsigned read-only probe and
+full funding/oracle/account effects validation are required before selecting it.
+
+Primary RPC references: https://solana.com/docs/rpc/http/gettransaction and
+https://solana.com/docs/rpc/json-structures. The existing public close oracle
+extension discrepancy, signed close lifecycle/journal transitions, protected
+conversion, complete fees/recovery/native integration and publication still
+remain. The goal is not complete; live production code/state is unchanged.
