@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 const worker=readFileSync(new URL('../ops/jamddmaj-perps-worker.service',import.meta.url),'utf8');
 const https=readFileSync(new URL('../ops/jamddmaj-perps-https.service',import.meta.url),'utf8');
 const setup=readFileSync(new URL('../ops/jamddmaj-perps-custody-setup.conf',import.meta.url),'utf8');
+const feed=readFileSync(new URL('../ops/jamddmaj-perps-read-feed.conf',import.meta.url),'utf8');
 const value=(text,key)=>text.split(/\r?\n/).filter(line=>line.startsWith(key+'=')).map(line=>line.slice(key.length+1));
 
 test('HTTPS depends on the shared controls worker, never the retired competing port listener',()=>{
@@ -28,4 +29,11 @@ test('optional custody setup overrides only the control command, never execution
  assert.deepEqual(value(setup,'Environment'),[]);assert.deepEqual(value(setup,'EnvironmentFile'),[]);
  assert.equal(setup.includes('MODE=execute'),false);assert.equal(setup.includes('master.key'),false);
  assert.equal(setup.includes('ownerAccountHash'),false);
+});
+
+test('dedicated signal credential drop-in only loads the private read-feed file and never enables an execution mode',()=>{
+ assert.deepEqual(value(feed,'EnvironmentFile'),['/etc/jamddmaj-perps/feed-access/client-feed.env']);
+ for(const field of ['Environment','ExecStart','User','StateDirectory','RuntimeDirectory'])assert.deepEqual(value(feed,field),[]);
+ assert.equal(feed.includes('JAMDDMAJ_PERPS_EXECUTION_APPROVED=true'),false);assert.equal(feed.includes('JAMDDMAJ_CRON_SECRET='),false);
+ assert.equal(feed.includes('BITGET_'),false);assert.equal(feed.includes('master.key'),false);
 });

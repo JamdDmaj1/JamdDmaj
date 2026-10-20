@@ -1809,3 +1809,68 @@ submission and bot activation remain prohibited during verification. Feed
 configuration, pending/new fee allowances, manual closing lifecycle, current
 funded-amount unsigned compatibility and final app publication still require
 completion; this cutover is not a complete trading-readiness claim.
+
+### Dedicated production read-feed connection (2026-10-20)
+
+The installed maintenance worker initially lacked JAMDDMAJ_CLIENT_FEED_TOKEN.
+The legacy configuration also had no dedicated feed token. Vercel production
+metadata confirmed the dedicated variable was absent while the feed correctly
+returned HTTP 401 without credentials; no cron/admin or Telegram secret was
+extracted or reused. The environment-variable and CLI skill guidance was used
+to confirm the existing team/project and keep credentials out of source, public
+bundles, process arguments and chat output.
+
+The operator provisioner creates one root-private feed credential file, without
+rotating an existing valid value or accepting unrelated legacy configuration.
+Its 32-byte random token is used only for the existing read-only client-feed
+route. It was streamed privately into Vercel stdin as a Production-only Secret,
+not pulled back, printed, added to preview or included in a repository artifact.
+The exact server-only file is `/etc/jamddmaj-perps/feed-access/client-feed.env`.
+The optional `ops/jamddmaj-perps-read-feed.conf` loads that file without changing
+mode, execution approval, custody identity or owner settings. Two credential
+cases passed in an isolated network-disabled VPS unit, and composition checks
+plus the existing feed/filter cases passed locally. The full local test glob
+also exited 0 with existing optional/platform skips (the subsequently added
+drop-in composition case passed its targeted run).
+
+For activation of the environment variable, the previous reviewed secret-free
+prebuilt WEB candidate was reused, not the incomplete newer application source:
+source `ce8658938c05d2dea0d625319fea41c59a04cb00`, manifest SHA-256
+`dc4bdb7cfc592f7a8a9e8f4fcce99e7d7577d7702fe29925e4b8f3de84da2428`.
+All 116 candidate output files were independently checked against its manifest.
+The deployment/access-protection skills guided staging production without domain
+assignment, verifying with existing Vercel authentication (never disabling
+protection), and promoting only the tested artifact.
+
+Actual NEW production deployment: `dpl_BPVXgUAHrMomJSEHozF2C6aRf25r`, READY,
+https://jamd-dmaj-pst7ytkcx-jamd-dmaj-s-projects.vercel.app and
+https://www.jamddmaj.com . Build duration 9 seconds, post-build 5 seconds.
+This supersedes deployment 6XNJ for WEB configuration only; source/assets are
+unchanged, and it does not publish the newer Android APK or local UI changes.
+The staged feed accepted the dedicated token and passed the actual Jupiter
+selector; credential-free feed and identity GETs returned 401. The actual Finance
+page `/private-simulator.html` and `/` returned 200. `/finance.html` is not an
+application route and returned 404 in the initial smoke check; no route was
+changed or assumed working on that basis. The production domain stayed on the
+old deployment during staging, then inspection confirmed the new deployment
+after explicit promotion.
+
+Installed drop-in:
+`/etc/systemd/system/jamddmaj-perps-worker.service.d/30-read-feed.conf`.
+After its maintenance-only restart, an isolated one-shot process used the
+EnvironmentFile to call the real fixed production GET route and reported
+READ_ONLY_SIGNAL_FEED_CHECK, available=true, remotePaused=false, eligible=0,
+rejected UNSUPPORTED_MARKET=3. Those were three actual open signals, not invented
+test trades; none matched Jupiter BTC/ETH/SOL. No scanner, cron, Telegram send,
+builder, activation, signing or financial execute endpoint was called.
+
+Independent process-state inspection confirmed the credential is loaded,
+maintenance mode remains true, execution approval remains false and there are
+zero active accounts. Both worker/HTTPS services were active; new worker
+NRestarts=0, public health remains controls-only/executionAvailable=false and
+the retired Bitget executor remains inactive. A one-hour Vercel error scan was
+unavailable due to plan retention; the supported five-minute query returned only
+a summary and no error records. This is not a claim of complete historical
+monitoring or configured drains. The dedicated read credential is deliberately
+separate from the wallet recovery archive and can be independently rotated if
+the server is replaced. Full trading lifecycle and app release remain pending.
