@@ -3178,3 +3178,53 @@ was retained. No app publication, production worker replacement, schema migratio
 or bot activation occurred. Conversion journal phases, fresh signing grants,
 complete fees/loss accounting, sibling exits, native app coordination and the
 unresolved first-leg DOVES guard remain required. The goal remains incomplete.
+
+## Journal-bound conversion recovery preparation — 2026-10-21
+
+`preparePositionCloseConversion` now connects the durable first-leg journal to
+the existing protected conversion preparation. It takes an atomic validated
+snapshot of the parent, exact original OPEN entries and FIRST_LEG_FINALIZED
+execution. It re-reads rooted chain evidence using the recorded signature and
+pre-keeper signed-wire hash, then compares the complete fresh canonical payout
+with the stored payout. A stored JSON record is never promoted into a fresh
+chain proof. Unavailable/unrooted history returns an explicit non-ready stage;
+a conflicting fresh payout fails rather than rewriting the financial record.
+
+The coordinator checks the same durable snapshot before and after every
+asynchronous RPC read and once more before returning. It then prepares the
+protected conversion for exactly the actual returned token amount, using the
+existing current bank, oracle bounds, balances and exact-wire simulation.
+Its private result is bound to that exact journal instance and both short-lived
+proofs. Copies, another connection's handle, expired evidence or changed
+parent/entries/payout fail. No transaction is signed, claimed or broadcast.
+There is no automatic transport retry and no release/USDC credit here.
+
+Reopening a real test SQLite journal reconstructs preparation across SOL native,
+SOL token, ETH and BTC collateral cases. USDC collateral and zero proceeds
+produce no second transaction and retain parent accounting risk. Tests also
+change records both during history reads and during conversion simulation,
+reject a previously altered stored payout, and keep all original risk held.
+Fixtures remain unfunded with invalid fixed blockhashes and RPC stubs that
+reject write methods. The integrated pipeline intentionally uses one monotonic
+lease clock; an initial test advanced a different fixture clock and was corrected
+to advance the actual clock supplied to both proof readers.
+
+Final local glob: 779 tests, 773 passed, six skipped, zero failed. The isolated
+VPS expanded corpus passed 159 of 160 tests with one Windows-only ACL skip and
+zero failures. Artifact
+`/opt/jamddmaj-perps/checks/journal-conversion-20261021/tests/test.mjs`, SHA-256
+`421d6d7ac701642630cd9a76e9f5027d54257f8ba379aa8e144289f346c20bb5`;
+its child-process journal bundle hash is
+`03a4bde3eb253c042eb66d627bdca2a12ceec5b57b3392d0fff6ae508a76eb5f`.
+Hashes matched before execution. Unit
+`jamddmaj-journal-conversion-check-20261021` exited successfully with
+DynamicUser, PrivateNetwork, PrivateTmp, ProtectHome, ProtectSystem=strict,
+NoNewPrivileges and MemoryMax=384M, without production state access.
+
+No SQL schema changed in this step; target remains d48b3b21... and production
+was not migrated. No worker/app deployment or activation occurred. This is
+fresh read-only recovery preparation, not a durable second-leg attempt.
+Conversion signing/uncertain/finalized records, signer grants, complete daily
+fees/loss, sibling exit reconciliation and app/coordinator execution wiring
+remain required, as does resolution of the native first-leg DOVES guard.
+The full requested trading/automation goal remains active and incomplete.

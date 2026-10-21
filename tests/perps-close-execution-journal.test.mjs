@@ -10,6 +10,8 @@ import {openPerpsExecutionJournal} from '../lib/perps-execution-journal.js';
 import {verifyOwnerSignedPerpsCloseIntent,validateStoredPerpsCloseExecution} from '../lib/perps-close-execution-record.js';
 import {readFinalizedPerpsClosePayout} from '../lib/perps-close-payout-receipt.js';
 import {closePayoutFixture} from './helpers/perps-close-payout-fixture.mjs';
+import {conversionFixture} from './helpers/perps-conversion-fixture.mjs';
+import {readJournaledPerpsCloseConversion} from '../lib/perps-journal-close-conversion.js';
 async function fixture(t,options={}){
  const f=await closePayoutFixture(options),root=mkdtempSync(join(tmpdir(),'jamd-close-exec-')),path=join(root,'journal.sqlite'),opened=[];let time=f.options.now();
  const open=()=>{const j=openPerpsExecutionJournal(path,{now:()=>time});opened.push(j);return j;},journal=open();
@@ -89,4 +91,74 @@ test('a pending wallet entry prevents claiming the close without changing either
  assert.equal(f.journal.readPositionCloseExecution(f.row.id),null);
  assert.equal(f.journal.read('parent').state,'OPEN');assert.equal(f.journal.read('other-entry').state,'UNCERTAIN');
  assert.equal(f.journal.readPositionClose(f.row.id).state,'PREPARED');
+});
+
+async function settledFixture(t,options={}){
+ const f=await fixture(t,options);f.uncertain();
+ const payout=await readFinalizedPerpsClosePayout(f.row,f.identity,f.options);f.journal.reconcilePositionClosePayout(f.row.id,payout);
+ const swap=options.side==='SHORT'||options.amount===0n?null:await conversionFixture({asset:options.asset??'SOL',walletAddress:f.row.wallet,amountUnits:payout.receivedTokenUnits,nativeSolInput:payout.delivery==='NATIVE_SOL'});
+ const request=(m,p)=>['getTransaction','getSignatureStatuses','getGenesisHash'].includes(m)||m==='getMultipleAccounts'&&p[1].commitment==='finalized'?f.request(m,p):swap.request(m,p);
+ return {...f,swap,payout,conversionOptions:{...f.options,maxSlippageBps:100,request}};
+}
+
+test('reopened real journal re-verifies its exact finalized close before preparing a protected conversion of actual proceeds',async t=>{
+ for(const options of [{asset:'SOL'},{asset:'SOL',unwrapSol:false},{asset:'ETH'},{asset:'BTC'}]){
+  const f=await settledFixture(t,options),journal=f.open(),before=journal.readPositionCloseSettlement(f.row.id);
+  const result=await journal.preparePositionCloseConversion(f.row.id,f.conversionOptions),p=readJournaledPerpsCloseConversion(result,journal);
+  assert.equal(result.stage,'JOURNALED_CLOSE_CONVERSION_PREPARED');assert.equal(result.amountUnits,f.payout.receivedTokenUnits);
+  assert.equal(result.closeSignature,before.execution.signature);assert.equal(result.requiresSignedCloseJournalBinding,false);
+  assert.equal(result.requiresConversionJournalBinding,true);assert.equal(result.readyForSigning,false);
+  assert.equal(p.prepared.wire.walletAddress,f.row.wallet);assert.equal(p.prepared.wire.amountUnits,'7000000');
+  assert.equal(p.prepared.simulation.receivedUsdcUnits,String(f.swap.received));
+  assert.throws(()=>readJournaledPerpsCloseConversion({...result},journal));assert.throws(()=>readJournaledPerpsCloseConversion(result,f.journal));
+  assert.deepEqual(journal.readPositionCloseSettlement(f.row.id),before);assert.equal(journal.read('parent').state,'OPEN');
+  // The coordinator deliberately shares one monotonic lease clock across
+  // first-leg revalidation and conversion simulation.
+  f.expire();assert.throws(()=>readJournaledPerpsCloseConversion(result,journal));
+ }
+});
+
+test('unconfirmed history, missing journal claim and invalid conversion policy cannot become a prepared second leg',async t=>{
+ const unsigned=await fixture(t);let calls=0;
+ await assert.rejects(unsigned.journal.preparePositionCloseConversion(unsigned.row.id,{request:()=>{calls++;throw Error();}}));assert.equal(calls,0);
+ unsigned.uncertain();await assert.rejects(unsigned.journal.preparePositionCloseConversion(unsigned.row.id,{request:()=>{calls++;throw Error();}}));assert.equal(calls,0);
+ for(const mode of ['confirmed','missing','policy']){
+  const f=await settledFixture(t);if(mode==='confirmed')f.status.confirmationStatus='confirmed';
+  const request=(m,p)=>mode==='missing'&&m==='getSignatureStatuses'?Promise.resolve({context:{slot:310},value:[null]}):f.conversionOptions.request(m,p);
+  if(mode==='policy')await assert.rejects(f.journal.preparePositionCloseConversion(f.row.id,{...f.conversionOptions,maxSlippageBps:101,request}));
+  else assert.equal((await f.journal.preparePositionCloseConversion(f.row.id,{...f.conversionOptions,request})).stage,'JOURNALED_CLOSE_PAYOUT_NOT_CURRENTLY_VERIFIABLE');
+  assert.equal(f.swap.calls.length,0);assert.equal(f.journal.read('parent').state,'OPEN');
+ }
+});
+
+test('changes to durable close facts or original entries during an asynchronous recovery read abort conversion before simulation',async t=>{
+ for(const mode of ['entry','payout','parent','simulation-entry']){
+  const f=await settledFixture(t);let changed=false;
+  const request=async(m,p)=>{const result=await f.conversionOptions.request(m,p);if(!changed&&(mode!=='simulation-entry'||m==='simulateTransaction')){
+   changed=true;const db=new DatabaseSync(f.path);
+   if(mode==='entry'||mode==='simulation-entry')db.prepare("UPDATE perps_reservations SET entry_exit_plan='{}' WHERE reservation='parent'").run();
+   if(mode==='payout')db.prepare("UPDATE perps_position_close_executions SET payout_json=replace(payout_json,'7000000','7000001')").run();
+   if(mode==='parent')db.prepare("UPDATE perps_position_closes SET updated=updated+1").run();db.close();
+  }return result;};
+  await assert.rejects(f.journal.preparePositionCloseConversion(f.row.id,{...f.conversionOptions,request}),mode);
+  if(mode==='simulation-entry')assert(f.swap.calls.some(c=>c.method==='simulateTransaction'));else assert.equal(f.swap.calls.length,0);
+  assert.equal(f.journal.read('parent').state,'OPEN');
+ }
+});
+
+test('a stored payout differing from newly finalized chain evidence is not silently replaced or converted',async t=>{
+ const f=await settledFixture(t),db=new DatabaseSync(f.path);
+ db.prepare("UPDATE perps_position_close_executions SET payout_json=replace(payout_json,'7000000','7000001')").run();db.close();
+ await assert.rejects(f.journal.preparePositionCloseConversion(f.row.id,f.conversionOptions));
+ assert.equal(f.swap.calls.length,0);assert.equal(f.journal.read('parent').state,'OPEN');
+ assert.equal(JSON.parse(f.journal.readPositionCloseExecution(f.row.id).payout_json).receivedTokenUnits,'7000001');
+});
+
+test('journaled USDC collateral or zero return performs no second transaction and still retains accounting risk',async t=>{
+ for(const options of [{side:'SHORT'},{amount:0n}]){
+  const f=await settledFixture(t,options),result=await f.journal.preparePositionCloseConversion(f.row.id,f.conversionOptions);
+  assert.equal(result.stage,'JOURNALED_CLOSE_REQUIRES_NO_CONVERSION');assert.equal(result.readyForSigning,false);
+  assert.equal(result.receivedUsdcUnits,options.side==='SHORT'?'7000000':'0');
+  assert.equal(f.journal.read('parent').state,'OPEN');assert.equal(f.journal.readPositionCloseExecution(f.row.id).state,'FIRST_LEG_FINALIZED');
+ }
 });
