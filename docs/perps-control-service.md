@@ -3313,3 +3313,100 @@ Both matched before execution. Unit
 `jamddmaj-conversion-journal-check-20261021` exited successfully with DynamicUser,
 PrivateNetwork, PrivateTmp, ProtectHome, ProtectSystem=strict, NoNewPrivileges,
 UMask=0077 and MemoryMax=384M, without access to production state.
+
+## Native DOVES extension evidence and full unsigned close — 2026-10-21
+
+The first-leg oracle configuration rejection now has a concrete runtime fix.
+The gate previously treated all bytes after the old IDL's price/time prefix as
+immutable. Independently authenticated current Pyth messages and same-bank native
+unsigned execution demonstrate two additional mutable u64 values in the observed
+283-byte DOVES PriceFeed allocation: microseconds at 96..104, and
+`floor(signedConfidence * 10000 / signedPrice)` at 104..112. This is an observed
+native format, **not a claim that the published DOVES IDL declares those fields**.
+The official Pyth standard encoding independently identifies price, exponent,
+confidence, publication microseconds and explicit per-feed update time:
+https://raw.githubusercontent.com/pyth-network/pyth-lazer-public/main/sdk/rust/protocol/src/payload/standard.rs
+
+Evidence collected using the existing read-only RPC wrapper and unsigned builder:
+
+- Paired bank 459603291: SOL signed price 10645337003, exponent -8,
+  publication/feed-update microseconds 1792580134200000. Native microseconds
+  changed from 1792580132400000 to that exact signed value. Confidence remained 6.
+- Paired bank 459603638: signed price 10652448737, confidence 4247163 and
+  microseconds 1792580207600000. Native microseconds changed from
+  1792580205400000; the confidence field changed from 4 to exactly 3, matching
+  the signed integer ratio floor. The native price/time changed accordingly.
+  Before/after prefixes are captured in the new independent regression test.
+- Paired bank 459605063: an oracle-only prefix succeeded. In the same bank,
+  the compute-only no-update control preserved every sampled oracle/storage
+  account byte, and corrupting the signed message caused native failure
+  `InstructionError [5, Custom 2]`. The diagnostic has no Perps financial
+  instruction, signing method, execution endpoint or sending RPC.
+- Paired bank 459605654: the production extension checker accepted the native
+  before/after bytes. Signed price 10676855468, confidence 2450150, signed
+  microseconds 1792580643000000, resulting confidence field 2. Both controls
+  passed again. The suffix after offset 112 contained a nonzero byte but stayed
+  identical. An initial scratch assumption that the suffix was zero padding
+  was rejected by this live observation and removed; its meaning is not guessed.
+
+The new gate does not ignore the tail. It preserves bytes 0..73, 90..96 and
+112..end exactly, validates owner/executable/lamports in the caller and admits
+only observed 96/283-byte allocations. Changed base price/exponent/time must
+still match the original privately authenticated Pyth feed. Changed extended
+state must match signed microseconds and exact confidence ratio; absent
+confidence is never invented as zero. If an explicit observation time is
+present, it must agree exactly, not just within the same second. Both
+context-to-bank and before-to-after microseconds must be monotonic. Unknown
+suffix/config changes, unsigned extension writes, timestamp inconsistencies,
+unsupported allocations, downgrades and regressions fail closed. An old padded
+state with zero extension fields retains absent values, not fabricated precision.
+Native program execution, trusted-signer/storage checks, signed-message byte
+binding, freshness and the absolute close price bound remain mandatory.
+
+The prior public sample wallet's position had genuinely closed; no stale process
+was restarted. A bounded read-only public history scan found a different current
+position, independently decoded and PDA/owner checked by the normal account
+reader. No user, Phantom or bot wallet was used for these probes.
+
+Public unsigned full-close evidence:
+wallet `AfaVt79LKpTcNTxiWP2iWPQQgzkfew5JsXhwAbi3RajG`, SOL LONG position
+`FdpvymEUv3Pv3yuFEh7SVFdivj6tftRZhTShdUhKtQjg`.
+At source slot 459679685 / paired simulation bank 459679695, one builder and two
+bounded same-wire snapshot attempts passed bindings, policy, native execution,
+wallet funding/conservation, vaults, reserves and the revised oracle-effects gate.
+The protected caller limit 107836452 stayed enforced; encoded core limit
+107844390 was tighter. A preceding separate diagnostic rejected an out-of-bound
+price rather than relaxing the caller limit. That rejection is not a send retry.
+
+A second independent unsigned close at source 459680027 / paired bank 459680036
+passed with one builder and one simulation. The wire contained two DOVES
+instructions, and native PriceFeed changes included offsets 96, 97 and 98, so
+this exercised the extended update rather than only an unchanged cache. The
+unknown suffix remained identical. Simulated first-leg return was 9364265824
+lamports of native SOL, message fee 20792 lamports, wallet SOL increment
+9364245032 lamports, zero alleged USDC proceeds and a required separate conversion.
+This is **not** a signed transaction, finalized payout or owned-wallet trade.
+The helper still returns readyForSigning/tradingEnabled false and requires the
+remaining economic/minimum-return and durable accounting/authorization boundaries.
+
+Local final glob: 792 tests, 786 passed, six skipped, zero failed. The new tests
+cover captured native extension bytes, a genuine private signed-payload fixture
+through the close pipeline, bad microseconds/confidence, missing confidence,
+unknown suffix/config writes, regressions, copies and existing no-update paths.
+No schema, production worker, backup acceptance, app publication or activation
+changed. The prior native extension blocker is resolved for the verified path;
+this does not establish completion of trading/automation, remaining protocol
+economics/minimum-return checks, custody grants/signing/send coordination, daily
+accounting, failures/retries, sibling exits or end-to-end app publication.
+
+VPS Node 22 isolated expanded corpus: 173 tests, 172 passed, one Windows-only
+ACL skip, zero failed. Artifact
+`/opt/jamddmaj-perps/checks/doves-extension-20261021/tests/test.mjs`, SHA-256
+`cee2249cefaf1a4b82fdcfad44ba58898af3b00a25a45634bf4d203a068cb841`;
+child-process journal bundle SHA-256
+`5035b1d5085e78ab0311609c265695b184d53044786f9a303c5419ebc62e713a`.
+Both hashes matched before execution. Unit
+`jamddmaj-doves-extension-check-20261021` exited successfully with DynamicUser,
+PrivateNetwork, PrivateTmp, ProtectHome, ProtectSystem=strict, NoNewPrivileges,
+UMask=0077 and MemoryMax=384M, without production state access. The task remains
+active and incomplete; no funded financial operation was performed.

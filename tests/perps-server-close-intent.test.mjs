@@ -1019,12 +1019,12 @@ test('settlement description is canonical, distinguishes all six payouts and can
  }
 });
 
-test('undocumented oracle extension mutations still fail closed in the chosen collateral route',async()=>{
+test('unsigned oracle extension mutations still fail closed in the chosen collateral route',async()=>{
  const f=await oracleEffectsFixture('LONG','SOL','COLLATERAL_THEN_USDC'),feed=f.context.feeds[0];
  const account=f.after.get(feed.lazerFeed),data=Buffer.from(account.data[0],'base64');
  data[96]=1;account.data[0]=data.toString('base64');
  const reserves=await f.reserves();
- assert.throws(()=>checkServerPerpsFullCloseOracleEffects(reserves,{nowSeconds:now}),/UNVERIFIED_PERPS_CLOSE_ORACLE_EFFECTS_CONFIGURATION/);
+ assert.throws(()=>checkServerPerpsFullCloseOracleEffects(reserves,{nowSeconds:now}),/UNVERIFIED_PERPS_CLOSE_ORACLE_EFFECTS_UNSIGNED_FEED_EFFECTS/);
 });
 
 test('close preparation requires original fresh reserve proof and confirmed journal parents',async t=>{
@@ -1209,5 +1209,22 @@ test('changed native feed time cannot use publication time to replace a differen
   const f=await oracleEffectsFixture('SHORT','SOL','DIRECT_USDC',{feedUpdateTimestampUs:BigInt(seconds)*1000000n,confidenceUnits:'1234'}),reserves=await f.reserves();
   if(seconds===now-1)assert.equal(checkServerPerpsFullCloseOracleEffects(reserves,{nowSeconds:now}).readyForSigning,false);
   else assert.throws(()=>checkServerPerpsFullCloseOracleEffects(reserves,{nowSeconds:now}),/SIGNED_FEED_EFFECTS/);
+ }
+});
+
+test('extended native microseconds and confidence changes must exactly match the authenticated update in the same close simulation',async()=>{
+ for(const mode of ['matching','micros','confidence','padding','missingConfidence','regression']){
+  const micros=BigInt(now-1)*1000000n+200000n;
+  const f=await oracleEffectsFixture('LONG','SOL','COLLATERAL_THEN_USDC',{timestampUs:micros,feedUpdateTimestampUs:micros,...(mode==='missingConfidence'?{}:{confidenceUnits:'5000000'})});
+  const key=f.feeds[0].lazerFeed,prior=f.before.get(key),after=f.after.get(key),a=Buffer.from(prior.data[0],'base64'),b=Buffer.from(after.data[0],'base64');
+  a.writeBigUInt64LE(BigInt(now-2)*1000000n+400000n,96);a.writeBigUInt64LE(6n,104);
+  b.writeBigUInt64LE(micros,96);b.writeBigUInt64LE(5n,104);
+  if(mode==='micros')b.writeBigUInt64LE(micros+1n,96);
+  if(mode==='confidence')b.writeBigUInt64LE(6n,104);
+  if(mode==='padding')b[112]=1;
+  if(mode==='regression'){a.writeBigInt64LE(BigInt(now-1),82);a.writeBigUInt64LE(micros+1n,96);}
+  prior.data[0]=a.toString('base64');after.data[0]=b.toString('base64');const reserves=await f.reserves();
+  if(mode==='matching')assert.equal(checkServerPerpsFullCloseOracleEffects(reserves,{nowSeconds:now}).readyForSigning,false);
+  else assert.throws(()=>checkServerPerpsFullCloseOracleEffects(reserves,{nowSeconds:now}),/UNVERIFIED_PERPS_CLOSE_ORACLE_EFFECTS/,mode);
  }
 });
