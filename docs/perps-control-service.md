@@ -2940,3 +2940,63 @@ These changes do not remove the existing unresolved DOVES extension guard,
 authenticate signed price/feed payload contents, complete financial journal
 transitions or add custody signing rights. No worker/app deployment or bot
 activation was performed. The complete trading/automation objective remains open.
+
+### Signed standard payload and selected feed binding (2026-10-21)
+
+`perps-pyth-payload.js` decodes the bounded standard little-endian format,
+including all 13 published property variants. It rejects truncation, duplicate
+feeds/properties, unsupported tags, noncanonical bytes, malformed optional flags,
+trailing data and oversized counts. The authenticated reader checks the exact
+Ed25519/DOVES message and native Pyth signer trust, then limits envelope age to
+30 seconds and future time to two seconds. Parsing alone is not authentication.
+No financial signer or send transport is accepted.
+
+Primary format source:
+https://raw.githubusercontent.com/pyth-network/pyth-lazer-public/main/sdk/rust/protocol/src/payload/standard.rs
+Its published test vector matches across all 13 properties. Close policy binds
+each writable Lazer feed's independently read native feed ID and channel to the
+signed payload, requiring a positive spot price and supported exponent. The
+same-bank effects gate rereads authenticated payloads: changed native price,
+exponent and second timestamp must exactly match the selected signed feed. A
+cached feed without a signed update cannot change price. Unknown extension bytes
+still use the original strict configuration comparison.
+
+The synthetic unsigned wire serializer now uses canonical shortvec for data
+lengths above 127, allowing real-format test payloads instead of the old one-byte
+placeholder. An initial positive-effect test exposed an incorrectly ordered
+fixture timestamp; the fixture was corrected before its context read. The
+production timestamp-regression guard was not relaxed.
+
+Read-only public evidence:
+- Previously recorded historical transaction at 459332261: signed feed ID 6,
+  channel 3, price 10586789167, exponent -8, timestamp_us 1792521525800000.
+  Current feed configuration matched at 459573310 and signer trust at 459573309.
+  Current reads are NOT historical account-state proof.
+- Current public collateral-close preparation passed the new instruction policy,
+  simulation, funding, vault and reserve gates, then failed the unchanged oracle
+  CONFIGURATION gate at same-bank 459574383. Changed feed offsets included 97,
+  98 and 104, beyond the recorded 96-byte serialized IDL prefix.
+- Program-owned DOVES IDL reread at 459571297 retained JSON hash
+  1ae8e5e335beec1646d5484671d8f07902fb5ac55581c3028701893b998025f5.
+  At 459449134, bytes 96..104 numerically matched the stored timestamp expressed
+  in microseconds; byte 104 also changes. This is NOT sufficient evidence to
+  declare the remaining tail harmless or remove the guard.
+- A second diagnostic at 459574577 authenticated a current SOL payload containing
+  price, exponent, confidence and per-feed update timestamp. Its before/simulated
+  feed was already newer and unchanged; the earlier context-to-bank comparison
+  still rejected unexplained tail changes.
+
+No live close/conversion was signed or sent. Per-feed update-time semantics,
+confidence/extended-state binding and aggregate economics still require
+verification; `requiresOraclePayloadProvenance` intentionally remains true.
+These are not complete close or owned-wallet execution tests.
+
+Final local suite: 752 tests, 746 passed, six skipped, zero failed. Expanded VPS
+Node 22 suite: 133 tests, 132 passed, one Windows-only ACL skip, zero failed.
+Artifact `/opt/jamddmaj-perps/checks/close-pyth-payload-20261021/tests/test.mjs`,
+SHA-256 9d63962ed6f3144164b10f090439f54490e5795e349b5d2b29132e84f651fa40;
+unit `jamddmaj-close-pyth-payload-check-20261021` exited successfully with
+DynamicUser, PrivateNetwork, PrivateTmp, ProtectHome, ProtectSystem=strict and
+no production state directories. Hash checked before execution. No worker/app
+deployment, financial journal migration or bot activation occurred. The complete
+trading, custody, crash recovery, Telegram controls and app-flow goal remains open.
