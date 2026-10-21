@@ -696,11 +696,12 @@ async function oraclePolicyFixture(mutate=null){
  for(const key of [CLOSE_DOVES_PROGRAM,ED,CLOSE_PYTH_LAZER.storage,CLOSE_PYTH_LAZER.treasury,CLOSE_PYTH_LAZER.program,'Sysvar1nstructions1111111111111111111111111',feed.lazerFeed,feed.clFeed,feed.redstoneFeed])addPolicyKey(f,key);
  f.inspection.envelope.readonlySigned=1;
  const keys=f.inspection.resolvedKeys,index=key=>keys.indexOf(key),oracleKey=generateKeyPairSync('ed25519'),payload=Buffer.from([0]);
- const edData=Buffer.alloc(113);edData[0]=1;
- for(const [offset,value]of [[2,48],[4,65535],[6,16],[8,65535],[10,112],[12,1],[14,65535]])edData.writeUInt16LE(value,offset);
- oracleKey.publicKey.export({format:'der',type:'spki'}).subarray(-32).copy(edData,16);sign(null,payload,oracleKey.privateKey).copy(edData,48);payload.copy(edData,112);
+ const edData=Buffer.alloc(16);edData[0]=1;
+ for(const [offset,value]of [[2,16],[4,3],[6,80],[8,3],[10,114],[12,1],[14,3]])edData.writeUInt16LE(value,offset);
  const ed={program:index(ED),accounts:[],dataBase64:edData.toString('base64')};
- const data=Buffer.alloc(17);Buffer.from('cb3b5fb0ec154999','hex').copy(data);data.writeUInt32LE(1,8);data.writeUInt16LE(2,13);data[16]=1;
+ const data=Buffer.alloc(119);Buffer.from('cb3b5fb0ec154999','hex').copy(data);data.writeUInt32LE(103,8);data.writeUInt32LE(2182742457,12);
+ sign(null,payload,oracleKey.privateKey).copy(data,16);oracleKey.publicKey.export({format:'der',type:'spki'}).subarray(-32).copy(data,80);
+ data.writeUInt16LE(1,112);payload.copy(data,114);data.writeUInt16LE(2,115);data[118]=1;
  const many={program:index(CLOSE_DOVES_PROGRAM),accounts:[1,index(CLOSE_PYTH_LAZER.storage),index(CLOSE_PYTH_LAZER.treasury),index(CLOSE_PYTH_LAZER.program),index(SYSTEM),index('Sysvar1nstructions1111111111111111111111111'),index(feed.lazerFeed)],dataBase64:data.toString('base64')};
  const ag={program:index(CLOSE_DOVES_PROGRAM),accounts:[1,index(feed.address),index(feed.lazerFeed),index(feed.clFeed),index(feed.redstoneFeed)],dataBase64:Buffer.from('3d413ce5eb8efa75','hex').toString('base64')};
  f.inspection.envelope.instructions.splice(2,0,ed,many,ag);
@@ -736,7 +737,7 @@ test('configured oracle ownership/mint/bump/feed and exact update roles or signa
    if(mode==='bufferRole')many.accounts[6]=f.inspection.resolvedKeys.indexOf(PERPS_POOL);
    if(mode==='clRole')ag.accounts[3]=f.inspection.resolvedKeys.indexOf(PERPS_POOL);
    if(mode==='signatureIndex'||mode==='edIndex'){
-    const data=Buffer.from(many.dataBase64,'base64');if(mode==='signatureIndex')data[15]=1;else data.writeUInt16LE(3,13);many.dataBase64=data.toString('base64');
+    const data=Buffer.from(many.dataBase64,'base64');if(mode==='signatureIndex')data[117]=1;else data.writeUInt16LE(3,115);many.dataBase64=data.toString('base64');
    }
   });
   if(['mint','bump','owner','lazerOwner','treasuryOwner','storageOwner'].includes(mode))await assert.rejects(readServerPerpsCloseOracles(fixture.inspection,{request:fixture.request}),mode);
@@ -744,6 +745,25 @@ test('configured oracle ownership/mint/bump/feed and exact update roles or signa
    const context=await readServerPerpsCloseOracles(fixture.inspection,{request:fixture.request});
    assert.throws(()=>checkServerPerpsFullCloseInstructionPolicy(fixture.inspection,{oracleContext:context}),mode);
   }
+ }
+});
+
+test('close policy independently rejects corrupted oracle signatures and unrelated but valid signed messages',async()=>{
+ for(const mode of ['signature','payload','magic','differentMessage']){
+  const f=await oraclePolicyFixture(({many,ed})=>{
+   const data=Buffer.from(many.dataBase64,'base64');
+   if(mode==='signature')data[16]^=1;
+   if(mode==='payload')data[114]^=1;
+   if(mode==='magic')data[12]^=1;
+   if(mode==='differentMessage'){
+    const pair=generateKeyPairSync('ed25519'),message=Buffer.from([2]),b=Buffer.alloc(113);b[0]=1;
+    for(const [at,value]of [[2,48],[4,65535],[6,16],[8,65535],[10,112],[12,1],[14,65535]])b.writeUInt16LE(value,at);
+    pair.publicKey.export({format:'der',type:'spki'}).subarray(-32).copy(b,16);sign(null,message,pair.privateKey).copy(b,48);message.copy(b,112);ed.dataBase64=b.toString('base64');
+   }
+   many.dataBase64=data.toString('base64');
+  });
+  const context=await readServerPerpsCloseOracles(f.inspection,{request:f.request});
+  assert.throws(()=>checkServerPerpsFullCloseInstructionPolicy(f.inspection,{oracleContext:context}),mode);
  }
 });
 test('close vault checks bind all six market/direction paths to the exact wallet payout without signing authority',async()=>{

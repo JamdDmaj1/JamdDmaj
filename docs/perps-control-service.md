@@ -2838,3 +2838,50 @@ tests, including malformed block heights, depleted proceeds, strong minimums,
 record changes, proof expiry, pre-existing funds and all collateral paths.
 The final full local test glob completed 734 tests: 728 passed, six skipped,
 zero failed. Production remains unchanged and paused.
+
+### Exact oracle signature checks in close policy (2026-10-20)
+
+`perps-oracle-ed25519.js` adds a server-only, bounded check of every top-level
+Ed25519 instruction accepted by close policy. It resolves the actual compiled
+instruction offsets (including same-instruction references), verifies every
+signature, and binds DOVES' selected signature to its exact SolanaMessage vector:
+magic, length, payload length, signature/key/payload offsets, instruction indices
+and signature index. Valid signatures over unrelated embedded bytes are rejected.
+There are no RPC, custody-key, signing or send capabilities in this checker.
+
+OpenSSL alone was observed accepting an identity-point public key and signature
+for arbitrary bytes. Therefore the gate additionally requires strict RFC8032
+verification with directly pinned `@noble/curves` 2.4.0 (`zip215: false`), rather
+than relying on OpenSSL alone. This dependency was already installed transitively;
+the lockfile now declares its exact direct version. Tests reject identity keys,
+noncanonical encoded points/scalars, altered payload/key/signature, malformed
+offsets/counts, invalid second signatures and unrelated correctly signed messages.
+The native precompile must STILL execute successfully: this is not a claim of
+complete runtime equivalence or trusted-signer/price authentication.
+
+Primary format references consulted:
+- https://raw.githubusercontent.com/anza-xyz/agave/master/precompiles/src/ed25519.rs
+- https://raw.githubusercontent.com/pyth-network/pyth-lazer-public/main/contracts/solana/programs/pyth-lazer-solana-contract/src/signature.rs
+- https://raw.githubusercontent.com/pyth-network/pyth-lazer-public/main/sdk/rust/protocol/src/message.rs
+- https://github.com/paulmillr/noble-curves/tree/2.4.0
+
+The final strict checker also passed a read-only observation of public finalized
+transaction `5Qw7A5qYcCV8k2fNEyoE9t19kFiAMFQGTXzKPb5UqvrkCiqmaSwCoxHLp6CCa5shtkQGgN9GVZpSVAP5b97Rd4js`,
+slot 459332261: one Ed25519 signature and one exact DOVES message binding. The
+existing full-transaction reader first verified the transaction signatures and
+message. This is historical public evidence, not an owned-wallet execution test
+or proof that a current close passes all validation. Current Pyth signer trust,
+payload price/feed contents, same-bank state and the unresolved DOVES extension
+mutation still require validation; their existing gates were not relaxed.
+
+Final full local suite: 739 tests, 733 passed, six skipped, zero failed. VPS Node
+22 isolated expanded suite: 120 tests, 119 passed, one Windows-only ACL skip,
+zero failed. Artifact `/opt/jamddmaj-perps/checks/close-crypto-20261020/tests/test.mjs`,
+SHA-256 db3ecf02554cee7c6e01c4791429cc2112ca9538ceb0cff931338c7fd335e762;
+unit `jamddmaj-close-crypto-check-20261020` exited successfully. It had
+PrivateNetwork, PrivateTmp, DynamicUser, ProtectHome, ProtectSystem=strict and no
+production state access. An interrupted copy was verified incomplete before a
+successful replacement and hash check; no incomplete bundle was executed.
+Production worker/HTTPS/observer remained active, without deployment or activation.
+The financial journal, custody authorization, final accounting, recovery and app
+integration requirements above remain incomplete; the full goal is not achieved.
