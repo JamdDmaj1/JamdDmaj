@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {createHash,createPrivateKey,createPublicKey,sign} from 'node:crypto';
 import bs58 from 'bs58';
 import {inspectServerPerpsPreparation,prepareInspectedServerAutomation,readServerPerpsPreparationEvidence} from '../lib/perps-server-preparation.js';
+import {prepareInspectedPerpsManualOrder} from '../lib/perps-manual-preparation.js';
 import {PERPS_CUSTODIES,PERPS_POOL,PERPS_PROGRAM,deriveServerPerpsIdentities} from '../lib/perps-server-custody.js';
 import {getProgramDerivedAddress} from '@solana/kit';
 import {mkdtempSync,mkdirSync,rmSync,writeFileSync,chmodSync} from 'node:fs';
@@ -147,6 +148,35 @@ async function fixture({exits=false,lookup=false,trusted=false,planMutation=null
  };
  return {preparation,intent,request,calls,account,table,loaded,ownerKey};
 }
+test('manual web review uses actual wallet funding and the full exact-wire inspection without custody, signing or submission',async()=>{
+ const f=await fixture({exits:true,trusted:true});let clock=0;
+ const draft={asset:'SOL',side:'LONG',margin:'10',leverage:'3',referencePrice:'100',stopLoss:'95',takeProfit:'110'};
+ const calls=[],state={funds:20000000,sol:100000000,mutate:null};
+ const request=async(method,params)=>{
+  calls.push(method);const reply=await f.request(method,params);
+  if(reply?.context)reply.context.slot=Math.max(reply.context.slot,params[1]?.minContextSlot||0);
+  if(method==='getMultipleAccounts'&&params[0].length===8){reply.value[0].lamports=state.sol;reply.value[1]=tokenAccount(f.intent.walletAddress,state.funds);}
+  if(state.mutate)state.mutate(method,params,reply);
+  return reply;
+ };
+ let builders=0;
+ const options={now:()=>now,monotonicNow:()=>clock,rpcRequest:request,builderRequest:async()=>{builders++;return Response.json(f.preparation);}};
+ const review=await prepareInspectedPerpsManualOrder(draft,f.intent.walletAddress,options);
+ assert.equal(review.stage,'MANUAL_PERPS_REVIEW_VALIDATED');assert.equal(review.readyForSigning,false);assert.equal(review.tradingEnabled,false);
+ assert.equal(review.marginUsdcUnits,'10000000');assert.equal(review.availableUsdcUnits,'20000000');assert.equal(review.networkFeeLamports,'15100');
+ assert.equal(review.rentLockedLamports,'10000000');assert.equal(review.sizeUsdUnits,'30000000');assert.equal(builders,1);
+ assert.equal(Object.hasOwn(review,'serializedTxBase64'),false);assert.equal(Object.isFrozen(review),true);
+ assert(calls.includes('simulateTransaction'));assert(calls.every(method=>!['sendTransaction','signTransaction','requestAirdrop'].includes(method)));
+ state.funds=9999999;await assert.rejects(prepareInspectedPerpsManualOrder(draft,f.intent.walletAddress,options),/INSUFFICIENT_USDC/);assert.equal(builders,1);
+ state.funds=20000000;state.sol=999999;await assert.rejects(prepareInspectedPerpsManualOrder(draft,f.intent.walletAddress,options),/INSUFFICIENT_SOL/);assert.equal(builders,1);
+ state.sol=100000000;state.mutate=(method,params,reply)=>{if(method==='getMultipleAccounts'&&params[0].length===8&&params[1].minContextSlot>=56)reply.value[1]=tokenAccount(f.intent.walletAddress,9999999);};
+ await assert.rejects(prepareInspectedPerpsManualOrder(draft,f.intent.walletAddress,options),/INSUFFICIENT_USDC/);
+ state.mutate=method=>{if(method==='simulateTransaction')clock=15001;};await assert.rejects(prepareInspectedPerpsManualOrder(draft,f.intent.walletAddress,options));clock=0;
+ state.mutate=(method,params,reply)=>{if(method==='simulateTransaction')reply.value.accounts.find(a=>a?.owner==='11111111111111111111111111111111').lamports--;};
+ await assert.rejects(prepareInspectedPerpsManualOrder(draft,f.intent.walletAddress,options));
+ for(const change of [{asset:'ZEC'},{margin:'1'},{serializedTxBase64:'untrusted'}])await assert.rejects(prepareInspectedPerpsManualOrder({...draft,...change},f.intent.walletAddress,options));
+});
+
 test('combined server gate inspects exact prepared wire, fee, core intent and RPC-resolved addresses without signing permission',async()=>{
  for(const lookup of [false,true]){
   const f=await fixture({lookup}),result=await inspectServerPerpsPreparation(f.preparation,f.intent,{request:f.request,nowSeconds:seconds});

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {setupAssetsWallets} from '../assets-wallet-ui.js';
 import bs58 from 'bs58';
 import nacl from 'tweetnacl';
+import {readWebPerpsWalletSession} from '../lib/perps-web-wallet-session.js';
 
 test('Solana holdings are rendered from the selected account and cleared on disconnect',async()=>{
  const key=Symbol.for('jamddmaj.wallet-standard.registry'),oldRegistry=globalThis[key],oldFetch=globalThis.fetch;
@@ -26,6 +27,27 @@ function fixture(){
  const host=node('section'),doc={createElement:node,getElementById:()=>host};
  const win=new EventTarget();return {all,host,doc,win};
 }
+
+test('a remembered public address can reconnect in Assets and creates the same private session read by Futures without signing',async()=>{
+ const registryKey=Symbol.for('jamddmaj.wallet-standard.registry'),oldRegistry=globalThis[registryKey],oldFetch=globalThis.fetch;
+ const publicKey=Uint8Array.from({length:32},()=>51),address=bs58.encode(publicKey),account={address,publicKey,chains:['solana:mainnet'],features:['solana:signTransaction']};
+ let connections=0,signatures=0,changed,dispose;
+ const wallet={name:'Phantom',chains:['solana:mainnet'],accounts:[account],features:{'standard:connect':{async connect(){connections++;return {accounts:[{address,chains:['solana:devnet']},account]};}},
+  'standard:events':{on(type,fn){changed=fn;return ()=>{};}},'solana:signTransaction':{version:'1.0.0',supportedTransactionVersions:['legacy',0],signTransaction(){signatures++;throw Error();}}}};
+ Object.defineProperty(globalThis,registryKey,{configurable:true,value:{get:()=>[wallet],on:()=>()=>{}}});
+ globalThis.fetch=async()=>Response.json({ok:true,address,network:'solana:mainnet',updatedAt:new Date().toISOString(),sol:{amount:.1},tokens:[],partial:false});
+ try{
+  const f=fixture(),saved=new Map([['jamd.externalPublicWallet.v1',JSON.stringify({address,name:'Phantom',network:'solana:mainnet'})]]);
+  f.win.localStorage={getItem:key=>saved.get(key)??null,setItem:(key,value)=>saved.set(key,value),removeItem:key=>saved.delete(key)};
+  dispose=setupAssetsWallets('en',f.doc,f.win);
+  const reconnect=f.all.find(n=>n.textContent==='Reconnect wallet');assert(reconnect);assert.equal(reconnect.hidden,false);assert.equal(f.all.find(n=>n.id==='assets-wallet-choice').disabled,false);
+  assert.equal(readWebPerpsWalletSession(f.doc),null);assert.equal(connections,0);
+  // Wait for the public refresh initiated by watch restoration, not a connect.
+  await new Promise(resolve=>setImmediate(resolve));await reconnect.onclick();
+  assert.equal(connections,1);assert.equal(readWebPerpsWalletSession(f.doc).address,address);assert.equal(signatures,0);
+  changed();assert.equal(readWebPerpsWalletSession(f.doc),null);assert.equal(signatures,0);
+ }finally{dispose?.();globalThis.fetch=oldFetch;Object.defineProperty(globalThis,registryKey,{configurable:true,value:oldRegistry});}
+});
 test('Android Assets offers in-place Phantom approval without navigating away',async()=>{
  const key=Symbol.for('jamddmaj.wallet-standard.registry'),previous=globalThis[key];
  Object.defineProperty(globalThis,key,{configurable:true,value:{get:()=>[],on:()=>()=>{}}});

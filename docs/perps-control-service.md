@@ -3670,3 +3670,65 @@ worker SHA-256 remains
 the control worker and HTTPS are running, while the old Bitget executor remains
 disabled. No private settings, identifiers, custody keys or signed wires were
 read or exposed by that aggregate diagnostic.
+
+### Web Futures review and shared browser-wallet connection — 2026-10-21
+
+The reported `Trading requires a compatible Android build` notice came from
+`setupFuturesTicket`: all browser Long/Short controls were disabled because the
+only execution navigation was the NativeWallet Android review event. This was
+not an RPC balance failure. The user explicitly selected an integrated JamdDmaj
+web flow, **without redirects to Jupiter**.
+
+Browser Futures now offers explicitly labelled Review Long/Short and wallet
+selection. `POST /api/perps-review` accepts only a bounded public wallet address
+and canonical manual form, uses the existing quota, reads actual native wallet
+funding, then joins the existing Jupiter preparation, cosignature/envelope,
+lookup/custody/PDA, core intent, token/pre-swap, same-wire position/exit simulation
+and exact funding/rent gates. Funds are checked again at or after the simulation
+bank. The response contains display facts only, **no transaction bytes**, no
+signature authority and `tradingEnabled:false`. Insufficient USDC and SOL are
+distinguished rather than attributed to Android. Malformed, mismatched, expired
+or in-flight responses for a changed account/form are discarded. Editing or
+switching accounts aborts the outstanding review and restores the buttons.
+
+This route is a Node Web Standard `fetch` handler, not an Edge function. The
+Edge dependency gate still covers every existing Edge route; a separate Node
+bundle check verifies that manual review includes native funding/envelope
+validators but not custody, execution journals or submission transports.
+
+`perps-web-wallet-session.js` separately binds an explicitly connected Wallet
+Standard Solana account/provider in memory. It verifies public-key/address,
+mainnet, current accounts, feature version and transaction-version capabilities;
+it exposes only public connection status and **no signing API**. Assets and
+Futures share the same built module rather than separate bundled stores. A
+remembered watch address is not a restored signing session; Assets now lets the
+user reconnect in place. Disconnect/account/network changes invalidate the
+binding. This does not authenticate ownership through a signature.
+
+The built-page browser check in
+`.perps-build/web-futures-review-20261021/browser-check.mjs` connects an unfunded
+fake Wallet Standard provider through the actual Assets UI, checks the shared
+connection in Futures, traverses the local HTTP review handler using an injected
+review fixture, renders the result, and navigates back to wallet selection at
+1365px and 390px. Both ran without uncaught page errors or horizontal overflow;
+the fake signing method was never invoked. Separate tests exercise the full
+native review pipeline with unfunded deterministic wire/RPC models, including
+insufficient and changed funding, extra SOL debit and expired preparation.
+`npm run build:web` passed. No real provider signing, mainnet transaction send,
+bot activation, production deployment or APK publication was performed.
+
+**Still incomplete:** reviewed exact-wire Phantom authorization, durable browser
+and server submission/reconciliation and actual web execution; this change must
+not be described as enabling web trading. The earlier first-leg minimum-return,
+close/conversion custody coordination, expired/failed recovery, full app/bot
+integration and publication requirements also remain. No external-market link
+or redirect was added as a substitute for the requested integration.
+
+The general local run passed 828 tests (822 passed, six skipped, zero failed),
+including the unchanged financial/custody/worker regressions. The initial run
+correctly failed the all-Edge assumption for the new Node route; it was fixed
+with explicit Node/Edge bundle coverage, not by making Node crypto available to
+Edge or removing validation. A subsequent targeted regression also covers a
+transport that ignores an abort and returns late, without leaving review status
+stuck or showing an expired result. These are local verification results, not
+proof of a production deployment or successful web trade.

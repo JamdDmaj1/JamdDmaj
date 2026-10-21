@@ -85,8 +85,16 @@ await build({
   outfile: resolve(output, "assets-wallet-ui.js"), bundle: true, format: "esm",
   plugins: [{name:'shared-public-portfolio',setup(builder){
     builder.onResolve({filter:/wallet-portfolio-store\.js$/},()=>({path:'./lib/wallet-portfolio-store.js',external:true}));
+    builder.onResolve({filter:/perps-web-wallet-session\.js$/},()=>({path:'./lib/perps-web-wallet-session.js',external:true}));
   }}],
   platform: "browser", target: ["es2020"], legalComments: "none"
+});
+await build({
+  absWorkingDir:root,entryPoints:[resolve(root,'lib','perps-web-wallet-session.js')],
+  outfile:resolve(output,'lib','perps-web-wallet-session.js'),bundle:true,format:'esm',platform:'browser',target:['es2020'],legalComments:'none',
+  plugins:[{name:'shared-wallet-session-portfolio',setup(builder){
+    builder.onResolve({filter:/wallet-portfolio-store\.js$/},()=>({path:'./wallet-portfolio-store.js',external:true}));
+  }}]
 });
 await cp(resolve(root, "lib", "terminal-layout.js"), resolve(output, "lib", "terminal-layout.js"));
 await cp(resolve(root, "lib", "market-sentiment-ui.js"), resolve(output, "lib", "market-sentiment-ui.js"));

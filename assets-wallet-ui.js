@@ -5,6 +5,7 @@ import {setupNativeWalletEntry,setupMainWalletEntry} from './native-wallet-entry
 import {createPhantomMobileSession} from './lib/phantom-mobile-session.js';
 import {selectWalletAccount,selectedWalletAccount,publishWalletPortfolio,forgetWalletAccount} from './lib/wallet-portfolio-store.js';
 import {setupWalletOverview} from './lib/wallet-overview.js';
+import {bindWebPerpsWalletSession,clearWebPerpsWalletSession} from './lib/perps-web-wallet-session.js';
 
 export function setupAssetsWallets(language, doc=document, win=window) {
   const host=doc.getElementById('terminal-assets');if(!host)return;
@@ -28,7 +29,7 @@ export function setupAssetsWallets(language, doc=document, win=window) {
   const disposeOverview=setupWalletOverview(language,doc,win);
   const registry=getWalletRegistry(),providers=new Map();let choices=[],session=null,removeChange=null,epoch=0,busy=false,active=null,refreshTimer;
   function publishPortfolio(data){publishWalletPortfolio(doc,data,{address:active?.address,source:'external'});}
-  function clear(){publishPortfolio(null);epoch++;clearInterval(refreshTimer);active=null;const old=session;session=null;old?.disconnect();removeChange?.();removeChange=null;identity.textContent='';balance.textContent='';holdings.replaceChildren();refresh.hidden=disconnect.hidden=true;select.disabled=false;connect.hidden=false;}
+  function clear(){clearWebPerpsWalletSession(doc);publishPortfolio(null);epoch++;clearInterval(refreshTimer);active=null;const old=session;session=null;old?.disconnect();removeChange?.();removeChange=null;identity.textContent='';balance.textContent='';holdings.replaceChildren();refresh.hidden=disconnect.hidden=true;select.disabled=false;connect.hidden=false;}
   function forgetExternal(){if(active?.address)forgetWalletAccount(doc,{address:active.address,source:'external'});try{win.localStorage?.removeItem('jamd.externalPublicWallet.v1');}catch{}}
   function invalid(){forgetExternal();clear();status.textContent=t('La cuenta o red cambió. Vuelve a conectar.','Account or network changed. Connect again.');}
   function discover(){
@@ -54,7 +55,7 @@ export function setupAssetsWallets(language, doc=document, win=window) {
     forgetExternal();clear();busy=true;connect.disabled=true;select.disabled=true;const ticket=epoch;
     status.textContent=t('Confirma la conexión en tu billetera.','Approve the connection in your wallet.');
     try{
-      let account;
+      let account,standardAccount=null;
       if(choice.kind==='mobile-entry'){
         session=createPhantomMobileSession({app:win.Capacitor?.Plugins?.App,launcher:win.Capacitor?.Plugins?.ExternalWallet});
         account=await session.connect();
@@ -63,9 +64,10 @@ export function setupAssetsWallets(language, doc=document, win=window) {
         const result=await session.connect();account={address:result.address,network:result.name};
       }else{
         const result=await choice.wallet.features['standard:connect'].connect();
-        const selected=getSolanaAccount(result.accounts);
+        const selected=getSolanaAccount(result.accounts?.filter(value=>value?.chains?.includes('solana:mainnet')));
         if(!selected?.chains.includes('solana:mainnet'))throw new Error('unsupported-network');
         account={address:selected.address,network:'Solana mainnet'};
+        standardAccount=selected;
         if(typeof choice.wallet.features['standard:events']?.on!=='function')throw new Error('unsupported-wallet');
         removeChange=choice.wallet.features['standard:events'].on('change',invalid);
       }
@@ -73,6 +75,7 @@ export function setupAssetsWallets(language, doc=document, win=window) {
       active={...choice,...account};identity.textContent=choice.name+' · '+account.network+' · '+account.address;
       if(choice.kind!=='evm')selectWalletAccount(doc,{address:account.address,source:'external',name:choice.name});
       else selectWalletAccount(doc,null); // EVM funds are not Solana collateral.
+      if(standardAccount)bindWebPerpsWalletSession(doc,choice.wallet,standardAccount);
       if(choice.kind!=='evm')try{win.localStorage?.setItem('jamd.externalPublicWallet.v1',JSON.stringify({address:account.address,name:choice.name,network:'solana:mainnet'}));}catch{}
       refresh.hidden=disconnect.hidden=false;connect.hidden=true;
       status.textContent=t('Conectada para consulta. No se ha enviado dinero.','Connected for inspection. No funds were sent.');
@@ -122,7 +125,9 @@ export function setupAssetsWallets(language, doc=document, win=window) {
     if(saved?.network==='solana:mainnet'&&typeof saved.address==='string'&&/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(saved.address)){
       const name=sanitizeWalletName(saved.name);selectWalletAccount(doc,{address:saved.address,source:'external',name});
       active={kind:'remembered-public',address:saved.address,name};identity.textContent=name+' · '+t('Cuenta pública recordada','Remembered public account')+' · '+saved.address;
-      refresh.hidden=disconnect.hidden=false;connect.hidden=true;select.disabled=true;refresh.onclick();
+      // A remembered address cannot restore a signing session. Let the user
+      // reconnect in-place, without first deleting their public watch address.
+      refresh.hidden=disconnect.hidden=false;connect.hidden=false;select.disabled=false;connect.textContent=t('Volver a conectar billetera','Reconnect wallet');refresh.onclick();
       refreshTimer=setInterval(()=>{if(!doc.hidden)refresh.onclick();},60000);refreshTimer?.unref?.();
     }
   }catch{}
