@@ -7,6 +7,7 @@ import {prepareInspectedPerpsManualOrder} from '../lib/perps-manual-preparation.
 import {createWebPerpsReviewStore} from '../lib/perps-web-review-store.js';
 import {openWebPerpsSigningJournal} from '../lib/perps-web-signing-journal.js';
 import {inspectWebPerpsSubmission,openWebPerpsSubmissionJournal} from '../lib/perps-web-submission-journal.js';
+import {createWebPerpsBroadcaster,readWebPerpsSubmissionReceipt} from '../lib/perps-web-broadcast.js';
 import {createWebPerpsSigningReviewClient,authorizeWebPerpsOwnerSignature,readWebPerpsOwnerSignature,claimWebPerpsServerHandoff,consumeWebPerpsServerHandoff} from '../lib/perps-web-signing-review.js';
 import {bindWebPerpsWalletSession,clearWebPerpsWalletSession,signReviewedWebPerpsOrder} from '../lib/perps-web-wallet-session.js';
 import {selectWalletAccount} from '../lib/wallet-portfolio-store.js';
@@ -44,10 +45,12 @@ function custodyAccount(asset){
  data.writeBigUInt64LE(500000n,175);data[199]=1;data[202]=1;data[203]=1;Buffer.alloc(32,120+index).copy(data,384);
  return {owner:PERPS_PROGRAM,executable:false,data:[data.toString('base64'),'base64']};
 }
-async function fixture({exits=false,lookup=false,trusted=false,planMutation=null,ownerAddress=null}={}){
+async function fixture({exits=false,lookup=false,trusted=false,planMutation=null,ownerAddress=null,keeperSignable=false}={}){
  lookup ||= exits||trusted;
  const apiPrivate=createPrivateKey({key:Buffer.concat([Buffer.from('302e020100300506032b657004220420','hex'),Buffer.alloc(32,21)]),format:'der',type:'pkcs8'});
  const keys=Array.from({length:19},(_,i)=>Buffer.alloc(32,i+1));keys[2]=createPublicKey(apiPrivate).export({format:'der',type:'spki'}).subarray(-32);
+ const keeperKey=keeperSignable?createPrivateKey({key:Buffer.concat([Buffer.from('302e020100300506032b657004220420','hex'),Buffer.alloc(32,22)]),format:'der',type:'pkcs8'}):null;
+ if(keeperKey)keys[1]=createPublicKey(keeperKey).export({format:'der',type:'spki'}).subarray(-32);
  const ownerKey=trusted?createPrivateKey({key:Buffer.concat([Buffer.from('302e020100300506032b657004220420','hex'),Buffer.alloc(32,5)]),format:'der',type:'pkcs8'}):null;
  if(ownerKey)keys[0]=createPublicKey(ownerKey).export({format:'der',type:'spki'}).subarray(-32);
  if(ownerAddress)keys[0]=Buffer.from(bs58.decode(ownerAddress));
@@ -153,7 +156,7 @@ async function fixture({exits=false,lookup=false,trusted=false,planMutation=null
   }
   throw Error('UNEXPECTED_RPC');
  };
- return {preparation,intent,request,calls,account,table,loaded,ownerKey};
+ return {preparation,intent,request,calls,account,table,loaded,ownerKey,keeperKey};
 }
 test('manual web review uses actual wallet funding and the full exact-wire inspection without custody, signing or submission',async()=>{
  const f=await fixture({exits:true,trusted:true});let clock=0;
@@ -184,8 +187,8 @@ test('manual web review uses actual wallet funding and the full exact-wire inspe
  for(const change of [{asset:'ZEC'},{margin:'1'},{serializedTxBase64:'untrusted'}])await assert.rejects(prepareInspectedPerpsManualOrder({...draft,...change},f.intent.walletAddress,options));
 });
 
-export async function webSigningFixture(t){
- const f=await fixture({exits:true,trusted:true}),draft={asset:'SOL',side:'LONG',margin:'10',leverage:'3',referencePrice:'100',stopLoss:'95',takeProfit:'110'};
+export async function webSigningFixture(t,{keeperSignable=false}={}){
+ const f=await fixture({exits:true,trusted:true,keeperSignable}),draft={asset:'SOL',side:'LONG',margin:'10',leverage:'3',referencePrice:'100',stopLoss:'95',takeProfit:'110'};
  const records=new Map(),commands=[],state={time:now,mono:0,prompts:0,mode:'exact',builderCalls:0},clock=()=>state.time;
  const command=async values=>{commands.push(values[0]);const [method,key,text]=values;if(method==='SET'){if(records.has(key))return null;records.set(key,text);return 'OK';}if(method==='GET')return records.get(key)??null;throw Error();};
  const store=createWebPerpsReviewStore({command,now:clock});
@@ -347,6 +350,97 @@ test('server submission barrier rejects modified wire, expired review, copied na
   assert.equal(journal.read(f.packet.reviewId),null);
  }
  assert.throws(()=>openWebPerpsSubmissionJournal({filename:':memory:'}));
+});
+
+async function webSubmissionFixture(t){
+ const f=await webSigningFixture(t,{keeperSignable:true}),review=await f.client.prepare(f.draft),grant=await authorizeWebPerpsOwnerSignature(review,{doc:f.doc,journal:f.journal,explicitApproval:true});
+ const signed=await signReviewedWebPerpsOrder(f.doc,grant),wire=await readWebPerpsOwnerSignature(signed,{doc:f.doc,journal:f.journal});
+ const directory=mkdtempSync(join(tmpdir(),'jamddmaj-web-transport-')),filename=join(directory,'journal.sqlite');
+ const serverJournal=openWebPerpsSubmissionJournal({filename,now:f.clock});t.after(()=>{serverJournal.close();rmSync(directory,{recursive:true,force:true});});
+ const inspect=()=>inspectWebPerpsSubmission(f.packet,wire.signedBase64,{reviewStore:f.store,rpcRequest:f.rpcRequest,now:f.clock,monotonicNow:()=>f.state.mono});
+ return {...f,signed,wire,serverJournal,inspect,filename};
+}
+
+test('web single-attempt transport commits exact identity before the fixed Jupiter request and never equates acknowledgement with a position',async t=>{
+ const f=await webSubmissionFixture(t),evidence=await f.inspect(),competing=await f.inspect();let calls=0;
+ const submit=createWebPerpsBroadcaster({journal:f.serverJournal,fetchImpl:async(url,options)=>{
+  calls++;assert.equal(url,'https://perps-api.jup.ag/v2/transaction/execute');assert.equal(options.redirect,'error');assert.equal(options.credentials,'omit');
+  assert.deepEqual(JSON.parse(options.body),{action:'increase-position',serializedTxBase64:f.wire.signedBase64});
+  const row=f.serverJournal.read(f.packet.reviewId);assert.equal(row.state,'UNCERTAIN');assert.equal(row.signed_base64,f.wire.signedBase64);assert.equal(row.signature,f.signed.signature);
+  return Response.json({action:'increase-position',txid:f.signed.signature});
+ }});
+ const result=await submit(evidence);assert.equal(result.stage,'WEB_PERPS_BROADCAST_ACKNOWLEDGED');assert.equal(result.state,'UNCERTAIN');assert.equal(result.readyForRetry,false);
+ await assert.rejects(submit(evidence));await assert.rejects(submit(competing));assert.equal(calls,1);assert.equal(f.state.prompts,1);
+ assert.throws(()=>createWebPerpsBroadcaster({journal:{...f.serverJournal},fetchImpl:async()=>{}}));
+});
+
+test('web transport timeout, HTTP errors, malformed replies and wrong signatures remain durably unknown without retry',async t=>{
+ for(const mode of ['throw','http','redirect','wrong-signature','wrong-action','extra-key','oversized','invalid-json']){
+  const f=await webSubmissionFixture(t);let calls=0;
+  const submit=createWebPerpsBroadcaster({journal:f.serverJournal,fetchImpl:async()=>{
+   calls++;if(mode==='throw')throw Error('Ambiguous network disconnect');
+   if(mode==='http')return new Response('failure',{status:503});
+   if(mode==='redirect')return {status:200,redirected:true};
+   if(mode==='oversized')return new Response('x'.repeat(4097),{headers:{'Content-Type':'application/json'}});
+   if(mode==='invalid-json')return new Response('{',{headers:{'Content-Type':'application/json'}});
+   return Response.json({action:mode==='wrong-action'?'decrease-position':'increase-position',txid:mode==='wrong-signature'?'foreign':f.signed.signature,...(mode==='extra-key'?{extra:true}:{})});
+  }});
+  const evidence=await f.inspect(),result=await submit(evidence);assert.equal(result.stage,'WEB_PERPS_BROADCAST_UNKNOWN');assert.equal(result.readyForRetry,false);
+  assert.equal(f.serverJournal.pending(f.account.address).state,'UNCERTAIN');await assert.rejects(submit(evidence));assert.equal(calls,1);
+ }
+});
+
+test('copied, expired or lost-durable web submission authority cannot reach a transport',async t=>{
+ for(const mode of ['copied','expired','closed']){
+  const f=await webSubmissionFixture(t);let calls=0;
+  const evidence=await f.inspect(),submit=createWebPerpsBroadcaster({journal:f.serverJournal,fetchImpl:async()=>{calls++;throw Error();}});
+  if(mode==='expired')f.state.time+=15001;if(mode==='closed')f.serverJournal.close();
+  await assert.rejects(submit(mode==='copied'?{...evidence}:evidence));assert.equal(calls,0);
+ }
+});
+
+test('web one-attempt transport deadline aborts an in-flight request and retains its identity for recovery',async t=>{
+ const f=await webSubmissionFixture(t),evidence=await f.inspect();let calls=0,aborted=false;
+ const submit=createWebPerpsBroadcaster({journal:f.serverJournal,fetchImpl:async(url,{signal})=>{
+  calls++;return new Promise((resolve,reject)=>signal.addEventListener('abort',()=>{aborted=true;reject(Error('Deadline'));},{once:true}));
+ }});
+ t.mock.timers.enable({apis:['setTimeout']});
+ try{
+  const pending=submit(evidence);t.mock.timers.tick(8000);
+  const result=await pending;assert.equal(aborted,true);assert.equal(result.stage,'WEB_PERPS_BROADCAST_UNKNOWN');assert.equal(result.readyForRetry,false);
+  assert.equal(f.serverJournal.read(f.packet.reviewId).signature,f.signed.signature);await assert.rejects(submit(evidence));assert.equal(calls,1);
+ }finally{t.mock.timers.reset();}
+});
+
+test('web recovery reads only its recorded all-signer finalized identity after restart and keeps collateral held',async t=>{
+ for(const failed of [false,true]){
+ const f=await webSubmissionFixture(t);f.serverJournal.claim(await f.inspect());
+ const finalized=Buffer.from(f.wire.signedBase64,'base64');sign(null,finalized.subarray(193),f.keeperKey).copy(finalized,65);
+ const err=failed?{InstructionError:[0,'InvalidArgument']}:null;
+ const slot=f.packet.review.observedSlot+5,status={slot,err,confirmationStatus:'finalized'};
+ const transaction={slot,blockTime:now/1000,transaction:[finalized.toString('base64'),'base64'],meta:{err}};const calls=[];
+ const rpcRequest=async(method,params)=>{calls.push({method,params});
+  if(method==='getGenesisHash')return GENESIS;
+  if(method==='getSignatureStatuses'){assert.equal(params[0][0],f.signed.signature);return {context:{slot:slot+1},value:[status]};}
+  if(method==='getTransaction'){assert.equal(params[0],f.signed.signature);assert.equal(params[1].commitment,'finalized');return transaction;}
+  throw Error('Not a read-only receipt method');
+ };
+ f.state.time+=600000;
+ const reopened=openWebPerpsSubmissionJournal({filename:f.filename,now:f.clock});t.after(()=>reopened.close());
+ const read=()=>readWebPerpsSubmissionReceipt(f.packet.reviewId,{journal:reopened,rpcRequest,now:f.clock});
+ status.confirmationStatus='confirmed';assert.equal(await read(),null);assert.equal(calls.some(c=>c.method==='getTransaction'),false);
+ status.confirmationStatus='finalized';const receipt=await read();assert.equal(receipt.state,failed?'FAILED':'CONFIRMED');assert.equal(receipt.confirmationStatus,'finalized');
+ assert.throws(()=>reopened.recordFinalizedReceipt(f.packet.reviewId,{...receipt}));
+ assert.deepEqual(reopened.readReceipt(f.packet.reviewId),receipt);
+ assert.equal(reopened.pending(f.account.address).state,'UNCERTAIN');assert.equal(f.state.prompts,1);
+ const original=transaction.transaction[0];const changed=Buffer.from(finalized);changed[65]^=1;transaction.transaction[0]=changed.toString('base64');await assert.rejects(read());transaction.transaction[0]=original;
+ const error=failed?null:{InstructionError:[0,'InvalidArgument']};status.err=error;transaction.meta.err=error;
+ await assert.rejects(read());assert.equal(reopened.pending(f.account.address).state,'UNCERTAIN');
+ assert.equal(reopened.readReceipt(f.packet.reviewId).state,failed?'FAILED':'CONFIRMED');
+ reopened.close();
+ const recovered=openWebPerpsSubmissionJournal({filename:f.filename,now:f.clock});
+ assert.deepEqual(recovered.readReceipt(f.packet.reviewId),receipt);assert.equal(recovered.pending(f.account.address).state,'UNCERTAIN');recovered.close();
+ }
 });
 
 test('expired, changed or falsely acknowledged server preparation cannot issue or resume a signing review',async t=>{

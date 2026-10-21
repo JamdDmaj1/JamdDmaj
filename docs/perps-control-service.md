@@ -3871,3 +3871,55 @@ or read production custody records.
 The complete local suite subsequently finished with 844 tests: 838 passed,
 six skipped and zero failures (151508 ms). Log:
 `.perps-build/web-owner-signature-20261021/submission-tests.log`.
+
+### Web exact-wire broadcast and finalized transaction observations (2026-10-21)
+
+`lib/perps-web-broadcast.js` now joins an original fresh native submission
+inspection to the permanent server journal and a one-use private committed
+claim. Only after `UNCERTAIN` commits and reads back does it make one request
+to the fixed Jupiter v2 transaction executor, action `increase-position`, with
+the exact owner-signed wire. The transport must be explicitly injected by the
+server coordinator; there is no implicit live fetch, retry, new quote, signer,
+client URL or arbitrary action. Copied/stale evidence, closed storage and a
+competing claim cannot reach fetch. Timeout, HTTP error, redirect, malformed or
+oversized body, an extra response key or a wrong signature/action preserve the
+record and return UNKNOWN. Even an exact acknowledgement is not a position.
+
+The module's recovery query uses the recorded wallet/signature/wire hash rather
+than a client-provided transaction ID. It requires mainnet finalized history,
+the matching transaction at the observed slot and all three signatures. The
+existing receipt verifier normalizes only the keeper signature slot before
+comparing the recorded owner-signed hash. A branded fresh rooted receipt is
+stored immutably in a separate durable receipts table. Copies cannot write it;
+contradictory rooted state/slot/day cannot replace it. Reopening the database
+retains both successful and failed transaction facts. Neither releases the
+wallet lock or asserts a verified position: native position/exit/economics and
+cross-path collateral reconciliation are still needed.
+
+Primary contract reference checked read-only:
+<https://perps-api.jup.ag/v2/docs>, `/transaction/execute` fields `action`,
+`serializedTxBase64` and response `action`, `txid`. That page still prints v1
+example URLs; these tests do not establish live v2 transport availability or
+production execution readiness. No financial executor endpoint was contacted.
+
+Affected checks cover exact committed-before-send ordering, one attempt,
+eight ambiguous/error replies, an aborted in-flight deadline, copied/expired/
+lost-durable authority and successful/failed all-signer finalized recovery
+after restart. The builder was never rerun for a replacement transaction.
+Only deterministic unfunded fixture keys and invalid blockhashes were used.
+`npm run build:web` passed. The affected corpus passed 23/23 on actual VPS
+Node 22, in `jamddmaj-web-broadcast-check-20261021.service` with DynamicUser,
+PrivateNetwork, PrivateTmp, ProtectHome, ProtectSystem=strict, NoNewPrivileges,
+UMask0077 and MemoryMax384M. Local/transferred test bundle SHA-256 matched:
+`28f4de1fe225e46d582a9883e0052778fe369fb6f7161ea9b2ac83827b025dc0`.
+
+This component is not connected to a live public execution route, the installed
+worker, browser submit UI or the existing native/custody financial ledger.
+Those integrations, cross-path uniqueness, full position reconciliation,
+manual closing/protected conversion and overall automation acceptance remain
+incomplete. No production schema migration, real signature, transaction send,
+bot activation, web deployment or Android release occurred in this change.
+
+Complete local verification subsequently passed 849 tests: 843 passed, six
+skipped, zero failures (150911 ms). Full log:
+`.perps-build/web-owner-signature-20261021/broadcast-tests.log`.
