@@ -4049,3 +4049,62 @@ MemoryMax384M. Local/transferred bundle SHA-256 matched before execution:
 `291ade41e764f072a46ac28b8d22297ec8455f3b9a64da34f59e0d6fc40fe1e7`.
 The unit completed successfully without reading production custody records or
 altering the installed financial worker.
+
+### Rooted web entry settlement in the shared financial ledger (2026-10-21)
+
+`perps-web-risk-recovery.js` now binds the original web record to its exact
+`web:<reviewId>` shared financial reservation, wallet, signature/hash, margin,
+position PDA and independently simulated exit plan. It queries only that
+recorded chain identity. A pending/nonfinalized receipt returns no settlement
+and never reads invented balances. For success, the rooted exact entry/current
+native-position proof must agree with the final account bank and original
+protections. A failed rooted transaction needs no fictitious open position.
+Both outcomes require genuine fresh finalized complete daily accounting; the
+entry transaction must appear exactly once with the right slot/outcome when it
+belongs to the account's current UTC day. Nonzero SOL network fees require a
+verified USD valuation. The web pre-broadcast risk authorizer now enforces that
+same no-unvalued-network-fees rule for accounts with existing paid fees.
+
+`reconcileWebSubmission` consumes a one-use, journal-pair-bound private proof
+inside the shared financial transaction, rechecking both records and oldest
+leases. A successful entry changes `UNCERTAIN` to `OPEN`: its full original
+margin remains charged as active risk. A failed entry changes to `CLOSED` only
+after the rooted failure and complete fee-valued account checks. Its conservative
+daily attempt count remains attached to the actual execution day. Generic
+`reconcileBroadcast` explicitly refuses `web:` records; a bare transaction
+receipt cannot bypass these extra web financial checks.
+
+Fresh read-only recovery can recognize an already identical settlement without
+counting it twice. A competing stale proof, a different journal instance, copied
+proof or expired account cannot reapply it. Missing price valuation, missing
+history, substituted positions and ambiguous chain state leave the shared
+reserve held. These tests include actual deterministic self-CPI event decoding,
+native finalized accounts, complete signature-history enumeration and the
+existing closed-minute SOL/USD fee-valuation reader using an isolated fake
+price response; no balances/loss totals are promoted from plain JSON.
+
+The separate permanent web wallet barrier is deliberately still held. This
+change does NOT yet permit a second web trade, release an unresolved browser
+signature, resolve a signed attempt that never reached the web ledger, finish
+a manual close/conversion, or connect an execution endpoint/UI. Safe reuse of
+that barrier and both-ledger recovery, public/native integration and publication
+remain acceptance requirements. Fee valuation may wait for its required closed
+market candle; live freshness/latency remains unverified. No real funded
+signature/send, bot activation, production journal write/migration, worker
+deployment, public web release or Android release occurred here.
+
+The complete local suite passed 861 tests: 855 passed, six skipped, zero failures
+(150610 ms), log `.perps-build/web-owner-signature-20261021/settlement-tests.log`.
+`npm run build:web` passed. The focused corpus includes success/failed settlement,
+retained open margin, unchanged web barrier, generic-receipt bypass rejection,
+idempotent recovery, journal binding, concurrent/stale proofs and five incomplete
+account/history/fee/freshness cases. It only uses public unfunded fixture seeds,
+invalid blockhashes, fake financial transports and temporary local databases.
+
+The affected corpus passed 35/35 with no skips/failures on actual VPS Node 22
+in `jamddmaj-web-settlement-check-20261021.service` (completed successfully).
+Isolation: DynamicUser, PrivateNetwork, PrivateTmp, ProtectHome,
+ProtectSystem=strict, NoNewPrivileges, UMask0077 and MemoryMax384M. Test artifact
+SHA-256 matched locally and after transfer before execution:
+`b83c68d069d4ca62dda86c37e33c3be721c799761444f81cb419dc5a68996be7`.
+This test did not read production custody records or change the installed worker.

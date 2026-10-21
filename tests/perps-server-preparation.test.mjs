@@ -10,6 +10,9 @@ import {inspectWebPerpsSubmission,openWebPerpsSubmissionJournal} from '../lib/pe
 import {createWebPerpsBroadcaster,readWebPerpsSubmissionReceipt} from '../lib/perps-web-broadcast.js';
 import {createRiskBoundWebPerpsBroadcaster} from '../lib/perps-web-risk-broadcast.js';
 import {authorizeWebPerpsRisk} from '../lib/perps-web-risk-authorization.js';
+import {readWebPerpsRiskSettlement,reconcileRiskBoundWebEntry} from '../lib/perps-web-risk-recovery.js';
+import {readServerPerpsDailyAccount} from '../lib/perps-server-daily-account.js';
+import {createPerpsNetworkFeeValuationReader} from '../lib/perps-network-fee-valuation.js';
 import {readWebPerpsFinalizedPosition,requireVerifiedWebPerpsPosition} from '../lib/perps-web-position-recovery.js';
 import {decodeServerPerpsEnvelope} from '../lib/perps-server-envelope.js';
 import eventLayout from '../lib/perps-event-layout.json' with {type:'json'};
@@ -515,15 +518,23 @@ test('web recovery reads only its recorded all-signer finalized identity after r
  }
 });
 
-async function finalizedWebPositionFixture(t){
- const f=await webSubmissionFixture(t);f.serverJournal.claim(await f.inspect());
+async function finalizedWebPositionFixture(t,{sharedRisk=false}={}){
+ const f=await webSubmissionFixture(t);let riskJournal=null,sends=0;
+ if(sharedRisk){
+  riskJournal=f.trackJournal(openPerpsExecutionJournal(f.filename.replace(/\.sqlite$/,'-risk.sqlite'),{now:f.clock}));
+  const account=await emptyFixtureDailyAccount(f.account.address);
+  const submit=createRiskBoundWebPerpsBroadcaster({journal:f.serverJournal,riskJournal,readAccount:async()=>account,
+   readLimits:()=>({walletAddress:f.account.address,revision:'policy-1',limits:{capitalUsd:'50',dailyLossUsd:'30',positions:2,dailyTrades:5}}),
+   fetchImpl:async()=>{sends++;return Response.json({action:'increase-position',txid:f.signed.signature});}});
+  await submit(await f.inspect());
+ }else f.serverJournal.claim(await f.inspect());
  const envelope=decodeServerPerpsEnvelope(f.preparation.serializedTxBase64,f.account.address),keys=[...envelope.staticKeys,...f.loaded.map(b=>bs58.encode(b))];
  const increaseIndex=envelope.instructions.findIndex(ix=>envelope.staticKeys[ix.program]===PERPS_PROGRAM&&Buffer.from(ix.dataBase64,'base64').subarray(0,8).toString('hex')==='a47e44b6dfa640b7');
  const exits=envelope.instructions.filter(ix=>envelope.staticKeys[ix.program]===PERPS_PROGRAM&&Buffer.from(ix.dataBase64,'base64').subarray(0,8).toString('hex')==='7562427f1e3249b9').map(ix=>keys[ix.accounts[7]]);
  const addresses=[f.packet.preparation.positionPubkey,...exits];
  const post=(await f.request('simulateTransaction',[f.preparation.serializedTxBase64,{replaceRecentBlockhash:false,sigVerify:false,accounts:{addresses}}])).value.accounts;
  const finalWire=Buffer.from(f.wire.signedBase64,'base64');sign(null,finalWire.subarray(193),f.keeperKey).copy(finalWire,65);
- const slot=f.packet.review.observedSlot+5,ids=await deriveServerPerpsIdentities(f.intent),schema=eventLayout.events.find(e=>e.name==='InstantIncreasePositionEvent'),fields={};
+ const slot=sharedRisk?499990:f.packet.review.observedSlot+5,ids=await deriveServerPerpsIdentities(f.intent),schema=eventLayout.events.find(e=>e.name==='InstantIncreasePositionEvent'),fields={};
  for(const [name,type]of schema.fields)fields[name]=typeof type==='object'?null:type==='publicKey'?f.account.address:type==='bool'?false:type==='u8'?0:'0';
  Object.assign(fields,{owner:f.account.address,pool:PERPS_POOL,positionKey:ids.position,positionSide:1,positionMint:PERPS_CUSTODIES.SOL.mint,
   positionCustody:PERPS_CUSTODIES.SOL.address,positionCollateralCustody:PERPS_CUSTODIES.SOL.address,positionSizeUsd:'30000000',sizeUsdDelta:'30000000',
@@ -543,8 +554,86 @@ async function finalizedWebPositionFixture(t){
   if(method==='getMultipleAccounts'){assert.deepEqual(params[0],addresses);assert.equal(params[1].commitment,'finalized');assert.equal(params[1].minContextSlot,slot);return {context:{slot:state.snapshotSlot},value:structuredClone(post)};}
   throw Error('Financial or unexpected recovery method');
  };
- return {...f,post,tx,status,fields,eventIx,recoveryState:state,recoveryCalls,readPosition:()=>readWebPerpsFinalizedPosition(f.packet.reviewId,{journal:f.serverJournal,rpcRequest,now:f.clock,monotonicNow:()=>f.state.mono})};
+ return {...f,post,tx,status,fields,eventIx,riskJournal,sends,rpcRequest,recoveryState:state,recoveryCalls,readPosition:()=>readWebPerpsFinalizedPosition(f.packet.reviewId,{journal:f.serverJournal,rpcRequest,now:f.clock,monotonicNow:()=>f.state.mono})};
 }
+
+async function sharedWebSettlementFixture(t,{failed=false}={}){
+ const f=await finalizedWebPositionFixture(t,{sharedRisk:true});f.state.time+=90000;
+ if(failed){f.status.err={InstructionError:[0,'InvalidArgument']};f.tx.meta.err=f.status.err;}
+ const state={omitHistory:false,omitFeeValuation:false,copyAccount:false,accountChanged:false,after:()=>{}},bank=500000;
+ const request=async(method,params)=>{
+  state.after(method);
+  if(method==='getGenesisHash'||method==='getTransaction')return f.rpcRequest(method,params);
+  if(method==='getMultipleAccounts'){
+   const reply=await f.request(method,params);
+   const value=reply.value.map((account,i)=>{
+    if(!failed&&params[0][i]===f.packet.preparation.positionPubkey)return structuredClone(f.post[0]);
+    if(i===0){account.lamports=100000000-15100-(failed?0:10000000);return account;}
+    if(i===1&&!failed){const b=Buffer.from(account.data[0],'base64');b.writeBigUInt64LE(10000000n,64);account.data[0]=b.toString('base64');}
+    return account;
+   });
+   if(state.accountChanged&&!failed){const i=params[0].indexOf(f.packet.preparation.positionPubkey),b=Buffer.from(value[i].data[0],'base64');b.writeBigUInt64LE(9000000n,169);value[i].data[0]=b.toString('base64');}
+   return {context:{slot:bank},value};
+  }
+  if(method==='getSlot')return bank;
+  if(method==='getBlockTime')return params[0]===bank?f.clock()/1000-5:seconds-172800;
+  if(method==='getBlocks')return [68000];if(method==='getFirstAvailableBlock')return 100;
+  if(method==='getSignaturesForAddress')return state.omitHistory||![f.account.address,f.packet.preparation.positionPubkey].includes(params[0])?[]:
+   [{signature:f.signed.signature,slot:f.tx.slot,blockTime:f.tx.blockTime,err:f.tx.meta.err,confirmationStatus:'finalized'}];
+  throw Error('Unexpected settlement account method');
+ };
+ const fees=createPerpsNetworkFeeValuationReader({now:f.clock,monotonicNow:()=>f.state.mono,fetchImpl:async()=>Response.json([[Math.floor(seconds/60)*60,100,100,100,100,1]])});
+ const readAccount=async input=>{
+  const account=await readServerPerpsDailyAccount(input,{request,now:f.clock,monotonicNow:()=>f.state.mono,journal:f.riskJournal,...(state.omitFeeValuation?{}:{readNetworkFees:fees})});
+  return state.copyAccount?{...account}:account;
+ };
+ const options={journal:f.serverJournal,riskJournal:f.riskJournal,rpcRequest:f.rpcRequest,readAccount,now:f.clock,monotonicNow:()=>f.state.mono};
+ return {...f,settlementState:state,settlementOptions:options};
+}
+
+test('web shared-risk settlement uses rooted position and complete fee-valued history, retaining open margin or closing only a failed entry',async t=>{
+ for(const failed of [false,true]){
+  const f=await sharedWebSettlementFixture(t,{failed}),id='web:'+f.packet.reviewId;
+  const proof=await readWebPerpsRiskSettlement(f.packet.reviewId,f.settlementOptions);assert.equal(proof.nextState,failed?'CLOSED':'OPEN');
+  assert.throws(()=>f.riskJournal.reconcileWebSubmission({...proof},{webJournal:f.serverJournal}));
+  assert.throws(()=>f.riskJournal.reconcileBroadcast(id,{}),/WEB_PERPS_SETTLEMENT_REQUIRED/);
+  const row=f.riskJournal.reconcileWebSubmission(proof,{webJournal:f.serverJournal});assert.equal(row.state,failed?'CLOSED':'OPEN');
+  assert.throws(()=>f.riskJournal.reconcileWebSubmission(proof,{webJournal:f.serverJournal}));
+  const risk=f.riskJournal.riskState(f.account.address);assert.equal(risk.pendingMarginUsdcUnits,'0');assert.equal(risk.activeMarginUsdcUnits,failed?'0':'10000000');assert.equal(risk.executedToday,1);
+  assert.equal(f.serverJournal.pending(f.account.address).state,'UNCERTAIN');assert.equal(f.sends,1);assert.equal(f.state.prompts,1);
+  assert.equal((await reconcileRiskBoundWebEntry(f.packet.reviewId,f.settlementOptions)).state,failed?'CLOSED':'OPEN');
+  assert.equal(f.riskJournal.riskState(f.account.address).executedToday,1);
+ }
+});
+
+test('missing fee valuation, incomplete or copied history and changed finalized position cannot settle shared web risk',async t=>{
+ for(const mode of ['fees','history','copy','position','expired']){
+  const f=await sharedWebSettlementFixture(t),id='web:'+f.packet.reviewId;
+  if(mode==='fees')f.settlementState.omitFeeValuation=true;if(mode==='history')f.settlementState.omitHistory=true;
+  if(mode==='copy')f.settlementState.copyAccount=true;if(mode==='position')f.settlementState.accountChanged=true;
+  if(mode==='expired')f.settlementState.after=method=>{if(method==='getSignaturesForAddress')f.state.mono+=10001;};
+  await assert.rejects(reconcileRiskBoundWebEntry(f.packet.reviewId,f.settlementOptions),undefined,mode);
+  assert.equal(f.riskJournal.read(id).state,'UNCERTAIN');assert.equal(f.riskJournal.riskState(f.account.address).pendingMarginUsdcUnits,'10000000');assert.equal(f.sends,1);
+ }
+});
+
+test('web financial recovery is one-use, journal-bound and restart-idempotent without allowing a competing proof to reapply',async t=>{
+ const f=await sharedWebSettlementFixture(t),id='web:'+f.packet.reviewId;
+ const first=await readWebPerpsRiskSettlement(f.packet.reviewId,f.settlementOptions),second=await readWebPerpsRiskSettlement(f.packet.reviewId,f.settlementOptions);
+ const other=f.trackJournal(openPerpsExecutionJournal(f.filename.replace(/\.sqlite$/,'-risk.sqlite'),{now:f.clock}));
+ assert.throws(()=>other.reconcileWebSubmission(first,{webJournal:f.serverJournal}));
+ assert.equal(f.riskJournal.reconcileWebSubmission(first,{webJournal:f.serverJournal}).state,'OPEN');
+ assert.throws(()=>f.riskJournal.reconcileWebSubmission(second,{webJournal:f.serverJournal}));assert.equal(other.read(id).state,'OPEN');
+ assert.equal(other.riskState(f.account.address).activeMarginUsdcUnits,'10000000');assert.equal(other.riskState(f.account.address).executedToday,1);
+ const fresh=await readWebPerpsRiskSettlement(f.packet.reviewId,f.settlementOptions);f.state.mono+=10001;
+ assert.throws(()=>f.riskJournal.reconcileWebSubmission(fresh,{webJournal:f.serverJournal}));assert.equal(other.read(id).state,'OPEN');
+});
+
+test('pending web chain history never reads settlement balances or releases the shared reserve',async t=>{
+ const f=await sharedWebSettlementFixture(t);f.status.confirmationStatus='confirmed';let reads=0;
+ assert.equal(await reconcileRiskBoundWebEntry(f.packet.reviewId,{...f.settlementOptions,readAccount:async()=>{reads++;throw Error();}}),null);
+ assert.equal(reads,0);assert.equal(f.riskJournal.riskState(f.account.address).pendingMarginUsdcUnits,'10000000');assert.equal(f.sends,1);
+});
 
 test('web entry recovery verifies native finalized CPI size, collateral and exact pending protections without releasing funds',async t=>{
  const f=await finalizedWebPositionFixture(t),proof=await f.readPosition();
