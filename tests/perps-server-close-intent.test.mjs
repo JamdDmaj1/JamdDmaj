@@ -977,7 +977,8 @@ test('prepared full close persists exact wire and all position entries across re
  assert.deepEqual(f.journal.riskState(wallet),risk);assert(f.journal.openPositions(wallet).every(e=>e.state==='OPEN'));
  const other=f.open();assert.deepEqual(other.readPositionClose('close-one'),row);assert.equal(other.pendingPositionCloses(wallet).length,1);
  assert.throws(()=>other.preparePositionClose('duplicate',f.oracleEffects),/RECONCILIATION_REQUIRED/);
- assert.equal(typeof other.beginPositionCloseSigning,'undefined');assert.equal(typeof other.recordPositionCloseBroadcast,'undefined');
+ assert.equal(typeof other.beginPositionCloseSigning,'function');assert.equal(typeof other.recordPositionCloseBroadcast,'function');
+ assert.equal(typeof other.signPositionClose,'undefined');assert.equal(typeof other.sendPositionClose,'undefined');
  assert.throws(()=>other.reserve({walletAddress:wallet,signalId:'next',reservationId:'next',marginUsd:'10',limits:{capitalUsd:'100',dailyLossUsd:'100',positions:10,dailyTrades:10},
   snapshot:{walletAddress:wallet,network:'solana-mainnet',balancesComplete:true,day:new Date(now*1000).toISOString().slice(0,10),observedAt:now*1000,
    availableUsdcUnits:'100000000',allocatedUsdcUnits:'20000000',lossTodayUsdcUnits:'0',openPositions:2,tradesToday:2}}),/RECONCILIATION_REQUIRED/);

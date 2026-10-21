@@ -16,7 +16,7 @@ import {canonicalPerpsCloseSettlement} from '../lib/perps-close-settlement.js';
 import {PERPS_CUSTODIES} from '../lib/perps-server-custody.js';
 const allowNonPosixForTests=process.platform==='win32',ownerAccountHash='e'.repeat(64),now=Date.now(),day=new Date(now).toISOString().slice(0,10);
 const settings={capital:100,loss:90,positions:10,margin:10,leverage:3,dailyTrades:10};
-async function fixture(t){
+async function fixture(t,{singleOpen=false}={}){
  const root=mkdtempSync(join(tmpdir(),'jamd-runtime-test-'));chmodSync(root,0o700);
  const directory=join(root,'wallets'),keys=join(root,'keys'),keyFile=join(keys,'master.key'),operatorDirectory=join(root,'operator');
  mkdirSync(directory,{mode:0o700});mkdirSync(keys,{mode:0o700});const common={allowNonPosixForTests,now:()=>now};
@@ -27,7 +27,7 @@ async function fixture(t){
  controls.consumeRequestQuota({ownerAccountHash});const journal=openPerpsExecutionJournal(journalPath,{now:()=>now});
  let index=0;
  for(const [id,final]of [['reserved','RESERVED'],['signing','SIGNING'],['uncertain','UNCERTAIN'],['cancelled','CANCELLED'],['open','OPEN'],['closed','CLOSED']]){
-  index++;const positionAddress=bs58.encode(Buffer.alloc(32,30+index)),exitAddress=bs58.encode(Buffer.alloc(32,60+index));
+  index++;if(singleOpen&&id!=='open')continue;const positionAddress=bs58.encode(Buffer.alloc(32,30+index)),exitAddress=bs58.encode(Buffer.alloc(32,60+index));
   journal.reserve({walletAddress:wallet.walletAddress,signalId:'signal-'+id,reservationId:id,marginUsd:10,positionAddress,
    entryExitPlan:{sizeUsdUnits:'30000000',exits:[{address:exitAddress,kind:'SL',sizeUsdUnits:'30000000',triggerPriceUsdUnits:'95000000',counter:String(index)}]},
    limits:{capitalUsd:100,dailyLossUsd:90,positions:10,dailyTrades:10},snapshot:{walletAddress:wallet.walletAddress,network:'solana-mainnet',balancesComplete:true,observedAt:now,day,availableUsdcUnits:'100000000',allocatedUsdcUnits:'0',lossTodayUsdcUnits:'0',openPositions:0,tradesToday:0}});
@@ -103,14 +103,42 @@ test('encrypted recovery preserves prepared and cancelled close bindings without
  }
 });
 
-function recoverySettlement(parent,mode){
+function recoverySettlement(parent,mode,version=1){
  const separate=mode==='COLLATERAL_THEN_USDC',collateralAccount=bs58.encode(Buffer.alloc(32,22));
- return canonicalPerpsCloseSettlement({version:1,mode,walletAddress:parent.wallet,positionAddress:parent.position_address,
+ return canonicalPerpsCloseSettlement({version,...(version===2?{sizeUsdUnits:'30000000',collateralUsdUnits:String(parent.margin),positionOpenTimeSeconds:'1000'}:{}),mode,walletAddress:parent.wallet,positionAddress:parent.position_address,
   asset:'SOL',side:'LONG',receiveAsset:separate?'SOL':'USDC',receiveMint:PERPS_CUSTODIES[separate?'SOL':'USDC'].mint,
   receiveAccount:separate?parent.wallet:bs58.encode(Buffer.alloc(32,23)),collateralAccount,delivery:separate?'NATIVE_SOL':'TOKEN',
   estimatedCollateralUnits:separate?'8000000':'0',estimatedUsdcUnits:separate?'0':'8000000',conversionRequired:separate,
   closePriceLimitUsdUnits:'99500000'},{walletAddress:parent.wallet,positionAddress:parent.position_address});
 }
+
+async function signingCloseRecoveryFixture(t){
+ const f=await fixture(t,{singleOpen:true}),parent=f.journal.read('open'),raw=new DatabaseSync(f.journalPath);
+ const entries=[{reservation:parent.reservation,signature:parent.signature,wire_hash:parent.wire_hash,confirmed_slot:parent.confirmed_slot,entry_exit_plan:parent.entry_exit_plan}];
+ raw.prepare('INSERT INTO perps_position_closes(id,wallet,position,state,created,updated,observed_slot,fee_lamports,unsigned_wire_hash,entries,settlement) VALUES(?,?,?,?,?,?,?,?,?,?,?)')
+  .run('signing-close',parent.wallet,parent.position_address,'PREPARED',now,now,105,5000,'d'.repeat(64),JSON.stringify(entries),recoverySettlement(parent,'COLLATERAL_THEN_USDC',2));raw.close();
+ f.journal.beginPositionCloseSigning('signing-close');return f;
+}
+
+test('encrypted recovery preserves an interrupted close signing claim and continues to hold capital while restoring paused custody',async t=>{
+ const f=await signingCloseRecoveryFixture(t),before=f.journal.readPositionCloseExecution('signing-close');
+ const archive=await createPerpsCustodyRecoveryArchive(f.request),restored=await restorePerpsCustodyRecoveryArchive({...f.restore,ciphertext:archive.ciphertext});
+ const journal=openPerpsExecutionJournal(join(restored.runtimeDirectory,'journal.sqlite'),{now:()=>now}),controls=openPerpsAutomationControls(join(restored.runtimeDirectory,'controls.sqlite'),{now:()=>now});f.restoredStores.push(journal,controls);
+ assert.deepEqual(journal.readPositionCloseExecution('signing-close'),before);assert.equal(before.state,'SIGNING');assert.equal(before.signature,null);
+ assert.equal(journal.riskState(f.wallet.walletAddress).activeMarginUsdcUnits,'10000000');assert.equal(journal.read('open').state,'OPEN');
+ assert.throws(()=>journal.cancelPreparedPositionClose('signing-close'));assert.throws(()=>journal.beginPositionCloseSigning('signing-close'));
+ assert.equal(controls.read({ownerAccountHash,walletAddress:f.wallet.walletAddress}).paused,true);assert.equal(restored.readyForSigning,false);
+});
+
+test('recovery refuses a close execution with changed parent binding, cancelled preparation or released parent collateral',async t=>{
+ for(const mode of ['binding','cancelled','released']){
+  const f=await signingCloseRecoveryFixture(t),raw=new DatabaseSync(f.journalPath);
+  if(mode==='binding')raw.prepare("UPDATE perps_position_close_executions SET parent_binding=? WHERE close_id='signing-close'").run('f'.repeat(64));
+  if(mode==='cancelled')raw.prepare("UPDATE perps_position_closes SET state='CANCELLED' WHERE id='signing-close'").run();
+  if(mode==='released')raw.prepare("UPDATE perps_reservations SET state='CLOSED' WHERE reservation='open'").run();raw.close();
+  await assert.rejects(createPerpsCustodyRecoveryArchive(f.request),mode);
+ }
+});
 
 test('recovery refuses settlement metadata that loses pending conversion or binds a foreign wallet',async t=>{
  for(const mode of ['missing','foreign','usdc','extra','encoding']){
@@ -129,7 +157,7 @@ test('recovery refuses settlement metadata that loses pending conversion or bind
 
 test('previous direct-close schema remains recoverable but cannot silently start or invent settlement metadata',async t=>{
  const f=await fixture(t),parent=f.journal.read('open'),raw=new DatabaseSync(f.journalPath);
- raw.exec('DROP TABLE perps_position_closes');raw.exec(PERPS_POSITION_CLOSE_SCHEMA_SQL.replace(', settlement TEXT NOT NULL',''));
+ raw.exec('DROP TABLE perps_position_close_executions; DROP TABLE perps_position_closes');raw.exec(PERPS_POSITION_CLOSE_SCHEMA_SQL.replace(', settlement TEXT NOT NULL','').split('CREATE TABLE IF NOT EXISTS perps_position_close_executions')[0]);
  const entries=[{reservation:parent.reservation,signature:parent.signature,wire_hash:parent.wire_hash,confirmed_slot:parent.confirmed_slot,entry_exit_plan:parent.entry_exit_plan}];
  raw.prepare('INSERT INTO perps_position_closes(id,wallet,position,state,created,updated,observed_slot,fee_lamports,unsigned_wire_hash,entries) VALUES(?,?,?,?,?,?,?,?,?,?)')
   .run('old-direct',parent.wallet,parent.position_address,'PREPARED',now,now,105,5000,'d'.repeat(64),JSON.stringify(entries));raw.close();
@@ -165,7 +193,7 @@ test('encrypted recovery preserves uncertain cancellation identities and the sta
   assert.deepEqual(store.readExitCancellation('recovery-cancel'),f.journal.readExitCancellation('recovery-cancel'));
   assert.equal(store.pendingExitCancellations(f.wallet.walletAddress).length,1);assert.equal(store.read('open').state,'OPEN');
  }
- const f=await fixture(t),raw=new DatabaseSync(f.journalPath);raw.exec('DROP TABLE perps_position_closes; DROP TABLE perps_exit_cancellations');raw.close();
+ const f=await fixture(t),raw=new DatabaseSync(f.journalPath);raw.exec('DROP TABLE perps_position_close_executions; DROP TABLE perps_position_closes; DROP TABLE perps_exit_cancellations');raw.close();
  assert.throws(()=>inspectExistingPerpsRuntimeDatabases({...f.runtimePaths,...f.common}));
  const check=new DatabaseSync(f.journalPath,{readOnly:true});assert.equal(check.prepare("SELECT count(*) AS n FROM sqlite_master WHERE name='perps_exit_cancellations'").get().n,0);check.close();
  // A recognized old archive remains recoverable; startup itself never upgrades it.

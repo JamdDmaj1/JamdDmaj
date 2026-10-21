@@ -3117,3 +3117,64 @@ DynamicUser, PrivateNetwork, PrivateTmp, ProtectHome, ProtectSystem=strict and n
 production state directories. Hash checked before execution. No worker/app
 deployment, financial schema migration or activation occurred. The goal remains
 active and incomplete.
+
+## Durable first-leg close execution journal — 2026-10-21
+
+The selected two-step route now has a separate durable first-leg execution
+record. Its parent stays PREPARED, preserving the existing settlement digest
+and wallet-wide pending-close exclusion. The child progresses from SIGNING to
+UNCERTAIN to FIRST_LEG_FINALIZED. These are bookkeeping states, not custody
+grants. There is still no close signer, broadcaster or conversion execution
+coordinator exposed by this implementation.
+
+An immediate SQLite transaction claims a prepared v2 COLLATERAL_THEN_USDC close
+only once, after checking that its exact original entries remain OPEN and no
+other entry/cancellation is pending. Before any future transport attempt, the
+journal stores the exact owner/API-signed, keeper-empty packet and its signature
+and pre-keeper wire hash. Strict Ed25519 verification, the original unsigned
+wire hash and the existing API envelope verifier bind these bytes to the parent.
+A plain object copy is not accepted as the private owner-signature fact.
+
+Only a fresh private finalized payout proof matching that recorded signature,
+hash and unchanged parent can record the first-leg payout. Stored facts include
+the actual token return, network fee, finalized slot, block time and UTC day.
+Repeated identical reconciliation is idempotent; a contradictory observation
+cannot overwrite the financial record. No state here releases collateral,
+marks the original reservations CLOSED, credits USDC or starts a conversion.
+Even an interrupted SIGNING claim cannot be discarded as an unsigned preparation.
+
+Recovery inventory validates these child records against their parent and
+still-OPEN original reservations. An encrypted archive/restore test preserves
+an interrupted claim while restoring paused, quarantined custody. Changed
+parent digests, cancelled parent preparations and released collateral are
+rejected. Journal tests also verify exact signed-wire persistence across reopen,
+four collateral/direction cases, expired/foreign/changed proof rejection and
+two actual processes competing for one close claim.
+
+The fresh target journal schema hash is
+`d48b3b21a0aaa1addfa5735406f90e634f99f3b344cb418237de24938a9672e7`.
+The previous 1657eaa7 schema remains recognized for quarantined recovery and an
+explicit paused **empty** upgrade; populated-close migration is not provided.
+Empty upgrade admission now also explicitly rejects any existing close rows.
+The production cba66ff2 journal was not migrated and the new worker must not be
+installed over it without the separately approved migration/backup procedure.
+
+Final local test glob: 774 tests, 768 passed, six skipped, zero failed.
+VPS Node 22 isolated verification: 155 tests, 154 passed, one Windows-only ACL
+skip, zero failed. Artifact
+`/opt/jamddmaj-perps/checks/close-execution-20261021/tests/test.mjs`, SHA-256
+`b60bf40db54d11a1dbf97439cdb01411333daca502860a2bb246144e4d7040b4`;
+its child-process journal bundle SHA-256 is
+`1b4aef8c8869cae729ca8e47bb01c875157626c4f4f3d2f7fa78373d6d0c7cb1`.
+Both hashes matched before execution. Unit
+`jamddmaj-close-execution-check-20261021` exited successfully with DynamicUser,
+PrivateNetwork, PrivateTmp, ProtectHome, ProtectSystem=strict, NoNewPrivileges
+and a 384M memory cap, without production state access.
+
+The shared payout fixture was mechanically extracted into a helper; it still
+uses ephemeral unfunded keys, mocked chain replies and an invalid fixed blockhash.
+No real transaction was signed or sent. The existing VPS/SQLite architecture
+was retained. No app publication, production worker replacement, schema migration
+or bot activation occurred. Conversion journal phases, fresh signing grants,
+complete fees/loss accounting, sibling exits, native app coordination and the
+unresolved first-leg DOVES guard remain required. The goal remains incomplete.
