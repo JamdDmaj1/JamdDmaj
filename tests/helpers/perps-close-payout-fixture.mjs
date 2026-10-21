@@ -11,9 +11,10 @@ const hash=b=>createHash('sha256').update(b).digest('hex');
 const associated=async(owner,mint)=>(await getProgramDerivedAddress({programAddress:ATA,seeds:[bs58.decode(owner),bs58.decode(TOKEN),bs58.decode(mint)]}))[0];
 // Public deterministic, unfunded fixture identities. Signatures never reach an
 // RPC or broadcaster; the request function below rejects every write method.
-const privateKeys=[51,52,53].map(n=>createPrivateKey({key:Buffer.concat([Buffer.from('302e020100300506032b657004220420','hex'),Buffer.alloc(32,n)]),format:'der',type:'pkcs8'}));
-const signers=privateKeys.map(k=>bs58.encode(createPublicKey(k).export({format:'der',type:'spki'}).subarray(-32)));
-export async function closePayoutFixture({asset='SOL',side='LONG',version=1,versioned=false,newAta=false,retainedRequest=false,retainedPosition=false,entire=true,extraPerps=false,unwrapSol=true,amount=7000000n,transferAmountUsd='0',nowMs=defaultNow}={}){
+export async function closePayoutFixture({asset='SOL',side='LONG',version=1,versioned=false,newAta=false,retainedRequest=false,retainedPosition=false,entire=true,extraPerps=false,unwrapSol=true,amount=7000000n,transferAmountUsd='0',nowMs=defaultNow,fixtureOwnerSeed=51,finalizedSlot=300}={}){
+ if(![51,68].includes(fixtureOwnerSeed)||!Number.isSafeInteger(finalizedSlot)||finalizedSlot<300)throw Error('UNFUNDED_FIXTURE_OPTIONS_ONLY');
+ const privateKeys=[fixtureOwnerSeed,52,53].map(n=>createPrivateKey({key:Buffer.concat([Buffer.from('302e020100300506032b657004220420','hex'),Buffer.alloc(32,n)]),format:'der',type:'pkcs8'}));
+ const signers=privateKeys.map(k=>bs58.encode(createPublicKey(k).export({format:'der',type:'spki'}).subarray(-32)));
  const payout=amount,now=nowMs;
  const wallet=signers[0],ids=await deriveServerPerpsIdentities({walletAddress:wallet,asset,side}),receiveAsset=side==='LONG'?asset:'USDC',c=PERPS_CUSTODIES[receiveAsset];
  const collateral=await associated(wallet,c.mint),vault=bs58.encode(Buffer.alloc(32,61)),oracle=bs58.encode(Buffer.alloc(32,62)),blockTime=now/1000-3;
@@ -53,8 +54,8 @@ export async function closePayoutFixture({asset='SOL',side='LONG',version=1,vers
  const transfer=Buffer.alloc(9);transfer[0]=3;transfer.writeBigUInt64LE(payout,1);
  const inner=[{programIdIndex:keys.indexOf(TOKEN),accounts:[keys.indexOf(vault),keys.indexOf(collateral),keys.indexOf(ids.transferAuthority)],data:bs58.encode(transfer),stackHeight:2},
   {programIdIndex:keys.indexOf(PERPS_PROGRAM),accounts:[keys.indexOf(ids.eventAuthority)],data:bs58.encode(Buffer.concat([Buffer.from('e445a52e51cb9a1d','hex'),eventBytes()])),stackHeight:2}];
- const tx={slot:300,blockTime,transaction:[wire.toString('base64'),'base64'],meta:{err:null,fee:5000,preBalances,postBalances,preTokenBalances,postTokenBalances,innerInstructions:[{index:0,instructions:inner}],loadedAddresses:{writable:[],readonly:[]}}};
- const status={slot:300,err:null,confirmationStatus:'finalized'},calls=[];
+ const tx={slot:finalizedSlot,blockTime,transaction:[wire.toString('base64'),'base64'],meta:{err:null,fee:5000,preBalances,postBalances,preTokenBalances,postTokenBalances,innerInstructions:[{index:0,instructions:inner}],loadedAddresses:{writable:[],readonly:[]}}};
+ const status={slot:finalizedSlot,err:null,confirmationStatus:'finalized'},calls=[];
  const custodyData=Buffer.alloc(416);Buffer.from('01b830515d833f91','hex').copy(custodyData);Buffer.from(bs58.decode(PERPS_POOL)).copy(custodyData,8);
  Buffer.from(bs58.decode(c.mint)).copy(custodyData,40);Buffer.from(bs58.decode(vault)).copy(custodyData,72);custodyData[104]=c.decimals;custodyData[105]=Number(c.stable);
  Buffer.from(bs58.decode(oracle)).copy(custodyData,106);custodyData[138]=2;custodyData.writeBigUInt64LE(500000n,175);Buffer.from(bs58.decode(oracle)).copy(custodyData,384);
@@ -68,11 +69,11 @@ export async function closePayoutFixture({asset='SOL',side='LONG',version=1,vers
  }
  let clock=0,positionReopened=false,network=genesis;
  const request=async(method,params)=>{
-  calls.push({method,params});if(method==='getGenesisHash')return network;if(method==='getSignatureStatuses')return {context:{slot:301},value:[status]};if(method==='getTransaction')return tx;
+  calls.push({method,params});if(method==='getGenesisHash')return network;if(method==='getSignatureStatuses')return {context:{slot:finalizedSlot+1},value:[status]};if(method==='getTransaction')return tx;
   if(method==='getMultipleAccounts'){
    assert.equal(params[1].commitment,'finalized');
-   if(params[0].length===1)return {context:{slot:302},value:[custodyAccount]};
-   return {context:{slot:303},value:params[0].map((key,i)=>{
+   if(params[0].length===1)return {context:{slot:finalizedSlot+2},value:[custodyAccount]};
+   return {context:{slot:finalizedSlot+3},value:params[0].map((key,i)=>{
     if(i===0)return {owner:SYSTEM,executable:false,lamports:postBalances[0],data:['','base64']};
     if(key===ids.position&&(positionReopened||retainedPosition))return nativePosition(positionReopened);
     return null;

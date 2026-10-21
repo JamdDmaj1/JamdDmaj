@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createHash,createCipheriv,randomBytes} from 'node:crypto';
+import {createHash,createCipheriv,createPrivateKey,randomBytes} from 'node:crypto';
+import {DatabaseSync} from 'node:sqlite';
 import {mkdtempSync,rmSync,mkdirSync,chmodSync,readFileSync,writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
@@ -10,7 +11,7 @@ import {fixtureNow as now,fixtureWallet as wallet,historyTransaction} from './he
 import {PERPS_CUSTODIES,PERPS_POOL,PERPS_PROGRAM,deriveServerPerpsIdentities} from '../lib/perps-server-custody.js';
 import {readPerpsBroadcastReceipt} from '../lib/perps-broadcast-receipt.js';
 import {readServerPerpsDailyAccount} from '../lib/perps-server-daily-account.js';
-import {readServerPerpsPositionClosure,reconcileClosedServerPerpsPositions,readServerPerpsExitCleanup,requireVerifiedServerPerpsExitCleanup,requireVerifiedServerPerpsPositionClosure} from '../lib/perps-position-closure.js';
+import {readServerPerpsPositionClosure,reconcileClosedServerPerpsPositions,readServerPerpsExitCleanup,requireVerifiedServerPerpsExitCleanup,requireVerifiedServerPerpsPositionClosure,readVerifiedServerPerpsCloseCleanupBinding} from '../lib/perps-position-closure.js';
 import {openPerpsExecutionJournal} from '../lib/perps-execution-journal.js';
 import {canonicalServerPerpsEntryExitPlan} from '../lib/perps-entry-exit-plan.js';
 import {createServerPerpsExecutor} from '../lib/perps-server-executor.js';
@@ -28,6 +29,14 @@ import {createServerPerpsExitCancellationBroadcaster} from '../lib/perps-exit-ca
 import {createServerPerpsExitCleanupCoordinator} from '../lib/perps-exit-cleanup.js';
 import {readServerPerpsTradeTransaction} from '../lib/perps-server-trade-transaction.js';
 import {readJournalledPerpsCancellation,requireVerifiedPerpsCancellationHistory} from '../lib/perps-cancellation-history.js';
+import {closePayoutFixture} from './helpers/perps-close-payout-fixture.mjs';
+import {readFinalizedPerpsClosePayout} from '../lib/perps-close-payout-receipt.js';
+import {verifyOwnerSignedPerpsCloseIntent} from '../lib/perps-close-execution-record.js';
+import {conversionFixture} from './helpers/perps-conversion-fixture.mjs';
+import {conversionReceiptFixture} from './helpers/perps-conversion-receipt-fixture.mjs';
+import {readJournaledPerpsCloseConversion} from '../lib/perps-journal-close-conversion.js';
+import {verifyOwnerSignedPerpsCloseConversionIntent} from '../lib/perps-close-conversion-record.js';
+import {readFinalizedPerpsCloseConversionReceipt} from '../lib/perps-close-conversion-receipt.js';
 const genesis='5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d',tokenProgram='TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
 const baseIdentity=await deriveServerPerpsIdentities({walletAddress:wallet,asset:'SOL',side:'LONG'});
 const derivedRequests=await Promise.all([1n,2n,3n].map(async counter=>{
@@ -276,7 +285,7 @@ async function cleanupCoordinatorFixture(f,{mode='ok'}={}){
  const simulation=cancellationSimulationFixture(inspection,{requestAccount:native,positionAccount:position}),calls={builder:0,signer:0,send:0};
  const request=async(method,params)=>{
   if(['getSignatureStatuses','getTransaction','getSignaturesForAddress'].includes(method))return f.request(method,params);
-  if(method==='getMultipleAccounts'&&(params[0].length===8||params[0][0]===keys[0]))return f.request(method,params);
+  if(method==='getMultipleAccounts'&&(params[0].length===8||params[0][0]===keys[0]||params[0][0]===f.manual?.c.address))return f.request(method,params);
   return simulation.request(method,params);
  };
  const coordinator=createServerPerpsExitCleanupCoordinator({controls:custody.controls,journal:f.journal,backupRegistry:custody.registry,
@@ -512,6 +521,144 @@ test('prepared cancellation failures and restart discard only provably unsigned 
  assert.equal(result.cancelledUnsigned,1);assert.equal(f.journal.readExitCancellation('before-authorization').state,'CANCELLED');
  f.journal.beginExitCancellation('after-authorization',simulation);f.journal.beginExitCancellationSigning('after-authorization',simulation);
  assert.throws(()=>f.journal.cancelPreparedExitCancellation('after-authorization'));assert.equal(f.journal.readExitCancellation('after-authorization').state,'SIGNING');
+});
+
+async function manualCloseCleanupFixture(t,{phase='FINALIZED'}={}){
+ const f=await fixture(t,{positionClosed:true,liveSibling:true}),generic=await readServerPerpsExitCleanup(f.journal.read('entry-0'),f.options);
+ const manual=await closePayoutFixture({fixtureOwnerSeed:68,finalizedSlot:499998,nowMs:now});
+ manual.row.id='manual-close';manual.row.observed_slot=499997;
+ manual.row.entries=JSON.stringify(f.journal.openPositions(wallet).map(r=>Object.fromEntries(['reservation','signature','wire_hash','confirmed_slot','entry_exit_plan'].map(k=>[k,r[k]]))).sort((a,b)=>a.reservation.localeCompare(b.reservation)));
+ const db=new DatabaseSync(f.path),r=manual.row;
+ db.prepare('INSERT INTO perps_position_closes(id,wallet,position,state,created,updated,observed_slot,fee_lamports,unsigned_wire_hash,entries,settlement) VALUES(?,?,?,?,?,?,?,?,?,?,?)')
+  .run(r.id,r.wallet,r.position,r.state,r.created,r.created,r.observed_slot,r.fee_lamports,r.unsigned_wire_hash,r.entries,r.settlement);db.close();
+ const base=f.request,request=async(method,params)=>{
+  if(method==='getBlockTime'&&params[0]===500000)return now/1000;
+  if(method==='getTransaction'&&params[0]===manual.identity.signature)return structuredClone(manual.tx);
+  if(method==='getSignatureStatuses'&&params[0].length===1&&params[0][0]===manual.identity.signature)return manual.request(method,params);
+  if(method==='getMultipleAccounts'&&params[0].length===1&&params[0][0]===manual.c.address)return manual.request(method,params);
+  const v=await base(method,params);
+  if(method==='getSignaturesForAddress'&&[wallet,r.position].includes(params[0]))v.unshift({signature:manual.identity.signature,slot:manual.tx.slot,blockTime:manual.tx.blockTime,err:null,confirmationStatus:'finalized'});
+  return v;
+ };
+ if(phase!=='PREPARED'){
+  f.journal.beginPositionCloseSigning(r.id);
+  if(phase!=='SIGNING'){
+   const partial=Buffer.from(manual.tx.transaction[0],'base64');partial.fill(0,65,129);
+   f.journal.recordPositionCloseBroadcast(r.id,verifyOwnerSignedPerpsCloseIntent(r,partial.toString('base64')));
+   if(phase==='FINALIZED')f.journal.reconcilePositionClosePayout(r.id,await readFinalizedPerpsClosePayout(r,manual.identity,{request,now:()=>now,monotonicNow:()=>0}));
+  }
+ }
+ const readFinalizedAccount=()=>readServerPerpsDailyAccount({walletAddress:wallet},{request,journal:f.journal,now:()=>now,monotonicNow:()=>0});
+ return {...f,manual,generic,request,readFinalizedAccount,account:await readFinalizedAccount(),options:{request,readFinalizedAccount,journal:f.journal,now:()=>now,monotonicNow:()=>0}};
+}
+
+test('a finalized manual whole close can clean its exact sibling using the existing paused custody coordinator without releasing the close',async t=>{
+ const f=await manualCloseCleanupFixture(t),c=await cleanupCoordinatorFixture(f);
+ const result=await c.coordinator.runOnce(c.args);
+ assert.equal(result.stage,'CANCELLATION_BROADCAST_ACKNOWLEDGED');assert.deepEqual(c.calls,{builder:1,signer:1,send:1});
+ assert.equal(f.journal.readPositionClose('manual-close').state,'PREPARED');assert.equal(f.journal.readPositionCloseExecution('manual-close').state,'FIRST_LEG_FINALIZED');
+ assert.equal(f.journal.read('entry-0').state,'OPEN');assert.equal(f.journal.riskState(wallet).activeMarginUsdcUnits,'20000000');
+ const repeated=await c.coordinator.runOnce(c.args);assert.equal(repeated.stage,'RECONCILIATION_REQUIRED');assert.deepEqual(c.calls,{builder:1,signer:1,send:1});
+});
+
+test('ordinary or copied cleanup proofs cannot bypass a held manual close, whose private binding is immutable and journal-specific',async t=>{
+ const f=await manualCloseCleanupFixture(t),generic=await readServerPerpsExitCleanup(f.journal.read('entry-0'),{...f.options,journal:undefined});
+ const c=await cancellationFixture(generic),inspection=await inspectServerPerpsExitCancellation(c.preparation,generic,c),native=(await f.request('getMultipleAccounts',[plan.exits.map(x=>x.address),{}])).value[1];
+ const model=cancellationSimulationFixture(inspection,{requestAccount:native,positionAccount:null}),simulation=await simulateServerPerpsExitCancellation(inspection,model);
+ assert.throws(()=>f.journal.beginExitCancellation('generic-bypass',simulation));assert.equal(f.journal.pendingExitCancellations(wallet).length,0);
+ const proper=await readServerPerpsExitCleanup(f.journal.read('entry-0'),f.options),binding=readVerifiedServerPerpsCloseCleanupBinding(proper);
+ assert.equal(binding.closeId,'manual-close');assert(Object.isFrozen(binding));assert(Object.isFrozen(binding.identity));
+ assert.throws(()=>{binding.identity.reservationId='entry-1';});assert.throws(()=>readVerifiedServerPerpsCloseCleanupBinding({...proper}));
+ const valid=await inspectedCancellation(f),sim=await simulateServerPerpsExitCancellation(valid.inspection,cancellationSimulationFixture(valid.inspection,valid.options));
+ const other=openPerpsExecutionJournal(f.path,{now:()=>now});try{assert.throws(()=>other.beginExitCancellation('foreign-proof',sim));}finally{other.close();}
+ assert.equal(f.journal.pendingExitCancellations(wallet).length,0);assert.equal(f.journal.read('entry-0').state,'OPEN');
+});
+
+test('unprepared, interrupted, unrecorded, unrooted or altered manual close state prevents sibling cancellation before any grant',async t=>{
+ for(const phase of ['PREPARED','SIGNING','UNCERTAIN']){
+  const f=await manualCloseCleanupFixture(t,{phase});await assert.rejects(readServerPerpsExitCleanup(f.journal.read('entry-0'),f.options),phase);
+  assert.equal(f.journal.pendingExitCancellations(wallet).length,0);assert.equal(f.journal.riskState(wallet).activeMarginUsdcUnits,'20000000');
+ }
+ for(const mode of ['unrooted','payout','parent','entry']){
+  const f=await manualCloseCleanupFixture(t),cleanup=await readServerPerpsExitCleanup(f.journal.read('entry-0'),f.options);
+  if(mode==='unrooted')f.manual.status.confirmationStatus='confirmed';
+  else {const db=new DatabaseSync(f.path);
+   if(mode==='payout')db.exec("UPDATE perps_position_close_executions SET payout_json=replace(payout_json,'7000000','7000001')");
+   if(mode==='parent')db.exec("UPDATE perps_position_closes SET unsigned_wire_hash='ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'");
+   if(mode==='entry')db.exec("UPDATE perps_reservations SET entry_exit_plan='{}' WHERE reservation='entry-0'");db.close();
+  }
+  await assert.rejects(readServerPerpsExitCleanup(f.journal.read('entry-0'),f.options),mode);
+  if(mode!=='unrooted')assert.throws(()=>requireVerifiedServerPerpsExitCleanup(cleanup));
+  assert.equal(f.journal.pendingExitCancellations(wallet).length,0);assert.equal(f.journal.read('entry-0').state,'OPEN');
+ }
+});
+
+test('manual-close cleanup dispatch is bounded to execute cycles and is absent from maintenance or entry callbacks',async t=>{
+ const f=await manualCloseCleanupFixture(t);let dispatched=0;
+ const p=pausedExecutor(f,{cleanupCoordinator:{runOnce:async()=>{dispatched++;return {stage:'CANCELLATION_BROADCAST_UNKNOWN',cancellationId:'manual-cancel',signature:wallet};}}});
+ const held=await p.executor.reconcileOnly(p.args);assert.equal(held.stage,'CLOSE_RECONCILIATION_REQUIRED');assert.equal(held.closeRecovery.cleanupRequired,1);assert.equal(dispatched,0);
+ const result=await p.executor.runOnce(p.args);assert.equal(result.stage,'CANCELLATION_BROADCAST_UNKNOWN');assert.equal(dispatched,1);assert.equal(p.calls.financial,0);
+ assert.equal(f.journal.readPositionClose('manual-close').state,'PREPARED');assert.equal(f.journal.riskState(wallet).activeMarginUsdcUnits,'20000000');
+});
+
+test('every pending sibling cancellation phase blocks a new conversion before any preparation RPC or risk release',async t=>{
+ for(const phase of ['PREPARED','SIGNING','UNCERTAIN']){
+  const f=await manualCloseCleanupFixture(t),c=await inspectedCancellation(f),model=cancellationSimulationFixture(c.inspection,c.options);
+  const simulation=await simulateServerPerpsExitCancellation(c.inspection,model);f.journal.beginExitCancellation('held-cancel',simulation);
+  if(phase!=='PREPARED')f.journal.beginExitCancellationSigning('held-cancel',simulation);
+  if(phase==='UNCERTAIN')f.journal.recordExitCancellationBroadcastIntent('held-cancel',cancellationReceiptFixture(c.inspection,now).record);
+  let calls=0;await assert.rejects(f.journal.preparePositionCloseConversion('manual-close',{request:()=>{calls++;throw Error('NO_PARALLEL_CONVERSION');}}));
+  assert.equal(calls,0);assert.equal(f.journal.readExitCancellation('held-cancel').state,phase);
+  assert.equal(f.journal.readPositionCloseConversion('manual-close'),null);assert.equal(f.journal.riskState(wallet).activeMarginUsdcUnits,'20000000');
+ }
+});
+
+test('a changed manual close during authorization or after a grant/signature prevents custody or transport and retains uncertainty',async t=>{
+ for(const at of ['risk-read','before-key','before-send']){
+  const f=await manualCloseCleanupFixture(t),custody=await custodyForCancellation(f),c=await inspectedCancellation(f),model=cancellationSimulationFixture(c.inspection,c.options);
+  const simulation=await simulateServerPerpsExitCancellation(c.inspection,model);f.journal.beginExitCancellation('bound-manual-cancel',simulation);
+  const change=()=>{const db=new DatabaseSync(f.path);db.exec('UPDATE perps_position_close_executions SET updated=updated+1');db.close();};
+  const args={...custody.args,cancellationId:'bound-manual-cancel',request:model.request};
+  if(at==='risk-read'){
+   const base=args.readAccount;args.readAccount=async input=>{const value=await base(input);change();return value;};
+   await assert.rejects(authorizeServerPerpsExitCancellation(simulation,args));assert.equal(f.journal.readExitCancellation('bound-manual-cancel').state,'PREPARED');
+  }else {
+   const grant=await authorizeServerPerpsExitCancellation(simulation,args);
+   if(at==='before-key'){change();assert.throws(()=>custody.vault.signExitCancellation(grant));}
+   else {
+    const signed=custody.vault.signExitCancellation(grant);change();let sends=0;
+    const send=createServerPerpsExitCancellationBroadcaster({journal:f.journal,fetchImpl:async()=>{sends++;throw Error('NO_STALE_MANUAL_SEND');}});
+    await assert.rejects(send(signed,{ownerAccountHash:custody.ownerAccountHash,controlRevision:args.controlRevision}));assert.equal(sends,0);
+   }
+   assert.equal(f.journal.readExitCancellation('bound-manual-cancel').state,'SIGNING');
+  }
+  assert.equal(f.journal.read('entry-0').state,'OPEN');assert.equal(f.journal.readPositionClose('manual-close').state,'PREPARED');
+ }
+});
+
+test('an already prepared, signing or uncertain conversion blocks sibling cleanup; finalized conversion forbids an older account bank',async t=>{
+ for(const phase of ['PREPARED','SIGNING','UNCERTAIN','FINALIZED']){
+  const f=await manualCloseCleanupFixture(t),prior=await readServerPerpsExitCleanup(f.journal.read('entry-0'),f.options);
+  const swap=await conversionFixture({walletAddress:wallet,amountUnits:'7000000',nowMs:now});
+  const request=async(m,p)=>{
+   if(['getGenesisHash','getSignatureStatuses','getTransaction'].includes(m)||m==='getMultipleAccounts'&&p[1].commitment==='finalized')return f.request(m,p);
+   const value=await swap.request(m,p);if(m==='getSlot')return 500100;if(value?.context)value.context.slot=500100;return value;
+  };
+  const prepared=await f.journal.preparePositionCloseConversion('manual-close',{...swap.options,request}),p=readJournaledPerpsCloseConversion(prepared,f.journal);
+  f.journal.preparePositionCloseConversionRecord('manual-close',prepared);
+  if(phase!=='PREPARED')f.journal.beginPositionCloseConversionSigning('manual-close',prepared);
+  if(['UNCERTAIN','FINALIZED'].includes(phase)){
+   // Same public unfunded fixture identity; no production key or network send.
+   const fixturePrivateKey=createPrivateKey({key:Buffer.concat([Buffer.from('302e020100300506032b657004220420','hex'),Buffer.alloc(32,68)]),format:'der',type:'pkcs8'});
+   const receipt=await conversionReceiptFixture({amountUnits:'7000000',fixturePrivateKey,finalizedSlot:500101,nowMs:now});
+   f.journal.recordPositionCloseConversionBroadcast('manual-close',verifyOwnerSignedPerpsCloseConversionIntent(p.prepared.wire,receipt.transaction.transaction[0]));
+   if(phase==='FINALIZED')f.journal.reconcilePositionCloseConversion('manual-close',await readFinalizedPerpsCloseConversionReceipt(p.prepared.wire,receipt.identity,receipt.receiptOptions));
+  }
+  assert.throws(()=>requireVerifiedServerPerpsExitCleanup(prior));
+  await assert.rejects(readServerPerpsExitCleanup(f.journal.read('entry-0'),f.options),phase);
+  assert.equal(f.journal.readPositionCloseConversion('manual-close').state,phase);assert.equal(f.journal.pendingExitCancellations(wallet).length,0);
+  assert.equal(f.journal.riskState(wallet).activeMarginUsdcUnits,'20000000');
+ }
 });
 
 test('cleanup coordinator connects private closure, builder, simulation, authority, custody and one attempt while entries remain paused',async t=>{

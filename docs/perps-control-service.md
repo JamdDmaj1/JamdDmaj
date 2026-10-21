@@ -3586,3 +3586,87 @@ cancellation while a finalized manual close is held, and app/manual/24-hour
 Telegram end-to-end integration and publication. Live sibling requests are
 currently held for that missing cleanup bridge, not silently abandoned. The
 new terminal accounting does not establish that Futuros is ready for activation.
+
+### Held manual-close sibling cleanup bridge — 2026-10-21
+
+The blanket prepared-close cancellation block has been replaced with a narrow
+private exception. Orphan discovery still proves the exact original entry and
+native pending request. For a held manual close, it additionally re-reads the
+recorded finalized first-leg signature and actual payout and matches the stored
+canonical receipt. It must be the whole-position closure, the exact held close,
+wallet, position, original reservation/entry plan and journal instance. A generic
+or copied orphan proof cannot become this exception. Its private identity and
+binding are frozen; any changed close/execution/entry/route snapshot invalidates
+the original proof, including during authorization, before key use and before
+transport. A finalized conversion raises the minimum account bank rather than
+allowing cleanup from a bank predating that financial operation.
+
+The journal checks this original binding atomically when claiming cancellation
+preparation and signing. The existing custody-only cancellation authorization
+also rechecks it together with current controls, verified backup, native request,
+SOL funding, runtime approval and short leases. No new generic signer or retry
+path was added. A still-prepared/signing/uncertain conversion blocks cleanup;
+conversely, any pending cancellation blocks conversion before preparation RPCs
+and at each later durable claim. Thus the two financial actions cannot overlap.
+USDC-collateral and zero-return closes retain their existing no-conversion path;
+an intermediate overly broad conversion guard was caught by the full suite and
+fixed before any deployment, rather than changing that legitimate behavior.
+
+Before preparing the second leg, bounded close recovery can discover live sibling
+requests from at most 20 original addresses. Only an execute cycle may dispatch
+the existing one-request cleanup coordinator. Maintenance remains read-only.
+Paused entries do not imply permission to close an open position: this cleanup
+requires the recorded whole position already closed and the separately approved
+execution runtime. A builder acknowledgement retains UNCERTAIN cancellation,
+PREPARED close and all original OPEN reservations; no capital is released and no
+second attempt occurs until rooted reconciliation. Completed close accounting
+continues to require actual conversion proceeds, complete daily costs and the
+absence of every sibling. Other wallets/positions/entries are not eligible.
+
+The reused API contract was checked read-only against Jupiter's current official
+CLI client: its v2 client prepares cancellation of an identified TPSL request and
+separately submits an owner-signed transaction with the cancel-tpsl action:
+https://raw.githubusercontent.com/jup-ag/cli/main/src/clients/PerpsClient.ts
+No live cancellation builder or execution endpoint was called in this change.
+
+Directed tests cover private/journal-specific immutable bindings, unprepared or
+interrupted first legs, unrooted/mismatched payouts, exact paused cleanup through
+the real coordinator, retained original margin, every pending cancellation phase,
+concurrent conversion phases, stale banks after finalized conversion, async
+changes during risk reads and changes before key use or transport. Only public
+deterministic unfunded models are signed, over invalid fixture blockhashes, using
+in-memory transports. No user/bot key or real financial transaction was used.
+
+The schema remains
+`e92bbd338ca88b8a85064ac669f0ae6ffb50641475b1bd62f78df48d06ccf145`.
+No production schema/worker change, backup re-acceptance, activation or app
+publication occurred. Remaining work still includes first-leg minimum-return/
+remaining economics policy, actual close/conversion custody coordination,
+reviewed expired/failed-operation handling and app/Telegram end-to-end integration
+and publication. This bridge removes the prior held-close cleanup deadlock; it
+does not establish overall Futuros readiness.
+
+Final local suite: 815 tests, 809 passed, six skipped, zero failed. The affected
+VPS Node 22 corpus passed 136/136 with no skips/failures: individual-entry and
+whole-position cleanup, close execution/conversion/completion, native payout,
+daily accounting, custody/signing/submission, worker and executor regression
+flows. Artifact
+`/opt/jamddmaj-perps/checks/manual-close-cleanup-final-20261021/tests/test.mjs`,
+SHA-256 `d27076ba6ac2625c9259b5b8be266913b59e6c37aee125d0adeacbb1d16004df`;
+separate child-process journal bundle SHA-256
+`938095fb07f72f85ecaaf448aabc0d13f89461c140541878e4b00a8675d83676`.
+Both hashes matched the transferred artifacts before execution. Unit
+`jamddmaj-manual-close-cleanup-check-20261021` completed successfully with
+DynamicUser, PrivateNetwork, PrivateTmp, ProtectHome, ProtectSystem=strict,
+NoNewPrivileges, UMask=0077 and MemoryMax=384M. The initial bundle before the
+no-conversion regression fix was not executed on the VPS and is not this final
+verified artifact.
+
+A separate read-only production metadata check confirmed the unchanged
+`cba66ff21abc8f2dd3db1bbebbbc3908a9d8cda2fa24b41a2191e184c5477e54`
+live journal schema, zero reservations and one disabled/paused account. Installed
+worker SHA-256 remains
+`3dfc332b8d4f4a45185fba6e95e306fd7aa501a1b5b08f7e2673ba838d607e19`;
+the control worker and HTTPS are running, while the old Bitget executor remains
+disabled. No private settings, identifiers, custody keys or signed wires were
+read or exposed by that aggregate diagnostic.
