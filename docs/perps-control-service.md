@@ -3054,3 +3054,66 @@ No deployment, schema migration, financial signing/submission or bot activation
 occurred. Native extension/payload-economic validation, durable financial close /
 conversion lifecycle, custody authorization, accounting, recovery and app/24-7
 integration still prevent claiming the full trading goal complete.
+
+### Finalized protected conversion receipt (2026-10-21)
+
+`perps-close-conversion-receipt.js` now reads an already-recorded second-leg
+transaction without any signing or send capability. It requires the original
+private-branded constructed wire, its exact recorded owner signature/signed hash,
+mainnet genesis, rooted status, matching finalized transaction/slot and creation
+window. The complete unsigned message must match byte-for-byte after clearing
+the ONE owner slot. Strict Ed25519 verification supplements the existing full
+transaction reader; the three-signer entry/close receipt gate was not weakened.
+Processed/confirmed/missing history returns no finalized payout. A failed or
+unverified transaction produces no success proof or capital-release authority.
+
+The receipt independently checks the fixed Swap2 instruction, native PoolSwap
+self-CPI origin and event authority, exactly two token transfers, owner/mint /
+decimal metadata, vault credit/debit, actual USDC increment and protected minimum.
+It preserves existing token balances, accounts for SOL wrapping/cleanup, and
+checks owner SOL, message fee and newly locked/refunded token-account rent.
+Historical rent is derived from finalized balances, not today's RPC rent quote
+or a hardcoded 2039280 lamports. New tests also pass with 1488440-lamport ATAs.
+The event's gross output is not mistaken for the actual after-fee USDC return.
+Unrelated lamport/token movements, malformed metadata, unknown/extra events and
+incorrect transfers fail. Proofs are private-branded and expire after ten seconds.
+
+Native evidence used to pin this reader:
+- Program-owned Perps Anchor IDL reread at 459579951 retained hash
+  1d90a653a1cc88bddb7c5876acee52d3f26c6b1e3306e0833234020dc6f7d653.
+  PoolSwapEvent has a 208-byte payload, discriminator 286bd41adf8827dc, with
+  receiving/dispensing custody, pool, five u64 values, owner and receiving account.
+- The actual public unsigned Swap2 simulation at paired bank 459581590 emitted
+  its 216-byte Anchor self-CPI (prefix e445a52e51cb9a1d). Input 100000 lamports,
+  gross output 10682 microUSDC, actual output 10634, event fee 45 bps, network
+  fee 5400 lamports; the receiving account was the expected owner USDC ATA.
+  The event bytes are captured in an independent decoding regression test.
+- Earlier scratch diagnostics incorrectly looked for compiled indices in the
+  simulation's parsed inner-instruction objects and therefore reported no event.
+  The diagnostic was corrected; no production gate was relaxed. Finalized
+  getTransaction/base64 metadata uses the compiled format already validated by
+  the existing transaction reader. RPC structure reference:
+  https://solana.com/docs/rpc/json-structures
+- The high-minimum unsigned control at 459581592 failed native 6020. It was not
+  the same bank as the successful probe; this is not a same-bank causal control.
+
+All finalized receipt tests are unfunded in-memory models with ephemeral owner
+keys and a fixed invalid blockhash, not real transactions. Public probes were
+unsigned simulations, not finalized owned-wallet/bot execution. The standalone
+receipt intentionally still requires binding to actual finalized first-leg
+proceeds and a signed durable journal record, plus complete daily accounting.
+It does not mutate the journal, credit bot capital, release risk, reconcile exit
+siblings, authorize custody or activate execution. Crash-safe financial close /
+conversion states, signer grants, daily fees/loss and app/coordinator integration
+remain required. The unresolved first-leg DOVES guard also remains unchanged.
+
+Final local test glob: 765 tests, 759 passed, six skipped, zero failed.
+VPS Node 22 isolated expanded verification: 146 tests, 145 passed, one
+Windows-only ACL skip, zero failed. Artifact
+`/opt/jamddmaj-perps/checks/conversion-receipt-20261021/tests/test.mjs`, SHA-256
+1e784f3c0e6882746e2fc6233061ba66fd2086e38b85956874a5e7ad53b03b6b;
+unit `jamddmaj-conversion-receipt-check-20261021` exited successfully with
+DynamicUser, PrivateNetwork, PrivateTmp, ProtectHome, ProtectSystem=strict and no
+production state directories. Hash checked before execution. No worker/app
+deployment, financial schema migration or activation occurred. The goal remains
+active and incomplete.
