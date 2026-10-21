@@ -3000,3 +3000,57 @@ DynamicUser, PrivateNetwork, PrivateTmp, ProtectHome, ProtectSystem=strict and
 no production state directories. Hash checked before execution. No worker/app
 deployment, financial journal migration or bot activation occurred. The complete
 trading, custody, crash recovery, Telegram controls and app-flow goal remains open.
+
+### Per-feed observation freshness (2026-10-21)
+
+The authenticated payload reader now privately captures the exact verification
+clock and maximum age. Selected-feed validation checks explicit per-feed update
+timestamps against that original clock: a fresh envelope cannot launder an old
+observation, extend the allowed age by another 30 seconds, or substitute an
+unavailable/zero/future per-feed timestamp. Microsecond boundary comparisons are
+exact. Copied objects carrying signed-message metadata are not allowed to fall
+back to clockless parsing. Generic payload decoding still does not authenticate.
+
+Selected details retain signed confidence and per-feed timestamps as exact
+strings. Negative confidence is rejected; absent/None confidence stays null,
+not an invented zero. When the simulated native feed changes, its second
+timestamp must also agree with an explicit signed per-feed observation time.
+Cases with different publication/observation seconds remain conservatively
+rejected rather than guessing undocumented DOVES time-selection semantics.
+Existing wire leases and native program execution are still required.
+
+Unfunded tests cover correct signatures with stale or unavailable observations,
+one-microsecond age boundaries, custom age limits, copied metadata, exact/null
+confidence, and policy/effects integration. Public historical decoding still
+passes for the recorded transaction at 459332261: observation timestamp
+1792521525800000, confidence 4651744. Current configuration/trust checks at
+459577803 / 459577801 are not historical state proof or trade authorization.
+
+Further read-only investigation did not justify relaxing extension checks:
+- OtterSec's documented status endpoint returned is_verified false and no source
+  repository/hash for DOVES. That is absence of a verified-build record, not proof
+  that no public source exists anywhere. References:
+  https://github.com/otter-sec/solana-verified-programs-api and
+  https://verify.osec.io/status/DoVEsk76QybCEHQGzkvYPWLQu9gzNoZZZt3TPiL597e
+- A public unsigned close at 459576487 still failed oracle CONFIGURATION. Its
+  signed SOL envelope was older than the already-cached native feed, so unchanged
+  before/after bytes cannot establish the meaning of mutable extension fields.
+  The confidence-floor arithmetic happened to equal the native value at offset
+  104, but this is not causal/schema proof. No production comparison was relaxed.
+- Jupiter's public CLI PerpsClient was inspected without installing/running it.
+  Its builder interface provides no oracle-skip parameter; no speculative skip
+  or execute endpoint was added. Public app asset inspection likewise did not
+  establish the DOVES extension layout in this investigation.
+
+Final local suite: 757 tests, 751 passed, six skipped, zero failed. VPS Node 22
+isolated expanded bundle: 138 tests, 137 passed, one Windows-only ACL skip,
+zero failed. Artifact
+`/opt/jamddmaj-perps/checks/close-feed-time-20261021/tests/test.mjs`, SHA-256
+d62bea8309e748e317945ac763132c286003e2b3cf9f1be3f91cecb5ec6e2c80;
+unit `jamddmaj-close-feed-time-check-20261021` completed successfully with
+DynamicUser, PrivateNetwork, PrivateTmp, ProtectHome, ProtectSystem=strict and
+no production state directories. Bundle hash verified before execution.
+No deployment, schema migration, financial signing/submission or bot activation
+occurred. Native extension/payload-economic validation, durable financial close /
+conversion lifecycle, custody authorization, accounting, recovery and app/24-7
+integration still prevent claiming the full trading goal complete.

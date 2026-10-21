@@ -62,3 +62,38 @@ test('spot feed cannot substitute zero or negative prices, missing exponent or o
  const b=pythPayloadFixture({timestampUs:BigInt(now)*1000000n});b[18]=1;
  const p=decodePerpsPythPayload(b.subarray(0,28).toString('base64'));assert.throws(()=>requirePerpsPythFeed(p,1,0));
 });
+
+test('fresh signed envelope cannot launder a stale, unavailable, zero or future per-feed update timestamp',()=>{
+ const published=BigInt(now-1)*1000000n;
+ for(const time of [BigInt(now-31)*1000000n,0n,published+1n,null]){
+  const f=signedFixture(pythPayloadFixture({timestampUs:published,feedUpdateTimestampUs:time}));
+  const p=readSignedPerpsPythPayload(f.instructions,keys,1,{storage:f.storage,nowSeconds:now});
+  assert.throws(()=>requirePerpsPythFeed(p,1,0),/PERPS_PYTH_FEED/);
+ }
+ // Header age and feed age must not be added into a wider 60-second allowance.
+ const f=signedFixture(pythPayloadFixture({timestampUs:BigInt(now-29)*1000000n,feedUpdateTimestampUs:BigInt(now-31)*1000000n}));
+ const p=readSignedPerpsPythPayload(f.instructions,keys,1,{storage:f.storage,nowSeconds:now});
+ assert.throws(()=>requirePerpsPythFeed(p,1,0),/STALE_PERPS_PYTH_FEED/);
+});
+
+test('selected feed freshness uses exact microseconds and original authenticated maximum age',()=>{
+ for(const maximum of [1,10,30]){
+  const boundary=BigInt(now-maximum)*1000000n;
+  const f=signedFixture(pythPayloadFixture({timestampUs:BigInt(now)*1000000n,feedUpdateTimestampUs:boundary,confidenceUnits:'1234'}));
+  const p=readSignedPerpsPythPayload(f.instructions,keys,1,{storage:f.storage,nowSeconds:now,maxAgeSeconds:maximum});
+  const details=requirePerpsPythFeed(p,1,0);assert.equal(details.feedUpdateTimestampUs,boundary.toString());assert.equal(details.confidenceUnits,'1234');assert.ok(Object.isFrozen(details));
+  assert.throws(()=>requirePerpsPythFeed({...p},1,0),/UNVERIFIED_PERPS_PYTH_PAYLOAD_OBSERVATION/);
+  const stale=signedFixture(pythPayloadFixture({timestampUs:BigInt(now)*1000000n,feedUpdateTimestampUs:boundary-1n}));
+  const s=readSignedPerpsPythPayload(stale.instructions,keys,1,{storage:stale.storage,nowSeconds:now,maxAgeSeconds:maximum});
+  assert.throws(()=>requirePerpsPythFeed(s,1,0),/STALE_PERPS_PYTH_FEED/);
+ }
+});
+
+test('spot confidence retains exact signed units without substituting missing confidence or accepting negative uncertainty',()=>{
+ for(const value of ['1234','0',undefined]){
+  const p=decodePerpsPythPayload(pythPayloadFixture({timestampUs:BigInt(now)*1000000n,confidenceUnits:value}).toString('base64'));
+  assert.equal(requirePerpsPythFeed(p,1,0).confidenceUnits,value==='1234'?'1234':null);
+ }
+ const f=signedFixture(pythPayloadFixture({timestampUs:BigInt(now)*1000000n,confidenceUnits:'-1'}));
+ const p=readSignedPerpsPythPayload(f.instructions,keys,1,{storage:f.storage,nowSeconds:now});assert.throws(()=>requirePerpsPythFeed(p,1,0),/INVALID_PERPS_PYTH_CONFIDENCE/);
+});

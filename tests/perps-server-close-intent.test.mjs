@@ -682,7 +682,7 @@ test('oracle update instructions cannot gain writable access to the pool or owne
  const inspection=await inspectPolicyFixture(f);
  assert.throws(()=>checkServerPerpsFullCloseInstructionPolicy(inspection));
 });
-async function oraclePolicyFixture(mutate=null){
+async function oraclePolicyFixture(mutate=null,payloadOptions={}){
  const f=await boundFixture('SHORT','SOL',1),byKey=new Map(),feeds=[];
  for(const [i,asset]of ['SOL','USDC'].entries()){
   const [address,bump]=f.agKeys[asset],lazerFeed=bs58.encode(Buffer.alloc(32,90+i)),clFeed=bs58.encode(Buffer.alloc(32,92+i)),redstoneFeed=bs58.encode(Buffer.alloc(32,94+i));
@@ -698,7 +698,7 @@ async function oraclePolicyFixture(mutate=null){
  const ED='Ed25519SigVerify111111111111111111111111111',feed=feeds[0];
  for(const key of [CLOSE_DOVES_PROGRAM,ED,CLOSE_PYTH_LAZER.storage,CLOSE_PYTH_LAZER.treasury,CLOSE_PYTH_LAZER.program,'Sysvar1nstructions1111111111111111111111111',feed.lazerFeed,feed.clFeed,feed.redstoneFeed])addPolicyKey(f,key);
  f.inspection.envelope.readonlySigned=1;
- const keys=f.inspection.resolvedKeys,index=key=>keys.indexOf(key),oracleKey=generateKeyPairSync('ed25519'),payload=pythPayloadFixture({timestampUs:BigInt(now-1)*1000000n});
+ const keys=f.inspection.resolvedKeys,index=key=>keys.indexOf(key),oracleKey=generateKeyPairSync('ed25519'),payload=pythPayloadFixture({timestampUs:BigInt(now-1)*1000000n,...payloadOptions});
  byKey.set(CLOSE_PYTH_LAZER.storage,pythStorageFixture([{publicKeyHex:oracleKey.publicKey.export({format:'der',type:'spki'}).subarray(-32).toString('hex'),expiresAtSeconds:now+3600}]));
  const edData=Buffer.alloc(16);edData[0]=1;
  for(const [offset,value]of [[2,16],[4,3],[6,80],[8,3],[10,114],[12,payload.length],[14,3]])edData.writeUInt16LE(value,offset);
@@ -795,6 +795,15 @@ test('a valid trusted signature for a different feed or channel cannot pass clos
   const context=await readServerPerpsCloseOracles(f.inspection,{request:f.request});
   assert.throws(()=>checkServerPerpsFullCloseInstructionPolicy(f.inspection,{oracleContext:context,nowSeconds:now}),/MISMATCHED_PERPS_PYTH_FEED/);
  }
+});
+
+test('close policy rejects authenticated recent publications with stale per-feed data or negative confidence',async()=>{
+ for(const options of [{feedUpdateTimestampUs:BigInt(now-31)*1000000n},{feedUpdateTimestampUs:null},{confidenceUnits:'-1'}]){
+  const f=await oraclePolicyFixture(null,options),context=await readServerPerpsCloseOracles(f.inspection,{request:f.request});
+  assert.throws(()=>checkServerPerpsFullCloseInstructionPolicy(f.inspection,{oracleContext:context,nowSeconds:now}),/PERPS_PYTH/);
+ }
+ const f=await oraclePolicyFixture(null,{feedUpdateTimestampUs:BigInt(now-1)*1000000n,confidenceUnits:'1234'}),context=await readServerPerpsCloseOracles(f.inspection,{request:f.request});
+ assert.equal(checkServerPerpsFullCloseInstructionPolicy(f.inspection,{oracleContext:context,nowSeconds:now}).readyForSigning,false);
 });
 test('close vault checks bind all six market/direction paths to the exact wallet payout without signing authority',async()=>{
  for(const asset of ['BTC','ETH','SOL'])for(const side of ['LONG','SHORT']){
@@ -1065,7 +1074,7 @@ async function oracleEffectsFixture(side='SHORT',asset='SOL',settlement='DIRECT_
  oracleAccounts.set(CLOSE_PYTH_LAZER.treasury,{owner:SYSTEM,executable:false,lamports:2000000,data:['','base64']});
  if(withOracleUpdate){
   f.inspection={envelope:structuredClone(f.inspection.envelope),resolvedKeys:[...f.inspection.resolvedKeys]};
-  const ED='Ed25519SigVerify111111111111111111111111111',pair=generateKeyPairSync('ed25519'),payload=pythPayloadFixture({timestampUs:BigInt(now-1)*1000000n}),feed=feeds[0];
+  const ED='Ed25519SigVerify111111111111111111111111111',pair=generateKeyPairSync('ed25519'),payload=pythPayloadFixture({timestampUs:BigInt(now-1)*1000000n,...(typeof withOracleUpdate==='object'?withOracleUpdate:{})}),feed=feeds[0];
   const previous=f.before.get(feed.lazerFeed),previousData=Buffer.from(previous.data[0],'base64');previousData.writeBigInt64LE(BigInt(now-2),82);previous.data[0]=previousData.toString('base64');
   const storage=pythStorageFixture([{publicKeyHex:pair.publicKey.export({format:'der',type:'spki'}).subarray(-32).toString('hex'),expiresAtSeconds:now+1}]);
   oracleAccounts.set(CLOSE_PYTH_LAZER.storage,storage);f.before.set(CLOSE_PYTH_LAZER.storage,structuredClone(storage));f.after.set(CLOSE_PYTH_LAZER.storage,structuredClone(storage));
@@ -1192,4 +1201,12 @@ test('a cached native feed cannot change price without an authenticated update i
  const f=await oracleEffectsFixture(),a=f.after.get(f.feeds[0].lazerFeed),b=Buffer.from(a.data[0],'base64');
  b.writeBigUInt64LE(b.readBigUInt64LE(73)+1n,73);a.data[0]=b.toString('base64');
  const reserves=await f.reserves();assert.throws(()=>checkServerPerpsFullCloseOracleEffects(reserves,{nowSeconds:now}),/UNSIGNED_FEED_EFFECTS/);
+});
+
+test('changed native feed time cannot use publication time to replace a different explicit observation time',async()=>{
+ for(const seconds of [now-1,now-2]){
+  const f=await oracleEffectsFixture('SHORT','SOL','DIRECT_USDC',{feedUpdateTimestampUs:BigInt(seconds)*1000000n,confidenceUnits:'1234'}),reserves=await f.reserves();
+  if(seconds===now-1)assert.equal(checkServerPerpsFullCloseOracleEffects(reserves,{nowSeconds:now}).readyForSigning,false);
+  else assert.throws(()=>checkServerPerpsFullCloseOracleEffects(reserves,{nowSeconds:now}),/SIGNED_FEED_EFFECTS/);
+ }
 });
