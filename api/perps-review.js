@@ -5,7 +5,8 @@ import {perpsNavigationDraft} from '../lib/perps-navigation.js';
 import {prepareInspectedPerpsManualOrder} from '../lib/perps-manual-preparation.js';
 import {createServerPerpsReadOnlyRpc} from '../lib/perps-server-rpc.js';
 import bs58 from 'bs58';
-export function createHandler({env=process.env,prepare,limit=enforceQuoteLimit,fetchImpl=(...args)=>fetch(...args),diagnostic=code=>console.warn('perps_manual_review',code)}={}){
+export function createHandler({env=process.env,prepare,limit=enforceQuoteLimit,fetchImpl=(...args)=>fetch(...args),diagnostic=code=>console.warn('perps_manual_review',code),persistSigningReview=null}={}){
+ if(persistSigningReview!==null&&typeof persistSigningReview!=='function')throw Error('INVALID_PERPS_REVIEW_HANDLER');
  return async request=>{
   if(request.method==='OPTIONS')return new Response(null,{status:204,headers:corsHeaders(request)});
   if(request.method!=='POST')return jsonResponse(request,{error:'METHOD_NOT_ALLOWED'},405);
@@ -27,6 +28,11 @@ export function createHandler({env=process.env,prepare,limit=enforceQuoteLimit,f
    const review=await (prepare||((draft,wallet)=>prepareInspectedPerpsManualOrder(draft,wallet,{
     rpcRequest:createServerPerpsReadOnlyRpc({fetchImpl}),builderRequest:fetchImpl})))(input.draft,input.walletAddress);
    if(review?.stage!=='MANUAL_PERPS_REVIEW_VALIDATED'||review.readyForSigning!==false||review.tradingEnabled!==false)throw Error();
+   if(persistSigningReview!==null){
+    // This callback is server-configured, never selected by an HTTP field. The
+    // private native-review proof must survive persistence and read-back.
+    const packet=await persistSigningReview(review);return jsonResponse(request,{ok:true,packet});
+   }
    return jsonResponse(request,{ok:true,review});
   }catch(error){
    const code=['PERPS_MANUAL_INSUFFICIENT_USDC','PERPS_MANUAL_INSUFFICIENT_SOL'].includes(error?.message)?error.message:error?.status===429?'PERPS_REVIEW_RATE_LIMIT':'PERPS_REVIEW_UNAVAILABLE';

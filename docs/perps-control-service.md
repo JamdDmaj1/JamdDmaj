@@ -3732,3 +3732,97 @@ Edge or removing validation. A subsequent targeted regression also covers a
 transport that ignores an abort and returns late, without leaving review status
 stuck or showing an expired result. These are local verification results, not
 proof of a production deployment or successful web trade.
+
+### Exact-wire browser owner signing — 2026-10-21
+
+The next web component is implemented without changing the production UI to
+offer execution. `prepareInspectedPerpsManualOrder` now retains its original
+short-lived native preparation/funding/account evidence in a private WeakMap.
+A copied display review cannot be used as a signing preparation. The separate
+Node endpoint `POST /api/perps-signing-review` joins this original proof to
+`perps-web-review-store`: a random 256-bit review identifier, canonical content
+binding, immutable SET-NX record and exact read-back, rechecking the original
+native lease around asynchronous persistence. Only unsigned preparation records
+use the 120-second storage TTL; their approval still expires at the original
+review deadline. **This is not a permanent financial submission journal.**
+
+The review-only REST transport accepts only GET and SET-NX/EX120 in its dedicated
+namespace, with server-configured HTTPS endpoint/token, no redirects and bounded
+request/response/timeout. It accepts no Lua, deletion, signing, transaction send
+or client-selected URL. `store.revalidate` can rebuild fresh native evidence for
+the **same original packet** from current chain reads without asking the builder
+for a replacement or extending the original stored approval window. Increased
+network fees/rent or changed size/margin are rejected.
+
+The browser protocol binds the original form, public owner, position PDA,
+blockhash, review identity, fee/rent facts, server content binding and supported
+legacy/v0 envelope. Its browser-safe envelope decoder matches the existing Node
+decoder on positive/negative fixtures and verifies the API cosignature with
+strict Ed25519 semantics. This structural decoder is not a substitute for the
+server's independent native account, funding and simulation checks. Wallet
+Standard's primary feature contract is `solana:signTransaction` version 1.0.0;
+only sign-only is used, never signAndSendTransaction or signMessage. Wallets
+returning modified/meta-transactions are deliberately rejected even if their new
+owner signature is valid. Only the format of the actual prepared packet is
+required; a legacy-only/v0-only wallet is not rejected for lacking the other.
+
+Explicit approval, foreground/focus, original document/current connected Solana
+account, an unexpired original review and an original IndexedDB journal are
+required before creating a one-use signing grant. The browser commits a strict
+durability SIGNING record and reads it back **before** the wallet prompt. An
+atomic unique pending-wallet index prevents parallel local attempts across two
+database connections. A valid owner response must preserve every non-owner
+byte, including the empty keeper slot and API cosignature. It is persisted as
+OWNER_SIGNED before being returned as **held/not ready for broadcast**.
+
+Cancelled/rejected/ambiguous prompts do not erase SIGNING. Valid signatures
+returned after account change, disconnect or expiry are retained for recovery,
+not exposed as a current send authorization. Reading a held signature checks
+the original private evidence, current wallet-session binding, foreground and
+expiry plus a fresh read of the exact durable owner-signed record. A copied
+result or a deleted/changed local record cannot be read as submission evidence.
+Reloading the app retains the journal but does not recreate private approval,
+restore a signing session from a watch address, re-prompt or retry.
+
+The same browser bundle exports the issuer/grants/journal/provider entry so that
+Assets and Futures do not accidentally create separate private evidence maps.
+The local real-Edge browser test
+`.perps-build/web-owner-signature-20261021/browser-signature.test.mjs` traverses
+the built Assets UI, the actual HTTP signing-review handler (with native-reviewed
+unfunded fixture evidence and in-memory storage), the actual browser IndexedDB
+commit, a bounded fake wallet signer and reload recovery at 1365px/390px. Both
+passed without uncaught page errors. Only public deterministic fixture seeds
+and invalid-blockhash transactions were signed; all external requests were
+blocked and no financial send transport exists in this check. fake-indexeddb
+6.2.5 is a pinned dev-only dependency for Node concurrency/error tests; npm
+reported zero vulnerabilities when it was added with lifecycle scripts disabled.
+
+**Not complete/enabled:** the permanent server submission claim and single
+transport attempt, finalized entry reconciliation, browser submit/recovery UI,
+manual closing/conversion and overall automated execution/publication. The
+existing UI remains review-only and no fallback redirect was added. No real
+wallet prompt/signature, real transaction submission, bot activation,
+production database change, web deployment or Android release occurred here.
+
+Final verification for this component: the complete local suite passed 840
+tests (834 passed, six skipped, zero failed), log
+`.perps-build/web-owner-signature-20261021/final-tests.log`. The new affected
+corpus passed 15/15 on the VPS's actual Node 22.23.1, without skips or failures,
+in `jamddmaj-web-owner-signature-check-20261021.service` with DynamicUser,
+PrivateNetwork, PrivateTmp, ProtectHome, ProtectSystem=strict, NoNewPrivileges,
+UMask0077 and MemoryMax384M. The artifact was copied only to
+`/opt/jamddmaj-perps/checks/web-owner-signature-20261021/node22-tests.mjs`;
+local/transferred SHA-256 matched
+`c03661d6ab1ad68cece21c79bd90806fdb67cf3eb222d1549b286300ffc39681`
+before execution. The isolated unit completed with result success. It did not
+read production custody records, use a funded wallet, or contact an external
+financial transport. The real-browser checks described above also passed with
+the final asynchronous durable-row recheck in the held-signature reader.
+The browser test is invoked with Node's test-name filter so importing the native
+fixture suite does not execute unrelated tests:
+`node --test --test-name-pattern="actual browser isolated owner signature persists" .perps-build/web-owner-signature-20261021/browser-signature.test.mjs`.
+A separate read-only check confirmed the installed worker remains SHA-256
+`3dfc332b8d4f4a45185fba6e95e306fd7aa501a1b5b08f7e2673ba838d607e19`;
+worker/HTTPS services are active and the old Bitget executor is disabled. This
+does not mean the new web signing component was deployed or financial execution
+was enabled.

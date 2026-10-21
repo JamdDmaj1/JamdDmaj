@@ -27,9 +27,12 @@ test('network, public key, account capabilities, current accounts and transactio
  for(const change of [
   f=>{f.account.chains=['solana:devnet'];},f=>{f.wallet.chains=['solana:devnet'];},f=>{f.account.publicKey=new Uint8Array(31);},f=>{f.account.publicKey[0]^=1;},
   f=>{f.account.features=[];},f=>{f.wallet.accounts=[];},f=>{f.wallet.features['solana:signTransaction'].version='unknown';},
-  f=>{f.wallet.features['solana:signTransaction'].supportedTransactionVersions=[0];},f=>{f.wallet.features['solana:signTransaction'].supportedTransactionVersions=['legacy'];},
+  f=>{f.wallet.features['solana:signTransaction'].supportedTransactionVersions=[];},f=>{f.wallet.features['solana:signTransaction'].supportedTransactionVersions=[1];},
   f=>{f.wallet.features['solana:signTransaction'].signTransaction=undefined;}
  ]){const f=fixture();change(f);assert.equal(bindWebPerpsWalletSession(f.doc,f.wallet,f.account),null);assert.equal(f.calls.sign,0);}
+});
+test('a wallet supporting only the actual legacy or v0 format is not rejected for lacking the other format',()=>{
+ for(const version of ['legacy',0]){const f=fixture();f.wallet.features['solana:signTransaction'].supportedTransactionVersions=[version];assert.deepEqual(bindWebPerpsWalletSession(f.doc,f.wallet,f.account).transactionVersions,[version]);}
 });
 test('changed, disconnected or malformed provider accounts invalidate the original binding instead of reusing a saved address',()=>{
  for(const change of [f=>{f.wallet.accounts=[];},f=>{f.account.chains=[];},f=>{f.account.publicKey=null;},f=>{f.account.address='changed';},f=>{f.wallet.features={};}]){

@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 // Manual Perps review deliberately runs on Node for the existing native-wire
 // cryptographic checks. All other routes retain the strict Edge dependency gate.
-const NODE_ROUTES = new Set(['perps-review.js']);
+const NODE_ROUTES = new Set(['perps-review.js','perps-signing-review.js']);
 
 test("every Edge API bundles without Node built-ins or transaction SDKs", async () => {
   const files = (await readdir(new URL("../api/", import.meta.url))).filter(name => name.endsWith(".js") && !NODE_ROUTES.has(name));

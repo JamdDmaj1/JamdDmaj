@@ -36,6 +36,7 @@
   },
   "devDependencies": {
     "@capacitor/cli": "8.4.3",
-    "esbuild": "^0.28.1"
+    "esbuild": "^0.28.1",
+    "fake-indexeddb": "6.2.5"
   }
 }

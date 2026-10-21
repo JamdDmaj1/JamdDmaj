@@ -4,6 +4,12 @@ import {createHash,createPrivateKey,createPublicKey,sign} from 'node:crypto';
 import bs58 from 'bs58';
 import {inspectServerPerpsPreparation,prepareInspectedServerAutomation,readServerPerpsPreparationEvidence} from '../lib/perps-server-preparation.js';
 import {prepareInspectedPerpsManualOrder} from '../lib/perps-manual-preparation.js';
+import {createWebPerpsReviewStore} from '../lib/perps-web-review-store.js';
+import {openWebPerpsSigningJournal} from '../lib/perps-web-signing-journal.js';
+import {createWebPerpsSigningReviewClient,authorizeWebPerpsOwnerSignature,readWebPerpsOwnerSignature} from '../lib/perps-web-signing-review.js';
+import {bindWebPerpsWalletSession,clearWebPerpsWalletSession,signReviewedWebPerpsOrder} from '../lib/perps-web-wallet-session.js';
+import {selectWalletAccount} from '../lib/wallet-portfolio-store.js';
+import {IDBFactory} from 'fake-indexeddb';
 import {PERPS_CUSTODIES,PERPS_POOL,PERPS_PROGRAM,deriveServerPerpsIdentities} from '../lib/perps-server-custody.js';
 import {getProgramDerivedAddress} from '@solana/kit';
 import {mkdtempSync,mkdirSync,rmSync,writeFileSync,chmodSync} from 'node:fs';
@@ -175,6 +181,105 @@ test('manual web review uses actual wallet funding and the full exact-wire inspe
  state.mutate=(method,params,reply)=>{if(method==='simulateTransaction')reply.value.accounts.find(a=>a?.owner==='11111111111111111111111111111111').lamports--;};
  await assert.rejects(prepareInspectedPerpsManualOrder(draft,f.intent.walletAddress,options));
  for(const change of [{asset:'ZEC'},{margin:'1'},{serializedTxBase64:'untrusted'}])await assert.rejects(prepareInspectedPerpsManualOrder({...draft,...change},f.intent.walletAddress,options));
+});
+
+export async function webSigningFixture(t){
+ const f=await fixture({exits:true,trusted:true}),draft={asset:'SOL',side:'LONG',margin:'10',leverage:'3',referencePrice:'100',stopLoss:'95',takeProfit:'110'};
+ const records=new Map(),commands=[],state={time:now,mono:0,prompts:0,mode:'exact',builderCalls:0},clock=()=>state.time;
+ const command=async values=>{commands.push(values[0]);const [method,key,text]=values;if(method==='SET'){if(records.has(key))return null;records.set(key,text);return 'OK';}if(method==='GET')return records.get(key)??null;throw Error();};
+ const store=createWebPerpsReviewStore({command,now:clock});
+ const rpcRequest=async(method,params)=>{const reply=await f.request(method,params);if(reply?.context)reply.context.slot=Math.max(reply.context.slot,params[1]?.minContextSlot||0);return reply;};
+ const native=await prepareInspectedPerpsManualOrder(draft,f.intent.walletAddress,{rpcRequest,now:clock,monotonicNow:()=>state.mono,builderRequest:async()=>{state.builderCalls++;return Response.json(f.preparation);}});
+ const packet=await store.prepare(native),indexedDB=new IDBFactory(),name='jamddmaj-web-perps-signing-test';
+ const journal=await openWebPerpsSigningJournal({indexedDB,name,now:clock});t.after(()=>journal.close());
+ const doc={hidden:false,visibilityState:'visible',hasFocus:()=>true,dispatchEvent(){}},account={address:f.intent.walletAddress,publicKey:Uint8Array.from(createPublicKey(f.ownerKey).export({format:'der',type:'spki'}).subarray(-32)),chains:['solana:mainnet'],features:['solana:signTransaction']};
+ const wallet={name:'Unfunded Phantom model',chains:['solana:mainnet'],accounts:[account],features:{'solana:signTransaction':{version:'1.0.0',supportedTransactionVersions:['legacy',0],async signTransaction(input){
+  state.prompts++;assert.equal(input.account,account);assert.equal(input.chain,'solana:mainnet');assert.equal(input.options.preflightCommitment,'confirmed');
+  assert.equal((await journal.read(packet.reviewId)).state,'SIGNING');
+  const wire=Buffer.from(input.transaction);assert.equal(wire.toString('base64'),f.preparation.serializedTxBase64);sign(null,wire.subarray(193),f.ownerKey).copy(wire,1);
+  if(['changed-message','changed-resigned'].includes(state.mode))wire[wire.length-1]^=1;
+  if(state.mode==='changed-resigned')sign(null,wire.subarray(193),f.ownerKey).copy(wire,1);
+  if(state.mode==='changed-api')wire[129]^=1;if(state.mode==='keeper')wire[65]=1;
+  if(state.mode==='missing-owner')wire.fill(0,1,65);
+  if(state.mode==='account-change')selectWalletAccount(doc,{address:bs58.encode(Buffer.alloc(32,99)),source:'external',name:'another'});
+  if(state.mode==='disconnect')clearWebPerpsWalletSession(doc);if(state.mode==='expired')state.time+=15001;
+  if(state.mode==='reject')throw Error('User rejected fixture signature');return [{signedTransaction:Uint8Array.from(wire)}];
+ }}}};
+ selectWalletAccount(doc,{address:account.address,source:'external',name:wallet.name});bindWebPerpsWalletSession(doc,wallet,account);
+ const client=createWebPerpsSigningReviewClient({doc,now:clock,monotonicNow:()=>state.mono,fetchImpl:async()=>Response.json({ok:true,packet})});
+ return {...f,native,draft,packet,state,store,journal,indexedDB,name,command,commands,records,doc,wallet,account,client,rpcRequest,clock};
+}
+
+test('web signing joins native inspection, durable server review, committed browser claim and exactly one owner-only wallet prompt',async t=>{
+ const f=await webSigningFixture(t);assert.equal(f.state.prompts,0);assert.deepEqual(f.commands,['SET','GET']);
+ await assert.rejects(f.store.prepare({...f.native}));
+ const revived=createWebPerpsReviewStore({command:f.command,now:f.clock});assert.deepEqual(await revived.read(f.packet.reviewId),f.packet);
+ await revived.revalidate(f.packet.reviewId,{rpcRequest:f.rpcRequest,monotonicNow:()=>f.state.mono});assert.equal(f.state.builderCalls,1);
+ const review=await f.client.prepare(f.draft);assert.equal(f.state.prompts,0);
+ await assert.rejects(authorizeWebPerpsOwnerSignature(review,{doc:f.doc,journal:f.journal,explicitApproval:false}));
+ await assert.rejects(authorizeWebPerpsOwnerSignature({...review},{doc:f.doc,journal:f.journal,explicitApproval:true}));
+ const grant=await authorizeWebPerpsOwnerSignature(review,{doc:f.doc,journal:f.journal,explicitApproval:true});assert.equal(f.state.prompts,0);
+ const result=await signReviewedWebPerpsOrder(f.doc,grant),signed=await readWebPerpsOwnerSignature(result,{doc:f.doc,journal:f.journal});
+ assert.equal(result.readyForBroadcast,false);assert.equal(result.requiresSubmissionJournal,true);assert.equal(f.state.prompts,1);
+ const before=Buffer.from(f.preparation.serializedTxBase64,'base64'),wire=Buffer.from(signed.signedBase64,'base64');assert(wire.subarray(65).equals(before.subarray(65)));
+ assert.equal((await f.journal.read(f.packet.reviewId)).signedBase64,signed.signedBase64);
+ await assert.rejects(signReviewedWebPerpsOrder(f.doc,grant));await assert.rejects(authorizeWebPerpsOwnerSignature(review,{doc:f.doc,journal:f.journal,explicitApproval:true}));
+ const another=await openWebPerpsSigningJournal({indexedDB:f.indexedDB,name:f.name,now:f.clock});t.after(()=>another.close());
+ assert.equal((await another.read(f.packet.reviewId)).state,'OWNER_SIGNED');assert.equal((await another.pending(f.account.address)).length,1);
+ await assert.rejects(another.beginSigning(f.packet));assert.equal(f.state.prompts,1);assert(f.calls.every(call=>!['sendTransaction','signTransaction','requestAirdrop'].includes(call.method)));
+});
+
+test('changed wallet outputs, wallet rejection, expired approvals and lost provider bindings never become a broadcast permission',async t=>{
+ for(const mode of ['changed-message','changed-resigned','changed-api','keeper','missing-owner','reject','account-change','disconnect','expired']){
+  const f=await webSigningFixture(t),review=await f.client.prepare(f.draft),grant=await authorizeWebPerpsOwnerSignature(review,{doc:f.doc,journal:f.journal,explicitApproval:true});f.state.mode=mode;
+  if(['changed-message','changed-resigned','changed-api','keeper','missing-owner','reject'].includes(mode)){
+   await assert.rejects(signReviewedWebPerpsOrder(f.doc,grant));assert.equal((await f.journal.read(f.packet.reviewId)).state,'SIGNING');
+  }else{
+   const result=await signReviewedWebPerpsOrder(f.doc,grant);assert.equal((await f.journal.read(f.packet.reviewId)).state,'OWNER_SIGNED');
+   await assert.rejects(readWebPerpsOwnerSignature(result,{doc:f.doc,journal:f.journal}));
+  }
+  await assert.rejects(signReviewedWebPerpsOrder(f.doc,grant));assert.equal(f.state.prompts,1);
+ }
+});
+
+test('no active browser connection, hidden review, unsupported format, copied journal or failed durable claim can prompt a wallet',async t=>{
+ for(const mode of ['watch-only','hidden','unfocused','unsupported-version','copied-journal','closed-journal','expired-before-approval']){
+  const f=await webSigningFixture(t);
+  if(mode==='watch-only'){clearWebPerpsWalletSession(f.doc);await assert.rejects(f.client.prepare(f.draft));}
+  else if(mode==='unsupported-version'){f.wallet.features['solana:signTransaction'].supportedTransactionVersions=['legacy'];await assert.rejects(f.client.prepare(f.draft));}
+  else{
+   const review=await f.client.prepare(f.draft);if(mode==='hidden')f.doc.hidden=true;if(mode==='unfocused')f.doc.hasFocus=()=>false;
+   if(mode==='closed-journal')f.journal.close();if(mode==='expired-before-approval')f.state.time+=15001;
+   await assert.rejects(authorizeWebPerpsOwnerSignature(review,{doc:f.doc,journal:mode==='copied-journal'?{...f.journal}:f.journal,explicitApproval:true}));
+  }
+  assert.equal(f.state.prompts,0);
+ }
+});
+
+test('two browser connections cannot claim the same signing review or create parallel pending reviews for one wallet',async t=>{
+ const f=await webSigningFixture(t),other=await openWebPerpsSigningJournal({indexedDB:f.indexedDB,name:f.name,now:f.clock});t.after(()=>other.close());
+ const competing=await Promise.allSettled([f.journal.beginSigning(f.packet),other.beginSigning(f.packet)]);assert.equal(competing.filter(result=>result.status==='fulfilled').length,1);
+ const second=await f.store.prepare(f.native);await assert.rejects(other.beginSigning(second));assert.equal((await other.pending(f.account.address)).length,1);assert.equal(f.state.prompts,0);
+});
+
+test('an owner signature cannot be read for submission after its local durable record disappears',async t=>{
+ const f=await webSigningFixture(t),review=await f.client.prepare(f.draft),grant=await authorizeWebPerpsOwnerSignature(review,{doc:f.doc,journal:f.journal,explicitApproval:true});
+ const result=await signReviewedWebPerpsOrder(f.doc,grant);await assert.rejects(readWebPerpsOwnerSignature({...result},{doc:f.doc,journal:f.journal}));
+ await new Promise((resolve,reject)=>{
+  const request=f.indexedDB.open(f.name,1);request.onerror=()=>reject(request.error);request.onsuccess=()=>{
+   const db=request.result,tx=db.transaction('operations','readwrite');tx.objectStore('operations').delete(f.packet.reviewId);
+   tx.oncomplete=()=>{db.close();resolve();};tx.onerror=()=>{db.close();reject(tx.error);};
+  };
+ });
+ await assert.rejects(readWebPerpsOwnerSignature(result,{doc:f.doc,journal:f.journal}));assert.equal(f.state.prompts,1);
+});
+
+test('expired, changed or falsely acknowledged server preparation cannot issue or resume a signing review',async t=>{
+ const f=await webSigningFixture(t);
+ const pretend=createWebPerpsReviewStore({now:f.clock,command:async values=>values[0]==='SET'?'OK':null});await assert.rejects(pretend.prepare(f.native));
+ const key=[...f.records.keys()][0],original=f.records.get(key),value=JSON.parse(original);value.review.marginUsdcUnits='9999999';f.records.set(key,JSON.stringify(value));
+ await assert.rejects(f.store.read(f.packet.reviewId));f.records.set(key,original);f.state.time+=15001;
+ await assert.rejects(f.store.read(f.packet.reviewId));await assert.rejects(f.client.prepare(f.draft));assert.equal(f.state.prompts,0);
 });
 
 test('combined server gate inspects exact prepared wire, fee, core intent and RPC-resolved addresses without signing permission',async()=>{

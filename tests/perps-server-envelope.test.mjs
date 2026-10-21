@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {createPrivateKey,createPublicKey,sign} from 'node:crypto';
 import bs58 from 'bs58';
 import {decodeServerPerpsEnvelope} from '../lib/perps-server-envelope.js';
+import {inspectWebPerpsEnvelope} from '../lib/perps-web-envelope.js';
 const privateKey=createPrivateKey({key:Buffer.concat([Buffer.from('302e020100300506032b657004220420','hex'),Buffer.alloc(32,21)]),format:'der',type:'pkcs8'});
 const api=createPublicKey(privateKey).export({format:'der',type:'spki'}).subarray(-32);
 function fixture({versioned=false,tail=null,readonly=1,keys=null,program=3,accounts=[0],trailing=[]}={}){
@@ -40,4 +41,15 @@ test('server rejects any filled owner/keeper slot, forged API signature, foreign
  }
  const f=fixture();assert.throws(()=>decodeServerPerpsEnvelope(f.encoded+'\n',f.payer),/INVALID_PERPS_ENVELOPE/);
  assert.throws(()=>decodeServerPerpsEnvelope(f.encoded,bs58.encode(Buffer.alloc(32,9))),/INVALID_PERPS_ENVELOPE/);
+});
+
+test('browser structural decoder matches the native server boundary for legacy and v0 without Node shims',()=>{
+ for(const options of [{},{versioned:true},{readonly:2},{versioned:true,tail:[1,...Buffer.alloc(32,8),1,9,1,10],accounts:[0,4,5]}]){
+  const f=fixture(options);assert.deepEqual(inspectWebPerpsEnvelope(f.encoded,f.payer),decodeServerPerpsEnvelope(f.encoded,f.payer));
+ }
+ for(const options of [{readonly:3},{program:0},{program:4},{accounts:[4]},{trailing:[0]},{versioned:true,tail:[1,...Buffer.alloc(32,8),1,9,1,9]}]){
+  const f=fixture(options);assert.throws(()=>inspectWebPerpsEnvelope(f.encoded,f.payer));
+ }
+ for(const offset of [0,1,65,129,210]){const f=fixture();f.wire[offset]^=1;assert.throws(()=>inspectWebPerpsEnvelope(f.wire.toString('base64'),f.payer));}
+ const f=fixture();assert.throws(()=>inspectWebPerpsEnvelope(f.encoded+'\n',f.payer));assert.throws(()=>inspectWebPerpsEnvelope(f.encoded,bs58.encode(Buffer.alloc(32,9))));
 });
