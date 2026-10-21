@@ -3489,3 +3489,100 @@ NoNewPrivileges, UMask=0077 and MemoryMax=384M. The production worker checksum
 remained `3dfc332b8d4f4a45185fba6e95e306fd7aa501a1b5b08f7e2673ba838d607e19`;
 its HTTP/control worker and HTTPS remained running, and the old Bitget executor
 remained disabled. These are verification results, not a new trading release.
+
+### Atomic terminal close accounting — 2026-10-21
+
+`readFinalizedPerpsCloseCompletion` now provides original, short-lived,
+journal-bound terminal evidence. It re-reads the exact recorded first-leg
+signature and payout, requires the exact recorded conversion to be FINALIZED
+when collateral must be converted, and independently reads its actual root
+receipt. It then requires a fresh complete finalized daily account with native
+network fees valued in USD. A missing position is not sufficient: the original
+generation must remain closed/zeroed and every recorded sibling SL/TP address
+must be absent in a finalized native snapshot. A legitimate retained zero
+Position account is decoded rather than treated as live exposure or blindly
+accepted. Pending entries/cancellations, unknown observations, incomplete costs,
+copied proofs, a foreign journal, elapsed leases and UTC midnight prevent release.
+
+`reconcilePositionCloseCompletion` atomically marks all original OPEN logical
+reservations CLOSED, persists canonical actual-proceeds/accounting facts and
+advances the parent close to COMPLETED. SQLite rollback preserves every prior
+reservation if any terminal write or validation fails. Closing does not reset
+the entry's day or daily-trade quota, replay its Telegram signal, erase costs,
+delete signed packets or forget exit-request identities. A competing connection
+cannot consume stale completion evidence after the first commit. A fresh repeat
+is idempotent. The prepared-close uniqueness gate no longer holds a completed
+wallet forever; historical signed-intent hashes retain their original PREPARED
+identity, while new owner-signature claims still reject completed parents.
+
+The normal executor now performs bounded read-only close recovery before its
+ordinary position reconciliation or any new entry. It may inspect only the
+previously recorded signatures, reconcile a rooted result and complete this
+accounting. It has no close builder, signer, replacement blockhash or financial
+submission call. Unresolved signatures, a required second leg or live sibling
+requests produce CLOSE_RECONCILIATION_REQUIRED and keep capital held. This is
+also available to an already-paused maintenance cycle, without activation.
+
+Historical conversion accounting works after completion: it validates the
+canonical terminal row and original CLOSED reservations, rather than requiring
+them to remain OPEN forever. Encrypted recovery preserves completed financial
+legs, terminal facts and CLOSED parents and remains quarantined/paused. Altered
+terminal proceeds or detached parent states fail recovery validation. Terminal
+records themselves are persistence facts, not fresh signing authority or a
+replacement for the next complete chain/risk read.
+
+The current journal schema is now
+`e92bbd338ca88b8a85064ac669f0ae6ffb50641475b1bd62f78df48d06ccf145`.
+The prior conversion-aware `42653dcbee61271989264b68e8829787afc7d1b2c5e54ae759b100571088fbaf`
+is recognized for recovery but refused by normal startup. The explicitly
+approved verified-empty migration retains locked admission, paused controls,
+accepted recovery proof, exact private rollback copies, disposable rehearsal
+and a post-DDL recovery recheck. Only after verifying the recognized source has
+no financial rows may it rebuild the fixed empty close tables for the new
+COMPLETED constraint. It never invokes this rebuild in the regular constructor
+or automatically migrates populated archives. No production migration was run.
+
+Local final complete suite: 808 tests, 802 passed, six skipped, zero failed. New cases
+exercise full terminal release, actual USDC and native fees, zero-return and
+direct SHORT payouts for SOL/ETH/BTC, retained zero positions, live siblings,
+pending conversion/entries, missing USD fee valuation, in-flight journal changes,
+lease/midnight expiry, competing connections, atomic disk-failure rollback,
+restart, continued historical valuation, encrypted terminal recovery and the
+prior conversion-aware empty schema. The maintenance test recovers only the
+recorded conversion; its fake transport observes no builder, simulation, new
+blockhash or sending call. All financial test identities are unfunded in-memory
+models; no user/bot transaction was signed or sent.
+
+The final paused-maintenance integration also exercises the actual executor and
+worker together. A completed recorded conversion reaches RECONCILIATION_ONLY;
+a live sibling remains CLOSE_RECONCILIATION_REQUIRED, which the worker preserves
+in its aggregated status instead of collapsing it into a generic failure. Both
+cases have zero key, activation, new-risk, signal, builder and transport calls.
+
+Expanded isolated VPS Node 22 suite: 229 tests, 228 passed, one Windows-only ACL
+skip, zero failed. Artifact
+`/opt/jamddmaj-perps/checks/close-completion-20261021/tests/test.mjs`, SHA-256
+`966dd1358df1e4a28636c4bac17dd44afe7c1394273ebe4aaf0e3ab85ac9ce56`;
+separate child-process journal bundle SHA-256
+`a7d9ca0296c91283a0fa3f3dbfdf629663c82ca41e2b01aba830e59a21dbd1e7`.
+After the worker status integration, a separate focused VPS run passed its
+executor-to-worker test (both maintenance outcomes): artifact
+`/opt/jamddmaj-perps/checks/close-completion-worker-20261021/tests/test.mjs`,
+SHA-256 `aa7e38b2fe2e5e13e66519b855536a81a988d7d236bac5cd7e8e8c15b6efe075`.
+Both units completed successfully with DynamicUser, PrivateNetwork, PrivateTmp,
+ProtectHome, ProtectSystem=strict, NoNewPrivileges, UMask=0077 and MemoryMax=384M.
+Every transferred artifact hash matched before execution. The installed
+production worker remained unchanged at SHA-256
+`3dfc332b8d4f4a45185fba6e95e306fd7aa501a1b5b08f7e2673ba838d607e19`;
+the control worker/HTTPS remained active, and the old Bitget executor disabled.
+No production migration, backup re-acceptance, app publication or activation
+was performed. All schema writes and completion transitions were disposable
+test models, not financial operations on the user's or bot's account.
+
+Still incomplete: independent first-leg minimum-return/remaining protocol
+economics policy, custody close/conversion grants and submission coordination,
+reviewed failed/expired-operation handling, the bridge allowing exact sibling
+cancellation while a finalized manual close is held, and app/manual/24-hour
+Telegram end-to-end integration and publication. Live sibling requests are
+currently held for that missing cleanup bridge, not silently abandoned. The
+new terminal accounting does not establish that Futuros is ready for activation.

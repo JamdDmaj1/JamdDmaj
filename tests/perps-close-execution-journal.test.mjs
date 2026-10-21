@@ -24,16 +24,21 @@ import {readJournalledPerpsConversion,requireVerifiedPerpsConversionHistory} fro
 import {createPerpsConversionUsdValuationReader,requirePerpsConversionUsdValuation} from '../lib/perps-conversion-usd-valuation.js';
 import {createServerPerpsDailyAccountReader,requireFreshServerPerpsDailyAccount} from '../lib/perps-server-daily-account.js';
 import {createPerpsNetworkFeeValuationReader} from '../lib/perps-network-fee-valuation.js';
+import {readFinalizedPerpsCloseCompletion,requireVerifiedPerpsCloseCompletion,reconcileRecordedPerpsCloses} from '../lib/perps-close-completion.js';
+import {createServerPerpsExecutor} from '../lib/perps-server-executor.js';
+import {createServerPerpsWorker} from '../lib/perps-server-worker.js';
 async function fixture(t,options={}){
  const f=await closePayoutFixture(options),root=mkdtempSync(join(tmpdir(),'jamd-close-exec-')),path=join(root,'journal.sqlite'),opened=[];let time=f.options.now();
  const open=()=>{const j=openPerpsExecutionJournal(path,{now:()=>time});opened.push(j);return j;},journal=open();
  t.after(()=>{for(const j of opened)try{j.close();}catch{}rmSync(root,{recursive:true,force:true});});
- const parent={reservation:'parent',signature:bs58.encode(Buffer.alloc(64,17)),wire_hash:'a'.repeat(64),confirmed_slot:50,entry_exit_plan:JSON.stringify({sizeUsdUnits:'30000000',exits:[]})};
+ const exits=options.withExits?['SL','TP'].map((kind,i)=>({address:bs58.encode(Buffer.alloc(32,40+i)),kind,sizeUsdUnits:'30000000',triggerPriceUsdUnits:i?'110000000':'90000000',counter:String(i+1)})):[];
+ const parent={reservation:'parent',signature:bs58.encode(Buffer.alloc(64,17)),wire_hash:'a'.repeat(64),confirmed_slot:50,entry_exit_plan:JSON.stringify({sizeUsdUnits:'30000000',exits})};
  f.row.entries=JSON.stringify([parent]);const raw=new DatabaseSync(path);
  raw.prepare("INSERT INTO perps_reservations(wallet,signal,reservation,day,margin,state,created,updated,signature,wire_hash,confirmed_slot,position_address,entry_exit_plan) VALUES(?,?,?,?,?,'OPEN',?,?,?,?,?,?,?)")
   .run(f.row.wallet,'signal-parent','parent',new Date(time).toISOString().slice(0,10),10000000,time-10000,time-10000,parent.signature,parent.wire_hash,parent.confirmed_slot,f.row.position,parent.entry_exit_plan);
  raw.prepare('INSERT INTO perps_position_closes(id,wallet,position,state,created,updated,observed_slot,fee_lamports,unsigned_wire_hash,entries,settlement) VALUES(?,?,?,?,?,?,?,?,?,?,?)')
-  .run(f.row.id,f.row.wallet,f.row.position,'PREPARED',f.row.created,f.row.created,f.row.observed_slot,f.row.fee_lamports,f.row.unsigned_wire_hash,f.row.entries,f.row.settlement);raw.close();
+  .run(f.row.id,f.row.wallet,f.row.position,'PREPARED',f.row.created,f.row.created,f.row.observed_slot,f.row.fee_lamports,f.row.unsigned_wire_hash,f.row.entries,f.row.settlement);
+ for(const exit of exits)raw.prepare('INSERT INTO perps_exit_request_bindings(address,reservation) VALUES(?,?)').run(exit.address,'parent');raw.close();
  const ownerSigned=Buffer.from(f.tx.transaction[0],'base64');ownerSigned.fill(0,65,129);
  const intent=()=>verifyOwnerSignedPerpsCloseIntent(journal.readPositionClose(f.row.id),ownerSigned.toString('base64'));
  const uncertain=()=>{journal.beginPositionCloseSigning(f.row.id);return journal.recordPositionCloseBroadcast(f.row.id,intent());};
@@ -461,4 +466,146 @@ test('a close before UTC midnight and its conversion after midnight charge the c
  assert.equal(value.day,'2026-10-21');assert.equal(value.transactions.length,1);assert.equal(value.tradesToday,0);
  assert.equal(value.walletNetworkFeesLamports,'5400');assert.equal(value.networkFeeUsdUnits,'540');assert.equal(value.conversionLossUsdUnits,'3500');assert.equal(value.lossTodayUsdcUnits,'4040');
  assert.equal(f.journal.read('parent').state,'OPEN');assert.equal(value.conversions[0].firstLegDay,'2026-10-20');
+});
+
+async function completionFixture(t,options={},{finalizeConversion=true}={}){
+ const f=await financialHistoryFixture(t,options),base=dailyHistoryRequest(f);
+ const request=async(m,p)=>{
+  if(m==='getSignatureStatuses'&&p[0][0]===f.identity.signature)return f.options.request(m,p);
+  if(m==='getMultipleAccounts'&&p[0][0]===f.row.position)return {context:{slot:50000},value:p[0].map(()=>null)};
+  return base(m,p);
+ };
+ if(finalizeConversion)await f.journal.recoverPositionCloseConversion(f.row.id,{...f.opts,request,now:f.options.now});f.advance(70000);
+ const readFinalizedAccount=createServerPerpsDailyAccountReader({...f.opts,request,journal:f.journal,
+  readNetworkFees:createPerpsNetworkFeeValuationReader({...f.opts,fetchImpl:f.fetchImpl}),readConversionLoss:createPerpsConversionUsdValuationReader({...f.opts,fetchImpl:f.fetchImpl})});
+ return {...f,completionOptions:{...f.opts,request,readFinalizedAccount}};
+}
+
+test('terminal close reconciliation releases original risk atomically only after both finalized legs, complete daily costs and absent sibling exits',async t=>{
+ const f=await completionFixture(t),proof=await readFinalizedPerpsCloseCompletion(f.journal,f.row.id,f.completionOptions);
+ assert.equal(proof.receivedUsdcUnits,'696500');assert.equal(proof.lossTodayUsdUnits,'4540');assert.equal(proof.readyForSigning,false);
+ assert.equal(requireVerifiedPerpsCloseCompletion(proof,{journal:f.journal}),proof);assert.throws(()=>requireVerifiedPerpsCloseCompletion({...proof},{journal:f.journal}));
+ const saved=f.journal.reconcilePositionCloseCompletion(f.row.id,proof);
+ assert.equal(saved.close_id,f.row.id);assert.equal(f.journal.read('parent').state,'CLOSED');assert.equal(f.journal.readPositionClose(f.row.id).state,'COMPLETED');
+ assert.equal(f.journal.riskState(f.row.wallet).activeMarginUsdcUnits,'0');assert.equal(f.journal.riskState(f.row.wallet).executedToday,1);
+ assert.equal(f.journal.pendingPositionCloses(f.row.wallet).length,0);assert.throws(()=>f.journal.beginPositionCloseSigning(f.row.id));
+ assert.throws(()=>requireVerifiedPerpsCloseCompletion(proof,{journal:f.journal}));
+ const next=await readFinalizedPerpsCloseCompletion(f.journal,f.row.id,f.completionOptions);
+ assert.deepEqual(f.journal.reconcilePositionCloseCompletion(f.row.id,next),saved);
+ const account=await f.completionOptions.readFinalizedAccount({walletAddress:f.row.wallet});assert.equal(account.conversionLossUsdUnits,'3500');
+});
+
+test('unfinalized conversion, live sibling exits, incomplete fee accounting and changed in-flight journal facts never release a close',async t=>{
+ for(const mode of ['unfinalized','sibling','networkFees','pending','inflight']){
+  const f=await completionFixture(t,{withExits:mode==='sibling'},{finalizeConversion:mode!=='unfinalized'}),opts={...f.completionOptions};
+  if(mode==='networkFees')opts.readFinalizedAccount=createServerPerpsDailyAccountReader({...f.opts,request:opts.request,journal:f.journal,
+   readConversionLoss:createPerpsConversionUsdValuationReader({...f.opts,fetchImpl:f.fetchImpl})});
+  if(mode==='sibling'||mode==='inflight'){
+   const base=opts.request;opts.request=async(m,p)=>{
+    const value=await base(m,p);if(m==='getMultipleAccounts'&&p[0][0]===f.row.position){
+     if(mode==='sibling')value.value[1]={owner:'11111111111111111111111111111111',executable:false,lamports:2039280,data:['','base64']};
+     else {const db=new DatabaseSync(f.path);db.exec('UPDATE perps_close_conversions SET updated=updated+1');db.close();}
+    }return value;
+   };
+  }
+  if(mode==='pending'){
+   const db=new DatabaseSync(f.path);db.prepare("INSERT INTO perps_reservations(wallet,signal,reservation,day,margin,state,created,updated) VALUES(?,?,?,?,?,'RESERVED',?,?)")
+    .run(f.row.wallet,'new-signal','new-reservation',f.transaction.day,10000000,f.opts.now(),f.opts.now());db.close();
+  }
+  await assert.rejects(readFinalizedPerpsCloseCompletion(f.journal,f.row.id,opts),mode);
+  assert.equal(f.journal.read('parent').state,'OPEN');assert.equal(f.journal.readPositionClose(f.row.id).state,'PREPARED');assert.equal(f.journal.readPositionCloseCompletion(f.row.id),null);
+ }
+});
+
+test('completion evidence is journal-bound, expires at midnight or its oldest lease, and a competing connection cannot release the same risk twice',async t=>{
+ for(const mode of ['foreign','expired','midnight','changed','competing']){
+  const f=await completionFixture(t),proof=await readFinalizedPerpsCloseCompletion(f.journal,f.row.id,f.completionOptions);
+  if(mode==='foreign')assert.throws(()=>f.open().reconcilePositionCloseCompletion(f.row.id,proof));
+  if(mode==='expired')f.expireHistoryLease();
+  if(mode==='midnight')f.setTime(Date.parse('2026-10-21T00:00:00Z'));
+  if(mode==='changed'){const db=new DatabaseSync(f.path);db.exec('UPDATE perps_close_conversions SET updated=updated+1');db.close();}
+  if(mode==='competing'){
+   const other=f.open(),reader=createServerPerpsDailyAccountReader({...f.opts,request:f.completionOptions.request,journal:other,
+    readNetworkFees:createPerpsNetworkFeeValuationReader({...f.opts,fetchImpl:f.fetchImpl}),readConversionLoss:createPerpsConversionUsdValuationReader({...f.opts,fetchImpl:f.fetchImpl})});
+   const second=await readFinalizedPerpsCloseCompletion(other,f.row.id,{...f.completionOptions,readFinalizedAccount:reader});
+   f.journal.reconcilePositionCloseCompletion(f.row.id,proof);assert.throws(()=>other.reconcilePositionCloseCompletion(f.row.id,second));
+   assert.equal(other.read('parent').state,'CLOSED');assert.equal(other.readPositionCloseCompletion(f.row.id).observed_slot,proof.observedSlot);continue;
+  }
+  if(mode!=='foreign')assert.throws(()=>f.journal.reconcilePositionCloseCompletion(f.row.id,proof));
+  assert.equal(f.journal.read('parent').state,'OPEN');assert.equal(f.journal.riskState(f.row.wallet).activeMarginUsdcUnits,'10000000');
+ }
+});
+
+test('terminal persistence failure rolls back every parent and close state; retrying read-only evidence cannot partially free funds',async t=>{
+ const f=await completionFixture(t,{withExits:true}),proof=await readFinalizedPerpsCloseCompletion(f.journal,f.row.id,f.completionOptions),db=new DatabaseSync(f.path);
+ db.exec("CREATE TRIGGER completion_disk_failure BEFORE INSERT ON perps_close_completions BEGIN SELECT RAISE(ABORT,'completion-write-failed'); END;");
+ assert.throws(()=>f.journal.reconcilePositionCloseCompletion(f.row.id,proof),/completion-write-failed/);
+ assert.equal(f.journal.read('parent').state,'OPEN');assert.equal(f.journal.readPositionClose(f.row.id).state,'PREPARED');assert.equal(f.journal.readPositionCloseCompletion(f.row.id),null);
+ db.exec('DROP TRIGGER completion_disk_failure');db.close();f.journal.reconcilePositionCloseCompletion(f.row.id,proof);
+ const restarted=f.open();assert.equal(restarted.read('parent').state,'CLOSED');assert.equal(restarted.readPositionCloseCompletionSnapshot(f.row.id).close.state,'COMPLETED');
+});
+
+test('encrypted recovery retains completed financial legs and CLOSED parents, and rejects a detached terminal payout',async t=>{
+ for(const altered of [false,true]){
+  const f=await completionFixture(t),proof=await readFinalizedPerpsCloseCompletion(f.journal,f.row.id,f.completionOptions);
+  f.journal.reconcilePositionCloseCompletion(f.row.id,proof);
+  const options=await recoveryOptions(t,{...f,options:{...f.options,now:f.opts.now}});
+  if(altered){
+   const db=new DatabaseSync(f.path),row=f.journal.readPositionCloseCompletion(f.row.id),value=JSON.parse(row.record_json);value.receivedUsdcUnits='1';
+   db.prepare('UPDATE perps_close_completions SET record_json=?').run(JSON.stringify(value));db.close();
+   await assert.rejects(createPerpsCustodyRecoveryArchive(options.request));continue;
+  }
+  const archive=await createPerpsCustodyRecoveryArchive(options.request),restored=await restorePerpsCustodyRecoveryArchive({...options.restore,ciphertext:archive.ciphertext}),j=openPerpsExecutionJournal(join(restored.runtimeDirectory,'journal.sqlite'),{now:f.opts.now});
+  try{assert.equal(j.readPositionCloseCompletionSnapshot(f.row.id).close.state,'COMPLETED');assert.equal(j.read('parent').state,'CLOSED');assert.equal(j.riskState(f.row.wallet).activeMarginUsdcUnits,'0');}
+  finally{j.close();}assert.equal(restored.readyForSigning,false);assert.equal(restored.tradingEnabled,false);
+ }
+});
+
+test('direct USDC and zero-return closes complete without inventing a conversion, including a legitimate retained zero position',async t=>{
+ for(const options of [{side:'SHORT',asset:'SOL'},{side:'SHORT',asset:'ETH'},{side:'SHORT',asset:'BTC'},{amount:0n},{side:'SHORT',retainedPosition:true}]){
+  const f=await settledFixture(t,options),time=f.options.now()+70000,minute=Math.floor(f.tx.blockTime/60)*60;f.advance(70000);
+  const request=async(m,p)=>{
+   if(m==='getSlot')return 50000;if(m==='getBlocks')return [1];if(m==='getFirstAvailableBlock')return 1;
+   if(m==='getBlockTime')return p[0]===50000?time/1000-5:time/1000-172800;
+   if(m==='getSignaturesForAddress')return [f.row.wallet,f.row.position].includes(p[0])?[{signature:f.identity.signature,slot:300,blockTime:f.tx.blockTime,err:null,confirmationStatus:'finalized'}]:[];
+   if(m==='getMultipleAccounts'&&p[0][0]===f.row.position){
+    const native=await f.options.request(m,[[f.row.wallet,f.row.position],p[1]]);return {context:{slot:50000},value:[native.value[1]]};
+   }
+   const result=await f.options.request(m,p);if(m==='getMultipleAccounts'&&p[0].length===8)result.context.slot=50000;return result;
+  };
+  const opts={request,now:()=>time,monotonicNow:()=>0},fetchImpl=async()=>Response.json([[minute,100,100,100,100,20]]);
+  const readFinalizedAccount=createServerPerpsDailyAccountReader({...opts,journal:f.journal,readNetworkFees:createPerpsNetworkFeeValuationReader({...opts,fetchImpl})});
+  const proof=await readFinalizedPerpsCloseCompletion(f.journal,f.row.id,{...opts,readFinalizedAccount});
+  assert.equal(proof.conversionSignature,null);assert.equal(proof.receivedUsdcUnits,options.side==='SHORT'?'7000000':'0');
+  f.journal.reconcilePositionCloseCompletion(f.row.id,proof);assert.equal(f.journal.readPositionCloseConversion(f.row.id),null);
+  assert.equal(f.journal.read('parent').state,'CLOSED');assert.equal(f.journal.readPositionCloseCompletionSnapshot(f.row.id).close.state,'COMPLETED');
+ }
+});
+
+test('bounded maintenance recovers only the recorded conversion and completes accounting without preparing or submitting a transaction',async t=>{
+ const f=await completionFixture(t,{}, {finalizeConversion:false}),result=await reconcileRecordedPerpsCloses(f.journal,f.row.wallet,f.completionOptions);
+ assert.equal(result.checked,1);assert.equal(result.completed,1);assert.equal(result.unresolved,0);
+ assert.equal(f.journal.readPositionClose(f.row.id).state,'COMPLETED');assert.equal(f.journal.read('parent').state,'CLOSED');
+ assert.equal(f.journal.readPositionCloseConversion(f.row.id).signature,f.receipt.identity.signature);
+ const repeated=await reconcileRecordedPerpsCloses(f.journal,f.row.wallet,f.completionOptions);assert.equal(repeated.checked,0);
+ assert(f.calls.every(c=>!['sendTransaction','simulateTransaction','getLatestBlockhash'].includes(c.m)));
+});
+
+test('paused maintenance completes the actual executor-to-worker accounting path without keys, activation, signals, builders or submission',async t=>{
+ for(const liveSibling of [false,true]){
+  const f=await completionFixture(t,{withExits:liveSibling},{finalizeConversion:liveSibling}),walletAddress=f.row.wallet,ownerAccountHash='a'.repeat(64),reports=[];let forbiddenCalls=0;
+  const forbidden=()=>{forbiddenCalls++;throw Error('NO_FINANCIAL_ACTION_IN_MAINTENANCE');};
+  const controls={read:()=>({enabled:false,paused:true}),pauseForRisk:forbidden,listForWorker:({afterWallet})=>afterWallet?[]:[{walletAddress,ownerAccountHash}]};
+  const base=f.completionOptions.request,request=async(m,p)=>{
+   const v=await base(m,p);if(liveSibling&&m==='getMultipleAccounts'&&p[0][0]===f.row.position)v.value[1]={owner:'11111111111111111111111111111111',executable:false,lamports:1,data:['','base64']};return v;
+  };
+  const executor=createServerPerpsExecutor({mode:'execute',controls,journal:f.journal,
+   vault:{describe:()=>({exclusive:true,purpose:'jamddmaj-perps-automation',walletAddress,ownerAccountHash}),signPrepared:forbidden},
+   readAccount:forbidden,readFinalizedAccount:f.completionOptions.readFinalizedAccount,rpcRequest:request,readFeed:forbidden,builderRequest:forbidden,fetchImpl:forbidden,
+   now:f.opts.now,monotonicNow:f.opts.monotonicNow});
+  const worker=createServerPerpsWorker({mode:'maintenance',controls,executor,now:f.opts.now,saveStatus:v=>reports.push(v)});
+  await worker.run({once:true});assert.equal(forbiddenCalls,0);assert.equal(reports.length,1);
+  assert.equal(reports[0].results[liveSibling?'CLOSE_RECONCILIATION_REQUIRED':'RECONCILIATION_ONLY'],1);
+  assert.equal(f.journal.read('parent').state,liveSibling?'OPEN':'CLOSED');
+ }
 });
