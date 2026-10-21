@@ -2885,3 +2885,58 @@ successful replacement and hash check; no incomplete bundle was executed.
 Production worker/HTTPS/observer remained active, without deployment or activation.
 The financial journal, custody authorization, final accounting, recovery and app
 integration requirements above remain incomplete; the full goal is not achieved.
+
+### Native Pyth signer membership and same-bank configuration (2026-10-20)
+
+`perps-pyth-storage.js` independently decodes the fixed Pyth mainnet Storage
+account. It requires its program owner, non-executable flag, canonical encoding,
+381-byte length, discriminator and official treasury. The initialized signer
+count, signer keys and signed i64 expiry values are decoded from the native
+layout; unused capacity cannot authorize a signer. Duplicate/zero keys,
+negative expiry and unsupported counts are rejected. The decoded result is a
+private-branded, immutable configuration, not financial signing authority.
+
+Primary definition consulted:
+https://raw.githubusercontent.com/pyth-network/pyth-lazer-public/main/contracts/solana/programs/pyth-lazer-solana-contract/src/lib.rs
+Native observation at slot 459442196: account
+`3rdJbqfnagQ4yx9HXJViD4zc4xpiSqmFsKpPuSCQVyQL`, owner
+`pytd2yyk641x7ak7mkaasSJVXh6YYZnC7wTmtgAyxPt`, non-executable,
+length 381, discriminator d175ffb9c4af4409, data SHA-256
+9317148d8a36da529f5eec39d325cd6ae2c15eb2c3e00f5d020dcf41e8544d21.
+Offsets including the discriminator: treasury 40, update fee 72, signer count
+80, five 40-byte signer slots beginning at 81 (expiry offset +32), ECDSA count
+281. Counts are limited to the published configuration's supported bounds.
+
+Close policy now requires the exact signed-message key to be an initialized,
+unexpired authorized signer. Close simulation samples Storage even though it
+is read-only. The later oracle-effects gate requires its bytes to match the
+captured configuration, before/after lamports to be unchanged, and rechecks
+selected signer membership/expiry after simulation. A rotation during reads
+requires a new preparation; it cannot silently substitute a different policy.
+The preparation coordinator supplies its own server clock to both checks.
+
+At current slot 459445611, the strict checker matched the previously recorded
+public historical transaction's oracle signer to the currently authorized key.
+This does NOT establish the historical Storage contents, nor a current complete
+close simulation. No real wallet signatures or submissions were made.
+
+New tests cover native layout/identity, initialized versus unused signer slots,
+expiry equality (not accepted), noncanonical inputs, duplicate keys, copied
+proofs, config rotation, missing accounts and rent changes. An unfunded synthetic
+close with a real ephemeral oracle signature passes initially but fails if that
+signer's expiry is reached after same-bank simulation. This is a model test, not
+a native-program execution. Final full local suite: 745 tests, 739 passed,
+six skipped, zero failed.
+
+VPS Node 22 isolated expanded verification: 126 tests, 125 passed, one
+Windows-only ACL skip, zero failed. Artifact
+`/opt/jamddmaj-perps/checks/close-pyth-trust-20261020/tests/test.mjs`, SHA-256
+1246328b43947be393cc4c6ecffc0bc48891d278b4bd6ec6cf622f3d78d46973;
+unit `jamddmaj-close-pyth-trust-check-20261020` exited successfully. It used
+DynamicUser, PrivateNetwork, PrivateTmp, ProtectHome, ProtectSystem=strict and
+no production state directories. The bundle hash was checked before execution.
+
+These changes do not remove the existing unresolved DOVES extension guard,
+authenticate signed price/feed payload contents, complete financial journal
+transitions or add custody signing rights. No worker/app deployment or bot
+activation was performed. The complete trading/automation objective remains open.

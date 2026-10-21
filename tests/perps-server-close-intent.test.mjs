@@ -22,6 +22,7 @@ import {checkServerPerpsFullCloseVaults,readServerPerpsFullCloseVaults} from '..
 import {checkServerPerpsFullCloseReserves,readServerPerpsFullCloseReserves} from '../lib/perps-server-close-reserves.js';
 import {checkServerPerpsFullCloseOracleEffects,readServerPerpsFullCloseOracleEffects} from '../lib/perps-server-close-oracle-effects.js';
 import {describeSimulatedPerpsCloseSettlement,canonicalPerpsCloseSettlement} from '../lib/perps-close-settlement.js';
+import {pythStorageFixture} from './helpers/perps-pyth-storage-fixture.mjs';
 const wallet=bs58.encode(Buffer.alloc(32,1)),now=1802865600;
 test('chosen two-step settlement returns only collateral, preserves existing balances and leaves conversion pending across all six paths',async()=>{
  for(const asset of ['BTC','ETH','SOL'])for(const side of ['LONG','SHORT']){
@@ -690,12 +691,13 @@ async function oraclePolicyFixture(mutate=null){
   byKey.set(lazerFeed,{owner:CLOSE_DOVES_PROGRAM,executable:false,lamports:2860560,data:[price.toString('base64'),'base64']});
   feeds.push({address,lazerFeed,clFeed,redstoneFeed});
  }
- byKey.set(CLOSE_PYTH_LAZER.storage,{owner:CLOSE_PYTH_LAZER.program,executable:false,lamports:2000000,data:[Buffer.alloc(8).toString('base64'),'base64']});
+ byKey.set(CLOSE_PYTH_LAZER.storage,pythStorageFixture());
  byKey.set(CLOSE_PYTH_LAZER.treasury,{owner:SYSTEM,executable:false,lamports:2000000,data:['','base64']});
  const ED='Ed25519SigVerify111111111111111111111111111',feed=feeds[0];
  for(const key of [CLOSE_DOVES_PROGRAM,ED,CLOSE_PYTH_LAZER.storage,CLOSE_PYTH_LAZER.treasury,CLOSE_PYTH_LAZER.program,'Sysvar1nstructions1111111111111111111111111',feed.lazerFeed,feed.clFeed,feed.redstoneFeed])addPolicyKey(f,key);
  f.inspection.envelope.readonlySigned=1;
  const keys=f.inspection.resolvedKeys,index=key=>keys.indexOf(key),oracleKey=generateKeyPairSync('ed25519'),payload=Buffer.from([0]);
+ byKey.set(CLOSE_PYTH_LAZER.storage,pythStorageFixture([{publicKeyHex:oracleKey.publicKey.export({format:'der',type:'spki'}).subarray(-32).toString('hex'),expiresAtSeconds:now+3600}]));
  const edData=Buffer.alloc(16);edData[0]=1;
  for(const [offset,value]of [[2,16],[4,3],[6,80],[8,3],[10,114],[12,1],[14,3]])edData.writeUInt16LE(value,offset);
  const ed={program:index(ED),accounts:[],dataBase64:edData.toString('base64')};
@@ -717,7 +719,7 @@ test('oracle context independently binds derived aggregate feeds, configured Laz
  const f=await oraclePolicyFixture(),context=await readServerPerpsCloseOracles(f.inspection,{request:f.request});
  assert.equal(context.observedSlot,104);assert.equal(context.feeds.length,2);assert.equal(context.treasury,CLOSE_PYTH_LAZER.treasury);
  assert.equal(context.readyForSigning,false);assert.equal(context.requiresOraclePayloadAndEffects,true);
- const result=checkServerPerpsFullCloseInstructionPolicy(f.inspection,{oracleContext:context});
+ const result=checkServerPerpsFullCloseInstructionPolicy(f.inspection,{oracleContext:context,nowSeconds:now});
  assert.equal(result.readyForSigning,false);assert.equal(result.requiresProtocolAndOracleEffects,true);
  assert.equal(readServerPerpsCloseOracleContext(context,f.inspection).inspection,f.inspection);
  assert.throws(()=>readServerPerpsCloseOracleContext({...context},f.inspection));
@@ -743,7 +745,7 @@ test('configured oracle ownership/mint/bump/feed and exact update roles or signa
   if(['mint','bump','owner','lazerOwner','treasuryOwner','storageOwner'].includes(mode))await assert.rejects(readServerPerpsCloseOracles(fixture.inspection,{request:fixture.request}),mode);
   else{
    const context=await readServerPerpsCloseOracles(fixture.inspection,{request:fixture.request});
-   assert.throws(()=>checkServerPerpsFullCloseInstructionPolicy(fixture.inspection,{oracleContext:context}),mode);
+   assert.throws(()=>checkServerPerpsFullCloseInstructionPolicy(fixture.inspection,{oracleContext:context,nowSeconds:now}),mode);
   }
  }
 });
@@ -763,7 +765,22 @@ test('close policy independently rejects corrupted oracle signatures and unrelat
    many.dataBase64=data.toString('base64');
   });
   const context=await readServerPerpsCloseOracles(f.inspection,{request:f.request});
-  assert.throws(()=>checkServerPerpsFullCloseInstructionPolicy(f.inspection,{oracleContext:context}),mode);
+  assert.throws(()=>checkServerPerpsFullCloseInstructionPolicy(f.inspection,{oracleContext:context,nowSeconds:now}),mode);
+ }
+});
+
+test('a valid oracle signature is rejected when its key is absent, expired or outside the initialized Pyth signer list',async()=>{
+ for(const mode of ['absent','expired','boundary','unused']){
+  const f=await oraclePolicyFixture(({byKey})=>{
+   const account=byKey.get(CLOSE_PYTH_LAZER.storage),b=Buffer.from(account.data[0],'base64');
+   if(mode==='absent')b[81]^=1;
+   if(mode==='expired')b.writeBigInt64LE(BigInt(now-1),113);
+   if(mode==='boundary')b.writeBigInt64LE(BigInt(now),113);
+   if(mode==='unused')b[80]=0;
+   account.data[0]=b.toString('base64');
+  });
+  const context=await readServerPerpsCloseOracles(f.inspection,{request:f.request});
+  assert.throws(()=>checkServerPerpsFullCloseInstructionPolicy(f.inspection,{oracleContext:context,nowSeconds:now}),mode);
  }
 });
 test('close vault checks bind all six market/direction paths to the exact wallet payout without signing authority',async()=>{
@@ -1015,7 +1032,7 @@ test('an outstanding entry or cancellation blocks close preparation atomically',
  }
 });
 
-async function oracleEffectsFixture(side='SHORT',asset='SOL',settlement='DIRECT_USDC'){
+async function oracleEffectsFixture(side='SHORT',asset='SOL',settlement='DIRECT_USDC',withOracleUpdate=false){
  const f=await fundingFixture(side,asset,settlement),oracleAccounts=new Map(),feeds=[];
  for(const [i,a]of [asset,'USDC'].entries()){
   const [address,bump]=f.agKeys[a],lazerFeed=bs58.encode(Buffer.alloc(32,110+i));
@@ -1030,13 +1047,32 @@ async function oracleEffectsFixture(side='SHORT',asset='SOL',settlement='DIRECT_
   oracleAccounts.set(address,ag);oracleAccounts.set(lazerFeed,feed);feeds.push({address,lazerFeed});
   for(const [key,account]of [[address,ag],[lazerFeed,feed]]){f.before.set(key,account);f.after.set(key,structuredClone(account));}
  }
- oracleAccounts.set(CLOSE_PYTH_LAZER.storage,{owner:CLOSE_PYTH_LAZER.program,executable:false,lamports:2000000,data:[Buffer.alloc(8).toString('base64'),'base64']});
+ oracleAccounts.set(CLOSE_PYTH_LAZER.storage,pythStorageFixture());
+ f.before.set(CLOSE_PYTH_LAZER.storage,pythStorageFixture());f.after.set(CLOSE_PYTH_LAZER.storage,pythStorageFixture());
  oracleAccounts.set(CLOSE_PYTH_LAZER.treasury,{owner:SYSTEM,executable:false,lamports:2000000,data:['','base64']});
+ if(withOracleUpdate){
+  f.inspection={envelope:structuredClone(f.inspection.envelope),resolvedKeys:[...f.inspection.resolvedKeys]};
+  const ED='Ed25519SigVerify111111111111111111111111111',pair=generateKeyPairSync('ed25519'),payload=Buffer.from([0]),feed=feeds[0];
+  const storage=pythStorageFixture([{publicKeyHex:pair.publicKey.export({format:'der',type:'spki'}).subarray(-32).toString('hex'),expiresAtSeconds:now+1}]);
+  oracleAccounts.set(CLOSE_PYTH_LAZER.storage,storage);f.before.set(CLOSE_PYTH_LAZER.storage,structuredClone(storage));f.after.set(CLOSE_PYTH_LAZER.storage,structuredClone(storage));
+  for(const key of [CLOSE_DOVES_PROGRAM,ED,CLOSE_PYTH_LAZER.storage,CLOSE_PYTH_LAZER.treasury,CLOSE_PYTH_LAZER.program,'Sysvar1nstructions1111111111111111111111111',feed.lazerFeed])addPolicyKey(f,key);
+  const index=key=>f.inspection.resolvedKeys.indexOf(key),ed=Buffer.alloc(16),data=Buffer.alloc(119);ed[0]=1;
+  for(const [at,value]of [[2,16],[4,3],[6,80],[8,3],[10,114],[12,1],[14,3]])ed.writeUInt16LE(value,at);
+  Buffer.from('cb3b5fb0ec154999','hex').copy(data);data.writeUInt32LE(103,8);data.writeUInt32LE(2182742457,12);
+  sign(null,payload,pair.privateKey).copy(data,16);pair.publicKey.export({format:'der',type:'spki'}).subarray(-32).copy(data,80);
+  data.writeUInt16LE(1,112);payload.copy(data,114);data.writeUInt16LE(2,115);data[118]=1;
+  const roles=[f.inspection.resolvedKeys[1],CLOSE_PYTH_LAZER.storage,CLOSE_PYTH_LAZER.treasury,CLOSE_PYTH_LAZER.program,SYSTEM,'Sysvar1nstructions1111111111111111111111111',feed.lazerFeed];
+  f.inspection.envelope.readonlySigned=1;
+  f.inspection.envelope.instructions.splice(2,0,{program:index(ED),accounts:[],dataBase64:ed.toString('base64')},{program:index(CLOSE_DOVES_PROGRAM),accounts:roles.map(index),dataBase64:data.toString('base64')});
+  f.inspection=await inspectPolicyFixture(f,{useLookup:true,writableKeys:[feed.lazerFeed,CLOSE_PYTH_LAZER.treasury]});
+  f.preparation.serializedTxBase64=f.inspection.envelope.serializedTxBase64;
+  f.before.set(CLOSE_PYTH_LAZER.treasury,structuredClone(oracleAccounts.get(CLOSE_PYTH_LAZER.treasury)));f.after.set(CLOSE_PYTH_LAZER.treasury,structuredClone(oracleAccounts.get(CLOSE_PYTH_LAZER.treasury)));
+ }
  const context=await readServerPerpsCloseOracles(f.inspection,{request:async(method,params)=>{
   if(method==='getGenesisHash')return '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
   assert.equal(method,'getMultipleAccounts');return {context:{slot:104},value:params[0].map(key=>oracleAccounts.get(key)??null)};
  }});
- const policy=checkServerPerpsFullCloseInstructionPolicy(f.inspection,{oracleContext:context});
+ const policy=checkServerPerpsFullCloseInstructionPolicy(f.inspection,{oracleContext:context,nowSeconds:now});
  async function reserves(){
   const request=(method,params)=>method==='getSlot'?104:f.request(method,params);
   const simulation=await simulateServerPerpsFullCloseEffects(f.inspection,{request,oracleContext:context,minimumSlot:104});
@@ -1097,4 +1133,29 @@ test('oracle effects cannot be skipped, copied from a different inspection or pa
  assert.throws(()=>checkServerPerpsFullCloseOracleEffects(checkServerPerpsFullCloseReserves(vaults),{nowSeconds:now}));
  const valid=await f.reserves();
  for(const nowSeconds of [undefined,NaN,now+0.5,29])assert.throws(()=>checkServerPerpsFullCloseOracleEffects(valid,{nowSeconds}),/UNVERIFIED_PERPS_CLOSE_ORACLE_EFFECTS/);
+});
+
+test('close oracle effects bind the same-bank Pyth storage and reject rotations, mutation, absence or rent changes',async()=>{
+ for(const mode of ['rotated','changedAfter','absent','lamports']){
+  const f=await oracleEffectsFixture(),address=CLOSE_PYTH_LAZER.storage;
+  if(mode==='rotated'){
+   for(const map of [f.before,f.after]){
+    const a=map.get(address),b=Buffer.from(a.data[0],'base64');b[72]^=1;a.data[0]=b.toString('base64');
+   }
+  }
+  if(mode==='changedAfter'){
+   const a=f.after.get(address),b=Buffer.from(a.data[0],'base64');b[72]^=1;a.data[0]=b.toString('base64');
+  }
+  if(mode==='absent')f.after.set(address,null);
+  if(mode==='lamports')f.after.get(address).lamports++;
+  const reserves=await f.reserves();assert.throws(()=>checkServerPerpsFullCloseOracleEffects(reserves,{nowSeconds:now}),/UNVERIFIED_PERPS_PYTH_STORAGE/,mode);
+  const sampled=f.calls.find(c=>c.method==='simulateTransaction').params[1].accounts.addresses;
+  assert.ok(sampled.includes(address));
+ }
+});
+
+test('Pyth signer expiry is rechecked after same-bank close simulation, not only when the instruction policy was built',async()=>{
+ const f=await oracleEffectsFixture('SHORT','SOL','DIRECT_USDC',true),reserves=await f.reserves();
+ const effects=checkServerPerpsFullCloseOracleEffects(reserves,{nowSeconds:now});assert.equal(effects.readyForSigning,false);
+ assert.throws(()=>checkServerPerpsFullCloseOracleEffects(reserves,{nowSeconds:now+1}),/UNVERIFIED_PERPS_PYTH_STORAGE/);
 });
