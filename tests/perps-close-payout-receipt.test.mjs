@@ -8,6 +8,9 @@ import {canonicalPerpsCloseSettlement} from '../lib/perps-close-settlement.js';
 import {readFinalizedPerpsClosePayout,requireVerifiedPerpsClosePayout,perpsClosePayoutRecordBinding} from '../lib/perps-close-payout-receipt.js';
 import {PERPS_PROGRAM,PERPS_POOL,PERPS_CUSTODIES,deriveServerPerpsIdentities} from '../lib/perps-server-custody.js';
 import {readServerPerpsAccount} from '../lib/perps-server-account.js';
+import {prepareFinalizedPerpsCloseConversion,readPreparedPerpsCloseConversion} from '../lib/perps-close-conversion-preparation.js';
+import {readSimulatedPerpsCloseConversion} from '../lib/perps-close-conversion-simulation.js';
+import {conversionFixture} from './helpers/perps-conversion-fixture.mjs';
 const TOKEN='TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',ATA='ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL',SYSTEM='11111111111111111111111111111111';
 const genesis='5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d',now=Date.parse('2026-10-20T20:00:00Z'),rent=2039280n,payout=7000000n;
 const hash=b=>createHash('sha256').update(b).digest('hex');
@@ -16,11 +19,11 @@ const associated=async(owner,mint)=>(await getProgramDerivedAddress({programAddr
 // RPC or broadcaster; the request function below rejects every write method.
 const privateKeys=[51,52,53].map(n=>createPrivateKey({key:Buffer.concat([Buffer.from('302e020100300506032b657004220420','hex'),Buffer.alloc(32,n)]),format:'der',type:'pkcs8'}));
 const signers=privateKeys.map(k=>bs58.encode(createPublicKey(k).export({format:'der',type:'spki'}).subarray(-32)));
-async function fixture({asset='SOL',side='LONG',version=1,versioned=false,newAta=false,retainedRequest=false,retainedPosition=false,entire=true,extraPerps=false,amount=7000000n}={}){
+async function fixture({asset='SOL',side='LONG',version=1,versioned=false,newAta=false,retainedRequest=false,retainedPosition=false,entire=true,extraPerps=false,unwrapSol=true,amount=7000000n}={}){
  const payout=amount;
  const wallet=signers[0],ids=await deriveServerPerpsIdentities({walletAddress:wallet,asset,side}),receiveAsset=side==='LONG'?asset:'USDC',c=PERPS_CUSTODIES[receiveAsset];
  const collateral=await associated(wallet,c.mint),vault=bs58.encode(Buffer.alloc(32,61)),oracle=bs58.encode(Buffer.alloc(32,62)),blockTime=now/1000-3;
- const native=receiveAsset==='SOL',delivery=native?'NATIVE_SOL':'TOKEN';
+ const nativeMint=receiveAsset==='SOL',native=nativeMint&&unwrapSol,delivery=native?'NATIVE_SOL':'TOKEN';
  const [requestAddress]=await getProgramDerivedAddress({programAddress:PERPS_PROGRAM,seeds:['position_request',bs58.decode(ids.position),Buffer.from('0700000000000000','hex'),new Uint8Array([2])]});
  const requestAta=await associated(requestAddress,c.mint);
  const common=[signers[1],signers[2],wallet,collateral,ids.transferAuthority,ids.perpetuals,PERPS_POOL,ids.position,PERPS_CUSTODIES[asset].address,oracle];
@@ -46,8 +49,8 @@ async function fixture({asset='SOL',side='LONG',version=1,versioned=false,newAta
  const preBalances=keys.map(()=>1000000),postBalances=[...preBalances];
  const set=(key,a,b)=>{preBalances[keys.indexOf(key)]=Number(a);postBalances[keys.indexOf(key)]=Number(b);};
  const oldTokens=native||newAta?0n:17n;
- set(ids.position,2000000n,retainedPosition?2000000n:0n);set(collateral,newAta?0n:rent,native?0n:rent);
- set(vault,native?rent+100000000n:rent,native?rent+100000000n-payout:rent);
+ set(ids.position,2000000n,retainedPosition?2000000n:0n);set(collateral,newAta?0n:rent+(nativeMint?oldTokens:0n),native?0n:rent+(nativeMint?oldTokens+payout:0n));
+ set(vault,nativeMint?rent+100000000n:rent,nativeMint?rent+100000000n-payout:rent);
  if(version===2){set(requestAddress,0n,0n);set(requestAta,0n,retainedRequest?rent:0n);}
  set(wallet,100000000n,100000000n+(retainedPosition?0n:2000000n)+(native?(newAta?0n:rent)+payout:newAta?-rent:0n)-(version===2&&retainedRequest?rent:0n)-5000n);
  const token=(key,owner,amount)=>({accountIndex:keys.indexOf(key),mint:c.mint,owner,programId:TOKEN,uiTokenAmount:{amount:String(amount),decimals:c.decimals}});
@@ -173,5 +176,91 @@ test('receipt rejects wrong wire/generation/payout, invented native gains, vault
   if(mode==='expired'){const request=f.options.request;f.options.request=async(m,p)=>{const x=await request(m,p);f.expire();return x;};}
   if(mode==='legacy'){const v=JSON.parse(f.row.settlement);v.version=1;delete v.sizeUsdUnits;delete v.collateralUsdUnits;delete v.positionOpenTimeSeconds;f.row.settlement=canonicalPerpsCloseSettlement(v,{walletAddress:f.row.wallet,positionAddress:f.row.position});}
   await assert.rejects(readFinalizedPerpsClosePayout(f.row,f.identity,f.options),mode);
+ }
+});
+
+test('joined finalized-payout conversion uses actual proceeds rather than quote or wallet capital across all collateral tokens',async()=>{
+ for(const [asset,unwrapSol]of [['SOL',true],['SOL',false],['ETH',false],['BTC',false]]){
+  const close=await fixture({asset,unwrapSol}),payout=await readFinalizedPerpsClosePayout(close.row,close.identity,close.options);
+  const swap=await conversionFixture({asset,walletAddress:close.row.wallet,amountUnits:payout.receivedTokenUnits,nativeSolInput:payout.delivery==='NATIVE_SOL'});
+  const result=await prepareFinalizedPerpsCloseConversion(payout,close.row,swap.options);
+  assert.equal(result.stage,'FINALIZED_PAYOUT_CONVERSION_PREPARED');assert.equal(result.amountUnits,'7000000');
+  assert.notEqual(result.amountUnits,JSON.parse(close.row.settlement).estimatedCollateralUnits);
+  assert.equal(result.wire.amountUnits,payout.receivedTokenUnits);assert.equal(result.wire.walletAddress,payout.walletAddress);
+  assert.equal(result.simulation.receivedUsdcUnits,String(swap.received));assert.equal(result.readyForSigning,false);
+  assert.equal(result.requiresSignedCloseJournalBinding,true);assert(Object.isFrozen(readPreparedPerpsCloseConversion(result,close.row)));
+  assert.throws(()=>readPreparedPerpsCloseConversion({...result},close.row));
+  const snapshots=readSimulatedPerpsCloseConversion(result.simulation);
+  if(payout.delivery!=='NATIVE_SOL')assert.equal(Buffer.from(snapshots.after[result.wire.source].data[0],'base64').readBigUInt64LE(64),17n);
+  assert(swap.calls.every(c=>!/^send|sign|requestAirdrop/.test(c.method)));
+  assert.throws(()=>readPreparedPerpsCloseConversion(result,{...close.row,state:'CANCELLED'}));
+ }
+});
+
+test('USDC collateral and a zero total-loss return never build a swap or touch pre-existing wallet funds',async()=>{
+ for(const options of [{side:'SHORT'},{amount:0n}]){
+  const close=await fixture(options),payout=await readFinalizedPerpsClosePayout(close.row,close.identity,close.options);let calls=0;
+  const result=await prepareFinalizedPerpsCloseConversion(payout,close.row,{maxSlippageBps:100,request:()=>{calls++;throw Error('UNEXPECTED_NETWORK');}});
+  assert.equal(result.stage,'NO_CLOSE_CONVERSION_REQUIRED');assert.equal(calls,0);assert.equal(result.readyForSigning,false);
+  assert.equal(result.receivedUsdcUnits,options.side==='SHORT'?'7000000':'0');
+ }
+});
+
+test('joined conversion rejects stale/forged receipts, foreign or changed records and invalid limits before any RPC',async()=>{
+ const close=await fixture(),payout=await readFinalizedPerpsClosePayout(close.row,close.identity,close.options);let calls=0;
+ const options={maxSlippageBps:100,request:()=>{calls++;throw Error('UNEXPECTED_NETWORK');}};
+ for(const row of [{...close.row,wallet:PERPS_PROGRAM},{...close.row,state:'CANCELLED'},{...close.row,entries:'[]'}])await assert.rejects(prepareFinalizedPerpsCloseConversion(payout,row,options));
+ for(const value of [{...payout},{...payout,receivedTokenUnits:'1'},null])await assert.rejects(prepareFinalizedPerpsCloseConversion(value,close.row,options));
+ for(const patch of [{maxSlippageBps:101},{maxSlippageBps:0},{minimumUsdcUnits:'0'},{minimumUsdcUnits:'1e6'},{computeUnitPriceMicroLamports:10001}])await assert.rejects(prepareFinalizedPerpsCloseConversion(payout,close.row,{...options,...patch}));
+ close.expire();await assert.rejects(prepareFinalizedPerpsCloseConversion(payout,close.row,options));assert.equal(calls,0);
+});
+
+test('joined conversion refuses depleted proceeds before preparing a wire and respects a stronger absolute USDC floor',async()=>{
+ for(const asset of ['SOL','ETH']){
+  const close=await fixture({asset}),payout=await readFinalizedPerpsClosePayout(close.row,close.identity,close.options);
+  const swap=await conversionFixture({asset,walletAddress:close.row.wallet,amountUnits:payout.receivedTokenUnits});
+  if(asset==='SOL')swap.before.get(close.row.wallet).lamports=6999999;
+  else swap.before.set(swap.wire.source,swap.token(close.row.wallet,swap.c.mint,6999999n));
+  await assert.rejects(prepareFinalizedPerpsCloseConversion(payout,close.row,swap.options));
+  assert(!swap.calls.some(c=>c.method==='simulateTransaction'||c.method==='getLatestBlockhash'));
+ }
+ const close=await fixture(),payout=await readFinalizedPerpsClosePayout(close.row,close.identity,close.options);
+ const swap=await conversionFixture({walletAddress:close.row.wallet,amountUnits:payout.receivedTokenUnits,strictWire:false});
+ const absolute=(swap.received-1n).toString(),result=await prepareFinalizedPerpsCloseConversion(payout,close.row,{...swap.options,minimumUsdcUnits:absolute});
+ assert.equal(result.minimumUsdcUnits,absolute);
+});
+
+test('joined native conversion retains pre-existing WSOL and native excess instead of closing or spending it',async()=>{
+ for(const oldWrapped of [0n,17n]){
+  const close=await fixture(),payout=await readFinalizedPerpsClosePayout(close.row,close.identity,close.options);
+  const swap=await conversionFixture({walletAddress:close.row.wallet,amountUnits:payout.receivedTokenUnits,closeWrappedAccount:false,oldWrapped,unsynced:7n});
+  const result=await prepareFinalizedPerpsCloseConversion(payout,close.row,swap.options),state=readSimulatedPerpsCloseConversion(result.simulation);
+  assert.equal(result.wire.closeWrappedAccount,false);
+  assert.equal(state.before[result.wire.source].lamports,state.after[result.wire.source].lamports);
+  assert.equal(Buffer.from(state.after[result.wire.source].data[0],'base64').readBigUInt64LE(64),oldWrapped+7n);
+ }
+});
+
+test('joined proof captures its record but must match a live record at use, and an expired payout stops before simulation',async()=>{
+ const close=await fixture(),payout=await readFinalizedPerpsClosePayout(close.row,close.identity,close.options),original={...close.row};
+ const swap=await conversionFixture({walletAddress:close.row.wallet,amountUnits:payout.receivedTokenUnits}),request=swap.options.request;
+ swap.options.request=async(m,p)=>{const r=await request(m,p);close.row.state='CANCELLED';return r;};
+ const result=await prepareFinalizedPerpsCloseConversion(payout,close.row,swap.options);
+ assert.equal(readPreparedPerpsCloseConversion(result,original).payout,payout);
+ assert.throws(()=>readPreparedPerpsCloseConversion(result,close.row));
+ const other=await fixture(),payout2=await readFinalizedPerpsClosePayout(other.row,other.identity,other.options);
+ const swap2=await conversionFixture({walletAddress:other.row.wallet,amountUnits:payout2.receivedTokenUnits}),request2=swap2.options.request;
+ swap2.options.request=async(m,p)=>{const r=await request2(m,p);other.expire();return r;};
+ await assert.rejects(prepareFinalizedPerpsCloseConversion(payout2,other.row,swap2.options));
+ assert(!swap2.calls.some(c=>c.method==='simulateTransaction'));
+});
+
+test('joined conversion rejects unsafe or fractional native block-height metadata before simulation',async()=>{
+ for(const height of [9007199254740992,1.5,'1000']){
+  const close=await fixture(),payout=await readFinalizedPerpsClosePayout(close.row,close.identity,close.options);
+  const swap=await conversionFixture({walletAddress:close.row.wallet,amountUnits:payout.receivedTokenUnits}),request=swap.options.request;
+  swap.options.request=async(m,p)=>{const r=await request(m,p);if(m==='getLatestBlockhash')r.value.lastValidBlockHeight=height;return r;};
+  await assert.rejects(prepareFinalizedPerpsCloseConversion(payout,close.row,swap.options));
+  assert(!swap.calls.some(c=>c.method==='simulateTransaction'));
  }
 });

@@ -2804,3 +2804,37 @@ unit `jamddmaj-close-conversion-check-20261020`, PrivateNetwork/PrivateTmp,
 DynamicUser, ProtectHome/ProtectSystem=strict, no production state directories.
 This is neither a worker deployment nor permission to trade. No active process
 from these checks remains after the successful test unit exited.
+
+### Finalized payout to protected conversion preparation (2026-10-20)
+
+`perps-close-conversion-preparation.js` now joins the privately verified first-leg
+receipt to the unsigned second leg. Its input amount is the actual finalized
+return, never the quote estimate or the wallet's full balance. It binds the
+captured close record, rejects stale/copied receipts, requires fresh mainnet
+custody/oracle/source snapshots, and preserves pre-existing WSOL/native excess.
+The independently enforced oracle minimum can be strengthened by an absolute
+USDC floor. Native block-height metadata must be a safe, positive integer.
+USDC returns and zero-payout total losses prepare no conversion and perform no
+RPC calls. A live-record digest and both private proof leases are checked again
+when reading the preparation; copied results are not authority.
+
+This is an unsigned preparation bridge, NOT a signed close-journal lifecycle.
+The result still explicitly requires durable signed-close binding, fresh signing
+revalidation and authorization. No signer, send transport, journal mutation,
+worker deployment, bot activation or owned-wallet execution was introduced.
+The first-leg oracle extension validation issue remains unresolved. Automatic
+SL/TP settlement, final conversion receipts, daily accounting, crash recovery,
+custody permissions and the complete app flow still need integration.
+
+The VPS isolated joined-flow bundle completed 114 tests: 113 passed, one
+Windows-only ACL test skipped, zero failures. It predates the final safe-integer
+block-height guard and its additional local regression test. Artifact:
+`/opt/jamddmaj-perps/checks/close-join-20261020/tests/test.mjs`, SHA-256
+73f3d0e2f6330d00bc5c8479177d8f28726474d283a6c9fb1a03a432644e7e27;
+unit `jamddmaj-close-join-check-20261020` used DynamicUser, PrivateNetwork,
+PrivateTmp, ProtectHome, ProtectSystem=strict and no production state directories.
+The final local constructor, simulator and joined-receipt suite passed all 24
+tests, including malformed block heights, depleted proceeds, strong minimums,
+record changes, proof expiry, pre-existing funds and all collateral paths.
+The final full local test glob completed 734 tests: 728 passed, six skipped,
+zero failed. Production remains unchanged and paused.
