@@ -3986,3 +3986,66 @@ or alter the installed worker.
 Final complete local suite: 853 tests, 847 passed, six skipped and zero failures
 (153802 ms), including the final mandatory observation commit/readback. Log:
 `.perps-build/web-owner-signature-20261021/position-final-tests.log`.
+
+### Web entry import into the shared risk ledger (2026-10-21, not deployed)
+
+`perps-web-risk-authorization.js` now requires an original native web-submission
+inspection, the genuine execution journal, a branded fresh **finalized complete
+daily account**, and a synchronous authenticated server policy reader scoped to
+the signing wallet. Client limits/balances are not accepted as provenance. The
+policy's exact revision and limits are rechecked after asynchronous account
+reads, during the atomic import and immediately before the transport. There is
+no default policy or custody-account shortcut for an external/main wallet.
+The fresh native preparation also retains the independently simulated exact
+entry/individual exit plan privately; a client cannot substitute its own plan.
+
+The execution journal's `reserveWebSubmission` consumes a one-use private risk
+authorization and runs the existing capital/loss/positions/daily-count/balance
+checks. Reservation, signing transition, final risk revalidation and the exact
+owner signature/hash commit as ONE outer SQLite transaction. Nested operations
+use savepoints; their release is not an independent disk commit. Failure rolls
+back every intermediate state and exit binding. No observer can see a committed
+`RESERVED` row for this already owner-signed attempt and cancel it as unsigned.
+The reserved `web:<reviewId>` signal/reservation namespace is held `UNCERTAIN`.
+Every generic entry path now refuses another entry for that wallet while such
+a shared-ledger web attempt is pending; a new web attempt also refuses any
+existing pending reservation. Confirmed/open collateral continues to count
+under the existing shared limits. No new execution-journal table was added.
+
+`createRiskBoundWebPerpsBroadcaster` joins that shared risk commit to the durable
+web submission barrier and fixed one-attempt transport. Both exact identities
+must persist before fetch; a failed web write or late policy revocation never
+cancels the financial hold. The two ledgers need not be one database: an error
+between their commits safely leaves the financial reservation held. A recovery
+coordinator must reconcile it rather than retry or declare it unsigned. The
+unwrapped low-level transport remains a component test/helper, NOT a production
+route; any service integration must use the risk-bound coordinator.
+
+Focused checks exercise both committed identities before fetch, exact margin
+and protections, another entry path/new connection being blocked, insufficient
+balance, capital/loss failures, copied account/grant rejection, changing policy,
+pre-existing uncertainty, late revocation and a web persistence failure. A
+deliberate final policy failure rolls back all nested financial states, after
+which a fresh original grant still commits successfully. All fixture signatures
+use public unfunded test seeds with invalid blockhashes, never a funded wallet.
+`npm run build:web` passed. Savepoint semantics were checked against the primary
+reference <https://www.sqlite.org/lang_savepoint.html>.
+
+Remaining acceptance requirements include rooted shared-financial settlement,
+safe resolution of both pending records, multi-entry reuse after reconciliation,
+live freshness/latency acceptance, public API/browser wiring, native-path
+integration, full closing/conversion and publication. The current permanent web
+wallet lock is NOT released by this import, a receipt or a current observation.
+No live worker change, production journal write, bot activation, real financial
+signature/send, deployment or Android publication occurred in this change.
+
+Verification: the complete local suite passed 857 tests (851 passed, six
+skipped, zero failures; 157157 ms), log
+`.perps-build/web-owner-signature-20261021/risk-tests.log`. The affected corpus
+passed 31/31 without skips on actual VPS Node 22 in the isolated transient unit
+`jamddmaj-web-risk-check-20261021.service` with DynamicUser, PrivateNetwork,
+PrivateTmp, ProtectHome, ProtectSystem=strict, NoNewPrivileges, UMask0077 and
+MemoryMax384M. Local/transferred bundle SHA-256 matched before execution:
+`291ade41e764f072a46ac28b8d22297ec8455f3b9a64da34f59e0d6fc40fe1e7`.
+The unit completed successfully without reading production custody records or
+altering the installed financial worker.

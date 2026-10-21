@@ -8,6 +8,8 @@ import {createWebPerpsReviewStore} from '../lib/perps-web-review-store.js';
 import {openWebPerpsSigningJournal} from '../lib/perps-web-signing-journal.js';
 import {inspectWebPerpsSubmission,openWebPerpsSubmissionJournal} from '../lib/perps-web-submission-journal.js';
 import {createWebPerpsBroadcaster,readWebPerpsSubmissionReceipt} from '../lib/perps-web-broadcast.js';
+import {createRiskBoundWebPerpsBroadcaster} from '../lib/perps-web-risk-broadcast.js';
+import {authorizeWebPerpsRisk} from '../lib/perps-web-risk-authorization.js';
 import {readWebPerpsFinalizedPosition,requireVerifiedWebPerpsPosition} from '../lib/perps-web-position-recovery.js';
 import {decodeServerPerpsEnvelope} from '../lib/perps-server-envelope.js';
 import eventLayout from '../lib/perps-event-layout.json' with {type:'json'};
@@ -359,10 +361,77 @@ async function webSubmissionFixture(t){
  const f=await webSigningFixture(t,{keeperSignable:true}),review=await f.client.prepare(f.draft),grant=await authorizeWebPerpsOwnerSignature(review,{doc:f.doc,journal:f.journal,explicitApproval:true});
  const signed=await signReviewedWebPerpsOrder(f.doc,grant),wire=await readWebPerpsOwnerSignature(signed,{doc:f.doc,journal:f.journal});
  const directory=mkdtempSync(join(tmpdir(),'jamddmaj-web-transport-')),filename=join(directory,'journal.sqlite');
- const serverJournal=openWebPerpsSubmissionJournal({filename,now:f.clock});t.after(()=>{serverJournal.close();rmSync(directory,{recursive:true,force:true});});
+ const extraJournals=[],serverJournal=openWebPerpsSubmissionJournal({filename,now:f.clock});t.after(()=>{for(const extra of extraJournals)extra.close();serverJournal.close();rmSync(directory,{recursive:true,force:true});});
  const inspect=()=>inspectWebPerpsSubmission(f.packet,wire.signedBase64,{reviewStore:f.store,rpcRequest:f.rpcRequest,now:f.clock,monotonicNow:()=>f.state.mono});
- return {...f,signed,wire,serverJournal,inspect,filename};
+ return {...f,signed,wire,serverJournal,inspect,filename,trackJournal:journal=>{extraJournals.push(journal);return journal;}};
 }
+
+async function riskBoundWebFixture(t,{availableUsdcUnits='20000000'}={}){
+ const f=await webSubmissionFixture(t),riskJournal=f.trackJournal(openPerpsExecutionJournal(f.filename.replace(/\.sqlite$/,'-risk.sqlite'),{now:f.clock}));
+ const account=await emptyFixtureDailyAccount(f.account.address,{availableUsdcUnits});
+ const policy={walletAddress:f.account.address,revision:'policy-1',limits:{capitalUsd:'50',dailyLossUsd:'30',positions:2,dailyTrades:5}};
+ return {...f,riskJournal,dailyAccount:account,policy,readLimits:()=>structuredClone(policy),readAccount:async()=>account};
+}
+
+test('web risk coordinator atomically charges the shared ledger before either transport and blocks other entry paths after restart',async t=>{
+ const f=await riskBoundWebFixture(t),id='web:'+f.packet.reviewId;let sends=0;
+ const submit=createRiskBoundWebPerpsBroadcaster({journal:f.serverJournal,riskJournal:f.riskJournal,readAccount:f.readAccount,readLimits:f.readLimits,fetchImpl:async()=>{
+  sends++;const risk=f.riskJournal.read(id),web=f.serverJournal.read(f.packet.reviewId);
+  assert.equal(risk.state,'UNCERTAIN');assert.equal(risk.signature,web.signature);assert.equal(risk.wire_hash,web.wire_hash);assert.equal(risk.margin,10000000);
+  assert.equal(JSON.parse(risk.entry_exit_plan).exits.length,2);return Response.json({action:'increase-position',txid:f.signed.signature});
+ }});
+ const evidence=await f.inspect(),result=await submit(evidence);assert.equal(result.stage,'WEB_PERPS_BROADCAST_ACKNOWLEDGED');assert.equal(sends,1);
+ const state=f.riskJournal.riskState(f.account.address);assert.equal(state.pendingMarginUsdcUnits,'10000000');assert.equal(state.pendingCount,1);
+ const other=f.trackJournal(openPerpsExecutionJournal(f.filename.replace(/\.sqlite$/,'-risk.sqlite'),{now:f.clock}));
+ assert.throws(()=>other.reserve({walletAddress:f.account.address,signalId:'another-native-or-bot-entry',reservationId:'parallel',marginUsd:'10',limits:f.policy.limits,snapshot:f.dailyAccount}),/RECONCILIATION_REQUIRED/);
+ assert.throws(()=>other.cancelUnsigned(id));assert.equal(other.read(id).state,'UNCERTAIN');
+ await assert.rejects(submit(evidence));assert.equal(sends,1);assert.equal(f.state.prompts,1);
+});
+
+test('web risk limits, actual daily provenance, balance and policy revision fail before durable submission or transport',async t=>{
+ for(const mode of ['capital','loss','balance','copied-account','policy-change','existing-pending']){
+  const f=await riskBoundWebFixture(t,{availableUsdcUnits:mode==='balance'?'5000000':'20000000'});let sends=0;
+  if(mode==='capital')Object.assign(f.policy.limits,{capitalUsd:'5',dailyLossUsd:'5'});if(mode==='loss')f.policy.limits.dailyLossUsd='5';
+  if(mode==='existing-pending')f.riskJournal.reserve({walletAddress:f.account.address,signalId:'native-pending',reservationId:'native-pending',marginUsd:'10',limits:f.policy.limits,snapshot:f.dailyAccount});
+  const submit=createRiskBoundWebPerpsBroadcaster({journal:f.serverJournal,riskJournal:f.riskJournal,readLimits:f.readLimits,readAccount:async()=>{
+   if(mode==='policy-change')f.policy.revision='policy-2';return mode==='copied-account'?{...f.dailyAccount}:f.dailyAccount;
+  },fetchImpl:async()=>{sends++;throw Error();}});
+  await assert.rejects(submit(await f.inspect()),undefined,mode);assert.equal(sends,0);assert.equal(f.serverJournal.read(f.packet.reviewId),null);
+  assert.equal(f.riskJournal.read('web:'+f.packet.reviewId),null);
+ }
+});
+
+test('late web policy revocation or failed web persistence never cancels owner-signed shared risk or reaches the transport',async t=>{
+ for(const mode of ['revoked-before-fetch','closed-web-journal']){
+  const f=await riskBoundWebFixture(t),id='web:'+f.packet.reviewId;let sends=0;
+  const readLimits=()=>{
+   if(mode==='revoked-before-fetch'&&f.serverJournal.pending(f.account.address))return {...f.policy,revision:'revoked'};
+   if(mode==='closed-web-journal'&&f.riskJournal.read(id)?.state==='UNCERTAIN')f.serverJournal.close();
+   return structuredClone(f.policy);
+  };
+  const submit=createRiskBoundWebPerpsBroadcaster({journal:f.serverJournal,riskJournal:f.riskJournal,readLimits,readAccount:f.readAccount,fetchImpl:async()=>{sends++;throw Error();}});
+  const evidence=await f.inspect();
+  if(mode==='closed-web-journal')await assert.rejects(submit(evidence));
+  else assert.equal((await submit(evidence)).stage,'WEB_PERPS_BROADCAST_UNKNOWN');
+  assert.equal(sends,0);assert.equal(f.riskJournal.read(id).state,'UNCERTAIN');assert.equal(f.riskJournal.riskState(f.account.address).pendingMarginUsdcUnits,'10000000');
+  assert.throws(()=>f.riskJournal.cancelUnsigned(id));
+ }
+});
+
+test('web shared-risk import rejects copied grants and rolls back every nested state on a final policy check failure',async t=>{
+ const f=await riskBoundWebFixture(t),id='web:'+f.packet.reviewId;
+ const grant=await authorizeWebPerpsRisk(await f.inspect(),{journal:f.riskJournal,readAccount:f.readAccount,readLimits:f.readLimits});
+ assert.throws(()=>f.riskJournal.reserveWebSubmission({...grant}));assert.equal(f.riskJournal.read(id),null);
+ let sends=0;
+ const submit=createRiskBoundWebPerpsBroadcaster({journal:f.serverJournal,riskJournal:f.riskJournal,readAccount:f.readAccount,readLimits:()=>{
+  if(f.riskJournal.read(id)?.state==='UNCERTAIN')throw Error('Policy revoked during atomic import');return f.readLimits();
+ },fetchImpl:async()=>{sends++;throw Error();}});
+ await assert.rejects(submit(await f.inspect()));assert.equal(sends,0);assert.equal(f.riskJournal.read(id),null);
+ assert.equal(f.riskJournal.riskState(f.account.address).pendingCount,0);assert.equal(f.serverJournal.read(f.packet.reviewId),null);
+ // The preceding failed transaction did not leave SQLite/savepoint depth
+ // poisoned; an original still-fresh authorization can commit normally.
+ assert.equal(f.riskJournal.reserveWebSubmission(grant).state,'UNCERTAIN');assert.throws(()=>f.riskJournal.reserveWebSubmission(grant));
+});
 
 test('web single-attempt transport commits exact identity before the fixed Jupiter request and never equates acknowledgement with a position',async t=>{
  const f=await webSubmissionFixture(t),evidence=await f.inspect(),competing=await f.inspect();let calls=0;
