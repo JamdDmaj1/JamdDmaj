@@ -3923,3 +3923,66 @@ bot activation, web deployment or Android release occurred in this change.
 Complete local verification subsequently passed 849 tests: 843 passed, six
 skipped, zero failures (150911 ms). Full log:
 `.perps-build/web-owner-signature-20261021/broadcast-tests.log`.
+
+### Web finalized entry and current native position recovery (2026-10-21)
+
+`lib/perps-web-position-recovery.js` now follows the recorded exact transaction
+identity through finalized receipt and verified native self-CPI trade event,
+then reads the position and the original individual SL/TP requests together at
+one finalized bank no older than the entry. It rechecks the original unsigned
+core intent against the historical transaction's resolved keys, the immutable
+owner-signed hash (normalizing only the keeper slot), the exact increase's
+instruction index, requested size, collateral delta and leverage tolerance.
+Unknown/additional trade events are not treated as harmless zero-loss data.
+The current native position must have the event's total size and opening time;
+position/exit owner, program, custody, side, PDA, counter, size and trigger checks
+use the existing native decoders. Missing/changed protections or stale banks
+remain unresolved, never automatically rebuilt or resent.
+
+The entry delta and the current aggregated position are deliberately separate:
+Jupiter can accumulate more than one entry at a shared position PDA. Observing
+an entry does not attribute the entire current collateral/size to it. This is
+a current-state observation, **not** proof that the account snapshot came from
+the entry's exact historical bank or that every other entry is reconciled.
+Failed/pending transactions expose no open-position observation. A missing
+position after an already-executed exit needs the separate close/history path,
+not a fabricated open position or a released wallet lock.
+
+Original short-lived private evidence is bound to the real journal, exact
+stored row, monotonic/wall-clock lease and branded finalized event transaction.
+The reader commits/readbacks the observation before returning it. The server
+journal stores it in a separate `web_perps_position_observations` table bound
+to the immutable submission-row hash and rooted receipt. Copied/expired proof
+cannot write it, and slot/time regression or an altered exit plan cannot
+overwrite it. Reopened historical rows remain plain facts: they cannot revive
+the private current proof or authorize a signature. `UNCERTAIN` and the wallet
+lock remain unchanged pending full financial-ledger/daily-risk integration.
+
+Primary references checked read-only:
+<https://solana.com/docs/rpc/http/getmultipleaccounts> (ordered accounts,
+finalized commitment and minimum context slot) and
+<https://developers.jup.ag/docs/perps/position-account> (shared position PDA,
+native size and collateral fields). No actual wallet/financial endpoint was
+used for these checks. The tests use public deterministic unfunded keys,
+invalid blockhashes, fixture CPI metadata and local temporary databases.
+
+Focused tests cover valid recovery/persistence/restart, forged and expired
+proofs, 14 inconsistent account/event/bank/network/clock cases, aggregated
+positions, and pending/failed entries. `npm run build:web` passed. This is still
+a server component, not an end-to-end public trading acceptance: browser/API
+execution wiring, shared cross-path financial ledger, complete close/conversion
+execution and publication remain incomplete. No bot activation, production
+database migration, funded signature/send, deployment or APK release occurred.
+
+The final affected corpus passed 27/27 on the VPS's actual Node 22, without
+skips or failures, in `jamddmaj-web-position-final-check-20261021.service`.
+The transient unit used DynamicUser, PrivateNetwork, PrivateTmp, ProtectHome,
+ProtectSystem=strict, NoNewPrivileges, UMask0077 and MemoryMax384M. Test artifact
+SHA-256 matched locally and after transfer before execution:
+`0a51e1fe279c9599920b09a1c671c687b2b62487617892f4e30e0d44d9ae605b`.
+The unit completed successfully; it did not access production custody records
+or alter the installed worker.
+
+Final complete local suite: 853 tests, 847 passed, six skipped and zero failures
+(153802 ms), including the final mandatory observation commit/readback. Log:
+`.perps-build/web-owner-signature-20261021/position-final-tests.log`.

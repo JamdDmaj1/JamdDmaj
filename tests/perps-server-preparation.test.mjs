@@ -8,6 +8,9 @@ import {createWebPerpsReviewStore} from '../lib/perps-web-review-store.js';
 import {openWebPerpsSigningJournal} from '../lib/perps-web-signing-journal.js';
 import {inspectWebPerpsSubmission,openWebPerpsSubmissionJournal} from '../lib/perps-web-submission-journal.js';
 import {createWebPerpsBroadcaster,readWebPerpsSubmissionReceipt} from '../lib/perps-web-broadcast.js';
+import {readWebPerpsFinalizedPosition,requireVerifiedWebPerpsPosition} from '../lib/perps-web-position-recovery.js';
+import {decodeServerPerpsEnvelope} from '../lib/perps-server-envelope.js';
+import eventLayout from '../lib/perps-event-layout.json' with {type:'json'};
 import {createWebPerpsSigningReviewClient,authorizeWebPerpsOwnerSignature,readWebPerpsOwnerSignature,claimWebPerpsServerHandoff,consumeWebPerpsServerHandoff} from '../lib/perps-web-signing-review.js';
 import {bindWebPerpsWalletSession,clearWebPerpsWalletSession,signReviewedWebPerpsOrder} from '../lib/perps-web-wallet-session.js';
 import {selectWalletAccount} from '../lib/wallet-portfolio-store.js';
@@ -440,6 +443,89 @@ test('web recovery reads only its recorded all-signer finalized identity after r
  reopened.close();
  const recovered=openWebPerpsSubmissionJournal({filename:f.filename,now:f.clock});
  assert.deepEqual(recovered.readReceipt(f.packet.reviewId),receipt);assert.equal(recovered.pending(f.account.address).state,'UNCERTAIN');recovered.close();
+ }
+});
+
+async function finalizedWebPositionFixture(t){
+ const f=await webSubmissionFixture(t);f.serverJournal.claim(await f.inspect());
+ const envelope=decodeServerPerpsEnvelope(f.preparation.serializedTxBase64,f.account.address),keys=[...envelope.staticKeys,...f.loaded.map(b=>bs58.encode(b))];
+ const increaseIndex=envelope.instructions.findIndex(ix=>envelope.staticKeys[ix.program]===PERPS_PROGRAM&&Buffer.from(ix.dataBase64,'base64').subarray(0,8).toString('hex')==='a47e44b6dfa640b7');
+ const exits=envelope.instructions.filter(ix=>envelope.staticKeys[ix.program]===PERPS_PROGRAM&&Buffer.from(ix.dataBase64,'base64').subarray(0,8).toString('hex')==='7562427f1e3249b9').map(ix=>keys[ix.accounts[7]]);
+ const addresses=[f.packet.preparation.positionPubkey,...exits];
+ const post=(await f.request('simulateTransaction',[f.preparation.serializedTxBase64,{replaceRecentBlockhash:false,sigVerify:false,accounts:{addresses}}])).value.accounts;
+ const finalWire=Buffer.from(f.wire.signedBase64,'base64');sign(null,finalWire.subarray(193),f.keeperKey).copy(finalWire,65);
+ const slot=f.packet.review.observedSlot+5,ids=await deriveServerPerpsIdentities(f.intent),schema=eventLayout.events.find(e=>e.name==='InstantIncreasePositionEvent'),fields={};
+ for(const [name,type]of schema.fields)fields[name]=typeof type==='object'?null:type==='publicKey'?f.account.address:type==='bool'?false:type==='u8'?0:'0';
+ Object.assign(fields,{owner:f.account.address,pool:PERPS_POOL,positionKey:ids.position,positionSide:1,positionMint:PERPS_CUSTODIES.SOL.mint,
+  positionCustody:PERPS_CUSTODIES.SOL.address,positionCollateralCustody:PERPS_CUSTODIES.SOL.address,positionSizeUsd:'30000000',sizeUsdDelta:'30000000',
+  collateralUsdDelta:'9990000',collateralTokenDelta:'100000000',price:'100000000',openTime:String(seconds),feeUsd:'10000',positionFeeUsd:'10000'});
+ const encode=(type,value)=>{if(typeof type==='object')return Buffer.from([0]);if(type==='publicKey')return Buffer.from(bs58.decode(value));
+  if(type==='bool'||type==='u8')return Buffer.from([Number(value)]);const b=Buffer.alloc(8);type==='i64'?b.writeBigInt64LE(BigInt(value)):b.writeBigUInt64LE(BigInt(value));return b;};
+ const encodeEvent=()=>Buffer.concat([Buffer.from('e445a52e51cb9a1d','hex'),createHash('sha256').update('event:'+schema.name).digest().subarray(0,8),...schema.fields.map(([k,type])=>encode(type,fields[k]))]);
+ const writable=envelope.lookups.reduce((n,lookup)=>n+lookup.writable.length,0);
+ const eventIx={programIdIndex:keys.indexOf(PERPS_PROGRAM),accounts:[keys.indexOf(ids.eventAuthority)],stackHeight:2,data:''};
+ const tx={slot,blockTime:seconds,transaction:[finalWire.toString('base64'),'base64'],meta:{err:null,fee:15100,
+  loadedAddresses:{writable:f.loaded.slice(0,writable).map(b=>bs58.encode(b)),readonly:f.loaded.slice(writable).map(b=>bs58.encode(b))},innerInstructions:[{index:increaseIndex,instructions:[eventIx]}]}};
+ const status={slot,err:null,confirmationStatus:'finalized'},state={snapshotSlot:slot,after:()=>{},network:GENESIS},recoveryCalls=[];
+ const rpcRequest=async(method,params)=>{recoveryCalls.push({method,params});state.after(method);
+  if(method==='getGenesisHash')return state.network;
+  if(method==='getSignatureStatuses')return {context:{slot:slot+1},value:[status]};
+  if(method==='getTransaction'){eventIx.data=bs58.encode(encodeEvent());return structuredClone(tx);}
+  if(method==='getMultipleAccounts'){assert.deepEqual(params[0],addresses);assert.equal(params[1].commitment,'finalized');assert.equal(params[1].minContextSlot,slot);return {context:{slot:state.snapshotSlot},value:structuredClone(post)};}
+  throw Error('Financial or unexpected recovery method');
+ };
+ return {...f,post,tx,status,fields,eventIx,recoveryState:state,recoveryCalls,readPosition:()=>readWebPerpsFinalizedPosition(f.packet.reviewId,{journal:f.serverJournal,rpcRequest,now:f.clock,monotonicNow:()=>f.state.mono})};
+}
+
+test('web entry recovery verifies native finalized CPI size, collateral and exact pending protections without releasing funds',async t=>{
+ const f=await finalizedWebPositionFixture(t),proof=await f.readPosition();
+ assert.equal(requireVerifiedWebPerpsPosition(proof,{journal:f.serverJournal}),proof);
+ assert.throws(()=>requireVerifiedWebPerpsPosition({...proof},{journal:f.serverJournal}));
+ assert.equal(proof.stage,'WEB_PERPS_FINALIZED_ENTRY_AND_CURRENT_POSITION');assert.equal(proof.position.sizeUsdUnits,'30000000');
+ assert.equal(proof.position.collateralUsdUnits,'9990000');assert.equal(proof.exits.length,2);assert.deepEqual(proof.exits.map(e=>e.kind),['SL','TP']);
+ assert.equal(proof.readyForSigning,false);assert.equal(proof.requiresFinancialLedgerIntegration,true);assert.equal(f.serverJournal.pending(f.account.address).state,'UNCERTAIN');
+ assert.throws(()=>f.serverJournal.recordPositionObservation({...proof}));
+ const stored=f.serverJournal.recordPositionObservation(proof);assert.deepEqual(stored,proof);
+ assert.throws(()=>requireVerifiedWebPerpsPosition(stored,{journal:f.serverJournal}));
+ const reopened=openWebPerpsSubmissionJournal({filename:f.filename,now:f.clock});
+ assert.deepEqual(reopened.readPositionObservation(f.packet.reviewId),proof);assert.equal(reopened.pending(f.account.address).state,'UNCERTAIN');reopened.close();
+ assert(f.recoveryCalls.every(c=>['getGenesisHash','getTransaction','getSignatureStatuses','getMultipleAccounts'].includes(c.method)));assert.equal(f.state.prompts,1);
+ f.state.time+=10001;assert.throws(()=>requireVerifiedWebPerpsPosition(proof,{journal:f.serverJournal}));
+ assert.throws(()=>f.serverJournal.recordPositionObservation(proof));assert.deepEqual(f.serverJournal.readPositionObservation(f.packet.reviewId),stored);
+});
+
+test('web position recovery refuses absent positions, stale banks, altered margin, missing exits, event substitutions and clock changes',async t=>{
+ for(const mode of ['position-missing','size','margin','exit-missing','exit-price','bank','event-size','event-margin','event-position-total','event-origin','event-index','unknown-event','clock','network']){
+  const f=await finalizedWebPositionFixture(t);
+  if(mode==='position-missing')f.post[0]=null;
+  if(['size','margin'].includes(mode)){const b=Buffer.from(f.post[0].data[0],'base64');b.writeBigUInt64LE(1n,mode==='size'?161:169);f.post[0].data[0]=b.toString('base64');}
+  if(mode==='exit-missing')f.post[1]=null;
+  if(mode==='exit-price'){const b=Buffer.from(f.post[1].data[0],'base64');b.writeBigUInt64LE(1n,207);f.post[1].data[0]=b.toString('base64');}
+  if(mode==='bank')f.recoveryState.snapshotSlot--;
+  if(mode==='event-size')f.fields.sizeUsdDelta='1';if(mode==='event-margin')f.fields.collateralUsdDelta='1';if(mode==='event-position-total')f.fields.positionSizeUsd='1';
+  if(mode==='event-origin')f.eventIx.stackHeight=1;if(mode==='event-index')f.tx.meta.innerInstructions[0].index=0;
+  if(mode==='unknown-event')f.tx.meta.innerInstructions[0].instructions.push({...f.eventIx,data:bs58.encode(Buffer.concat([Buffer.from('e445a52e51cb9a1d','hex'),Buffer.alloc(8)]))});
+  if(mode==='clock')f.recoveryState.after=method=>{if(method==='getMultipleAccounts')f.state.mono+=10001;};
+  if(mode==='network')f.recoveryState.network='devnet';
+  await assert.rejects(f.readPosition(),undefined,mode);assert.equal(f.serverJournal.pending(f.account.address).state,'UNCERTAIN');assert.equal(f.state.prompts,1);
+ }
+});
+
+test('web recovery distinguishes an entry delta from the shared aggregated native position',async t=>{
+ const f=await finalizedWebPositionFixture(t),data=Buffer.from(f.post[0].data[0],'base64');
+ data.writeBigUInt64LE(60000000n,161);data.writeBigUInt64LE(19980000n,169);f.post[0].data[0]=data.toString('base64');f.fields.positionSizeUsd='60000000';
+ const proof=await f.readPosition();assert.equal(proof.entrySizeUsdUnits,'30000000');assert.equal(proof.entryCollateralUsdUnits,'9990000');
+ assert.equal(proof.position.sizeUsdUnits,'60000000');assert.equal(proof.position.collateralUsdUnits,'19980000');
+ assert.equal(proof.requiresFinancialLedgerIntegration,true);assert.equal(f.serverJournal.pending(f.account.address).state,'UNCERTAIN');
+});
+
+test('pending or failed finalized web entries never expose a current position or clear the original claim',async t=>{
+ for(const mode of ['pending','failed']){
+  const f=await finalizedWebPositionFixture(t);
+  if(mode==='pending')f.status.confirmationStatus='confirmed';
+  else{f.status.err={InstructionError:[0,'InvalidArgument']};f.tx.meta.err=f.status.err;}
+  assert.equal(await f.readPosition(),null);assert.equal(f.serverJournal.readPositionObservation(f.packet.reviewId),null);
+  assert.equal(f.serverJournal.pending(f.account.address).state,'UNCERTAIN');assert.equal(f.recoveryCalls.some(c=>c.method==='getMultipleAccounts'),false);
  }
 });
 
