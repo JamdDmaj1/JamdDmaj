@@ -13,7 +13,7 @@ function fixture(t){
  const controlsPath=join(directory,'controls.sqlite'),journalPath=join(directory,'journal.sqlite');
  const controls=openPerpsAutomationControls(controlsPath,{now:()=>now});controls.provision({ownerAccountHash:owner,walletAddress:wallet,settings:{capital:100,loss:50,positions:2,margin:10,leverage:3,dailyTrades:5}});controls.close();
  const journal=openPerpsExecutionJournal(journalPath);journal.close();
- const raw=new DatabaseSync(journalPath);raw.exec('DROP TABLE perps_position_close_executions; DROP TABLE perps_position_closes; DROP TABLE perps_exit_cancellations');raw.close();
+ const raw=new DatabaseSync(journalPath);raw.exec('DROP TABLE perps_close_conversions; DROP TABLE perps_position_close_executions; DROP TABLE perps_position_closes; DROP TABLE perps_exit_cancellations');raw.close();
  for(const file of [controlsPath,journalPath])chmodSync(file,0o600);
  const input={controlsPath,journalPath,temporaryDirectory:directory,explicitRehearsalApproval:true,allowNonPosixForTests:process.platform==='win32'};
  return {directory,controlsPath,journalPath,input};

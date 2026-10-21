@@ -3228,3 +3228,88 @@ Conversion signing/uncertain/finalized records, signer grants, complete daily
 fees/loss, sibling exit reconciliation and app/coordinator execution wiring
 remain required, as does resolution of the native first-leg DOVES guard.
 The full requested trading/automation goal remains active and incomplete.
+
+## Durable conversion execution and read-only restart reconciliation — 2026-10-21
+
+The second leg now has its own `perps_close_conversions` record, keyed to the
+first-leg execution, exact canonical finalized payout digest and parent digest.
+Its states are PREPARED, SIGNING, UNCERTAIN and FINALIZED. The parent remains
+PREPARED and the original reservations remain OPEN throughout: confirmed USDC
+return is not yet permission to free capital or skip daily/exit accounting.
+
+Preparation accepts only the private journal-bound fresh preparation for this
+exact journal connection. After checking that proof outside the SQLite write
+transaction, the transaction atomically compares the same parent/execution
+snapshot again, checks simulation time/slot/fee and inserts the exact descriptor
+and unsigned hash. Claiming SIGNING also requires the fresh proof and identical
+wire. A second claim cannot pass the existing-state gate. The descriptor stores
+the original blockhash, height, amount, protected minimum, native wrap/cleanup,
+owner, source/destination and complete unsigned bytes, rather than a replaceable
+quote. Its canonical decoder checks the full fixed instruction sequence, compute
+budget, account order/writability, token movement setup, cleanup and encoded
+Swap2 minimum/amount. Static archive decoding is not native PDA provenance or a
+private construction proof; it never grants signing or sending authority.
+
+Before any future transport, UNCERTAIN records the exact sole-owner signed
+packet, signature and full signed-wire hash. Strict Ed25519 verification and
+equality with the prepared message reject altered packets. Copies of private
+proofs fail. Identities cannot collide with entries, exit cancellations, first
+closes or other conversions. There is no send method, custody grant or transport
+in this implementation. SIGNING cannot be dropped as an unsigned preparation;
+UNCERTAIN and FINALIZED cannot initiate a fresh conversion preparation.
+
+Only the fresh private finalized conversion receipt matching recorded identity,
+unsigned hash, owner, asset, exact input/minimum, prepared bank and message fee
+can transition to FINALIZED. Durable receipt facts retain actual USDC, native
+fee, locked/refunded rent, wallet SOL delta, swap fee, block time and UTC day.
+Repeated identical polls are idempotent; conflicting results cannot overwrite
+the financial record. Fees are facts here, not yet a complete daily loss ledger.
+
+The read-only recovery method rebuilds the exact wire through the existing native
+constructor and fresh mainnet custody reads, checking every recorded byte before
+querying the original signature. It never gets a replacement blockhash, simulates
+a new conversion, signs or sends. Changed native roles/configuration or changed
+durable facts abort rather than substitute a message. Current configuration must
+still support reconstructing the original instruction; configuration changes can
+therefore conservatively retain uncertainty for operator review. Missing/confirmed
+history stays UNCERTAIN. Finalized failure currently fails closed and retains
+uncertainty; failure-cost recording and an independently reviewed retry path are
+still required. This is not an automatic retry implementation.
+
+The native constructor and receipt retain their private provenance; JSON records
+are not cast into proof handles. The existing VPS/SQLite architecture is retained.
+New tests exercise all four SOL/token-SOL/ETH/BTC receipt paths, reopen each phase,
+reject copied/expired/altered proofs and conflicting records, and recover the
+recorded rooted signature without re-preparation. Encrypted archive/restore tests
+also preserve all four conversion phases, signed bytes and finalized financial
+facts while custody stays quarantined and capital held; altered payout binding
+is rejected. The fresh temporary test vault uses only the public fixture seed,
+freshly generated wrapping keys and invalid-blockhash in-memory packets; no
+production key/record or write RPC is used.
+
+The new target schema hash is
+`42653dcbee61271989264b68e8829787afc7d1b2c5e54ae759b100571088fbaf`.
+Previous d48b3b21 remains recognized for quarantined recovery and explicit paused
+empty upgrade only. Tests cover that upgrade and required new backup proof.
+Legacy fixture tables are dropped in FK order to model the actual old schemas.
+No production schema was migrated; the installed production cba66ff2 worker and
+database remain untouched. Do not deploy the new worker over that database
+without the separately gated paused migration and fresh backup verification.
+
+Final local glob: 788 tests, 782 passed, six skipped, zero failed. No production
+deployment, app publication, bot activation, real signing or transaction send
+occurred. The goal remains incomplete: custody grants/signers/broadcasters,
+failure accounting/retries, complete daily costs/loss and sibling exits,
+terminal risk settlement, app/worker coordination and the native first-leg
+DOVES guard still need completion and end-to-end evidence.
+
+VPS Node 22 isolated expanded corpus: 169 tests, 168 passed, one Windows-only
+ACL skip, zero failed. Artifact
+`/opt/jamddmaj-perps/checks/conversion-journal-20261021/tests/test.mjs`, SHA-256
+`17c03dd604a504898e9e3c696b9b78abf8bfc9f01a72b794c208826147690301`;
+its child-process journal bundle hash is
+`5035b1d5085e78ab0311609c265695b184d53044786f9a303c5419ebc62e713a`.
+Both matched before execution. Unit
+`jamddmaj-conversion-journal-check-20261021` exited successfully with DynamicUser,
+PrivateNetwork, PrivateTmp, ProtectHome, ProtectSystem=strict, NoNewPrivileges,
+UMask=0077 and MemoryMax=384M, without access to production state.

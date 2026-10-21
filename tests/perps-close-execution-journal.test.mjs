@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
-import {mkdtempSync,rmSync} from 'node:fs';
+import {mkdtempSync,rmSync,mkdirSync,chmodSync,readFileSync,writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
-import {join} from 'node:path';
+import {join,dirname} from 'node:path';
 import {spawn} from 'node:child_process';
+import {createPrivateKey,createCipheriv} from 'node:crypto';
 import bs58 from 'bs58';
 import {openPerpsExecutionJournal} from '../lib/perps-execution-journal.js';
 import {verifyOwnerSignedPerpsCloseIntent,validateStoredPerpsCloseExecution} from '../lib/perps-close-execution-record.js';
@@ -12,6 +13,12 @@ import {readFinalizedPerpsClosePayout} from '../lib/perps-close-payout-receipt.j
 import {closePayoutFixture} from './helpers/perps-close-payout-fixture.mjs';
 import {conversionFixture} from './helpers/perps-conversion-fixture.mjs';
 import {readJournaledPerpsCloseConversion} from '../lib/perps-journal-close-conversion.js';
+import {verifyOwnerSignedPerpsCloseConversionIntent,validateStoredPerpsCloseConversion} from '../lib/perps-close-conversion-record.js';
+import {readFinalizedPerpsCloseConversionReceipt} from '../lib/perps-close-conversion-receipt.js';
+import {conversionReceiptFixture} from './helpers/perps-conversion-receipt-fixture.mjs';
+import {createPerpsCustodyMasterKey,openPerpsCustodyVault} from '../lib/perps-custody-vault.js';
+import {openPerpsAutomationControls} from '../lib/perps-automation-controls.js';
+import {initializePerpsOperatorRecovery,createPerpsCustodyRecoveryArchive,restorePerpsCustodyRecoveryArchive} from '../lib/perps-custody-recovery.js';
 async function fixture(t,options={}){
  const f=await closePayoutFixture(options),root=mkdtempSync(join(tmpdir(),'jamd-close-exec-')),path=join(root,'journal.sqlite'),opened=[];let time=f.options.now();
  const open=()=>{const j=openPerpsExecutionJournal(path,{now:()=>time});opened.push(j);return j;},journal=open();
@@ -160,5 +167,140 @@ test('journaled USDC collateral or zero return performs no second transaction an
   assert.equal(result.stage,'JOURNALED_CLOSE_REQUIRES_NO_CONVERSION');assert.equal(result.readyForSigning,false);
   assert.equal(result.receivedUsdcUnits,options.side==='SHORT'?'7000000':'0');
   assert.equal(f.journal.read('parent').state,'OPEN');assert.equal(f.journal.readPositionCloseExecution(f.row.id).state,'FIRST_LEG_FINALIZED');
+ }
+});
+
+async function conversionAttemptFixture(t,options={}){
+ const f=await settledFixture(t,options),prepared=await f.journal.preparePositionCloseConversion(f.row.id,f.conversionOptions),p=readJournaledPerpsCloseConversion(prepared,f.journal);
+ // Public deterministic, unfunded test seed matching closePayoutFixture. It
+ // signs only invalid-blockhash in-memory models; no network transport exists.
+ const fixturePrivateKey=createPrivateKey({key:Buffer.concat([Buffer.from('302e020100300506032b657004220420','hex'),Buffer.alloc(32,51)]),format:'der',type:'pkcs8'});
+ const receipt=await conversionReceiptFixture({asset:options.asset??'SOL',nativeSolInput:f.payout.delivery==='NATIVE_SOL',amountUnits:f.payout.receivedTokenUnits,fixturePrivateKey,finalizedSlot:400});
+ assert.equal(receipt.wire.serializedTxBase64,p.prepared.wire.serializedTxBase64);
+ const intent=()=>verifyOwnerSignedPerpsCloseConversionIntent(p.prepared.wire,receipt.transaction.transaction[0]);
+ const uncertain=()=>{f.journal.preparePositionCloseConversionRecord(f.row.id,prepared);f.journal.beginPositionCloseConversionSigning(f.row.id,prepared);return f.journal.recordPositionCloseConversionBroadcast(f.row.id,intent());};
+ return {...f,prepared,p,receipt,intent,uncertain};
+}
+
+test('durable conversion preparation and signing claim survive restart without authorizing funds or releasing original risk',async t=>{
+ const f=await conversionAttemptFixture(t),risk=f.journal.riskState(f.row.wallet);
+ assert.throws(()=>f.journal.preparePositionCloseConversionRecord(f.row.id,{...f.prepared}));
+ const prepared=f.journal.preparePositionCloseConversionRecord(f.row.id,f.prepared);assert.equal(prepared.state,'PREPARED');
+ assert.deepEqual(f.open().readPositionCloseConversion(f.row.id),prepared);assert.throws(()=>f.journal.preparePositionCloseConversionRecord(f.row.id,f.prepared));
+ const signing=f.journal.beginPositionCloseConversionSigning(f.row.id,f.prepared);assert.equal(signing.state,'SIGNING');
+ assert.deepEqual(f.open().readPositionCloseConversion(f.row.id),signing);assert.throws(()=>f.journal.beginPositionCloseConversionSigning(f.row.id,f.prepared));
+ assert.throws(()=>f.journal.recordPositionCloseConversionBroadcast(f.row.id,{...f.intent()}));
+ const recorded=f.journal.recordPositionCloseConversionBroadcast(f.row.id,f.intent());assert.equal(recorded.state,'UNCERTAIN');
+ assert.equal(recorded.signature,f.receipt.identity.signature);assert.equal(recorded.wire_hash,f.receipt.identity.wireHash);
+ assert.equal(recorded.owner_signed_wire,f.receipt.transaction.transaction[0]);assert.deepEqual(f.open().readPositionCloseConversion(f.row.id),recorded);
+ assert.throws(()=>f.journal.recordPositionCloseConversionBroadcast(f.row.id,f.intent()));assert.throws(()=>f.journal.cancelPreparedPositionClose(f.row.id));
+ assert.deepEqual(f.journal.riskState(f.row.wallet),risk);assert.equal(f.journal.read('parent').state,'OPEN');
+});
+
+test('only exact recorded finalized second-leg receipts persist actual USDC, fees and rent without completing risk accounting',async t=>{
+ for(const options of [{asset:'SOL'},{asset:'SOL',unwrapSol:false},{asset:'ETH'},{asset:'BTC'}]){
+  const f=await conversionAttemptFixture(t,options),risk=f.journal.riskState(f.row.wallet);f.uncertain();
+  const payout=await readFinalizedPerpsCloseConversionReceipt(f.p.prepared.wire,f.receipt.identity,f.receipt.receiptOptions);
+  assert.throws(()=>f.journal.reconcilePositionCloseConversion(f.row.id,{...payout}));
+  const row=f.journal.reconcilePositionCloseConversion(f.row.id,payout);assert.equal(row.state,'FINALIZED');
+  const stored=JSON.parse(row.receipt_json);assert.equal(stored.receivedUsdcUnits,String(f.receipt.received));assert.equal(stored.networkFeeLamports,'5400');
+  assert.equal(stored.convertedTokenUnits,'7000000');assert.equal(stored.blockTime,f.receipt.transaction.blockTime);
+  assert.equal(f.journal.pendingPositionCloseConversions(f.row.wallet).length,1);
+  assert.deepEqual(f.journal.reconcilePositionCloseConversion(f.row.id,payout),row);assert.deepEqual(f.open().readPositionCloseConversion(f.row.id),row);
+  assert.equal(validateStoredPerpsCloseConversion(row,f.row,f.journal.readPositionCloseExecution(f.row.id)),row);
+  assert.deepEqual(f.journal.riskState(f.row.wallet),risk);assert.equal(f.journal.read('parent').state,'OPEN');assert.equal(f.journal.readPositionClose(f.row.id).state,'PREPARED');
+ }
+});
+
+test('expired preparation, expired conversion receipts and changed stored minimum cannot advance financial state',async t=>{
+ for(const mode of ['preparation','receipt','minimum']){
+  const f=await conversionAttemptFixture(t);
+  if(mode==='preparation'){f.expire();assert.throws(()=>f.journal.preparePositionCloseConversionRecord(f.row.id,f.prepared));assert.equal(f.journal.readPositionCloseConversion(f.row.id),null);continue;}
+  f.uncertain();const payout=await readFinalizedPerpsCloseConversionReceipt(f.p.prepared.wire,f.receipt.identity,f.receipt.receiptOptions);
+  if(mode==='receipt')f.receipt.expire();
+  else {const db=new DatabaseSync(f.path),row=f.journal.readPositionCloseConversion(f.row.id),w=JSON.parse(row.wire_json);w.minimumUsdcUnits=String(BigInt(w.minimumUsdcUnits)+1n);db.prepare('UPDATE perps_close_conversions SET wire_json=?').run(JSON.stringify(w));db.close();}
+  assert.throws(()=>f.journal.reconcilePositionCloseConversion(f.row.id,payout));assert.equal(f.journal.readPositionCloseConversion(f.row.id).state,'UNCERTAIN');
+ }
+});
+
+async function recoveryOptions(t,f){
+ const root=dirname(f.path),directory=join(root,'wallets'),keyDirectory=join(root,'keys'),keyFile=join(keyDirectory,'master.key'),operatorDirectory=join(root,'operator');
+ chmodSync(root,0o700);for(const p of [directory,keyDirectory])mkdirSync(p,{mode:0o700});
+ const common={allowNonPosixForTests:process.platform==='win32',now:f.options.now};createPerpsCustodyMasterKey(keyFile,common);
+ const ownerAccountHash='e'.repeat(64),walletAddress=f.row.wallet,purpose='jamddmaj-perps-automation',seed=Buffer.alloc(32,51),key=readFileSync(keyFile),iv=Buffer.alloc(12,7);
+ // Only this freshly created unfunded test vault uses the public test seed.
+ // No production key/record is read, imported or exported by this corpus.
+ const cipher=createCipheriv('aes-256-gcm',key,iv);cipher.setAAD(Buffer.from(JSON.stringify({version:1,purpose,ownerAccountHash,walletAddress})));
+ const ciphertext=Buffer.concat([cipher.update(seed),cipher.final()]);key.fill(0);seed.fill(0);
+ writeFileSync(join(directory,'owner-'+ownerAccountHash+'.json'),JSON.stringify({version:1,purpose,ownerAccountHash,walletAddress,iv:iv.toString('base64'),ciphertext:ciphertext.toString('base64'),tag:cipher.getAuthTag().toString('base64')}),{mode:0o600,flag:'wx'});
+ const vault=openPerpsCustodyVault({directory,keyFile,...common});assert.equal(vault.createOrReadExclusiveWallet({ownerAccountHash,explicitCustodyApproval:true}).walletAddress,walletAddress);
+ const controlsPath=join(root,'controls.sqlite'),controls=openPerpsAutomationControls(controlsPath,{now:f.options.now});
+ controls.provision({ownerAccountHash,walletAddress,settings:{capital:100,loss:90,positions:2,margin:10,leverage:3,dailyTrades:5}});controls.close();
+ for(const p of [f.path,controlsPath])chmodSync(p,0o600);
+ const operator=await initializePerpsOperatorRecovery({directory:operatorDirectory,...common});
+ return {request:{directory,keyFile,recipient:operator.recipient,explicitOperatorApproval:true,runtimePaths:{controlsPath,journalPath:f.path,temporaryDirectory:root},...common},
+  restore:{operatorDirectory,destinationDirectory:join(root,'restored'),explicitOperatorApproval:true,...common}};
+}
+
+test('encrypted recovery preserves every second-leg phase and its exact signed/result bytes with custody still quarantined',async t=>{
+ for(const state of ['PREPARED','SIGNING','UNCERTAIN','FINALIZED']){
+  const f=await conversionAttemptFixture(t);
+  if(['UNCERTAIN','FINALIZED'].includes(state))f.uncertain();else {
+   f.journal.preparePositionCloseConversionRecord(f.row.id,f.prepared);
+   if(state==='SIGNING')f.journal.beginPositionCloseConversionSigning(f.row.id,f.prepared);
+  }
+  if(state==='FINALIZED')f.journal.reconcilePositionCloseConversion(f.row.id,await readFinalizedPerpsCloseConversionReceipt(f.p.prepared.wire,f.receipt.identity,f.receipt.receiptOptions));
+  const before=f.journal.readPositionCloseConversion(f.row.id),options=await recoveryOptions(t,f),archive=await createPerpsCustodyRecoveryArchive(options.request),restored=await restorePerpsCustodyRecoveryArchive({...options.restore,ciphertext:archive.ciphertext});
+  const j=openPerpsExecutionJournal(join(restored.runtimeDirectory,'journal.sqlite'),{now:f.options.now});
+  try{assert.deepEqual(j.readPositionCloseConversion(f.row.id),before);assert.equal(j.read('parent').state,'OPEN');assert.equal(j.riskState(f.row.wallet).activeMarginUsdcUnits,'10000000');}
+  finally{j.close();}assert.equal(restored.readyForSigning,false);assert.equal(restored.tradingEnabled,false);
+ }
+});
+
+test('encrypted recovery rejects a conversion detached from its finalized first-leg payout',async t=>{
+ const f=await conversionAttemptFixture(t);f.uncertain();const options=await recoveryOptions(t,f),db=new DatabaseSync(f.path);
+ db.prepare("UPDATE perps_close_conversions SET payout_binding=?").run('f'.repeat(64));db.close();
+ await assert.rejects(createPerpsCustodyRecoveryArchive(options.request));
+});
+
+test('restart reconstructs the exact recorded conversion with native roles and reconciles only its rooted signature',async t=>{
+ for(const options of [{asset:'SOL'},{asset:'SOL',unwrapSol:false},{asset:'ETH'},{asset:'BTC'}]){
+  const f=await conversionAttemptFixture(t,options),uncertain=f.uncertain(),j=f.open(),calls=[];
+  const request=async(m,p)=>{calls.push({m,p});return m==='getMultipleAccounts'?f.swap.request(m,p):f.receipt.request(m,p);};
+  const result=await j.recoverPositionCloseConversion(f.row.id,{...f.receipt.receiptOptions,request});
+  assert.equal(result.stage,'RECORDED_CONVERSION_FINALIZED');assert.equal(result.signature,uncertain.signature);assert.equal(result.receivedUsdcUnits,String(f.receipt.received));
+  assert.equal(result.readyForSigning,false);assert.equal(result.requiresCompleteDailyAccounting,true);
+  assert.equal(j.readPositionCloseConversion(f.row.id).state,'FINALIZED');assert.equal(j.read('parent').state,'OPEN');
+  const repeated=await j.recoverPositionCloseConversion(f.row.id,{...f.receipt.receiptOptions,request});assert.deepEqual(repeated.execution,result.execution);
+  assert(calls.filter(c=>c.m==='getTransaction').every(c=>c.p[0]===uncertain.signature));
+  assert(calls.every(c=>!['simulateTransaction','sendTransaction','requestAirdrop','getLatestBlockhash'].includes(c.m)));
+ }
+});
+
+test('unknown or failed conversion history never re-prepares, re-signs, resends or forgets recorded uncertainty',async t=>{
+ for(const mode of ['missing','confirmed','failed']){
+  const f=await conversionAttemptFixture(t),before=f.uncertain();
+  if(mode==='confirmed')f.receipt.status.confirmationStatus='confirmed';
+  if(mode==='failed')f.receipt.status.err={InstructionError:[6,{Custom:6020}]};
+  const request=(m,p)=>m==='getMultipleAccounts'?f.swap.request(m,p):mode==='missing'&&m==='getSignatureStatuses'?Promise.resolve({context:{slot:410},value:[null]}):f.receipt.request(m,p);
+  const recover=()=>f.journal.recoverPositionCloseConversion(f.row.id,{...f.receipt.receiptOptions,request});
+  if(mode==='failed')await assert.rejects(recover);else assert.equal((await recover()).stage,'RECORDED_CONVERSION_AWAITING_FINALITY');
+  assert.deepEqual(f.journal.readPositionCloseConversion(f.row.id),before);assert.equal(f.journal.read('parent').state,'OPEN');
+  await assert.rejects(f.journal.preparePositionCloseConversion(f.row.id,f.conversionOptions));
+ }
+});
+
+test('conversion recovery refuses changed native roles or durable facts instead of substituting a new message',async t=>{
+ for(const mode of ['native','durable']){
+  const f=await conversionAttemptFixture(t);f.uncertain();let changed=false;
+  const request=async(m,p)=>{
+   const reply=await (m==='getMultipleAccounts'?f.swap.request(m,p):f.receipt.request(m,p));
+   if(m==='getMultipleAccounts'&&!changed){changed=true;
+    if(mode==='native'){const b=Buffer.from(reply.value[0].data[0],'base64');b[72]^=1;reply.value[0]={...reply.value[0],data:[b.toString('base64'),'base64']};}
+    else {const db=new DatabaseSync(f.path);db.prepare('UPDATE perps_close_conversions SET updated=updated+1').run();db.close();}
+   }return reply;
+  };
+  await assert.rejects(f.journal.recoverPositionCloseConversion(f.row.id,{...f.receipt.receiptOptions,request}));
+  assert.equal(f.journal.readPositionCloseConversion(f.row.id).state,'UNCERTAIN');assert.equal(f.journal.read('parent').state,'OPEN');
  }
 });

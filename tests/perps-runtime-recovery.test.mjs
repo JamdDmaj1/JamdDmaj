@@ -157,7 +157,7 @@ test('recovery refuses settlement metadata that loses pending conversion or bind
 
 test('previous direct-close schema remains recoverable but cannot silently start or invent settlement metadata',async t=>{
  const f=await fixture(t),parent=f.journal.read('open'),raw=new DatabaseSync(f.journalPath);
- raw.exec('DROP TABLE perps_position_close_executions; DROP TABLE perps_position_closes');raw.exec(PERPS_POSITION_CLOSE_SCHEMA_SQL.replace(', settlement TEXT NOT NULL','').split('CREATE TABLE IF NOT EXISTS perps_position_close_executions')[0]);
+ raw.exec('DROP TABLE perps_close_conversions; DROP TABLE perps_position_close_executions; DROP TABLE perps_position_closes');raw.exec(PERPS_POSITION_CLOSE_SCHEMA_SQL.replace(', settlement TEXT NOT NULL','').split('CREATE TABLE IF NOT EXISTS perps_position_close_executions')[0]);
  const entries=[{reservation:parent.reservation,signature:parent.signature,wire_hash:parent.wire_hash,confirmed_slot:parent.confirmed_slot,entry_exit_plan:parent.entry_exit_plan}];
  raw.prepare('INSERT INTO perps_position_closes(id,wallet,position,state,created,updated,observed_slot,fee_lamports,unsigned_wire_hash,entries) VALUES(?,?,?,?,?,?,?,?,?,?)')
   .run('old-direct',parent.wallet,parent.position_address,'PREPARED',now,now,105,5000,'d'.repeat(64),JSON.stringify(entries));raw.close();
@@ -193,7 +193,7 @@ test('encrypted recovery preserves uncertain cancellation identities and the sta
   assert.deepEqual(store.readExitCancellation('recovery-cancel'),f.journal.readExitCancellation('recovery-cancel'));
   assert.equal(store.pendingExitCancellations(f.wallet.walletAddress).length,1);assert.equal(store.read('open').state,'OPEN');
  }
- const f=await fixture(t),raw=new DatabaseSync(f.journalPath);raw.exec('DROP TABLE perps_position_close_executions; DROP TABLE perps_position_closes; DROP TABLE perps_exit_cancellations');raw.close();
+ const f=await fixture(t),raw=new DatabaseSync(f.journalPath);raw.exec('DROP TABLE perps_close_conversions; DROP TABLE perps_position_close_executions; DROP TABLE perps_position_closes; DROP TABLE perps_exit_cancellations');raw.close();
  assert.throws(()=>inspectExistingPerpsRuntimeDatabases({...f.runtimePaths,...f.common}));
  const check=new DatabaseSync(f.journalPath,{readOnly:true});assert.equal(check.prepare("SELECT count(*) AS n FROM sqlite_master WHERE name='perps_exit_cancellations'").get().n,0);check.close();
  // A recognized old archive remains recoverable; startup itself never upgrades it.

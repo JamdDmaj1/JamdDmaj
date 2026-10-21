@@ -1,13 +1,13 @@
 // Unfunded, in-memory finalized-transaction model. Invalid fixed blockhash,
 // ephemeral owner key, no network or sending method. Not a real transaction.
 import assert from 'node:assert/strict';
-import {generateKeyPairSync,sign,createHash} from 'node:crypto';
+import {generateKeyPairSync,createPublicKey,sign,createHash} from 'node:crypto';
 import bs58 from 'bs58';
 import {conversionFixture} from './perps-conversion-fixture.mjs';
 import {PERPS_PROGRAM,PERPS_POOL,deriveServerPerpsIdentities} from '../../lib/perps-server-custody.js';
 const TOKEN='TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',hash=b=>createHash('sha256').update(b).digest('hex');
-export async function conversionReceiptFixture({identityPoint=false,...options}={}){
- const pair=generateKeyPairSync('ed25519'),publicKey=identityPoint?Buffer.from([1,...Array(31).fill(0)]):pair.publicKey.export({format:'der',type:'spki'}).subarray(-32);
+export async function conversionReceiptFixture({identityPoint=false,fixturePrivateKey=null,finalizedSlot=120,...options}={}){
+ const pair=fixturePrivateKey?{privateKey:fixturePrivateKey,publicKey:createPublicKey(fixturePrivateKey)}:generateKeyPairSync('ed25519'),publicKey=identityPoint?Buffer.from([1,...Array(31).fill(0)]):pair.publicKey.export({format:'der',type:'spki'}).subarray(-32);
  const f=await conversionFixture({...options,walletAddress:bs58.encode(publicKey)}),message=Buffer.from(f.wire.messageBase64,'base64');
  const signature=identityPoint?Buffer.from([1,...Array(63).fill(0)]):sign(null,message,pair.privateKey),signed=Buffer.concat([Buffer.from([1]),signature,message]);
  const keys=Array.from({length:message[3]},(_,i)=>bs58.encode(message.subarray(4+i*32,36+i*32))),index=k=>{const i=keys.indexOf(k);assert.ok(i>=0);return i;};
@@ -28,10 +28,10 @@ export async function conversionReceiptFixture({identityPoint=false,...options}=
   innerInstructions:[{index:coreIndex,instructions:[transfer(f.wire.source,f.c.tokenAccount,f.walletAddress,f.amount),transfer(f.u.tokenAccount,f.wire.destination,ids.transferAuthority,f.received),
    {programIdIndex:index(PERPS_PROGRAM),accounts:[index(ids.eventAuthority)],data:bs58.encode(event),stackHeight:2}]}]};
  const time=f.options.now(),identity={signature:bs58.encode(signature),wireHash:hash(signed),createdAt:time-1000,minimumSlot:105};
- const status={confirmationStatus:'finalized',slot:120,err:null},transaction={slot:120,blockTime:time/1000,transaction:[signed.toString('base64'),'base64'],meta};
+ const status={confirmationStatus:'finalized',slot:finalizedSlot,err:null},transaction={slot:finalizedSlot,blockTime:time/1000,transaction:[signed.toString('base64'),'base64'],meta};
  let elapsed=0;const calls=[],request=async(method,params)=>{
   calls.push({method,params});if(method==='getGenesisHash')return '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
-  if(method==='getSignatureStatuses')return {context:{slot:130},value:[status]};if(method==='getTransaction')return transaction;throw Error('WRITE_OR_UNEXPECTED_RPC');
+  if(method==='getSignatureStatuses')return {context:{slot:Math.max(130,finalizedSlot+10)},value:[status]};if(method==='getTransaction')return transaction;throw Error('WRITE_OR_UNEXPECTED_RPC');
  };
  return {...f,identity,status,transaction,keys,index,event,coreIndex,calls,request,receiptOptions:{request,now:()=>time,monotonicNow:()=>elapsed},expire(){elapsed=10001;},backward(){elapsed=-1;}};
 }
