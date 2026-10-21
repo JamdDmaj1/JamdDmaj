@@ -6,7 +6,8 @@ import {inspectServerPerpsPreparation,prepareInspectedServerAutomation,readServe
 import {prepareInspectedPerpsManualOrder} from '../lib/perps-manual-preparation.js';
 import {createWebPerpsReviewStore} from '../lib/perps-web-review-store.js';
 import {openWebPerpsSigningJournal} from '../lib/perps-web-signing-journal.js';
-import {createWebPerpsSigningReviewClient,authorizeWebPerpsOwnerSignature,readWebPerpsOwnerSignature} from '../lib/perps-web-signing-review.js';
+import {inspectWebPerpsSubmission,openWebPerpsSubmissionJournal} from '../lib/perps-web-submission-journal.js';
+import {createWebPerpsSigningReviewClient,authorizeWebPerpsOwnerSignature,readWebPerpsOwnerSignature,claimWebPerpsServerHandoff,consumeWebPerpsServerHandoff} from '../lib/perps-web-signing-review.js';
 import {bindWebPerpsWalletSession,clearWebPerpsWalletSession,signReviewedWebPerpsOrder} from '../lib/perps-web-wallet-session.js';
 import {selectWalletAccount} from '../lib/wallet-portfolio-store.js';
 import {IDBFactory} from 'fake-indexeddb';
@@ -272,6 +273,80 @@ test('an owner signature cannot be read for submission after its local durable r
   };
  });
  await assert.rejects(readWebPerpsOwnerSignature(result,{doc:f.doc,journal:f.journal}));assert.equal(f.state.prompts,1);
+});
+
+test('server handoff commits uncertainty before releasing exact bytes, is one-use and survives expiry and reload without retry',async t=>{
+ const f=await webSigningFixture(t),review=await f.client.prepare(f.draft),grant=await authorizeWebPerpsOwnerSignature(review,{doc:f.doc,journal:f.journal,explicitApproval:true});
+ const result=await signReviewedWebPerpsOrder(f.doc,grant);
+ await assert.rejects(claimWebPerpsServerHandoff(result,{doc:f.doc,journal:f.journal,explicitApproval:false}));
+ await assert.rejects(claimWebPerpsServerHandoff({...result},{doc:f.doc,journal:f.journal,explicitApproval:true}));
+ const claims=await Promise.allSettled([0,1].map(()=>claimWebPerpsServerHandoff(result,{doc:f.doc,journal:f.journal,explicitApproval:true})));
+ assert.equal(claims.filter(c=>c.status==='fulfilled').length,1);
+ const claim=claims.find(c=>c.status==='fulfilled').value;
+ assert.equal((await f.journal.read(f.packet.reviewId)).state,'SUBMISSION_UNCERTAIN');
+ await assert.rejects(consumeWebPerpsServerHandoff({...claim},{doc:f.doc,journal:f.journal}));
+ const wire=await consumeWebPerpsServerHandoff(claim,{doc:f.doc,journal:f.journal});
+ assert.equal(wire.readyForBroadcast,false);assert.equal(wire.requiresServerSubmissionJournal,true);
+ assert.equal(wire.signedBase64,(await f.journal.read(f.packet.reviewId)).signedBase64);
+ await assert.rejects(consumeWebPerpsServerHandoff(claim,{doc:f.doc,journal:f.journal}));
+ await assert.rejects(readWebPerpsOwnerSignature(result,{doc:f.doc,journal:f.journal}));
+ await assert.rejects(claimWebPerpsServerHandoff(result,{doc:f.doc,journal:f.journal,explicitApproval:true}));
+ f.state.time+=600000;f.journal.close();
+ const reopened=await openWebPerpsSigningJournal({indexedDB:f.indexedDB,name:f.name,now:f.clock});t.after(()=>reopened.close());
+ const row=await reopened.read(f.packet.reviewId);assert.equal(row.state,'SUBMISSION_UNCERTAIN');assert.equal(row.signedBase64,wire.signedBase64);
+ assert.equal((await reopened.pending(f.account.address)).length,1);assert.equal(f.state.prompts,1);
+ assert(f.calls.every(call=>!['sendTransaction','requestAirdrop'].includes(call.method)));
+});
+
+test('expired, hidden, disconnected or closed-journal handoff never releases bytes or clears the pending operation',async t=>{
+ for(const mode of ['expired','hidden','disconnect','closed']){
+  const f=await webSigningFixture(t),review=await f.client.prepare(f.draft),grant=await authorizeWebPerpsOwnerSignature(review,{doc:f.doc,journal:f.journal,explicitApproval:true});
+  const result=await signReviewedWebPerpsOrder(f.doc,grant),claim=await claimWebPerpsServerHandoff(result,{doc:f.doc,journal:f.journal,explicitApproval:true});
+  if(mode==='expired')f.state.time+=15001;if(mode==='hidden')f.doc.hidden=true;if(mode==='disconnect')clearWebPerpsWalletSession(f.doc);if(mode==='closed')f.journal.close();
+  await assert.rejects(consumeWebPerpsServerHandoff(claim,{doc:f.doc,journal:f.journal}));
+  f.doc.hidden=false;f.state.time=now;bindWebPerpsWalletSession(f.doc,f.wallet,f.account);
+  await assert.rejects(consumeWebPerpsServerHandoff(claim,{doc:f.doc,journal:f.journal}));
+  const reopened=await openWebPerpsSigningJournal({indexedDB:f.indexedDB,name:f.name,now:f.clock});t.after(()=>reopened.close());
+  assert.equal((await reopened.read(f.packet.reviewId)).state,'SUBMISSION_UNCERTAIN');assert.equal(f.state.prompts,1);
+ }
+});
+
+test('permanent server submission barrier accepts only fresh original native evidence and survives connection restart without TTL or retry',async t=>{
+ const f=await webSigningFixture(t),review=await f.client.prepare(f.draft),grant=await authorizeWebPerpsOwnerSignature(review,{doc:f.doc,journal:f.journal,explicitApproval:true});
+ const result=await signReviewedWebPerpsOrder(f.doc,grant),wire=await readWebPerpsOwnerSignature(result,{doc:f.doc,journal:f.journal});
+ const directory=mkdtempSync(join(tmpdir(),'jamddmaj-web-submission-')),opened=[];t.after(()=>{for(const db of opened)db.close();rmSync(directory,{recursive:true,force:true});});
+ const filename=join(directory,'journal.sqlite'),journal=openWebPerpsSubmissionJournal({filename,now:f.clock});
+ const other=openWebPerpsSubmissionJournal({filename,now:f.clock});opened.push(journal,other);
+ const inspect=()=>inspectWebPerpsSubmission(f.packet,wire.signedBase64,{reviewStore:f.store,rpcRequest:f.rpcRequest,now:f.clock,monotonicNow:()=>f.state.mono});
+ const evidence=await inspect(),competitor=await inspect();
+ assert.throws(()=>journal.claim({...evidence}));assert.equal(journal.read(f.packet.reviewId),null);
+ const held=journal.claim(evidence);assert.equal(held.state,'UNCERTAIN');assert.equal(held.readyForBroadcast,false);
+ assert.throws(()=>journal.claim(evidence));assert.throws(()=>other.claim(competitor));
+ assert.equal(other.pending(f.account.address).signed_base64,wire.signedBase64);
+ f.state.time+=3600000;journal.close();
+ const reopened=openWebPerpsSubmissionJournal({filename,now:f.clock});opened.push(reopened);
+ assert.equal(reopened.pending(f.account.address).state,'UNCERTAIN');assert.equal(reopened.read(f.packet.reviewId).signature,result.signature);
+ assert.equal(f.state.builderCalls,1);assert.equal(f.state.prompts,1);assert(f.calls.every(c=>!['sendTransaction','requestAirdrop'].includes(c.method)));
+});
+
+test('server submission barrier rejects modified wire, expired review, copied native proof and clock rollback without writing',async t=>{
+ for(const mode of ['modified-wire','expired','copied-proof','clock-rollback']){
+  const f=await webSigningFixture(t),review=await f.client.prepare(f.draft),grant=await authorizeWebPerpsOwnerSignature(review,{doc:f.doc,journal:f.journal,explicitApproval:true});
+  const result=await signReviewedWebPerpsOrder(f.doc,grant),wire=await readWebPerpsOwnerSignature(result,{doc:f.doc,journal:f.journal});
+  const directory=mkdtempSync(join(tmpdir(),'jamddmaj-web-submission-'));
+  const journal=openWebPerpsSubmissionJournal({filename:join(directory,'journal.sqlite'),now:f.clock});t.after(()=>{journal.close();rmSync(directory,{recursive:true,force:true});});
+  if(mode==='clock-rollback'){
+   const evidence=await inspectWebPerpsSubmission(f.packet,wire.signedBase64,{reviewStore:f.store,rpcRequest:f.rpcRequest,now:f.clock,monotonicNow:()=>f.state.mono});f.state.time--;
+   assert.throws(()=>journal.claim(evidence));
+  }else{
+   if(mode==='expired')f.state.time+=15001;
+   const changed=Buffer.from(wire.signedBase64,'base64');changed[changed.length-1]^=1;
+   const reviewStore=mode==='copied-proof'?{read:async()=>f.packet,revalidate:async()=>({...f.native})}:f.store;
+   await assert.rejects(inspectWebPerpsSubmission(f.packet,mode==='modified-wire'?changed.toString('base64'):wire.signedBase64,{reviewStore,rpcRequest:f.rpcRequest,now:f.clock,monotonicNow:()=>f.state.mono}));
+  }
+  assert.equal(journal.read(f.packet.reviewId),null);
+ }
+ assert.throws(()=>openWebPerpsSubmissionJournal({filename:':memory:'}));
 });
 
 test('expired, changed or falsely acknowledged server preparation cannot issue or resume a signing review',async t=>{

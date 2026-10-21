@@ -3826,3 +3826,48 @@ A separate read-only check confirmed the installed worker remains SHA-256
 worker/HTTPS services are active and the old Bitget executor is disabled. This
 does not mean the new web signing component was deployed or financial execution
 was enabled.
+
+### Web submission uncertainty barrier (2026-10-21, not deployed)
+
+The browser journal now commits `SUBMISSION_UNCERTAIN` with strict IndexedDB
+durability before handing the exact owner-signed wire to a one-use private
+server-handoff claim. Concurrent claims, cloned results, lost focus/connection,
+expired approvals and a closed journal cannot release submission bytes. A
+failed/consumed claim never returns to `OWNER_SIGNED`. Reloads preserve the
+pending signature and exact bytes without re-prompting or retrying. The shared
+browser bundle re-exports these functions so private capability maps are not
+duplicated between Assets and Futures. This is not RPC broadcast authority.
+
+`lib/perps-web-submission-journal.js` adds a **server-only, single durable-host**
+SQLite barrier (WAL, synchronous FULL, BEGIN IMMEDIATE; never Vercel `/tmp`).
+Before a claim it verifies the owner's exact signature, the original stored
+review, and a fresh full native inspection of the original wire. Copied native
+proofs and expired/mutated reviews are rejected. A committed `UNCERTAIN` row
+retains the immutable packet, signature and signed bytes indefinitely. Unique
+wallet, review, signature and wire constraints reject competing claims across
+connections. Readback is required; its failure never unlocks a committed row.
+There is deliberately no TTL, delete, unlock, send or generic terminal setter.
+
+This new ledger is not yet connected to an HTTP execution endpoint or the
+existing custody/native ledgers. Cross-path wallet exclusivity, fixed one-send
+transport, finalized-chain reconciliation, explicit recovery UI, complete
+manual closing/conversion and production integration remain required. Do not
+enable the Futures buttons merely because these barrier tests pass. No funded
+wallet was signed, no transaction was submitted, and neither deployment nor
+bot activation occurred.
+
+Verification: 45/45 affected local tests and `npm run build:web` passed. The
+actual built browser passed at 1365x900 and 390x844 with real IndexedDB and an
+unfunded fake wallet, preserving `SUBMISSION_UNCERTAIN` after reload and refusing
+a repeated handoff. External requests were blocked. A bundled affected corpus
+passed 18/18 on the VPS's Node 22 in the isolated transient unit
+`jamddmaj-web-submission-check-20261021.service` with PrivateNetwork, DynamicUser,
+PrivateTmp, ProtectHome, ProtectSystem=strict, NoNewPrivileges and MemoryMax384M.
+The transferred bundle's SHA-256 matched before execution:
+`2a9560e5719ecca956f71c8253420b8432c95da143c16572e95d505d72e6ca01`.
+It only ran fixture tests in isolation; it did not change the installed worker
+or read production custody records.
+
+The complete local suite subsequently finished with 844 tests: 838 passed,
+six skipped and zero failures (151508 ms). Log:
+`.perps-build/web-owner-signature-20261021/submission-tests.log`.
