@@ -19,6 +19,11 @@ import {conversionReceiptFixture} from './helpers/perps-conversion-receipt-fixtu
 import {createPerpsCustodyMasterKey,openPerpsCustodyVault} from '../lib/perps-custody-vault.js';
 import {openPerpsAutomationControls} from '../lib/perps-automation-controls.js';
 import {initializePerpsOperatorRecovery,createPerpsCustodyRecoveryArchive,restorePerpsCustodyRecoveryArchive} from '../lib/perps-custody-recovery.js';
+import {readServerPerpsTradeTransaction} from '../lib/perps-server-trade-transaction.js';
+import {readJournalledPerpsConversion,requireVerifiedPerpsConversionHistory} from '../lib/perps-conversion-history.js';
+import {createPerpsConversionUsdValuationReader,requirePerpsConversionUsdValuation} from '../lib/perps-conversion-usd-valuation.js';
+import {createServerPerpsDailyAccountReader,requireFreshServerPerpsDailyAccount} from '../lib/perps-server-daily-account.js';
+import {createPerpsNetworkFeeValuationReader} from '../lib/perps-network-fee-valuation.js';
 async function fixture(t,options={}){
  const f=await closePayoutFixture(options),root=mkdtempSync(join(tmpdir(),'jamd-close-exec-')),path=join(root,'journal.sqlite'),opened=[];let time=f.options.now();
  const open=()=>{const j=openPerpsExecutionJournal(path,{now:()=>time});opened.push(j);return j;},journal=open();
@@ -103,7 +108,7 @@ test('a pending wallet entry prevents claiming the close without changing either
 async function settledFixture(t,options={}){
  const f=await fixture(t,options);f.uncertain();
  const payout=await readFinalizedPerpsClosePayout(f.row,f.identity,f.options);f.journal.reconcilePositionClosePayout(f.row.id,payout);
- const swap=options.side==='SHORT'||options.amount===0n?null:await conversionFixture({asset:options.asset??'SOL',walletAddress:f.row.wallet,amountUnits:payout.receivedTokenUnits,nativeSolInput:payout.delivery==='NATIVE_SOL'});
+ const swap=options.side==='SHORT'||options.amount===0n?null:await conversionFixture({asset:options.asset??'SOL',walletAddress:f.row.wallet,amountUnits:payout.receivedTokenUnits,nativeSolInput:payout.delivery==='NATIVE_SOL',nowMs:f.options.now()});
  const request=(m,p)=>['getTransaction','getSignatureStatuses','getGenesisHash'].includes(m)||m==='getMultipleAccounts'&&p[1].commitment==='finalized'?f.request(m,p):swap.request(m,p);
  return {...f,swap,payout,conversionOptions:{...f.options,maxSlippageBps:100,request}};
 }
@@ -175,7 +180,7 @@ async function conversionAttemptFixture(t,options={}){
  // Public deterministic, unfunded test seed matching closePayoutFixture. It
  // signs only invalid-blockhash in-memory models; no network transport exists.
  const fixturePrivateKey=createPrivateKey({key:Buffer.concat([Buffer.from('302e020100300506032b657004220420','hex'),Buffer.alloc(32,51)]),format:'der',type:'pkcs8'});
- const receipt=await conversionReceiptFixture({asset:options.asset??'SOL',nativeSolInput:f.payout.delivery==='NATIVE_SOL',amountUnits:f.payout.receivedTokenUnits,fixturePrivateKey,finalizedSlot:400});
+ const receipt=await conversionReceiptFixture({asset:options.asset??'SOL',nativeSolInput:f.payout.delivery==='NATIVE_SOL',amountUnits:f.payout.receivedTokenUnits,fixturePrivateKey,finalizedSlot:400,nowMs:f.options.now()});
  assert.equal(receipt.wire.serializedTxBase64,p.prepared.wire.serializedTxBase64);
  const intent=()=>verifyOwnerSignedPerpsCloseConversionIntent(p.prepared.wire,receipt.transaction.transaction[0]);
  const uncertain=()=>{f.journal.preparePositionCloseConversionRecord(f.row.id,prepared);f.journal.beginPositionCloseConversionSigning(f.row.id,prepared);return f.journal.recordPositionCloseConversionBroadcast(f.row.id,intent());};
@@ -303,4 +308,157 @@ test('conversion recovery refuses changed native roles or durable facts instead 
   await assert.rejects(f.journal.recoverPositionCloseConversion(f.row.id,{...f.receipt.receiptOptions,request}));
   assert.equal(f.journal.readPositionCloseConversion(f.row.id).state,'UNCERTAIN');assert.equal(f.journal.read('parent').state,'OPEN');
  }
+});
+
+async function financialHistoryFixture(t,options={},build=conversionAttemptFixture){
+ const f=await build(t,{transferAmountUsd:'700000',...options});f.uncertain();
+ let time=f.receipt.receiptOptions.now()+70000,mono=0;const calls=[],conversionSignature=f.receipt.identity.signature,firstSignature=f.identity.signature;
+ const request=async(m,p)=>{
+  calls.push({m,p});if(m==='getTransaction')return structuredClone(p[0]===conversionSignature?f.receipt.transaction:p[0]===firstSignature?f.tx:null);
+  if(m==='getSignatureStatuses')return f.receipt.request(m,p);
+  return m==='getMultipleAccounts'&&p[0].length===2?f.swap.request(m,p):f.request(m,p);
+ };
+ const opts={request,now:()=>time,monotonicNow:()=>mono};
+ const transaction=await readServerPerpsTradeTransaction({walletAddress:f.row.wallet,signature:conversionSignature,day:new Date(time).toISOString().slice(0,10)},{...opts,requireTradeEvent:false});
+ const conversion=await readJournalledPerpsConversion(transaction,{...opts,journal:f.journal});
+ const minute=Math.floor(f.receipt.transaction.blockTime/60)*60,prices={USDCUSD:[[minute,'1','1','1','1','1','20',3],[minute+60,'1','1','1','1','1','20',3]],'SOL-USD':[[minute,100,100,100,100,20],[minute-60,100,100,100,100,20]]},fetchCalls=[];
+ const fetchImpl=async(url,options)=>{fetchCalls.push({url,options});const u=new URL(url);return u.hostname==='api.kraken.com'?Response.json({error:[],result:{USDCUSD:prices.USDCUSD,last:minute}}):Response.json(prices[u.pathname.split('/')[2]]);};
+ return {...f,transaction,conversion,opts,request,prices,fetchImpl,fetchCalls,calls,minute,setTime(v){time=v;},expireHistoryLease(){mono=10001;}};
+}
+
+test('daily conversion history requires the exact signed journal operation and immutable first-leg event basis, not a generic swap exception',async t=>{
+ const f=await financialHistoryFixture(t),c=f.conversion;
+ assert.equal(c.inputValueUsdUnits,'700000');assert.equal(c.receivedUsdcUnits,'696500');assert.equal(c.swapFeeUsdcUnits,'3500');
+ assert.equal(c.readyForSigning,false);assert.equal(c.firstLegSignature,f.identity.signature);
+ assert.equal(requireVerifiedPerpsConversionHistory(c,{transaction:f.transaction,journal:f.journal}),c);
+ assert.throws(()=>requireVerifiedPerpsConversionHistory({...c}));
+ const before=f.calls.length;assert.equal(await readJournalledPerpsConversion(f.transaction,{...f.opts,journal:f.journal}),c);assert.equal(f.calls.length,before);
+ assert.equal(await readJournalledPerpsConversion(f.transaction,{...f.opts,journal:{}}),null);
+ const db=new DatabaseSync(f.path);db.prepare('UPDATE perps_close_conversions SET payout_binding=?').run('e'.repeat(64));db.close();
+ assert.throws(()=>requireVerifiedPerpsConversionHistory(c));await assert.rejects(readJournalledPerpsConversion(f.transaction,{...f.opts,journal:f.journal}));
+});
+
+test('USDC risk uses actual closed-market bounds, charges depegs and never lets a gain erase the swap fee',async t=>{
+ for(const mode of ['parity','depeg','profit','bounds']){
+  const f=await financialHistoryFixture(t,mode==='profit'?{transferAmountUsd:'100000'}:{});
+  if(mode==='depeg')f.prices.USDCUSD[0]=[f.minute,'0.5','0.5','0.5','0.5','0.5','20',3];
+  if(mode==='bounds')f.prices.USDCUSD[0]=[f.minute,'1','1.01','0.99','1','1','20',3];
+  const reader=createPerpsConversionUsdValuationReader({...f.opts,fetchImpl:f.fetchImpl}),input={conversions:[f.conversion],day:f.transaction.day},v=await reader(input);
+  if(mode==='parity'||mode==='profit')assert.equal(v.conversionLossUsdUnits,'3500');
+  if(mode==='depeg')assert.equal(v.conversionLossUsdUnits,'351750');
+  if(mode==='bounds'){
+   const received=696500n*99000000n/100000000n;assert.equal(v.items[0].receivedUsdLowerUnits,String(received));assert.equal(v.conversionLossUsdUnits,String(700000n-received));
+  }
+  assert.equal(v.readyForSigning,false);assert.equal(f.fetchCalls.length,1);assert(f.fetchCalls.every(c=>c.options.method==='GET'&&c.options.credentials==='omit'&&c.options.body===undefined));
+  const url=new URL(f.fetchCalls[0].url);assert.equal(url.origin,'https://api.kraken.com');assert.equal(url.pathname,'/0/public/OHLC');assert.equal(url.searchParams.get('pair'),'USDCUSD');assert.equal(url.searchParams.get('interval'),'1');
+  assert.equal((await reader(input)).conversionLossUsdUnits,v.conversionLossUsdUnits);assert.equal(f.fetchCalls.length,1);
+  assert.throws(()=>requirePerpsConversionUsdValuation({...v},input));assert.throws(()=>requirePerpsConversionUsdValuation(v,{...input,conversions:[]}));
+  f.expireHistoryLease();assert.throws(()=>requirePerpsConversionUsdValuation(v,input));
+ }
+});
+
+test('missing, partial, substituted or malformed currency candles cannot silently become one dollar or zero conversion loss',async t=>{
+ for(const mode of ['missing','partial','duplicate','inverted','outside','zero','http','content','copiedFact','duplicateFact','apiError','wrongPair','uncommittedOnly','tooMany','precision','volume']){
+  const f=await financialHistoryFixture(t);let fetchImpl=f.fetchImpl,conversions=[f.conversion];
+  if(mode==='missing')f.prices.USDCUSD=[];
+  if(mode==='partial')f.setTime((f.minute+64)*1000);
+  if(mode==='duplicate')f.prices.USDCUSD.push([...f.prices.USDCUSD[0]]);
+  if(mode==='inverted')f.prices.USDCUSD[0][3]='2';
+  if(mode==='outside')f.prices.USDCUSD[0][0]-=60;
+  if(mode==='zero')f.prices.USDCUSD[0][3]='0';
+  if(mode==='http')fetchImpl=async()=>new Response('unavailable',{status:503});
+  if(mode==='content')fetchImpl=async()=>new Response('[]');
+  if(mode==='apiError')fetchImpl=async()=>Response.json({error:['EService:Unavailable'],result:{}});
+  if(mode==='wrongPair')fetchImpl=async()=>Response.json({error:[],result:{USDCUSDT:f.prices.USDCUSD,last:f.minute}});
+  if(mode==='uncommittedOnly')f.prices.USDCUSD.pop();
+  if(mode==='tooMany')f.prices.USDCUSD=Array.from({length:722},(_,i)=>[f.minute-(721-i)*60,'1','1','1','1','1','20',3]);
+  if(mode==='precision')f.prices.USDCUSD[0][3]='0.999999999';
+  if(mode==='volume')f.prices.USDCUSD[0][6]='-1';
+  if(mode==='copiedFact')conversions=[{...f.conversion}];if(mode==='duplicateFact')conversions=[f.conversion,f.conversion];
+  await assert.rejects(createPerpsConversionUsdValuationReader({...f.opts,fetchImpl})({conversions,day:f.transaction.day}),mode);
+ }
+});
+
+test('older same-day conversions use the retained closed five-minute USD bucket rather than silently missing twelve-hour minute history',async t=>{
+ const f=await financialHistoryFixture(t,{nowMs:Date.parse('2026-10-20T00:00:00Z')});f.setTime(Date.parse('2026-10-20T20:00:00Z'));
+ f.prices.USDCUSD[1][0]=Date.parse('2026-10-20T20:00:00Z')/1000;
+ const input={conversions:[f.conversion],day:f.transaction.day},v=await createPerpsConversionUsdValuationReader({...f.opts,fetchImpl:f.fetchImpl})(input);
+ assert.equal(f.fetchCalls.length,1);assert.equal(new URL(f.fetchCalls[0].url).searchParams.get('interval'),'5');
+ assert.equal(v.items[0].timeframeSeconds,300);assert.equal(v.conversionLossUsdUnits,'3500');
+ f.setTime(Date.parse('2026-10-21T00:00:00Z'));assert.throws(()=>requirePerpsConversionUsdValuation(v,input));
+});
+
+test('real venue zero-trade bars do not poison unrelated prices, and cannot themselves value a conversion',async t=>{
+ for(const mode of ['unrelated','fallback','absent','inconsistent']){
+  const f=await financialHistoryFixture(t),input={conversions:[f.conversion],day:f.transaction.day};
+  const empty=(time)=>[time,'0.9999','0.9999','0.9999','0.9999','0.0000','0.00000000',0];
+  let fetchImpl=f.fetchImpl;
+  if(mode==='unrelated')f.prices.USDCUSD.unshift(empty(f.minute-60));
+  else if(mode==='inconsistent')f.prices.USDCUSD[0][7]=0;
+  else {
+   f.prices.USDCUSD[0]=empty(f.minute);f.setTime((Math.floor(f.minute/300)*300+370)*1000);
+   fetchImpl=async(url,options)=>{
+    if(new URL(url).searchParams.get('interval')!=='5')return f.fetchImpl(url,options);
+    f.fetchCalls.push({url,options});const start=Math.floor(f.minute/300)*300;
+    return Response.json({error:[],result:{USDCUSD:[mode==='absent'?empty(start):[start,'1','1','1','1','1','20',3],empty(start+300)],last:start+300}});
+   };
+  }
+  const reader=createPerpsConversionUsdValuationReader({...f.opts,fetchImpl});
+  if(mode==='absent'||mode==='inconsistent')await assert.rejects(reader(input),mode);
+  else {
+   const v=await reader(input);assert.equal(v.conversionLossUsdUnits,'3500');
+   assert.equal(v.items[0].timeframeSeconds,mode==='fallback'?300:60);assert.equal(f.fetchCalls.length,mode==='fallback'?2:1);
+  }
+ }
+});
+
+function dailyHistoryRequest(f){
+ const wallet=f.row.wallet,time=f.opts.now(),rows=[f.receipt.transaction,f.tx].map(tx=>({signature:tx===f.tx?f.identity.signature:f.receipt.identity.signature,slot:tx.slot,blockTime:tx.blockTime,err:tx.meta.err,confirmationStatus:'finalized'}));
+ return async(m,p)=>{
+  if(m==='getSlot')return 50000;if(m==='getBlocks')return [1];if(m==='getBlockTime')return p[0]===50000?time/1000-5:time/1000-172800;
+  if(m==='getFirstAvailableBlock')return 1;
+  if(m==='getSignaturesForAddress')return [wallet,f.row.position].includes(p[0])?structuredClone(rows):[];
+  if(m==='getMultipleAccounts'&&p[0].length===8)return {context:{slot:50000},value:[f.swap.after.get(wallet),f.swap.after.get(f.receipt.wire.destination),...Array(6).fill(null)]};
+  return f.request(m,p);
+ };
+}
+test('complete daily accounting includes a journal-bound conversion and both network fees without counting another entry or releasing parent risk',async t=>{
+ const f=await financialHistoryFixture(t),wallet=f.row.wallet,request=dailyHistoryRequest(f);
+ const options={...f.opts,request,journal:f.journal,readNetworkFees:createPerpsNetworkFeeValuationReader({...f.opts,fetchImpl:f.fetchImpl}),readConversionLoss:createPerpsConversionUsdValuationReader({...f.opts,fetchImpl:f.fetchImpl})};
+ const reader=createServerPerpsDailyAccountReader(options),value=await reader({walletAddress:wallet});
+ assert.equal(value.transactions.length,2);assert.equal(value.conversions.length,1);assert.equal(value.tradesToday,0);
+ assert.equal(value.conversionLossUsdUnits,'3500');assert.equal(value.walletNetworkFeesLamports,'10400');assert.equal(value.networkFeeUsdUnits,'1040');assert.equal(value.lossTodayUsdcUnits,'4540');
+ assert.equal(requireFreshServerPerpsDailyAccount(value,{walletAddress:wallet,journal:f.journal}),value);assert.equal(f.journal.read('parent').state,'OPEN');
+ assert.throws(()=>requireFreshServerPerpsDailyAccount(value,{walletAddress:wallet,journal:{}}));
+ assert.equal(f.journal.readPositionCloseConversion(f.row.id).state,'UNCERTAIN'); // History is strictly read-only.
+ await assert.rejects(createServerPerpsDailyAccountReader({...options,readConversionLoss:undefined})({walletAddress:wallet}));
+ await assert.rejects(createServerPerpsDailyAccountReader({...options,readConversionLoss:async()=>({conversionLossUsdUnits:'0'})})({walletAddress:wallet}));
+ await assert.rejects(createServerPerpsDailyAccountReader({...options,journal:{}})({walletAddress:wallet}));
+ await assert.rejects(createServerPerpsDailyAccountReader({...options,readNetworkFees:async input=>{
+  const fees=await options.readNetworkFees(input),db=new DatabaseSync(f.path);
+  db.prepare('UPDATE perps_close_conversions SET updated=updated+1').run();db.close();return fees;
+ }})({walletAddress:wallet}));
+ assert.throws(()=>requireFreshServerPerpsDailyAccount(value,{walletAddress:wallet}));
+});
+
+test('a close before UTC midnight and its conversion after midnight charge the conversion day without double charging yesterday network fees',async t=>{
+ const build=async(t,options)=>{
+  const f=await fixture(t,{...options,nowMs:Date.parse('2026-10-20T23:59:50Z')});f.uncertain();
+  f.journal.reconcilePositionClosePayout(f.row.id,await readFinalizedPerpsClosePayout(f.row,f.identity,f.options));
+  const nowMs=f.options.now()+20000;f.advance(20000);
+  const swap=await conversionFixture({walletAddress:f.row.wallet,amountUnits:'7000000',nowMs});
+  const request=(m,p)=>['getTransaction','getSignatureStatuses','getGenesisHash'].includes(m)||m==='getMultipleAccounts'&&p[1].commitment==='finalized'?f.request(m,p):swap.request(m,p);
+  const prepared=await f.journal.preparePositionCloseConversion(f.row.id,{...swap.options,request}),p=readJournaledPerpsCloseConversion(prepared,f.journal);
+  const fixturePrivateKey=createPrivateKey({key:Buffer.concat([Buffer.from('302e020100300506032b657004220420','hex'),Buffer.alloc(32,51)]),format:'der',type:'pkcs8'});
+  const receipt=await conversionReceiptFixture({amountUnits:'7000000',fixturePrivateKey,finalizedSlot:400,nowMs});
+  const uncertain=()=>{f.journal.preparePositionCloseConversionRecord(f.row.id,prepared);f.journal.beginPositionCloseConversionSigning(f.row.id,prepared);return f.journal.recordPositionCloseConversionBroadcast(f.row.id,verifyOwnerSignedPerpsCloseConversionIntent(p.prepared.wire,receipt.transaction.transaction[0]));};
+  return {...f,swap,receipt,prepared,p,uncertain};
+ };
+ const f=await financialHistoryFixture(t,{},build),wallet=f.row.wallet;
+ assert.equal(f.conversion.firstLegDay,'2026-10-20');assert.equal(f.conversion.day,'2026-10-21');
+ const value=await createServerPerpsDailyAccountReader({...f.opts,request:dailyHistoryRequest(f),journal:f.journal,
+  readNetworkFees:createPerpsNetworkFeeValuationReader({...f.opts,fetchImpl:f.fetchImpl}),readConversionLoss:createPerpsConversionUsdValuationReader({...f.opts,fetchImpl:f.fetchImpl})})({walletAddress:wallet});
+ assert.equal(value.day,'2026-10-21');assert.equal(value.transactions.length,1);assert.equal(value.tradesToday,0);
+ assert.equal(value.walletNetworkFeesLamports,'5400');assert.equal(value.networkFeeUsdUnits,'540');assert.equal(value.conversionLossUsdUnits,'3500');assert.equal(value.lossTodayUsdcUnits,'4040');
+ assert.equal(f.journal.read('parent').state,'OPEN');assert.equal(value.conversions[0].firstLegDay,'2026-10-20');
 });

@@ -3410,3 +3410,82 @@ Both hashes matched before execution. Unit
 PrivateNetwork, PrivateTmp, ProtectHome, ProtectSystem=strict, NoNewPrivileges,
 UMask=0077 and MemoryMax=384M, without production state access. The task remains
 active and incomplete; no funded financial operation was performed.
+
+### Journal-bound conversion and daily USD loss accounting — 2026-10-21
+
+Daily account reconciliation now recognizes an exact recorded collateral-to-USDC
+conversion, instead of either rejecting every native PoolSwap event or allowing
+arbitrary swaps. Recognition requires the original privately verified finalized
+transaction, the unchanged durable close/conversion snapshot, reconstructed
+native instruction roles, the actual token/SOL effects and the exact prior
+finalized close. First-leg owner/API message hashes, generation, size, collateral,
+return mint/amount and network fee are independently matched. Its USD basis comes
+from the authenticated native first-leg `transferAmountUsd` event, not the
+estimated preparation, a client total or a fabricated one-dollar USDC price.
+
+History reads do not reconcile or mutate the journal. An uncertain conversion
+may be observed as finalized while its durable row remains UNCERTAIN; the
+original reservation remains OPEN. Copied facts, a foreign journal, changed
+stored facts and journal changes during later asynchronous valuation invalidate
+the result. Immutable transaction facts may be reused; current balances, daily
+totals, leases and signing rights may not. Plain journal-independent finalized
+chain accounting remains compatible with the existing authorization flow.
+
+The read-only USD source is the direct public Kraken USDCUSD OHLC market. A live
+Coinbase USDC-USD request returned 404; USDT-USD and USDT-USDC cross observations
+had unequal populated minutes, so that cross-rate approach was rejected rather
+than filling the gaps. Kraken's official OHLC documentation specifies bounded
+recent history and an always-present uncommitted last bar:
+https://docs.kraken.com/api-reference/market-data/get-ohlc-data
+Actual one- and five-minute responses both contained 721 rows, including the
+last bar. The reader excludes that last row and any not-yet-closed bucket. Recent
+conversions use closed minute observations; older same-day conversions use
+closed five-minute observations to cover the full UTC day beyond minute-bar
+retention. A missing minute can use an available closed five-minute observation,
+but never an open bucket, an assumed peg or a previous synthetic close.
+
+Live minute data also contained zero-trade rows with carried-forward OHLC, VWAP
+`0.0000`, volume `0.00000000` and count zero. Such rows are structurally checked
+but never used as observed prices or cached for valuation, and do not poison
+unrelated active rows. If the required minute and five-minute buckets both lack
+actual trades, reconciliation remains unavailable; no zero loss is substituted.
+
+Conservative conversion loss uses exact integer arithmetic: the larger of
+the nonnegative difference between native first-leg USD return and actual net
+USDC proceeds valued at the closed bucket low, or the swap fee valued at the
+bucket high, rounded up. The fee floor avoids erasing fees with conversion
+gains without adding the same swap fee twice to net proceeds. This is observed
+conservative risk accounting, not an exact execution price or universal market
+bound. Native SOL network fees remain separately valued and counted once from
+the actual transaction receipts. A conversion is not another trade entry. A
+close before UTC midnight and conversion after midnight retain the recorded
+first-leg basis but only charge today's network fees to today's account.
+
+Local final suite: 799 tests, 793 passed, six skipped, zero failed. New coverage
+includes exact journal bindings, copied/duplicate facts, depegs and profitable
+conversion fees, bounded intervals and retention, uncommitted/absent/malformed
+observations, native zero-trade rows, fallback gaps, journal changes during
+valuation and cross-midnight accounting. Existing custody preparation,
+activation, signing and broadcast regression tests also pass (26/26), using
+only unfunded deterministic test models and fake transports.
+
+No SQL schema change, production migration, worker deployment, APK publication,
+activation, real signing or transaction submission occurred in this change.
+This advances conversion risk accounting only. Complete economic/minimum-return
+checks, custody execution coordination, failure/retry handling, conversion-aware
+terminal settlement and sibling-exit cleanup, and end-to-end app integration
+remain required before Futuros or Telegram automation can be declared ready.
+
+The expanded isolated VPS Node 22 corpus also passed: 195 tests, 194 passed,
+one Windows-only ACL skip, zero failed. Artifact
+`/opt/jamddmaj-perps/checks/conversion-daily-risk-20261021/tests/test.mjs`, SHA-256
+`22aef26315f63e8a2c5f9613913ddb5099905a628fc8f570473764baaff4349a`;
+child-process journal bundle SHA-256
+`b532cf70f6993223574f7937d45b2b46dd14663d62fae71661075fcffe97d743`.
+Both transferred hashes matched the local bundles before execution. Unit
+`jamddmaj-conversion-daily-risk-check-20261021` completed with success under
+DynamicUser, PrivateNetwork, PrivateTmp, ProtectHome, ProtectSystem=strict,
+NoNewPrivileges, UMask=0077 and MemoryMax=384M. The production worker checksum
+remained `3dfc332b8d4f4a45185fba6e95e306fd7aa501a1b5b08f7e2673ba838d607e19`;
+its HTTP/control worker and HTTPS remained running, and the old Bitget executor
+remained disabled. These are verification results, not a new trading release.

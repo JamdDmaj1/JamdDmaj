@@ -6,15 +6,15 @@ import layout from '../../lib/perps-event-layout.json' with {type:'json'};
 import {canonicalPerpsCloseSettlement} from '../../lib/perps-close-settlement.js';
 import {PERPS_PROGRAM,PERPS_POOL,PERPS_CUSTODIES,deriveServerPerpsIdentities} from '../../lib/perps-server-custody.js';
 const TOKEN='TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',ATA='ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL',SYSTEM='11111111111111111111111111111111';
-const genesis='5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d',now=Date.parse('2026-10-20T20:00:00Z'),rent=2039280n,payout=7000000n;
+const genesis='5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d',defaultNow=Date.parse('2026-10-20T20:00:00Z'),rent=2039280n,payout=7000000n;
 const hash=b=>createHash('sha256').update(b).digest('hex');
 const associated=async(owner,mint)=>(await getProgramDerivedAddress({programAddress:ATA,seeds:[bs58.decode(owner),bs58.decode(TOKEN),bs58.decode(mint)]}))[0];
 // Public deterministic, unfunded fixture identities. Signatures never reach an
 // RPC or broadcaster; the request function below rejects every write method.
 const privateKeys=[51,52,53].map(n=>createPrivateKey({key:Buffer.concat([Buffer.from('302e020100300506032b657004220420','hex'),Buffer.alloc(32,n)]),format:'der',type:'pkcs8'}));
 const signers=privateKeys.map(k=>bs58.encode(createPublicKey(k).export({format:'der',type:'spki'}).subarray(-32)));
-export async function closePayoutFixture({asset='SOL',side='LONG',version=1,versioned=false,newAta=false,retainedRequest=false,retainedPosition=false,entire=true,extraPerps=false,unwrapSol=true,amount=7000000n}={}){
- const payout=amount;
+export async function closePayoutFixture({asset='SOL',side='LONG',version=1,versioned=false,newAta=false,retainedRequest=false,retainedPosition=false,entire=true,extraPerps=false,unwrapSol=true,amount=7000000n,transferAmountUsd='0',nowMs=defaultNow}={}){
+ const payout=amount,now=nowMs;
  const wallet=signers[0],ids=await deriveServerPerpsIdentities({walletAddress:wallet,asset,side}),receiveAsset=side==='LONG'?asset:'USDC',c=PERPS_CUSTODIES[receiveAsset];
  const collateral=await associated(wallet,c.mint),vault=bs58.encode(Buffer.alloc(32,61)),oracle=bs58.encode(Buffer.alloc(32,62)),blockTime=now/1000-3;
  const nativeMint=receiveAsset==='SOL',native=nativeMint&&unwrapSol,delivery=native?'NATIVE_SOL':'TOKEN';
@@ -35,7 +35,7 @@ export async function closePayoutFixture({asset='SOL',side='LONG',version=1,vers
  for(const [k,t]of schema.fields)fields[k]=typeof t==='object'?null:t==='publicKey'?wallet:t==='bool'?false:t==='u8'?0:'0';
  Object.assign(fields,{owner:wallet,pool:PERPS_POOL,positionKey:ids.position,positionSide:side==='LONG'?1:2,positionCustody:PERPS_CUSTODIES[asset].address,
   positionCollateralCustody:c.address,positionMint:PERPS_CUSTODIES[asset].mint,desiredMint:c.mint,sizeUsdDelta:'30000000',transferToken:String(payout),
-  originalPositionCollateralUsd:'10000000',positionOpenTime:'1000',priceSlippage:String(price)});
+  originalPositionCollateralUsd:'10000000',positionOpenTime:'1000',priceSlippage:String(price),transferAmountUsd});
  function eventBytes(){return Buffer.concat([createHash('sha256').update('event:InstantDecreasePositionEvent').digest().subarray(0,8),...schema.fields.map(([k,t])=>{
   if(typeof t==='object')return Buffer.from([0]);if(t==='publicKey')return Buffer.from(bs58.decode(fields[k]));if(t==='bool'||t==='u8')return Buffer.from([Number(fields[k])]);
   const b=Buffer.alloc(8);if(t==='i64')b.writeBigInt64LE(BigInt(fields[k]));else b.writeBigUInt64LE(BigInt(fields[k]));return b;
