@@ -4,6 +4,7 @@ import {createHandler} from '../api/perps-review.js';
 import {validateWebPerpsReview} from '../lib/perps-navigation.js';
 import {setupFuturesTicket} from '../lib/swap-quote-ui.js';
 import {selectWalletAccount} from '../lib/wallet-portfolio-store.js';
+import {IDBFactory} from 'fake-indexeddb';
 const wallet='11111111111111111111111111111112',other='11111111111111111111111111111113';
 const draft={asset:'BTC',side:'LONG',margin:'10',leverage:'3',referencePrice:'100'};
 const env={UPSTASH_REDIS_REST_URL:'configured',UPSTASH_REDIS_REST_TOKEN:'configured'};
@@ -54,6 +55,23 @@ test('web Futures offers wallet selection and explicit review rather than disabl
  f.select();assert.match(f.capability.textContent,/Phantom/);assert.match(f.capability.textContent,/not enabled yet/);
  f.ticket.dispose();await f.long.onclick();assert.equal(calls,0);
  assert(!f.nodes.some(n=>n.textContent?.includes('Trading requires a compatible Android build')));
+});
+
+test('Futures recovery requires a selected external wallet and an empty local journal never claims no open positions',async()=>{
+ let requests=0;const f=ui(async()=>{requests++;throw Error('must not request');});
+ const button=f.nodes.find(n=>n.textContent==='Check pending operation'),message=f.nodes.at(-1);
+ await button.onclick();assert.match(message.textContent,/Select the external wallet/);assert.equal(requests,0);
+ f.doc.defaultView.indexedDB=new IDBFactory();f.select();await button.onclick();
+ assert.match(message.textContent,/No pending web operations/);assert.match(message.textContent,/does not confirm.*no open positions/);
+ assert.equal(requests,0);assert.equal(button.disabled,false);f.ticket.dispose();await button.onclick();assert.equal(requests,0);
+});
+
+test('Futures recovery keeps uncertainty visible on local storage failure without contacting a wallet or execution route',async()=>{
+ let requests=0;const f=ui(async()=>{requests++;throw Error();});f.select();
+ f.doc.defaultView.indexedDB={open(){throw Error('storage unavailable');}};
+ const button=f.nodes.find(n=>n.textContent==='Check pending operation');await button.onclick();
+ assert.match(f.nodes.at(-1).textContent,/Any pending operation is retained/);assert.equal(requests,0);assert.equal(button.disabled,false);
+ f.ticket.dispose();
 });
 test('web review checks the selected account and current form without a wallet signing or execute request',async()=>{
  const calls=[],f=ui(async(url,options)=>{calls.push({url,options});const input=JSON.parse(options.body);return Response.json({ok:true,review:review(Date.now(),input.draft,input.walletAddress)});});

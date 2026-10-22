@@ -4255,3 +4255,16 @@ An additional targeted local regression passed for expired monotonic/wall-clock
 leases and backwards clocks: all four refuse terminal mutation, retain the
 pending record, and allow resolution only with a fresh verified status query.
 No publication or financial activation is implied by these checks.
+
+### Futures recovery UI integration (2026-10-22, local only)
+
+The non-native Futures ticket now includes an explicit read-only pending-operation
+check, sharing the existing browser journal and private status client bundle.
+It does not connect a provider, sign, resubmit, clear uncertain records or infer
+that an empty browser journal means no open positions. Wallet changes/disposal
+suppress stale rendering; query/storage failures retain the original hold.
+The public same-origin status route still requires persistent service/proxy
+installation, so this UI is not a claim of public recovery availability.
+Twelve navigation/review tests passed, including empty-journal and storage-failure
+UI branches; `npm run build:web` passed. Real terminal-result UI rendering and
+public route integration remain to be verified. No deployment occurred.
