@@ -4370,3 +4370,34 @@ temporary unfunded fixtures, not production custody or journal paths. Only
 test bundles were copied into the checks directory; the installed worker,
 database schemas, public proxy, web deployment and Android release were not
 changed. Public integration and full trading acceptance remain incomplete.
+
+### Same-origin web status relay (2026-10-22, not deployed)
+
+`api/perps-operation-status.js` adds a Node Web Standard read-only relay to the
+fixed TLS endpoint `https://157.230.54.133/api/perps-operation-status`. It accepts
+only POST JSON with the original review/binding/wallet/signature read capability,
+rejects query strings/foreign Origin/executable or extra fields, and caps input
+at 1024 bytes. It invokes the existing durable public quote limiter before one
+upstream request. Cookies, bearer credentials, caller-selected destinations,
+signed wires and proxy forwarding headers are not forwarded. No SQLite/custody
+module is imported into the serverless route; the financial stores remain on
+the persistent host. TLS validation is not disabled.
+
+Upstream requests have a five-second abort deadline, no redirect/retry and a
+4096-byte strict JSON response cap. Only the exact terminal status shape or null
+is returned with no-store/nosniff/no-referrer headers; private or malformed
+upstream responses become generic errors. The browser still validates the
+original signed record and wire hash independently of this relay's shape checks.
+The backend and Functions guides informed keeping this route stateless/Node and
+leaving all financial persistence on the approved single host.
+
+Four relay tests passed (fixed destination/header allowlist, strict request and
+response bounds, privacy on errors/quota failure, ignored-transport abort).
+An actual local TCP integration also passed through this relay factory, the
+real status HTTP boundary, settled genuine journals, browser proof validation
+and local terminal persistence. No controls call or additional fixture send
+occurred. The built browser import graph passed as well. These tests use an
+explicit loopback substitute for the fixed TLS destination; they do NOT prove
+live certificate/proxy/installed-worker availability. Public TLS routing and
+the reviewed worker/web deployments are still required. No deployment,
+production schema change, activation or real transaction occurred.

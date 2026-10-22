@@ -703,14 +703,19 @@ test('concurrent or stale browser terminal proofs cannot be applied twice or cle
 
 test('actual loopback HTTP status route reads settled journals into browser recovery without a controls or financial request',async t=>{
  const {createPerpsControlHttpServer}=await import('../lib/perps-control-http.js'),{once}=await import('node:events');
+ const {createHandler:createStatusRelay}=await import('../api/perps-operation-status.js');
  const f=await sharedWebSettlementFixture(t);await reconcileRiskBoundWebEntry(f.packet.reviewId,f.settlementOptions);let controls=0,queries=0;
  const handler=createWebPerpsOperationStatusHandler({journal:f.serverJournal,riskJournal:f.riskJournal,limit:async()=>{queries++;}});
  const server=createPerpsControlHttpServer({handler:async()=>{controls++;throw Error();},webOperationStatusHandler:handler});
  server.listen(0,'127.0.0.1');await once(server,'listening');t.after(()=>new Promise(resolve=>{server.close(resolve);server.closeAllConnections();}));
  const base='http://127.0.0.1:'+server.address().port;
- const client=createWebPerpsOperationStatusClient({journal:f.journal,now:f.clock,monotonicNow:()=>f.state.mono,fetchImpl:(path,options)=>fetch(base+path,{...options,headers:{...options.headers,Origin:'https://www.jamddmaj.com'}})});
+ let relays=0;const relay=createStatusRelay({limit:async()=>{relays++;},diagnostic:()=>{},fetchImpl:(url,options)=>{
+  assert.equal(url,'https://157.230.54.133/api/perps-operation-status');return fetch(base+'/api/perps-operation-status',options);
+ }});
+ const client=createWebPerpsOperationStatusClient({journal:f.journal,now:f.clock,monotonicNow:()=>f.state.mono,
+  fetchImpl:(path,options)=>relay(new Request('https://www.jamddmaj.com'+path,{...options,headers:{...options.headers,Origin:'https://www.jamddmaj.com'}}))});
  const proof=await client.inspect(f.packet.reviewId);assert.equal((await f.journal.recordServerSettlement(proof)).state,'ENTRY_CONFIRMED');
- assert.equal(queries,1);assert.equal(controls,0);assert.equal(f.sends,1);
+ assert.equal(queries,1);assert.equal(relays,1);assert.equal(controls,0);assert.equal(f.sends,1);
  const denied=await fetch(base+'/api/perps-operation-status',{method:'POST',headers:{Origin:'https://foreign.test','Content-Type':'application/json'},body:'{}'});
  assert.equal(denied.status,400);assert.equal(queries,1);
 });
