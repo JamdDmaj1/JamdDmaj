@@ -27,6 +27,9 @@ import {createPerpsNetworkFeeValuationReader} from '../lib/perps-network-fee-val
 import {readFinalizedPerpsCloseCompletion,requireVerifiedPerpsCloseCompletion,reconcileRecordedPerpsCloses} from '../lib/perps-close-completion.js';
 import {createServerPerpsExecutor} from '../lib/perps-server-executor.js';
 import {createServerPerpsWorker} from '../lib/perps-server-worker.js';
+import {openPerpsBackupRegistry} from '../lib/perps-backup-registry.js';
+import {authorizePerpsCloseConversion} from '../lib/perps-close-conversion-signing.js';
+import {createPerpsCloseConversionBroadcaster} from '../lib/perps-close-conversion-broadcast.js';
 async function fixture(t,options={}){
  const f=await closePayoutFixture(options),root=mkdtempSync(join(tmpdir(),'jamd-close-exec-')),path=join(root,'journal.sqlite'),opened=[];let time=f.options.now();
  const open=()=>{const j=openPerpsExecutionJournal(path,{now:()=>time});opened.push(j);return j;},journal=open();
@@ -42,7 +45,7 @@ async function fixture(t,options={}){
  const ownerSigned=Buffer.from(f.tx.transaction[0],'base64');ownerSigned.fill(0,65,129);
  const intent=()=>verifyOwnerSignedPerpsCloseIntent(journal.readPositionClose(f.row.id),ownerSigned.toString('base64'));
  const uncertain=()=>{journal.beginPositionCloseSigning(f.row.id);return journal.recordPositionCloseBroadcast(f.row.id,intent());};
- return {...f,journal,path,open,ownerSigned,intent,uncertain,advance(ms){time+=ms;}};
+ return {...f,journal,path,open,ownerSigned,intent,uncertain,trackClose(value){opened.push(value);return value;},advance(ms){time+=ms;}};
 }
 test('durable close claim and exact owner-signed intent survive restart without releasing parent risk or permitting unsigned cancellation',async t=>{
  const f=await fixture(t),risk=f.journal.riskState(f.row.wallet),a=f.journal.beginPositionCloseSigning(f.row.id);
@@ -251,6 +254,80 @@ async function recoveryOptions(t,f){
  return {request:{directory,keyFile,recipient:operator.recipient,explicitOperatorApproval:true,runtimePaths:{controlsPath,journalPath:f.path,temporaryDirectory:root},...common},
   restore:{operatorDirectory,destinationDirectory:join(root,'restored'),explicitOperatorApproval:true,...common}};
 }
+
+async function authorizedConversionFixture(t){
+ const f=await conversionAttemptFixture(t),options=await recoveryOptions(t,f),archive=await createPerpsCustodyRecoveryArchive({...options.request,requireRestoreProof:true});
+ const restored=await restorePerpsCustodyRecoveryArchive({...options.restore,ciphertext:archive.ciphertext});
+ const common={allowNonPosixForTests:process.platform==='win32',now:f.options.now,monotonicNow:f.options.monotonicNow};
+ const backupRegistry=openPerpsBackupRegistry(join(dirname(f.path),'backup.sqlite'),common);
+ await backupRegistry.registerArchive(archive,{explicitOperatorApproval:true});backupRegistry.acceptRestoreProof({proofFile:restored.proofFile,explicitOperatorApproval:true});
+ const controls=openPerpsAutomationControls(options.request.runtimePaths.controlsPath,{now:f.options.now}),ownerAccountHash='e'.repeat(64),walletAddress=f.row.wallet;
+ const vault=openPerpsCustodyVault({directory:options.request.directory,keyFile:options.request.keyFile,...common});
+ f.trackClose(backupRegistry);f.trackClose(controls);f.journal.preparePositionCloseConversionRecord(f.row.id,f.prepared);
+ let allowed=true;const controlRevision=controls.read({ownerAccountHash,walletAddress}).revision;
+ const args={journal:f.journal,controls,backupRegistry,request:f.conversionOptions.request,isClosingAllowed:()=>allowed,ownerAccountHash,walletAddress,closeId:f.row.id,
+  controlRevision,maxSlippageBps:100,now:f.options.now,monotonicNow:f.options.monotonicNow};
+ return {...f,args,vault,backupRegistry,archiveSha256:archive.sha256,disallow(){allowed=false;}};
+}
+
+test('protected conversion custody authorization signs only finalized recorded proceeds and direct RPC is attempted once after durable uncertainty',async t=>{
+ const f=await authorizedConversionFixture(t),risk=f.journal.riskState(f.row.wallet),grant=await authorizePerpsCloseConversion(f.prepared,f.args);
+ assert.equal(f.journal.readPositionCloseConversion(f.row.id).state,'SIGNING');assert.throws(()=>f.vault.signCloseConversion({...grant}));
+ const signed=f.vault.signCloseConversion(grant);assert.throws(()=>f.vault.signCloseConversion(grant));let sends=0;
+ const submit=createPerpsCloseConversionBroadcaster({journal:f.journal,fetchImpl:async(url,options)=>{
+  sends++;assert.equal(url,'https://api.mainnet-beta.solana.com');const input=JSON.parse(options.body);assert.equal(input.method,'sendTransaction');
+  assert.equal(input.params[1].maxRetries,0);assert.equal(input.params[1].skipPreflight,false);
+  const row=f.journal.readPositionCloseConversion(f.row.id);assert.equal(row.state,'UNCERTAIN');assert.equal(row.owner_signed_wire,input.params[0]);
+  return Response.json({jsonrpc:'2.0',id:1,result:signed.signature});
+ }});
+ await assert.rejects(submit({...signed},f.args));const result=await submit(signed,f.args);assert.equal(result.stage,'CLOSE_CONVERSION_BROADCAST_ACKNOWLEDGED');
+ await assert.rejects(submit(signed,f.args));assert.equal(sends,1);assert.deepEqual(f.journal.riskState(f.row.wallet),risk);
+ assert.equal(f.journal.read('parent').state,'OPEN');
+ const request=(m,p)=>m==='getMultipleAccounts'?f.swap.request(m,p):f.receipt.request(m,p);
+ const receipt=await f.journal.recoverPositionCloseConversion(f.row.id,{...f.receipt.receiptOptions,request});
+ assert.equal(f.journal.readPositionCloseConversion(f.row.id).state,'FINALIZED');assert.ok(receipt);
+ assert.equal(f.journal.read('parent').state,'OPEN');assert.equal(sends,1);
+});
+
+test('conversion authorization blocks unavailable backup, changed controls and late closure disablement without a send',async t=>{
+ for(const mode of ['backup-before','backup-after','controls-after','disabled-after','expired']){
+  const f=await authorizedConversionFixture(t);let sends=0;
+  if(mode==='backup-before'){
+   f.backupRegistry.revokeArchive({archiveSha256:f.archiveSha256,explicitOperatorApproval:true});
+   await assert.rejects(authorizePerpsCloseConversion(f.prepared,f.args));assert.equal(f.journal.readPositionCloseConversion(f.row.id).state,'PREPARED');continue;
+  }
+  const grant=await authorizePerpsCloseConversion(f.prepared,f.args);
+  if(mode==='backup-after'){f.backupRegistry.revokeArchive({archiveSha256:f.archiveSha256,explicitOperatorApproval:true});assert.throws(()=>f.vault.signCloseConversion(grant));}
+  else if(mode==='controls-after'){f.args.controls.pause({ownerAccountHash:f.args.ownerAccountHash,walletAddress:f.row.wallet});assert.throws(()=>f.vault.signCloseConversion(grant));}
+  else if(mode==='expired'){f.expire();assert.throws(()=>f.vault.signCloseConversion(grant));}
+  else{const signed=f.vault.signCloseConversion(grant);f.disallow();const submit=createPerpsCloseConversionBroadcaster({journal:f.journal,fetchImpl:async()=>{sends++;throw Error();}});await assert.rejects(submit(signed,f.args));}
+  assert.equal(sends,0);assert.equal(f.journal.readPositionCloseConversion(f.row.id).state,'SIGNING');assert.equal(f.journal.read('parent').state,'OPEN');
+ }
+});
+
+test('a conversion transport timeout stays durably uncertain across reopen and cannot be resubmitted',async t=>{
+ const f=await authorizedConversionFixture(t),grant=await authorizePerpsCloseConversion(f.prepared,f.args),signed=f.vault.signCloseConversion(grant);let sends=0;
+ const submit=createPerpsCloseConversionBroadcaster({journal:f.journal,fetchImpl:async()=>{sends++;throw Error('unacknowledged fixture transport');}});
+ const result=await submit(signed,f.args);assert.equal(result.stage,'CLOSE_CONVERSION_BROADCAST_UNKNOWN');assert.equal(result.readyForRetry,false);
+ assert.equal(f.open().readPositionCloseConversion(f.row.id).state,'UNCERTAIN');await assert.rejects(submit(signed,f.args));assert.equal(sends,1);
+ assert.equal(f.journal.read('parent').state,'OPEN');
+});
+
+test('concurrent conversion submissions cannot send the same signed operation twice',async t=>{
+ const f=await authorizedConversionFixture(t),grant=await authorizePerpsCloseConversion(f.prepared,f.args),signed=f.vault.signCloseConversion(grant);let sends=0;
+ const submit=createPerpsCloseConversionBroadcaster({journal:f.journal,fetchImpl:async()=>{sends++;return Response.json({jsonrpc:'2.0',id:1,result:signed.signature});}});
+ const results=await Promise.allSettled([submit(signed,f.args),submit(signed,f.args)]);
+ assert.equal(results.filter(r=>r.status==='fulfilled').length,1);assert.equal(sends,1);
+ assert.equal(f.journal.readPositionCloseConversion(f.row.id).state,'UNCERTAIN');assert.equal(f.journal.read('parent').state,'OPEN');
+});
+
+test('a mismatched RPC acknowledgement cannot finalize a conversion or make it retryable',async t=>{
+ const f=await authorizedConversionFixture(t),grant=await authorizePerpsCloseConversion(f.prepared,f.args),signed=f.vault.signCloseConversion(grant);let sends=0;
+ const submit=createPerpsCloseConversionBroadcaster({journal:f.journal,fetchImpl:async()=>{sends++;return Response.json({jsonrpc:'2.0',id:1,result:'different-signature'});}});
+ const result=await submit(signed,f.args);assert.equal(result.stage,'CLOSE_CONVERSION_BROADCAST_UNKNOWN');assert.equal(result.readyForRetry,false);
+ await assert.rejects(submit(signed,f.args));assert.equal(sends,1);assert.equal(f.journal.readPositionCloseConversion(f.row.id).state,'UNCERTAIN');
+ assert.equal(f.journal.read('parent').state,'OPEN');
+});
 
 test('encrypted recovery preserves every second-leg phase and its exact signed/result bytes with custody still quarantined',async t=>{
  for(const state of ['PREPARED','SIGNING','UNCERTAIN','FINALIZED']){

@@ -838,7 +838,7 @@ test('close vault checks bind all six market/direction paths to the exact wallet
  }
 });
 test('vault conservation rejects wrong mint/authority, altered custody/pool, unaccounted vault debit and native balance loss',async()=>{
- for(const mode of ['poolOwner','poolTag','poolRent','poolSize','custodyConfig','custodyRent','usdcDebit','vaultAuthority','vaultDelegate','vaultMint','vaultRent','collateralDebit','nativeUnderfunded','vaultProgram']){
+ for(const mode of ['poolOwner','poolTag','poolRent','poolSize','custodyConfig','custodyPricing','custodyTail','custodyRent','usdcDebit','vaultAuthority','vaultDelegate','vaultMint','vaultRent','collateralDebit','nativeUnderfunded','vaultProgram']){
   const f=await fundingFixture('LONG');
   if(mode==='poolOwner')f.after.get(PERPS_POOL).owner=SYSTEM;
   if(mode==='poolTag'){
@@ -850,6 +850,9 @@ test('vault conservation rejects wrong mint/authority, altered custody/pool, una
   }
   if(mode==='custodyConfig'){
    const a=f.after.get(f.market.address),b=Buffer.from(a.data[0],'base64');b[72]^=1;a.data[0]=b.toString('base64');
+  }
+  if(mode==='custodyPricing'||mode==='custodyTail'){
+   const a=f.after.get(f.market.address),b=Buffer.from(a.data[0],'base64');b[mode==='custodyPricing'?167:300]^=1;a.data[0]=b.toString('base64');
   }
   if(mode==='custodyRent')f.after.get(f.usdc.address).lamports++;
   if(mode==='usdcDebit')f.after.set(f.usdc.tokenAccount,f.tokenFor(f.ids.transferAuthority,PERPS_CUSTODIES.USDC.mint,991999999n));

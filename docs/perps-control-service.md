@@ -4436,3 +4436,31 @@ conversion signing/transport orchestration. Recording real finalized outcomes
 must never discard financial truth merely because a review floor was breached.
 Step 2 is not complete. No entry/Telegram/publication work, VPS/schema changes,
 bot activation, funded signatures or real financial submissions occurred here.
+
+### Step 2 continuation: dedicated protected conversion custody boundary
+
+`perps-close-conversion-signing.js` now issues a private one-use grant only for
+the genuine journal-bound conversion of a finalized recorded close. It checks
+the verified recovery backup, unchanged account controls, explicit closure
+permission, journal state, original wire, same-wire simulation, exact fee and
+remaining native reserve before key use. The vault exposes no general message
+signer. Paused automation does not itself prevent reducing an existing risk.
+
+The separate broadcaster re-simulates and durably records UNCERTAIN before its
+single direct RPC attempt. It never retries, calls a keeper endpoint, releases
+risk, or treats an RPC acknowledgement as finality. Recorded-signature recovery
+alone may establish the actual finalized second-leg result. Concurrent callers,
+copied grants, revoked backup, changed controls, expired evidence, wrong RPC
+acknowledgements and transport uncertainty are covered with unfunded fixtures.
+
+Close vault policy also rejects changes to custody configuration bytes omitted
+from the public decoder projection, allowing only the pinned Assets/Funding
+counter region to mutate. Unknown layout changes fail closed.
+
+Verification: 64/64 custody and close-execution/conversion tests passed, 67/67
+close-intent tests passed, and the two subsequently added concurrency/wrong-ACK
+tests passed separately. All were local fixtures with fake transport. No funded
+key, live financial submission, activation, publication or VPS change occurred.
+First-leg custody authorization/transport, remaining economic execution bounds
+and the complete operational coordinator remain incomplete; this addition must
+not be represented as point 2 finished or live futures enabled.
