@@ -4537,3 +4537,47 @@ All financial transport remained fake and every signed fixture unfunded. No
 production change or live financial operation occurred. Step 2 remains open
 pending the first-leg settlement decision and the corresponding first-leg
 authorization/transport plus complete lifecycle verification.
+
+### Step 2: explicit native-settlement choice and dedicated initial-close execution
+
+The user chose native settlement: an on-chain close-price limit for the first
+leg and a protected minimum-USDC Swap2 for a separate conversion when needed.
+This does not promise an absolute first-leg payout. No activation or funded
+transaction was authorized by that choice.
+
+`authorizeNativePerpsFullClose` now requires that exact protection mode, the
+original private oracle/return review, a version-2 COLLATERAL_THEN_USDC record,
+an explicitly zero first-leg review floor and the persisted network-fee ceiling.
+A positive absolute first-leg floor is rejected rather than silently weakened.
+Every native policy, oracle, same-wire bank simulation, wallet/rent, vault,
+pool-configuration, reserve and return-fee check is re-run before key use and
+again before transport. Controls/revision, closure permission, verified backup,
+original OPEN parents and pending operations are rechecked around async reads.
+Paused entries do not prohibit explicitly authorized risk-reducing closure.
+
+The dedicated vault method accepts only a private two-second, one-use close
+grant. It preserves the API signature and empty keeper slot, signing only the
+original owner message. The keeper broadcaster persists exact signed bytes and
+UNCERTAIN before its one `decrease-position` attempt. Lost/incorrect responses
+never authorize retry or release margin. Action schema reference:
+https://perps-api.jup.ag/v1/docs#tag/transaction/operation/post/transaction/execute
+(the existing v2 keeper execution route is used, as for other native actions).
+
+`createNativePerpsCloseExecutor` joins explicit first-leg execution/recovery to
+the existing protected conversion and financial-completion coordinator. Rooted
+first-leg recovery rechecks the exact original signature/message, native CPI
+event, transferred amount, fees and live closed position, and records actual
+collateral/USDC without releasing parent risk. The review data distinguishes
+price protection, nonguaranteed estimates and a later conversion minimum that
+has not yet been reviewed; SHORTs directly receiving USDC do not invent a swap.
+
+Verification: 149/149 scoped tests passed (152700 ms, no skips/failures), including
+new native authority, paused-state signing, positive-floor rejection, revoked
+backup/changed controls/lease expiry, one keeper attempt, exact retained API
+signature, timeout/wrong ACK/concurrent callers, late native-state changes and
+rooted first-leg recovery for both LONG and SHORT. All signers were deterministic
+unfunded fixtures with invalid fixed blockhashes; every transport was fake.
+The final review-display fields were added afterward and require their focused
+rerun. Full native-first-leg-to-conversion-to-completion integration verification
+is still required before declaring point 2 finished. No publication, VPS change,
+bot activation or live financial submission occurred.

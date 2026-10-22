@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createHash,generateKeyPairSync,sign} from 'node:crypto';
+import {createHash,generateKeyPairSync,sign,createPrivateKey,createPublicKey,createCipheriv} from 'node:crypto';
 import {readFileSync} from 'node:fs';
-import {mkdtempSync,rmSync} from 'node:fs';
+import {mkdtempSync,rmSync,mkdirSync,chmodSync,writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
-import {join} from 'node:path';
+import {join,dirname} from 'node:path';
 import {DatabaseSync} from 'node:sqlite';
 import {openPerpsExecutionJournal} from '../lib/perps-execution-journal.js';
 import bs58 from 'bs58';
@@ -25,7 +25,18 @@ import {describeSimulatedPerpsCloseSettlement,canonicalPerpsCloseSettlement} fro
 import {checkSimulatedPerpsCloseReturn,readSimulatedPerpsCloseReturn,validatePerpsCloseReturnLimits} from '../lib/perps-close-return-policy.js';
 import {pythStorageFixture} from './helpers/perps-pyth-storage-fixture.mjs';
 import {pythPayloadFixture} from './helpers/perps-pyth-payload-fixture.mjs';
-const wallet=bs58.encode(Buffer.alloc(32,1)),now=1802865600;
+import {authorizeNativePerpsFullClose,NATIVE_CLOSE_PROTECTION} from '../lib/perps-close-signing.js';
+import {createPerpsCustodyMasterKey,openPerpsCustodyVault} from '../lib/perps-custody-vault.js';
+import {openPerpsAutomationControls} from '../lib/perps-automation-controls.js';
+import {openPerpsBackupRegistry} from '../lib/perps-backup-registry.js';
+import {initializePerpsOperatorRecovery,createPerpsCustodyRecoveryArchive,restorePerpsCustodyRecoveryArchive} from '../lib/perps-custody-recovery.js';
+import {createNativePerpsCloseBroadcaster} from '../lib/perps-close-broadcast.js';
+import {createNativePerpsCloseExecutor} from '../lib/perps-close-executor.js';
+import {closePayoutFixture} from './helpers/perps-close-payout-fixture.mjs';
+// Public deterministic unfunded fixture owner, never a production identity.
+const fixtureOwner=createPrivateKey({key:Buffer.concat([Buffer.from('302e020100300506032b657004220420','hex'),Buffer.alloc(32,51)]),format:'der',type:'pkcs8'});
+const fixtureKeeper=createPrivateKey({key:Buffer.concat([Buffer.from('302e020100300506032b657004220420','hex'),Buffer.alloc(32,52)]),format:'der',type:'pkcs8'});
+const wallet=bs58.encode(createPublicKey(fixtureOwner).export({format:'der',type:'spki'}).subarray(-32)),now=1802865600;
 test('owner close return floor uses only the incremental independently simulated payout across every collateral route',async()=>{
  for(const asset of ['BTC','ETH','SOL'])for(const side of ['LONG','SHORT']){
   const f=await oracleEffectsFixture(side,asset,'COLLATERAL_THEN_USDC'),effects=checkServerPerpsFullCloseOracleEffects(await f.reserves(),{nowSeconds:now});
@@ -212,7 +223,7 @@ async function boundFixture(side='LONG',asset='SOL',version=1,settlement='DIRECT
  }
  const m=custody(asset),u=custody('USDC'),c=side==='LONG'?m:u,market=m.decoded,collateral=c.decoded,usdc=u.decoded;
  const associated=async(owner,mint=PERPS_CUSTODIES.USDC.mint)=>(await getProgramDerivedAddress({programAddress:ATA,seeds:[bs58.decode(owner),bs58.decode(TOKEN),bs58.decode(mint)]}))[0];
- const recipient=await associated(wallet),collateralAccount=await associated(wallet,collateral.mint),keeper=bs58.encode(Buffer.alloc(32,2)),api=bs58.encode(Buffer.alloc(32,3)),ledger=bs58.encode(Buffer.alloc(32,66));
+ const recipient=await associated(wallet),collateralAccount=await associated(wallet,collateral.mint),keeper=bs58.encode(createPublicKey(fixtureKeeper).export({format:'der',type:'spki'}).subarray(-32)),api=bs58.encode(Buffer.alloc(32,3)),ledger=bs58.encode(Buffer.alloc(32,66));
  const [requestAddress]=await getProgramDerivedAddress({programAddress:PERPS_PROGRAM,seeds:['position_request',bs58.decode(f.ids.position),Buffer.from('0700000000000000','hex'),new Uint8Array([2])]});
  const requestAta=await associated(requestAddress,collateral.mint);
  const common=[keeper,api,wallet,collateralAccount,f.ids.transferAuthority,f.ids.perpetuals,PERPS_POOL,f.ids.position,market.address,market.dovesAgOracle];
@@ -1012,8 +1023,143 @@ async function closeJournalFixture(t,{parents=2,side='SHORT',settlement='DIRECT_
  for(let i=0;i<parents;i++)raw.prepare("INSERT INTO perps_reservations(wallet,signal,reservation,day,margin,state,created,updated,signature,wire_hash,position_address,confirmed_slot,entry_exit_plan) VALUES(?,?,?,?,?,'OPEN',?,?,?,?,?,?,?)")
   .run(wallet,'signal-'+i,'entry-'+i,new Date(now*1000).toISOString().slice(0,10),10000000,now*1000,now*1000,
    bs58.encode(Buffer.alloc(64,80+i)),String(i).repeat(64),f.ids.position,100,JSON.stringify({sizeUsdUnits:'15000000',exits:[]}));
- raw.close();return {...f,journal,path,open,reserves,oracleEffects};
+ raw.close();return {...f,journal,path,open,reserves,oracleEffects,trackClose(value){journals.push(value);return value;}};
 }
+
+async function nativeSigningFixture(t,{side='LONG',minimumReturnUnits='0'}={}){
+ const f=await closeJournalFixture(t,{side,settlement:'COLLATERAL_THEN_USDC'}),root=dirname(f.path),ownerAccountHash='e'.repeat(64);
+ const limits={minimumReturnUnits,maximumNetworkFeeLamports:'5000'},returnPolicy=checkSimulatedPerpsCloseReturn(f.oracleEffects,limits);
+ const row=f.journal.preparePositionClose('native-close',f.oracleEffects,{returnPolicy});
+ const directory=join(root,'wallets'),keyFile=join(root,'keys','master.key'),clock=()=>now*1000,common={allowNonPosixForTests:process.platform==='win32',now:clock};
+ chmodSync(root,0o700);mkdirSync(directory,{mode:0o700});mkdirSync(dirname(keyFile),{mode:0o700});createPerpsCustodyMasterKey(keyFile,common);
+ const key=readFileSync(keyFile),iv=Buffer.alloc(12,7),cipher=createCipheriv('aes-256-gcm',key,iv),purpose='jamddmaj-perps-automation';
+ cipher.setAAD(Buffer.from(JSON.stringify({version:1,purpose,ownerAccountHash,walletAddress:wallet})));
+ const ciphertext=Buffer.concat([cipher.update(Buffer.alloc(32,51)),cipher.final()]);key.fill(0);
+ writeFileSync(join(directory,'owner-'+ownerAccountHash+'.json'),JSON.stringify({version:1,purpose,ownerAccountHash,walletAddress:wallet,iv:iv.toString('base64'),ciphertext:ciphertext.toString('base64'),tag:cipher.getAuthTag().toString('base64')}),{mode:0o600,flag:'wx'});
+ const vault=openPerpsCustodyVault({directory,keyFile,...common}),controlsPath=join(root,'controls.sqlite');
+ const controls=f.trackClose(openPerpsAutomationControls(controlsPath,{now:clock}));
+ controls.provision({ownerAccountHash,walletAddress:wallet,settings:{capital:100,loss:90,positions:2,margin:10,leverage:3,dailyTrades:5}});
+ for(const path of [f.path,controlsPath])chmodSync(path,0o600);
+ const operatorDirectory=join(root,'operator'),operator=await initializePerpsOperatorRecovery({directory:operatorDirectory,...common});
+ const archive=await createPerpsCustodyRecoveryArchive({directory,keyFile,recipient:operator.recipient,explicitOperatorApproval:true,requireRestoreProof:true,
+  runtimePaths:{controlsPath,journalPath:f.path,temporaryDirectory:root},...common});
+ const restored=await restorePerpsCustodyRecoveryArchive({operatorDirectory,destinationDirectory:join(root,'restored'),explicitOperatorApproval:true,ciphertext:archive.ciphertext,...common});
+ const backupRegistry=f.trackClose(openPerpsBackupRegistry(join(root,'backup.sqlite'),common));
+ await backupRegistry.registerArchive(archive,{explicitOperatorApproval:true});backupRegistry.acceptRestoreProof({proofFile:restored.proofFile,explicitOperatorApproval:true});
+ let allowed=true,mono=0;
+ const request=async(m,p)=>{
+  if(m==='getSlot')return Math.max(104,p[0].minContextSlot);
+  if(m==='getMultipleAccounts'&&p[0][0]!==wallet)return {context:{slot:Math.max(104,p[1].minContextSlot)},value:p[0].map(k=>f.oracleAccounts.get(k)??null)};
+  if(m==='getMinimumBalanceForRentExemption')return f.fundingRequest(m,p);
+  const result=await f.request(m,p);if(m==='getFeeForMessage')result.context.slot=Math.max(result.context.slot,p[1].minContextSlot);return result;
+ };
+ const args={returnPolicy,journal:f.journal,controls,backupRegistry,request,isClosingAllowed:()=>allowed,ownerAccountHash,walletAddress:wallet,closeId:row.id,
+  controlRevision:controls.read({ownerAccountHash,walletAddress:wallet}).revision,settlementProtection:NATIVE_CLOSE_PROTECTION,now:clock,monotonicNow:()=>mono};
+ return {...f,row,args,vault,archiveSha256:archive.sha256,disallow(){allowed=false;},expireGrant(){mono=2001;}};
+}
+
+test('native close authority signs only its reviewed original close once while automation stays paused',async t=>{
+ for(const side of ['LONG','SHORT']){
+  const f=await nativeSigningFixture(t,{side}),risk=f.journal.riskState(wallet),grant=await authorizeNativePerpsFullClose(f.oracleEffects,f.args);
+  assert.equal(grant.firstLegAbsoluteMinimum,null);assert.equal(grant.settlementProtection,NATIVE_CLOSE_PROTECTION);
+  assert.equal(grant.review.requiresProtectedUsdcConversion,side==='LONG');assert.equal(grant.review.estimatesAreGuaranteed,false);
+  assert.equal(grant.review.conversionMinimumUsdcUnits,null);assert.equal(grant.review.firstLegProtection,'ON_CHAIN_PRICE_LIMIT');
+  assert.equal(f.journal.readPositionCloseExecution(f.row.id).state,'SIGNING');assert.throws(()=>f.vault.signNativeClose({...grant}));
+  const signed=f.vault.signNativeClose(grant);assert.equal(signed.stage,'AUTHORIZED_NATIVE_CLOSE_OWNER_SIGNATURE');
+  assert.throws(()=>f.vault.signNativeClose(grant));assert.deepEqual(f.journal.riskState(wallet),risk);
+  assert.equal(f.args.controls.read({ownerAccountHash:f.args.ownerAccountHash,walletAddress:wallet}).enabled,false);
+ }
+});
+
+test('native close authority refuses absent native review, a positive first-leg floor, backup revocation and late control changes',async t=>{
+ for(const mode of ['no-review','absolute-floor','backup-before','backup-after','controls-after','disabled-after','expired']){
+  const f=await nativeSigningFixture(t,{minimumReturnUnits:mode==='absolute-floor'?'1':'0'});
+  if(mode==='no-review')delete f.args.settlementProtection;
+  if(mode==='backup-before')f.args.backupRegistry.revokeArchive({archiveSha256:f.archiveSha256,explicitOperatorApproval:true});
+  if(['no-review','absolute-floor','backup-before'].includes(mode)){
+   await assert.rejects(authorizeNativePerpsFullClose(f.oracleEffects,f.args));assert.equal(f.journal.readPositionCloseExecution(f.row.id),null);continue;
+  }
+  const grant=await authorizeNativePerpsFullClose(f.oracleEffects,f.args);
+  if(mode==='backup-after')f.args.backupRegistry.revokeArchive({archiveSha256:f.archiveSha256,explicitOperatorApproval:true});
+  if(mode==='controls-after')f.args.controls.pause({ownerAccountHash:f.args.ownerAccountHash,walletAddress:wallet});
+  if(mode==='disabled-after')f.disallow();if(mode==='expired')f.expireGrant();
+  assert.throws(()=>f.vault.signNativeClose(grant));assert.equal(f.journal.readPositionCloseExecution(f.row.id).state,'SIGNING');
+  assert(f.journal.openPositions(wallet).every(e=>e.state==='OPEN'));
+ }
+});
+
+test('native close broadcast records exact uncertainty before one keeper attempt and cannot replay or accept copied signatures',async t=>{
+ const f=await nativeSigningFixture(t),grant=await authorizeNativePerpsFullClose(f.oracleEffects,f.args),signed=f.vault.signNativeClose(grant);let sends=0;
+ const submit=createNativePerpsCloseBroadcaster({journal:f.journal,fetchImpl:async(url,options)=>{
+  sends++;assert.equal(url,'https://perps-api.jup.ag/v2/transaction/execute');const body=JSON.parse(options.body),row=f.journal.readPositionCloseExecution(f.row.id);
+  assert.equal(body.action,'decrease-position');assert.equal(row.state,'UNCERTAIN');assert.equal(body.serializedTxBase64,row.owner_signed_wire);
+  const raw=Buffer.from(body.serializedTxBase64,'base64'),original=Buffer.from(f.inspection.envelope.serializedTxBase64,'base64');
+  assert(raw.subarray(65,129).every(b=>b===0));assert(raw.subarray(129).equals(original.subarray(129)));
+  return Response.json({action:'decrease-position',txid:signed.signature});
+ }});
+ await assert.rejects(submit({...signed},f.args));assert.equal((await submit(signed,f.args)).stage,'NATIVE_CLOSE_BROADCAST_ACKNOWLEDGED');
+ await assert.rejects(submit(signed,f.args));assert.equal(sends,1);assert.equal(f.open().readPositionCloseExecution(f.row.id).state,'UNCERTAIN');
+ assert.equal(f.journal.riskState(wallet).activeMarginUsdcUnits,'20000000');
+});
+
+test('native close transport loss or wrong acknowledgement remains uncertain and never allows a second attempt',async t=>{
+ for(const mode of ['lost','wrong-ack','concurrent']){
+  const f=await nativeSigningFixture(t);let sends=0;
+  const executor=createNativePerpsCloseExecutor({journal:f.journal,vault:f.vault,fetchImpl:async()=>{
+   sends++;if(mode==='lost')throw Error('response lost');return Response.json({action:'decrease-position',txid:'wrong-signature'});
+  }});
+  if(mode==='concurrent'){
+   const outcomes=await Promise.allSettled([executor.execute(f.oracleEffects,f.args),executor.execute(f.oracleEffects,f.args)]);
+   assert.equal(outcomes.filter(o=>o.status==='fulfilled').length,1);
+  }else assert.equal((await executor.execute(f.oracleEffects,f.args)).stage,'NATIVE_CLOSE_BROADCAST_UNKNOWN');
+  await assert.rejects(executor.execute(f.oracleEffects,f.args));assert.equal(sends,1);
+  assert.equal(f.open().readPositionCloseExecution(f.row.id).state,'UNCERTAIN');assert(f.journal.openPositions(wallet).every(e=>e.state==='OPEN'));
+ }
+});
+
+test('native close fresh pre-broadcast policy rejects late controls and pool configuration changes without a send',async t=>{
+ for(const mode of ['disabled','pool']){
+  const f=await nativeSigningFixture(t),grant=await authorizeNativePerpsFullClose(f.oracleEffects,f.args),signed=f.vault.signNativeClose(grant);let sends=0;
+  if(mode==='disabled')f.disallow();else {const a=f.after.get(PERPS_POOL),b=Buffer.from(a.data[0],'base64');b[b.length-180]^=1;a.data[0]=b.toString('base64');}
+  const submit=createNativePerpsCloseBroadcaster({journal:f.journal,fetchImpl:async()=>{sends++;throw Error();}});
+  await assert.rejects(submit(signed,f.args));assert.equal(sends,0);assert.equal(f.journal.readPositionCloseExecution(f.row.id).state,'SIGNING');
+ }
+});
+
+test('native close coordinator recovers only its exact signed first leg and records actual collateral or USDC without releasing risk',async t=>{
+ for(const side of ['LONG','SHORT']){
+  const f=await nativeSigningFixture(t,{side}),event=await closePayoutFixture({side,version:2,amount:8000000n,nowMs:now*1000});let sends=0,tx,signature;
+  const keys=f.inspection.resolvedKeys,index=k=>{const i=keys.indexOf(k);assert(i>=0);return i;};
+  const executor=createNativePerpsCloseExecutor({journal:f.journal,vault:f.vault,fetchImpl:async(_url,options)=>{
+   sends++;const body=JSON.parse(options.body),raw=Buffer.from(body.serializedTxBase64,'base64');sign(null,raw.subarray(193),fixtureKeeper).copy(raw,65);
+   signature=bs58.encode(raw.subarray(1,65));const loaded=f.inspection.envelope.lookups.reduce((n,t)=>n+t.writable.length,0),staticCount=f.inspection.envelope.staticKeys.length;
+   const tokenBalances=map=>keys.flatMap((key,i)=>{const a=map.get(key);if(a?.owner!==TOKEN)return [];const b=Buffer.from(a.data[0],'base64');if(b.length!==165)return [];
+    const mint=bs58.encode(b.subarray(0,32)),c=Object.values(PERPS_CUSTODIES).find(c=>c.mint===mint);assert(c);
+    return [{accountIndex:i,mint,owner:bs58.encode(b.subarray(32,64)),programId:TOKEN,uiTokenAmount:{amount:b.readBigUInt64LE(64).toString(),decimals:c.decimals}}];});
+   const transfer=Buffer.alloc(9);transfer[0]=3;transfer.writeBigUInt64LE(8000000n,1);
+   const coreIndex=f.inspection.envelope.instructions.findIndex(ix=>keys[ix.program]===PERPS_PROGRAM&&['2e17f02c1e8a5e8c','a2bfc83e8b3eb011'].includes(Buffer.from(ix.dataBase64,'base64').subarray(0,8).toString('hex')));
+   tx={slot:300,blockTime:now,transaction:[raw.toString('base64'),'base64'],meta:{err:null,fee:5000,
+    preBalances:keys.map(k=>Number(f.before.get(k)?.lamports??0)),postBalances:keys.map(k=>Number(f.after.get(k)?.lamports??0)),
+    preTokenBalances:tokenBalances(f.before),postTokenBalances:tokenBalances(f.after),
+    loadedAddresses:{writable:keys.slice(staticCount,staticCount+loaded),readonly:keys.slice(staticCount+loaded)},innerInstructions:[{index:coreIndex,instructions:[
+     {programIdIndex:index(TOKEN),accounts:[index(f.collateral.tokenAccount),index(f.inspection.bindings.collateralAccount),index(f.ids.transferAuthority)],data:bs58.encode(transfer),stackHeight:2},
+     {programIdIndex:index(PERPS_PROGRAM),accounts:[index(f.ids.eventAuthority)],data:event.inner[1].data,stackHeight:2}]}]}};
+   return Response.json({action:'decrease-position',txid:signature});
+  }});
+  await executor.execute(f.oracleEffects,f.args);
+  const request=async(m,p)=>{
+   if(m==='getGenesisHash')return '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
+   if(m==='getSignatureStatuses'){assert.equal(p[0][0],signature);return {context:{slot:301},value:[{slot:300,err:null,confirmationStatus:'finalized'}]};}
+   if(m==='getTransaction'){assert.equal(p[0],signature);return tx;}
+   if(m==='getMultipleAccounts')return {context:{slot:302},value:p[0].map(k=>f.after.get(k)??null)};
+   throw Error('WRITE_OR_UNEXPECTED_RPC:'+m);
+  };
+  const options={request,now:()=>now*1000,monotonicNow:()=>0},result=await executor.recoverFirstLeg(f.row.id,options);
+  assert.equal(result.stage,'NATIVE_CLOSE_FIRST_LEG_FINALIZED');assert.equal(result.receivedTokenUnits,'8000000');assert.equal(result.requiresConversion,side==='LONG');
+  assert.deepEqual(await executor.recoverFirstLeg(f.row.id,options),result);assert.equal(sends,1);
+  assert.equal(f.journal.readPositionCloseExecution(f.row.id).state,'FIRST_LEG_FINALIZED');assert.equal(f.journal.riskState(wallet).activeMarginUsdcUnits,'20000000');
+ }
+});
 
 test('prepared full close persists exact wire and all position entries across restart without releasing risk',async t=>{
  const f=await closeJournalFixture(t),risk=f.journal.riskState(wallet),row=f.journal.preparePositionClose('close-one',f.oracleEffects);
