@@ -252,6 +252,26 @@ test('runtime status is disabled by default and invalid web status options canno
  assert.equal(f.calls.length,0);
 });
 
+test('existing web status startup refuses missing and foreign stores without replacing them and preserves durable query quota across restart',async t=>{
+ const f=fixture(t),filename=join(f.directory,'web-submissions.sqlite'),clock=Date.now();
+ assert.throws(()=>openWebPerpsSubmissionJournal({filename,requireExisting:true}));assert.equal(existsSync(filename),false);
+ assert.throws(()=>openServerPerpsRuntime({...f.options,existingWebStatus:true}));assert.equal(existsSync(filename),false);assert.equal(existsSync(join(f.directory,'worker.lock')),false);
+ const foreign=new DatabaseSync(filename);foreign.exec('CREATE TABLE retained (value TEXT); INSERT INTO retained VALUES (\'original\')');foreign.close();chmodSync(filename,0o600);
+ const original=readFileSync(filename);
+ assert.throws(()=>openServerPerpsRuntime({...f.options,existingWebStatus:true}));assert.deepEqual(readFileSync(filename),original);assert.equal(existsSync(join(f.directory,'worker.lock')),false);
+ rmSync(filename);const web=openWebPerpsSubmissionJournal({filename});web.close();chmodSync(filename,0o600);
+ const options={...f.options,existingWebStatus:true,now:()=>clock};let runtime=openServerPerpsRuntime(options);
+ const request=()=>new Request('https://www.jamddmaj.com/api/perps-operation-status',{method:'POST',headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({reviewId:'a'.repeat(64),recordBinding:'b'.repeat(64),walletAddress:f.identity.walletAddress,signature:bs58.encode(new Uint8Array(64).fill(2))})});
+ try{
+  for(let n=0;n<60;n++){const response=await runtime.handleWebOperationStatusRequest(request());assert.equal(response.status,200);assert.deepEqual(await response.json(),{ok:true,status:null});}
+  assert.equal((await runtime.handleWebOperationStatusRequest(request())).status,503);
+  assert.equal(runtime.capabilities().executionAvailable,false);await runtime.close();runtime=openServerPerpsRuntime(options);
+  assert.equal((await runtime.handleWebOperationStatusRequest(request())).status,503);assert.equal(f.calls.length,0);
+ }finally{await runtime.close();}
+ const reopened=openWebPerpsSubmissionJournal({filename,requireExisting:true});assert.equal(reopened.read('a'.repeat(64)),null);reopened.close();
+});
+
 test('actual authenticated runtime enforces custody capacity before creating another user wallet',async t=>{
  const f=fixture(t),runtime=openServerPerpsRuntime({...f.options,custodyProvisioning:true,custodyWalletLimit:1,
   fetchImpl:async()=>Response.json({ok:true,accountHash:'d'.repeat(64),verifiedAt:Date.now()})});
@@ -292,4 +312,18 @@ test('the actual Linux CLI requires a control boundary for custody setup and lea
  assert.equal(JSON.parse(readFileSync(join(f.directory,'worker-status.json'),'utf8')).mode,'maintenance');
  assert.equal(readdirSync(join(f.directory,'wallets')).length,1);
  const controls=openPerpsAutomationControls(f.controlsPath);try{const state=controls.read(f.identity);assert.equal(state.enabled,false);assert.equal(state.paused,true);}finally{controls.close();}
+});
+
+test('actual Linux CLI web status opt-in requires controls and an existing compatible journal without enabling trading',{skip:process.platform==='win32'},async t=>{
+ const f=fixture(t),cli=process.env.JAMDDMAJ_TEST_PERPS_WORKER_CLI||fileURLToPath(new URL('../scripts/perps-server-worker.mjs',import.meta.url));
+ const probe=createServer();probe.listen(0,'127.0.0.1');await once(probe,'listening');const port=probe.address().port;await new Promise(resolve=>probe.close(resolve));
+ const options={env:{PATH:process.env.PATH,STATE_DIRECTORY:f.directory,JAMDDMAJ_PERPS_CONTROL_PORT:String(port)},encoding:'utf8',timeout:15000,stdio:['ignore','pipe','pipe']};
+ const filename=join(f.directory,'web-submissions.sqlite');
+ assert.throws(()=>execFileSync(process.execPath,[cli,'--once','--web-status'],options));assert.equal(existsSync(join(f.directory,'worker.lock')),false);
+ assert.throws(()=>execFileSync(process.execPath,[cli,'--once','--controls','--web-status'],options));assert.equal(existsSync(filename),false);
+ const web=openWebPerpsSubmissionJournal({filename});web.close();chmodSync(filename,0o600);
+ execFileSync(process.execPath,[cli,'--once','--controls','--web-status'],options);
+ const status=JSON.parse(readFileSync(join(f.directory,'worker-status.json'),'utf8'));assert.equal(status.mode,'maintenance');assert.equal(status.readyForSigning,false);
+ assert.equal(existsSync(join(f.directory,'worker.lock')),false);const controls=openPerpsAutomationControls(f.controlsPath);
+ try{assert.equal(controls.read(f.identity).enabled,false);assert.equal(controls.read(f.identity).paused,true);}finally{controls.close();}
 });

@@ -4339,3 +4339,34 @@ build/import graph, combined runtime, HTTP controls and web review tests passed:
 38 tests, 36 passed, two platform skips, zero failures. The earlier full-suite
 failure is not reported as a full green run; full regression after this packaging
 fix remains pending. No public files/services were deployed.
+
+### Existing-journal CLI status opt-in (2026-10-22, not installed)
+
+The worker accepts explicit `--web-status` only with `--controls`. It selects
+only `<validated private runtime directory>/web-submissions.sqlite`; the runtime
+applies its existing file ownership/permission/symlink/hardlink checks, including
+SQLite sidecars. Missing files fail before a lock or replacement journal is
+created. `openWebPerpsSubmissionJournal({requireExisting:true})` performs a
+read-only schema/integrity/lock-versus-settlement preflight and rechecks the same
+required schema after opening the writable connection, before normal setup.
+All five web tables must already match; no legacy migration is performed.
+Existing signed records and settled financial facts remain intact.
+
+The runtime owns/closes this optional web connection and binds status to its
+own shared execution journal. A synthetic, domain-separated global read quota
+uses the existing durable controls quota store (60/minute), in addition to the
+HTTP peer/concurrency limits. Exhaustion fails closed and survives restart.
+No query increments trades or risk allocations. Defaults remain maintenance,
+web status off, accounts paused, and execution approval unchanged.
+
+Verification: local runtime suite passed 20, with two Linux-only skips before
+the third Linux CLI test was added. A separate settled-history reopen test
+passed with `requireExisting:true`. Current runtime tests plus the actual bundled
+worker entry point ran in isolated Linux Node 22 under systemd unit
+`jamddmaj-runtime-web-status-check-20261022.service`: 23/23 passed, zero skipped
+or failed (7553 ms), exit 0. Isolation included DynamicUser, PrivateNetwork,
+PrivateTmp, ProtectHome, ProtectSystem=strict and NoNewPrivileges. These used
+temporary unfunded fixtures, not production custody or journal paths. Only
+test bundles were copied into the checks directory; the installed worker,
+database schemas, public proxy, web deployment and Android release were not
+changed. Public integration and full trading acceptance remain incomplete.

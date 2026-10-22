@@ -757,6 +757,8 @@ test('verified web settlement retires only its own wallet lock while preserving 
   assert.equal(f.riskJournal.riskState(f.account.address).activeMarginUsdcUnits,failed?'0':'10000000');
   const reopened=openWebPerpsSubmissionJournal({filename:f.filename,now:f.clock});
   assert.deepEqual(reopened.readFinancialSettlement(f.packet.reviewId),record);assert.equal(reopened.pending(f.account.address),null);reopened.close();
+  const existing=openWebPerpsSubmissionJournal({filename:f.filename,now:f.clock,requireExisting:true});
+  assert.deepEqual(existing.readFinancialSettlement(f.packet.reviewId),record);assert.deepEqual(existing.read(f.packet.reviewId),before);existing.close();
  }
 });
 
