@@ -4287,3 +4287,23 @@ rejected before the handler quota/store boundary. This is isolated fixture
 evidence, not a live mainnet trade or a production route installation.
 Persistent service startup wiring, same-origin public proxy and deployment
 remain outstanding; existing installed services have not been modified.
+
+### Explicit controls-service status startup (2026-10-22, local only)
+
+The importable `startPerpsControlService` accepts an optional strict `webStatus`
+configuration consisting only of genuine web journal, genuine shared risk
+journal and explicit limiter. Validation precedes opening the controls store.
+It passes the resulting narrow handler to the bounded loopback HTTP boundary.
+Missing/copied journal handles and extra configuration are rejected; no guessed
+database path, missing-file bootstrap, execution activation or status default
+is introduced. The caller retains ownership of these two journals; service
+shutdown closes only its own controls store. HTTP-construction failure closes
+that controls store as well.
+
+A targeted actual-startup integration test passed: settled fixture status was
+read over TCP, health remained trading/execution disabled, invalid configurations
+were rejected and original journal handles remained usable after shutdown.
+This programmatic startup option is not yet wired into the installed combined
+worker runtime or exposed through the public same-origin proxy. CLI defaults
+are unchanged; no environment variables, production files or deployments were
+changed. Worker integration and public verification remain required.

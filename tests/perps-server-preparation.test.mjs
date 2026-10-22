@@ -715,6 +715,26 @@ test('actual loopback HTTP status route reads settled journals into browser reco
  assert.equal(denied.status,400);assert.equal(queries,1);
 });
 
+test('control service startup explicitly binds genuine shared journals and rejects missing or copied status configuration',async t=>{
+ const {startPerpsControlService}=await import('../scripts/perps-control-service.mjs'),{once}=await import('node:events'),{createServer}=await import('node:net');
+ const f=await sharedWebSettlementFixture(t);await reconcileRiskBoundWebEntry(f.packet.reviewId,f.settlementOptions);
+ const directory=mkdtempSync(join(tmpdir(),'jamd-status-service-'));
+ const probe=createServer();probe.listen(0,'127.0.0.1');await once(probe,'listening');const port=probe.address().port;await new Promise(resolve=>probe.close(resolve));
+ for(const webStatus of [{},{journal:f.serverJournal,riskJournal:f.riskJournal},{journal:{...f.serverJournal},riskJournal:f.riskJournal,limit:async()=>{}},
+  {journal:f.serverJournal,riskJournal:f.riskJournal,limit:async()=>{},execute:true}])assert.throws(()=>startPerpsControlService({directory,port,webStatus}));
+ let queries=0,service;
+ try{
+  service=startPerpsControlService({directory,port,webStatus:{journal:f.serverJournal,riskJournal:f.riskJournal,limit:async()=>{queries++;}}});await once(service.server,'listening');
+  const base='http://127.0.0.1:'+port;
+  const health=await (await fetch(base+'/health')).json();assert.equal(health.tradingEnabled,false);assert.equal(health.executionAvailable,false);
+  const response=await fetch(base+'/api/perps-operation-status',{method:'POST',headers:{Origin:'https://www.jamddmaj.com','Content-Type':'application/json'},
+   body:JSON.stringify({reviewId:f.packet.reviewId,walletAddress:f.account.address,signature:f.signed.signature,recordBinding:f.packet.recordBinding})});
+  assert.equal(response.status,200);assert.equal((await response.json()).status.outcome,'CONFIRMED');assert.equal(queries,1);assert.equal(f.sends,1);
+ }finally{if(service)await service.close();rmSync(directory,{recursive:true,force:true});}
+ // Journals belong to the runtime, not the HTTP service shutdown lifecycle.
+ assert.equal(f.serverJournal.read(f.packet.reviewId).signature,f.signed.signature);assert.ok(f.riskJournal.read('web:'+f.packet.reviewId));
+});
+
 test('expired and regressed browser status clocks preserve the pending operation and require a fresh query',async t=>{
  const f=await sharedWebSettlementFixture(t);await reconcileRiskBoundWebEntry(f.packet.reviewId,f.settlementOptions);const s=statusFixture(f);
  let wall=f.clock(),mono=100;
