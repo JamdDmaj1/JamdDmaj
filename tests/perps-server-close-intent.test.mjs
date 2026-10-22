@@ -22,9 +22,29 @@ import {checkServerPerpsFullCloseVaults,readServerPerpsFullCloseVaults} from '..
 import {checkServerPerpsFullCloseReserves,readServerPerpsFullCloseReserves} from '../lib/perps-server-close-reserves.js';
 import {checkServerPerpsFullCloseOracleEffects,readServerPerpsFullCloseOracleEffects} from '../lib/perps-server-close-oracle-effects.js';
 import {describeSimulatedPerpsCloseSettlement,canonicalPerpsCloseSettlement} from '../lib/perps-close-settlement.js';
+import {checkSimulatedPerpsCloseReturn,readSimulatedPerpsCloseReturn,validatePerpsCloseReturnLimits} from '../lib/perps-close-return-policy.js';
 import {pythStorageFixture} from './helpers/perps-pyth-storage-fixture.mjs';
 import {pythPayloadFixture} from './helpers/perps-pyth-payload-fixture.mjs';
 const wallet=bs58.encode(Buffer.alloc(32,1)),now=1802865600;
+test('owner close return floor uses only the incremental independently simulated payout across every collateral route',async()=>{
+ for(const asset of ['BTC','ETH','SOL'])for(const side of ['LONG','SHORT']){
+  const f=await oracleEffectsFixture(side,asset,'COLLATERAL_THEN_USDC'),effects=checkServerPerpsFullCloseOracleEffects(await f.reserves(),{nowSeconds:now});
+  const limits={minimumReturnUnits:'8000000',maximumNetworkFeeLamports:'5000'},proof=checkSimulatedPerpsCloseReturn(effects,limits);
+  assert.equal(proof.simulatedReturnUnits,'8000000');assert.equal(proof.receiveAsset,side==='LONG'?asset:'USDC');assert.equal(proof.readyForSigning,false);
+  assert.equal(proof.requiresOnChainExecutionBounds,true);assert.equal(readSimulatedPerpsCloseReturn(proof,{oracleEffects:effects}).oracleEffects,effects);
+  assert.throws(()=>checkSimulatedPerpsCloseReturn(effects,{...limits,minimumReturnUnits:'8000001'}));
+  assert.throws(()=>checkSimulatedPerpsCloseReturn(effects,{...limits,maximumNetworkFeeLamports:'4999'}));
+  assert.throws(()=>checkSimulatedPerpsCloseReturn({...effects},limits));assert.throws(()=>readSimulatedPerpsCloseReturn({...proof},{oracleEffects:effects}));
+  assert.throws(()=>readSimulatedPerpsCloseReturn(proof,{oracleEffects:{...effects}}));
+ }
+});
+test('close return limits reject ambiguous or missing owner floors before any account, builder or simulation read',async()=>{
+ const limits={minimumReturnUnits:'0',maximumNetworkFeeLamports:'5000'};
+ for(const value of [null,{}, {...limits,minimumReturnUnits:0},{...limits,minimumReturnUnits:'01'},{...limits,minimumReturnUnits:'1.5'},
+  {...limits,minimumReturnUnits:'18446744073709551616'},{...limits,maximumNetworkFeeLamports:'0'},{...limits,maximumNetworkFeeLamports:'1000001'}, {...limits,providerQuote:true}])assert.throws(()=>validatePerpsCloseReturnLimits(value));
+ assert.equal(validatePerpsCloseReturnLimits(limits).minimumReturnUnits,'0');let reads=0;
+ await assert.rejects(prepareSimulatedServerPerpsFullClose({returnLimits:{}},{request:async()=>{reads++;},fetchImpl:async()=>{reads++;}}));assert.equal(reads,0);
+});
 test('chosen two-step settlement returns only collateral, preserves existing balances and leaves conversion pending across all six paths',async()=>{
  for(const asset of ['BTC','ETH','SOL'])for(const side of ['LONG','SHORT']){
   const f=await oracleEffectsFixture(side,asset,'COLLATERAL_THEN_USDC');
@@ -1039,6 +1059,16 @@ test('close preparation requires original fresh reserve proof and confirmed jour
    position:`UPDATE perps_reservations SET position_address='${bs58.encode(Buffer.alloc(32,4))}'`,slot:'UPDATE perps_reservations SET confirmed_slot=106',legacy:'UPDATE perps_reservations SET entry_exit_plan=NULL'};
   raw.exec(sql[fault]);raw.close();assert.throws(()=>a.journal.preparePositionClose('bad-parent',a.oracleEffects),/VERIFIED_RECONCILIATION_REQUIRED/);
  }
+});
+
+test('verified owner return limits persist in the exact close binding across restart without releasing risk',async t=>{
+ const f=await closeJournalFixture(t,{settlement:'COLLATERAL_THEN_USDC'}),risk=f.journal.riskState(wallet);
+ const limits={minimumReturnUnits:'8000000',maximumNetworkFeeLamports:'5000'},proof=checkSimulatedPerpsCloseReturn(f.oracleEffects,limits);
+ assert.throws(()=>f.journal.preparePositionClose('forged-limit',f.oracleEffects,{returnPolicy:{...proof}}));assert.equal(f.journal.pendingPositionCloses(wallet).length,0);
+ const row=f.journal.preparePositionClose('bound-limits',f.oracleEffects,{returnPolicy:proof}),s=JSON.parse(row.settlement);
+ assert.deepEqual(s.returnLimits,limits);assert.equal(canonicalPerpsCloseSettlement(s,f.plan),row.settlement);
+ assert.deepEqual(f.open().readPositionClose('bound-limits'),row);assert.deepEqual(f.journal.riskState(wallet),risk);
+ for(const returnLimits of [{...limits,minimumReturnUnits:'-1'},{...limits,maximumNetworkFeeLamports:'0'},{...limits,execute:true}])assert.throws(()=>canonicalPerpsCloseSettlement({...s,returnLimits},f.plan));
 });
 
 test('an outstanding entry or cancellation blocks close preparation atomically',async t=>{

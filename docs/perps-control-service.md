@@ -4401,3 +4401,38 @@ explicit loopback substitute for the fixed TLS destination; they do NOT prove
 live certificate/proxy/installed-worker availability. Public TLS routing and
 the reviewed worker/web deployments are still required. No deployment,
 production schema change, activation or real transaction occurred.
+
+### Step 2 only: owner close-return review limits (2026-10-22, local)
+
+The close-return draft incorrectly read `funding.feeLamports`; the genuine
+funding evidence exposes `networkFeeLamports`. The check now uses that verified
+field. Canonical limits require explicit integer base units for the received
+token and a network-fee ceiling between 1 and 1,000,000 lamports; an explicit
+zero floor is distinct from a missing/ambiguous limit. Invalid limits fail
+before account/builder reads when supplied to full-close preparation.
+
+The privately branded return check compares only incremental simulated proceeds
+(collateral for two-step LONG, USDC for SHORT/direct settlement) and independently
+checked network fees. It does not count prior wallet holdings as close proceeds.
+`preparePositionClose` may consume that original proof for the same oracle
+effects, storing canonical `returnLimits` in the existing settlement descriptor.
+The existing parent/receipt bindings include that descriptor. Limits survive
+reopening the journal; copied/foreign proofs are refused and original active
+risk is not released. The optional version-2 descriptor extension retains old
+records without a database table migration. It is review metadata, not a new
+signing permission, and no caller-supplied plain limits become private proof.
+
+Verification: 118/118 close-intent, durable execution, conversion wire,
+simulation and finalized-receipt tests passed (117049 ms), no skips/failures.
+Log: `.perps-build/close-step2-tests.log`. Includes all six asset/side collateral
+routes, payout one unit below floor, fee one lamport over limit, malformed
+inputs, proof copies, persisted limits, restart and unchanged financial holds.
+
+Important remaining scope: this floor checks the simulated payout, NOT an
+atomic on-chain minimum for the first leg. Existing code still explicitly
+requires independent execution bounds/pool economics, durable authorization,
+native/user confirmation, custody first-leg signing/transport and protected
+conversion signing/transport orchestration. Recording real finalized outcomes
+must never discard financial truth merely because a review floor was breached.
+Step 2 is not complete. No entry/Telegram/publication work, VPS/schema changes,
+bot activation, funded signatures or real financial submissions occurred here.
