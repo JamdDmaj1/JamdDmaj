@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
-const source=readFileSync(new URL('../funding-ui.js',import.meta.url),'utf8').replace(/^import .*;\n/gm,'').replace('export function','function');
+const source=readFileSync(new URL('../funding-ui.js',import.meta.url),'utf8').replace(/\r\n/g,'\n').replace(/^import .*;\n/gm,'').replace('export function','function');
 for(const language of ['es','en'])test(`funding opens official pages without transactions (${language})`,async()=>{
  const added=[], replacements={},nodes={};
  const element=()=>({style:{},textContent:'',append(...v){added.push(...v)},addEventListener(k,v){this[k]=v},replaceWith(v){replacements[this.id]=v}});
