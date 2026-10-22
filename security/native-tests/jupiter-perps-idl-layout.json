@@ -4,6 +4,15 @@
   "program": "PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu",
   "slot": 458207867,
   "idlSha256": "1d90a653a1cc88bddb7c5876acee52d3f26c6b1e3306e0833234020dc6f7d653",
+  "closePoolConfigurationLayout": {
+    "source": "Confirmed program-owned mainnet Anchor IDL, read-only 2026-10-22",
+    "slot": 460211583,
+    "idlSha256": "1d90a653a1cc88bddb7c5876acee52d3f26c6b1e3306e0833234020dc6f7d653",
+    "prefix": "8-byte discriminator, string name, vec<publicKey> custodies",
+    "relativeToEndOfCustodies": {"aumUsd": 0, "limits": 16, "fees": 56, "poolApr": 128, "realizedFeeUsd": 144, "maxRequestExecutionSec": 152, "bumps": 160, "inceptionTime": 162, "parameterUpdateOracle": 170, "aumUsdUpdatedAt": 203, "maxTriggerPriceDiffBps": 211, "disableClosePositionRequest": 219, "maxLpTokenPriceChangeBps": 220, "aumUsdRefreshedAtSlot": 228, "knownPrefixBytes": 236},
+    "nativePoolReadOnlyCheck": {"slot": 460211341, "accountBytes": 2000, "valid": true},
+    "authority": "None: configuration/effect comparison only, not complete protocol economics or signing permission"
+  },
   "closeReserveAccountingLayout": {
     "source": "Confirmed program-owned mainnet Anchor IDL, 2026-10-20",
     "slot": 459311182,

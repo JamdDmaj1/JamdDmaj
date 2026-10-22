@@ -482,15 +482,19 @@ async function fundingFixture(side='SHORT',asset='SOL',settlement='DIRECT_USDC')
   f.before.set(f.inspection.bindings.tokenLedger,ledger);f.after.set(f.inspection.bindings.tokenLedger,structuredClone(ledger));
  }
  f.after.set(wallet,{owner:SYSTEM,executable:false,lamports:181995000,data:['','base64']});
- const pool={owner:PERPS_PROGRAM,executable:false,lamports:6000000,data:[Buffer.concat([createHash('sha256').update('account:Pool').digest().subarray(0,8),Buffer.alloc(256)]).toString('base64'),'base64']};
+ const poolName=Buffer.from('Jupiter'),poolCustodies=[f.market.address,f.usdc.address],nameLength=Buffer.alloc(4),count=Buffer.alloc(4);
+ nameLength.writeUInt32LE(poolName.length);count.writeUInt32LE(poolCustodies.length);
+ const pool={owner:PERPS_PROGRAM,executable:false,lamports:6000000,data:[Buffer.concat([createHash('sha256').update('account:Pool').digest().subarray(0,8),nameLength,poolName,count,...poolCustodies.map(key=>Buffer.from(bs58.decode(key))),Buffer.alloc(236)]).toString('base64'),'base64']};
  f.before.set(PERPS_POOL,pool);f.after.set(PERPS_POOL,structuredClone(pool));
  for(const [i,c]of [f.market,f.usdc].entries()){
   const account={...structuredClone(f.custodyAccounts[i]),lamports:3000000},data=Buffer.from(account.data[0],'base64');
   data.writeBigUInt64LE(1000000000n,222);data.writeBigUInt64LE(800000000n,230);
+  data.writeBigUInt64LE(100000000n,238);
   data.writeBigUInt64LE(c.asset===asset?500000000n:0n,246);data.writeBigUInt64LE(c.asset===asset?100000000n:0n,254);
   data.writeBigUInt64LE(1000n,262);data.writeBigInt64LE(1000n,278);account.data[0]=data.toString('base64');
   const next=structuredClone(account),after=Buffer.from(data);
   if(c.address===f.collateral.address)after.writeBigUInt64LE(800000000n-BigInt(f.account.positions[0].lockedTokenUnits),230);
+  if(side==='LONG'&&c.asset===asset)after.writeBigUInt64LE(100000000n-BigInt(f.account.positions[0].sizeUsdUnits)+BigInt(f.account.positions[0].collateralUsdUnits),238);
   if(side==='SHORT'&&c.asset===asset)after.writeBigUInt64LE(470000000n,246);
   after.writeBigUInt64LE(1001n,262);after.writeBigInt64LE(1001n,278);next.data[0]=after.toString('base64');
   f.before.set(c.address,account);f.after.set(c.address,next);
@@ -512,6 +516,10 @@ async function fundingFixture(side='SHORT',asset='SOL',settlement='DIRECT_USDC')
    f.after.set(address,null);f.after.get(wallet).lamports+=Number(payout)+2039280;
   }else f.after.set(address,tokenFor(wallet,PERPS_CUSTODIES[asset].mint,payout));
   f.after.set(f.collateral.tokenAccount,vault);
+ }
+ for(const c of new Map([f.collateral,f.usdc].map(c=>[c.address,c])).values()){
+  const account=f.after.get(c.address),data=Buffer.from(account.data[0],'base64');
+  data.writeBigUInt64LE(Buffer.from(f.after.get(c.tokenAccount).data[0],'base64').readBigUInt64LE(64),222);account.data[0]=data.toString('base64');
  }
  const rentCalls=[],fundingRequest=async(method,params)=>{
   rentCalls.push({method,params});
@@ -876,6 +884,20 @@ test('vault conservation rejects wrong mint/authority, altered custody/pool, una
   await assert.rejects(checkServerPerpsFullCloseVaults(funding,policy),mode);
  }
 });
+test('close pool book value conserves reserved fees plus owned tokens against the exact vault withdrawal',async()=>{
+ for(const mode of ['earned-fees','owned-short-one','fees-extra-one']){
+  const f=await fundingFixture('LONG','SOL','COLLATERAL_THEN_USDC'),account=f.after.get(f.collateral.address),data=Buffer.from(account.data[0],'base64');
+  if(mode==='earned-fees'){data.writeBigUInt64LE(1000n,214);data.writeBigUInt64LE(data.readBigUInt64LE(222)-1000n,222);}
+  if(mode==='owned-short-one')data.writeBigUInt64LE(data.readBigUInt64LE(222)-1n,222);
+  if(mode==='fees-extra-one')data.writeBigUInt64LE(1n,214);
+  account.data[0]=data.toString('base64');
+  const policy=checkServerPerpsFullCloseInstructionPolicy(f.inspection),simulation=await simulateServerPerpsFullCloseEffects(f.inspection,{request:f.request});
+  const funding=await checkServerPerpsFullCloseFunding(simulation,{request:f.fundingRequest});
+  if(mode==='earned-fees')assert.equal((await checkServerPerpsFullCloseVaults(funding,policy)).collateralVaultNetDebitUnits,'8000000');
+  else await assert.rejects(checkServerPerpsFullCloseVaults(funding,policy),/VAULT_CONSERVATION_MISMATCH/);
+ }
+});
+
 test('legitimate unsynchronized WSOL excess is preserved or exactly refunded, never treated as spendable token amount',async()=>{
  for(const close of [false,true]){
   const f=await fundingFixture('LONG'),address=f.inspection.bindings.collateralAccount;
@@ -910,7 +932,7 @@ test('full closes release exactly their own locked collateral and remove only th
  }
 });
 test('reserve checks reject one-unit mistakes, effects on other exposures, regressed interest and a position interest snapshot ahead of custody',async()=>{
- for(const side of ['LONG','SHORT'])for(const mode of ['ownLocked','otherLocked','marketShort','otherShort','average','interest','updated','snapshot']){
+ for(const side of ['LONG','SHORT'])for(const mode of ['ownLocked','otherLocked','marketShort','otherShort','guaranteed','average','interest','updated','snapshot']){
   const f=await fundingFixture(side),custody=mode==='otherLocked'?(side==='LONG'?f.usdc:f.market):mode==='otherShort'?f.usdc:mode==='snapshot'?f.collateral:mode==='average'&&side==='SHORT'?f.usdc:f.market;
   const target=mode==='snapshot'?f.before:f.after,a=target.get(custody.address),data=Buffer.from(a.data[0],'base64');
   if(mode==='ownLocked'){
@@ -918,6 +940,7 @@ test('reserve checks reject one-unit mistakes, effects on other exposures, regre
   }else{
    if(mode==='otherLocked')data.writeBigUInt64LE(data.readBigUInt64LE(230)+1n,230);
    if(mode==='marketShort'||mode==='otherShort')data.writeBigUInt64LE(data.readBigUInt64LE(246)+1n,246);
+   if(mode==='guaranteed')data.writeBigUInt64LE(data.readBigUInt64LE(238)+1n,238);
    if(mode==='average')data.writeBigUInt64LE(data.readBigUInt64LE(254)+1n,254);
    if(mode==='interest'||mode==='snapshot')data.writeBigUInt64LE(999n,262);
    if(mode==='updated')data.writeBigInt64LE(999n,278);

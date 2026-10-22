@@ -4464,3 +4464,27 @@ key, live financial submission, activation, publication or VPS change occurred.
 First-leg custody authorization/transport, remaining economic execution bounds
 and the complete operational coordinator remain incomplete; this addition must
 not be represented as point 2 finished or live futures enabled.
+
+### Step 2 continuation: native pool/configuration and accounting conservation
+
+The close policy now checks custody `owned + feesReserves` against the exact
+token vault debit and removes only the closing LONG's `sizeUsd-collateralUsd`
+from `guaranteedUsd` (SHORT closes must not change that total). Existing lock,
+short exposure, interest and original-position checks remain in force. An
+overcollateralized LONG is rejected pending separate semantics review, never
+rounded or accepted with an invented unsigned decrease.
+
+The Pool parser is pinned to the confirmed program-owned Anchor IDL hash
+`1d90a653a1cc88bddb7c5876acee52d3f26c6b1e3306e0833234020dc6f7d653`, re-read
+at slot 460211583. A read-only parse of the actual 2000-byte native Pool at slot
+460211341 succeeded. Fee/limit configuration, custody list, authorities, APR
+configuration and unknown tail bytes must remain identical. Only AUM and
+monotonic collected-fee/AUM-observation counters may change. This is still not
+proof of complete fee math, an atomic first-leg minimum or custody authority.
+
+References: https://developers.jup.ag/docs/perps/custody-account and
+https://developers.jup.ag/docs/perps/pool-account describe the native accounting
+fields. Layout offsets come from the program-owned on-chain IDL, not the web
+documentation's displayed field types. The broader 134-test fixture run passed
+before the final Pool-parser addition; its three new standalone tests passed.
+No funded operations or production changes occurred.
