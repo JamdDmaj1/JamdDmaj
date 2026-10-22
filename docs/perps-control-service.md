@@ -4108,3 +4108,76 @@ ProtectSystem=strict, NoNewPrivileges, UMask0077 and MemoryMax384M. Test artifac
 SHA-256 matched locally and after transfer before execution:
 `b83c68d069d4ca62dda86c37e33c3be721c799761444f81cb419dc5a68996be7`.
 This test did not read production custody records or change the installed worker.
+
+### Reconciled web wallet barrier retirement (2026-10-22, not deployed)
+
+The web journal now separates immutable signed submission history from the
+one-active-operation wallet lock. Signatures/wire hashes/review IDs remain
+globally unique forever; a distinct subsequent operation may claim a wallet
+only after the previous active lock is resolved by genuine shared-financial
+settlement. Submission insertion and its wallet-lock insertion are one atomic
+transaction, so a losing parallel claim leaves neither an orphan row nor an
+extra active lock. A consumed/retired claim cannot expose bytes just because
+its historical immutable row still exists.
+
+After the shared risk commit, the coordinator issues a new private one-use
+release grant, bound to the original consumed settlement proof, the exact
+journal pair, current financial row and rooted slot/day/outcome. Fresh native
+position/daily/fee evidence is still required. The web transaction records an
+immutable financial-settlement row and removes ONLY the matching wallet/review
+lock, with checks before and after those changes and readback after commit.
+There is no timeout, generic unlock, unsigned cancellation or history deletion.
+Success does not release the original open financial margin. Failure between
+the financial and web commits leaves the wallet locked; fresh read-only
+recovery can finish that same settlement without sending another transaction.
+
+Already persisted settlements can be read as historical facts without asking
+the wallet to sign again. Recovery for an older settled review cannot delete a
+new review's lock. An `OPEN` financial parent may later become legitimately
+`CLOSED` through the existing close verifier; historical settlement lookup does
+not resurrect that position or grant new signing authority. The immutable
+submission row's `UNCERTAIN` field describes its original send record, not the
+current financial status: consumers must use the settlement and shared ledger.
+
+**Storage-format gate:** the old `wallet UNIQUE` main table is incompatible.
+The constructor rejects it BEFORE creating new lock/settlement tables, without
+dropping, rewriting or forgetting its pending row. No production migration was
+performed. Before any deployment, determine whether legacy web records exist;
+if they do, they require a separately reviewed paused, backed-up migration.
+Never bypass them by selecting an empty replacement database. The new format
+checks foreign-key integrity and that every submission has exactly one active
+lock OR a settlement; signatures, wire history, receipts and native observations
+remain retained after normal lock retirement.
+
+Checks cover successful/failed retirement, retained signed history and active
+risk, restart persistence, copied/expired grants, crash-after-financial-commit
+recovery, one winning distinct subsequent server-barrier claim, and an old
+recovery not touching a newer lock. That subsequent-claim test is explicitly
+barrier-only: it does not claim a second complete financial/venue execution.
+Legacy-format rejection is checked with a real temporary SQLite legacy table
+containing the original signed fixture record. No automatic migration occurred.
+
+Verification boundaries: the rebuilt browser still passes desktop/mobile
+private wallet connection → actual same-origin review handler → exact fixture
+owner-only signature → real IndexedDB uncertainty → reload without retry, with
+all external browser requests blocked. This is NOT public execution acceptance:
+`lib/swap-quote-ui.js` still explicitly says web signing/submission are not
+enabled, and the public execution/status route and response-to-UI integration
+are still missing. Following the verification guide, end-to-end success is not
+claimed past that known missing boundary. Browser recovery, full manual
+closing/conversion, native/24x7 integration and publication remain incomplete.
+
+`npm run build:web` passed. The complete local suite passed 865 tests: 859 passed,
+six skipped and zero failures (168321 ms), log
+`.perps-build/web-owner-signature-20261021/barrier-tests.log`. The actual built
+browser check passed at 1365x900 and 390x844 with zero uncaught errors and no
+chain transport. No bot activation, funded signature/send, production journal
+write/migration, worker deployment, public web or Android release occurred.
+
+The final affected corpus passed 39/39 without skips/failures on actual VPS
+Node 22 in `jamddmaj-web-barrier-check-20261022.service`, completed successfully.
+The transient unit used DynamicUser, PrivateNetwork, PrivateTmp, ProtectHome,
+ProtectSystem=strict, NoNewPrivileges, UMask0077 and MemoryMax384M. The test
+artifact's SHA-256 matched locally and after transfer before execution:
+`f9132e9c86a00e74a5847414c9d4db6b9a1767caa35fa2dbad439253f8212c3e`.
+No production custody records were read and the installed worker was unchanged.

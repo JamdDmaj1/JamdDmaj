@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash,createPrivateKey,createPublicKey,sign} from 'node:crypto';
+import {DatabaseSync} from 'node:sqlite';
 import bs58 from 'bs58';
 import {inspectServerPerpsPreparation,prepareInspectedServerAutomation,readServerPerpsPreparationEvidence} from '../lib/perps-server-preparation.js';
 import {prepareInspectedPerpsManualOrder} from '../lib/perps-manual-preparation.js';
@@ -10,7 +11,7 @@ import {inspectWebPerpsSubmission,openWebPerpsSubmissionJournal} from '../lib/pe
 import {createWebPerpsBroadcaster,readWebPerpsSubmissionReceipt} from '../lib/perps-web-broadcast.js';
 import {createRiskBoundWebPerpsBroadcaster} from '../lib/perps-web-risk-broadcast.js';
 import {authorizeWebPerpsRisk} from '../lib/perps-web-risk-authorization.js';
-import {readWebPerpsRiskSettlement,reconcileRiskBoundWebEntry} from '../lib/perps-web-risk-recovery.js';
+import {readWebPerpsRiskSettlement,reconcileRiskBoundWebEntry,authorizeWebPerpsBarrierRelease} from '../lib/perps-web-risk-recovery.js';
 import {readServerPerpsDailyAccount} from '../lib/perps-server-daily-account.js';
 import {createPerpsNetworkFeeValuationReader} from '../lib/perps-network-fee-valuation.js';
 import {readWebPerpsFinalizedPosition,requireVerifiedWebPerpsPosition} from '../lib/perps-web-position-recovery.js';
@@ -53,7 +54,8 @@ function custodyAccount(asset){
  data.writeBigUInt64LE(500000n,175);data[199]=1;data[202]=1;data[203]=1;Buffer.alloc(32,120+index).copy(data,384);
  return {owner:PERPS_PROGRAM,executable:false,data:[data.toString('base64'),'base64']};
 }
-async function fixture({exits=false,lookup=false,trusted=false,planMutation=null,ownerAddress=null,keeperSignable=false}={}){
+async function fixture({exits=false,lookup=false,trusted=false,planMutation=null,ownerAddress=null,keeperSignable=false,at=now,wireNonce=40}={}){
+ const seconds=at/1000;
  lookup ||= exits||trusted;
  const apiPrivate=createPrivateKey({key:Buffer.concat([Buffer.from('302e020100300506032b657004220420','hex'),Buffer.alloc(32,21)]),format:'der',type:'pkcs8'});
  const keys=Array.from({length:19},(_,i)=>Buffer.alloc(32,i+1));keys[2]=createPublicKey(apiPrivate).export({format:'der',type:'spki'}).subarray(-32);
@@ -63,7 +65,7 @@ async function fixture({exits=false,lookup=false,trusted=false,planMutation=null
  if(ownerKey)keys[0]=createPublicKey(ownerKey).export({format:'der',type:'spki'}).subarray(-32);
  if(ownerAddress)keys[0]=Buffer.from(bs58.decode(ownerAddress));
  keys.push(Buffer.from(bs58.decode('ComputeBudget111111111111111111111111111111')),Buffer.from(bs58.decode('PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu')));
- const blockhash=bs58.encode(Buffer.alloc(32,40)),tableAddress=bs58.encode(Buffer.alloc(32,60));
+ const blockhash=bs58.encode(Buffer.alloc(32,wireNonce)),tableAddress=bs58.encode(Buffer.alloc(32,60));
  const loaded=Array.from({length:exits?4:1},(_,i)=>Buffer.alloc(32,80+i));
  let identities;
  if(trusted){
@@ -195,9 +197,9 @@ test('manual web review uses actual wallet funding and the full exact-wire inspe
  for(const change of [{asset:'ZEC'},{margin:'1'},{serializedTxBase64:'untrusted'}])await assert.rejects(prepareInspectedPerpsManualOrder({...draft,...change},f.intent.walletAddress,options));
 });
 
-export async function webSigningFixture(t,{keeperSignable=false}={}){
- const f=await fixture({exits:true,trusted:true,keeperSignable}),draft={asset:'SOL',side:'LONG',margin:'10',leverage:'3',referencePrice:'100',stopLoss:'95',takeProfit:'110'};
- const records=new Map(),commands=[],state={time:now,mono:0,prompts:0,mode:'exact',builderCalls:0},clock=()=>state.time;
+export async function webSigningFixture(t,{keeperSignable=false,at=now,wireNonce=40}={}){
+ const f=await fixture({exits:true,trusted:true,keeperSignable,at,wireNonce}),draft={asset:'SOL',side:'LONG',margin:'10',leverage:'3',referencePrice:'100',stopLoss:'95',takeProfit:'110'};
+ const records=new Map(),commands=[],state={time:at,mono:0,prompts:0,mode:'exact',builderCalls:0},clock=()=>state.time;
  const command=async values=>{commands.push(values[0]);const [method,key,text]=values;if(method==='SET'){if(records.has(key))return null;records.set(key,text);return 'OK';}if(method==='GET')return records.get(key)??null;throw Error();};
  const store=createWebPerpsReviewStore({command,now:clock});
  const rpcRequest=async(method,params)=>{const reply=await f.request(method,params);if(reply?.context)reply.context.slot=Math.max(reply.context.slot,params[1]?.minContextSlot||0);return reply;};
@@ -633,6 +635,57 @@ test('pending web chain history never reads settlement balances or releases the 
  const f=await sharedWebSettlementFixture(t);f.status.confirmationStatus='confirmed';let reads=0;
  assert.equal(await reconcileRiskBoundWebEntry(f.packet.reviewId,{...f.settlementOptions,readAccount:async()=>{reads++;throw Error();}}),null);
  assert.equal(reads,0);assert.equal(f.riskJournal.riskState(f.account.address).pendingMarginUsdcUnits,'10000000');assert.equal(f.sends,1);
+});
+
+test('verified web settlement retires only its own wallet lock while preserving signed history and original active risk',async t=>{
+ for(const failed of [false,true]){
+  const f=await sharedWebSettlementFixture(t,{failed}),before=f.serverJournal.read(f.packet.reviewId);
+  await reconcileRiskBoundWebEntry(f.packet.reviewId,f.settlementOptions);
+  assert.equal(f.serverJournal.pending(f.account.address),null);assert.deepEqual(f.serverJournal.read(f.packet.reviewId),before);
+  const record=f.serverJournal.readFinancialSettlement(f.packet.reviewId);assert.equal(record.financial_state,failed?'CLOSED':'OPEN');
+  assert.equal(f.riskJournal.riskState(f.account.address).activeMarginUsdcUnits,failed?'0':'10000000');
+  const reopened=openWebPerpsSubmissionJournal({filename:f.filename,now:f.clock});
+  assert.deepEqual(reopened.readFinancialSettlement(f.packet.reviewId),record);assert.equal(reopened.pending(f.account.address),null);reopened.close();
+ }
+});
+
+test('copied or expired release grants cannot unlock a wallet, and recovery finishes safely after the financial commit',async t=>{
+ const f=await sharedWebSettlementFixture(t),proof=await readWebPerpsRiskSettlement(f.packet.reviewId,f.settlementOptions);
+ assert.throws(()=>authorizeWebPerpsBarrierRelease(proof,{riskJournal:f.riskJournal,webJournal:f.serverJournal}));
+ f.riskJournal.reconcileWebSubmission(proof,{webJournal:f.serverJournal});
+ const grant=authorizeWebPerpsBarrierRelease(proof,{riskJournal:f.riskJournal,webJournal:f.serverJournal});
+ assert.throws(()=>f.serverJournal.recordFinancialSettlement({...grant}));assert.equal(f.serverJournal.pending(f.account.address).review_id,f.packet.reviewId);
+ f.state.mono+=10001;assert.throws(()=>f.serverJournal.recordFinancialSettlement(grant));assert.equal(f.serverJournal.readFinancialSettlement(f.packet.reviewId),null);
+ assert.equal(f.riskJournal.riskState(f.account.address).activeMarginUsdcUnits,'10000000');
+ await reconcileRiskBoundWebEntry(f.packet.reviewId,f.settlementOptions);assert.equal(f.serverJournal.pending(f.account.address),null);assert.equal(f.sends,1);
+});
+
+test('a resolved web wallet can claim one distinct next operation without an old recovery releasing the newer lock',async t=>{
+ const f=await sharedWebSettlementFixture(t);await reconcileRiskBoundWebEntry(f.packet.reviewId,f.settlementOptions);
+ const next=[];
+ for(const wireNonce of [41,42]){
+  const g=await webSigningFixture(t,{at:f.clock(),wireNonce}),review=await g.client.prepare(g.draft),grant=await authorizeWebPerpsOwnerSignature(review,{doc:g.doc,journal:g.journal,explicitApproval:true});
+  const signed=await signReviewedWebPerpsOrder(g.doc,grant),wire=await readWebPerpsOwnerSignature(signed,{doc:g.doc,journal:g.journal});
+  next.push({g,evidence:await inspectWebPerpsSubmission(g.packet,wire.signedBase64,{reviewStore:g.store,rpcRequest:g.rpcRequest,now:g.clock,monotonicNow:()=>g.state.mono})});
+ }
+ const results=await Promise.allSettled(next.map(async n=>f.serverJournal.claim(n.evidence)));assert.equal(results.filter(r=>r.status==='fulfilled').length,1);
+ const held=f.serverJournal.pending(f.account.address);assert.notEqual(held.review_id,f.packet.reviewId);
+ // These are server-barrier-only fixture claims: no second trade transport,
+ // new risk reservation, native wallet signature or funded transaction occurs.
+ await reconcileRiskBoundWebEntry(f.packet.reviewId,{...f.settlementOptions,rpcRequest:async()=>{throw Error('Old settlement must be historical');}});
+ assert.equal(f.serverJournal.pending(f.account.address).review_id,held.review_id);assert.equal(f.riskJournal.riskState(f.account.address).activeMarginUsdcUnits,'10000000');
+ assert.equal(f.serverJournal.readFinancialSettlement(f.packet.reviewId).financial_state,'OPEN');assert.equal(f.sends,1);
+});
+
+test('legacy permanent-wallet-unique web storage is rejected without automatically rebuilding or erasing its pending record',async t=>{
+ const f=await sharedWebSettlementFixture(t),legacy=f.filename.replace(/\.sqlite$/,'-legacy.sqlite');
+ const source=new DatabaseSync(f.filename),sql=source.prepare("SELECT sql FROM sqlite_master WHERE name='web_perps_submissions'").get().sql;source.close();
+ const db=new DatabaseSync(legacy);db.exec(sql.replace('wallet TEXT NOT NULL,','wallet TEXT NOT NULL UNIQUE,'));
+ const row=f.serverJournal.read(f.packet.reviewId);
+ db.prepare('INSERT INTO web_perps_submissions VALUES (?,?,?,?,?,?,?,?)').run(row.review_id,row.wallet,row.signature,row.wire_hash,row.state,row.packet_json,row.signed_base64,row.created);db.close();
+ assert.throws(()=>openWebPerpsSubmissionJournal({filename:legacy,now:f.clock}));
+ const check=new DatabaseSync(legacy);assert.deepEqual({...check.prepare('SELECT * FROM web_perps_submissions').get()},row);
+ assert.equal(check.prepare("SELECT 1 FROM sqlite_master WHERE name='web_perps_wallet_locks'").get(),undefined);check.close();
 });
 
 test('web entry recovery verifies native finalized CPI size, collateral and exact pending protections without releasing funds',async t=>{
