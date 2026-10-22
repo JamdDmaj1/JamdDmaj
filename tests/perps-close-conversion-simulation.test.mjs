@@ -23,7 +23,7 @@ test('new ATAs, existing WSOL and unsynchronized native excess remain exactly ac
  }
 });
 test('native rejection, low minimum, unexpected rent/token movement and changed oracle/config cannot authorize funds',async()=>{
- for(const mode of ['minimumError','nativeError','replaced','tooMuchCompute','ownerCredit','inputDebit','outputCredit','vaultAuthority','sourceOldBalance','oracleOwner','oracleStale','oracleChanged','oracleLowMinimum','custodyConfig','custodyLocked','poolRent','fee','network','expired']){
+ for(const mode of ['minimumError','nativeError','replaced','tooMuchCompute','ownerCredit','inputDebit','outputCredit','vaultAuthority','sourceOldBalance','oracleOwner','oracleStale','oracleChanged','oracleLowMinimum','custodyConfig','custodyLocked','custodyTail','custodyOwned','custodyFees','poolRent','poolFee','fee','network','expired']){
   const f=await fixture();
   if(mode==='minimumError')f.response.err={InstructionError:[6,{Custom:6020}]};
   if(mode==='nativeError')f.response.err='BlockhashNotFound';if(mode==='replaced')f.response.replacementBlockhash={blockhash};if(mode==='tooMuchCompute')f.response.unitsConsumed=400001;
@@ -39,14 +39,22 @@ test('native rejection, low minimum, unexpected rent/token movement and changed 
     if(mode==='oracleChanged')b[168]^=1;if(mode==='oracleLowMinimum')b.writeBigUInt64LE(101000000n,168);a.data[0]=b.toString('base64');
    }
   }
-  if(mode.startsWith('custody')){const a=f.after.get(f.c.address),b=Buffer.from(a.data[0],'base64');b[mode==='custodyConfig'?199:230]^=1;a.data[0]=b.toString('base64');}
+  if(mode.startsWith('custody')){const a=f.after.get(f.c.address),b=Buffer.from(a.data[0],'base64');b[{custodyConfig:199,custodyLocked:230,custodyTail:300,custodyOwned:222,custodyFees:214}[mode]]^=1;a.data[0]=b.toString('base64');}
   if(mode==='poolRent')f.after.get(PERPS_POOL).lamports++;
+  if(mode==='poolFee'){const a=f.after.get(PERPS_POOL),b=Buffer.from(a.data[0],'base64'),n=b.readUInt32LE(8),p=16+n+32*b.readUInt32LE(12+n);b[p+56]^=1;a.data[0]=b.toString('base64');}
   if(['fee','network','expired'].includes(mode)){const request=f.options.request;f.options.request=async(m,p)=>{
    if(mode==='fee'&&m==='getFeeForMessage')return {context:{slot:101},value:null};if(mode==='network'&&m==='getGenesisHash')return 'devnet';if(mode==='expired'&&m==='getBlockHeight')return 1001;return request(m,p);
   };}
   await assert.rejects(simulatePerpsCloseConversion(f.wire,f.options),mode);
  }
 });
+test('legitimate conversion fee reservations conserve each custody book and both token vaults',async()=>{
+ const f=await fixture();
+ for(const c of [f.c,f.u]){const a=f.after.get(c.address),b=Buffer.from(a.data[0],'base64');
+  b.writeBigUInt64LE(100n,214);b.writeBigUInt64LE(b.readBigUInt64LE(222)-100n,222);a.data[0]=b.toString('base64');}
+ assert.equal((await simulatePerpsCloseConversion(f.wire,f.options)).receivedUsdcUnits,String(f.received));
+});
+
 test('snapshot pairing is bounded, keeps the exact wire and never retries an actual simulation error',async()=>{
  for(const mode of ['once','moving','failed']){
   const f=await fixture(),request=f.options.request;let simulations=0;

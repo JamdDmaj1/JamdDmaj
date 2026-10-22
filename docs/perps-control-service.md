@@ -4510,3 +4510,30 @@ The protected Swap2 conversion has an actual on-chain minimum-output argument.
 An owner-specified simulated first-leg floor must not be advertised as an atomic
 first-leg guarantee. Confirmation of the intended native behavior was requested
 before adding a signing capability that would otherwise imply that guarantee.
+
+### Step 2 continuation: shared conversion invariants and terminal coordination
+
+The protected conversion's same-wire simulation now uses the same native Pool
+configuration comparator as the initial close. It rejects fee/limit/authority
+or unknown-tail changes, custody tail mutations, regressed funding counters,
+and any mismatch between `owned + feesReserves` changes and actual token-vault
+movements. Legitimate fee reservations that preserve this sum remain accepted.
+Fresh pre-broadcast validation rejects even a change introduced after signing,
+before the durable send attempt or any fake transport call.
+
+The conversion coordinator now exposes a separate `complete` action wired to
+`readFinalizedPerpsCloseCompletion` followed by the journal's atomic completion
+transition. This is not "complete on RPC acknowledgement": it re-proves rooted
+legs, complete current-day costs, closed position and absent sibling exits.
+Repeated completion is idempotent. It neither accesses custody nor invokes the
+broadcast transport; unfinalized conversion keeps the original margin held.
+
+Verification after these changes: 143/143 tests passed across close intent,
+native Pool, custody, execution journal, conversion wire/simulation/receipt
+(157185 ms, no skips/failures). Additional custody recovery, backup registry and
+individual-entry/orphan-closure regression: 55 passed, 2 platform/CLI tests
+skipped, 0 failed (63775 ms). The skipped checks are not claimed verified.
+All financial transport remained fake and every signed fixture unfunded. No
+production change or live financial operation occurred. Step 2 remains open
+pending the first-leg settlement decision and the corresponding first-leg
+authorization/transport plus complete lifecycle verification.

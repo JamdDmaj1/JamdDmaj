@@ -31,6 +31,7 @@ import {openPerpsBackupRegistry} from '../lib/perps-backup-registry.js';
 import {authorizePerpsCloseConversion} from '../lib/perps-close-conversion-signing.js';
 import {createPerpsCloseConversionBroadcaster} from '../lib/perps-close-conversion-broadcast.js';
 import {createPerpsCloseConversionExecutor} from '../lib/perps-close-conversion-executor.js';
+import {PERPS_POOL} from '../lib/perps-server-custody.js';
 async function fixture(t,options={}){
  const f=await closePayoutFixture(options),root=mkdtempSync(join(tmpdir(),'jamd-close-exec-')),path=join(root,'journal.sqlite'),opened=[];let time=f.options.now();
  const open=()=>{const j=openPerpsExecutionJournal(path,{now:()=>time});opened.push(j);return j;},journal=open();
@@ -337,6 +338,19 @@ test('a conversion transport timeout stays durably uncertain across reopen and c
  assert.equal(f.journal.read('parent').state,'OPEN');
 });
 
+test('late pool fee or custody book changes abort signed conversion before any transport',async t=>{
+ for(const mode of ['pool-fee','custody-owned','custody-tail']){
+  const f=await authorizedConversionFixture(t),grant=await authorizePerpsCloseConversion(f.prepared,f.args),signed=f.vault.signCloseConversion(grant);let sends=0;
+  const a=f.swap.after.get(mode==='pool-fee'?PERPS_POOL:f.swap.c.address),b=Buffer.from(a.data[0],'base64');
+  if(mode==='pool-fee'){const n=b.readUInt32LE(8),p=16+n+32*b.readUInt32LE(12+n);b[p+56]^=1;}
+  else b[mode==='custody-owned'?222:300]^=1;
+  a.data[0]=b.toString('base64');
+  const submit=createPerpsCloseConversionBroadcaster({journal:f.journal,fetchImpl:async()=>{sends++;throw Error('must not send');}});
+  await assert.rejects(submit(signed,f.args));assert.equal(sends,0);assert.equal(f.journal.readPositionCloseConversion(f.row.id).state,'SIGNING');
+  assert.equal(f.journal.read('parent').state,'OPEN');
+ }
+});
+
 test('concurrent conversion submissions cannot send the same signed operation twice',async t=>{
  const f=await authorizedConversionFixture(t),grant=await authorizePerpsCloseConversion(f.prepared,f.args),signed=f.vault.signCloseConversion(grant);let sends=0;
  const submit=createPerpsCloseConversionBroadcaster({journal:f.journal,fetchImpl:async()=>{sends++;return Response.json({jsonrpc:'2.0',id:1,result:signed.signature});}});
@@ -594,6 +608,24 @@ test('terminal close reconciliation releases original risk atomically only after
  const next=await readFinalizedPerpsCloseCompletion(f.journal,f.row.id,f.completionOptions);
  assert.deepEqual(f.journal.reconcilePositionCloseCompletion(f.row.id,next),saved);
  const account=await f.completionOptions.readFinalizedAccount({walletAddress:f.row.wallet});assert.equal(account.conversionLossUsdUnits,'3500');
+});
+
+test('conversion coordinator completes accounting idempotently without calling custody or transport',async t=>{
+ const f=await completionFixture(t);let keyCalls=0,sends=0;
+ const executor=createPerpsCloseConversionExecutor({journal:f.journal,vault:{signCloseConversion(){keyCalls++;throw Error('no keys in completion');}},
+  fetchImpl:async()=>{sends++;throw Error('no transport in completion');}});
+ const saved=await executor.complete(f.row.id,f.completionOptions);
+ assert.equal(f.journal.read('parent').state,'CLOSED');assert.equal(f.journal.readPositionClose(f.row.id).state,'COMPLETED');
+ assert.deepEqual(await executor.complete(f.row.id,f.completionOptions),saved);assert.equal(keyCalls,0);assert.equal(sends,0);
+ assert.equal(f.journal.riskState(f.row.wallet).activeMarginUsdcUnits,'0');
+});
+
+test('conversion coordinator cannot complete an unfinalized conversion or release its held margin',async t=>{
+ const f=await completionFixture(t,{},{finalizeConversion:false});let keyCalls=0,sends=0;
+ const executor=createPerpsCloseConversionExecutor({journal:f.journal,vault:{signCloseConversion(){keyCalls++;throw Error('no keys');}},
+  fetchImpl:async()=>{sends++;throw Error('no sends');}});
+ await assert.rejects(executor.complete(f.row.id,f.completionOptions));assert.equal(f.journal.read('parent').state,'OPEN');
+ assert.equal(f.journal.riskState(f.row.wallet).activeMarginUsdcUnits,'10000000');assert.equal(keyCalls,0);assert.equal(sends,0);
 });
 
 test('unfinalized conversion, live sibling exits, incomplete fee accounting and changed in-flight journal facts never release a close',async t=>{

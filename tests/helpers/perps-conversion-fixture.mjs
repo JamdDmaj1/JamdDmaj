@@ -34,11 +34,15 @@ export async function conversionFixture({asset='SOL',nativeSolInput=asset==='SOL
  before.set(wire.destination,newDestination?null:token(wallet,u.value.mint,2000n));after.set(wire.destination,token(wallet,u.value.mint,(newDestination?0n:2000n)+received));
  const locked=(newDestination?rent:0n)+(newSource&&!closeWrappedAccount?rent:0n),refunded=closeWrappedAccount&&!newSource?BigInt(before.get(wire.source).lamports):0n;
  before.set(wallet,system(20000000000n));after.set(wallet,system(20000000000n-(nativeSolInput?amount:0n)-5400n-locked+refunded));
- const pool={owner:PERPS_PROGRAM,executable:false,lamports:6000000,data:[Buffer.concat([createHash('sha256').update('account:Pool').digest().subarray(0,8),Buffer.alloc(256)]).toString('base64'),'base64']};
+ const poolName=Buffer.from('Jupiter'),poolCustodies=[c.value.address,u.value.address],nameLength=Buffer.alloc(4),count=Buffer.alloc(4);
+ nameLength.writeUInt32LE(poolName.length);count.writeUInt32LE(poolCustodies.length);
+ const pool={owner:PERPS_PROGRAM,executable:false,lamports:6000000,data:[Buffer.concat([createHash('sha256').update('account:Pool').digest().subarray(0,8),nameLength,poolName,count,...poolCustodies.map(key=>Buffer.from(bs58.decode(key))),Buffer.alloc(236)]).toString('base64'),'base64']};
  before.set(PERPS_POOL,pool);after.set(PERPS_POOL,structuredClone(pool));
  for(const x of [c,u]){before.set(x.value.address,x.account);after.set(x.value.address,structuredClone(x.account));}
  before.set(c.value.tokenAccount,token(ids.transferAuthority,c.value.mint,10000000000n,asset==='SOL'?5n:0n));after.set(c.value.tokenAccount,token(ids.transferAuthority,c.value.mint,10000000000n+amount,asset==='SOL'?5n:0n));
  before.set(u.value.tokenAccount,token(ids.transferAuthority,u.value.mint,10000000000n));after.set(u.value.tokenAccount,token(ids.transferAuthority,u.value.mint,10000000000n-received));
+ for(const x of [c,u]){const account=after.get(x.value.address),data=Buffer.from(account.data[0],'base64');
+  data.writeBigUInt64LE(Buffer.from(after.get(x.value.tokenAccount).data[0],'base64').readBigUInt64LE(64),222);account.data[0]=data.toString('base64');}
  for(const [k,v]of oracleAccounts){before.set(k,v);after.set(k,structuredClone(v));}
  let elapsed=0;const calls=[],response={err:null,unitsConsumed:140000},request=async(method,params)=>{
   calls.push({method,params});if(method==='getGenesisHash')return GENESIS;if(method==='getSlot')return Math.max(100,params[0].minContextSlot);if(method==='getBlockHeight')return 500;
