@@ -701,6 +701,20 @@ test('concurrent or stale browser terminal proofs cannot be applied twice or cle
  await assert.rejects(f.journal.recordServerSettlement(first));assert.equal((await f.journal.pending(f.account.address))[0].operationId,next.packet.reviewId);
 });
 
+test('actual loopback HTTP status route reads settled journals into browser recovery without a controls or financial request',async t=>{
+ const {createPerpsControlHttpServer}=await import('../lib/perps-control-http.js'),{once}=await import('node:events');
+ const f=await sharedWebSettlementFixture(t);await reconcileRiskBoundWebEntry(f.packet.reviewId,f.settlementOptions);let controls=0,queries=0;
+ const handler=createWebPerpsOperationStatusHandler({journal:f.serverJournal,riskJournal:f.riskJournal,limit:async()=>{queries++;}});
+ const server=createPerpsControlHttpServer({handler:async()=>{controls++;throw Error();},webOperationStatusHandler:handler});
+ server.listen(0,'127.0.0.1');await once(server,'listening');t.after(()=>new Promise(resolve=>{server.close(resolve);server.closeAllConnections();}));
+ const base='http://127.0.0.1:'+server.address().port;
+ const client=createWebPerpsOperationStatusClient({journal:f.journal,now:f.clock,monotonicNow:()=>f.state.mono,fetchImpl:(path,options)=>fetch(base+path,{...options,headers:{...options.headers,Origin:'https://www.jamddmaj.com'}})});
+ const proof=await client.inspect(f.packet.reviewId);assert.equal((await f.journal.recordServerSettlement(proof)).state,'ENTRY_CONFIRMED');
+ assert.equal(queries,1);assert.equal(controls,0);assert.equal(f.sends,1);
+ const denied=await fetch(base+'/api/perps-operation-status',{method:'POST',headers:{Origin:'https://foreign.test','Content-Type':'application/json'},body:'{}'});
+ assert.equal(denied.status,400);assert.equal(queries,1);
+});
+
 test('expired and regressed browser status clocks preserve the pending operation and require a fresh query',async t=>{
  const f=await sharedWebSettlementFixture(t);await reconcileRiskBoundWebEntry(f.packet.reviewId,f.settlementOptions);const s=statusFixture(f);
  let wall=f.clock(),mono=100;

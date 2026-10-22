@@ -14,6 +14,21 @@ import {fixtureWallet as walletAddress,fixtureNow as now} from './helpers/perps-
 import {createPerpsControlClient,PERPS_CONTROL_ORIGIN} from '../lib/perps-control-client.js';
 import {validateAutomationSettings} from '../lib/automation-panel.js';
 const owner='a'.repeat(64),token='c'.repeat(64),settings={capital:100,loss:50,positions:2,margin:20,leverage:3,dailyTrades:3};
+test('optional loopback web status route is bounded, fixed-origin and cannot dispatch to controls',async t=>{
+ let reads=0,controls=0;
+ const server=createPerpsControlHttpServer({handler:async()=>{controls++;return Response.json({});},webOperationStatusHandler:async request=>{
+  reads++;assert.equal(new URL(request.url).origin,'https://www.jamddmaj.com');
+  assert.equal(request.headers.get('origin'),'https://www.jamddmaj.com');assert.equal(request.method,'POST');
+  assert.deepEqual(await request.json(),{reviewId:'fixture'});return Response.json({ok:true,status:null},{headers:{'Cache-Control':'no-store'}});
+ }});
+ server.listen(0,'127.0.0.1');await once(server,'listening');t.after(()=>new Promise(resolve=>{server.close(resolve);server.closeAllConnections();}));
+ const base='http://127.0.0.1:'+server.address().port;
+ const response=await fetch(base+'/api/perps-operation-status',{method:'POST',headers:{Origin:'https://www.jamddmaj.com','Content-Type':'application/json',Host:'attacker.test'},body:JSON.stringify({reviewId:'fixture'})});
+ assert.equal(response.status,200);assert.deepEqual(await response.json(),{ok:true,status:null});assert.equal(response.headers.get('cache-control'),'no-store');
+ assert.equal((await fetch(base+'/api/perps-operation-status',{method:'POST',body:'x'.repeat(1025)})).status,413);
+ assert.equal((await fetch(base+'/api/perps-execute',{method:'POST',body:'{}'})).status,404);assert.equal(reads,1);assert.equal(controls,0);
+ assert.throws(()=>createPerpsControlHttpServer({handler:()=>{},webOperationStatusHandler:{}}));
+});
 async function fixture(t){
  const directory=mkdtempSync(join(tmpdir(),'jamd-control-http-')),controls=openPerpsAutomationControls(join(directory,'controls.sqlite'),{now:()=>now});
  const initial=controls.provision({ownerAccountHash:owner,walletAddress,settings});let authenticationCalls=0;

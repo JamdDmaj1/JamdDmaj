@@ -4268,3 +4268,22 @@ installation, so this UI is not a claim of public recovery availability.
 Twelve navigation/review tests passed, including empty-journal and storage-failure
 UI branches; `npm run build:web` passed. Real terminal-result UI rendering and
 public route integration remain to be verified. No deployment occurred.
+
+### Loopback status HTTP boundary (2026-10-22, local only)
+
+`createPerpsControlHttpServer` now accepts an optional preconfigured
+`webOperationStatusHandler` for `/api/perps-operation-status`. It remains absent
+by default. The route uses existing concurrency/peer quotas and timeouts,
+enforces a 1024-byte request maximum, and reconstructs the canonical
+`https://www.jamddmaj.com` origin independently of Host/forwarding input.
+The narrow status handler still rejects foreign Origin values and queries.
+No execute route, signer or custody capability is added.
+
+Seven real HTTP/control tests passed. An additional genuine-journal integration
+test traversed TCP HTTP -> status handler -> settled web/shared journals ->
+browser status validation -> durable local settlement, with one status query,
+zero controls calls and no additional fixture send. Foreign-origin access was
+rejected before the handler quota/store boundary. This is isolated fixture
+evidence, not a live mainnet trade or a production route installation.
+Persistent service startup wiring, same-origin public proxy and deployment
+remain outstanding; existing installed services have not been modified.
