@@ -4307,3 +4307,35 @@ This programmatic startup option is not yet wired into the installed combined
 worker runtime or exposed through the public same-origin proxy. CLI defaults
 are unchanged; no environment variables, production files or deployments were
 changed. Worker integration and public verification remain required.
+
+### Combined runtime status binding (2026-10-22, local only)
+
+The main `openServerPerpsRuntime` now supports strict opt-in `webStatus` with
+only a genuine already-open web journal and explicit limiter. It constructs
+the status handler using its OWN existing execution journal; callers cannot
+substitute a separate risk ledger. No web database is opened or created by this
+option. Validation occurs before runtime lock acquisition. The external web
+journal remains owned by its caller, while status requests join the runtime's
+normal in-flight request drain before its internal stores close.
+`startServerPerpsControlBoundary` maps this optional runtime capability to the
+bounded status route. Default runtime capability is null, leaving the route
+absent. Closed runtimes reject new status requests with 503.
+
+Runtime tests: 21 tests, 19 passed and two Linux-only skipped locally, zero
+failures. A genuine empty web journal was queried through the actual combined
+runtime/TCP boundary in maintenance: null outcome, zero external fetches,
+execution disabled, pending-request shutdown drain and caller-owned web journal
+preservation verified. Missing/copied/extra configuration is rejected without
+creating a worker lock. Earlier settled-journal HTTP tests cover terminal facts;
+this empty-journal runtime test does not prove a funded entry or custody signing.
+The CLI still has no web-journal provisioning/startup configuration, and the
+installed worker/public proxy remain unchanged. This is not deployed or complete.
+
+Regression audit: the full suite ran 877 tests: 870 passed, six skipped, one
+failure (148238 ms). The failure was the actual built-browser import graph:
+the recovery UI source added earlier was missing from the explicit web asset
+copy list. `scripts/build-web.mjs` now includes it. The focused rerun of the
+build/import graph, combined runtime, HTTP controls and web review tests passed:
+38 tests, 36 passed, two platform skips, zero failures. The earlier full-suite
+failure is not reported as a full green run; full regression after this packaging
+fix remains pending. No public files/services were deployed.

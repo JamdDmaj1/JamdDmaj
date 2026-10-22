@@ -12,6 +12,8 @@ import {openServerPerpsRuntime,startServerPerpsControlBoundary} from '../lib/per
 import {perpsWorkerEnvironment} from '../lib/perps-server-runtime.js';
 import {openPerpsAutomationControls} from '../lib/perps-automation-controls.js';
 import {openPerpsExecutionJournal} from '../lib/perps-execution-journal.js';
+import {openWebPerpsSubmissionJournal} from '../lib/perps-web-submission-journal.js';
+import bs58 from 'bs58';
 import {openPerpsBackupRegistry} from '../lib/perps-backup-registry.js';
 import {createPerpsCustodyMasterKey,openPerpsCustodyVault} from '../lib/perps-custody-vault.js';
 import {initializePerpsOperatorRecovery,createPerpsCustodyRecoveryArchive,restorePerpsCustodyRecoveryArchive} from '../lib/perps-custody-recovery.js';
@@ -222,6 +224,32 @@ test('shared control boundary binds loopback and advertises no execution or prov
   await once(boundary.server,'listening');assert.equal(boundary.server.address().address,'127.0.0.1');
   const health=await fetch('http://127.0.0.1:'+port+'/health');assert.deepEqual(await health.json(),{ok:true,mode:'controls-only',executionAvailable:false,tradingEnabled:false,custodyProvisioningAvailable:false});
  }finally{await Promise.all([boundary.close(),runtime.close()]);}
+});
+
+test('maintenance runtime exposes opt-in read-only web status through its real HTTP boundary and drains outstanding queries',async t=>{
+ const f=fixture(t),web=openWebPerpsSubmissionJournal({filename:join(f.directory,'web.sqlite')});
+ let enter,release;const entered=new Promise(resolve=>{enter=resolve;});let queries=0;
+ const runtime=openServerPerpsRuntime({...f.options,webStatus:{journal:web,limit:async()=>{queries++;enter();await new Promise(resolve=>{release=resolve;});}}});
+ const probe=createServer();probe.listen(0,'127.0.0.1');await once(probe,'listening');const port=probe.address().port;await new Promise(resolve=>probe.close(resolve));
+ const boundary=startServerPerpsControlBoundary(runtime,{port});
+ try{
+  await once(boundary.server,'listening');
+  const base='http://127.0.0.1:'+port,input={reviewId:'a'.repeat(64),recordBinding:'b'.repeat(64),walletAddress:f.identity.walletAddress,signature:bs58.encode(new Uint8Array(64).fill(1))};
+  const pending=fetch(base+'/api/perps-operation-status',{method:'POST',headers:{Origin:'https://www.jamddmaj.com','Content-Type':'application/json'},body:JSON.stringify(input)});
+  await entered;let drained=false;const closing=runtime.close().then(()=>{drained=true;});await Promise.resolve();assert.equal(drained,false);
+  release();assert.deepEqual(await (await pending).json(),{ok:true,status:null});await closing;assert.equal(drained,true);
+  assert.equal((await runtime.handleWebOperationStatusRequest(new Request('https://www.jamddmaj.com/api/perps-operation-status'))).status,503);
+  assert.equal(queries,1);assert.equal(f.calls.length,0);assert.equal(runtime.capabilities().executionAvailable,false);
+  assert.equal(web.read('a'.repeat(64)),null);
+ }finally{release?.();await boundary.close();await runtime.close();web.close();}
+});
+
+test('runtime status is disabled by default and invalid web status options cannot create a runtime lock',async t=>{
+ const f=fixture(t),runtime=openServerPerpsRuntime(f.options);assert.equal(runtime.handleWebOperationStatusRequest,null);await runtime.close();
+ for(const webStatus of [{},{journal:{},limit:async()=>{}},{journal:{},riskJournal:{},limit:async()=>{}}]){
+  assert.throws(()=>openServerPerpsRuntime({...f.options,webStatus}));assert.equal(existsSync(join(f.directory,'worker.lock')),false);
+ }
+ assert.equal(f.calls.length,0);
 });
 
 test('actual authenticated runtime enforces custody capacity before creating another user wallet',async t=>{
