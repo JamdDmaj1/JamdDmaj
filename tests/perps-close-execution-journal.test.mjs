@@ -30,6 +30,7 @@ import {createServerPerpsWorker} from '../lib/perps-server-worker.js';
 import {openPerpsBackupRegistry} from '../lib/perps-backup-registry.js';
 import {authorizePerpsCloseConversion} from '../lib/perps-close-conversion-signing.js';
 import {createPerpsCloseConversionBroadcaster} from '../lib/perps-close-conversion-broadcast.js';
+import {createPerpsCloseConversionExecutor} from '../lib/perps-close-conversion-executor.js';
 async function fixture(t,options={}){
  const f=await closePayoutFixture(options),root=mkdtempSync(join(tmpdir(),'jamd-close-exec-')),path=join(root,'journal.sqlite'),opened=[];let time=f.options.now();
  const open=()=>{const j=openPerpsExecutionJournal(path,{now:()=>time});opened.push(j);return j;},journal=open();
@@ -287,6 +288,29 @@ test('protected conversion custody authorization signs only finalized recorded p
  const receipt=await f.journal.recoverPositionCloseConversion(f.row.id,{...f.receipt.receiptOptions,request});
  assert.equal(f.journal.readPositionCloseConversion(f.row.id).state,'FINALIZED');assert.ok(receipt);
  assert.equal(f.journal.read('parent').state,'OPEN');assert.equal(sends,1);
+});
+
+test('conversion executor joins the custody boundary, one attempted transport and rooted recovery without releasing parent risk',async t=>{
+ const f=await authorizedConversionFixture(t);let sends=0;
+ const executor=createPerpsCloseConversionExecutor({journal:f.journal,vault:f.vault,fetchImpl:async(_url,options)=>{
+  sends++;const row=f.journal.readPositionCloseConversion(f.row.id);assert.equal(row.state,'UNCERTAIN');
+  assert.equal(JSON.parse(options.body).params[0],row.owner_signed_wire);return Response.json({jsonrpc:'2.0',id:1,result:row.signature});
+ }});
+ await assert.rejects(executor.execute({...f.prepared},f.args));assert.equal(sends,0);
+ assert.throws(()=>executor.recover(f.row.id,f.receipt.receiptOptions));
+ const result=await executor.execute(f.prepared,f.args);assert.equal(result.stage,'CLOSE_CONVERSION_BROADCAST_ACKNOWLEDGED');
+ await assert.rejects(executor.execute(f.prepared,f.args));assert.equal(sends,1);
+ const request=(m,p)=>m==='getMultipleAccounts'?f.swap.request(m,p):f.receipt.request(m,p);
+ const recovered=await executor.recover(f.row.id,{...f.receipt.receiptOptions,request});assert.equal(recovered.stage,'RECORDED_CONVERSION_FINALIZED');
+ assert.equal(f.journal.read('parent').state,'OPEN');assert.equal(sends,1);
+});
+
+test('conversion executor never restarts an uncertain operation after a lost response',async t=>{
+ const f=await authorizedConversionFixture(t);let sends=0;
+ const executor=createPerpsCloseConversionExecutor({journal:f.journal,vault:f.vault,fetchImpl:async()=>{sends++;throw Error('lost response');}});
+ assert.equal((await executor.execute(f.prepared,f.args)).stage,'CLOSE_CONVERSION_BROADCAST_UNKNOWN');
+ await assert.rejects(executor.execute(f.prepared,f.args));assert.equal(sends,1);
+ assert.equal(f.open().readPositionCloseConversion(f.row.id).state,'UNCERTAIN');assert.equal(f.journal.read('parent').state,'OPEN');
 });
 
 test('conversion authorization blocks unavailable backup, changed controls and late closure disablement without a send',async t=>{

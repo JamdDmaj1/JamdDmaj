@@ -4488,3 +4488,25 @@ fields. Layout offsets come from the program-owned on-chain IDL, not the web
 documentation's displayed field types. The broader 134-test fixture run passed
 before the final Pool-parser addition; its three new standalone tests passed.
 No funded operations or production changes occurred.
+
+### Step 2 continuation: operational protected-conversion coordinator
+
+`createPerpsCloseConversionExecutor` connects a genuine PREPARED conversion to
+the dedicated custody grant, signature, durable uncertainty and single direct
+RPC attempt. A separate recovery method reads only the recorded signature.
+The coordinator rejects copied preparations and refuses to restart SIGNING,
+UNCERTAIN or FINALIZED operations. Account/revision options are captured before
+asynchronous work. An acknowledged or finalized conversion still cannot release
+the original position's risk without the existing full completion gate.
+
+Two focused fixture integration tests passed: complete second-leg execution
+through rooted recovery, and response loss with restart/re-entry denied. All
+transport was fake and all deterministic fixture wallets unfunded. No worker
+activation, production deployment, first-leg signing or live trade occurred.
+
+First-leg settlement decision remains explicit: Jupiter's native decrease wire
+has a price-slippage bound but no absolute minimum returned-token argument.
+The protected Swap2 conversion has an actual on-chain minimum-output argument.
+An owner-specified simulated first-leg floor must not be advertised as an atomic
+first-leg guarantee. Confirmation of the intended native behavior was requested
+before adding a signing capability that would otherwise imply that guarantee.
