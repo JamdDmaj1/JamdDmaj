@@ -4181,3 +4181,77 @@ ProtectSystem=strict, NoNewPrivileges, UMask0077 and MemoryMax384M. The test
 artifact's SHA-256 matched locally and after transfer before execution:
 `f9132e9c86a00e74a5847414c9d4db6b9a1767caa35fa2dbad439253f8212c3e`.
 No production custody records were read and the installed worker was unchanged.
+
+### Browser read-only terminal operation recovery (2026-10-22, not deployed)
+
+`perps-web-operation-status-http.js` is a persistent-server **handler factory**,
+not an installed Vercel route or an ephemeral SQLite database. It requires real
+web/shared-risk journals and an explicit rate-limit callback. It accepts only
+a bounded same-origin JSON POST with the original random 256-bit review ID,
+wallet, owner signature and review binding. Query parameters, actions, signed
+transaction uploads, foreign origins and oversized/malformed inputs are
+rejected. Unknown, mismatched or not-yet-settled identities return no terminal
+status. It only projects already persisted financial settlement facts, rechecks
+the shared financial parent's immutable identity and exposes no balances,
+limits, raw financial row, signed wire, signer, RPC or transaction sender.
+The opaque review ID scopes this narrow read capability; it is not placed in a
+URL. A private service/same-origin route and ingress protections still need
+installation/verification before production use.
+
+The portable status validator binds outcome, financial state, original review
+binding, wallet, signature, exact signed-wire SHA-256, rooted slot, execution
+day and settlement time to the browser's own stored operation. The new browser
+client calls only `/api/perps-operation-status`, with no redirects/credentials,
+an eight-second abort and a bounded response. It creates a one-use private
+status capability only after original-row readback and validation. Missing,
+malformed or unavailable status does not clear any hold. This is same-origin
+server trust, not an independent browser verification of chain finality.
+
+`recordServerSettlement` now commits `ENTRY_CONFIRMED` or `ENTRY_FAILED` in
+strict IndexedDB durability, retains the packet, signature and signed bytes,
+stores the exact verified status, and retires only that operation's active
+wallet index value. Copies, consumed/concurrent or context-stale capabilities
+cannot reset it or clear a later operation. Existing pending v1 rows remain
+intact; the object-store/index schema is unchanged. Historical terminal reads
+revalidate binding/signature/status but never revive a signing grant. A success
+describes an entry, not a claim that the position is still open: a successfully
+opened position may since have legitimately closed. There is no wallet prompt,
+automatic connect, new signature, submission, replacement quote or retry.
+Unsigned/unknown `SIGNING` rows remain held for a separate recovery procedure.
+
+The rebuilt actual browser was checked at 1365x900 and 390x844 using real
+IndexedDB. A public deterministic invalid-blockhash signed fixture was seeded
+as the prior crash record, then the page was reloaded with no provider connected.
+The real client made a real local HTTP request to the actual narrow handler,
+backed by the existing fixture's genuinely verified/persisted server financial
+settlement. It retired the local hold, retained the original signature through
+another reload, and reported zero uncaught errors, zero browser wallet prompts
+and zero financial requests. All external browser requests were blocked. Test:
+`.perps-build/web-owner-signature-20261021/browser-recovery.test.mjs`, invoked
+with `--test-name-pattern="actual browser read-only recovery"` because importing
+the fixture module also registers unrelated tests.
+
+Focused tests additionally cover successful/failed recovery after reopening,
+retained history, a distinct subsequent local signing claim, pending state,
+eight malformed/mismatched/error replies, bounded HTTP input, no private fields,
+rate-limit failure and one winning concurrent terminal commit. `npm run build:web`
+passed. This is still component/fixture verification: no public status proxy,
+recovery button, full signing/submission UI or production service was installed.
+Following the backend and verification guides, the missing public integration
+boundary remains explicitly unverified, not reported as end-to-end trading.
+Full manual close/conversion, native/24x7 integration, deployment and complete
+acceptance remain required. No real funded signature/send, bot activation,
+production database change/migration, worker release, public web deployment or
+Android release occurred in this change.
+
+Complete local suite: 869 tests, 863 passed, six skipped, zero failures
+(147967 ms), log `.perps-build/web-owner-signature-20261021/browser-status-tests.log`.
+
+Follow-up evidence: the remote isolated Node 22 check unit
+`jamddmaj-web-browser-status-check-20261022.service` terminated successfully
+at 06:44:45 UTC on 2026-10-22. Its captured system journal establishes successful
+process termination, not the individual test count (the pipe output was lost).
+An additional targeted local regression passed for expired monotonic/wall-clock
+leases and backwards clocks: all four refuse terminal mutation, retain the
+pending record, and allow resolution only with a fresh verified status query.
+No publication or financial activation is implied by these checks.

@@ -14,6 +14,8 @@ import {authorizeWebPerpsRisk} from '../lib/perps-web-risk-authorization.js';
 import {readWebPerpsRiskSettlement,reconcileRiskBoundWebEntry,authorizeWebPerpsBarrierRelease} from '../lib/perps-web-risk-recovery.js';
 import {readServerPerpsDailyAccount} from '../lib/perps-server-daily-account.js';
 import {createPerpsNetworkFeeValuationReader} from '../lib/perps-network-fee-valuation.js';
+import {createWebPerpsOperationStatusHandler} from '../lib/perps-web-operation-status-http.js';
+import {createWebPerpsOperationStatusClient} from '../lib/perps-web-operation-status-client.js';
 import {readWebPerpsFinalizedPosition,requireVerifiedWebPerpsPosition} from '../lib/perps-web-position-recovery.js';
 import {decodeServerPerpsEnvelope} from '../lib/perps-server-envelope.js';
 import eventLayout from '../lib/perps-event-layout.json' with {type:'json'};
@@ -559,8 +561,9 @@ async function finalizedWebPositionFixture(t,{sharedRisk=false}={}){
  return {...f,post,tx,status,fields,eventIx,riskJournal,sends,rpcRequest,recoveryState:state,recoveryCalls,readPosition:()=>readWebPerpsFinalizedPosition(f.packet.reviewId,{journal:f.serverJournal,rpcRequest,now:f.clock,monotonicNow:()=>f.state.mono})};
 }
 
-async function sharedWebSettlementFixture(t,{failed=false}={}){
- const f=await finalizedWebPositionFixture(t,{sharedRisk:true});f.state.time+=90000;
+export async function sharedWebSettlementFixture(t,{failed=false}={}){
+ const f=await finalizedWebPositionFixture(t,{sharedRisk:true});
+ await f.journal.beginSubmission(f.packet.reviewId,{packetJson:JSON.stringify(f.packet),signedBase64:f.wire.signedBase64,signature:f.signed.signature});f.state.time+=90000;
  if(failed){f.status.err={InstructionError:[0,'InvalidArgument']};f.tx.meta.err=f.status.err;}
  const state={omitHistory:false,omitFeeValuation:false,copyAccount:false,accountChanged:false,after:()=>{}},bank=500000;
  const request=async(method,params)=>{
@@ -635,6 +638,80 @@ test('pending web chain history never reads settlement balances or releases the 
  const f=await sharedWebSettlementFixture(t);f.status.confirmationStatus='confirmed';let reads=0;
  assert.equal(await reconcileRiskBoundWebEntry(f.packet.reviewId,{...f.settlementOptions,readAccount:async()=>{reads++;throw Error();}}),null);
  assert.equal(reads,0);assert.equal(f.riskJournal.riskState(f.account.address).pendingMarginUsdcUnits,'10000000');assert.equal(f.sends,1);
+});
+
+function statusFixture(f,journal=f.journal){
+ let queries=0;const handler=createWebPerpsOperationStatusHandler({journal:f.serverJournal,riskJournal:f.riskJournal,limit:async()=>{queries++;}});
+ const fetchImpl=(path,options)=>{assert.equal(path,'/api/perps-operation-status');assert.equal(options.method,'POST');assert.equal(options.redirect,'error');assert.equal(options.credentials,'omit');
+  assert.deepEqual(Object.keys(JSON.parse(options.body)).sort(),['recordBinding','reviewId','signature','walletAddress']);
+  return handler(new Request('https://fixture.jamddmaj.test'+path,{method:options.method,headers:{...options.headers,Origin:'https://fixture.jamddmaj.test'},body:options.body}));};
+ return {handler,fetchImpl,queryCount:()=>queries,client:createWebPerpsOperationStatusClient({journal,fetchImpl,now:f.clock,monotonicNow:()=>f.state.mono})};
+}
+
+test('browser recovery consumes actual narrow persisted financial status after reload, retires only its local hold and keeps signature history',async t=>{
+ for(const failed of [false,true]){
+  const f=await sharedWebSettlementFixture(t,{failed});await reconcileRiskBoundWebEntry(f.packet.reviewId,f.settlementOptions);f.journal.close();
+  const journal=await openWebPerpsSigningJournal({indexedDB:f.indexedDB,name:f.name,now:f.clock});t.after(()=>journal.close());
+  const s=statusFixture(f,journal),proof=await s.client.inspect(f.packet.reviewId);assert.equal(proof.outcome,failed?'FAILED':'CONFIRMED');
+  await assert.rejects(journal.recordServerSettlement({...proof}));assert.equal((await journal.pending(f.account.address)).length,1);
+  const row=await journal.recordServerSettlement(proof);assert.equal(row.state,failed?'ENTRY_FAILED':'ENTRY_CONFIRMED');assert.equal(row.activeWallet,null);
+  assert.equal(row.signedBase64,f.wire.signedBase64);assert.equal(row.signature,f.signed.signature);assert.equal((await journal.pending(f.account.address)).length,0);
+  await assert.rejects(journal.recordServerSettlement(proof));assert.equal(s.queryCount(),1);assert.equal(f.sends,1);assert.equal(f.state.prompts,1);
+  const reopened=await openWebPerpsSigningJournal({indexedDB:f.indexedDB,name:f.name,now:f.clock});t.after(()=>reopened.close());assert.deepEqual(await reopened.read(row.operationId),row);
+  const next=await webSigningFixture(t,{at:f.clock(),wireNonce:45});await reopened.beginSigning(next.packet);
+  assert.equal((await reopened.pending(f.account.address))[0].operationId,next.packet.reviewId);assert.equal((await reopened.read(row.operationId)).signature,row.signature);
+ }
+});
+
+test('pending or mismatched server operation status, malformed replies and query errors never reset a browser hold',async t=>{
+ const f=await sharedWebSettlementFixture(t),s=statusFixture(f);
+ assert.equal(await s.client.inspect(f.packet.reviewId),null);assert.equal((await f.journal.pending(f.account.address)).length,1);
+ await reconcileRiskBoundWebEntry(f.packet.reviewId,f.settlementOptions);
+ for(const mode of ['signature','binding','hash','slot','state','extra','http','body']){
+  const fetchImpl=async(path,options)=>{
+   const response=await s.fetchImpl(path,options);if(mode==='http')return new Response('unavailable',{status:503});if(mode==='body')return Response.json({ok:true});
+   const value=await response.json();
+   if(mode==='signature')value.status.signature='foreign';if(mode==='binding')value.status.recordBinding='a'.repeat(64);if(mode==='hash')value.status.wireHash='b'.repeat(64);
+   if(mode==='slot')value.status.confirmedSlot=0;if(mode==='state')value.status.financialState='ACTIVATED';if(mode==='extra')value.status.capital=999;
+   return Response.json(value);
+  };
+  const client=createWebPerpsOperationStatusClient({journal:f.journal,fetchImpl,now:f.clock,monotonicNow:()=>f.state.mono});
+  await assert.rejects(client.inspect(f.packet.reviewId),undefined,mode);assert.equal((await f.journal.pending(f.account.address)).length,1);
+ }
+});
+
+test('operation status HTTP accepts only bounded read queries and never exposes balances, limits, rows or execution capability',async t=>{
+ const f=await sharedWebSettlementFixture(t);await reconcileRiskBoundWebEntry(f.packet.reviewId,f.settlementOptions);const s=statusFixture(f);
+ const input={reviewId:f.packet.reviewId,walletAddress:f.account.address,signature:f.signed.signature,recordBinding:f.packet.recordBinding};
+ const request=(body=input,options={})=>new Request('https://fixture.jamddmaj.test/api/perps-operation-status'+(options.search||''),{method:options.method||'POST',headers:{'Content-Type':'application/json',Origin:options.origin||'https://fixture.jamddmaj.test'},...options.method?{}:{body:JSON.stringify(body)}});
+ for(const options of [{method:'GET'},{search:'?action=execute'},{origin:'https://foreign.test'}])assert.equal((await s.handler(request(input,options))).status,options.method?405:400);
+ for(const body of [{...input,action:'send'},{...input,signedBase64:f.wire.signedBase64},{...input,reviewId:'bad'},{...input,signature:''}])assert.equal((await s.handler(request(body))).status,400);
+ assert.equal((await s.handler(request({...input,recordBinding:'a'.repeat(64)}))).status,200);
+ const reply=await (await s.handler(request())).json();assert.equal(reply.status.stage,'WEB_PERPS_OPERATION_SETTLED');
+ for(const name of ['balance','limits','risk_row_json','signedBase64','privateKey','serializedTxBase64'])assert.equal(JSON.stringify(reply).includes(name),false);
+ const fail=createWebPerpsOperationStatusHandler({journal:f.serverJournal,riskJournal:f.riskJournal,limit:async()=>{throw Error('Unavailable limit store');}});
+ assert.equal((await fail(request())).status,503);assert.equal(f.sends,1);
+});
+
+test('concurrent or stale browser terminal proofs cannot be applied twice or clear a later local operation',async t=>{
+ const f=await sharedWebSettlementFixture(t);await reconcileRiskBoundWebEntry(f.packet.reviewId,f.settlementOptions);const s=statusFixture(f);
+ const first=await s.client.inspect(f.packet.reviewId),second=await s.client.inspect(f.packet.reviewId);
+ const result=await Promise.allSettled([f.journal.recordServerSettlement(first),f.journal.recordServerSettlement(second)]);assert.equal(result.filter(r=>r.status==='fulfilled').length,1);
+ const next=await webSigningFixture(t,{at:f.clock(),wireNonce:46});await f.journal.beginSigning(next.packet);
+ await assert.rejects(f.journal.recordServerSettlement(first));assert.equal((await f.journal.pending(f.account.address))[0].operationId,next.packet.reviewId);
+});
+
+test('expired and regressed browser status clocks preserve the pending operation and require a fresh query',async t=>{
+ const f=await sharedWebSettlementFixture(t);await reconcileRiskBoundWebEntry(f.packet.reviewId,f.settlementOptions);const s=statusFixture(f);
+ let wall=f.clock(),mono=100;
+ const client=createWebPerpsOperationStatusClient({journal:f.journal,fetchImpl:s.fetchImpl,now:()=>wall,monotonicNow:()=>mono});
+ for(const change of [()=>{mono+=15001;},()=>{mono-=1;},()=>{wall+=15001;},()=>{wall-=1;}]){
+  wall=f.clock();mono=100;const proof=await client.inspect(f.packet.reviewId);change();
+  await assert.rejects(f.journal.recordServerSettlement(proof));assert.equal((await f.journal.pending(f.account.address)).length,1);
+ }
+ wall=f.clock();mono=100;const fresh=await client.inspect(f.packet.reviewId);
+ assert.equal((await f.journal.recordServerSettlement(fresh)).state,'ENTRY_CONFIRMED');
+ assert.equal((await f.journal.pending(f.account.address)).length,0);assert.equal(f.sends,1);
 });
 
 test('verified web settlement retires only its own wallet lock while preserving signed history and original active risk',async t=>{
