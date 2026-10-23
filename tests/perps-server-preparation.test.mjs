@@ -8,7 +8,10 @@ import {DatabaseSync} from 'node:sqlite';
 import bs58 from 'bs58';
 import {inspectServerPerpsPreparation,prepareInspectedServerAutomation,readServerPerpsPreparationEvidence} from '../lib/perps-server-preparation.js';
 import {prepareInspectedPerpsManualOrder} from '../lib/perps-manual-preparation.js';
-import {createWebPerpsReviewStore} from '../lib/perps-web-review-store.js';
+import {createWebPerpsReviewStore,createOwnerBoundWebPerpsReviewStore,requireOwnerBoundWebPerpsReviewStore} from '../lib/perps-web-review-store.js';
+import {createWebPerpsSubmissionHandler} from '../lib/perps-web-submission-http.js';
+import {createWebPerpsSubmissionClient} from '../lib/perps-web-submit-client.js';
+import {setupWebPerpsOrderPanel} from '../lib/perps-web-order-panel.js';
 import {openWebPerpsSigningJournal} from '../lib/perps-web-signing-journal.js';
 import {inspectWebPerpsSubmission,openWebPerpsSubmissionJournal} from '../lib/perps-web-submission-journal.js';
 import {createWebPerpsBroadcaster,readWebPerpsSubmissionReceipt} from '../lib/perps-web-broadcast.js';
@@ -202,11 +205,11 @@ test('manual web review uses actual wallet funding and the full exact-wire inspe
  for(const change of [{asset:'ZEC'},{margin:'1'},{serializedTxBase64:'untrusted'}])await assert.rejects(prepareInspectedPerpsManualOrder({...draft,...change},f.intent.walletAddress,options));
 });
 
-export async function webSigningFixture(t,{keeperSignable=false,at=now,wireNonce=40}={}){
+export async function webSigningFixture(t,{keeperSignable=false,at=now,wireNonce=40,ownerAccountHash=null}={}){
  const f=await fixture({exits:true,trusted:true,keeperSignable,at,wireNonce}),draft={asset:'SOL',side:'LONG',margin:'10',leverage:'3',referencePrice:'100',stopLoss:'95',takeProfit:'110'};
  const records=new Map(),commands=[],state={time:at,mono:0,prompts:0,mode:'exact',builderCalls:0},clock=()=>state.time;
  const command=async values=>{commands.push(values[0]);const [method,key,text]=values;if(method==='SET'){if(records.has(key))return null;records.set(key,text);return 'OK';}if(method==='GET')return records.get(key)??null;throw Error();};
- const store=createWebPerpsReviewStore({command,now:clock});
+ const store=ownerAccountHash?createOwnerBoundWebPerpsReviewStore({command,now:clock,ownerAccountHash}):createWebPerpsReviewStore({command,now:clock});
  const rpcRequest=async(method,params)=>{const reply=await f.request(method,params);if(reply?.context)reply.context.slot=Math.max(reply.context.slot,params[1]?.minContextSlot||0);return reply;};
  const native=await prepareInspectedPerpsManualOrder(draft,f.intent.walletAddress,{rpcRequest,now:clock,monotonicNow:()=>state.mono,builderRequest:async()=>{state.builderCalls++;return Response.json(f.preparation);}});
  const packet=await store.prepare(native),indexedDB=new IDBFactory(),name='jamddmaj-web-perps-signing-test';
@@ -225,7 +228,7 @@ export async function webSigningFixture(t,{keeperSignable=false,at=now,wireNonce
   if(state.mode==='reject')throw Error('User rejected fixture signature');return [{signedTransaction:Uint8Array.from(wire)}];
  }}}};
  selectWalletAccount(doc,{address:account.address,source:'external',name:wallet.name});bindWebPerpsWalletSession(doc,wallet,account);
- const client=createWebPerpsSigningReviewClient({doc,now:clock,monotonicNow:()=>state.mono,fetchImpl:async()=>Response.json({ok:true,packet})});
+ const client=createWebPerpsSigningReviewClient({doc,readSessionToken:()=> 'a'.repeat(64),now:clock,monotonicNow:()=>state.mono,fetchImpl:async()=>Response.json({ok:true,packet})});
  return {...f,native,draft,packet,state,store,journal,indexedDB,name,command,commands,records,doc,wallet,account,client,rpcRequest,clock};
 }
 
@@ -367,8 +370,8 @@ test('server submission barrier rejects modified wire, expired review, copied na
  assert.throws(()=>openWebPerpsSubmissionJournal({filename:':memory:'}));
 });
 
-async function webSubmissionFixture(t){
- const f=await webSigningFixture(t,{keeperSignable:true}),review=await f.client.prepare(f.draft),grant=await authorizeWebPerpsOwnerSignature(review,{doc:f.doc,journal:f.journal,explicitApproval:true});
+async function webSubmissionFixture(t,{ownerAccountHash=null}={}){
+ const f=await webSigningFixture(t,{keeperSignable:true,ownerAccountHash}),review=await f.client.prepare(f.draft),grant=await authorizeWebPerpsOwnerSignature(review,{doc:f.doc,journal:f.journal,explicitApproval:true});
  const signed=await signReviewedWebPerpsOrder(f.doc,grant),wire=await readWebPerpsOwnerSignature(signed,{doc:f.doc,journal:f.journal});
  const directory=mkdtempSync(join(tmpdir(),'jamddmaj-web-transport-')),filename=join(directory,'journal.sqlite');
  const extraJournals=[],serverJournal=openWebPerpsSubmissionJournal({filename,now:f.clock});t.after(()=>{for(const extra of extraJournals)extra.close();serverJournal.close();rmSync(directory,{recursive:true,force:true});});
@@ -376,12 +379,92 @@ async function webSubmissionFixture(t){
  return {...f,signed,wire,serverJournal,inspect,filename,trackJournal:journal=>{extraJournals.push(journal);return journal;}};
 }
 
-async function riskBoundWebFixture(t,{availableUsdcUnits='20000000'}={}){
- const f=await webSubmissionFixture(t),riskJournal=f.trackJournal(openPerpsExecutionJournal(f.filename.replace(/\.sqlite$/,'-risk.sqlite'),{now:f.clock}));
+async function riskBoundWebFixture(t,{availableUsdcUnits='20000000',ownerAccountHash=null}={}){
+ const f=await webSubmissionFixture(t,{ownerAccountHash}),riskJournal=f.trackJournal(openPerpsExecutionJournal(f.filename.replace(/\.sqlite$/,'-risk.sqlite'),{now:f.clock}));
  const account=await emptyFixtureDailyAccount(f.account.address,{availableUsdcUnits});
  const policy={walletAddress:f.account.address,revision:'policy-1',limits:{capitalUsd:'50',dailyLossUsd:'30',positions:2,dailyTrades:5}};
  return {...f,riskJournal,dailyAccount:account,policy,readLimits:()=>structuredClone(policy),readAccount:async()=>account};
 }
+
+test('authenticated web HTTP handoff uses the original owner-bound review and two durable ledgers before one simulated send',async t=>{
+ const owner='d'.repeat(64),f=await riskBoundWebFixture(t,{ownerAccountHash:owner});let sends=0,policyReads=0;
+ const handler=createWebPerpsSubmissionHandler({journal:f.serverJournal,riskJournal:f.riskJournal,authenticate:async()=>owner,limit:async()=>true,
+  reviewStoreForOwner:who=>{assert.equal(who.ownerAccountHash,owner);return f.store;},readLimits:who=>{assert.equal(who.ownerAccountHash,owner);assert.equal(who.walletAddress,f.account.address);policyReads++;return f.readLimits();},
+  readAccount:f.readAccount,rpcRequest:f.rpcRequest,isExecutionAvailable:()=>true,now:f.clock,monotonicNow:()=>f.state.mono,
+  fetchImpl:async()=>{sends++;assert.equal(f.serverJournal.read(f.packet.reviewId).state,'UNCERTAIN');assert.equal(f.riskJournal.read('web:'+f.packet.reviewId).state,'UNCERTAIN');return Response.json({action:'increase-position',txid:f.signed.signature});}});
+ const request=()=>new Request('https://www.jamddmaj.com/api/perps-submit',{method:'POST',headers:{Authorization:'Bearer '+'a'.repeat(64),'Content-Type':'application/json',Origin:'https://www.jamddmaj.com'},
+  body:JSON.stringify({reviewId:f.packet.reviewId,signedBase64:f.wire.signedBase64,signature:f.signed.signature,explicitApproval:true})});
+ const response=await handler(request());assert.equal(response.status,200);const data=await response.json();assert.equal(data.result.stage,'WEB_PERPS_BROADCAST_ACKNOWLEDGED');
+ assert.equal(data.result.state,'UNCERTAIN');assert.equal(data.result.readyForRetry,false);assert.equal(sends,1);assert.ok(policyReads>1);
+ assert.equal((await handler(request())).status,409);assert.equal(sends,1);
+ const foreign=createOwnerBoundWebPerpsReviewStore({ownerAccountHash:'e'.repeat(64),command:f.command,now:f.clock});
+ await assert.rejects(foreign.read(f.packet.reviewId));assert.throws(()=>requireOwnerBoundWebPerpsReviewStore({...f.store},owner));
+});
+
+test('browser durable handoff reaches authenticated HTTP and native shared-risk inspection exactly once end to end',async t=>{
+ const owner='d'.repeat(64),f=await riskBoundWebFixture(t,{ownerAccountHash:owner});let sends=0,requests=0;
+ const handler=createWebPerpsSubmissionHandler({journal:f.serverJournal,riskJournal:f.riskJournal,authenticate:async()=>owner,limit:async()=>true,
+  reviewStoreForOwner:()=>f.store,readLimits:f.readLimits,readAccount:f.readAccount,rpcRequest:f.rpcRequest,isExecutionAvailable:()=>true,now:f.clock,monotonicNow:()=>f.state.mono,
+  fetchImpl:async()=>{sends++;assert.equal((await f.journal.read(f.packet.reviewId)).state,'SUBMISSION_UNCERTAIN');return Response.json({action:'increase-position',txid:f.signed.signature});}});
+ const client=createWebPerpsSubmissionClient({doc:f.doc,journal:f.journal,readSessionToken:()=> 'a'.repeat(64),fetchImpl:async(url,options)=>{
+  requests++;assert.equal(url,'/api/perps-submit');return handler(new Request('https://www.jamddmaj.com'+url,options));
+ }});
+ const claim=await claimWebPerpsServerHandoff(f.signed,{doc:f.doc,journal:f.journal,explicitApproval:true});
+ const result=await client.submit(claim);assert.equal(result.stage,'WEB_PERPS_BROADCAST_ACKNOWLEDGED');assert.equal(result.state,'UNCERTAIN');
+ assert.equal(requests,1);assert.equal(sends,1);assert.equal(f.riskJournal.read('web:'+f.packet.reviewId).state,'UNCERTAIN');
+ await assert.rejects(client.submit(claim));assert.equal(requests,1);assert.equal(sends,1);
+});
+
+test('manual web order panel requires separate unchecked approval and joins genuine Phantom signing to the authenticated durable HTTP handoff',async t=>{
+ const owner='d'.repeat(64),f=await riskBoundWebFixture(t,{ownerAccountHash:owner});let sends=0,policyReads=0;
+ // This fixture has already signed an unrelated browser-local review. Use a
+ // separate fresh browser journal for the UI while preserving the real server
+ // packet and unfunded provider. Reset only the test's ephemeral browser DB.
+ await f.journal.close();const journal=await openWebPerpsSigningJournal({indexedDB:f.indexedDB,name:'jamddmaj-web-perps-order-panel',now:f.clock});
+ t.after(()=>journal.close());
+ const originalSign=f.wallet.features['solana:signTransaction'].signTransaction;
+ f.wallet.features['solana:signTransaction'].signTransaction=async input=>{
+  f.state.prompts++;assert.equal((await journal.read(f.packet.reviewId)).state,'SIGNING');
+  const wire=Buffer.from(input.transaction);sign(null,wire.subarray(193),f.ownerKey).copy(wire,1);return [{signedTransaction:Uint8Array.from(wire)}];
+ };
+ const handler=createWebPerpsSubmissionHandler({journal:f.serverJournal,riskJournal:f.riskJournal,authenticate:async()=>owner,limit:async()=>true,
+  reviewStoreForOwner:()=>f.store,readLimits:f.readLimits,readAccount:f.readAccount,rpcRequest:f.rpcRequest,isExecutionAvailable:()=>true,now:f.clock,monotonicNow:()=>f.state.mono,
+  fetchImpl:async(_url,options)=>{sends++;const tx=JSON.parse(options.body).serializedTxBase64;return Response.json({action:'increase-position',txid:bs58.encode(Buffer.from(tx,'base64').subarray(1,65))});}});
+ const node=()=>({children:[],append(...v){this.children.push(...v);},setAttribute(){}});
+ f.doc.createElement=node;f.doc.addEventListener=()=>{};f.doc.removeEventListener=()=>{};
+ f.doc.defaultView={indexedDB:f.indexedDB,fetch:async(url,options)=>url==='/api/perps-signing-review'?Response.json({ok:true,packet:f.packet}):handler(new Request('https://www.jamddmaj.com'+url,options))};
+ const panel=setupWebPerpsOrderPanel(node(),{doc:f.doc,readSessionToken:()=> 'a'.repeat(64),now:f.clock,monotonicNow:()=>f.state.mono,
+  openJournal:async()=>journal,policyClient:{read:async()=>{policyReads++;return {policy:f.policy,executionAvailable:true};}}});
+ const prompts=f.state.prompts;await panel.prepare(f.draft);assert.equal(panel.confirm.disabled,true);assert.equal(f.state.prompts,prompts);assert.equal(sends,0);
+ await panel.confirm.onclick();assert.equal(sends,0);panel.consent.checked=true;panel.consent.onchange();await panel.confirm.onclick();
+ assert.equal(f.state.prompts,prompts+1);assert.equal(sends,1);assert.equal(policyReads,2);assert.match(panel.status.textContent,/pendiente/);
+ assert.equal((await journal.read(f.packet.reviewId)).state,'SUBMISSION_UNCERTAIN');assert.equal(f.riskJournal.read('web:'+f.packet.reviewId).state,'UNCERTAIN');
+ await panel.confirm.onclick();assert.equal(sends,1);panel.dispose();f.wallet.features['solana:signTransaction'].signTransaction=originalSign;
+});
+
+test('lost browser handoff response retains local uncertainty and cannot automatically repeat a server request',async t=>{
+ const f=await webSubmissionFixture(t);let calls=0;
+ const client=createWebPerpsSubmissionClient({doc:f.doc,journal:f.journal,readSessionToken:()=> 'a'.repeat(64),fetchImpl:async()=>{calls++;throw Error('private transport details');}});
+ const claim=await claimWebPerpsServerHandoff(f.signed,{doc:f.doc,journal:f.journal,explicitApproval:true});
+ const result=await client.submit(claim);assert.equal(result.stage,'WEB_PERPS_SUBMISSION_UNCONFIRMED');assert.equal(result.readyForRetry,false);
+ assert.equal((await f.journal.read(f.packet.reviewId)).state,'SUBMISSION_UNCERTAIN');await assert.rejects(client.submit(claim));assert.equal(calls,1);
+});
+
+test('web HTTP handoff refuses missing auth, disabled runtime, foreign reviews and client-selected limits without a send',async t=>{
+ const owner='d'.repeat(64),f=await riskBoundWebFixture(t,{ownerAccountHash:owner});let sends=0,running=true,authenticate=async()=>owner,store=f.store;
+ const handler=createWebPerpsSubmissionHandler({journal:f.serverJournal,riskJournal:f.riskJournal,authenticate:r=>authenticate(r),limit:async()=>true,
+  reviewStoreForOwner:()=>store,readLimits:f.readLimits,readAccount:f.readAccount,rpcRequest:f.rpcRequest,isExecutionAvailable:()=>running,now:f.clock,monotonicNow:()=>f.state.mono,
+  fetchImpl:async()=>{sends++;throw Error('must not send');}});
+ const payload={reviewId:f.packet.reviewId,signedBase64:f.wire.signedBase64,signature:f.signed.signature,explicitApproval:true};
+ const req=(input=payload,headers={})=>new Request('https://www.jamddmaj.com/api/perps-submit',{method:'POST',headers:{Authorization:'Bearer '+'a'.repeat(64),'Content-Type':'application/json',...headers},body:JSON.stringify(input)});
+ assert.equal((await handler(req(payload,{Authorization:''}))).status,401);
+ running=false;assert.equal((await handler(req())).status,503);running=true;
+ assert.equal((await handler(req({...payload,limits:f.policy.limits}))).status,400);
+ assert.equal((await handler(req({...payload,explicitApproval:false}))).status,400);
+ assert.equal((await handler(req(payload,{Origin:'https://untrusted.invalid'}))).status,400);
+ store=createOwnerBoundWebPerpsReviewStore({ownerAccountHash:'e'.repeat(64),command:f.command,now:f.clock});assert.equal((await handler(req())).status,503);
+ assert.equal(sends,0);assert.equal(f.serverJournal.read(f.packet.reviewId),null);assert.equal(f.riskJournal.read('web:'+f.packet.reviewId),null);
+});
 
 test('web risk coordinator atomically charges the shared ledger before either transport and blocks other entry paths after restart',async t=>{
  const f=await riskBoundWebFixture(t),id='web:'+f.packet.reviewId;let sends=0;

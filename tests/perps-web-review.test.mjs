@@ -5,6 +5,8 @@ import {validateWebPerpsReview} from '../lib/perps-navigation.js';
 import {setupFuturesTicket} from '../lib/swap-quote-ui.js';
 import {selectWalletAccount} from '../lib/wallet-portfolio-store.js';
 import {IDBFactory} from 'fake-indexeddb';
+import bs58 from 'bs58';
+import {bindWebPerpsWalletSession} from '../lib/perps-web-wallet-session.js';
 const wallet='11111111111111111111111111111112',other='11111111111111111111111111111113';
 const draft={asset:'BTC',side:'LONG',margin:'10',leverage:'3',referencePrice:'100'};
 const env={UPSTASH_REDIS_REST_URL:'configured',UPSTASH_REDIS_REST_TOKEN:'configured'};
@@ -43,16 +45,20 @@ function ui(fetchImpl){
  const nodes=[],listeners=new Map(),events=[];let connectCalls=0;
  const doc={createElement(tag){const callbacks=new Map(),node={tag,children:[],value:'',append(...items){this.children.push(...items);},replaceChildren(...items){this.children=items;},setAttribute(){},addEventListener(type,fn){callbacks.set(type,[...(callbacks.get(type)||[]),fn]);},emit(type){for(const fn of callbacks.get(type)||[])fn();}};nodes.push(node);return node;},
   addEventListener(type,fn){listeners.set(type,[...(listeners.get(type)||[]),fn]);},removeEventListener(type,fn){listeners.set(type,(listeners.get(type)||[]).filter(value=>value!==fn));},dispatchEvent(event){events.push(event);for(const fn of listeners.get(event.type)||[])fn(event);},
-  defaultView:{CustomEvent,fetch:fetchImpl}};
+  hidden:false,visibilityState:'visible',hasFocus:()=>true,
+  defaultView:{CustomEvent,fetch:fetchImpl,JamdTrial:{getToken:()=> 'a'.repeat(64)},indexedDB:new IDBFactory()}};
  const ticket=setupFuturesTicket(doc.createElement('main'),'en',doc,()=>{},()=>{connectCalls++;});
  return {doc,nodes,ticket,events,get connectCalls(){return connectCalls;},long:nodes.find(n=>n.textContent==='Review Long'),price:nodes.find(n=>n.id==='jupiter-reference-price'),
   capability:nodes.find(n=>n.className==='futures-signing-status'),status:nodes.filter(n=>n.tag==='p').at(-1),output:nodes.filter(n=>n.className==='trade-order-summary').at(-1),
-  select(address=wallet){selectWalletAccount(doc,{address,source:'external',name:'Phantom'});}};
+  confirm:nodes.find(n=>n.textContent==='Confirm, sign and submit'),orderStatus:nodes.find(n=>n.tag==='section'&&n.className==='trade-order-summary')?.children.at(-1),
+  select(address=wallet){selectWalletAccount(doc,{address,source:'external',name:'Phantom'});},
+  connect(address=wallet){selectWalletAccount(doc,{address,source:'external',name:'Phantom'});const account={address,publicKey:Uint8Array.from(bs58.decode(address)),chains:['solana:mainnet'],features:['solana:signTransaction']};
+   const provider={name:'Phantom fixture',accounts:[account],chains:['solana:mainnet'],features:{'solana:signTransaction':{version:'1.0.0',supportedTransactionVersions:[0,'legacy'],signTransaction:()=>assert.fail('No signature allowed in review gate tests')}}};bindWebPerpsWalletSession(doc,provider,account);}};
 }
 test('web Futures offers wallet selection and explicit review rather than disabled Android-only trading controls',async()=>{
- let calls=0;const f=ui(async()=>{calls++;throw Error();});assert.equal(f.long.disabled,false);assert.match(f.capability.textContent,/Web signing is not enabled/);
+ let calls=0;const f=ui(async()=>{calls++;throw Error();});assert.equal(f.long.disabled,false);assert.match(f.capability.textContent,/Google session/);
  await f.long.onclick();assert.equal(f.connectCalls,1);assert.equal(calls,0);
- f.select();assert.match(f.capability.textContent,/Phantom/);assert.match(f.capability.textContent,/not enabled yet/);
+ f.select();assert.match(f.capability.textContent,/Phantom/);assert.match(f.capability.textContent,/Read-only address/);
  f.ticket.dispose();await f.long.onclick();assert.equal(calls,0);
  assert(!f.nodes.some(n=>n.textContent?.includes('Trading requires a compatible Android build')));
 });
@@ -73,25 +79,24 @@ test('Futures recovery keeps uncertainty visible on local storage failure withou
  assert.match(f.nodes.at(-1).textContent,/Any pending operation is retained/);assert.equal(requests,0);assert.equal(button.disabled,false);
  f.ticket.dispose();
 });
-test('web review checks the selected account and current form without a wallet signing or execute request',async()=>{
- const calls=[],f=ui(async(url,options)=>{calls.push({url,options});const input=JSON.parse(options.body);return Response.json({ok:true,review:review(Date.now(),input.draft,input.walletAddress)});});
- f.select();f.price.value='100';await f.long.onclick();assert.equal(calls.length,1);assert.equal(calls[0].url,'/api/perps-review');
- assert.deepEqual(JSON.parse(calls[0].options.body),{walletAddress:wallet,draft});assert.equal(f.output.hidden,false);assert.match(f.output.textContent,/0.000015100 SOL/);
+test('web review checks authenticated manual policy and disabled execution stops before wallet approval or submission',async()=>{
+ const calls=[],f=ui(async(url,options)=>{calls.push({url,options});return Response.json({ok:true,policy:null,executionAvailable:false,readyForSigning:false});});
+ f.connect();f.price.value='100';await f.long.onclick();assert.equal(calls.length,1);assert.equal(calls[0].url,'/api/perps-manual-policy');
+ assert.deepEqual(JSON.parse(calls[0].options.body),{action:'read',walletAddress:wallet});assert.match(f.orderStatus.textContent,/Configure.*manual limits/);assert.equal(f.confirm.disabled,true);
  assert.equal(f.events.some(event=>event.type==='jamd-wallet-open-perps'),false);assert.equal(f.long.disabled,false);
- f.price.value='101';f.price.emit('input');assert.equal(f.output.hidden,true);f.ticket.dispose();
+ f.price.value='101';f.price.emit('input');assert.equal(f.confirm.disabled,true);f.ticket.dispose();
 });
-test('wallet changes and edits abort in-flight reviews and do not leave action buttons stuck',async()=>{
+test('wallet changes and edits invalidate in-flight manual policy checks and do not leave action buttons stuck',async()=>{
  for(const mode of ['wallet','input','market','dispose']){
-  let finish,signal;const f=ui((url,options)=>{signal=options.signal;return new Promise(resolve=>{finish=()=>{const input=JSON.parse(options.body);resolve(Response.json({ok:true,review:review(Date.now(),input.draft,input.walletAddress)}));};});});
-  f.select();f.price.value='100';const pending=f.long.onclick();assert.equal(f.long.disabled,true);
+  let finish;const f=ui(()=>new Promise(resolve=>{finish=()=>resolve(Response.json({ok:true,policy:null,executionAvailable:false,readyForSigning:false}));}));
+  f.connect();f.price.value='100';const pending=f.long.onclick();assert.equal(f.long.disabled,true);
   if(mode==='wallet')f.select(other);if(mode==='input'){f.price.value='110';f.price.emit('input');}if(mode==='market')f.ticket.selectAsset({symbol:'SOL'});if(mode==='dispose')f.ticket.dispose();
-  assert.equal(signal.aborted,true);finish();await pending;assert.equal(f.output.hidden,true);if(mode!=='dispose')assert.equal(f.long.disabled,false);f.ticket.dispose();
+  finish();await pending;assert.equal(f.confirm.disabled,true);if(mode!=='dispose')assert.equal(f.long.disabled,false);f.ticket.dispose();
  }
 });
-test('a late transport ignoring the timeout cannot leave a web review stuck checking or display its expired result',async t=>{
- let deadline,finish;const original=setTimeout;
- t.mock.method(globalThis,'setTimeout',(fn,delay,...args)=>delay===20000?(deadline=fn,123):original(fn,delay,...args));
- const f=ui((url,options)=>new Promise(resolve=>{finish=()=>resolve(Response.json({ok:true,review:review(Date.now(),JSON.parse(options.body).draft)}));}));
- f.select();f.price.value='100';const pending=f.long.onclick();deadline();finish();await pending;
- assert.equal(f.output.hidden,true);assert.equal(f.long.disabled,false);assert(f.nodes.some(n=>n.textContent?.includes('Could not verify the web review')));f.ticket.dispose();
+test('a late policy transport ignoring its deadline cannot enable a wallet approval or leave the ticket stuck',async t=>{
+ let finish;const controller=new AbortController();t.mock.method(AbortSignal,'timeout',()=>controller.signal);
+ const f=ui(()=>new Promise(resolve=>{finish=()=>resolve(Response.json({ok:true,policy:null,executionAvailable:false,readyForSigning:false}));}));
+ f.connect();f.price.value='100';const pending=f.long.onclick();controller.abort();finish();await pending;
+ assert.equal(f.confirm.disabled,true);assert.equal(f.long.disabled,false);assert.match(f.orderStatus.textContent,/could not be prepared/);f.ticket.dispose();
 });

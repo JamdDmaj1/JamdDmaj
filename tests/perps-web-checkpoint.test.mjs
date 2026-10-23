@@ -1,0 +1,32 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtempSync,mkdirSync,chmodSync,writeFileSync,readFileSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {execFileSync} from 'node:child_process';
+import {generateX25519Identity,identityToRecipient} from 'age-encryption';
+import {openPerpsAutomationControls} from '../lib/perps-automation-controls.js';
+import {openPerpsExecutionJournal} from '../lib/perps-execution-journal.js';
+import {openWebPerpsSubmissionJournal} from '../lib/perps-web-submission-journal.js';
+import {openManualPerpsPolicyStore} from '../lib/perps-manual-policy-store.js';
+import {openWebPerpsReviewDb} from '../lib/perps-web-review-db.js';
+test('operator checkpoint encrypts all five drained stores and restores only into a fresh offline quarantine',{skip:process.platform==='win32'},async t=>{
+ const directory=mkdtempSync(join(tmpdir(),'jamd-checkpoint-fixture-'));t.after(()=>rmSync(directory,{recursive:true,force:true}));
+ const locks=join(directory,'locks');mkdirSync(locks,{mode:0o700});
+ openPerpsAutomationControls(join(directory,'controls.sqlite')).close();openPerpsExecutionJournal(join(directory,'journal.sqlite')).close();
+ openWebPerpsSubmissionJournal({filename:join(directory,'web-submissions.sqlite')}).close();
+ openManualPerpsPolicyStore(join(directory,'manual-policy.sqlite'),{initialize:true}).close();openWebPerpsReviewDb(join(directory,'web-reviews.sqlite'),{initialize:true}).close();
+ for(const name of ['controls.sqlite','journal.sqlite','web-submissions.sqlite','manual-policy.sqlite','web-reviews.sqlite'])chmodSync(join(directory,name),0o600);
+ const identity=await generateX25519Identity(),recipient=await identityToRecipient(identity),identityPath=join(directory,'identity'),recipientPath=join(directory,'recipient');
+ writeFileSync(identityPath,identity,{mode:0o600});writeFileSync(recipientPath,recipient,{mode:0o600});
+ const script=process.env.JAMDDMAJ_CHECKPOINT_TEST_SCRIPT||new URL('../scripts/perps-web-checkpoint.mjs',import.meta.url).pathname;
+ const env={...process.env,JAMDDMAJ_PERPS_RUNTIME_DIRECTORY:directory,JAMDDMAJ_PERPS_CONTROLS_DIRECTORY:directory,JAMDDMAJ_WEB_LOCK_DIRECTORY:locks,JAMDDMAJ_WORKER_LOCK_DIRECTORY:locks,
+  JAMDDMAJ_WEB_CHECKPOINT_RECIPIENT:recipientPath,JAMDDMAJ_WEB_CHECKPOINT_PARENT:directory,JAMDDMAJ_WEB_CHECKPOINT_OUTPUT:'checkpoint'};
+ const create=JSON.parse(execFileSync(process.execPath,[script,'create'],{env,encoding:'utf8'}));assert.equal(create.databases,5);assert.equal(create.readyForSigning,false);
+ env.JAMDDMAJ_WEB_CHECKPOINT_ARCHIVE=join(directory,'checkpoint','manual-runtime.age');env.JAMDDMAJ_WEB_CHECKPOINT_IDENTITY=identityPath;env.JAMDDMAJ_WEB_CHECKPOINT_OUTPUT='restored';
+ const verify=JSON.parse(execFileSync(process.execPath,[script,'verify'],{env,encoding:'utf8'}));assert.equal(verify.sha256,create.sha256);assert.equal(verify.databases,5);
+ assert.match(readFileSync(join(directory,'restored','RESTORE_QUARANTINED'),'utf8'),/Never automatically activate/);
+ assert.throws(()=>execFileSync(process.execPath,[script,'verify'],{env,stdio:'ignore'}));
+ writeFileSync(join(locks,'web-service.lock'),'held',{mode:0o600});env.JAMDDMAJ_WEB_CHECKPOINT_OUTPUT='blocked';
+ assert.throws(()=>execFileSync(process.execPath,[script,'create'],{env,stdio:'ignore'}));
+});

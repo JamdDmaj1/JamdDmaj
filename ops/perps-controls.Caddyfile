@@ -31,6 +31,21 @@ https://157.230.54.133 {
   X-Content-Type-Options "nosniff"
   Referrer-Policy "no-referrer"
  }
+ @manual path /api/perps-manual-policy /api/perps-signing-review /api/perps-submit /api/perps-operation-status
+ handle @manual {
+  request_body {
+   max_size 12000
+  }
+  reverse_proxy 127.0.0.1:8789 {
+   header_up -Cookie
+   header_up X-Forwarded-For {remote_host}
+   header_up -X-Forwarded-Host
+   transport http {
+    dial_timeout 2s
+    response_header_timeout 12s
+   }
+  }
+ }
  @controls path /health /v1/automation
  handle @controls {
   request_body {

@@ -119,6 +119,16 @@ await build({
 await cp(resolve(root, "lib", "finance-polish.js"), resolve(output, "lib", "finance-polish.js"));
 await cp(resolve(root, "lib", "markets-catalog.js"), resolve(output, "lib", "markets-catalog.js"));
 await cp(resolve(root, "lib", "swap-quote-ui.js"), resolve(output, "lib", "swap-quote-ui.js"));
+for (const name of ['perps-manual-policy-panel','perps-web-order-panel']) {
+  await build({
+    absWorkingDir:root,entryPoints:[resolve(root,'lib',name+'.js')],outfile:resolve(output,'lib',name+'.js'),
+    bundle:true,format:'esm',platform:'browser',target:['es2020'],legalComments:'none',
+    plugins:[{name:'shared-perps-wallet-authority',setup(builder){
+      builder.onResolve({filter:/wallet-portfolio-store\.js$/},()=>({path:'./wallet-portfolio-store.js',external:true}));
+      builder.onResolve({filter:/perps-web-wallet-session\.js$/},()=>({path:'./perps-web-wallet-session.js',external:true}));
+    }}]
+  });
+}
 await build({
   absWorkingDir: root, entryPoints: [resolve(root, "funding-ui.js")],
   outfile: resolve(output, "funding-ui.js"), bundle: true, format: "esm",

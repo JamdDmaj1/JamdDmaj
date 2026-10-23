@@ -1,0 +1,40 @@
+[Unit]
+Description=JamdDmaj authenticated manual web boundary (execution disabled)
+After=network-online.target jamddmaj-perps-worker.service
+Wants=network-online.target
+Requires=jamddmaj-perps-worker.service
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=simple
+DynamicUser=yes
+User=jamddmaj-perps-controls
+StateDirectory=jamddmaj-perps-runtime jamddmaj-perps-controls
+StateDirectoryMode=0700
+RuntimeDirectory=jamddmaj-perps-web
+RuntimeDirectoryMode=0700
+WorkingDirectory=/opt/jamddmaj-perps/web
+ExecStart=/usr/bin/node /opt/jamddmaj-perps/web/perps-web-service.mjs
+Environment=JAMDDMAJ_PERPS_RUNTIME_DIRECTORY=/var/lib/private/jamddmaj-perps-runtime
+Environment=JAMDDMAJ_PERPS_CONTROLS_DIRECTORY=/var/lib/private/jamddmaj-perps-controls
+Environment=JAMDDMAJ_PERPS_TRUST_LOOPBACK_PROXY=true
+Environment=JAMDDMAJ_PERPS_WEB_EXECUTION_APPROVED=false
+UMask=0077
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+NoNewPrivileges=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+MemoryMax=192M
+TasksMax=32
+LimitNOFILE=256
+TimeoutStopSec=infinity
+KillSignal=SIGTERM
+Restart=on-failure
+RestartSec=15
+
+[Install]
+WantedBy=multi-user.target
