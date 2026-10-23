@@ -4631,3 +4631,53 @@ interoperability and official age CLI/SDK interoperability; they are not claimed
 verified. Encrypted SDK restoration/quarantine, backup revocation, custody and
 the complete internal close lifecycle were exercised. This closes the point-2
 internal implementation/integration verification scope, not live deployment.
+
+## Point 4 — Telegram worker integration, locally verified (2026-10-23)
+
+The existing durable worker now dispatches the native close lifecycle for an
+already recorded, finalized close requiring protected USDC conversion. One
+financial close is processed per account cycle; new entries cannot run in the
+same cycle. Maintenance mode remains read-only. The adapter verifies the
+exclusive owner/custody mapping, current control revision, genuine restored
+backup and execution-runtime permission through the existing signing boundary.
+Pausing entries does not abandon a recorded risk-reducing conversion. It never
+creates an initial close review or retries a SIGNING/UNCERTAIN operation.
+
+The application has a separate activation review and unchecked consent followed
+by explicit confirmation. Review tokens stay private in the client, are bound
+to session/wallet/revision/settings, expire, and permit one attempt only. Saving
+limits still pauses, loading never activates, editing invalidates the review,
+and a lost activation response requires reading the authoritative state instead
+of retrying. The summary includes sizing, concurrent/daily limits, SL/TP and
+daily-loss action. Server activation independently checks genuine backup,
+exclusive custody, reconciled account evidence and a running execution worker.
+
+Existing signal ingestion remains a fixed authenticated read of published
+Telegram signals, with freshness, strategy and market checks (BTC/ETH/SOL).
+No scanner changes, Telegram publishing or unsupported-market execution were
+introduced. Empty SL/TP use signal levels; configured percentages bind native
+exit requests. Daily loss actions always pause new entries; reductions affect
+future entries only after explicit reactivation and cannot bypass the loss cap.
+
+Verification on Windows used temporary unfunded fixture wallets, genuine
+encrypted backup/restore proofs, SQLite controls/journals, actual native wire
+inspection and simulated financial transports. The new worker integration test
+runs the real worker -> executor -> close coordinator -> conversion custody
+and broadcaster path, asserting durable UNCERTAIN before the single fake send,
+held parent margin, and no send while execution is unavailable. A separate test
+joins the real application client -> authenticated API -> durable activation
+callback. No funded signature, real transaction send, production state change
+or bot activation occurred.
+
+Regression groups: 106 tests (103 passed, three Linux-only CLI checks skipped),
+66 preparation/entry/activation tests passed, and 57 signals/exits/daily-account/
+controls/API/risk tests passed. After the final worker-test extension, its
+targeted integration passed again; after the final activation-summary wording,
+all 28 client/panel/draft tests passed again. Web assets build successfully.
+The Linux CLI omissions are not claimed verified on Windows.
+
+This completes the point-4 internal implementation/local verification boundary.
+It does NOT mean the deployed VPS or public application runs this source.
+Production installation, original journal/backup preservation and connection
+are point 5; broader production-like verification is point 6; releases are point
+7. Those steps must not silently activate an account or transfer funds.

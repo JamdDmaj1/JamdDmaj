@@ -61,3 +61,25 @@ test('server recovery status explains verified backup separately from execution 
  verified=false;await f.connect.onclick();assert.match(f.status.textContent,/Falta verificar el respaldo/);
  fail=true;await f.connect.onclick();assert.equal(f.identity.textContent,'');assert.doesNotMatch(f.status.textContent,/Respaldo cifrado verificado/);assert.equal(f.save.disabled,true);
 });
+
+test('24/7 activation is an explicit review and separate unchecked consent, never a load/save side effect',async()=>{
+ const calls=[],review={walletAddress:state.walletAddress,revision:state.revision,settings,expiresAt:Date.now()+60000};
+ const f=fixture({readStatus:async()=>({controls:state,recovery:{backupVerified:true},executionAvailable:true}),
+  prepareActivation:async args=>{calls.push(['review',args]);return review;},activate:async args=>{calls.push(['activate',args]);return {...state,enabled:true,paused:false,revision:'new-revision'};}});
+ assert.equal(calls.length,0);assert.equal(f.prepareActivation.disabled,true);await f.connect.onclick();assert.equal(f.prepareActivation.disabled,false);assert.equal(calls.length,0);
+ await f.prepareActivation.onclick();assert.equal(f.activate.disabled,true);assert.equal(f.activationConsent.checked,false);assert.match(f.activationSummary.textContent,/100 USDC/);assert.match(f.activationSummary.textContent,/Telegram/);
+ f.activationConsent.checked=true;f.activationConsent.onchange();assert.equal(f.activate.disabled,false);await f.activate.onclick();
+ assert.deepEqual(calls.map(c=>c[0]),['review','activate']);assert.equal(calls[1][1].review,review);assert.equal(calls[1][1].explicitApproval,true);assert.match(f.status.textContent,/automatización activa/);assert.equal(f.activationConsent.checked,false);
+});
+
+test('missing execution/backup, changed limits or lost activation acknowledgement never invent a running bot',async()=>{
+ for(const available of [false,true]){
+  const f=fixture({readStatus:async()=>({controls:state,recovery:{backupVerified:!available},executionAvailable:available}),prepareActivation:async()=>{throw Error('must not review');}});
+  await f.connect.onclick();assert.equal(f.prepareActivation.disabled,true);
+ }
+ const review={walletAddress:state.walletAddress,revision:state.revision,settings,expiresAt:Date.now()+60000};let writes=0;
+ const f=fixture({readStatus:async()=>({controls:state,recovery:{backupVerified:true},executionAvailable:true}),prepareActivation:async()=>review,
+  activate:async()=>{writes++;throw Error('lost');}});
+ await f.connect.onclick();await f.prepareActivation.onclick();f.fields.margin.value='25';f.activationConsent.checked=true;await f.activate.onclick();assert.equal(writes,0);assert.equal(f.activate.disabled,true);
+ f.fields.margin.value='20';await f.connect.onclick();await f.prepareActivation.onclick();f.activationConsent.checked=true;await f.activate.onclick();assert.equal(writes,1);assert.match(f.status.textContent,/Activación sin confirmar/);assert.equal(f.prepareActivation.disabled,true);
+});

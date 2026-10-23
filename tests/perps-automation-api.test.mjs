@@ -157,7 +157,8 @@ test('app panel and fixed-origin client reach verified-session custody setup end
  panel.consent.checked=true;panel.consent.onchange();await panel.provision.onclick();
  assert.equal(posts,1);assert.equal(readdirSync(directory).length,1);const state=f.controls.readForOwner({ownerAccountHash:otherOwner});
  assert.ok(panel.identity.textContent.includes(state.walletAddress));assert.equal(state.enabled,false);assert.equal(state.paused,true);assert.match(panel.status.textContent,/No deposites todavía/);
- assert.equal(panel.provision.disabled,true);assert.equal(client.activate,undefined);
+ assert.equal(panel.provision.disabled,true);assert.equal(panel.prepareActivation.disabled,true);
+ assert.throws(()=>client.activate({explicitApproval:true}),/activation-review-expired/);assert.equal(posts,1);
 });
 
 test('invalid setup highlights the correct field and opens advanced exits without sending any provisioning request',async()=>{

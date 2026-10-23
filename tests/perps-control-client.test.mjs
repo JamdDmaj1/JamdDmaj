@@ -7,8 +7,8 @@ const token='a'.repeat(64),revision='12345678-1234-4123-8123-123456789abc';
 const settings={capital:100,loss:50,positions:2,margin:20,leverage:3,dailyTrades:3};
 const health={ok:true,mode:'controls-only',tradingEnabled:false,executionAvailable:false,custodyProvisioningAvailable:false};
 const state={walletAddress:wallet,revision,settings,enabled:false,paused:true,reason:'SETTINGS_CHANGED',updatedAt:0};
-function fixture({readSessionToken=()=>token,healthReply=health,reply=()=>Response.json({ok:true,controls:state})}={}){
- const calls=[],client=createPerpsControlClient({readSessionToken,validateSettings:validateAutomationSettings,fetchImpl:async(url,options)=>{
+function fixture({readSessionToken=()=>token,healthReply=health,reply=()=>Response.json({ok:true,controls:state}),now=Date.now}={}){
+ const calls=[],client=createPerpsControlClient({readSessionToken,validateSettings:validateAutomationSettings,now,fetchImpl:async(url,options)=>{
   calls.push({url,options});assert.ok(url.startsWith(PERPS_CONTROL_ORIGIN+'/'));
   assert.equal(options.redirect,'error');assert.equal(options.cache,'no-store');assert.equal(options.credentials,'omit');
   if(url.endsWith('/health')){assert.equal(options.headers.Authorization,undefined);return Response.json(healthReply);}
@@ -20,7 +20,8 @@ test('app control client uses fixed HTTPS and the existing session, never sends 
  await f.client.save({walletAddress:wallet,expectedRevision:revision,settings});await f.client.pause({walletAddress:wallet});
  const actions=f.calls.filter(call=>call.options.body).map(call=>JSON.parse(call.options.body));
  assert.deepEqual(actions.map(body=>body.action),['save','pause']);assert.ok(actions.every(body=>!Object.hasOwn(body,'ownerAccountHash')&&!Object.hasOwn(body,'enabled')));
- assert.equal(f.client.activate,undefined);assert.equal(typeof f.client.provision,'function');assert.equal(f.client.sign,undefined);
+ assert.equal(typeof f.client.activate,'function');assert.equal(typeof f.client.provision,'function');assert.equal(f.client.sign,undefined);
+ assert.throws(()=>f.client.activate({explicitApproval:true}),/activation-review-expired/);
 });
 
 test('observed bot balances are bound to returned ownership and configured margin without accepting financial readiness',async()=>{
@@ -106,4 +107,35 @@ test('read-only recovery projection binds the returned wallet and never accepts 
   await assert.rejects(f.client.readStatus(),/controls-unavailable/);
  }
  const empty=fixture({reply:()=>Response.json({ok:true,controls:null,recovery})});await assert.rejects(empty.client.readStatus(),/controls-unavailable/);
+});
+
+test('activation needs an original private server review, current execution capability and explicit one-use approval',async()=>{
+ const at=Date.now(),active={...state,enabled:true,paused:false,revision:'98765432-1234-4123-8123-123456789abc',reason:'EXPLICITLY_ACTIVATED'};
+ const f=fixture({now:()=>at,healthReply:{...health,mode:'execute',executionAvailable:true},reply:(_url,options)=>{
+  const body=JSON.parse(options.body);return body.action==='activationReview'?Response.json({ok:true,review:{walletAddress:wallet,revision,settings,token:'f'.repeat(64),expiresAt:at+60000}}):Response.json({ok:true,controls:active});
+ }});
+ const review=await f.client.prepareActivation({walletAddress:wallet,expectedRevision:revision});assert.equal(review.token,undefined);assert(Object.isFrozen(review.settings));
+ assert.throws(()=>f.client.activate({review:{...review},explicitApproval:true}));assert.throws(()=>f.client.activate({review,explicitApproval:false}));
+ assert.equal((await f.client.activate({review,explicitApproval:true})).enabled,true);assert.throws(()=>f.client.activate({review,explicitApproval:true}));
+ const actions=f.calls.filter(c=>c.options.body).map(c=>JSON.parse(c.options.body));assert.deepEqual(actions.map(a=>a.action),['activationReview','activate']);assert.equal(actions[1].token,'f'.repeat(64));assert.equal(actions[1].explicitApproval,true);
+});
+
+test('expired, changed-session, regressed-clock or unavailable-runtime activation never sends an activation mutation',async()=>{
+ for(const mode of ['expired','session','rollback','runtime']){
+  let at=Date.now(),session=token,healthReply={...health,mode:'execute',executionAvailable:true};
+  const f=fixture({now:()=>at,readSessionToken:()=>session,healthReply,reply:()=>Response.json({ok:true,review:{walletAddress:wallet,revision,settings,token:'f'.repeat(64),expiresAt:at+60000}})});
+  const review=await f.client.prepareActivation({walletAddress:wallet,expectedRevision:revision});
+  if(mode==='expired')at+=60000;if(mode==='rollback')at--;if(mode==='session')session='b'.repeat(64);if(mode==='runtime')healthReply.executionAvailable=false;
+  try{await f.client.activate({review,explicitApproval:true});assert.fail('unsafe activation');}catch{}
+  assert.equal(f.calls.filter(c=>c.options.body&&JSON.parse(c.options.body).action==='activate').length,0);
+ }
+});
+
+test('lost activation response remains a single attempt and cannot be retried with the same review',async()=>{
+ const at=Date.now();let writes=0;
+ const f=fixture({now:()=>at,healthReply:{...health,mode:'execute',executionAvailable:true},reply:(_url,options)=>{
+  if(JSON.parse(options.body).action==='activationReview')return Response.json({ok:true,review:{walletAddress:wallet,revision,settings,token:'f'.repeat(64),expiresAt:at+60000}});
+  writes++;throw Error('private upstream failure');
+ }});
+ const review=await f.client.prepareActivation({walletAddress:wallet,expectedRevision:revision});await assert.rejects(f.client.activate({review,explicitApproval:true}));assert.throws(()=>f.client.activate({review,explicitApproval:true}));assert.equal(writes,1);
 });

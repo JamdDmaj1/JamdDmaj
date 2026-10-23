@@ -1,4 +1,7 @@
 import test from 'node:test';
+import {createPerpsAutomationApi} from '../lib/perps-automation-api.js';
+import {createPerpsControlClient} from '../lib/perps-control-client.js';
+import {validateAutomationSettings} from '../lib/automation-panel.js';
 import assert from 'node:assert/strict';
 import {createHash,createPrivateKey,createPublicKey,sign} from 'node:crypto';
 import {DatabaseSync} from 'node:sqlite';
@@ -1067,6 +1070,30 @@ test('the real runtime callback permits one explicit fixture activation only wit
   await assert.rejects(second.activate(request));assert.equal(f.journal.pending(f.args.walletAddress).length,0);
  }finally{second.close();}
 });
+test('app client and authenticated API activate the genuine unfunded fixture only after a separate one-use review',async t=>{
+ const f=await custodySigningFixture(t,{reserve:false}),paused=f.controls.pause(f.args);
+ const authorizeActivation=createServerPerpsActivationAuthorizer({controls:f.controls,vault:f.vault,backupRegistry:f.backupRegistry,journal:f.journal,
+  readAccount:async()=>f.daily,isExecutionRunning:()=>true});
+ const controls=openPerpsAutomationControls(join(f.walletDirectory,'..','controls.sqlite'),{now:()=>now,monotonicNow:()=>f.clock.value,authorizeActivation});
+ try{
+  let mutations=0;
+  const handler=createPerpsAutomationApi({controls,authenticate:async()=>f.args.ownerAccountHash,rateLimit:async()=>true});
+  const client=createPerpsControlClient({readSessionToken:()=> 'a'.repeat(64),validateSettings:validateAutomationSettings,now:()=>now,
+   fetchImpl:async(url,options)=>{
+    if(url.endsWith('/health'))return Response.json({ok:true,mode:'execute',tradingEnabled:false,executionAvailable:true,custodyProvisioningAvailable:false});
+    if(options.body)mutations++;
+    return handler(new Request(url,options));
+   }});
+  const state=await client.read();assert.equal(state.paused,true);assert.equal(mutations,0);
+  const review=await client.prepareActivation({walletAddress:state.walletAddress,expectedRevision:paused.revision});
+  assert.equal(controls.read(f.args).paused,true);assert.equal(Object.hasOwn(review,'token'),false);
+  assert.throws(()=>client.activate({review,explicitApproval:false}));
+  const active=await client.activate({review,explicitApproval:true});assert.equal(active.enabled,true);assert.equal(active.paused,false);
+  assert.throws(()=>client.activate({review,explicitApproval:true}));assert.equal(mutations,2);
+  assert.equal(f.journal.pending(f.args.walletAddress).length,0);
+ }finally{controls.close();}
+});
+
 test('restore quarantine blocks an already-issued private signing grant and retains pending collateral',async t=>{
  const f=await custodySigningFixture(t),grant=await authorizeServerPerpsSigning(f.prepared,f.args);
  writeFileSync(join(f.walletDirectory,PERPS_CUSTODY_RESTORE_REVIEW_MARKER),'{}',{mode:0o600});

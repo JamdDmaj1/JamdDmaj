@@ -33,6 +33,7 @@ import {createPerpsCloseConversionBroadcaster} from '../lib/perps-close-conversi
 import {createPerpsCloseConversionExecutor} from '../lib/perps-close-conversion-executor.js';
 import {PERPS_POOL} from '../lib/perps-server-custody.js';
 import {createNativePerpsCloseExecutor} from '../lib/perps-close-executor.js';
+import {createServerPerpsCloseCoordinator} from '../lib/perps-server-close-coordinator.js';
 async function fixture(t,options={}){
  const f=await closePayoutFixture(options),root=mkdtempSync(join(tmpdir(),'jamd-close-exec-')),path=join(root,'journal.sqlite'),opened=[];let time=f.options.now();
  const open=()=>{const j=openPerpsExecutionJournal(path,{now:()=>time});opened.push(j);return j;},journal=open();
@@ -258,7 +259,7 @@ async function recoveryOptions(t,f){
   restore:{operatorDirectory,destinationDirectory:join(root,'restored'),explicitOperatorApproval:true,...common}};
 }
 
-async function authorizedConversionFixture(t){
+async function authorizedConversionFixture(t,{persistConversion=true}={}){
  const f=await conversionAttemptFixture(t),options=await recoveryOptions(t,f),archive=await createPerpsCustodyRecoveryArchive({...options.request,requireRestoreProof:true});
  const restored=await restorePerpsCustodyRecoveryArchive({...options.restore,ciphertext:archive.ciphertext});
  const common={allowNonPosixForTests:process.platform==='win32',now:f.options.now,monotonicNow:f.options.monotonicNow};
@@ -266,12 +267,33 @@ async function authorizedConversionFixture(t){
  await backupRegistry.registerArchive(archive,{explicitOperatorApproval:true});backupRegistry.acceptRestoreProof({proofFile:restored.proofFile,explicitOperatorApproval:true});
  const controls=openPerpsAutomationControls(options.request.runtimePaths.controlsPath,{now:f.options.now}),ownerAccountHash='e'.repeat(64),walletAddress=f.row.wallet;
  const vault=openPerpsCustodyVault({directory:options.request.directory,keyFile:options.request.keyFile,...common});
- f.trackClose(backupRegistry);f.trackClose(controls);f.journal.preparePositionCloseConversionRecord(f.row.id,f.prepared);
+ f.trackClose(backupRegistry);f.trackClose(controls);if(persistConversion)f.journal.preparePositionCloseConversionRecord(f.row.id,f.prepared);
  let allowed=true;const controlRevision=controls.read({ownerAccountHash,walletAddress}).revision;
  const args={journal:f.journal,controls,backupRegistry,request:f.conversionOptions.request,isClosingAllowed:()=>allowed,ownerAccountHash,walletAddress,closeId:f.row.id,
   controlRevision,maxSlippageBps:100,now:f.options.now,monotonicNow:f.options.monotonicNow};
  return {...f,args,vault,backupRegistry,archiveSha256:archive.sha256,disallow(){allowed=false;}};
 }
+
+test('worker close coordinator advances verified proceeds once and never sends in maintenance',async t=>{
+ const f=await authorizedConversionFixture(t,{persistConversion:false});let execution=false,sends=0;
+ const coordinator=createServerPerpsCloseCoordinator({journal:f.journal,controls:f.args.controls,vault:f.vault,backupRegistry:f.backupRegistry,
+  rpcRequest:f.conversionOptions.request,readFinalizedAccount:async()=>{throw Error('not expected before finality');},
+  isExecutionRunning:()=>execution,maxSlippageBps:100,now:f.options.now,monotonicNow:f.options.monotonicNow,
+  fetchImpl:async(_url,options)=>{sends++;const row=f.journal.readPositionCloseConversion(f.row.id);
+   assert.equal(row.state,'UNCERTAIN');assert.equal(JSON.parse(options.body).params[0],row.owner_signed_wire);
+   return Response.json({jsonrpc:'2.0',id:1,result:row.signature});}});
+ const identity={ownerAccountHash:f.args.ownerAccountHash,walletAddress:f.row.wallet};
+ assert.equal((await coordinator.runOnce(identity)).stage,'AUTOMATED_CLOSE_EXECUTION_UNAVAILABLE');assert.equal(sends,0);
+ const forbidden=()=>{throw Error('No new entry or account completion is allowed in this conversion cycle');};
+ const executor=createServerPerpsExecutor({mode:'execute',controls:f.args.controls,journal:f.journal,vault:f.vault,backupRegistry:f.backupRegistry,
+  readFeed:forbidden,readAccount:forbidden,readFinalizedAccount:forbidden,rpcRequest:f.conversionOptions.request,builderRequest:forbidden,
+  fetchImpl:forbidden,closeCoordinator:coordinator,now:f.options.now,monotonicNow:f.options.monotonicNow});
+ const reports=[],worker=createServerPerpsWorker({mode:'execute',controls:f.args.controls,executor,now:f.options.now,saveStatus:v=>reports.push(v)});
+ execution=true;await worker.run({once:true});
+ assert.equal(reports.length,1);assert.equal(reports[0].results.AUTOMATED_CLOSE_CYCLE,1);
+ assert.equal(sends,1);assert.equal(f.journal.read('parent').state,'OPEN');
+ execution=false;await coordinator.runOnce(identity);assert.equal(sends,1);
+});
 
 test('protected conversion custody authorization signs only finalized recorded proceeds and direct RPC is attempted once after durable uncertainty',async t=>{
  const f=await authorizedConversionFixture(t),risk=f.journal.riskState(f.row.wallet),grant=await authorizePerpsCloseConversion(f.prepared,f.args);
