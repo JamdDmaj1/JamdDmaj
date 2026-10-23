@@ -80,11 +80,14 @@ await build({
 await mkdir(resolve(output, "lib"), { recursive: true });
 await cp(resolve(root, "lib", "wallet-display.js"), resolve(output, "lib", "wallet-display.js"));
 await cp(resolve(root, "lib", "wallet-portfolio-store.js"), resolve(output, "lib", "wallet-portfolio-store.js"));
+await cp(resolve(root, "lib", "wallet-trading-state.js"), resolve(output, "lib", "wallet-trading-state.js"));
+await cp(resolve(root, "lib", "wallet-trading-panel.js"), resolve(output, "lib", "wallet-trading-panel.js"));
 await build({
   absWorkingDir: root, entryPoints: [resolve(root, "assets-wallet-ui.js")],
   outfile: resolve(output, "assets-wallet-ui.js"), bundle: true, format: "esm",
   plugins: [{name:'shared-public-portfolio',setup(builder){
     builder.onResolve({filter:/wallet-portfolio-store\.js$/},()=>({path:'./lib/wallet-portfolio-store.js',external:true}));
+    builder.onResolve({filter:/wallet-trading-state\.js$/},()=>({path:'./lib/wallet-trading-state.js',external:true}));
     builder.onResolve({filter:/perps-web-wallet-session\.js$/},()=>({path:'./lib/perps-web-wallet-session.js',external:true}));
   }}],
   platform: "browser", target: ["es2020"], legalComments: "none"

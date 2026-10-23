@@ -38,7 +38,7 @@ export function setupMainWalletEntry(language,doc=document,win=window,pluginFact
   if(!available||disposed||pending||selectedWalletAccount(doc)?.source!=='native')return;
   pending=true;try{await pluginFactory().openSwap();}
   catch{status.textContent=t('No se pudo abrir el intercambio. Comprueba que la app esté actualizada.','Could not open swap. Check that the app is up to date.');}
-  finally{pending=false;}
+  finally{pending=false;refreshPublic();}
  };
  doc.addEventListener?.('jamd-wallet-open-swap',openSwap);
  const openPerps=async event=>{
@@ -46,7 +46,7 @@ export function setupMainWalletEntry(language,doc=document,win=window,pluginFact
   pending=true;
   try{const draft=perpsNavigationDraft(event?.detail);await pluginFactory().openPerps(draft);}
   catch{status.textContent=t('No se pudo abrir Futuros. Revisa los datos y actualiza la app. No se firmó ni envió nada.','Could not open Futures. Check the draft and update the app. Nothing was signed or sent.');}
-  finally{pending=false;}
+  finally{pending=false;refreshPublic();}
  };
  doc.addEventListener?.('jamd-wallet-open-perps',openPerps);
  if(available){refreshPublic();timer=setInterval(visible,60000);timer?.unref?.();win.addEventListener?.('focus',visible);doc.addEventListener?.('visibilitychange',visible);doc.addEventListener?.('jamd-wallet-refresh',visible);}

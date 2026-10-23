@@ -13,14 +13,14 @@ test('missing USD prices do not hide a complete verified USDC inventory',()=>{
  assert.equal(walletDisplayBalance({...snapshot(),partial:true,balancesComplete:false}),null);
 });
 test('wallet display enables percent sizing only for fresh balances and clears on disconnect',()=>{
- let listener;const doc={addEventListener:(name,fn)=>{listener=fn;},defaultView:{addEventListener(){}}};
+ let listener;const doc={addEventListener:(name,fn)=>{if(name==='jamd-wallet-portfolio')listener=fn;},defaultView:{addEventListener(){}}};
  const out={},slider={},amount={dispatchEvent(){}};bindWalletDisplay(doc,'en',out,slider,amount);
  assert.equal(slider.disabled,true);listener({detail:snapshot()});assert.equal(slider.disabled,false);
  slider.value='50';slider.oninput();assert.equal(amount.value,'0.000550');
  listener({detail:null});assert.equal(slider.disabled,true);assert.match(out.textContent,/refresh in Assets/);
 });
 test('payment-token changes cannot size SOL using USDC or overwrite an edited amount',()=>{
- let listener,eligible=true;const doc={addEventListener:(_name,fn)=>{listener=fn;},defaultView:{addEventListener(){}}};
+ let listener,eligible=true;const doc={addEventListener:(name,fn)=>{if(name==='jamd-wallet-portfolio')listener=fn;},defaultView:{addEventListener(){}}};
  const output={},slider={},amount={value:'12',dispatchEvent(){}};
  bindWalletDisplay(doc,'en',output,slider,amount,()=>eligible);
  listener({detail:snapshot()});assert.equal(amount.value,'12');

@@ -5,6 +5,7 @@ import android.util.AtomicFile;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import org.json.JSONObject;
+import org.json.JSONArray;
 
 /** Public account selection only. Never unlocks a vault or grants signing access.
  * Atomic file reads avoid stale SharedPreferences across the isolated wallet process. */
@@ -40,7 +41,17 @@ public final class NativeWalletPublicSelection {
     public JSONObject publicAccount()throws Exception{
         NativeWalletProfiles.Profile profile=selected();
         JSONObject value=new JSONObject().put("available",profile!=null);
-        if(profile!=null)value.put("address",profile.solanaAddress).put("network","solana:mainnet").put("name",profile.name).put("source","native");
+        if(profile!=null){
+            value.put("address",profile.solanaAddress).put("network","solana:mainnet").put("name",profile.name).put("source","native");
+            // Read public transaction identity/phase only. Never expose a wire,
+            // vault credential, recipient, recovery material or signing grant.
+            try{
+                NativeTransferJournal.Record record=new NativeTransferJournal(context,profile,WalletNetwork.SOLANA_MAINNET).latest();
+                JSONArray pending=new JSONArray();
+                if(record!=null&&record.pending())pending.put(new JSONObject().put("id",record.transactionId).put("state",record.phase.name()));
+                value.put("pendingKnown",true).put("pending",pending);
+            }catch(Exception unavailable){value.put("pendingKnown",false).put("pending",new JSONArray());}
+        }
         return value;
     }
 }

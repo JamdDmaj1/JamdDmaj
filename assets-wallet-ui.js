@@ -5,10 +5,13 @@ import {setupNativeWalletEntry,setupMainWalletEntry} from './native-wallet-entry
 import {createPhantomMobileSession} from './lib/phantom-mobile-session.js';
 import {selectWalletAccount,selectedWalletAccount,publishWalletPortfolio,forgetWalletAccount} from './lib/wallet-portfolio-store.js';
 import {setupWalletOverview} from './lib/wallet-overview.js';
+import {setupWalletTradingController} from './lib/wallet-trading-controller.js';
+import {setupWalletTradingPanel} from './lib/wallet-trading-panel.js';
 import {bindWebPerpsWalletSession,clearWebPerpsWalletSession} from './lib/perps-web-wallet-session.js';
 
 export function setupAssetsWallets(language, doc=document, win=window) {
   const host=doc.getElementById('terminal-assets');if(!host)return;
+  const disposeTrading=setupWalletTradingController(doc,win),disposeTradingPanel=setupWalletTradingPanel(host,language,doc);
   const t=(es,en)=>language==='es'?es:en;
   const panel=doc.createElement('section');panel.className='card';panel.id='external-wallet-assets';
   const el=(tag,text)=>{const n=doc.createElement(tag);if(text)n.textContent=text;panel.append(n);return n;};
@@ -131,5 +134,5 @@ export function setupAssetsWallets(language, doc=document, win=window) {
       refreshTimer=setInterval(()=>{if(!doc.hidden)refresh.onclick();},60000);refreshTimer?.unref?.();
     }
   }catch{}
-  return ()=>{doc.removeEventListener?.('jamd-wallet-refresh',refreshSelected);disposeOverview();disposeMain();disposeNative();clear();unregister();unregisterGone();win.removeEventListener('eip6963:announceProvider',announced);panel.remove();};
+  return ()=>{disposeTrading();disposeTradingPanel();doc.removeEventListener?.('jamd-wallet-refresh',refreshSelected);disposeOverview();disposeMain();disposeNative();clear();unregister();unregisterGone();win.removeEventListener('eip6963:announceProvider',announced);panel.remove();};
 }
