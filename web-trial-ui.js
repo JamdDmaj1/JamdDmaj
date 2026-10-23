@@ -1,3 +1,26 @@
+// Checks the existing session, not a saved profile. Never renews access,
+// returns credentials, clears a token, or grants financial authority.
+export async function inspectGoogleSession({readToken,fetchImpl=globalThis.fetch,apiRoot='',now=Date.now}={}){
+ if(typeof readToken!=='function'||typeof fetchImpl!=='function'||!['','https://www.jamddmaj.com'].includes(apiRoot))return 'unavailable';
+ let token;try{token=readToken();}catch{return 'missing';}
+ if(typeof token!=='string'||!/^[a-f0-9]{64}$/.test(token))return 'missing';
+ let reader;
+ try{
+  const response=await fetchImpl(apiRoot+'/api/perps-identity',{method:'GET',cache:'no-store',credentials:'omit',redirect:'error',
+   headers:{Authorization:'Bearer '+token,Accept:'application/json'},signal:AbortSignal.timeout(8000)});
+  if(readToken()!==token)return 'changed';
+  if(response.status===401)return 'rejected';
+  if(!response.ok||response.redirected||!response.headers.get('content-type')?.toLowerCase().includes('application/json'))return 'unavailable';
+  reader=response.body?.getReader();if(!reader)return 'unavailable';let size=0;const parts=[];
+  while(true){const part=await reader.read();if(part.done)break;size+=part.value.byteLength;if(size>4096)return 'unavailable';parts.push(part.value);}
+  const bytes=new Uint8Array(size);let offset=0;for(const part of parts){bytes.set(part,offset);offset+=part.length;}
+  const value=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes)),at=now();
+  if(readToken()!==token)return 'changed';
+  return value?.ok===true&&/^[a-f0-9]{64}$/.test(value.accountHash||'')&&Number.isSafeInteger(at)&&Number.isSafeInteger(value.verifiedAt)
+   &&value.verifiedAt>=at-10000&&value.verifiedAt<=at+2000?'valid':'unavailable';
+ }catch{return 'unavailable';}finally{if(reader)try{await reader.cancel();}catch{}}
+}
+
 export const trialCopy = {
  en:["AI trial","Sign in with Google to start.","20 credits for 7 days, once per verified Google account, not per device. One credit per successful managed AI request. No automatic renewal. Own API keys are separate.","Credits remaining","Expires","Trial unavailable, expired or exhausted. Sign in again or check your balance."],
  es:["Prueba de IA","Inicia sesión con Google para empezar.","20 créditos durante 7 días, una vez por cuenta de Google verificada, no por dispositivo. Un crédito por solicitud de IA administrada completada. Sin renovación automática. Tu propia clave API es independiente.","Créditos restantes","Vence","Trial no disponible, vencido o agotado. Inicia sesión otra vez o revisa tu saldo."],
@@ -61,6 +84,7 @@ if (typeof document !== "undefined") {
   }
   window.JamdTrial = {
     getToken, refresh, error:(code,status)=>managedChatError(code,status,language()),
+    sessionStatus:()=>inspectGoogleSession({readToken:getToken,apiRoot:window.Capacitor?.isNativePlatform?.()?'https://www.jamddmaj.com':''}),
     accept(value) {sessionStorage.setItem(key,value.token);record=value.trial;failed=false;render();}
   };
   new MutationObserver(render).observe(document.documentElement,{attributes:true,attributeFilter:["lang"]});

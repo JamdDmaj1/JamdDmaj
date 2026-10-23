@@ -9,6 +9,14 @@ function fixture(client){
  const fields=Object.fromEntries(Object.entries(settings).map(([key,value])=>[key,{value:value??''}]));
  const result=setupPerpsControlPanel({panel:node(),fields,client,validateSettings:validateAutomationSettings,language:'es',doc});return {...result,fields};
 }
+test('missing browser session and rejected server session have distinct safe diagnostic codes',async()=>{
+ for(const [code,message]of [['session-missing','SESSION_MISSING'],['login-required','SESSION_REJECTED'],['session-changed','sesión cambió']]){
+  const f=fixture({read:async()=>{throw Object.assign(Error('private credentials'),{code});}});
+  await f.connect.onclick();assert.ok(f.status.textContent.includes(message));assert.equal(f.save.disabled,true);assert.equal(f.activate.disabled,true);
+  assert.equal(f.identity.textContent,'');assert.doesNotMatch(f.status.textContent,/private credentials/);
+ }
+});
+
 test('server controls connect only on explicit click and saving or pausing never invokes activation',async()=>{
  const actions=[],f=fixture({read:async()=>{actions.push('read');return state;},save:async input=>{actions.push(input);return state;},pause:async input=>{actions.push(input);return state;}});
  assert.equal(actions.length,0);assert.equal(f.save.disabled,true);await f.connect.onclick();assert.equal(f.save.disabled,false);

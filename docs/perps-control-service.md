@@ -4748,3 +4748,44 @@ yet expose the optional web operation-status route, and no web submission
 journal has been provisioned. These are remaining integration work, not proof
 that the new worker can already accept real manual futures orders. A real-user
 read-only session check was requested; no activation or deposit was requested.
+
+### Session diagnostic hotfix, 2026-10-23
+
+The user reports Google appearing connected while automation rejects access.
+Source inspection proves that the old main-page Google label was based only
+on the persisted profile; it did not verify the opaque session. The old control
+error also conflated a missing local session and a server-rejected credential.
+Neither fact alone proves which failure affects the user's browser. The
+available browser inventory did not expose their JamdDmaj tab; no credentials
+were read, copied or requested to compensate.
+
+The main page now performs a read-only bounded identity check and distinguishes
+verified access from a saved profile, rejected access and an unavailable check.
+It does not rotate, clear or persist a credential, auto-open Google, change
+session lifetime or treat profile/wallet data as authentication. Automation now
+shows SESSION_MISSING before any request when local access is absent, versus
+SESSION_REJECTED when the authenticated service returns 401. Account changes
+remain blocked. This is a diagnostic/label fix, NOT proof that this user's
+authentication or real trading is repaired.
+
+Root-source regression: 31/31 passed (session diagnostics, client, panel, built
+browser imports and service authentication). The narrow production backport
+against the preserved 1.38.0 release passed 22/22 applicable tests. It contains
+only index.html, web-trial-ui.js and the two session diagnostic control changes;
+the unpublished activation/worker/general release changes were NOT deployed.
+No Android update, database change, bot activation or transaction occurred.
+
+Deployment `dpl_FgzgWKSdBLruKFaYJZTEguoKB8Hv`, target production, framework Other,
+build 7s, READY:
+`https://jamd-dmaj-b44lxhyu7-jamd-dmaj-s-projects.vercel.app`.
+The candidate used the preserved deployed source with this narrow backport,
+not an unmodified root commit. Its four changed public assets were verified
+using authenticated Vercel access before promotion, then checked again with
+HTTP 200 on https://www.jamddmaj.com after promotion. HTTPS server health still
+reports executionAvailable:false and tradingEnabled:false. No deployment
+protection was disabled. The temporary candidate's duplicate .env.local was
+removed before upload, without reading it; the original local file remains
+untouched. Explicit deployment ignore rules exclude environment files.
+
+The user must reload and report the non-secret diagnostic code. A real valid
+user-session -> VPS read remains unverified; do not claim point 5 completed.

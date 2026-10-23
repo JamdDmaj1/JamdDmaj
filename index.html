@@ -11557,8 +11557,8 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
           button.textContent = `Google · ${accountProfile.email}`;
           button.classList.add("ready");
           status.textContent = spanish
-            ? "Cuenta vinculada. Tu Sync ID puede recuperarse con Google."
-            : "Account linked. Google can recover your Sync ID.";
+            ? "Perfil guardado. Comprobando la sesión de acceso…"
+            : "Saved profile. Checking the access session…";
         }
         try {
           const response = await fetch(`${ACCOUNT_API_URL}?t=${Date.now()}`, { cache: "no-store" });
@@ -11575,6 +11575,17 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
           status.textContent = accountProfile?.email
             ? status.textContent
             : (spanish ? "Vincula Google a tu perfil cifrado." : "Link Google to your encrypted profile.");
+          if (accountProfile?.email) {
+            const session = await window.JamdTrial?.sessionStatus?.();
+            if (session === 'valid') {
+              status.textContent = spanish ? "Sesión de acceso verificada. Tu perfil de Google está vinculado." : "Access session verified. Your Google profile is linked.";
+            } else if (session === 'missing' || session === 'rejected') {
+              button.textContent = spanish ? "Google · Renovar acceso" : "Google · Renew access";
+              status.textContent = spanish ? "Tu perfil está guardado, pero la sesión de acceso no está activa. Pulsa Google para renovarla; conectar Phantom no sustituye este acceso." : "Your profile is saved, but the access session is not active. Press Google to renew it; connecting Phantom does not replace this access.";
+            } else {
+              status.textContent = spanish ? "Perfil guardado. No se pudo verificar la sesión; no se ha cerrado tu cuenta ni cambiado tu billetera." : "Saved profile. The session could not be verified; your account was not signed out and your wallet was not changed.";
+            }
+          }
         } catch {
           if (!accountProfile?.email) status.textContent = spanish ? "No se pudo comprobar Google." : "Google setup could not be checked.";
         }

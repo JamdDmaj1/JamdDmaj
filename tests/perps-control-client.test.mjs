@@ -68,7 +68,7 @@ test('a session switch after custody setup was sent cannot display that wallet u
  await assert.rejects(client.provision({settings,explicitCustodyApproval:true}),/session-changed/);assert.equal(calls,2);
 });
 test('missing sessions and changes during a request do not authorize or display another account',async()=>{
- const missing=fixture({readSessionToken:()=>''});await assert.rejects(missing.client.read(),/login-required/);assert.equal(missing.calls.length,0);
+ const missing=fixture({readSessionToken:()=>''});await assert.rejects(missing.client.read(),/session-missing/);assert.equal(missing.calls.length,0);
  let current=token,count=0;
  const client=createPerpsControlClient({validateSettings:validateAutomationSettings,readSessionToken:()=>current,fetchImpl:async()=>{count++;current='b'.repeat(64);return Response.json(health);}});
  await assert.rejects(client.read(),/session-changed/);assert.equal(count,1);
