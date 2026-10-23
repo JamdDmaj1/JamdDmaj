@@ -48,6 +48,12 @@ test('Trade and Futures percent sizing share exact same capital without changing
  selectWalletAccount(doc,b);assert(sliders.every(s=>s.disabled));
  doc.defaultView.dispatchEvent(new Event('pagehide'));
 });
+test('a suspended expiry timer cannot size an order from an already-expired public balance',t=>{
+ const doc=docFixture();selectWalletAccount(doc,a);const account=selectedWalletAccount(doc),slider={},amount={value:'12',dispatchEvent(){}};
+ bindWalletDisplay(doc,'en',{},slider,amount);publishWalletTradingState(doc,snapshot(),account,{pendingKnown:true});assert.equal(slider.disabled,false);
+ const at=Date.now();t.mock.method(Date,'now',()=>at+31000);slider.value='100';slider.oninput();assert.equal(amount.value,'12');assert.equal(slider.disabled,true);
+ doc.defaultView.dispatchEvent(new Event('pagehide'));
+});
 async function chainFixture(){
  const token=Buffer.alloc(165);Buffer.from(bs58.decode(PERPS_CUSTODIES.USDC.mint)).copy(token);Buffer.from(bs58.decode(a.address)).copy(token,32);token[108]=1;token.writeBigUInt64LE(5000000n,64);
  const calls=[],request=async(method,params)=>{calls.push(method);
@@ -93,6 +99,13 @@ test('native pending status is read without opening or unlocking a wallet and ch
  const doc=docFixture(),win=doc.defaultView;selectWalletAccount(doc,a);let opened=0,reads=0;
  const dispose=setupWalletTradingController(doc,win,{nativePlugin:()=>({open(){opened++;},async getPublicAccount(){reads++;return {available:true,address:b.address,pendingKnown:true,pending:[]};}}),request:async()=>Response.json(snapshot())});
  await new Promise(r=>setImmediate(r));assert.equal(reads,1);assert.equal(opened,0);assert.equal(currentWalletTradingState(doc).availableUsdcUnits,null);dispose();
+});
+test('native resume immediately withholds sizing then reads the actual public pending hold without a biometric or send',async()=>{
+ const doc=docFixture(),win=doc.defaultView;selectWalletAccount(doc,a);let pending=[],reads=0;
+ const dispose=setupWalletTradingController(doc,win,{nativePlugin:()=>({async getPublicAccount(){reads++;return {available:true,address:a.address,pendingKnown:true,pending};}}),request:async()=>Response.json(snapshot())});
+ await new Promise(r=>setImmediate(r));assert.equal(currentWalletTradingState(doc).availableUsdcUnits,'5000000');
+ pending=[{id:'unfunded-fixture',state:'UNKNOWN'}];win.dispatchEvent(new Event('focus'));assert.equal(currentWalletTradingState(doc).availableUsdcUnits,null);
+ await new Promise(r=>setImmediate(r));assert.equal(reads,2);assert.equal(currentWalletTradingState(doc).operations[0].state,'UNKNOWN');assert.equal(currentWalletTradingState(doc).availableUsdcUnits,null);dispose();
 });
 test('API rejects unknown fields, other methods, unavailable chain and rate limits without returning another account',async()=>{
  let calls=0;const handler=createHandler({read:async()=>{calls++;throw Error();},limit:async()=>{},diagnostic(){}});

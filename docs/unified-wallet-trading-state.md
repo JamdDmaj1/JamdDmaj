@@ -57,15 +57,55 @@ no keys exist in the fixture, and no transaction is constructed or sent.
 
 JavaScript regressions cover the selected wallet boundary, real native position
 and TP decoding, stale/unknown funds, HTTP validation, private-field exclusion,
-and existing web signing/risk/recovery invariants. Native Robolectric assertions
-were updated for the new public metadata and an UNKNOWN record, but cannot be
-run on this workstation yet: no Android SDK is installed. Therefore Android
-compilation/device behavior is **not claimed verified**, and point 3 should not
-be called fully verified on Android until those checks run. Nothing is published.
+and existing web signing/risk/recovery invariants. At the initial implementation
+checkpoint the native Robolectric assertions could not run because no Android
+SDK was configured. That local blocker is resolved below. Nothing is published.
 
 Results on 2026-10-23: 106/106 scoped JavaScript regressions passed (65122 ms,
 no skips); the 11 new shared-state tests also passed after final collateral-sum
 and duplicate-market validation. Web build and the built-browser HTTP/native
 fixture check passed on final source with headless installed Edge. The Android
-SDK is neither configured nor present in the standard local SDK locations;
-Robolectric/Android compilation and an installed-device check remain outstanding.
+SDK was not configured at that checkpoint; native compilation/tests had not yet
+run. This historical checkpoint is superseded by the following results.
+
+## Native validation completed (2026-10-23)
+
+After explicit user approval of the SDK installation and Google license, the
+official Windows command-line tools were downloaded and their SHA-256 matched
+the [official Android tools download](https://developer.android.com/studio).
+Platform 36 and Build Tools were installed in an isolated local cache. The SDK
+path is kept in ignored `android/local.properties`, never in tracked source.
+
+The native Java source and tests compile. All **6 public-account Robolectric
+tests pass, with 0 failures/errors/skips**. They cover persistent public account
+selection, ambiguous/unknown profiles, UNKNOWN/SUBMITTED holds, terminal states,
+malformed journals, foreign journal ownership and exclusion of private fields.
+The first Windows run exposed directory-fsync failure while creating fixture
+profiles. These read-only projection tests now seed already-persisted metadata
+directly; production `WalletStorageBarrier`, profile/journal writers and their
+separate persistence tests were not weakened, bypassed or marked verified here.
+
+An additional client test proves that native resume immediately invalidates
+availability before re-reading a public pending hold, without opening a wallet
+or requesting biometrics. Percent sizing also rechecks the current lease at
+input time so a suspended WebView expiry timer cannot reuse stale funds.
+
+The final `testWalletPreviewUnitTest` + `assembleWalletPreview` invocation
+succeeded (55 s). `scripts/check-unified-wallet-android.ps1` independently checks
+the 6-test report, APK v2 signature, separate `com.jamddmaj.ai.walletpreview`
+identity and SHA-256 equality of the seven critical bundled public account/UI
+assets against the current web build. It passed on the final APK. The final
+built-browser HTTP/native-fixture flow passed again after the lease-input fix.
+
+Point 3 implementation and local web/native verification are complete. This is
+not a production rollout or a claim of testing an installed physical device.
+No release was published, no app was installed/replaced, no real wallet was
+unlocked, and no funded transaction was signed or sent. Production connection,
+broader deployment/device acceptance and publication remain later numbered
+points, not implicit consequences of these local checks.
+
+Final scoped JavaScript regression: **108/108 passed**, 0 failures/skips
+(79466 ms), including native resume and suspended-timer expiry. Along with the
+6 native tests this is 114 passing scoped tests, plus the separate built-browser
+flow and final APK signature/identity/asset checks. No broader full-project or
+physical-device acceptance result is implied by that count.
