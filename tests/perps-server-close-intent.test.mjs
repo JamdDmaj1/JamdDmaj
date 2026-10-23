@@ -33,6 +33,11 @@ import {initializePerpsOperatorRecovery,createPerpsCustodyRecoveryArchive,restor
 import {createNativePerpsCloseBroadcaster} from '../lib/perps-close-broadcast.js';
 import {createNativePerpsCloseExecutor} from '../lib/perps-close-executor.js';
 import {closePayoutFixture} from './helpers/perps-close-payout-fixture.mjs';
+import {createServerPerpsDailyAccountReader} from '../lib/perps-server-daily-account.js';
+import {createPerpsNetworkFeeValuationReader} from '../lib/perps-network-fee-valuation.js';
+import {conversionFixture} from './helpers/perps-conversion-fixture.mjs';
+import {conversionReceiptFixture} from './helpers/perps-conversion-receipt-fixture.mjs';
+import {createPerpsConversionUsdValuationReader} from '../lib/perps-conversion-usd-valuation.js';
 // Public deterministic unfunded fixture owner, never a production identity.
 const fixtureOwner=createPrivateKey({key:Buffer.concat([Buffer.from('302e020100300506032b657004220420','hex'),Buffer.alloc(32,51)]),format:'der',type:'pkcs8'});
 const fixtureKeeper=createPrivateKey({key:Buffer.concat([Buffer.from('302e020100300506032b657004220420','hex'),Buffer.alloc(32,52)]),format:'der',type:'pkcs8'});
@@ -1014,20 +1019,20 @@ test('bank pairing is bounded, never replaces the wire and does not retry a simu
  }
 });
 
-async function closeJournalFixture(t,{parents=2,side='SHORT',settlement='DIRECT_USDC'}={}){
- const f=await oracleEffectsFixture(side,'SOL',settlement),reserves=await f.reserves(),oracleEffects=checkServerPerpsFullCloseOracleEffects(reserves,{nowSeconds:now});
- const directory=mkdtempSync(join(tmpdir(),'jamd-close-journal-')),path=join(directory,'journal.sqlite'),journals=[];
- const open=()=>{const journal=openPerpsExecutionJournal(path,{now:()=>now*1000});journals.push(journal);return journal;};
+async function closeJournalFixture(t,{parents=2,side='SHORT',asset='SOL',settlement='DIRECT_USDC'}={}){
+ const f=await oracleEffectsFixture(side,asset,settlement),reserves=await f.reserves(),oracleEffects=checkServerPerpsFullCloseOracleEffects(reserves,{nowSeconds:now});
+ const directory=mkdtempSync(join(tmpdir(),'jamd-close-journal-')),path=join(directory,'journal.sqlite'),journals=[];let journalTime=now*1000;
+ const open=()=>{const journal=openPerpsExecutionJournal(path,{now:()=>journalTime});journals.push(journal);return journal;};
  t.after(()=>{for(const j of journals)try{j.close();}catch{}rmSync(directory,{recursive:true,force:true});});
  const journal=open(),raw=new DatabaseSync(path);
  for(let i=0;i<parents;i++)raw.prepare("INSERT INTO perps_reservations(wallet,signal,reservation,day,margin,state,created,updated,signature,wire_hash,position_address,confirmed_slot,entry_exit_plan) VALUES(?,?,?,?,?,'OPEN',?,?,?,?,?,?,?)")
   .run(wallet,'signal-'+i,'entry-'+i,new Date(now*1000).toISOString().slice(0,10),10000000,now*1000,now*1000,
    bs58.encode(Buffer.alloc(64,80+i)),String(i).repeat(64),f.ids.position,100,JSON.stringify({sizeUsdUnits:'15000000',exits:[]}));
- raw.close();return {...f,journal,path,open,reserves,oracleEffects,trackClose(value){journals.push(value);return value;}};
+ raw.close();return {...f,journal,path,open,reserves,oracleEffects,advanceTime(ms){journalTime+=ms;},trackClose(value){journals.push(value);return value;}};
 }
 
-async function nativeSigningFixture(t,{side='LONG',minimumReturnUnits='0'}={}){
- const f=await closeJournalFixture(t,{side,settlement:'COLLATERAL_THEN_USDC'}),root=dirname(f.path),ownerAccountHash='e'.repeat(64);
+async function nativeSigningFixture(t,{side='LONG',asset='SOL',minimumReturnUnits='0'}={}){
+ const f=await closeJournalFixture(t,{side,asset,settlement:'COLLATERAL_THEN_USDC'}),root=dirname(f.path),ownerAccountHash='e'.repeat(64);
  const limits={minimumReturnUnits,maximumNetworkFeeLamports:'5000'},returnPolicy=checkSimulatedPerpsCloseReturn(f.oracleEffects,limits);
  const row=f.journal.preparePositionClose('native-close',f.oracleEffects,{returnPolicy});
  const directory=join(root,'wallets'),keyFile=join(root,'keys','master.key'),clock=()=>now*1000,common={allowNonPosixForTests:process.platform==='win32',now:clock};
@@ -1049,35 +1054,57 @@ async function nativeSigningFixture(t,{side='LONG',minimumReturnUnits='0'}={}){
  let allowed=true,mono=0;
  const request=async(m,p)=>{
   if(m==='getSlot')return Math.max(104,p[0].minContextSlot);
+  if(m==='getMultipleAccounts'&&p[0][0]!==wallet&&p[0].some(k=>f.before.has(k)&&!f.oracleAccounts.has(k)))
+   return {context:{slot:Math.max(105,p[1].minContextSlot)},value:p[0].map(k=>f.before.get(k)??null)};
+  if(m==='getMultipleAccounts'&&f.lookupFixture&&p[0][0]===f.lookupFixture.address)return {context:{slot:Math.max(105,p[1].minContextSlot)},value:[f.lookupFixture.account]};
   if(m==='getMultipleAccounts'&&p[0][0]!==wallet)return {context:{slot:Math.max(104,p[1].minContextSlot)},value:p[0].map(k=>f.oracleAccounts.get(k)??null)};
   if(m==='getMinimumBalanceForRentExemption')return f.fundingRequest(m,p);
   const result=await f.request(m,p);if(m==='getFeeForMessage')result.context.slot=Math.max(result.context.slot,p[1].minContextSlot);return result;
  };
  const args={returnPolicy,journal:f.journal,controls,backupRegistry,request,isClosingAllowed:()=>allowed,ownerAccountHash,walletAddress:wallet,closeId:row.id,
   controlRevision:controls.read({ownerAccountHash,walletAddress:wallet}).revision,settlementProtection:NATIVE_CLOSE_PROTECTION,now:clock,monotonicNow:()=>mono};
- return {...f,row,args,vault,archiveSha256:archive.sha256,disallow(){allowed=false;},expireGrant(){mono=2001;}};
+ const restoredVault=openPerpsCustodyVault({directory:restored.directory,keyFile:restored.keyFile,...common});
+ return {...f,row,args,vault,restoredVault,archiveSha256:archive.sha256,disallow(){allowed=false;},expireGrant(){mono=2001;}};
 }
 
 test('native close authority signs only its reviewed original close once while automation stays paused',async t=>{
- for(const side of ['LONG','SHORT']){
-  const f=await nativeSigningFixture(t,{side}),risk=f.journal.riskState(wallet),grant=await authorizeNativePerpsFullClose(f.oracleEffects,f.args);
+ for(const asset of ['SOL','ETH','BTC'])for(const side of ['LONG','SHORT']){
+  const f=await nativeSigningFixture(t,{side,asset}),risk=f.journal.riskState(wallet),grant=await authorizeNativePerpsFullClose(f.oracleEffects,f.args);
   assert.equal(grant.firstLegAbsoluteMinimum,null);assert.equal(grant.settlementProtection,NATIVE_CLOSE_PROTECTION);
   assert.equal(grant.review.requiresProtectedUsdcConversion,side==='LONG');assert.equal(grant.review.estimatesAreGuaranteed,false);
   assert.equal(grant.review.conversionMinimumUsdcUnits,null);assert.equal(grant.review.firstLegProtection,'ON_CHAIN_PRICE_LIMIT');
   assert.equal(f.journal.readPositionCloseExecution(f.row.id).state,'SIGNING');assert.throws(()=>f.vault.signNativeClose({...grant}));
+  assert.throws(()=>f.vault.signCloseConversion(grant));assert.throws(()=>f.vault.signPrepared(grant));
   const signed=f.vault.signNativeClose(grant);assert.equal(signed.stage,'AUTHORIZED_NATIVE_CLOSE_OWNER_SIGNATURE');
   assert.throws(()=>f.vault.signNativeClose(grant));assert.deepEqual(f.journal.riskState(wallet),risk);
   assert.equal(f.args.controls.read({ownerAccountHash:f.args.ownerAccountHash,walletAddress:wallet}).enabled,false);
  }
 });
 
+test('native close renews its bank evidence without replacing the approved wire and rejects an initially stale review',async t=>{
+ const stale=await nativeSigningFixture(t);stale.expire();
+ await assert.rejects(authorizeNativePerpsFullClose(stale.oracleEffects,stale.args));
+ assert.equal(stale.journal.readPositionCloseExecution(stale.row.id),null);
+ const f=await nativeSigningFixture(t),grant=await authorizeNativePerpsFullClose(f.oracleEffects,f.args);
+ f.expire();const signed=f.vault.signNativeClose(grant);let sends=0;
+ const submit=createNativePerpsCloseBroadcaster({journal:f.journal,fetchImpl:async(_url,options)=>{
+  sends++;const raw=Buffer.from(JSON.parse(options.body).serializedTxBase64,'base64');
+  const original=Buffer.from(f.inspection.envelope.serializedTxBase64,'base64');
+  assert(raw.subarray(65).equals(original.subarray(65)));
+  return Response.json({txid:signed.signature,action:'decrease-position'});
+ }});
+ await submit(signed,f.args);assert.equal(sends,1);
+ assert.equal(f.journal.readPositionCloseExecution(f.row.id).state,'UNCERTAIN');
+});
+
 test('native close authority refuses absent native review, a positive first-leg floor, backup revocation and late control changes',async t=>{
- for(const mode of ['no-review','absolute-floor','backup-before','backup-after','controls-after','disabled-after','expired']){
+ for(const mode of ['no-review','absolute-floor','copied-effects','copied-return-review','backup-before','backup-after','controls-after','disabled-after','expired']){
   const f=await nativeSigningFixture(t,{minimumReturnUnits:mode==='absolute-floor'?'1':'0'});
   if(mode==='no-review')delete f.args.settlementProtection;
+  if(mode==='copied-return-review')f.args.returnPolicy={...f.args.returnPolicy};
   if(mode==='backup-before')f.args.backupRegistry.revokeArchive({archiveSha256:f.archiveSha256,explicitOperatorApproval:true});
-  if(['no-review','absolute-floor','backup-before'].includes(mode)){
-   await assert.rejects(authorizeNativePerpsFullClose(f.oracleEffects,f.args));assert.equal(f.journal.readPositionCloseExecution(f.row.id),null);continue;
+  if(['no-review','absolute-floor','copied-effects','copied-return-review','backup-before'].includes(mode)){
+   await assert.rejects(authorizeNativePerpsFullClose(mode==='copied-effects'?{...f.oracleEffects}:f.oracleEffects,f.args));assert.equal(f.journal.readPositionCloseExecution(f.row.id),null);continue;
   }
   const grant=await authorizeNativePerpsFullClose(f.oracleEffects,f.args);
   if(mode==='backup-after')f.args.backupRegistry.revokeArchive({archiveSha256:f.archiveSha256,explicitOperatorApproval:true});
@@ -1086,6 +1113,16 @@ test('native close authority refuses absent native review, a positive first-leg 
   assert.throws(()=>f.vault.signNativeClose(grant));assert.equal(f.journal.readPositionCloseExecution(f.row.id).state,'SIGNING');
   assert(f.journal.openPositions(wallet).every(e=>e.state==='OPEN'));
  }
+});
+
+test('native close signing remains quarantined after encrypted restoration and cannot consume a live grant there',async t=>{
+ const f=await nativeSigningFixture(t),grant=await authorizeNativePerpsFullClose(f.oracleEffects,f.args);
+ assert.throws(()=>f.restoredVault.signNativeClose(grant));
+ const executor=createNativePerpsCloseExecutor({journal:f.journal,vault:f.vault,fetchImpl:async()=>{throw Error('must not send');}});
+ assert.equal((await executor.runOnce(f.row.id,{...f.args,mode:'execute',oracleEffects:f.oracleEffects})).stage,'NATIVE_CLOSE_SIGNING_REQUIRES_RECONCILIATION');
+ assert.equal(f.journal.readPositionCloseExecution(f.row.id).state,'SIGNING');
+ assert.equal(f.vault.signNativeClose(grant).stage,'AUTHORIZED_NATIVE_CLOSE_OWNER_SIGNATURE');
+ assert(f.journal.openPositions(wallet).every(e=>e.state==='OPEN'));
 });
 
 test('native close broadcast records exact uncertainty before one keeper attempt and cannot replay or accept copied signatures',async t=>{
@@ -1113,6 +1150,10 @@ test('native close transport loss or wrong acknowledgement remains uncertain and
    assert.equal(outcomes.filter(o=>o.status==='fulfilled').length,1);
   }else assert.equal((await executor.execute(f.oracleEffects,f.args)).stage,'NATIVE_CLOSE_BROADCAST_UNKNOWN');
   await assert.rejects(executor.execute(f.oracleEffects,f.args));assert.equal(sends,1);
+  const waiting=await executor.runOnce(f.row.id,{...f.args,mode:'execute',request:async(m)=>{
+   if(m==='getGenesisHash')return '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
+   assert.equal(m,'getSignatureStatuses');return {context:{slot:106},value:[null]};
+  }});assert.equal(waiting.stage,'NATIVE_CLOSE_AWAITING_FINALITY');assert.equal(sends,1);
   assert.equal(f.open().readPositionCloseExecution(f.row.id).state,'UNCERTAIN');assert(f.journal.openPositions(wallet).every(e=>e.state==='OPEN'));
  }
 });
@@ -1126,12 +1167,29 @@ test('native close fresh pre-broadcast policy rejects late controls and pool con
  }
 });
 
-test('native close coordinator recovers only its exact signed first leg and records actual collateral or USDC without releasing risk',async t=>{
- for(const side of ['LONG','SHORT']){
-  const f=await nativeSigningFixture(t,{side}),event=await closePayoutFixture({side,version:2,amount:8000000n,nowMs:now*1000});let sends=0,tx,signature;
+test('native close persistence failure prevents transport and keeps its original risk and signing phase intact',async t=>{
+ const f=await nativeSigningFixture(t),grant=await authorizeNativePerpsFullClose(f.oracleEffects,f.args),signed=f.vault.signNativeClose(grant);let sends=0;
+ const db=new DatabaseSync(f.path);db.exec("CREATE TRIGGER refuse_close_send BEFORE UPDATE ON perps_position_close_executions WHEN NEW.state='UNCERTAIN' BEGIN SELECT RAISE(ABORT,'fixture persistence refusal'); END;");db.close();
+ const submit=createNativePerpsCloseBroadcaster({journal:f.journal,fetchImpl:async()=>{sends++;throw Error();}});
+ await assert.rejects(submit(signed,f.args),/fixture persistence refusal/);assert.equal(sends,0);
+ assert.equal(f.journal.readPositionCloseExecution(f.row.id).state,'SIGNING');assert.equal(f.journal.riskState(wallet).activeMarginUsdcUnits,'20000000');
+});
+
+test('native close coordinator joins rooted native close, protected conversion when required, daily fees and idempotent final completion',async t=>{
+ for(const asset of ['SOL','ETH','BTC'])for(const side of ['LONG','SHORT']){
+  const f=await nativeSigningFixture(t,{side,asset}),event=await closePayoutFixture({side,asset,version:2,amount:8000000n,nowMs:now*1000});let sends=0,tx,signature,conversionReceipt,joinedAccounts,joinedSlot=302;
+  const transferUsd=side==='SHORT'?8000000n:8000000n*100000000n/10n**BigInt(PERPS_CUSTODIES[asset].decimals),protocolFee=10000000n-transferUsd;
+  event.fields.feeUsd=protocolFee.toString();event.fields.fundingFeeUsd=event.fields.feeUsd;
+  event.fields.transferAmountUsd=transferUsd.toString();event.refreshEvent();
   const keys=f.inspection.resolvedKeys,index=k=>{const i=keys.indexOf(k);assert(i>=0);return i;};
-  const executor=createNativePerpsCloseExecutor({journal:f.journal,vault:f.vault,fetchImpl:async(_url,options)=>{
-   sends++;const body=JSON.parse(options.body),raw=Buffer.from(body.serializedTxBase64,'base64');sign(null,raw.subarray(193),fixtureKeeper).copy(raw,65);
+  const executor=createNativePerpsCloseExecutor({journal:f.journal,vault:f.vault,fetchImpl:async(url,options)=>{
+   sends++;const body=JSON.parse(options.body);
+   if(url==='https://api.mainnet-beta.solana.com'){
+    assert.equal(body.method,'sendTransaction');assert.equal(body.params[0],conversionReceipt.transaction.transaction[0]);
+    assert.equal(f.journal.readPositionCloseConversion(f.row.id).state,'UNCERTAIN');joinedAccounts=conversionReceipt.after;joinedSlot=500;
+    return Response.json({jsonrpc:'2.0',id:1,result:conversionReceipt.identity.signature});
+   }
+   const raw=Buffer.from(body.serializedTxBase64,'base64');sign(null,raw.subarray(193),fixtureKeeper).copy(raw,65);
    signature=bs58.encode(raw.subarray(1,65));const loaded=f.inspection.envelope.lookups.reduce((n,t)=>n+t.writable.length,0),staticCount=f.inspection.envelope.staticKeys.length;
    const tokenBalances=map=>keys.flatMap((key,i)=>{const a=map.get(key);if(a?.owner!==TOKEN)return [];const b=Buffer.from(a.data[0],'base64');if(b.length!==165)return [];
     const mint=bs58.encode(b.subarray(0,32)),c=Object.values(PERPS_CUSTODIES).find(c=>c.mint===mint);assert(c);
@@ -1146,7 +1204,8 @@ test('native close coordinator recovers only its exact signed first leg and reco
      {programIdIndex:index(PERPS_PROGRAM),accounts:[index(f.ids.eventAuthority)],data:event.inner[1].data,stackHeight:2}]}]}};
    return Response.json({action:'decrease-position',txid:signature});
   }});
-  await executor.execute(f.oracleEffects,f.args);
+  assert.equal((await executor.runOnce(f.row.id,f.args)).stage,'NATIVE_CLOSE_REVIEW_REQUIRED');assert.equal(sends,0);
+  await executor.runOnce(f.row.id,{...f.args,mode:'execute',oracleEffects:f.oracleEffects});
   const request=async(m,p)=>{
    if(m==='getGenesisHash')return '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
    if(m==='getSignatureStatuses'){assert.equal(p[0][0],signature);return {context:{slot:301},value:[{slot:300,err:null,confirmationStatus:'finalized'}]};}
@@ -1157,7 +1216,72 @@ test('native close coordinator recovers only its exact signed first leg and reco
   const options={request,now:()=>now*1000,monotonicNow:()=>0},result=await executor.recoverFirstLeg(f.row.id,options);
   assert.equal(result.stage,'NATIVE_CLOSE_FIRST_LEG_FINALIZED');assert.equal(result.receivedTokenUnits,'8000000');assert.equal(result.requiresConversion,side==='LONG');
   assert.deepEqual(await executor.recoverFirstLeg(f.row.id,options),result);assert.equal(sends,1);
+  assert.equal((await executor.runOnce(f.row.id,options)).stage,side==='LONG'?'NATIVE_CLOSE_CONVERSION_REQUIRED':'NATIVE_CLOSE_ACCOUNTING_REQUIRED');
+  assert.equal(f.journal.readPositionCloseConversion(f.row.id),null);assert.equal(sends,1);
   assert.equal(f.journal.readPositionCloseExecution(f.row.id).state,'FIRST_LEG_FINALIZED');assert.equal(f.journal.riskState(wallet).activeMarginUsdcUnits,'20000000');
+  if(side==='SHORT'){
+   const noConversion=await executor.prepareConversion(f.row.id,{...options,maxSlippageBps:100});
+   assert.equal(noConversion.stage,'JOURNALED_CLOSE_REQUIRES_NO_CONVERSION');assert.equal(f.journal.readPositionCloseConversion(f.row.id),null);
+   f.advanceTime(70000);const clock=()=>now*1000+70000,historyRequest=async(m,p)=>{
+    if(m==='getSlot')return 50000;if(m==='getBlocks')return [1];if(m==='getBlockTime')return p[0]===50000?now+65:now-172800;
+    if(m==='getFirstAvailableBlock')return 1;
+    if(m==='getSignaturesForAddress')return [wallet,f.row.position].includes(p[0])?[{signature,slot:300,blockTime:now,err:null,confirmationStatus:'finalized'}]:[];
+    if(m==='getMultipleAccounts')return {context:{slot:50000},value:p[0].map(k=>f.after.get(k)??null)};
+    return request(m,p);
+   };
+   const valuation=createPerpsNetworkFeeValuationReader({now:clock,monotonicNow:()=>0,fetchImpl:async()=>Response.json([[now,100,100,100,100,1]])});
+   const readFinalizedAccount=createServerPerpsDailyAccountReader({request:historyRequest,journal:f.journal,now:clock,monotonicNow:()=>0,readNetworkFees:valuation});
+   const completionOptions={request:historyRequest,readFinalizedAccount,now:clock,monotonicNow:()=>0};
+   const completed=await executor.runOnce(f.row.id,completionOptions),saved=completed.completion;assert.equal(completed.stage,'NATIVE_CLOSE_COMPLETED');
+   assert.equal(f.journal.readPositionClose(f.row.id).state,'COMPLETED');
+   assert.equal(f.journal.riskState(wallet).activeMarginUsdcUnits,'0');assert.equal(sends,1);
+   assert.deepEqual((await executor.runOnce(f.row.id,completionOptions)).completion,saved);
+   const account=await readFinalizedAccount({walletAddress:wallet});assert.equal(account.lossTodayUsdcUnits,'2000500');
+  }else{
+   const getUnits=key=>Buffer.from(f.after.get(key).data[0],'base64').readBigUInt64LE(64);
+   const model={walletAddress:wallet,asset,amountUnits:'8000000',newSource:asset==='SOL',nowMs:now*1000,
+    custodySnapshots:{[asset]:f.after.get(f.collateral.address),USDC:f.after.get(f.usdc.address)},
+    vaultUnits:{[asset]:getUnits(f.collateral.tokenAccount),USDC:getUnits(f.usdc.tokenAccount)},
+    ownerLamports:BigInt(f.after.get(wallet).lamports),destinationUnits:getUnits(f.recipient),sourceUnits:asset==='SOL'?null:getUnits(f.inspection.bindings.collateralAccount)};
+   const swap=await conversionFixture(model);conversionReceipt=await conversionReceiptFixture({...model,fixturePrivateKey:fixtureOwner,finalizedSlot:400});
+   joinedAccounts=swap.before;
+   const conversionRequest=async(m,p)=>{
+    if(m==='getTransaction'||m==='getSignatureStatuses')return p[0]===conversionReceipt.identity.signature||p[0]?.[0]===conversionReceipt.identity.signature?conversionReceipt.request(m,p):request(m,p);
+    if(m==='getMultipleAccounts'&&p[1].commitment==='finalized')return {context:{slot:joinedSlot},value:p[0].map(k=>joinedAccounts.get(k)??f.after.get(k)??null)};
+    return swap.request(m,p);
+   };
+   const conversionOptions={request:conversionRequest,now:()=>now*1000,monotonicNow:()=>0,maxSlippageBps:100};
+   const converted=await executor.runOnce(f.row.id,{...f.args,...conversionOptions,mode:'execute'}),prepared=converted.conversionReview;
+   assert.equal(prepared.amountUnits,'8000000');
+   assert.equal(prepared.networkFeeLamports,'5400');assert.equal(prepared.minimumProtection,'ON_CHAIN_SWAP2_MINIMUM_IF_EXECUTED');
+   assert.equal(prepared.requiresSeparateConversionSignature,true);assert.equal(prepared.estimatedReceivedUsdcUnits,conversionReceipt.received.toString());
+   assert.equal(converted.stage,'CLOSE_CONVERSION_BROADCAST_ACKNOWLEDGED');
+   assert.equal(f.journal.riskState(wallet).activeMarginUsdcUnits,'20000000');
+   assert.equal((await executor.runOnce(f.row.id,conversionOptions)).stage,'NATIVE_CLOSE_ACCOUNTING_REQUIRED');
+   assert.equal(f.journal.readPositionCloseConversion(f.row.id).state,'FINALIZED');
+   assert.equal(sends,2);await assert.rejects(executor.convert(prepared,{...f.args,...conversionOptions}));assert.equal(sends,2);
+   f.advanceTime(70000);joinedSlot=50000;const clock=()=>now*1000+70000;
+   const historyRequest=async(m,p)=>{
+    if(m==='getSlot')return 50000;if(m==='getBlocks')return [1];if(m==='getBlockTime')return p[0]===50000?now+65:now-172800;
+    if(m==='getFirstAvailableBlock')return 1;
+    if(m==='getSignaturesForAddress')return [wallet,f.row.position].includes(p[0])?[
+     {signature:conversionReceipt.identity.signature,slot:400,blockTime:now,err:null,confirmationStatus:'finalized'},
+     {signature,slot:300,blockTime:now,err:null,confirmationStatus:'finalized'}]:[];
+    return conversionRequest(m,p);
+   };
+   const valuationOptions={now:clock,monotonicNow:()=>0,fetchImpl:async url=>new URL(url).hostname==='api.kraken.com'
+    ?Response.json({error:[],result:{USDCUSD:[[now,'1','1','1','1','1','20',3],[now+60,'1','1','1','1','1','20',3]],last:now+60}})
+    :Response.json([[now,100,100,100,100,1]])};
+   const readFinalizedAccount=createServerPerpsDailyAccountReader({request:historyRequest,journal:f.journal,now:clock,monotonicNow:()=>0,
+    readNetworkFees:createPerpsNetworkFeeValuationReader(valuationOptions),readConversionLoss:createPerpsConversionUsdValuationReader(valuationOptions)});
+   const completionOptions={request:historyRequest,readFinalizedAccount,now:clock,monotonicNow:()=>0};
+   const completed=await executor.runOnce(f.row.id,completionOptions),saved=completed.completion;assert.equal(completed.stage,'NATIVE_CLOSE_COMPLETED');
+   assert.equal(f.journal.readPositionClose(f.row.id).state,'COMPLETED');
+   assert.equal(f.journal.riskState(wallet).activeMarginUsdcUnits,'0');assert.equal(sends,2);
+   assert.deepEqual((await executor.runOnce(f.row.id,completionOptions)).completion,saved);assert.equal(sends,2);
+   const account=await readFinalizedAccount({walletAddress:wallet});assert.equal(account.lossTodayUsdcUnits,(protocolFee+transferUsd/200n+1040n).toString());
+   assert.equal(f.journal.readPositionCloseConversion(f.row.id).state,'FINALIZED');
+  }
  }
 });
 

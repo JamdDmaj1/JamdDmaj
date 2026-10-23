@@ -4581,3 +4581,53 @@ The final review-display fields were added afterward and require their focused
 rerun. Full native-first-leg-to-conversion-to-completion integration verification
 is still required before declaring point 2 finished. No publication, VPS change,
 bot activation or live financial submission occurred.
+
+### Step 2 final integration review (2026-10-23, local engine only)
+
+The preceding open integration items are addressed by the native lifecycle
+coordinator's explicit `runOnce` dispatcher. Maintenance cycles only recover
+recorded operations and reconcile evidence; they do not construct or sign a
+new close/conversion. Execution cycles require the existing private authority,
+account limits, verified encrypted backup and closure permission. SIGNING or
+unknown outcomes are never automatically re-signed, replaced or resubmitted.
+Sibling exits are proved absent before conversion; live exits dispatch to the
+existing separate native cleanup authority only in an explicitly permitted
+execution cycle. A cleanup response itself never releases risk or substitutes
+for the next rooted absence check.
+
+Joined deterministic integration fixtures cover SOL, ETH and BTC, both LONG
+and SHORT: original native owner signature and single keeper attempt, rooted
+actual first-leg proceeds, protected conversion only where required, rooted
+actual USDC and fees, complete daily accounting, atomic parent completion and
+idempotent repeated maintenance. Conversion banks inherit the actual modeled
+first-leg wallet, custody and vault balances rather than unrelated fixtures.
+Public review metadata distinguishes estimated proceeds, actual network-fee
+review and an on-chain Swap2 minimum that applies only if that leg executes.
+
+Initial authorization still requires a fresh original private review. Subsequent
+pre-broadcast renewal independently reads the native position and re-inspects
+the SAME approved wire, lookup resolution, reference and price limit with fresh
+bank/oracle evidence. It neither renews a stale original intent at entry nor
+calls a builder, changes a blockhash or widens price protection. Original wire
+time/blockheight limits still apply. Regression tests expire the original bank
+lease after authorization and prove identical-wire renewal, while an initially
+stale review remains rejected before a signing claim.
+
+This is a local internal engine capability, not an enabled production worker,
+web futures signing interface, app release or live trading claim. Integration
+into the deployed app/worker and any activation remain separate work outside
+this point. Native first-leg protection is a PRICE limit, not an absolute token
+payout floor. The second operation has its own USDC minimum and can remain
+pending or fail; the engine retains risk until final reconciliation. No real
+funds, production keys, funded signatures or financial network sends were used.
+
+Final scoped regression on this source: 212 tests, 210 passed, 0 failed,
+2 skipped, 161825 ms. Files: perps-server-close-intent, perps-server-close-pool,
+perps-custody-vault, perps-close-execution-journal, perps-close-conversion-wire,
+perps-close-conversion-simulation, perps-close-conversion-receipt,
+perps-custody-recovery, perps-backup-registry and perps-individual-entry-closure.
+The two omitted optional checks are operator archive/verify CLI public-output
+interoperability and official age CLI/SDK interoperability; they are not claimed
+verified. Encrypted SDK restoration/quarantine, backup revocation, custody and
+the complete internal close lifecycle were exercised. This closes the point-2
+internal implementation/integration verification scope, not live deployment.

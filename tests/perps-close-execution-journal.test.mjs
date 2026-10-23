@@ -32,6 +32,7 @@ import {authorizePerpsCloseConversion} from '../lib/perps-close-conversion-signi
 import {createPerpsCloseConversionBroadcaster} from '../lib/perps-close-conversion-broadcast.js';
 import {createPerpsCloseConversionExecutor} from '../lib/perps-close-conversion-executor.js';
 import {PERPS_POOL} from '../lib/perps-server-custody.js';
+import {createNativePerpsCloseExecutor} from '../lib/perps-close-executor.js';
 async function fixture(t,options={}){
  const f=await closePayoutFixture(options),root=mkdtempSync(join(tmpdir(),'jamd-close-exec-')),path=join(root,'journal.sqlite'),opened=[];let time=f.options.now();
  const open=()=>{const j=openPerpsExecutionJournal(path,{now:()=>time});opened.push(j);return j;},journal=open();
@@ -620,12 +621,54 @@ test('conversion coordinator completes accounting idempotently without calling c
  assert.equal(f.journal.riskState(f.row.wallet).activeMarginUsdcUnits,'0');
 });
 
+test('native coordinator requires rooted sibling cleanup before preparing any conversion or touching custody',async t=>{
+ const f=await fixture(t,{withExits:true});f.uncertain();
+ f.journal.reconcilePositionClosePayout(f.row.id,await readFinalizedPerpsClosePayout(f.row,f.identity,f.options));let calls=0,keys=0,sends=0;
+ const executor=createNativePerpsCloseExecutor({journal:f.journal,vault:{signNativeClose(){keys++;throw Error();},signCloseConversion(){keys++;throw Error();}},
+  fetchImpl:async()=>{sends++;throw Error();}});
+ const result=await executor.prepareConversion(f.row.id,{request:async(m,p)=>{
+  calls++;assert.equal(m,'getMultipleAccounts');assert.equal(p[1].commitment,'finalized');assert.equal(p[1].minContextSlot,300);
+  return {context:{slot:301},value:p[0].map(()=>({owner:'11111111111111111111111111111111',executable:false,lamports:2039280,data:['','base64']}))};
+ }});
+ assert.equal(result.stage,'NATIVE_CLOSE_SIBLING_EXIT_CLEANUP_REQUIRED');assert.equal(calls,1);assert.equal(keys,0);assert.equal(sends,0);
+ assert.equal(f.journal.readPositionCloseConversion(f.row.id),null);assert.equal(f.journal.read('parent').state,'OPEN');
+ assert.equal(f.journal.riskState(f.row.wallet).activeMarginUsdcUnits,'10000000');
+});
+
 test('conversion coordinator cannot complete an unfinalized conversion or release its held margin',async t=>{
  const f=await completionFixture(t,{},{finalizeConversion:false});let keyCalls=0,sends=0;
  const executor=createPerpsCloseConversionExecutor({journal:f.journal,vault:{signCloseConversion(){keyCalls++;throw Error('no keys');}},
   fetchImpl:async()=>{sends++;throw Error('no sends');}});
  await assert.rejects(executor.complete(f.row.id,f.completionOptions));assert.equal(f.journal.read('parent').state,'OPEN');
  assert.equal(f.journal.riskState(f.row.wallet).activeMarginUsdcUnits,'10000000');assert.equal(keyCalls,0);assert.equal(sends,0);
+});
+
+test('native conversion preparation captures its read transport before asynchronous sibling discovery',async t=>{
+ const f=await fixture(t,{withExits:true});f.uncertain();
+ f.journal.reconcilePositionClosePayout(f.row.id,await readFinalizedPerpsClosePayout(f.row,f.identity,f.options));let queries=0;
+ const executor=createNativePerpsCloseExecutor({journal:f.journal,vault:{signNativeClose(){throw Error('no keys');},signCloseConversion(){throw Error('no keys');}},
+  fetchImpl:async()=>{throw Error('no sends');}});
+ const options={request:async(m,p)=>{
+  queries++;if(queries!==1)throw Error('CAPTURED_READ_TRANSPORT');assert.equal(m,'getMultipleAccounts');
+  options.request=async()=>{throw Error('REPLACED_READ_TRANSPORT');};
+  return {context:{slot:301},value:p[0].map(()=>null)};
+ }};
+ await assert.rejects(executor.prepareConversion(f.row.id,options),/CAPTURED_READ_TRANSPORT/);
+ assert.equal(queries,2);assert.equal(f.journal.readPositionCloseConversion(f.row.id),null);assert.equal(f.journal.read('parent').state,'OPEN');
+});
+
+test('native lifecycle dispatches sibling cleanup only in explicitly allowed execution cycles and never trusts it to release risk',async t=>{
+ const f=await fixture(t,{withExits:true});f.uncertain();
+ f.journal.reconcilePositionClosePayout(f.row.id,await readFinalizedPerpsClosePayout(f.row,f.identity,f.options));let cleanups=0,keys=0,sends=0;
+ const executor=createNativePerpsCloseExecutor({journal:f.journal,vault:{signNativeClose(){keys++;throw Error();},signCloseConversion(){keys++;throw Error();}},
+  fetchImpl:async()=>{sends++;throw Error();},cleanupCoordinator:{async runOnce(input){cleanups++;assert.equal(input.walletAddress,f.row.wallet);return {stage:'CLAIMED_CLEANUP_DONE'};}}});
+ const options={request:async(m,p)=>{assert.equal(m,'getMultipleAccounts');return {context:{slot:301},value:p[0].map(()=>({owner:'11111111111111111111111111111111',executable:false,lamports:2039280,data:['','base64']}))};},
+  ownerAccountHash:'e'.repeat(64),isClosingAllowed:()=>false};
+ assert.equal((await executor.runOnce(f.row.id,options)).stage,'NATIVE_CLOSE_CONVERSION_REQUIRED');assert.equal(cleanups,0);
+ assert.equal((await executor.runOnce(f.row.id,{...options,mode:'execute'})).stage,'NATIVE_CLOSE_SIBLING_EXIT_CLEANUP_REQUIRED');assert.equal(cleanups,0);
+ assert.equal((await executor.runOnce(f.row.id,{...options,mode:'execute',isClosingAllowed:()=>true})).stage,'NATIVE_CLOSE_SIBLING_EXIT_CLEANUP_PENDING');
+ assert.equal(cleanups,1);assert.equal(keys,0);assert.equal(sends,0);assert.equal(f.journal.readPositionCloseConversion(f.row.id),null);
+ assert.equal(f.journal.read('parent').state,'OPEN');assert.equal(f.journal.riskState(f.row.wallet).activeMarginUsdcUnits,'10000000');
 });
 
 test('unfinalized conversion, live sibling exits, incomplete fee accounting and changed in-flight journal facts never release a close',async t=>{

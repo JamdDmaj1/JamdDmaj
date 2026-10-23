@@ -19,6 +19,7 @@ import {inspectServerPerpsExitCancellation,requireInspectedPerpsExitCancellation
 import {cancellationFixture,cancellationSimulationFixture,cancellationReceiptFixture} from './helpers/perps-cancellation-fixture.mjs';
 import {simulateServerPerpsExitCancellation,requireSimulatedPerpsExitCancellation} from '../lib/perps-exit-cancellation-simulation.js';
 import {reconcilePendingPerpsExitCancellations} from '../lib/perps-exit-cancellation-recovery.js';
+import {createNativePerpsCloseExecutor} from '../lib/perps-close-executor.js';
 import {authorizeServerPerpsExitCancellation,readOwnerSignedPerpsExitCancellation} from '../lib/perps-exit-cancellation-signing.js';
 import {createPerpsCustodyMasterKey,openPerpsCustodyVault,PERPS_CUSTODY_RESTORE_REVIEW_MARKER} from '../lib/perps-custody-vault.js';
 import {openPerpsAutomationControls} from '../lib/perps-automation-controls.js';
@@ -558,6 +559,15 @@ test('a finalized manual whole close can clean its exact sibling using the exist
  assert.equal(result.stage,'CANCELLATION_BROADCAST_ACKNOWLEDGED');assert.deepEqual(c.calls,{builder:1,signer:1,send:1});
  assert.equal(f.journal.readPositionClose('manual-close').state,'PREPARED');assert.equal(f.journal.readPositionCloseExecution('manual-close').state,'FIRST_LEG_FINALIZED');
  assert.equal(f.journal.read('entry-0').state,'OPEN');assert.equal(f.journal.riskState(wallet).activeMarginUsdcUnits,'20000000');
+ const native=createNativePerpsCloseExecutor({journal:f.journal,vault:c.custody.vault,cleanupCoordinator:c.coordinator,fetchImpl:async()=>{throw Error('no new close transport');}});
+ for(const mode of ['maintenance','execute']){
+  const state=await native.runOnce('manual-close',{mode,now:()=>now,request:async method=>{
+   if(method==='getGenesisHash')return '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
+   assert.equal(method,'getSignatureStatuses');return {context:{slot:500000},value:[null]};
+  }});
+  assert.equal(state.stage,'NATIVE_CLOSE_SIBLING_EXIT_RECONCILIATION_REQUIRED');
+  assert.deepEqual(c.calls,{builder:1,signer:1,send:1});assert.equal(f.journal.readPositionCloseConversion('manual-close'),null);
+ }
  const repeated=await c.coordinator.runOnce(c.args);assert.equal(repeated.stage,'RECONCILIATION_REQUIRED');assert.deepEqual(c.calls,{builder:1,signer:1,send:1});
 });
 
