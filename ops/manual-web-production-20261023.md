@@ -57,3 +57,31 @@ Linux isolated tests verified the composed disabled service and encrypted
 checkpoint/restore with no network or funded keys. Public release verification
 must distinguish unauthenticated 401 checks from an actual user's authenticated
 policy read. A public route response alone does not prove funded trading works.
+
+## Publication evidence
+
+- Deployed code commit: `9b7d859`.
+- Vercel project/team confirmed before deployment:
+  `prj_MDNgTRQMQhZHy0Np4HuKiqTKbsjd` /
+  `team_JORXYGzaQKli6kcSkgcGRU33`.
+- Production-target deployment: `dpl_J4iTnHM8picVK8YGcWBVr2FKRM96`, READY,
+  build 8 seconds. Staged with no domain, inspected through the existing
+  deployment protection, then promoted unchanged to `www.jamddmaj.com`.
+- Candidate URL:
+  `https://jamd-dmaj-f9glt1zcm-jamd-dmaj-s-projects.vercel.app`.
+- All three public manual endpoints require authentication (401 without it).
+  A deliberately invalid fixture session with a valid-shaped policy request
+  passed through the fixed VPS relay and was rejected by session verification.
+  This is NOT a positive check of the operator's real Google session.
+- Public mobile browser on the user's `private-simulator.html?v=9` path showed
+  the separate manual limits, unchecked approval and no JavaScript page errors.
+- VPS worker, web boundary and HTTPS service active, no unexpected restarts.
+  Public health still reports `tradingEnabled:false`, `executionAvailable:false`.
+- Runtime error query for this deployment returned zero records in the checked
+  15-minute window. This is a bounded scan, not continuous monitoring assurance.
+
+Step 5's installation/public connection is complete with financial gates OFF.
+Step 6 still needs the complete acceptance/restart/pending-state exercise,
+including the actual user's session and provider, before real activation can be
+considered. No funded transaction was signed or sent for this release. No new
+Android binary was published by this deployment.
