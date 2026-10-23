@@ -4681,3 +4681,70 @@ It does NOT mean the deployed VPS or public application runs this source.
 Production installation, original journal/backup preservation and connection
 are point 5; broader production-like verification is point 6; releases are point
 7. Those steps must not silently activate an account or transfer funds.
+
+## Point 5 — server cutover performed; web completion remains open (2026-10-23)
+
+Approved VPS `157.230.54.133` now runs the worker bundled from `cbf36d8`.
+Installed file `/opt/jamddmaj-perps/worker/perps-server-worker.mjs` SHA-256:
+`cc73e4d06982629163e0fafcc19b21ba90bd570fffb94958920249d9d7e3fedd`.
+The old bundle is preserved at
+`/opt/jamddmaj-perps/checks/production-20261023/previous-worker.mjs`.
+No environment credential, feed token, custody address/key or account setting
+was replaced. Mode remains maintenance and execution approval remains false.
+
+Read-only admission found one paused account, two audit rows, zero reservations
+and no financial history. The recognized empty `cba66ff2...` journal was first
+rehearsed on disposable consistent snapshots and then explicitly upgraded to
+`e92bbd338ca88b8a85064ac669f0ae6ffb50641475b1bd62f78df48d06ccf145`.
+The production worker was stopped/drained for the atomic upgrade. WAL-aware
+rollback copies plus the manifest remain in the private directory
+`/var/lib/private/jamddmaj-perps-runtime/jamd-journal-upgrade-aguPGh`.
+Controls, ownership and audit counts remained unchanged. A rollback must treat
+the old bundle and old database format as a pair, rechecking current records;
+never overwrite any later financial facts with the old empty snapshot.
+
+The migration and rehearsal ran without network access as the existing service
+user. The first rehearsal attempt failed before database changes because the
+private directory permission check rejected systemd's default directory mode.
+The directories were restored to 0700 and subsequent units explicitly used
+StateDirectoryMode=0700; no private-path validation was weakened.
+
+A new encrypted archive was created to the EXISTING PC-only recovery recipient,
+copied to `C:\Users\JamdDmaj\AppData\Local\JamdDmaj-Recovery\production-bot-20261023-upgraded\bot-wallet.age`,
+hash checked, restored locally into a new quarantined directory, and its restore
+proof accepted by the production registry. Archive SHA-256:
+`7a1956dcbec35bc960c936cfff8b46352a8990c8e2ce20afccb463db8db766ce`.
+The recovery identity remained on the PC and was not sent to the VPS. Existing
+archives were retained. Restoring this copy does not enable its custody wallet.
+
+The current runtime and actual bundled Linux CLI passed 23/23 isolated tests,
+zero failures/skips, under a transient DynamicUser service with PrivateNetwork,
+PrivateTmp, ProtectHome, ProtectSystem=strict, NoNewPrivileges and MemoryMax384M.
+These tests had no production state access and used unfunded fixtures. The
+three previously Windows-skipped CLI checks are now verified on Linux.
+
+Worker and HTTPS services are active with zero restarts after cutover. HTTPS
+depends on the worker, so it was explicitly restarted after the worker stop.
+The public TLS health check succeeds without insecure TLS options, reports
+controls-only/executionAvailable:false, and unauthenticated automation access
+returns 401. The real worker reports RECONCILIATION_ONLY for the one account.
+All existing production SQLite integrity checks pass, account active count
+remains zero, and both private state directory modes are 0700.
+
+Vercel's connected tool still returns team-scoped 403, but the existing CLI
+session successfully inspects the correct project `prj_MDNgTRQMQhZHy0Np4HuKiqTKbsjd`
+in `team_JORXYGzaQKli6kcSkgcGRU33`. No auth workaround, new login or secret
+disclosure was used. No deployment/domain promotion or Android publication was
+performed; public production still references the earlier 1.38.0 source.
+
+IMPORTANT DISCOVERY: do not mark point 5 or live web trading complete. The
+external-wallet ticket in `lib/swap-quote-ui.js` still calls the read-only
+`/api/perps-review` route and explicitly states web signing/submission is not
+enabled. The tested browser signing and shared-risk broadcaster modules are
+building blocks, not a wired public ticket/production submission service.
+Manual-wallet risk policy is not supplied by the exclusive bot-wallet controls
+and must not be invented from those settings. The public proxy also does not
+yet expose the optional web operation-status route, and no web submission
+journal has been provisioned. These are remaining integration work, not proof
+that the new worker can already accept real manual futures orders. A real-user
+read-only session check was requested; no activation or deposit was requested.
