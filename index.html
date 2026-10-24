@@ -6468,6 +6468,8 @@
       let lastBackgroundUpdateCheckAt = 0;
       let googleAccountConfig = null;
       let accountProfile = loadJson(STORAGE.accountProfile, null);
+      // A different account-linked recovery key must not overwrite local progress.
+      let googleSyncRecoveryCode = "";
       let cloudBackupTimer = null;
       let cloudBackupInProgress = false;
       let latestFreeLiveLookup = null;
@@ -11509,11 +11511,11 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         document.querySelectorAll("#settingsNav button").forEach((button, index) => {
           button.textContent = navLabels[index] || button.textContent;
         });
-        const code = getRecoveryCode(false);
+        const code = googleSyncRecoveryCode || getRecoveryCode(false);
         document.getElementById("syncAccountTitle").textContent = spanish ? "Cuenta y progreso" : "Account and progress";
         document.getElementById("syncAccountText").textContent = spanish
-          ? "Tu JamdDmaj Sync ID protege chats, proyectos, ajustes y progreso de Learn. Luego podras vincular Google, X o Telegram a este perfil."
-          : "Your JamdDmaj Sync ID protects chats, projects, settings, and Learn progress. Google, X, or Telegram can link to this profile later.";
+          ? "Tu JamdDmaj Sync ID protege chats, proyectos, ajustes y progreso de Learn. Al verificar Google se consulta el ID ya vinculado a tu cuenta. No es la clave de tu billetera."
+          : "Your JamdDmaj Sync ID protects chats, projects, settings, and Learn progress. Verifying Google retrieves the ID already linked to your account. It is not your wallet key.";
         document.getElementById("syncIdLabel").textContent = "JamdDmaj Sync ID";
         document.getElementById("syncAccountId").textContent = code ? maskedRecoveryCode(code) : (spanish ? "Aun no creado" : "Not created yet");
         document.getElementById("syncAccountHelp").textContent = spanish
@@ -11523,13 +11525,15 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         document.getElementById("copySyncIdBtn").textContent = spanish ? "Copiar Sync ID" : "Copy Sync ID";
         document.getElementById("restoreSyncAccountBtn").textContent = spanish ? "Restaurar progreso" : "Restore progress";
         const synced = localStorage.getItem(STORAGE.backupSyncedAt);
-        document.getElementById("syncAccountStatus").textContent = text || (synced
+        document.getElementById("syncAccountStatus").textContent = googleSyncRecoveryCode
+          ? (spanish ? "Este es el Sync ID vinculado a Google. Tu progreso local usa otro ID y se conserva sin cambios. Usa Restaurar progreso para recuperar la copia de tu cuenta; no se sobrescribirá automáticamente." : "This is the Sync ID linked to Google. Local progress uses a different ID and is preserved unchanged. Use Restore progress to recover your account backup; it will not be overwritten automatically.")
+          : text || (synced
           ? `${spanish ? "Protegido:" : "Protected:"} ${new Date(synced).toLocaleString()}`
           : (spanish ? "Crea tu Sync ID y prepara el respaldo antes de reinstalar." : "Create your Sync ID and prepare a backup before reinstalling."));
       }
 
       async function copySyncAccountId() {
-        const code = formatRecoveryCode(getRecoveryCode(true));
+        const code = formatRecoveryCode(googleSyncRecoveryCode || getRecoveryCode(true));
         await copyText(code);
         updateCloudBackupStatus();
         showToast(resolvedLanguage() === "es" ? "Sync ID copiado. Guardalo en privado." : "Sync ID copied. Keep it private.");
@@ -11581,6 +11585,7 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
             const session = await window.JamdTrial?.sessionStatus?.();
             if (session === 'valid') {
               status.textContent = spanish ? "Sesión de acceso verificada. Tu perfil de Google está vinculado." : "Access session verified. Your Google profile is linked.";
+              await refreshGoogleSyncId();
             } else if (session === 'missing' || session === 'rejected') {
               button.textContent = spanish ? "Google · Renovar acceso" : "Google · Renew access";
               status.textContent = spanish ? "Tu perfil está guardado, pero la sesión de acceso no está activa. Pulsa Google para renovarla; conectar Phantom no sustituye este acceso." : "Your profile is saved, but the access session is not active. Press Google to renew it; connecting Phantom does not replace this access.";
@@ -11700,15 +11705,36 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         if (data.webTrial) window.JamdTrial?.accept(data.webTrial);
         accountProfile = data.profile;
         localStorage.setItem(STORAGE.accountProfile, JSON.stringify(accountProfile));
-        localStorage.setItem(STORAGE.recoveryCode, normalizeRecoveryCode(data.recoveryCode));
         if (normalizeRecoveryCode(data.recoveryCode) !== normalizeRecoveryCode(currentCode)) {
-          status.textContent = spanish ? "Restaurando progreso de Google..." : "Restoring Google progress...";
-          await restoreCloudBackupWithCode(normalizeRecoveryCode(data.recoveryCode));
+          googleSyncRecoveryCode = normalizeRecoveryCode(data.recoveryCode);
+          clearTimeout(cloudBackupTimer);
+          updateSyncAccountUi();
+          await initGoogleAccount();
         } else {
-          await syncCloudBackup(false);
-          updateSyncAccountUi(spanish ? "Google vinculado y progreso protegido." : "Google linked and progress protected.");
+          googleSyncRecoveryCode = "";
+          localStorage.setItem(STORAGE.recoveryCode, normalizeRecoveryCode(data.recoveryCode));
+          const saved = await syncCloudBackup(false);
+          updateSyncAccountUi(saved ? (spanish ? "Google vinculado y respaldo guardado." : "Google linked and backup saved.") : (spanish ? "Google vinculado. No se pudo confirmar el respaldo." : "Google linked. Backup could not be confirmed."));
           await initGoogleAccount();
         }
+      }
+
+      async function refreshGoogleSyncId() {
+        const token = window.JamdTrial?.getToken?.();
+        if (!/^[a-f0-9]{64}$/.test(token || "")) return;
+        const response = await fetch(`${ACCOUNT_API_URL.replace(/\/account$/, '/account-sync')}`, {
+          method: 'GET', cache: 'no-store', credentials: 'omit', redirect: 'error',
+          headers: {Authorization: `Bearer ${token}`}, signal: AbortSignal.timeout(10000)
+        });
+        if (!response.ok || response.redirected) throw new Error('Sync unavailable');
+        const data = await response.json();
+        if (window.JamdTrial?.getToken?.() !== token) return;
+        if (data?.ok !== true || data.linked !== true || !/^[A-Z0-9]{20}$/.test(data.recoveryCode || "")) throw new Error('Sync unavailable');
+        const local = getRecoveryCode(false);
+        if (!local) localStorage.setItem(STORAGE.recoveryCode, data.recoveryCode);
+        googleSyncRecoveryCode = local && local !== data.recoveryCode ? data.recoveryCode : "";
+        if (googleSyncRecoveryCode) clearTimeout(cloudBackupTimer);
+        updateSyncAccountUi();
       }
 
       function loadGoogleIdentityScript() {
@@ -11845,6 +11871,10 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
       }
 
       async function syncCloudBackup(notify = true) {
+        if (googleSyncRecoveryCode) {
+          updateSyncAccountUi();
+          return false;
+        }
         if (!globalThis.crypto?.subtle) {
           if (notify) showToast(learnText("backupUnavailable"));
           return false;
@@ -11885,7 +11915,8 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
       }
 
       async function restoreCloudBackup() {
-        const entered = window.prompt(learnText("enterRecoveryCode"), formatRecoveryCode(getRecoveryCode(false)));
+        if (googleSyncRecoveryCode && !confirm(learnText("restoreConfirm"))) return;
+        const entered = window.prompt(learnText("enterRecoveryCode"), formatRecoveryCode(googleSyncRecoveryCode || getRecoveryCode(false)));
         const code = normalizeRecoveryCode(entered);
         if (!code) return;
         await restoreCloudBackupWithCode(code);
@@ -11902,6 +11933,7 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
           const payload = await decryptBackupPayload(data.encrypted, code);
           applyBackupPayload(payload);
           localStorage.setItem(STORAGE.recoveryCode, code);
+          googleSyncRecoveryCode = "";
           showToast(learnText("backupRestoredCloud"));
           if (reload) setTimeout(() => location.reload(), 900);
           return true;

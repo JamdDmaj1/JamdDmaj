@@ -85,11 +85,13 @@ export default async function handler(request) {
   }
 }
 
-async function linkGoogleProfile(input, identity, accountSecret) {
+export async function linkGoogleProfile(input, identity, accountSecret, storage = redisRequest) {
     const accountHash = await hashIdentifier(`google:${identity.sub}`);
     const key = `jamd:account:google:${accountHash}`;
-    const response = await redisRequest("pipeline", [["GET", key]]);
+    const response = await storage("pipeline", [["GET", key]]);
+    if (response?.[0]?.error || response?.[0]?.result === undefined) throw new Error("Account storage unavailable.");
     const existing = parseJson(response?.[0]?.result);
+    if (response[0].result !== null && !existing?.wrappedRecovery) throw new Error("The linked profile could not be recovered.");
     const suppliedCode = normalizeRecoveryCode(input.recoveryCode);
     let recoveryCode = "";
     let linked = false;
@@ -109,7 +111,14 @@ async function linkGoogleProfile(input, identity, accountSecret) {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
-      await redisRequest("pipeline", [["SET", key, JSON.stringify(record)]]);
+      const saved = await storage("pipeline", [["SET", key, JSON.stringify(record), "NX"]]);
+      if (saved?.[0]?.error || !['OK', null].includes(saved?.[0]?.result)) throw new Error("Account storage unavailable.");
+      if (saved[0].result === null) {
+        const winner = await storage("pipeline", [["GET", key]]);
+        const record = parseJson(winner?.[0]?.result);
+        if (winner?.[0]?.error || !record?.wrappedRecovery) throw new Error("The linked profile could not be recovered.");
+        recoveryCode = await unwrapRecoveryCode(record.wrappedRecovery, accountSecret);
+      }
       linked = true;
     }
 
@@ -125,6 +134,18 @@ async function linkGoogleProfile(input, identity, accountSecret) {
         picture: identity.picture
       }
     };
+}
+
+// Only call after authenticating the existing Google account session. The full
+// trial account hash and the older Google profile key share the same prefix.
+export async function readGoogleSyncProfile(owner, secret, storage = redisRequest) {
+  if (!/^[a-f0-9]{64}$/.test(owner || '') || typeof secret !== 'string' || secret.length < 32) throw new Error('Account unavailable.');
+  const rows = await storage('pipeline', [['GET', `jamd:account:google:${owner.slice(0, 32)}`]]);
+  if (rows?.[0]?.error || rows?.[0]?.result === undefined) throw new Error('Account unavailable.');
+  if (rows[0].result === null) return {ok:true,linked:false};
+  const record = parseJson(rows[0].result);
+  if (record?.provider !== 'google' || record.subHash !== owner.slice(0,32) || !record.wrappedRecovery) throw new Error('Account unavailable.');
+  return {ok:true,linked:true,recoveryCode:await unwrapRecoveryCode(record.wrappedRecovery, secret)};
 }
 
 async function verifyGoogleCredential(credential, clientId) {
