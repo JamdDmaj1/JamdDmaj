@@ -1,5 +1,10 @@
 # Step 6 follow-up: external-owner web closes
 
+Subsequent publication is recorded in
+[the 1.38.1 release report](release-1.38.1-20261024.md). The statements below
+preserve this verification checkpoint before step 7; financial activation is
+still not granted by publication.
+
 Scope: selected Phantom position -> account-bound full-close review -> explicit
 sign-only approval -> durable one-attempt submission -> rooted actual payout ->
 separately approved protected USDC conversion or orphan TP/SL cancellation ->
