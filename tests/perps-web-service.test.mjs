@@ -69,3 +69,19 @@ test('actual manual client crosses the fixed relay and real loopback HTTP bounda
   assert.equal(f.calls.length,3);
  }finally{server.closeIdleConnections();await new Promise(resolve=>server.close(resolve));await service.close();}
 });
+test('shutdown drains pending authentication without saving late limits or reopening financial readiness',async t=>{
+ const f=fixture(t);let began,release;const entered=new Promise(resolve=>{began=resolve;});
+ const service=openWebPerpsService({...f.options,fetchImpl:async()=>{began();await new Promise(resolve=>{release=resolve;});return Response.json({ok:true,accountHash:owner,verifiedAt:Date.now()});}});
+ const pending=service.manualHandlers['/api/perps-manual-policy'](request({action:'save',walletAddress,expectedRevision:null,explicitApproval:true,limits:{capitalUsd:'50',dailyLossUsd:'5',positions:1,dailyTrades:5}}));
+ await entered;let drained=false;const closing=service.close().then(()=>{drained=true;});await Promise.resolve();assert.equal(drained,false);assert.equal(service.executionAvailable(),false);
+ assert.equal(existsSync(join(f.lockDirectory,'web-service.lock')),true);release();assert.equal((await pending).status,503);await closing;
+ assert.equal(existsSync(join(f.lockDirectory,'web-service.lock')),false);
+ const policy=openManualPerpsPolicyStore(join(f.directory,'manual-policy.sqlite'),{allowNonPosixForTests});try{assert.equal(policy.read({ownerAccountHash:owner,walletAddress}),null);}finally{policy.close();}
+ assert.equal((await service.manualHandlers['/api/perps-manual-policy'](request({action:'read',walletAddress}))).status,503);
+});
+test('the recovery loop is single-flight, drains on shutdown and never advertises readiness after stopping',async t=>{
+ const f=fixture(t);let waited;const sleeping=new Promise(resolve=>{waited=resolve;});let cycles=0;
+ const service=openWebPerpsService({...f.options,executionApproved:true,wait:(_ms,_value,{signal})=>new Promise(resolve=>{cycles++;waited();signal.addEventListener('abort',resolve,{once:true});})});
+ assert.equal(service.executionAvailable(),false);const running=service.run();assert.equal(service.run(),running);await sleeping;assert.equal(service.executionAvailable(),true);
+ await service.close();assert.equal((await running).stage,'WEB_RECOVERY_STOPPED');assert.equal(service.executionAvailable(),false);assert.equal(cycles,1);assert.equal(f.calls.length,0);
+});

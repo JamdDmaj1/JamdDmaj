@@ -386,6 +386,42 @@ async function riskBoundWebFixture(t,{availableUsdcUnits='20000000',ownerAccount
  return {...f,riskJournal,dailyAccount:account,policy,readLimits:()=>structuredClone(policy),readAccount:async()=>account};
 }
 
+test('real browser IndexedDB retains uncertain fixture signatures across reload, offline mode and browser restart without a retry',
+ {skip:!process.env.JAMDDMAJ_TEST_BROWSER_MODULE},async t=>{
+ const f=await webSubmissionFixture(t),{chromium}=await import(process.env.JAMDDMAJ_TEST_BROWSER_MODULE);
+ const profile=mkdtempSync(join(tmpdir(),'jamd-step6-browser-fixture-'));t.after(()=>rmSync(profile,{recursive:true,force:true}));
+ let context,financialRequests=0;
+ const launch=async()=>{
+  context=await chromium.launchPersistentContext(profile,{headless:true,executablePath:process.env.JAMDDMAJ_TEST_BROWSER_EXECUTABLE,viewport:{width:430,height:932}});
+  await context.route(/\/api\/perps-(submit|signing-review)(\?|$)/,route=>{financialRequests++;return route.abort();});
+  const page=context.pages()[0]||await context.newPage();await page.goto('https://www.jamddmaj.com/private-simulator.html?v=9#lang=en&view=futures',{waitUntil:'domcontentloaded'});
+  await page.locator('#tab-futures').waitFor();return page;
+ };
+ try{
+  let page=await launch();
+  const create=await page.evaluate(async({packet,signedBase64,signature,at})=>{
+   const api=await import('/lib/perps-web-wallet-session.js'),journal=await api.openWebPerpsSigningJournal({name:'jamddmaj-web-perps-step6-fixture',now:()=>at});
+   try{const claim=await journal.beginSigning(packet);await journal.recordOwnerSignature(claim,signedBase64);
+    await journal.beginSubmission(packet.reviewId,{packetJson:JSON.stringify(packet),signedBase64,signature});return (await journal.pending(packet.review.walletAddress))[0].state;
+   }finally{journal.close();}
+  },{packet:f.packet,signedBase64:f.wire.signedBase64,signature:f.signed.signature,at:f.clock()});
+  assert.equal(create,'SUBMISSION_UNCERTAIN');
+  const inspect=async()=>page.evaluate(async({packet,at,signature})=>{
+   const api=await import('/lib/perps-web-wallet-session.js');api.clearWebPerpsWalletSession(document);
+   const journal=await api.openWebPerpsSigningJournal({name:'jamddmaj-web-perps-step6-fixture',now:()=>at});
+   try{const rows=await journal.pending(packet.review.walletAddress);let repeatBlocked=false;
+    try{await journal.beginSigning(packet);}catch{repeatBlocked=true;}
+    return {state:rows[0]?.state,sameSignature:rows[0]?.signature===signature,count:rows.length,repeatBlocked};
+   }finally{journal.close();}
+  },{packet:f.packet,at:f.clock(),signature:f.signed.signature});
+  await page.reload({waitUntil:'domcontentloaded'});await page.locator('#tab-futures').waitFor();
+  await page.evaluate(()=>import('/lib/perps-web-wallet-session.js').then(()=>true));await context.setOffline(true);
+  assert.deepEqual(await inspect(),{state:'SUBMISSION_UNCERTAIN',sameSignature:true,count:1,repeatBlocked:true});
+  await context.close();context=null;page=await launch();assert.deepEqual(await inspect(),{state:'SUBMISSION_UNCERTAIN',sameSignature:true,count:1,repeatBlocked:true});
+  assert.equal(financialRequests,0);
+ }finally{await context?.close();}
+});
+
 test('authenticated web HTTP handoff uses the original owner-bound review and two durable ledgers before one simulated send',async t=>{
  const owner='d'.repeat(64),f=await riskBoundWebFixture(t,{ownerAccountHash:owner});let sends=0,policyReads=0;
  const handler=createWebPerpsSubmissionHandler({journal:f.serverJournal,riskJournal:f.riskJournal,authenticate:async()=>owner,limit:async()=>true,
