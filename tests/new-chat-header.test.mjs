@@ -14,7 +14,8 @@ test('chat shell constrains long sidebar history and reserves bounded header spa
  assert.match(html,/\.sidebar\s*\{[^}]*min-height:\s*0/);
  assert.match(html,/\.conversation-heading\s*\{[^}]*flex:\s*0 1 210px/);
  assert.match(html,/\.top-actions\s*\{[^}]*flex:\s*1 1 0/);
- assert.match(html,/\.composer\s*\{[^}]*grid-template-columns:\s*auto auto minmax\(0,\s*1fr\) auto/);
+ assert.match(html,/\.composer\s*\{[^}]*display:\s*flex/);
+ assert.match(html,/\.composer textarea\s*\{[^}]*flex:\s*1 1 0/);
 });
 
 test('new conversation keeps header and actions in view on repeated desktop and mobile navigation',
