@@ -1,5 +1,9 @@
 # Release 1.38.1 — step 7
 
+Subsequent owner-authorized platform availability is recorded in
+[the execution-availability report](execution-availability-20261024.md).
+This report preserves the state at the time of publication.
+
 Source commit: `00de22f71d6bed4c456eb5de4d179c59d61d5f56`.
 Publication does not enable manual trading, server custody signing or automation.
 No deposit, user-wallet signature, transaction submission or phone installation
