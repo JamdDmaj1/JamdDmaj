@@ -6707,7 +6707,9 @@
         ensureCurrentChat();
         renderAll();
         closeSidebar();
-        els.prompt.focus();
+        // Focus the composer without scrolling the clipped app shell and
+        // pushing the persistent header/actions outside the visible area.
+        els.prompt.focus({ preventScroll: true });
       }
 
       function selectChat(id) {
