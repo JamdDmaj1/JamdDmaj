@@ -23,7 +23,7 @@ test('Solana holdings are rendered from the selected account and cleared on disc
 });
 function fixture(){
  const all=[];
- function node(tag){const n={tag,style:{},attrs:{},children:[],value:'',append(...items){this.children.push(...items)},prepend(item){this.children.unshift(item)},replaceChildren(...items){this.children=items},setAttribute(k,v){this.attrs[k]=v},remove(){this.removed=true}};all.push(n);return n}
+ function node(tag){const n={tag,style:{},attrs:{},children:[],value:'',append(...items){this.children.push(...items)},prepend(item){this.children.unshift(item)},replaceChildren(...items){this.children=items},setAttribute(k,v){this.attrs[k]=v},addEventListener(){},remove(){this.removed=true}};all.push(n);return n}
  const host=node('section'),doc={createElement:node,getElementById:()=>host};
  const win=new EventTarget();return {all,host,doc,win};
 }

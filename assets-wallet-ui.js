@@ -7,6 +7,7 @@ import {selectWalletAccount,selectedWalletAccount,publishWalletPortfolio,forgetW
 import {setupWalletOverview} from './lib/wallet-overview.js';
 import {setupWalletTradingController} from './lib/wallet-trading-controller.js';
 import {setupWalletTradingPanel} from './lib/wallet-trading-panel.js';
+import {setupAccountWalletPanel} from './lib/account-wallet-panel.js';
 import {bindWebPerpsWalletSession,clearWebPerpsWalletSession} from './lib/perps-web-wallet-session.js';
 
 export function setupAssetsWallets(language, doc=document, win=window) {
@@ -30,6 +31,7 @@ export function setupAssetsWallets(language, doc=document, win=window) {
   const disposeNative=win.Capacitor?.isPluginAvailable?.('DevnetWallet')?setupNativeWalletEntry(language,doc,win):()=>{};
   const disposeMain=setupMainWalletEntry(language,doc,win);
   const disposeOverview=setupWalletOverview(language,doc,win);
+  const disposeAccountLink=setupAccountWalletPanel(language,doc,win);
   const registry=getWalletRegistry(),providers=new Map();let choices=[],session=null,removeChange=null,epoch=0,busy=false,active=null,refreshTimer;
   function publishPortfolio(data){publishWalletPortfolio(doc,data,{address:active?.address,source:'external'});}
   function clear(){clearWebPerpsWalletSession(doc);publishPortfolio(null);epoch++;clearInterval(refreshTimer);active=null;const old=session;session=null;old?.disconnect();removeChange?.();removeChange=null;identity.textContent='';balance.textContent='';holdings.replaceChildren();refresh.hidden=disconnect.hidden=true;select.disabled=false;connect.hidden=false;}
@@ -134,5 +136,5 @@ export function setupAssetsWallets(language, doc=document, win=window) {
       refreshTimer=setInterval(()=>{if(!doc.hidden)refresh.onclick();},60000);refreshTimer?.unref?.();
     }
   }catch{}
-  return ()=>{disposeTrading();disposeTradingPanel();doc.removeEventListener?.('jamd-wallet-refresh',refreshSelected);disposeOverview();disposeMain();disposeNative();clear();unregister();unregisterGone();win.removeEventListener('eip6963:announceProvider',announced);panel.remove();};
+  return ()=>{disposeAccountLink();disposeTrading();disposeTradingPanel();doc.removeEventListener?.('jamd-wallet-refresh',refreshSelected);disposeOverview();disposeMain();disposeNative();clear();unregister();unregisterGone();win.removeEventListener('eip6963:announceProvider',announced);panel.remove();};
 }
