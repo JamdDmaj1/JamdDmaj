@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {createHandler} from '../api/perps-review.js';
 import {validateWebPerpsReview} from '../lib/perps-navigation.js';
 import {setupFuturesTicket} from '../lib/swap-quote-ui.js';
-import {selectWalletAccount} from '../lib/wallet-portfolio-store.js';
+import {selectWalletAccount,selectedWalletAccount} from '../lib/wallet-portfolio-store.js';
+import {publishWalletTradingState} from '../lib/wallet-trading-state.js';
 import {IDBFactory} from 'fake-indexeddb';
 import bs58 from 'bs58';
 import {bindWebPerpsWalletSession} from '../lib/perps-web-wallet-session.js';
@@ -85,6 +86,14 @@ test('web review checks authenticated manual policy and disabled execution stops
  assert.deepEqual(JSON.parse(calls[0].options.body),{action:'read',walletAddress:wallet});assert.match(f.orderStatus.textContent,/Configure.*manual limits/);assert.equal(f.confirm.disabled,true);
  assert.equal(f.events.some(event=>event.type==='jamd-wallet-open-perps'),false);assert.equal(f.long.disabled,false);
  f.price.value='101';f.price.emit('input');assert.equal(f.confirm.disabled,true);f.ticket.dispose();
+});
+
+test('fresh public funds can refuse an insufficient margin before review, but never authorize a signature',async()=>{
+ for(const [usdc,sol,expected,requests]of [['5141387','144669689',/less USDC/,1],['20000000','999999',/minimum SOL/,1],['20000000','100000000',/could not be prepared/,2]]){
+  const calls=[],f=ui(async(url)=>{calls.push(url);if(url==='/api/perps-manual-policy')return Response.json({ok:true,executionAvailable:true,readyForSigning:false,policy:{walletAddress:wallet,revision:'12345678-1234-4234-8234-123456789abc',updatedAt:Date.now(),limits:{capitalUsd:'50',dailyLossUsd:'5',positions:1,dailyTrades:5}}});return Response.json({error:'FIXTURE_REVIEW_REFUSED'},{status:503});});
+  f.connect();f.price.value='100';publishWalletTradingState(f.doc,{stage:'PUBLIC_WALLET_TRADING_STATE',walletAddress:wallet,network:'solana-mainnet',readOnly:true,observedAt:Date.now(),observedSlot:10,availableUsdcUnits:usdc,payerLamports:sol,allocatedUsdUnits:'0',positions:[],orders:[],history:[],ordersComplete:true,historyComplete:true},selectedWalletAccount(f.doc),{pendingKnown:true});
+  await f.long.onclick();assert.equal(calls.length,requests);assert.match(f.orderStatus.textContent,expected);assert.equal(f.confirm.disabled,true);assert.equal(calls.some(url=>url.includes('submit')),false);f.ticket.dispose();
+ }
 });
 test('wallet changes and edits invalidate in-flight manual policy checks and do not leave action buttons stuck',async()=>{
  for(const mode of ['wallet','input','market','dispose']){
