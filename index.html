@@ -4852,6 +4852,14 @@
             <button class="pill-btn" id="restoreSyncAccountBtn" type="button">Restore progress</button>
           </div>
           <div class="backup-status" id="syncAccountStatus"></div>
+          <details class="advanced-settings" id="syncRelinkPanel">
+            <summary id="syncRelinkTitle">Link my original Sync ID</summary>
+            <p id="syncRelinkHelp">If Android has your original profile, enter its Sync ID here privately. The encrypted backups and former Google link are preserved. This does not change your wallet or merge histories.</p>
+            <input id="syncRelinkCode" type="password" maxlength="24" autocomplete="off" spellcheck="false" aria-label="Original Sync ID">
+            <label class="check-row"><input id="syncRelinkApproval" type="checkbox"><span id="syncRelinkApprovalText">I have backed up this device and want Google to use my original profile.</span></label>
+            <button class="pill-btn" id="syncRelinkBtn" type="button">Verify backup and link</button>
+            <p id="syncRelinkStatus" role="status"></p>
+          </details>
           <div class="account-provider-list" aria-label="Account providers">
             <button class="account-provider" id="googleSignInBtn" type="button">Google · checking</button>
             <span class="account-provider">X · planned</span>
@@ -11524,6 +11532,10 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         document.getElementById("prepareUpdateBtn").textContent = spanish ? "Respaldar antes de actualizar" : "Back up before updating";
         document.getElementById("copySyncIdBtn").textContent = spanish ? "Copiar Sync ID" : "Copy Sync ID";
         document.getElementById("restoreSyncAccountBtn").textContent = spanish ? "Restaurar progreso" : "Restore progress";
+        document.getElementById("syncRelinkTitle").textContent = spanish ? "Vincular mi Sync ID original" : "Link my original Sync ID";
+        document.getElementById("syncRelinkHelp").textContent = spanish ? "Si Android tiene tu perfil original, introduce aquí su Sync ID en privado. Se conservan los respaldos cifrados y el vínculo anterior de Google. No cambia tu billetera ni combina historiales." : "If Android has your original profile, enter its Sync ID here privately. The encrypted backups and former Google link are preserved. This does not change your wallet or merge histories.";
+        document.getElementById("syncRelinkApprovalText").textContent = spanish ? "He respaldado este dispositivo y quiero que Google use mi perfil original." : "I have backed up this device and want Google to use my original profile.";
+        document.getElementById("syncRelinkBtn").textContent = spanish ? "Verificar respaldo y vincular" : "Verify backup and link";
         const synced = localStorage.getItem(STORAGE.backupSyncedAt);
         document.getElementById("syncAccountStatus").textContent = googleSyncRecoveryCode
           ? (spanish ? "Este es el Sync ID vinculado a Google. Tu progreso local usa otro ID y se conserva sin cambios. Usa Restaurar progreso para recuperar la copia de tu cuenta; no se sobrescribirá automáticamente." : "This is the Sync ID linked to Google. Local progress uses a different ID and is preserved unchanged. Use Restore progress to recover your account backup; it will not be overwritten automatically.")
@@ -11737,6 +11749,44 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         googleSyncRecoveryCode = local !== data.recoveryCode ? data.recoveryCode : "";
         if (googleSyncRecoveryCode) clearTimeout(cloudBackupTimer);
         updateSyncAccountUi();
+      }
+
+      async function relinkOriginalSyncId() {
+        const spanish = resolvedLanguage() === "es", button = document.getElementById('syncRelinkBtn'), input = document.getElementById('syncRelinkCode'), approval = document.getElementById('syncRelinkApproval'), status = document.getElementById('syncRelinkStatus');
+        if (button.disabled) return;
+        const token = window.JamdTrial?.getToken?.(), code = normalizeRecoveryCode(input.value);
+        if (!/^[a-f0-9]{64}$/.test(token || '') || !/^[A-Z0-9]{20}$/.test(code) || !approval.checked) {
+          status.textContent = spanish ? "Inicia sesión con Google, escribe tu Sync ID original y marca la confirmación." : "Sign in with Google, enter your original Sync ID and check the confirmation.";
+          return;
+        }
+        button.disabled = true;
+        try {
+          status.textContent = spanish ? "Verificando el respaldo sin cambiar tus datos…" : "Verifying the backup without changing your data…";
+          await refreshGoogleSyncId();
+          const previous = googleSyncRecoveryCode || getRecoveryCode(false);
+          if (!previous) throw new Error('SYNC_UNAVAILABLE');
+          const backup = await fetchBackupApi({action:'restore',recoveryHash:await hashRecoveryCode(code)});
+          if (!backup.ok) throw new Error('BACKUP_REQUIRED');
+          const encrypted = await backup.json(), payload = await decryptBackupPayload(encrypted.encrypted,code);
+          if (payload?.format !== 'jamddmaj-backup' || !Array.isArray(payload.data?.chats)) throw new Error('BACKUP_REQUIRED');
+          if (window.JamdTrial?.getToken?.() !== token) throw new Error('SESSION_CHANGED');
+          if (!confirm(spanish ? `¿Vincular a Google el perfil terminado en ${code.slice(-4)} en lugar de ${previous.slice(-4)}? Se conservarán los respaldos y el vínculo anterior. No se restaurarán ni borrarán chats automáticamente.` : `Link the profile ending ${code.slice(-4)} to Google instead of ${previous.slice(-4)}? Backups and the former link will be preserved. Chats will not be restored or deleted automatically.`)) {
+            status.textContent = spanish ? "Cancelado. No se cambió el vínculo." : "Cancelled. The link was not changed.";
+            return;
+          }
+          const digest = await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify({iv:encrypted.encrypted.iv,data:encrypted.encrypted.data})));
+          const expectedBackupHash = [...new Uint8Array(digest)].map(byte=>byte.toString(16).padStart(2,'0')).join('');
+          const expectedRecoveryHash = await hashRecoveryCode(previous);
+          if (window.JamdTrial?.getToken?.() !== token) throw new Error('SESSION_CHANGED');
+          const response = await fetch(ACCOUNT_API_URL.replace(/\/account$/, '/account-sync'), {method:'POST',cache:'no-store',credentials:'omit',redirect:'error',signal:AbortSignal.timeout(20000),headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({recoveryCode:code,expectedRecoveryHash,expectedBackupHash,explicitApproval:true})});
+          const result = await response.json();
+          if (window.JamdTrial?.getToken?.() !== token) throw new Error('SESSION_CHANGED');
+          if (!response.ok || result?.ok !== true || result.linked !== true) throw new Error(result?.error || 'SYNC_UNAVAILABLE');
+          await refreshGoogleSyncId();
+          status.textContent = spanish ? "Perfil original vinculado a Google. Se conservaron los respaldos. Puedes usar Restaurar progreso para recuperar esa copia en la web; tus datos locales no se han cambiado." : "Original profile linked to Google. Backups were preserved. Use Restore progress to recover that copy on the web; your local data has not changed.";
+        } catch (error) {
+          status.textContent = error?.message === 'SYNC_CHANGED_REFRESH_FIRST' ? (spanish ? "El vínculo o respaldo cambió en otro dispositivo. Vuelve a verificarlo antes de confirmar." : "The link or backup changed on another device. Verify it again before confirming.") : (spanish ? "No se pudo confirmar el cambio. Comprueba tu sesión y que el Sync ID original tenga un respaldo en la nube. Consulta de nuevo el vínculo antes de reintentar. No borres datos." : "The change could not be confirmed. Check your session and that the original Sync ID has a cloud backup. Read the account link again before retrying. Do not clear data.");
+        } finally {button.disabled=false;input.value='';approval.checked=false;}
       }
 
       function loadGoogleIdentityScript() {
@@ -14301,6 +14351,7 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
       document.getElementById("prepareUpdateBtn").addEventListener("click", prepareSafeUpdate);
       document.getElementById("copySyncIdBtn").addEventListener("click", copySyncAccountId);
       document.getElementById("restoreSyncAccountBtn").addEventListener("click", restoreCloudBackup);
+      document.getElementById("syncRelinkBtn").addEventListener("click", relinkOriginalSyncId);
       document.getElementById("checkUpdatesBtn").addEventListener("click", () => checkForAppUpdate(true));
       document.getElementById("downloadUpdateBtn").addEventListener("click", openAppUpdateDownload);
       document.getElementById("appUpdateBannerDownload").addEventListener("click", openAppUpdateDownload);

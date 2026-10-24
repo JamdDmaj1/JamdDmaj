@@ -182,7 +182,7 @@ async function verifyGoogleAccessToken(accessToken, clientId) {
   };
 }
 
-async function wrapRecoveryCode(code, secret) {
+export async function wrapRecoveryCode(code, secret) {
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const key = await accountKey(secret);
   const encrypted = await crypto.subtle.encrypt(
@@ -193,7 +193,7 @@ async function wrapRecoveryCode(code, secret) {
   return { iv: toBase64(iv), data: toBase64(new Uint8Array(encrypted)) };
 }
 
-async function unwrapRecoveryCode(value, secret) {
+export async function unwrapRecoveryCode(value, secret) {
   const key = await accountKey(secret);
   const decrypted = await crypto.subtle.decrypt(
     { name: "AES-GCM", iv: fromBase64(value.iv) },
