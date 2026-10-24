@@ -1,6 +1,11 @@
 # Step 6 verification — 2026-10-23 (America/New_York)
 
-**Acceptance: BLOCKED, not approved for real futures or automation.**
+**Acceptance on October 23: BLOCKED, not approved for real futures or automation.**
+
+October 24 follow-up: the missing web-close implementation and unfunded tests
+are recorded in [the follow-up report](step6-web-close-verification-20261024.md).
+This original report preserves the evidence from October 23; the public release
+and real execution are not enabled by either report.
 
 Story: selected wallet and authenticated manual limits → explicit review/signing
 → durable one-attempt submission → finalized recovery → usable complete exit.

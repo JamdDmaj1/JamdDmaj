@@ -79,6 +79,20 @@ test('shutdown drains pending authentication without saving late limits or reope
  const policy=openManualPerpsPolicyStore(join(f.directory,'manual-policy.sqlite'),{allowNonPosixForTests});try{assert.equal(policy.read({ownerAccountHash:owner,walletAddress}),null);}finally{policy.close();}
  assert.equal((await service.manualHandlers['/api/perps-manual-policy'](request({action:'read',walletAddress}))).status,503);
 });
+
+test('external close crosses the fixed relay and real HTTP service but disabled execution never reaches a builder or signer',async t=>{
+ const f=fixture(t),service=openWebPerpsService(f.options),server=createPerpsControlHttpServer({handler:async()=>new Response(null,{status:404}),manualHandlers:service.manualHandlers});
+ server.listen(0,'127.0.0.1');await once(server,'listening');
+ try{
+  const path='/api/perps-close',relay=createManualPerpsRelay({path,limit:async()=>{},fetchImpl:async(url,options)=>{
+   assert.equal(url,'https://157.230.54.133'+path);return fetch('http://127.0.0.1:'+server.address().port+path,options);
+  }});
+  const response=await relay(request({action:'prepare',walletAddress,positionAddress:walletAddress,referencePrice:'100',maxSlippageBps:50},path));
+  assert.equal(response.status,503);assert.deepEqual(await response.json(),{error:'WEB_CLOSE_EXECUTION_DISABLED'});
+  assert.deepEqual(f.calls,['https://www.jamddmaj.com/api/perps-identity']);
+  assert.equal(existsSync(join(f.directory,'keys')),false);
+ }finally{server.closeIdleConnections();await new Promise(resolve=>server.close(resolve));await service.close();}
+});
 test('the recovery loop is single-flight, drains on shutdown and never advertises readiness after stopping',async t=>{
  const f=fixture(t);let waited;const sleeping=new Promise(resolve=>{waited=resolve;});let cycles=0;
  const service=openWebPerpsService({...f.options,executionApproved:true,wait:(_ms,_value,{signal})=>new Promise(resolve=>{cycles++;waited();signal.addEventListener('abort',resolve,{once:true});})});

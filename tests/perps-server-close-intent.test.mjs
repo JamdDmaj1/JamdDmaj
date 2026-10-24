@@ -38,6 +38,15 @@ import {createPerpsNetworkFeeValuationReader} from '../lib/perps-network-fee-val
 import {conversionFixture} from './helpers/perps-conversion-fixture.mjs';
 import {conversionReceiptFixture} from './helpers/perps-conversion-receipt-fixture.mjs';
 import {createPerpsConversionUsdValuationReader} from '../lib/perps-conversion-usd-valuation.js';
+import {createWebPerpsCloseCoordinator} from '../lib/perps-web-close-coordinator.js';
+import {openManualPerpsPolicyStore} from '../lib/perps-manual-policy-store.js';
+import {createWebPerpsCloseHandler} from '../lib/perps-web-close-http.js';
+import {validateWebClosePacket} from '../lib/perps-web-close-protocol.js';
+import {createWebCloseClient,authorizeWebCloseSignature,submitSignedWebClose,openWebCloseJournal,signReviewedWebClose,bindWebPerpsWalletSession} from '../lib/perps-web-wallet-session.js';
+import {openWebPerpsSigningJournal} from '../lib/perps-web-signing-journal.js';
+import {selectWalletAccount} from '../lib/wallet-portfolio-store.js';
+import {IDBFactory} from 'fake-indexeddb';
+import {createServer} from 'node:http';
 // Public deterministic unfunded fixture owner, never a production identity.
 const fixtureOwner=createPrivateKey({key:Buffer.concat([Buffer.from('302e020100300506032b657004220420','hex'),Buffer.alloc(32,51)]),format:'der',type:'pkcs8'});
 const fixtureKeeper=createPrivateKey({key:Buffer.concat([Buffer.from('302e020100300506032b657004220420','hex'),Buffer.alloc(32,52)]),format:'der',type:'pkcs8'});
@@ -1019,17 +1028,229 @@ test('bank pairing is bounded, never replaces the wire and does not retry a simu
  }
 });
 
-async function closeJournalFixture(t,{parents=2,side='SHORT',asset='SOL',settlement='DIRECT_USDC'}={}){
+async function closeJournalFixture(t,{parents=2,side='SHORT',asset='SOL',settlement='DIRECT_USDC',reservationPrefix='entry-'}={}){
  const f=await oracleEffectsFixture(side,asset,settlement),reserves=await f.reserves(),oracleEffects=checkServerPerpsFullCloseOracleEffects(reserves,{nowSeconds:now});
  const directory=mkdtempSync(join(tmpdir(),'jamd-close-journal-')),path=join(directory,'journal.sqlite'),journals=[];let journalTime=now*1000;
  const open=()=>{const journal=openPerpsExecutionJournal(path,{now:()=>journalTime});journals.push(journal);return journal;};
  t.after(()=>{for(const j of journals)try{j.close();}catch{}rmSync(directory,{recursive:true,force:true});});
  const journal=open(),raw=new DatabaseSync(path);
  for(let i=0;i<parents;i++)raw.prepare("INSERT INTO perps_reservations(wallet,signal,reservation,day,margin,state,created,updated,signature,wire_hash,position_address,confirmed_slot,entry_exit_plan) VALUES(?,?,?,?,?,'OPEN',?,?,?,?,?,?,?)")
-  .run(wallet,'signal-'+i,'entry-'+i,new Date(now*1000).toISOString().slice(0,10),10000000,now*1000,now*1000,
+  .run(wallet,'signal-'+i,reservationPrefix+i,new Date(now*1000).toISOString().slice(0,10),10000000,now*1000,now*1000,
    bs58.encode(Buffer.alloc(64,80+i)),String(i).repeat(64),f.ids.position,100,JSON.stringify({sizeUsdUnits:'15000000',exits:[]}));
  raw.close();return {...f,journal,path,open,reserves,oracleEffects,advanceTime(ms){journalTime+=ms;},trackClose(value){journals.push(value);return value;}};
 }
+
+async function externalCloseFixture(t,{side='SHORT',asset='SOL'}={}){
+ const f=await closeJournalFixture(t,{side,asset,settlement:'COLLATERAL_THEN_USDC',reservationPrefix:'web:'}),directory=dirname(f.path),account='a'.repeat(64),clock=()=>now*1000;
+ chmodSync(directory,0o700);const policyStore=openManualPerpsPolicyStore(join(directory,'manual-policy.sqlite'),{initialize:true,allowNonPosixForTests:process.platform==='win32',now:clock});
+ f.trackClose(policyStore);policyStore.save({ownerAccountHash:account,walletAddress:wallet,limits:{capitalUsd:'50',dailyLossUsd:'5',positions:2,dailyTrades:5},explicitApproval:true,expectedRevision:null});
+ const request=async(m,p)=>{
+  if(m==='getSlot')return Math.max(104,p[0].minContextSlot);
+  if(m==='getMultipleAccounts'&&f.lookupFixture&&p[0][0]===f.lookupFixture.address)return {context:{slot:Math.max(105,p[1].minContextSlot)},value:[f.lookupFixture.account]};
+  if(m==='getMultipleAccounts'&&p[0][0]!==wallet&&p[0].some(k=>f.before.has(k)&&!f.oracleAccounts.has(k)))return {context:{slot:Math.max(105,p[1].minContextSlot)},value:p[0].map(k=>f.before.get(k)??null)};
+  if(m==='getMultipleAccounts'&&p[0][0]!==wallet)return {context:{slot:Math.max(104,p[1].minContextSlot)},value:p[0].map(k=>f.oracleAccounts.get(k)??null)};
+  if(m==='getMinimumBalanceForRentExemption')return f.fundingRequest(m,p);
+  const result=await f.request(m,p);if(m==='getFeeForMessage')result.context.slot=Math.max(result.context.slot,p[1].minContextSlot);return result;
+ };
+ const records=new Map(),sends=[];let enabled=true,currentRequest=request,currentTime=now*1000,currentFinalized=async()=>{throw Error('NO_FAKE_FINALITY');};
+ const command=async args=>{if(args[0]==='GET')return records.get(args[1])??null;if(records.has(args[1]))return null;records.set(args[1],args[2]);return 'OK';};
+ let currentSend=async(url,options)=>{assert.equal(url,'https://perps-api.jup.ag/v2/transaction/execute');const body=JSON.parse(options.body);assert.equal(body.action,'decrease-position');
+   assert.equal(f.journal.readPositionCloseExecution([...records.values()].map(v=>JSON.parse(v).packet).find(p=>p.operation==='CLOSE').closeId).state,'UNCERTAIN');sends.push(body);return Response.json({action:body.action,txid:bs58.encode(Buffer.from(body.serializedTxBase64,'base64').subarray(1,65))});},
+ create=(journal=f.journal)=>createWebPerpsCloseCoordinator({journal,policyStore,command,rpcRequest:(...args)=>currentRequest(...args),builderRequest:async()=>Response.json(f.preparation),
+  fetchImpl:(...args)=>currentSend(...args),isExecutionAvailable:()=>enabled,readFinalizedAccount:(...args)=>currentFinalized(...args),now:()=>currentTime,monotonicNow:()=>0});
+ const coordinator=create();
+ const handler=createWebPerpsCloseHandler({coordinator,authenticate:async()=>account,limit:async()=>true});
+ return {...f,account,clock:()=>currentTime,records,sends,coordinator,handler,policyStore,request,create,setRequest(fn){currentRequest=fn;},setSend(fn){currentSend=fn;},setFinalized(fn){currentFinalized=fn;},advanceClock(ms){currentTime+=ms;f.advanceTime(ms);},disable(){enabled=false;}};
+}
+
+test('external close refuses disabled execution, expired reviews and mutated signed bytes without transport',async t=>{
+ const disabled=await externalCloseFixture(t);disabled.disable();let reads=0;disabled.setRequest(async()=>{reads++;throw Error();});
+ await assert.rejects(disabled.coordinator.prepareClose(disabled.account,disabled.options),/EXECUTION_DISABLED/);assert.equal(reads,0);assert.equal(disabled.sends.length,0);
+ for(const mode of ['expired','mutated','lost-response']){
+  const f=await externalCloseFixture(t),packet=await f.coordinator.prepareClose(f.account,f.options),wire=Buffer.from(packet.material.serializedTxBase64,'base64');
+  sign(null,wire.subarray(193),fixtureOwner).copy(wire,1);
+  if(mode==='expired')f.advanceClock(15001);
+  if(mode==='mutated')wire[wire.length-1]^=1;
+  if(mode!=='lost-response'){
+   await assert.rejects(f.coordinator.submit(f.account,{reviewId:packet.reviewId,signedBase64:wire.toString('base64')}));assert.equal(f.sends.length,0);assert.equal(f.journal.readPositionClose(packet.closeId),null);
+  }else{
+   let attempts=0;f.setSend(async()=>{attempts++;throw Error('CONNECTION_LOST_AFTER_ATTEMPT');});
+   const result=await f.coordinator.submit(f.account,{reviewId:packet.reviewId,signedBase64:wire.toString('base64')});assert.equal(result.acknowledged,false);assert.equal(attempts,1);
+   f.records.clear();const restarted=f.create(f.open());
+   assert.equal(restarted.list(f.account,wallet)[0].phase,'AWAITING_FIRST_LEG');
+   await assert.rejects(restarted.submit(f.account,{reviewId:packet.reviewId,signedBase64:wire.toString('base64')}));assert.equal(attempts,1);assert.equal(f.journal.riskState(wallet).activeMarginUsdcUnits,'20000000');
+  }
+ }
+});
+
+test('close HTTP rejects missing sessions, foreign origins, injected identity and absent explicit approval',async t=>{
+ const f=await externalCloseFixture(t),valid={action:'list',walletAddress:wallet};
+ const call=(body,headers={})=>f.handler(new Request('https://www.jamddmaj.com/api/perps-close',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+'e'.repeat(64),...headers},body:JSON.stringify(body)}));
+ assert.equal((await call(valid,{Authorization:''})).status,401);
+ assert.equal((await call(valid,{Origin:'https://attacker.invalid'})).status,400);
+ assert.equal((await call({...valid,ownerAccountHash:f.account})).status,400);
+ assert.equal((await call({action:'submit',reviewId:'1'.repeat(64),signedBase64:'x',explicitApproval:false})).status,400);
+ assert.equal((await call({...valid,unused:'x'.repeat(12000)})).status,400);
+ const response=await call(valid);assert.equal(response.status,200);assert.deepEqual(await response.json(),{ok:true,closes:[]});assert.equal(f.sends.length,0);
+});
+
+test('external close cannot reach transport if its durable uncertainty write fails',async t=>{
+ const f=await externalCloseFixture(t),packet=await f.coordinator.prepareClose(f.account,f.options),wire=Buffer.from(packet.material.serializedTxBase64,'base64');sign(null,wire.subarray(193),fixtureOwner).copy(wire,1);
+ const db=new DatabaseSync(f.path);db.exec("CREATE TRIGGER refuse_external_close_send BEFORE UPDATE ON perps_position_close_executions WHEN NEW.state='UNCERTAIN' BEGIN SELECT RAISE(ABORT,'fixture persistence refusal'); END;");db.close();
+ await assert.rejects(f.coordinator.submit(f.account,{reviewId:packet.reviewId,signedBase64:wire.toString('base64')}),/fixture persistence refusal/);
+ assert.equal(f.sends.length,0);assert.equal(f.journal.readPositionCloseExecution(packet.closeId).state,'SIGNING');assert.equal(f.journal.riskState(wallet).activeMarginUsdcUnits,'20000000');
+});
+
+test('external close authenticates the original native full-close review and persists one owner-signed attempt before transport',async t=>{
+ for(const side of ['LONG','SHORT']){
+  const f=await externalCloseFixture(t,{side});
+  const packet=await f.coordinator.prepareClose(f.account,{...f.options,maxSlippageBps:50});
+  await validateWebClosePacket(packet,{walletAddress:wallet,positionAddress:f.ids.position,now:f.clock()});
+  assert.equal(packet.operation,'CLOSE');assert.equal(packet.details.requiresConversion,side==='LONG');assert.equal(f.sends.length,0);
+  const raw=Buffer.from(packet.material.serializedTxBase64,'base64');sign(null,raw.subarray(193),fixtureOwner).copy(raw,1);
+  await assert.rejects(f.coordinator.submit('b'.repeat(64),{reviewId:packet.reviewId,signedBase64:raw.toString('base64')}));assert.equal(f.sends.length,0);
+  const result=await f.coordinator.submit(f.account,{reviewId:packet.reviewId,signedBase64:raw.toString('base64')});assert.equal(result.state,'UNCERTAIN');assert.equal(result.acknowledged,true);
+  assert.equal(f.sends.length,1);assert.equal(f.journal.readPositionCloseExecution(packet.closeId).owner_signed_wire,raw.toString('base64'));
+  await assert.rejects(f.coordinator.submit(f.account,{reviewId:packet.reviewId,signedBase64:raw.toString('base64')}));assert.equal(f.sends.length,1);assert.equal(f.journal.riskState(wallet).activeMarginUsdcUnits,'20000000');
+ }
+});
+
+test('Phantom close client requires unchecked separate approval and committed local signing and submission records',async t=>{
+ const f=await externalCloseFixture(t),indexedDB=new IDBFactory(),doc={visibilityState:'visible',hidden:false,hasFocus:()=>true,dispatchEvent(){},defaultView:{indexedDB}};
+ selectWalletAccount(doc,{address:wallet,source:'external',name:'Phantom fixture'});
+ const journal=await openWebCloseJournal({indexedDB,now:f.clock}),entryJournal=await openWebPerpsSigningJournal({indexedDB,now:f.clock});t.after(()=>{journal.close();entryJournal.close();});
+ const publicKey=Buffer.from(bs58.decode(wallet)),account={address:wallet,publicKey,chains:['solana:mainnet'],features:['solana:signTransaction']};let prompts=0;
+ const provider={name:'Phantom fixture',accounts:[account],chains:['solana:mainnet'],features:{'solana:signTransaction':{version:'1.0.0',supportedTransactionVersions:['legacy',0],signTransaction:async input=>{
+  prompts++;const pending=await journal.pending(wallet);assert.equal(pending[0].state,'SIGNING');const wire=Buffer.from(input.transaction);sign(null,wire.subarray(193),fixtureOwner).copy(wire,1);return [{signedTransaction:new Uint8Array(wire)}];
+ }}}};bindWebPerpsWalletSession(doc,provider,account);
+ const client=createWebCloseClient({doc,readSessionToken:()=>'e'.repeat(64),fetchImpl:(url,options)=>{assert.equal(url,'/api/perps-close');return f.handler(new Request('https://www.jamddmaj.com'+url,options));},now:f.clock,monotonicNow:()=>0});
+ const review=await client.prepare({action:'prepare',walletAddress:wallet,positionAddress:f.ids.position,referencePrice:'100',maxSlippageBps:50});
+ await assert.rejects(authorizeWebCloseSignature(review,{doc,journal,entryJournal,explicitApproval:false}));assert.equal(prompts,0);
+ await assert.rejects(authorizeWebCloseSignature({...review},{doc,journal,entryJournal,explicitApproval:true}));
+ await assert.rejects(authorizeWebCloseSignature(review,{doc,journal,entryJournal:{pending:async()=>[]},explicitApproval:true}));
+ const grant=await authorizeWebCloseSignature(review,{doc,journal,entryJournal,explicitApproval:true}),signed=await signReviewedWebClose(doc,grant);
+ assert.equal((await journal.pending(wallet))[0].state,'OWNER_SIGNED');assert.equal(prompts,1);assert.equal(f.sends.length,0);
+ const result=await submitSignedWebClose(signed,{doc,journal});assert.equal(result.acknowledged,true);assert.equal((await journal.pending(wallet))[0].state,'UNCERTAIN');assert.equal(f.sends.length,1);
+ await assert.rejects(submitSignedWebClose(signed,{doc,journal}));assert.equal(f.sends.length,1);
+});
+
+test('Phantom close rejects stale sessions before prompting and preserves late signatures across IndexedDB reopen without sending',async t=>{
+ for(const mode of ['hidden','session','expired','late-signature']){
+  const f=await externalCloseFixture(t),indexedDB=new IDBFactory(),doc={visibilityState:'visible',hidden:false,hasFocus:()=>true,dispatchEvent(){},defaultView:{indexedDB}};
+  selectWalletAccount(doc,{address:wallet,source:'external',name:'Phantom fixture'});
+  let journal=await openWebCloseJournal({indexedDB,now:f.clock}),entryJournal=await openWebPerpsSigningJournal({indexedDB,now:f.clock}),token='e'.repeat(64),prompts=0;
+  t.after(()=>{journal.close();entryJournal.close();});
+  const account={address:wallet,publicKey:Buffer.from(bs58.decode(wallet)),chains:['solana:mainnet'],features:['solana:signTransaction']};
+  const provider={name:'Phantom fixture',accounts:[account],chains:['solana:mainnet'],features:{'solana:signTransaction':{version:'1.0.0',supportedTransactionVersions:['legacy',0],signTransaction:async input=>{
+   prompts++;const wire=Buffer.from(input.transaction);sign(null,wire.subarray(193),fixtureOwner).copy(wire,1);f.advanceClock(15001);return [{signedTransaction:new Uint8Array(wire)}];
+  }}}};bindWebPerpsWalletSession(doc,provider,account);
+  const client=createWebCloseClient({doc,readSessionToken:()=>token,fetchImpl:(url,options)=>f.handler(new Request('https://www.jamddmaj.com'+url,options)),now:f.clock,monotonicNow:()=>0});
+  const review=await client.prepare({action:'prepare',walletAddress:wallet,positionAddress:f.ids.position,referencePrice:'100',maxSlippageBps:50});
+  if(mode==='hidden')doc.hidden=true;
+  if(mode==='session')token='f'.repeat(64);
+  if(mode==='expired')f.advanceClock(15001);
+  if(mode!=='late-signature'){
+   await assert.rejects(authorizeWebCloseSignature(review,{doc,journal,entryJournal,explicitApproval:true}));assert.equal(prompts,0);assert.equal((await journal.pending(wallet)).length,0);
+  }else{
+   const grant=await authorizeWebCloseSignature(review,{doc,journal,entryJournal,explicitApproval:true}),signed=await signReviewedWebClose(doc,grant);
+   assert.equal(prompts,1);await assert.rejects(submitSignedWebClose(signed,{doc,journal}));assert.equal((await journal.pending(wallet))[0].state,'OWNER_SIGNED');
+   journal.close();journal=await openWebCloseJournal({indexedDB,now:f.clock});assert.equal((await journal.pending(wallet))[0].state,'OWNER_SIGNED');
+  }
+  assert.equal(f.sends.length,0);
+ }
+});
+
+test('real browser close journal preserves the exact uncertain signature across reload offline and process restart',
+ {skip:!process.env.JAMDDMAJ_TEST_BROWSER_MODULE},async t=>{
+ const f=await externalCloseFixture(t),packet=await f.coordinator.prepareClose(f.account,f.options),wire=Buffer.from(packet.material.serializedTxBase64,'base64');sign(null,wire.subarray(193),fixtureOwner).copy(wire,1);
+ const {chromium}=await import(process.env.JAMDDMAJ_TEST_BROWSER_MODULE),profile=mkdtempSync(join(tmpdir(),'jamd-close-browser-fixture-'));
+ t.after(()=>rmSync(profile,{recursive:true,force:true}));
+ const server=createServer((request,response)=>{try{
+  if(request.url==='/'){response.setHeader('Content-Type','text/html');response.end('<!doctype html><html><body>Unfunded close persistence fixture</body></html>');return;}
+  const path=new URL(request.url,'http://localhost').pathname;if(!/^\/lib\/[a-z0-9-]+\.js$/.test(path))throw Error();
+  response.setHeader('Content-Type','text/javascript');response.end(readFileSync(new URL('../www'+path,import.meta.url)));
+ }catch{response.statusCode=404;response.end();}});
+ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));let context,financialRequests=0;
+ const launch=async()=>{context=await chromium.launchPersistentContext(profile,{headless:true,executablePath:process.env.JAMDDMAJ_TEST_BROWSER_EXECUTABLE});
+  await context.route('**/api/**',route=>{financialRequests++;return route.abort();});const page=context.pages()[0]||await context.newPage();await page.goto('http://127.0.0.1:'+server.address().port);return page;};
+ const argument={packet,encoded:wire.toString('base64'),at:f.clock(),signature:bs58.encode(wire.subarray(1,65))};
+ try{
+  let page=await launch();await page.evaluate(async({packet,encoded,at})=>{
+   const api=await import('/lib/perps-web-wallet-session.js'),journal=await api.openWebCloseJournal({name:'jamddmaj-web-close-browser-fixture',now:()=>at});
+   try{const claim=await journal.begin(packet);await journal.signed(claim,encoded);await journal.uncertain(packet.reviewId);}finally{journal.close();}
+  },argument);
+  const inspect=()=>page.evaluate(async({packet,at,signature})=>{
+   const api=await import('/lib/perps-web-wallet-session.js');api.clearWebPerpsWalletSession(document);const journal=await api.openWebCloseJournal({name:'jamddmaj-web-close-browser-fixture',now:()=>at});
+   try{const rows=await journal.pending(packet.walletAddress);let repeatBlocked=false;try{await journal.begin(packet);}catch{repeatBlocked=true;}return {state:rows[0]?.state,sameSignature:rows[0]?.signature===signature,count:rows.length,repeatBlocked};}finally{journal.close();}
+  },argument);
+  await page.reload();await page.evaluate(()=>import('/lib/perps-web-wallet-session.js').then(()=>true));await context.setOffline(true);
+  assert.deepEqual(await inspect(),{state:'UNCERTAIN',sameSignature:true,count:1,repeatBlocked:true});await context.close();context=null;
+  page=await launch();assert.deepEqual(await inspect(),{state:'UNCERTAIN',sameSignature:true,count:1,repeatBlocked:true});assert.equal(financialRequests,0);assert.equal(f.sends.length,0);
+ }finally{await context?.close();await new Promise(resolve=>server.close(resolve));}
+});
+
+test('external close completes rooted first-leg recovery, protected USDC conversion and fee accounting across all six routes without custody',async t=>{
+ for(const asset of ['SOL','ETH','BTC'])for(const side of ['LONG','SHORT']){
+  const f=await externalCloseFixture(t,{side,asset}),event=await closePayoutFixture({side,asset,version:2,amount:8000000n,nowMs:now*1000});
+  const transferUsd=side==='SHORT'?8000000n:8000000n*100000000n/10n**BigInt(PERPS_CUSTODIES[asset].decimals),protocolFee=10000000n-transferUsd;
+  event.fields.feeUsd=protocolFee.toString();event.fields.fundingFeeUsd=event.fields.feeUsd;event.fields.transferAmountUsd=transferUsd.toString();event.refreshEvent();
+  let transaction,signature,convertedReceipt,joinedAccounts,joinedSlot=302,sends=0;
+  const keys=f.inspection.resolvedKeys,index=k=>{const i=keys.indexOf(k);assert(i>=0);return i;};
+  f.setSend(async(url,options)=>{
+   sends++;const body=JSON.parse(options.body);
+   if(body.method==='sendTransaction'){
+    assert.equal(body.params[0],convertedReceipt.transaction.transaction[0]);assert.equal(body.params[1].maxRetries,0);
+    assert.equal(f.journal.readPositionCloseConversion(packet.closeId).state,'UNCERTAIN');joinedAccounts=convertedReceipt.after;joinedSlot=500;
+    return Response.json({jsonrpc:'2.0',id:1,result:convertedReceipt.identity.signature});
+   }
+   const raw=Buffer.from(body.serializedTxBase64,'base64');sign(null,raw.subarray(193),fixtureKeeper).copy(raw,65);signature=bs58.encode(raw.subarray(1,65));
+   const loaded=f.inspection.envelope.lookups.reduce((n,t)=>n+t.writable.length,0),staticCount=f.inspection.envelope.staticKeys.length;
+   const tokens=map=>keys.flatMap((key,i)=>{const a=map.get(key);if(a?.owner!==TOKEN)return [];const b=Buffer.from(a.data[0],'base64');if(b.length!==165)return [];const mint=bs58.encode(b.subarray(0,32)),c=Object.values(PERPS_CUSTODIES).find(c=>c.mint===mint);return [{accountIndex:i,mint,owner:bs58.encode(b.subarray(32,64)),programId:TOKEN,uiTokenAmount:{amount:b.readBigUInt64LE(64).toString(),decimals:c.decimals}}];});
+   const transfer=Buffer.alloc(9);transfer[0]=3;transfer.writeBigUInt64LE(8000000n,1);
+   const coreIndex=f.inspection.envelope.instructions.findIndex(ix=>keys[ix.program]===PERPS_PROGRAM&&['2e17f02c1e8a5e8c','a2bfc83e8b3eb011'].includes(Buffer.from(ix.dataBase64,'base64').subarray(0,8).toString('hex')));
+   transaction={slot:300,blockTime:now,transaction:[raw.toString('base64'),'base64'],meta:{err:null,fee:5000,preBalances:keys.map(k=>Number(f.before.get(k)?.lamports??0)),postBalances:keys.map(k=>Number(f.after.get(k)?.lamports??0)),preTokenBalances:tokens(f.before),postTokenBalances:tokens(f.after),
+    loadedAddresses:{writable:keys.slice(staticCount,staticCount+loaded),readonly:keys.slice(staticCount+loaded)},innerInstructions:[{index:coreIndex,instructions:[
+     {programIdIndex:index(TOKEN),accounts:[index(f.collateral.tokenAccount),index(f.inspection.bindings.collateralAccount),index(f.ids.transferAuthority)],data:bs58.encode(transfer),stackHeight:2},
+     {programIdIndex:index(PERPS_PROGRAM),accounts:[index(f.ids.eventAuthority)],data:event.inner[1].data,stackHeight:2}]}]}};
+   return Response.json({action:'decrease-position',txid:signature});
+  });
+  const packet=await f.coordinator.prepareClose(f.account,{...f.options,maxSlippageBps:50}),raw=Buffer.from(packet.material.serializedTxBase64,'base64');sign(null,raw.subarray(193),fixtureOwner).copy(raw,1);
+  await f.coordinator.submit(f.account,{reviewId:packet.reviewId,signedBase64:raw.toString('base64')});assert.equal(sends,1);
+  const closeRequest=async(m,p)=>{
+   if(m==='getGenesisHash')return '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
+   if(m==='getSignatureStatuses'){assert.equal(p[0][0],signature);return {context:{slot:301},value:[{slot:300,err:null,confirmationStatus:'finalized'}]};}
+   if(m==='getTransaction'){assert.equal(p[0],signature);return transaction;}
+   if(m==='getMultipleAccounts')return {context:{slot:302},value:p[0].map(k=>f.after.get(k)??null)};throw Error('NO_FINANCIAL_RPC_IN_RECOVERY');
+  };
+  f.setRequest(closeRequest);const observed=await f.coordinator.recover(f.account,wallet,packet.closeId);assert.equal(observed.firstLegSignature,signature);
+  assert.equal(observed.receivedTokenUnits,'8000000');assert.equal(f.journal.readPositionCloseExecution(packet.closeId).state,'FIRST_LEG_FINALIZED');assert.equal(f.journal.riskState(wallet).activeMarginUsdcUnits,'20000000');
+  let recoveryRequest=closeRequest;
+  if(side==='LONG'){
+   const getUnits=key=>Buffer.from(f.after.get(key).data[0],'base64').readBigUInt64LE(64),model={walletAddress:wallet,asset,amountUnits:'8000000',newSource:asset==='SOL',nowMs:now*1000,
+    custodySnapshots:{[asset]:f.after.get(f.collateral.address),USDC:f.after.get(f.usdc.address)},vaultUnits:{[asset]:getUnits(f.collateral.tokenAccount),USDC:getUnits(f.usdc.tokenAccount)},ownerLamports:BigInt(f.after.get(wallet).lamports),destinationUnits:getUnits(f.recipient),sourceUnits:asset==='SOL'?null:getUnits(f.inspection.bindings.collateralAccount)};
+   const swap=await conversionFixture(model);convertedReceipt=await conversionReceiptFixture({...model,fixturePrivateKey:fixtureOwner,finalizedSlot:400});joinedAccounts=swap.before;
+   recoveryRequest=async(m,p)=>{
+    if(m==='getTransaction'||m==='getSignatureStatuses')return p[0]===convertedReceipt.identity.signature||p[0]?.[0]===convertedReceipt.identity.signature?convertedReceipt.request(m,p):closeRequest(m,p);
+    if(m==='getMultipleAccounts'&&p[1].commitment==='finalized')return {context:{slot:joinedSlot},value:p[0].map(k=>joinedAccounts.get(k)??f.after.get(k)??null)};return swap.request(m,p);
+   };
+   f.setRequest(recoveryRequest);const review=await f.coordinator.prepareNext(f.account,wallet,packet.closeId,{maxSlippageBps:100,minimumUsdcUnits:null});
+   assert.equal(review.operation,'CONVERT');assert.equal(review.details.amountUnits,'8000000');await validateWebClosePacket(review,{walletAddress:wallet,positionAddress:f.ids.position,now:f.clock()});
+   const signed=Buffer.from(review.material.serializedTxBase64,'base64');sign(null,signed.subarray(65),fixtureOwner).copy(signed,1);
+   await f.coordinator.submit(f.account,{reviewId:review.reviewId,signedBase64:signed.toString('base64')});assert.equal(sends,2);
+   const restarted=f.create(f.open());f.records.clear();await restarted.recover(f.account,wallet,packet.closeId);
+   assert.equal(f.journal.readPositionCloseConversion(packet.closeId).state,'FINALIZED');assert.equal(f.journal.riskState(wallet).activeMarginUsdcUnits,'20000000');
+  }
+  f.advanceClock(70000);joinedSlot=50000;const historyRequest=async(m,p)=>{
+   if(m==='getSlot')return 50000;if(m==='getBlocks')return [1];if(m==='getBlockTime')return p[0]===50000?now+65:now-172800;if(m==='getFirstAvailableBlock')return 1;
+   if(m==='getSignaturesForAddress')return [wallet,f.ids.position].includes(p[0])?[...(convertedReceipt?[{signature:convertedReceipt.identity.signature,slot:400,blockTime:now,err:null,confirmationStatus:'finalized'}]:[]),{signature,slot:300,blockTime:now,err:null,confirmationStatus:'finalized'}]:[];
+   if(side==='SHORT'&&m==='getMultipleAccounts')return {context:{slot:50000},value:p[0].map(k=>f.after.get(k)??null)};return recoveryRequest(m,p);
+  };
+  const valuation={now:f.clock,monotonicNow:()=>0,fetchImpl:async url=>new URL(url).hostname==='api.kraken.com'?Response.json({error:[],result:{USDCUSD:[[now,'1','1','1','1','1','20',3],[now+60,'1','1','1','1','1','20',3]],last:now+60}}):Response.json([[now,100,100,100,100,1]])};
+  f.setRequest(historyRequest);f.setFinalized(createServerPerpsDailyAccountReader({request:historyRequest,journal:f.journal,now:f.clock,monotonicNow:()=>0,readNetworkFees:createPerpsNetworkFeeValuationReader(valuation),...(side==='LONG'?{readConversionLoss:createPerpsConversionUsdValuationReader(valuation)}:{})}));
+  const result=await f.coordinator.recover(f.account,wallet,packet.closeId);assert.equal(result.phase,'COMPLETED');assert.equal(f.journal.riskState(wallet).activeMarginUsdcUnits,'0');assert.equal(sends,side==='LONG'?2:1);
+  assert.deepEqual(await f.coordinator.recover(f.account,wallet,packet.closeId),result);assert.equal(sends,side==='LONG'?2:1);
+ }
+});
 
 async function nativeSigningFixture(t,{side='LONG',asset='SOL',minimumReturnUnits='0'}={}){
  const f=await closeJournalFixture(t,{side,asset,settlement:'COLLATERAL_THEN_USDC'}),root=dirname(f.path),ownerAccountHash='e'.repeat(64);

@@ -31,7 +31,7 @@ https://157.230.54.133 {
   X-Content-Type-Options "nosniff"
   Referrer-Policy "no-referrer"
  }
- @manual path /api/perps-manual-policy /api/perps-signing-review /api/perps-submit /api/perps-operation-status
+ @manual path /api/perps-manual-policy /api/perps-signing-review /api/perps-submit /api/perps-close /api/perps-operation-status
  handle @manual {
   request_body {
    max_size 12000

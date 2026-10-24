@@ -214,7 +214,7 @@ export async function webSigningFixture(t,{keeperSignable=false,at=now,wireNonce
  const native=await prepareInspectedPerpsManualOrder(draft,f.intent.walletAddress,{rpcRequest,now:clock,monotonicNow:()=>state.mono,builderRequest:async()=>{state.builderCalls++;return Response.json(f.preparation);}});
  const packet=await store.prepare(native),indexedDB=new IDBFactory(),name='jamddmaj-web-perps-signing-test';
  const journal=await openWebPerpsSigningJournal({indexedDB,name,now:clock});t.after(()=>journal.close());
- const doc={hidden:false,visibilityState:'visible',hasFocus:()=>true,dispatchEvent(){}},account={address:f.intent.walletAddress,publicKey:Uint8Array.from(createPublicKey(f.ownerKey).export({format:'der',type:'spki'}).subarray(-32)),chains:['solana:mainnet'],features:['solana:signTransaction']};
+ const doc={hidden:false,visibilityState:'visible',hasFocus:()=>true,dispatchEvent(){},defaultView:{indexedDB}},account={address:f.intent.walletAddress,publicKey:Uint8Array.from(createPublicKey(f.ownerKey).export({format:'der',type:'spki'}).subarray(-32)),chains:['solana:mainnet'],features:['solana:signTransaction']};
  const wallet={name:'Unfunded Phantom model',chains:['solana:mainnet'],accounts:[account],features:{'solana:signTransaction':{version:'1.0.0',supportedTransactionVersions:['legacy',0],async signTransaction(input){
   state.prompts++;assert.equal(input.account,account);assert.equal(input.chain,'solana:mainnet');assert.equal(input.options.preflightCommitment,'confirmed');
   assert.equal((await journal.read(packet.reviewId)).state,'SIGNING');
