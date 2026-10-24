@@ -49,7 +49,7 @@ function clientFixture({local=second,changed=false}={}){
 }
 test('session refresh displays the linked ID but preserves different local recovery and progress until explicit restore',async()=>{
  const f=clientFixture();await f.context.refreshGoogleSyncId();assert.equal(f.context.googleSyncRecoveryCode,first);assert.equal(f.values.get('recovery'),second);assert.equal(f.rendered(),1);
- const empty=clientFixture({local:''});await empty.context.refreshGoogleSyncId();assert.equal(empty.values.get('recovery'),first);assert.equal(empty.context.googleSyncRecoveryCode,'');
+ const empty=clientFixture({local:''});await empty.context.refreshGoogleSyncId();assert.equal(empty.values.get('recovery'),'');assert.equal(empty.context.googleSyncRecoveryCode,first);
  const changed=clientFixture({changed:true});await changed.context.refreshGoogleSyncId();assert.equal(changed.context.googleSyncRecoveryCode,'');assert.equal(changed.values.get('recovery'),second);
 });
 test('a pending recovery blocks automatic cloud writes and login does not claim an unverified backup succeeded',()=>{

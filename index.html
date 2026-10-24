@@ -11734,8 +11734,7 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         if (window.JamdTrial?.getToken?.() !== token) return;
         if (data?.ok !== true || data.linked !== true || !/^[A-Z0-9]{20}$/.test(data.recoveryCode || "")) throw new Error('Sync unavailable');
         const local = getRecoveryCode(false);
-        if (!local) localStorage.setItem(STORAGE.recoveryCode, data.recoveryCode);
-        googleSyncRecoveryCode = local && local !== data.recoveryCode ? data.recoveryCode : "";
+        googleSyncRecoveryCode = local !== data.recoveryCode ? data.recoveryCode : "";
         if (googleSyncRecoveryCode) clearTimeout(cloudBackupTimer);
         updateSyncAccountUi();
       }
