@@ -10,6 +10,10 @@ final class NativePerpsPosition {
     private final int side;
     final BigInteger sizeUsd,collateralUsd,price;
     final long openTime,updateTime;
+    boolean matches(String payer,String expectedAsset,int expectedSide){
+        return asset.equals(expectedAsset)&&side==expectedSide
+            &&address.equals(DevnetSolana.encode(NativePerpsAddresses.position(payer,expectedAsset,expectedSide)));
+    }
     private NativePerpsPosition(byte[] data,String address,String asset,int side){
         this.address=address;this.asset=asset;this.side=side;
         openTime=time(data,136);updateTime=time(data,144);

@@ -6,6 +6,11 @@ import {selectWalletAccount} from '../lib/wallet-portfolio-store.js';
 import {setupFuturesTicket} from '../lib/swap-quote-ui.js';
 
 const draft={asset:'SOL',side:'LONG',margin:'10.123456',leverage:'2.5',referencePrice:'105',stopLoss:'95',takeProfit:'110'};
+test('invalid drafts identify the field without weakening native review requirements',()=>{
+ for(const [change,message] of [[{margin:'9'},'margin'],[{margin:''},'margin'],[{referencePrice:''},'referencePrice'],[{leverage:'51'},'leverage'],[{stopLoss:'bad'},'exit']]){
+  assert.throws(()=>perpsNavigationDraft({...draft,...change}),{message});
+ }
+});
 test('perps navigation carries only exact human form values, never execution authority',()=>{
  assert.deepEqual(perpsNavigationDraft(draft),draft);assert.equal(Object.isFrozen(perpsNavigationDraft(draft)),true);
  assert.deepEqual(perpsNavigationDraft({...draft,stopLoss:'',takeProfit:null}),{asset:'SOL',side:'LONG',margin:'10.123456',leverage:'2.5',referencePrice:'105'});
@@ -34,6 +39,10 @@ test('Long and Short buttons open only a native review draft and clear prices wh
  const ticket=setupFuturesTicket(doc.createElement('main'),'en',doc);
  selectWalletAccount(doc,{address:'7cZzabJQqgWR6yg5jSZZZA5Af5JhrMZaQ32XsKZVxfLy',source:'native',name:'Fixture'});
  const price=nodes.find(node=>node.id==='jupiter-reference-price');price.value='105';
+ price.value='';nodes.find(node=>node.textContent==='Open Long').onclick();
+ assert.equal(events.filter(event=>event.type==='jamd-wallet-open-perps').length,0);
+ assert.ok(nodes.some(node=>node.textContent?.includes('Enter the reference price of the selected asset.')));
+ price.value='105';
  nodes.find(node=>node.textContent==='Open Long').onclick();
  let drafts=events.filter(event=>event.type==='jamd-wallet-open-perps');assert.equal(drafts.length,1);
  assert.deepEqual(drafts[0].detail,{asset:'BTC',side:'LONG',margin:'10',leverage:'3',referencePrice:'105'});

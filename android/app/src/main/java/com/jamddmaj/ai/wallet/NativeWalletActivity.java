@@ -144,7 +144,7 @@ public final class NativeWalletActivity extends Activity {
         perpsSide=new Spinner(this);perpsSide.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{"Long","Short"}));perpsSection.addView(perpsSide);
         perpsMargin=field(perpsSection,text("Margen que entregas · USDC (mínimo 10)","Margin you pay · USDC (minimum 10)"),false);
         perpsLeverage=field(perpsSection,text("Apalancamiento · 1.1 a 50","Leverage · 1.1 to 50"),false);
-        perpsPrice=field(perpsSection,text("Precio de referencia · USD","Reference price · USD"),false);
+        perpsPrice=field(perpsSection,text("Precio de referencia · USD (obligatorio)","Reference price · USD (required)"),false);
         perpsSl=field(perpsSection,text("Stop loss · precio USD · opcional","Stop loss · USD price · optional"),false);
         perpsTp=field(perpsSection,text("Take profit · precio USD · opcional","Take profit · USD price · optional"),false);
         for(EditText input:new EditText[]{perpsMargin,perpsLeverage,perpsPrice,perpsSl,perpsTp})input.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_DECIMAL);
@@ -367,6 +367,10 @@ public final class NativeWalletActivity extends Activity {
     void reviewPerps(){
         NativeWalletProfiles.Profile profile=selectedProfile;
         if(profile==null){status.setText(text("Desbloquea primero la billetera.","Unlock the wallet first."));return;}
+        if(perpsPrice.getText().toString().trim().isEmpty()){
+            String explanation=text("Introduce el precio de referencia para comprobar la protección de precio. No se enviará ninguna orden.","Enter the reference price to check price protection. No order will be sent.");
+            perpsPrice.setError(explanation);perpsPrice.requestFocus();status.setText(explanation);return;
+        }
         NativePerpsOrderIntent intent;
         try{
             String sl=perpsSl.getText().toString().trim(),tp=perpsTp.getText().toString().trim();

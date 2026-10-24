@@ -28,3 +28,17 @@ Do not recommend a funded native opening while its close path is absent. Do not 
 The web order panel now refuses a clearly insufficient USDC margin or minimum SOL reserve when a fresh selected-wallet public snapshot already proves insufficiency. This display-level refusal can only stop an attempt; it never replaces server checks or authorizes signing. Generic preparation failures now mention collateral, fees and limits rather than incorrectly pointing only to Google/Phantom login. Focused review/build/Edge tests: 13/13 passed; browser build and diff check passed. No financial execution logic was broadened.
 
 This source correction is not yet a new web or Android publication. The user's authenticated manual policy/provider flow and any funded owner-approved acceptance remain unverified. Asked the user which platform to finish first (Phantom web vs Android native), and requested the visible review message without signing or depositing. No actual trial risk values were selected for them.
+
+## Native-first implementation follow-up
+
+The user chose Android native first and reported the generic form refusal. The form now reports which field fails (margin, mandatory reference price, leverage or exit levels), while retaining the exact previous monetary and price constraints. The secure Android form also labels the reference price mandatory and refuses an empty value before preparation. This does not prove which value the user originally entered, and does not bypass the separate insufficient-USDC condition.
+
+Added native full-close **intent and identity primitives only**, not an enabled close action:
+
+- Bind a decoded program-owned position to native payer, market, side, full size and collateral.
+- Check both full-close instruction discriminators, canonical Some(true), bounded redundant deltas, trusted-time window and inward-rounded long floor / short ceiling.
+- Bind the 22 close roles to independently decoded market/collateral custodies, vaults, oracles, recipient ATA, program identities and derived request accounts, including signer/write capabilities.
+- Settlement remains collateral first, with separate protected USDC conversion; no promise of an absolute minimum in the initial close.
+- Seven new native fixture tests passed, including changed account-role rejection. Four navigation and ten web review regressions passed (14 total). These tests contain synthetic API signing keys only and never sign a user's transaction.
+
+Still required before native close or funded entry acceptance: complete instruction/oracle policy, exact-wire simulation and independently validated payout/fee/rent effects, close-specific durable journal and recovery, biometric-bound review/submission, chain-confirmed position UI, and the separate conversion/exit-cleanup flow. New primitives are deliberately not connected to a signing path. No production flags, funds, deployments or installed APK changed in this follow-up.
