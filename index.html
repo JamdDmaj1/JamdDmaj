@@ -11594,7 +11594,10 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
             }
           }
         } catch {
-          if (!accountProfile?.email) status.textContent = spanish ? "No se pudo comprobar Google." : "Google setup could not be checked.";
+          status.textContent = accountProfile?.email
+            ? (spanish ? "No se pudo recuperar el Sync ID vinculado. No se cambió tu progreso local; renueva el acceso con Google e inténtalo de nuevo." : "The linked Sync ID could not be retrieved. Local progress was not changed; renew Google access and try again.")
+            : (spanish ? "No se pudo comprobar Google." : "Google setup could not be checked.");
+          if (accountProfile?.email) updateSyncAccountUi(status.textContent);
         }
       }
 
