@@ -14,6 +14,7 @@ test('chat shell constrains long sidebar history and reserves bounded header spa
  assert.match(html,/\.sidebar\s*\{[^}]*min-height:\s*0/);
  assert.match(html,/\.conversation-heading\s*\{[^}]*flex:\s*0 1 210px/);
  assert.match(html,/\.top-actions\s*\{[^}]*flex:\s*1 1 0/);
+ assert.match(html,/\.composer\s*\{[^}]*grid-template-columns:\s*auto auto minmax\(0,\s*1fr\) auto/);
 });
 
 test('new conversation keeps header and actions in view on repeated desktop and mobile navigation',
@@ -26,12 +27,13 @@ test('new conversation keeps header and actions in view on repeated desktop and 
   await page.route('https://www.jamddmaj.com/',route=>route.fulfill({status:200,contentType:'text/html',body:html}));
   await page.route('**/api/**',route=>{if(route.request().method()!=='GET'){posts++;return route.abort();}return route.continue();});
   await page.goto('https://www.jamddmaj.com/',{waitUntil:'domcontentloaded'});await page.evaluate(()=>document.fonts.ready);
-  const inspect=()=>page.evaluate(()=>({headerTop:document.querySelector('.topbar').getBoundingClientRect().top,headerHeight:document.querySelector('.topbar').getBoundingClientRect().height,promptTop:document.querySelector('#promptInput').getBoundingClientRect().top,promptBottom:document.querySelector('#promptInput').getBoundingClientRect().bottom,shellBottom:document.querySelector('.app').getBoundingClientRect().bottom,composerHidden:document.querySelector('.composer-wrap').hidden,shellScroll:document.querySelector('.app').scrollTop,mainScroll:document.querySelector('.main').scrollTop,focus:document.activeElement.id}));
+  const inspect=()=>page.evaluate(()=>({headerTop:document.querySelector('.topbar').getBoundingClientRect().top,headerHeight:document.querySelector('.topbar').getBoundingClientRect().height,promptTop:document.querySelector('#promptInput').getBoundingClientRect().top,promptBottom:document.querySelector('#promptInput').getBoundingClientRect().bottom,promptWidth:document.querySelector('#promptInput').getBoundingClientRect().width,composerWidth:document.querySelector('.composer').getBoundingClientRect().width,shellBottom:document.querySelector('.app').getBoundingClientRect().bottom,composerHidden:document.querySelector('.composer-wrap').hidden,shellScroll:document.querySelector('.app').scrollTop,mainScroll:document.querySelector('.main').scrollTop,focus:document.activeElement.id}));
   const before=await inspect();for(let i=0;i<3;i++){
    if(viewport.width<600)await page.locator('#menuBtn').click();
    await page.locator('#newChatBtn').click();await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
    const after=await inspect();assert.ok(after.headerTop>=0,JSON.stringify({viewport,after}));assert.equal(after.shellScroll,before.shellScroll);assert.equal(after.mainScroll,before.mainScroll);assert.equal(after.focus,'promptInput');
    assert.equal(after.composerHidden,false);assert.ok(after.promptTop>=0&&after.promptBottom<=Math.min(viewport.height,after.shellBottom),JSON.stringify({viewport,after}));assert.ok(after.headerHeight<160,JSON.stringify({viewport,after}));
+   assert.ok(after.promptWidth>after.composerWidth*.45,JSON.stringify({viewport,after}));
    await page.locator('#promptInput').fill('Visible composer test');assert.equal(await page.locator('#promptInput').inputValue(),'Visible composer test');
   }
   assert.equal(posts,0);await page.close();
