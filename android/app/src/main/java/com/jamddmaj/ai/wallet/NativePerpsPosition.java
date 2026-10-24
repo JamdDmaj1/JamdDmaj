@@ -8,7 +8,7 @@ import java.util.Arrays;
 final class NativePerpsPosition {
     private final String address,asset;
     private final int side;
-    final BigInteger sizeUsd,collateralUsd,price;
+    final BigInteger sizeUsd,collateralUsd,price,lockedTokens,cumulativeInterestSnapshot;
     final long openTime,updateTime;
     boolean matches(String payer,String expectedAsset,int expectedSide){
         return asset.equals(expectedAsset)&&side==expectedSide
@@ -18,6 +18,7 @@ final class NativePerpsPosition {
         this.address=address;this.asset=asset;this.side=side;
         openTime=time(data,136);updateTime=time(data,144);
         price=u64(data,153);sizeUsd=u64(data,161);collateralUsd=u64(data,169);
+        lockedTokens=u64(data,201);cumulativeInterestSnapshot=u64(data,185).add(u64(data,193).shiftLeft(64));
     }
     static NativePerpsPosition decode(String address,String programOwner,boolean executable,byte[] input,String payer,String asset,int side){
         if(!NativePerpsCustody.PROGRAM.equals(programOwner)||executable||input==null||input.length<210||input.length>4096)throw invalid();

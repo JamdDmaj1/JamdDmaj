@@ -16,12 +16,16 @@ import static org.junit.Assert.*;
 public class NativePerpsAccountVerificationTest {
     static final class Rpc implements NativeWalletRpc.Transport {
         final NativePerpsPreSwapPlanTest.Fixture fixture=new NativePerpsPreSwapPlanTest.Fixture(true);
-        int ledgerReads;boolean wrongLedgerOwner,executableLedger,wrongLedgerLength;
+        int ledgerReads;boolean wrongLedgerOwner,executableLedger,wrongLedgerLength,positionRequests;
         Rpc(){fixture.compile();}
         public Object request(String method,JSONArray params)throws Exception{
             switch(method){
                 case "getGenesisHash":return "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
                 case "getSlot":return 100;
+                case "getProgramAccounts":
+                    assertEquals(NativePerpsCustody.PROGRAM,params.getString(0));JSONObject query=params.getJSONObject(1);assertTrue(query.getBoolean("withContext"));
+                    assertEquals(3,query.getJSONArray("filters").length());assertEquals(104,query.getJSONArray("filters").getJSONObject(2).getJSONObject("memcmp").getInt("offset"));
+                    return context(positionRequests?new JSONArray().put(new JSONObject()):new JSONArray());
                 case "getMultipleAccounts":
                     assertEquals(1,params.getJSONArray(0).length());
                     assertEquals(DevnetSolana.encode(fixture.lookup),params.getJSONArray(0).getString(0));
@@ -56,6 +60,10 @@ public class NativePerpsAccountVerificationTest {
     }
     @Test public void verifiesDecodedUsdcLongThroughRealNativeAccountPolicy()throws Exception{
         Rpc rpc=new Rpc();rpc.verify();assertEquals(1,rpc.ledgerReads);
+    }
+    @Test public void refusesOldPositionRequestsBeforeNewExposureOrLedgerRead()throws Exception{
+        Rpc rpc=new Rpc();rpc.positionRequests=true;Exception failure=assertThrows(Exception.class,rpc::verify);
+        assertEquals("PERPS_POSITION_REQUESTS_REQUIRE_REVIEW",failure.getMessage());assertEquals(0,rpc.ledgerReads);
     }
     @Test public void rejectsNonProgramOwnedExecutableOrMalformedLedger()throws Exception{
         for(int i=0;i<3;i++){

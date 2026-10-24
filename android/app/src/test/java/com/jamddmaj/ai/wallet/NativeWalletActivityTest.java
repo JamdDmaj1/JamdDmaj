@@ -18,6 +18,19 @@ import static org.junit.Assert.*;
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk=30)
 public class NativeWalletActivityTest {
+    @Test public void nativeFullCloseIsExplicitAndCannotPrepareWhileWalletIsLocked(){
+        var app=org.robolectric.RuntimeEnvironment.getApplication();
+        var intent=new android.content.Intent(app,NativeWalletActivity.class).putExtra("wallet-navigation","perps");
+        try(var controller=Robolectric.buildActivity(NativeWalletActivity.class,intent).create()){
+            var activity=controller.get();android.view.ViewGroup form=activity.getWindow().getDecorView().findViewWithTag("native-perps-form");boolean found=false;
+            for(int i=0;i<form.getChildCount();i++)if(form.getChildAt(i) instanceof android.widget.Button){
+                android.widget.Button button=(android.widget.Button)form.getChildAt(i);
+                if(button.getText().toString().equals("Review full close")){found=true;button.performClick();}
+            }
+            assertTrue(found);activity.reviewPerpsClose();
+            assertNull(org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog());assertNull(org.robolectric.Shadows.shadowOf(activity).getNextStartedActivity());
+        }
+    }
     @Test public void validatedPerpsDraftPrefillsButNeverStartsReviewOrAuthorization(){
         var app=org.robolectric.RuntimeEnvironment.getApplication();
         var intent=new android.content.Intent(app,NativeWalletActivity.class).putExtra("wallet-navigation","perps");

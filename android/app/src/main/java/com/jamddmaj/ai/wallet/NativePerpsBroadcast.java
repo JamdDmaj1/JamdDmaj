@@ -57,4 +57,13 @@ final class NativePerpsBroadcast {
             }
         }finally{connection.disconnect();}
     };}
+    synchronized String submitClose(NativePerpsSignedEnvelope envelope,NativePerpsCloseIntent intent,BigInteger fee,BigInteger minimumSlot,BooleanSupplier foreground)throws Exception{
+        if(attempted||envelope==null||intent==null||foreground==null||!foreground.getAsBoolean())throw new IOException("Native close broadcast unavailable");
+        journal.requireNoPending();JSONObject body=new JSONObject().put("action","decrease-position").put("serializedTxBase64",Base64.encodeToString(envelope.bytes(),Base64.NO_WRAP));
+        attempted=true;journal.beginPerpsClose(envelope,intent,fee,minimumSlot);
+        if(!foreground.getAsBoolean())throw new IOException("Wallet locked; inspect recorded close before retrying");
+        JSONObject result=transport.execute(body);
+        if(result==null||!"decrease-position".equals(result.opt("action"))||!envelope.transactionId.equals(result.opt("txid")))throw new IOException("Unknown close submission result; do not resend");
+        journal.submitted(envelope.transactionId);return envelope.transactionId;
+    }
 }

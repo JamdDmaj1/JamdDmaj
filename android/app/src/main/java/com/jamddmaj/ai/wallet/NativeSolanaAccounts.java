@@ -43,6 +43,7 @@ final class NativeSolanaAccounts {
         if(transaction==null||intent==null)
             throw new IllegalArgumentException("Invalid perps market intent");
         NativePerpsComputeBudget.check(transaction.message);
+        requireNoPositionRequests(DevnetSolana.encode(transaction.message.staticKey(0)),intent.asset,intent.side);
         NativePerpsOracleBoundary.check(transaction.message);
         String asset=intent.asset;int side=intent.side;
         List<NativePerpsInstructionData> orderData=new ArrayList<>();
@@ -78,6 +79,20 @@ final class NativeSolanaAccounts {
                     throw new IllegalArgumentException("Perps exit request differs from position and counter");
             }
         }
+    }
+    /** An old TP/SL must not silently attach to exposure reopened at the same
+     * position PDA. Refuse any remaining request until separately resolved. */
+    private void requireNoPositionRequests(String payer,String asset,int side)throws Exception{
+        String position=DevnetSolana.encode(NativePerpsAddresses.position(payer,asset,side));rpc.verifyNetwork();
+        BigInteger minimum=NativeWalletBalances.solanaUnits(rpc.request("getSlot",new JSONArray().put(new JSONObject().put("commitment","confirmed"))));
+        JSONArray filters=new JSONArray().put(new JSONObject().put("memcmp",new JSONObject().put("offset",0).put("bytes","32tkJosYU3Z")))
+            .put(new JSONObject().put("memcmp",new JSONObject().put("offset",8).put("bytes",payer)))
+            .put(new JSONObject().put("memcmp",new JSONObject().put("offset",104).put("bytes",position)));
+        JSONObject response=(JSONObject)rpc.request("getProgramAccounts",new JSONArray().put(NativePerpsCustody.PROGRAM)
+            .put(new JSONObject().put("commitment","confirmed").put("encoding","base64").put("withContext",true).put("minContextSlot",minimum)
+                .put("dataSlice",new JSONObject().put("offset",0).put("length",0)).put("filters",filters)));
+        if(NativeWalletBalances.solanaUnits(response.getJSONObject("context").get("slot")).compareTo(minimum)<0)throw new IOException("PERPS_POSITION_REQUESTS_UNVERIFIED");
+        if(response.getJSONArray("value").length()!=0)throw new IOException("PERPS_POSITION_REQUESTS_REQUIRE_REVIEW");rpc.verifyNetwork();
     }
     private void verifyPerpsTokenLedger(String address)throws Exception{
         DevnetSolana.decode(address,32);rpc.verifyNetwork();

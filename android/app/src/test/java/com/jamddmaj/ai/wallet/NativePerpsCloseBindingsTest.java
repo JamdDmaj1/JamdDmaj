@@ -28,23 +28,34 @@ public class NativePerpsCloseBindingsTest {
     }
     // Entirely synthetic API signing key; no wallet or production signatures.
     static NativePerpsTransaction transaction(boolean v2,int changedRole,boolean duplicate){
-        NativePerpsCustody c=custody();NativePerpsCloseIntent intent=intent();
+        return transaction(v2,changedRole,duplicate,false);
+    }
+    static NativePerpsTransaction transaction(boolean v2,int changedRole,boolean duplicate,boolean compute){
+        return transaction(v2,changedRole,duplicate,compute,intent(),custody(),custody());
+    }
+    static NativePerpsTransaction transaction(boolean v2,int changedRole,boolean duplicate,boolean compute,NativePerpsCloseIntent intent,NativePerpsCustody market,NativePerpsCustody c){
         String keeper=DevnetSolana.encode(NativePerpsTransactionTest.publicKey(2)),api=DevnetSolana.encode(NativePerpsTransactionTest.publicKey(3));
         String recipient=DevnetSolana.encode(NativePerpsTokenBoundary.associated(DevnetSolana.decode(OWNER,32),c.mint));
         String transfer=DevnetSolana.encode(NativePerpsAddresses.transferAuthority()),perpetuals=DevnetSolana.encode(NativePerpsAddresses.perpetuals()),event=DevnetSolana.encode(NativePerpsAddresses.eventAuthority());
         String request=DevnetSolana.encode(NativePerpsAddresses.exitRequest(DevnetSolana.decode(intent.positionAddress,32),BigInteger.valueOf(7)));
         String requestAta=DevnetSolana.encode(NativePerpsTokenBoundary.associated(DevnetSolana.decode(request,32),c.mint));
         String ata="ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",system="11111111111111111111111111111111";
-        String[] roles=v2?new String[]{keeper,api,OWNER,recipient,transfer,perpetuals,NativePerpsCustody.POOL,intent.positionAddress,c.address,c.dovesAgOracle,c.address,c.dovesAgOracle,c.tokenAccount,c.mint,NativePerpsCustody.PROGRAM,request,requestAta,SplTokenAccount.PROGRAM,ata,system,event,NativePerpsCustody.PROGRAM}
-            :new String[]{keeper,api,OWNER,recipient,transfer,perpetuals,NativePerpsCustody.POOL,intent.positionAddress,c.address,c.dovesAgOracle,c.oracle,c.address,c.dovesAgOracle,c.oracle,c.tokenAccount,c.mint,NativePerpsCustody.PROGRAM,SplTokenAccount.PROGRAM,ata,system,event,NativePerpsCustody.PROGRAM};
+        String[] roles=v2?new String[]{keeper,api,OWNER,recipient,transfer,perpetuals,NativePerpsCustody.POOL,intent.positionAddress,market.address,market.dovesAgOracle,c.address,c.dovesAgOracle,c.tokenAccount,c.mint,NativePerpsCustody.PROGRAM,request,requestAta,SplTokenAccount.PROGRAM,ata,system,event,NativePerpsCustody.PROGRAM}
+            :new String[]{keeper,api,OWNER,recipient,transfer,perpetuals,NativePerpsCustody.POOL,intent.positionAddress,market.address,market.dovesAgOracle,market.oracle,c.address,c.dovesAgOracle,c.oracle,c.tokenAccount,c.mint,NativePerpsCustody.PROGRAM,SplTokenAccount.PROGRAM,ata,system,event,NativePerpsCustody.PROGRAM};
         if(changedRole>=0)roles[changedRole]=DevnetSolana.encode(NativePerpsTransactionTest.publicKey(5));
         List<String> mutable=new ArrayList<>(),readonly=new ArrayList<>();
         int[] mut=v2?new int[]{2,3,6,7,8,10,12,15,16}:new int[]{2,3,6,7,8,11,14};
         for(int role:mut)if(!roles[role].equals(OWNER)&&!mutable.contains(roles[role]))mutable.add(roles[role]);
         List<String> keys=new ArrayList<>(Arrays.asList(OWNER,keeper,api));keys.addAll(mutable);
-        for(String role:roles)if(!keys.contains(role)&&!readonly.contains(role))readonly.add(role);keys.addAll(readonly);
+        for(String role:roles)if(!keys.contains(role)&&!readonly.contains(role))readonly.add(role);
+        if(compute)readonly.add("ComputeBudget111111111111111111111111111111");keys.addAll(readonly);
         ByteArrayOutputStream out=new ByteArrayOutputStream();out.writeBytes(new byte[]{3,2,(byte)readonly.size(),(byte)keys.size()});
-        for(String key:keys)out.writeBytes(DevnetSolana.decode(key,32));out.writeBytes(new byte[32]);out.write(duplicate?2:1);
+        for(String key:keys)out.writeBytes(DevnetSolana.decode(key,32));out.writeBytes(new byte[32]);out.write((duplicate?2:1)+(compute?2:0));
+        if(compute){
+            int program=keys.indexOf("ComputeBudget111111111111111111111111111111");
+            byte[][] budget={ByteBuffer.allocate(5).order(ByteOrder.LITTLE_ENDIAN).put((byte)2).putInt(400000).array(),ByteBuffer.allocate(9).order(ByteOrder.LITTLE_ENDIAN).put((byte)3).putLong(1000).array()};
+            for(byte[] data:budget){out.write(program);out.write(0);out.write(data.length);out.writeBytes(data);}
+        }
         for(int repeat=0;repeat<(duplicate?2:1);repeat++){
             out.write(keys.indexOf(NativePerpsCustody.PROGRAM));out.write(22);for(String role:roles)out.write(keys.indexOf(role));byte[] data=core(v2);out.write(data.length);out.writeBytes(data);
         }

@@ -33,6 +33,7 @@ final class NativePerpsSimulation {
             if(data.length>16384||!Base64.encodeToString(data,Base64.NO_WRAP).equals(text))throw invalid("Noncanonical account data");
         }
         byte[] data(){return data.clone();}
+        static Account fromRpc(JSONObject value)throws Exception{return new Account(value);}
     }
     static final class Result {
         final BigInteger fee,unitsConsumed,slot;
@@ -46,6 +47,7 @@ final class NativePerpsSimulation {
             this.keys=keys;this.source=source;
         }
         boolean matches(NativePerpsTransaction candidate){return candidate!=null&&Arrays.equals(transaction,candidate.bytes());}
+        SolanaLookupTables.Resolved resolvedKeys(){return keys;}
         List<NativePerpsExitRequest> checkExitRequests(NativePerpsTransaction candidate,NativePerpsOrderIntent intent,String payer)throws Exception{
             if(!matches(candidate)||intent==null)throw invalid("Exit evidence differs from transaction");
             List<NativePerpsExitRequest> exits=new ArrayList<>();
@@ -124,6 +126,50 @@ final class NativePerpsSimulation {
         long elapsed=SystemClock.elapsedRealtime()-started;if(elapsed<0||elapsed>30000)throw invalid("Perps simulation expired");
         // Returning these snapshots does NOT establish acceptable funding,
         // instruction side effects, fees or resulting position state.
+        return new Result(fee,consumed,slot,before,after,transaction.bytes(),keys,source);
+    }
+    /** Close snapshot collection only. Never calls the entry validator or
+     * produces signing authority. Effects/policy must consume the exact result. */
+    Result inspectClose(NativePerpsTransaction transaction,NativePerpsCloseIntent intent,BigInteger lastValidHeight,
+            BigInteger minimumSlot,java.util.Set<String> additionalAddresses)throws Exception{
+        if(transaction==null||intent==null||lastValidHeight==null||lastValidHeight.signum()<=0||lastValidHeight.bitLength()>64
+                ||minimumSlot==null||minimumSlot.signum()<0||minimumSlot.bitLength()>64||additionalAddresses==null
+                ||!Arrays.equals(transaction.message.staticKey(0),DevnetSolana.decode(intent.payer,32)))throw invalid("Invalid close simulation intent");
+        long started=SystemClock.elapsedRealtime();
+        SolanaLookupTables.Resolved keys=accounts.resolve(transaction.message);
+        LinkedHashSet<String> watched=new LinkedHashSet<>();
+        for(int i=0;i<transaction.message.accountCount;i++)if(transaction.message.isWritable(i))watched.add(DevnetSolana.encode(keys.key(i)));
+        for(String address:additionalAddresses){DevnetSolana.decode(address,32);watched.add(address);}
+        watched.add(intent.payer);watched.add(intent.positionAddress);
+        String source=deriver.associated(intent.payer,NativeSolanaTokens.USDC,SplTokenAccount.PROGRAM);watched.add(source);
+        if(watched.size()>100)throw invalid("Too many close simulation accounts");
+        List<String> addresses=new ArrayList<>(watched);JSONArray encodedAddresses=new JSONArray();for(String address:addresses)encodedAddresses.put(address);
+        rpc.verifyNetwork();
+        BigInteger slot=units(rpc.request("getSlot",new JSONArray().put(confirmed().put("minContextSlot",minimumSlot))));
+        if(slot.compareTo(minimumSlot)<0)throw invalid("Stale close slot");requireHeight(lastValidHeight,slot);
+        JSONObject feeReply=(JSONObject)rpc.request("getFeeForMessage",new JSONArray().put(b64(transaction.message.bytes())).put(confirmed().put("minContextSlot",slot)));
+        slot=context(feeReply,slot);BigInteger fee=units(feeReply.get("value"));
+        if(fee.signum()<=0||fee.compareTo(BigInteger.valueOf(1000000))>0||fee.compareTo(NativePerpsComputeBudget.check(transaction.message))<0)throw invalid("Invalid close network fee");
+        Map<String,Account> before=null,after=null;BigInteger consumed=null;
+        // A lower-bound slot is not a pinned bank. Discard mismatched read-only
+        // samples rather than mixing unrelated traders' changes into a close.
+        for(int attempt=0;attempt<3;attempt++){
+            long elapsed=SystemClock.elapsedRealtime()-started;if(elapsed<0||elapsed>15000)throw invalid("Close simulation expired");
+            JSONObject prior=(JSONObject)rpc.request("getMultipleAccounts",new JSONArray().put(encodedAddresses).put(confirmed().put("encoding","base64").put("minContextSlot",slot)));
+            BigInteger oldSlot=context(prior,slot);
+            JSONObject options=confirmed().put("encoding","base64").put("sigVerify",false).put("replaceRecentBlockhash",false)
+                .put("minContextSlot",slot).put("accounts",new JSONObject().put("encoding","base64").put("addresses",encodedAddresses));
+            JSONObject reply=(JSONObject)rpc.request("simulateTransaction",new JSONArray().put(b64(transaction.bytes())).put(options));
+            BigInteger nextSlot=context(reply,slot);JSONObject value=reply.getJSONObject("value");
+            if(!value.has("err")||!value.isNull("err")||value.has("replacementBlockhash")&&!value.isNull("replacementBlockhash"))throw invalid("Close simulation failed");
+            consumed=units(value.get("unitsConsumed"));if(consumed.signum()<=0||consumed.compareTo(BigInteger.valueOf(1400000))>0)throw invalid("Invalid close compute usage");
+            Map<String,Account> priorAccounts=snapshot(addresses,prior.getJSONArray("value")),nextAccounts=snapshot(addresses,value.getJSONArray("accounts"));
+            slot=oldSlot.max(nextSlot);if(!oldSlot.equals(nextSlot))continue;
+            before=priorAccounts;after=nextAccounts;break;
+        }
+        if(before==null||after==null)throw invalid("Close snapshot bank changed; request a fresh review");
+        requireHeight(lastValidHeight,slot);rpc.verifyNetwork();
+        long elapsed=SystemClock.elapsedRealtime()-started;if(elapsed<0||elapsed>15000)throw invalid("Close simulation expired");
         return new Result(fee,consumed,slot,before,after,transaction.bytes(),keys,source);
     }
     NativePerpsFunding checkFunding(Result result,NativePerpsTransaction transaction,NativePerpsOrderIntent intent,String payer)throws Exception{

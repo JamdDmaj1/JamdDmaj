@@ -27,6 +27,8 @@ import java.util.concurrent.Executors;
 public final class NativeWalletActivity extends Activity {
     interface ConfirmationReader { NativeTransferJournal.Record latest(NativeWalletProfiles.Profile profile) throws Exception; }
     ConfirmationReader confirmationReader=profile->new SolanaNativeTransfers(this,profile).checkLatest();
+    interface ClosePositionReader {boolean closed(NativeWalletProfiles.Profile profile,String asset,int side,java.math.BigInteger minimumSlot)throws Exception;}
+    ClosePositionReader closePositionReader=(profile,asset,side,minimumSlot)->new NativePerpsCloseChain().isClosed(profile.solanaAddress,asset,side,minimumSlot);
     private final ExecutorService worker=Executors.newSingleThreadExecutor();
     private volatile long epoch;
     private HardwareWalletVault vault;
@@ -47,6 +49,7 @@ public final class NativeWalletActivity extends Activity {
     private Spinner perpsAsset,perpsSide;
     private EditText perpsMargin,perpsLeverage,perpsPrice,perpsSl,perpsTp;
     private volatile NativePerpsTransfers perpsService;
+    private volatile NativePerpsCloseTransfers perpsCloseService;
     private final java.util.ArrayList<LinearLayout> sections=new java.util.ArrayList<>();
     private LinearLayout backupSection;
     private SeedCreationDialog seedDialog;
@@ -149,6 +152,8 @@ public final class NativeWalletActivity extends Activity {
         perpsTp=field(perpsSection,text("Take profit · precio USD · opcional","Take profit · USD price · optional"),false);
         for(EditText input:new EditText[]{perpsMargin,perpsLeverage,perpsPrice,perpsSl,perpsTp})input.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_DECIMAL);
         action(perpsSection,text("Revisar orden de Futuros","Review Futures order"),()->reviewPerps());
+        label(perpsSection,text("Para cerrar: selecciona el mercado y la dirección de tu posición y escribe un precio de referencia actual. Se cierra toda la posición existente; el margen y apalancamiento de arriba no se usan. El recibo será el token de garantía, no una conversión automática a USDC.","To close: select your position's market and direction and enter a current reference price. This closes the entire existing position; margin and leverage above are not used. You receive the collateral token, not an automatic conversion to USDC."),16);
+        action(perpsSection,text("Revisar cierre completo","Review full close"),()->reviewPerpsClose());
         action(root,text("Bloquear billetera","Lock wallet"),()->lock());
         if("perps".equals(getIntent().getStringExtra("wallet-navigation"))){
             if(getIntent().hasExtra("perps-asset"))try{
@@ -399,6 +404,7 @@ public final class NativeWalletActivity extends Activity {
                     text(" USDC. El saldo SOL no se convierte automáticamente en garantía. No se firmó ni envió nada."," USDC. SOL is not automatically converted into collateral. Nothing was signed or sent.");
                 else if("PERPS_MISSING_SOL_FEES".equals(funds.reason))explanation=text("Esta billetera no tiene SOL para pagar comisiones de red. El saldo USDC no paga esas comisiones. No se firmó ni envió nada.","This wallet has no SOL for network fees. USDC does not pay those fees. Nothing was signed or sent.");
             }
+            if("PERPS_POSITION_REQUESTS_REQUIRE_REVIEW".equals(failure.getMessage()))explanation=text("Esta posición tiene solicitudes pendientes, como TP/SL de una operación anterior. Deben revisarse y resolverse por separado antes de añadir exposición. No se firmó ni envió nada.","This position has pending requests, such as TP/SL from an earlier trade. Review and resolve them separately before adding exposure. Nothing was signed or sent.");
             final String message=explanation;runOnUiThread(()->{if(ticket==epoch)status.setText(message);});}});
     }
     private void authorizePerps(NativeWalletProfiles.Profile profile,NativePerpsTransfers service,NativePerpsTransfers.Draft draft,long ticket){
@@ -462,6 +468,50 @@ public final class NativeWalletActivity extends Activity {
                     });
             });
         }catch(Exception failure){runOnUiThread(()->{if(ticket==epoch){lock();status.setText(text("La autorización no está disponible o la cotización caducó. Desbloquea y revisa el intercambio de nuevo. No se envió esta solicitud.","Authorization unavailable or quote expired. Unlock and review the swap again. This request was not sent."));}});}});
+    }
+    void reviewPerpsClose(){
+        NativeWalletProfiles.Profile profile=selectedProfile;
+        if(profile==null){status.setText(text("Desbloquea primero la billetera.","Unlock the wallet first."));return;}
+        String asset=perpsAsset.getSelectedItem().toString(),price=perpsPrice.getText().toString().trim();int side=perpsSide.getSelectedItemPosition()+1;
+        try{NativePerpsOrderIntent.usd(price);}catch(Exception invalid){String message=text("Introduce el precio de referencia actual para proteger el cierre. No se envió ninguna orden.","Enter a current reference price to protect the close. No order was sent.");perpsPrice.setError(message);perpsPrice.requestFocus();status.setText(message);return;}
+        lock();selectedProfile=profile;long ticket=epoch;
+        NativePerpsCloseTransfers service;
+        try{service=new NativePerpsCloseTransfers(this,profile);}catch(Exception unavailable){status.setText(text("Registro de operaciones no disponible. No se enviará el cierre.","Transaction storage unavailable. The close will not be sent."));return;}
+        perpsCloseService=service;status.setText(text("Consultando tu posición y simulando el cierre. No se firma ni envía.","Reading your position and simulating the close. Nothing is signed or sent."));
+        worker.execute(()->{try{
+            NativePerpsCloseTransfers.Draft draft=service.prepare(asset,side,price,50);
+            runOnUiThread(()->{if(ticket!=epoch){service.invalidate();return;}
+                try{service.requireReview(draft,()->ticket==epoch);}catch(Exception expired){service.invalidate();status.setText(text("La revisión del cierre caducó. Solicita otra.","Close review expired. Request another."));return;}
+                WalletReviewDialog.show(this,text("Revisar cierre completo","Review full close"),draft.review.description(es),
+                    text("Autorizar cierre con huella","Authorize close with biometrics"),()->authorizePerpsClose(profile,service,draft,ticket),text("Cancelar","Cancel"),()->lock());
+            });
+        }catch(Exception failure){service.invalidate();runOnUiThread(()->{if(ticket==epoch)status.setText(text("No se pudo verificar el cierre. Comprueba que exista una posición de ese mercado y dirección, el precio y las operaciones pendientes. No se firmó ni envió nada.","Close could not be verified. Check that a position exists for this market and direction, the reference price and pending operations. Nothing was signed or sent."));});}});
+    }
+    private void authorizePerpsClose(NativeWalletProfiles.Profile profile,NativePerpsCloseTransfers service,NativePerpsCloseTransfers.Draft draft,long ticket){
+        if(ticket!=epoch)return;worker.execute(()->{try{
+            service.requireReview(draft,()->ticket==epoch);HardwareWalletVault selected=new HardwareWalletVault(this,profile.ownerId,profile.vaultId);var operation=selected.prepareOpen();
+            runOnUiThread(()->{if(ticket!=epoch){selected.cancel();return;}vault=selected;cancellation=new CancellationSignal();
+                new BiometricPrompt.Builder(this).setTitle(text("Autorizar cierre real","Authorize real close"))
+                    .setSubtitle(draft.review.intent.asset+" · "+text("Toda la posición","Entire position"))
+                    .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+                    .setNegativeButton(text("Cancelar","Cancel"),getMainExecutor(),(dialog,which)->lock()).build()
+                    .authenticate(new BiometricPrompt.CryptoObject(operation.authenticationCipher()),cancellation,getMainExecutor(),new BiometricPrompt.AuthenticationCallback(){
+                        @Override public void onAuthenticationError(int code,CharSequence reason){if(ticket==epoch)lock();}
+                        @Override public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult result){
+                            if(ticket!=epoch)return;if(result.getCryptoObject()==null||result.getCryptoObject().getCipher()!=operation.authenticationCipher()){lock();return;}
+                            worker.execute(()->{byte[][] signature=new byte[1][];try{
+                                if(ticket!=epoch)return;operation.completeOpen(entropy->signature[0]=service.signReviewed(draft,entropy,new SolanaNativeTransfers.Signer(){
+                                    public String address(byte[] input){return NativeHdWallet.addresses(input).solana;}
+                                    public byte[] sign(byte[] input,byte[] message){return NativeHdWallet.signSolana(input,message);}
+                                },()->ticket==epoch));
+                                String id=service.submit(draft,signature[0],()->ticket==epoch);
+                                runOnUiThread(()->{if(ticket==epoch){status.setText(text("Cierre presentado; comprobando confirmación. No repitas.\n","Close submitted; checking confirmation. Do not repeat.\n")+id);pollSwapConfirmation(profile,id,ticket,0);}});
+                            }catch(Exception failure){runOnUiThread(()->{if(ticket==epoch)status.setText(text("Cierre no confirmado. Consulta la última operación de Solana antes de repetir; el intento podría haberse transmitido.","Close unconfirmed. Check the latest Solana operation before retrying; the attempt may have been broadcast."));});}
+                            finally{if(signature[0]!=null)Arrays.fill(signature[0],(byte)0);service.invalidate();selected.cancel();}});
+                        }
+                    });
+            });
+        }catch(Exception failure){runOnUiThread(()->{if(ticket==epoch){lock();status.setText(text("La autorización del cierre no está disponible o caducó. Solicita una revisión nueva. No se envió esta solicitud.","Close authorization unavailable or expired. Request a fresh review. This request was not sent."));}});}});
     }
     void reviewUsdc(){
         NativeWalletProfiles.Profile profile=selectedProfile;
@@ -568,10 +618,19 @@ public final class NativeWalletActivity extends Activity {
                 try{
                     var record=confirmationReader.latest(profile);
                     if(record==null || !id.equals(record.transactionId))throw new IllegalStateException("Confirmation record mismatch");
+                    final boolean fullClose=record.perps!=null&&"FULL_CLOSE".equals(record.perps.operation);
+                    boolean verifiedClose=false;
+                    if(fullClose&&record.phase==NativeTransferJournal.Phase.CONFIRMED){
+                        try{verifiedClose=closePositionReader.closed(profile,record.perps.asset,record.perps.side,record.perps.minimumSlot);}catch(Exception unavailable){/* Never treat missing or stale state as an empty position. */}
+                    }
+                    final boolean positionClosed=verifiedClose;
                     runOnUiThread(()->{
                         if(ticket!=epoch)return;
                         String message;
-                        if(record.phase==NativeTransferJournal.Phase.CONFIRMED)message=text("Operación confirmada por la red.","Operation confirmed by the network.");
+                        if(record.phase==NativeTransferJournal.Phase.CONFIRMED&&fullClose)message=positionClosed?
+                            text("Cierre confirmado y posición cerrada en la red. La conversión a USDC y la limpieza de TP/SL, si corresponden, son operaciones separadas.","Close confirmed and position closed on chain. USDC conversion and TP/SL cleanup, if applicable, are separate operations."):
+                            text("La firma aparece confirmada, pero no se ha podido comprobar que la posición esté cerrada. Consulta su estado; no repitas automáticamente.","The signature is confirmed, but the position could not be verified closed. Check its state; do not retry automatically.");
+                        else if(record.phase==NativeTransferJournal.Phase.CONFIRMED)message=text("Operación confirmada por la red.","Operation confirmed by the network.");
                         else if(record.phase==NativeTransferJournal.Phase.FAILED)message=text("La red rechazó la operación. Puede haberse cobrado la comisión de red.","The network rejected the operation. A network fee may have been charged.");
                         else message=text("Confirmación pendiente. No repitas la operación. Puedes consultar la última operación de Solana.","Confirmation pending. Do not repeat the operation. You can check the latest Solana operation.");
                         status.setText(message+"\n"+id);
@@ -672,7 +731,7 @@ public final class NativeWalletActivity extends Activity {
         });
     }
     private void error(long ticket){runOnUiThread(()->{if(ticket!=epoch)return;lock();status.setText(text("No se pudo verificar esta operación. Esto no confirma un cambio de huella. Conserva tu respaldo; no se ha enviado dinero.","This operation could not be verified. This does not confirm a biometric change. Keep your backup; no money was sent."));});}
-    private void lock(){epoch++;NativePerpsTransfers previous=perpsService;perpsService=null;if(previous!=null)previous.invalidate();selectedProfile=null;if(cancellation!=null)cancellation.cancel();cancellation=null;if(vault!=null)vault.cancel();vault=null;if(enrollment!=null)enrollment.cancel();if(password!=null)password.setText("");if(passwordRepeat!=null)passwordRepeat.setText("");if(addresses!=null)addresses.setText("");if(status!=null)status.setText(text("Billetera bloqueada.","Wallet locked."));}
+    private void lock(){epoch++;NativePerpsTransfers previous=perpsService;perpsService=null;if(previous!=null)previous.invalidate();NativePerpsCloseTransfers close=perpsCloseService;perpsCloseService=null;if(close!=null)close.invalidate();selectedProfile=null;if(cancellation!=null)cancellation.cancel();cancellation=null;if(vault!=null)vault.cancel();vault=null;if(enrollment!=null)enrollment.cancel();if(password!=null)password.setText("");if(passwordRepeat!=null)passwordRepeat.setText("");if(addresses!=null)addresses.setText("");if(status!=null)status.setText(text("Billetera bloqueada.","Wallet locked."));}
     @Override protected void onStop(){if(seedDialog!=null){seedDialog.dismiss();seedDialog=null;}lock();super.onStop();}
     @Override protected void onDestroy(){lock();worker.shutdownNow();super.onDestroy();}
 }

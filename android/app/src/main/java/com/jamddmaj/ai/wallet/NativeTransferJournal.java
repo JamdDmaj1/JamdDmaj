@@ -54,17 +54,35 @@ public final class NativeTransferJournal {
         public boolean pending() { return phase == Phase.UNKNOWN || phase == Phase.SUBMITTED; }
     }
 
-    /** Descriptive broadcast identity, never signing authority. Perps units are USDC micro-units. */
+    /** Descriptive identity, never signing authority. Entry units are margin;
+     * FULL_CLOSE units are removed exposure, both integer USD micro-units. */
     public static final class Perps {
-        public final String asset,position,signedWireSha256;
+        public final String asset,position,signedWireSha256,operation;
+        public final BigInteger minimumSlot;
         public final int side;
         private Perps(String asset,int side,String position,String digest,String payer){
+            this(asset,side,position,digest,payer,"INCREASE",BigInteger.ZERO);
+        }
+        private Perps(String asset,int side,String position,String digest,String payer,String operation,BigInteger minimumSlot){
             if(!("BTC".equals(asset)||"ETH".equals(asset)||"SOL".equals(asset))||(side!=1&&side!=2)
                     ||digest==null||!digest.matches("[0-9a-f]{64}")
-                    ||!DevnetSolana.encode(NativePerpsAddresses.position(payer,asset,side)).equals(position))
+                    ||!DevnetSolana.encode(NativePerpsAddresses.position(payer,asset,side)).equals(position)||!("INCREASE".equals(operation)||"FULL_CLOSE".equals(operation))
+                    ||minimumSlot==null||minimumSlot.signum()<0||minimumSlot.bitLength()>64||"INCREASE".equals(operation)&&minimumSlot.signum()!=0)
                 throw new IllegalArgumentException("Invalid perps journal identity");
-            this.asset=asset;this.side=side;this.position=position;this.signedWireSha256=digest;
+            this.asset=asset;this.side=side;this.position=position;this.signedWireSha256=digest;this.operation=operation;this.minimumSlot=minimumSlot;
         }
+    }
+
+    void beginPerpsClose(NativePerpsSignedEnvelope envelope,NativePerpsCloseIntent intent,BigInteger fee,BigInteger minimumSlot)throws Exception{
+        if(network!=WalletNetwork.SOLANA_MAINNET||envelope==null||intent==null||!owner.solanaAddress.equals(envelope.payer)
+                ||!owner.solanaAddress.equals(intent.payer)||fee==null||fee.signum()<=0||fee.compareTo(BigInteger.valueOf(1000000))>0
+                ||minimumSlot==null||minimumSlot.signum()<=0||minimumSlot.bitLength()>64)throw new IOException("Close journal owner mismatch");
+        byte[] hash=java.security.MessageDigest.getInstance("SHA-256").digest(envelope.bytes());StringBuilder digest=new StringBuilder();
+        for(byte value:hash)digest.append(String.format(java.util.Locale.ROOT,"%02x",value&255));
+        Perps metadata=new Perps(intent.asset,intent.side,intent.positionAddress,digest.toString(),owner.solanaAddress,"FULL_CLOSE",minimumSlot);
+        validate(envelope.transactionId,intent.positionAddress,intent.sizeUsd,fee);
+        synchronized(LOCK){Record previous=read();if(previous!=null&&(previous.pending()||previous.transactionId.equals(envelope.transactionId)))throw new IOException("Unresolved or recorded transaction");
+            write(new Record(envelope.transactionId,intent.positionAddress,intent.sizeUsd,fee,Phase.UNKNOWN,System.currentTimeMillis(),null,null,null,null,metadata));}
     }
 
     /** Caller must finish native review/biometrics first. This records, but never sends. */
@@ -181,8 +199,9 @@ public final class NativeTransferJournal {
         if(value.has("perps")){
             if(network!=WalletNetwork.SOLANA_MAINNET||value.has("swap")||tokenMint!=null)throw new IOException("Invalid perps journal network or kind");
             JSONObject p=value.getJSONObject("perps");Object side=p.get("side");
-            if(!(side instanceof Integer)||p.length()!=4)throw new IOException("Invalid perps journal metadata");
-            perps=new Perps(p.getString("asset"),(Integer)side,p.getString("position"),p.getString("signedWireSha256"),owner.solanaAddress);
+            if(!(side instanceof Integer)||p.length()!=4+(p.has("operation")?1:0)+(p.has("minimumSlot")?1:0)||p.has("minimumSlot")&&!p.has("operation"))throw new IOException("Invalid perps journal metadata");
+            String slot=p.has("minimumSlot")?p.getString("minimumSlot"):"0";if(!slot.matches("0|[1-9][0-9]{0,19}"))throw new IOException("Invalid perps journal bank");
+            perps=new Perps(p.getString("asset"),(Integer)side,p.getString("position"),p.getString("signedWireSha256"),owner.solanaAddress,p.has("operation")?p.getString("operation"):"INCREASE",new BigInteger(slot));
             if(!perps.position.equals(value.getString("recipient")))throw new IOException("Invalid perps journal position");
         }
         Record record = new Record(value.getString("transactionId"), value.getString("recipient"), new BigInteger(amount),
@@ -200,6 +219,7 @@ public final class NativeTransferJournal {
         if(record.tokenMint!=null)value.put("tokenMint",record.tokenMint);
         if(record.perps!=null)value.put("perps",new JSONObject().put("asset",record.perps.asset).put("side",record.perps.side)
             .put("position",record.perps.position).put("signedWireSha256",record.perps.signedWireSha256));
+        if(record.perps!=null&&"FULL_CLOSE".equals(record.perps.operation))value.getJSONObject("perps").put("operation",record.perps.operation).put("minimumSlot",record.perps.minimumSlot.toString());
         byte[] expected = value.toString().getBytes(StandardCharsets.UTF_8);
         FileOutputStream output = null;
         try {
