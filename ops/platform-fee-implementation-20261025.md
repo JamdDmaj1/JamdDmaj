@@ -14,7 +14,11 @@ The payment engine now includes separately compiled TransferChecked + invoice-bo
 
 Payment attempts have distinct SIGNING, UNKNOWN, PAID and FAILED states. Exact owner-signed bytes are retained even when a wallet prompt returns after review expiry, but expired reviews cannot broadcast. Two independent journal connections cannot prompt/send the same fee twice. Timeout/unknown results are held, not retried. Settlement requires the exact serialized transaction, verified owner signature, finalized status, expected recipient/mint and exact USDC/SOL effects. An acknowledgement alone never means PAID.
 
-This is NOT a production rollout. Assessment state remains `AWAITING_PAYMENT_REVIEW`; actual payment status comes from the separate durable payment journal. No account has been debited and no real financial signature or broadcast was made. No production database was changed. The payment engine uses explicit injected signing and RPC adapters; it is not attached to the deployed worker or browser/native signing paths. The implemented payer variant uses the owner's SOL, not a sponsor. A user choice is pending on whether JamdDmaj should instead sponsor the network fee, which changes message structure, signing, service custody and funding requirements.
+This is NOT a production rollout. Assessment state remains `AWAITING_PAYMENT_REVIEW`; actual payment status comes from the separate durable payment journal. No account has been debited and no real financial signature or broadcast was made. No production database was changed. The payment engine uses explicit injected signing and RPC adapters; it is not attached to the deployed worker or browser/native signing paths.
+
+Network payer choice resolved: the user explicitly chose that each trader pays Solana network fees from their own SOL. No sponsor wallet is authorized or needed for this variant. Terms version `jamddmaj-perps-margin-20bps-v2-trader-sol` explicitly pins TRADER/SOL and requires trader SOL; existing versioned acceptance cannot silently cover changed terms. Fee preparation checks sufficient native fee balance, not only USDC.
+
+A shared browser/native-WebView review component now shows the exact USDC platform fee, separate SOL network charge, destination and initially unchecked explicit acceptance. It invalidates approval on wallet/session changes, expiry and background state, retains the original branded review identity for its injected signing adapter, and never equates a submission acknowledgement with payment. It is implemented and tested but not yet attached to a public-page API or native/Phantom signing adapter.
 
 Verification at this checkpoint: 69 related tests passed, zero failed, including 17 fee-specific tests. All signing and RPC/broadcast cases use unfunded deterministic fixtures and in-memory fake transport. The regular public web build passes. No release version was bumped or deployment performed.
 
@@ -22,7 +26,7 @@ Remaining implementation gates, in order:
 
 1. Bind explicit versioned customer consent into authenticated bot/manual entry reviews; include fee amounts in capital/risk reservations. Do not infer consent from an old activation or create fees for old entries.
 2. Connect the tested payment engine and durable payment-attempt journal to shared wallet/risk reservations; retain cross-operation exclusivity with entries, closes and swaps. Assessment uniqueness is not by itself payment-attempt exclusivity.
-3. Resolve the network payer choice, then add narrow native/Phantom and bot custody adapters for the chosen signing structure, dedicated review and failure/unknown reconciliation. No arbitrary-message signer or automatic retry of uncertain sends.
+3. Connect narrow native/Phantom and bot custody adapters for the trader-paid SOL signing structure and the tested review component. No arbitrary-message signer or automatic retry of uncertain sends.
 4. Expose due, pending, paid and failed payment states without presenting a fee failure as a failed or closed trade. Include the new store in backup/recovery verification before deployment.
 5. Verify complete isolated signing/broadcast/restart fixtures and publish only the completed path. Network sponsorship remains separate: USDC platform fees do not remove SOL network fees.
 

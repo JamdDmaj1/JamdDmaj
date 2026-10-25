@@ -22,6 +22,7 @@ test('20 bps are exact USDC margin units, never leveraged size; no close fee or 
   const q=quotePerpsPlatformFee(margin);assert.equal(q.feeUnits,fee);
   assert.equal(q.totalMarginAndPlatformFeeUnits,String(BigInt(margin)+BigInt(fee)));assert.ok(Object.isFrozen(q));
   assert.equal(q.closeFeeUnits,'0');assert.equal(q.networkSponsorshipAvailable,false);assert.equal(q.readyForSigning,false);
+  assert.equal(q.networkFeePayer,'TRADER');assert.equal(q.networkFeeToken,'SOL');assert.equal(q.requiresTraderSol,true);
  }
  for(const bad of [10,'10','0','-1','1.5','010000000','1e7','1000000000000000',null])assert.throws(()=>quotePerpsPlatformFee(bad));
  assert.equal(bs58.decode(PERPS_PLATFORM_FEE.recipient).length,32);
@@ -96,7 +97,7 @@ async function paymentFixture(t,changes={}){
  const request=async(method,params)=>{calls.push({method,params});
   if(method==='getGenesisHash')return changes.genesis??genesis;
   if(method==='getLatestBlockhash')return {context:{slot:500},value:{blockhash:bs58.encode(Buffer.alloc(32,8)),lastValidBlockHeight:1000}};
-  if(method==='getMultipleAccounts')return {context:{slot:500},value:[payer(false),account(TOKEN,mintData),changes.noFunds?token(f.consent.walletAddress,0):source(false),dest(false)]};
+  if(method==='getMultipleAccounts')return {context:{slot:500},value:[changes.noSol?account('11111111111111111111111111111111',Buffer.alloc(0),0):payer(false),account(TOKEN,mintData),changes.noFunds?token(f.consent.walletAddress,0):source(false),dest(false)]};
   if(method==='getFeeForMessage')return {context:{slot:500},value:5000};
   if(method==='getBlockHeight')return changes.expired?1001:600;
   if(method==='simulateTransaction')return {context:{slot:500},value:{err:changes.simulationError??null,accounts:[payer(true),source(true),changes.changedEffects?dest(false):dest(true)]}};
@@ -127,7 +128,7 @@ test('full isolated fee payment review, signature, one send and finalized receip
  assert.equal((await reconcilePerpsPlatformFeePayment(review.assessmentId,{journal:reopened,request:f.request,now:f.now})).paid,true);
 });
 test('fee preparation rejects absent funds, network mismatch and incorrect simulated payout',async t=>{
- for(const patch of [{noFunds:true},{genesis:'wrong'},{changedEffects:true},{simulationError:{InstructionError:[0,'Custom']}}]){
+ for(const patch of [{noFunds:true},{noSol:true},{genesis:'wrong'},{changedEffects:true},{simulationError:{InstructionError:[0,'Custom']}}]){
   const f=await paymentFixture(t,patch);await assert.rejects(preparePerpsPlatformFeePayment(f.assessment,{request:f.request,now:f.now}));
   assert.equal(f.calls.some(c=>c.method==='sendTransaction'),false);
  }
