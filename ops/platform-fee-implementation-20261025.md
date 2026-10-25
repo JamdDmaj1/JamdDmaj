@@ -40,4 +40,12 @@ Read-only mainnet preflight found an operational blocker: recipient `4WMnKm3KvLE
 
 A read-only quote for an operator-paid idempotent ATA creation returned 1,488,440 lamports of account rent reserve and 5,000 lamports network fee (1,493,440 lamports total / 0.00149344 SOL). This is a temporary quote, not a guarantee for a later transaction. The message was prepared only to query getFeeForMessage; it was not signed or submitted. Creating/funding the account requires the recipient owner's explicit transaction confirmation, and must not be silently charged to the first customer. This operational step does not replace the remaining signer, risk-reservation and recovery integration gates above.
 
+## Authorized unsigned operator setup preparation
+
+After the user approved preparing the operation (not signing or sending), `scripts/prepare-fee-recipient-setup.mjs` produced an unsigned packet under `.perps-build/`. Its RPC allowlist contains only reads and unsigned simulation. It has no signing or submission method and accepts no key material or caller-selected destination. The fixed recipient is both fee payer and ATA owner; customers and the exclusive bot wallet are not charged for this setup.
+
+The live read-only simulation verified exactly 1,493,440 lamports deducted from the operator in simulation (1,488,440 account rent reserve plus 5,000 network fee), a new classic USDC token account owned by that recipient, and zero USDC transferred. The operator observed balance was sufficient. Four additional isolated tests cover exact zero-signature serialization, existing-account no-op, wrong network, insufficient operator SOL, changed simulation effects and the CLI's read-only boundary.
+
+The generated packet is a developer artifact with a short-lived blockhash, not an importable Phantom backup or an in-app approval screen. The recipient ATA is NOT created by this preparation. No real wallet was signed, no transaction was submitted and no release was deployed. A fresh wallet review and human confirmation are still required through the app's not-yet-connected operator setup signing interface. No seed or private key should ever be entered into this tooling.
+
 Provider API reviewed: https://perps-api.jup.ag/v2/docs — current increase endpoint has no platform fee/recipient parameter. Existing repository envelope policy verifies the provider's signature over the exact message. Solana fee abstraction: https://solana.com/docs/payments/send-payments/payment-processing/fee-abstraction.
