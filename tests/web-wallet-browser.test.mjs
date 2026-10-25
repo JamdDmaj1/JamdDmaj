@@ -15,6 +15,7 @@ test('isolated web wallet recovers, reviews, explicitly signs a mock swap and lo
  const backup=await sealPortableWalletBackup(entropy,password),f=await swapFixture(address,{nativeInput:false});
  const root=resolve('www'),server=createServer(async(req,res)=>{try{const path=resolve(root,'.'+new URL(req.url,'http://localhost').pathname);if(!path.startsWith(root+sep))throw Error();res.setHeader('Content-Type',path.endsWith('.js')?'text/javascript':path.endsWith('.css')?'text/css':'text/html');res.end(await readFile(path));}catch{res.statusCode=404;res.end();}});
  await new Promise(r=>server.listen(0,'127.0.0.1',r));let browser,sends=0;const errors=[],requests=[];
+ const target=process.env.JAMDDMAJ_WALLET_BROWSER_URL||'http://127.0.0.1:'+server.address().port;
  try{
   const {chromium}=await import(process.env.JAMDDMAJ_TEST_BROWSER_MODULE);browser=await chromium.launch({headless:true,executablePath:process.env.JAMDDMAJ_TEST_BROWSER_EXECUTABLE});
   const page=await browser.newPage();page.on('pageerror',e=>errors.push(e.message));
@@ -22,9 +23,9 @@ test('isolated web wallet recovers, reviews, explicitly signs a mock swap and lo
    if(url.hostname==='solana-rpc.publicnode.com'){if(request.method()==='OPTIONS')return route.fulfill({status:204,headers:{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'POST, OPTIONS','Access-Control-Allow-Headers':'Content-Type'}});const value=JSON.parse(body);let result;if(value.method==='sendTransaction'){sends++;const wire=from64(value.params[0]);assert.equal(ed25519.verify(wire.subarray(1,65),wire.subarray(65),bs58.decode(address)),true);result=bs58.encode(wire.subarray(1,65));}else result=await f.rpc(value.method,value.params);return route.fulfill({headers:{'Access-Control-Allow-Origin':'*'},json:{jsonrpc:'2.0',id:value.id,result}});}
    if(url.pathname==='/api/swap-build'){f.preparation.receivedAt=Date.now();f.preparation.expiresAt=f.preparation.receivedAt+15000;return route.fulfill({json:{ok:true,preparation:f.preparation}});}
    if(url.pathname==='/api/solana-portfolio')return route.fulfill({json:{ok:true,address,network:'solana:mainnet',updatedAt:new Date().toISOString(),sol:{amount:.14},tokens:[{mint:f.intent.inputMint,amount:5}]}});
-   if(url.hostname!=='127.0.0.1')throw Error('Unexpected external request');return route.continue();
+   if(url.origin!==target)throw Error('Unexpected external request');return route.continue();
   });
-  await page.goto('http://127.0.0.1:'+server.address().port+'/wallet-web.html?address='+address);
+  await page.goto(target+'/wallet-web.html?address='+address);
   assert.equal(await page.locator('#swap-review').isDisabled(),true);
   await page.locator('#wallet-backup').setInputFiles({name:'public-fixture.jamdwallet',mimeType:'application/octet-stream',buffer:Buffer.from(backup)});
   await page.locator('#wallet-password').fill(password);await page.locator('#wallet-unlock').click();await page.locator('#wallet-status').filter({hasText:'Desbloqueada:'}).waitFor();
