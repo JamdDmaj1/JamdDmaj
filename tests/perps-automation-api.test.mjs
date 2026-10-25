@@ -14,6 +14,7 @@ import {authenticateTrial} from '../lib/web-trial-session.js';
 import {hashIdentifier} from '../lib/server.js';
 import {fixtureWallet as walletAddress,fixtureNow as now} from './helpers/perps-history-fixture.mjs';
 import {readServerPerpsAccount} from '../lib/perps-server-account.js';
+import {quotePerpsPlatformFee} from '../lib/perps-platform-fee.js';
 const owner='a'.repeat(64),otherOwner='b'.repeat(64),token='c'.repeat(64),otherToken='d'.repeat(64),settings={capital:100,loss:50,positions:2,margin:20,leverage:3,dailyTrades:3};
 async function fixture(t,overrides={}){
  const dir=mkdtempSync(join(tmpdir(),'jamd-perps-api-')),controls=openPerpsAutomationControls(join(dir,'controls.sqlite'),{now:()=>now});
@@ -35,6 +36,19 @@ test('verified session identity, not JSON identity, governs ownership and all re
  const foreign=await f.handler(new Request('https://executor.example/v1/automation?walletAddress='+walletAddress,{headers:{Authorization:'Bearer '+otherToken}}));
  assert.equal(foreign.status,403);assert.equal((await foreign.json()).error.code,'controls-unavailable');
  const forged=await f.handler(request({action:'pause',walletAddress,ownerAccountHash:owner}));assert.equal(forged.status,400);
+});
+test('fee-enabled activation discloses terms and cannot record another account consent or skip approval',async t=>{
+ const consent=[];const platformFees={automationDisclosure:()=>quotePerpsPlatformFee('20000000'),recordAutomationConsent:args=>consent.push(args)};
+ const f=await fixture(t,{platformFees});
+ const response=await f.handler(request({action:'activationReview',walletAddress,expectedRevision:f.first.revision}));
+ const r=(await response.json()).review;assert.equal(r.platformFee.feeUnits,'40000');
+ const body={action:'activate',walletAddress,expectedRevision:f.first.revision,token:r.token,explicitApproval:true};
+ assert.equal((await f.handler(request(body))).status,400);assert.equal(consent.length,0);
+ const accepted={...body,explicitFeeApproval:true,feeTermsVersion:r.platformFee.version};
+ assert.equal((await f.handler(request(accepted,{headers:{Authorization:'Bearer '+otherToken,'Content-Type':'application/json'}}))).status,403);
+ // Real ownership must be checked before invoking the consent adapter.
+ assert.equal(consent.length,0);
+ assert.equal((await f.handler(request(accepted))).status,503);assert.equal(consent.length,1);assert.equal(consent[0].ownerAccountHash,owner);
 });
 
 test('exclusive funding status uses fresh native owner-bound evidence and never equates unknown with zero or trading authority',async t=>{

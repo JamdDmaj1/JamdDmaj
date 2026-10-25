@@ -30,4 +30,14 @@ Remaining implementation gates, in order:
 4. Expose due, pending, paid and failed payment states without presenting a fee failure as a failed or closed trade. Include the new store in backup/recovery verification before deployment.
 5. Verify complete isolated signing/broadcast/restart fixtures and publish only the completed path. Network sponsorship remains separate: USDC platform fees do not remove SOL network fees.
 
+## Authenticated consent integration checkpoint
+
+The existing control client, activation panel and automation HTTP adapter now support an optional fee-enabled backend. They verify the canonical versioned fee disclosure and require a separate initially unchecked fee acceptance in addition to bot activation approval. Unknown/changed fee terms, recipient or payer are rejected. An authenticated ownership lookup occurs before invoking the private consent recorder. If a fee-enabled review reaches a backend whose fee service is no longer configured, activation fails rather than silently dropping the terms.
+
+The private fee journal records owner-bound automation mandates against the reviewed settings. The executor has an opt-in pre-signing hook that records reservation-bound consent only when the current active control revision and mandate settings still agree. Changing settings, pausing, old fee versions and foreign account identities cannot authorize that entry. Production still has no attached fee signer, risk overlay or fee-service startup configuration; these source changes do not enable customer charges.
+
+Read-only mainnet preflight found an operational blocker: recipient `4WMnKm3KvLEHiw8tVFTynka8jBYvwekM2BpZz9iyyBjr` exists, but canonical USDC ATA `AKyJkfAEqmPMCbKRFmtdYzkHry3oJjPxtZFathpSwKNL` does not, and getTokenAccountsByOwner returned zero USDC accounts. Payment preparation now reports `PLATFORM_FEE_RECIPIENT_USDC_ACCOUNT_MISSING` before any signing/simulation request rather than a generic error or customer-funded account creation. No address was changed.
+
+A read-only quote for an operator-paid idempotent ATA creation returned 1,488,440 lamports of account rent reserve and 5,000 lamports network fee (1,493,440 lamports total / 0.00149344 SOL). This is a temporary quote, not a guarantee for a later transaction. The message was prepared only to query getFeeForMessage; it was not signed or submitted. Creating/funding the account requires the recipient owner's explicit transaction confirmation, and must not be silently charged to the first customer. This operational step does not replace the remaining signer, risk-reservation and recovery integration gates above.
+
 Provider API reviewed: https://perps-api.jup.ag/v2/docs — current increase endpoint has no platform fee/recipient parameter. Existing repository envelope policy verifies the provider's signature over the exact message. Solana fee abstraction: https://solana.com/docs/payments/send-payments/payment-processing/fee-abstraction.

@@ -48,7 +48,7 @@ async function fixture(t){
  let clock=time;const now=()=>clock,entry=openPerpsExecutionJournal(join(dir,'entries.sqlite'),{now});journals.push(entry);
  const snapshot={walletAddress:wallet,network:'solana-mainnet',balancesComplete:true,observedAt:time,day:'2026-10-25',availableUsdcUnits:'100000000',allocatedUsdcUnits:'0',lossTodayUsdcUnits:'0',openPositions:0,tradesToday:0};
  entry.reserve({walletAddress:wallet,reservationId:'entry',signalId:'signal',marginUsd:'40',positionAddress:ids.position,limits:{capitalUsd:'100',dailyLossUsd:'100',positions:1,dailyTrades:5},snapshot});
- const open=()=>{const j=openPerpsPlatformFeeJournal(join(dir,'fees.sqlite'),{entryJournal:entry,now});journals.push(j);return j;};
+ const open=(options={})=>{const j=openPerpsPlatformFeeJournal(join(dir,'fees.sqlite'),{entryJournal:entry,now,...options});journals.push(j);return j;};
  const consent={reservationId:'entry',walletAddress:wallet,termsVersion:PERPS_PLATFORM_FEE.version,explicitConsent:true};
  return {entry,open,consent,tx,rpc,now,dir,journals,signFee(review){const m=Buffer.from(review.messageBase64,'base64');return Buffer.concat([Buffer.from([1]),sign(null,m,keys[0]),m]).toString('base64');},advance(ms){clock+=ms;},async finalize(){entry.beginSigning('entry',snapshot);entry.recordBroadcastIntent('entry',{signature,wireHash});clock=time+2000;const r=await readPerpsBroadcastReceipt({walletAddress:wallet,signature,wireHash},rpc,{now,requireFinalized:true});entry.reconcileBroadcast('entry',r);return readServerPerpsTradeTransaction({walletAddress:wallet,signature,day:'2026-10-25'},{request:rpc,now});}};
 }
@@ -97,7 +97,7 @@ async function paymentFixture(t,changes={}){
  const request=async(method,params)=>{calls.push({method,params});
   if(method==='getGenesisHash')return changes.genesis??genesis;
   if(method==='getLatestBlockhash')return {context:{slot:500},value:{blockhash:bs58.encode(Buffer.alloc(32,8)),lastValidBlockHeight:1000}};
-  if(method==='getMultipleAccounts')return {context:{slot:500},value:[changes.noSol?account('11111111111111111111111111111111',Buffer.alloc(0),0):payer(false),account(TOKEN,mintData),changes.noFunds?token(f.consent.walletAddress,0):source(false),dest(false)]};
+  if(method==='getMultipleAccounts')return {context:{slot:500},value:[changes.noSol?account('11111111111111111111111111111111',Buffer.alloc(0),0):payer(false),account(TOKEN,mintData),changes.noFunds?token(f.consent.walletAddress,0):source(false),changes.destinationMissing?null:dest(false)]};
   if(method==='getFeeForMessage')return {context:{slot:500},value:5000};
   if(method==='getBlockHeight')return changes.expired?1001:600;
   if(method==='simulateTransaction')return {context:{slot:500},value:{err:changes.simulationError??null,accounts:[payer(true),source(true),changes.changedEffects?dest(false):dest(true)]}};
@@ -182,5 +182,32 @@ test('foreign mint, recipient, SOL effects, network fee or serialized receipt ne
   const f=await paymentFixture(t,{tamperReceipt}),journal=f.openPayments(),review=await preparePerpsPlatformFeePayment(f.assessment,{request:f.request,now:f.now});
   await collectReviewedPerpsPlatformFee(review,{journal,request:f.request,explicitApproval:true,signReviewed:r=>f.signFee(r)});
   await assert.rejects(reconcilePerpsPlatformFeePayment(review.assessmentId,{journal,request:f.request,now:f.now}));assert.equal(journal.read(review.assessmentId).state,'UNKNOWN');
+ }
+});
+test('automation fees require prior owner-bound consent under the exact reviewed settings',async t=>{
+ const f=await fixture(t),owner='a'.repeat(64);
+ let state={walletAddress:f.consent.walletAddress,revision:'paused-review',settings:{margin:40,capital:100,loss:100,leverage:3,positions:1,dailyTrades:5},enabled:false,paused:true};
+ const controls={read:who=>{if(who.ownerAccountHash!==owner||who.walletAddress!==state.walletAddress)throw Error('NOT_OWNED');return state;}};
+ const j=f.open({controls}),who={ownerAccountHash:owner,walletAddress:state.walletAddress};
+ assert.equal(j.automationDisclosure(state).feeUnits,'80000');
+ assert.throws(()=>j.recordAutomationEntryConsent({...who,controlRevision:state.revision,reservationId:'entry'}));
+ const consent={...who,expectedRevision:state.revision,termsVersion:PERPS_PLATFORM_FEE.version,explicitFeeApproval:true};
+ for(const patch of [{explicitFeeApproval:false},{termsVersion:'old'},{expectedRevision:'stale'},{ownerAccountHash:'b'.repeat(64)}])assert.throws(()=>j.recordAutomationConsent({...consent,...patch}));
+ j.recordAutomationConsent(consent);state={...state,revision:'active-revision',enabled:true,paused:false};
+ const saved=j.recordAutomationEntryConsent({...who,controlRevision:state.revision,reservationId:'entry'});assert.equal(saved.margin,'40000000');
+ const receipt=await f.finalize();assert.equal(j.assessFinalizedOpen('entry',receipt).fee,'80000');
+});
+test('a missing operator USDC token account blocks collection with a specific setup error, never customer-funded creation',async t=>{
+ const f=await paymentFixture(t,{destinationMissing:true});
+ await assert.rejects(preparePerpsPlatformFeePayment(f.assessment,{request:f.request,now:f.now}),/PLATFORM_FEE_RECIPIENT_USDC_ACCOUNT_MISSING/);
+ assert.equal(f.calls.some(c=>['sendTransaction','simulateTransaction'].includes(c.method)),false);
+});
+test('changing settings or pausing invalidates automation fee authorization before signing',async t=>{
+ for(const change of [{settings:{margin:41,capital:100,loss:100}},{enabled:false,paused:true},{revision:'different'}]){
+  const f=await fixture(t),owner='a'.repeat(64);let state={walletAddress:f.consent.walletAddress,revision:'review',settings:{margin:40,capital:100,loss:100},enabled:false,paused:true};
+  const j=f.open({controls:{read:()=>state}}),who={ownerAccountHash:owner,walletAddress:state.walletAddress};
+  j.recordAutomationConsent({...who,expectedRevision:'review',termsVersion:PERPS_PLATFORM_FEE.version,explicitFeeApproval:true});
+  state={...state,revision:'active',enabled:true,paused:false,...change};
+  assert.throws(()=>j.recordAutomationEntryConsent({...who,controlRevision:'active',reservationId:'entry'}));
  }
 });

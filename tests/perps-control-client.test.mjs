@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createPerpsControlClient,PERPS_CONTROL_ORIGIN,readExistingPerpsControlSession} from '../lib/perps-control-client.js';
 import {validateAutomationSettings} from '../lib/automation-panel.js';
+import {quotePerpsPlatformFee} from '../lib/perps-platform-fee.js';
 import {fixtureWallet as wallet} from './helpers/perps-history-fixture.mjs';
 const token='a'.repeat(64),revision='12345678-1234-4123-8123-123456789abc';
 const settings={capital:100,loss:50,positions:2,margin:20,leverage:3,dailyTrades:3};
@@ -138,4 +139,20 @@ test('lost activation response remains a single attempt and cannot be retried wi
   writes++;throw Error('private upstream failure');
  }});
  const review=await f.client.prepareActivation({walletAddress:wallet,expectedRevision:revision});await assert.rejects(f.client.activate({review,explicitApproval:true}));assert.throws(()=>f.client.activate({review,explicitApproval:true}));assert.equal(writes,1);
+});
+test('activation with platform fees validates exact terms and needs separate unchecked approval',async()=>{
+ const at=Date.now(),fee=quotePerpsPlatformFee('20000000');let writes=0;
+ const f=fixture({now:()=>at,healthReply:{...health,mode:'execute',executionAvailable:true},reply:(_url,options)=>{
+  const body=JSON.parse(options.body);
+  if(body.action==='activationReview')return Response.json({ok:true,review:{walletAddress:wallet,revision,settings,token:'f'.repeat(64),expiresAt:at+60000,platformFee:fee}});
+  writes++;assert.equal(body.explicitFeeApproval,true);assert.equal(body.feeTermsVersion,fee.version);
+  return Response.json({ok:true,controls:{...state,enabled:true,paused:false,revision:'22345678-1234-4123-8123-123456789abc'}});
+ }});
+ const r=await f.client.prepareActivation({walletAddress:wallet,expectedRevision:revision});assert.equal(r.platformFee.feeUnits,'40000');
+ assert.throws(()=>f.client.activate({review:r,explicitApproval:true}),/fee-approval-required/);assert.equal(writes,0);
+ await f.client.activate({review:r,explicitApproval:true,explicitFeeApproval:true});assert.equal(writes,1);
+ for(const patch of [{feeUnits:'1'},{recipient:'other'},{networkFeePayer:'SPONSOR'},{version:'old'}]){
+  const bad=fixture({now:()=>at,healthReply:{...health,mode:'execute',executionAvailable:true},reply:()=>Response.json({ok:true,review:{walletAddress:wallet,revision,settings,token:'f'.repeat(64),expiresAt:at+60000,platformFee:{...fee,...patch}}})});
+  await assert.rejects(bad.client.prepareActivation({walletAddress:wallet,expectedRevision:revision}));
+ }
 });

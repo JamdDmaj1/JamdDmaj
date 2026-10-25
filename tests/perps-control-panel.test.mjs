@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {setupPerpsControlPanel} from '../lib/perps-control-panel.js';
 import {validateAutomationSettings} from '../lib/automation-panel.js';
+import {quotePerpsPlatformFee} from '../lib/perps-platform-fee.js';
 const settings={capital:100,loss:50,positions:2,margin:20,leverage:3,dailyTrades:3,stopLossPercent:null,takeProfitPercent:null,reductionPercent:50,lossAction:'disable'};
 const state={walletAddress:'exclusive-public-wallet',revision:'server-revision',settings,enabled:false,paused:true};
 function fixture(client){
@@ -104,4 +105,13 @@ test('custom limits remain adjustable and activation review stays available afte
 test('readiness after saving must match the same wallet and revision before re-enabling activation',async()=>{
  let reads=0;const f=fixture({readStatus:async()=>({controls:++reads===1?state:{...state,revision:'foreign-new-revision'},recovery:{backupVerified:true},executionAvailable:true}),save:async()=>state});
  await f.connect.onclick();await f.save.onclick();assert.equal(f.prepareActivation.disabled,true);assert.match(f.status.textContent,/configuración cambió/);
+});
+test('bot activation fee consent is separate, priced on margin and cleared after use',async()=>{
+ let calls=0;const f=fixture({readStatus:async()=>({controls:state,recovery:{backupVerified:true},executionAvailable:true}),
+  prepareActivation:async()=>({...state,platformFee:quotePerpsPlatformFee('20000000'),expiresAt:Date.now()+60000}),
+  activate:async args=>{calls++;assert.equal(args.explicitFeeApproval,true);return {...state,enabled:true,paused:false};}});
+ await f.connect.onclick();await f.prepareActivation.onclick();assert.equal(f.feeConsent.checked,false);assert.match(f.feeSummary.textContent,/0\.04 USDC/);assert.match(f.feeSummary.textContent,/20\.04 USDC/);
+ f.activationConsent.checked=true;f.activationConsent.onchange();assert.equal(f.activate.disabled,true);await f.activate.onclick();assert.equal(calls,0);
+ await f.connect.onclick();await f.prepareActivation.onclick();f.activationConsent.checked=true;f.feeConsent.checked=true;f.feeConsent.onchange();assert.equal(f.activate.disabled,false);
+ await f.activate.onclick();assert.equal(calls,1);assert.equal(f.feeConsent.checked,false);
 });
