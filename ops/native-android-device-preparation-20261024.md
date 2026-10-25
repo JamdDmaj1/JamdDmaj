@@ -70,3 +70,38 @@ production signing credential or bot setting was changed.
    prepare a new permanently signed version through the existing release path.
 5. Physical/funded acceptance and enabling real automation remain distinct
    decisions; this offline APK cannot contact any financial service.
+
+## Subsequent explicitly authorized device run
+
+The user subsequently answered yes to installing the separate verification app.
+This supersedes the earlier prepare-only choice for this installation/test run;
+the historical preparation report above remains unchanged.
+
+Both previously recorded APK hashes were checked again before installation.
+The connected CPH2451 was authorized for ADB, and neither exact audit package
+was already installed. Only `com.jamddmaj.ai.walletaudit` and its separate
+`com.jamddmaj.ai.walletaudit.test` package were installed, without replacement,
+uninstall, data clearing or modification of any production package.
+
+The packaged, class-filtered AndroidJUnitRunner ran the four tests on the
+physical device and returned **OK (4 tests)**, with zero failures:
+
+- Actual Android private-file durability: an UNKNOWN synthetic journal entry
+  survived a new journal instance and blocked another operation.
+- The packaged native SDK loaded, derived deterministic disposable identities
+  and verified a signature over explicitly non-transaction fixture text.
+- Installed manifest/process checks verified no networking, no backup, private
+  native wallet process and absence of OAuth callbacks.
+- Locked native full-close/cancellation/conversion/receipt controls were
+  reachable on the physical screen without creating a wallet or authorization.
+
+Evidence: `.perps-build/native-device-acceptance-20261024.log`, instrumentation
+duration 1.331 seconds. Only this exact test class was selected; the unused
+template instrumentation class was not run. The harmless synthetic journal
+record remains inside the audit app's own private test directory.
+
+No real wallet was imported, unlocked, read or signed with; no financial network
+call or transaction was sent. The offline app remains installed separately.
+Strong-biometric approval/cancellation, rotation/re-entry and funded trading
+acceptance are **still pending**. These four successful tests do not prove those
+later boundaries and do not activate real trading, the bot or publication.
