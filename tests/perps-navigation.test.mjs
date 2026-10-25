@@ -50,4 +50,7 @@ test('Long and Short buttons open only a native review draft and clear prices wh
  nodes.find(node=>node.textContent==='Open Short').onclick();drafts=events.filter(event=>event.type==='jamd-wallet-open-perps');
  assert.equal(drafts.length,2);assert.equal(drafts[1].detail.asset,'SOL');assert.equal(drafts[1].detail.side,'SHORT');
  ticket.selectAsset({symbol:'ZEC'});assert.equal(nodes.find(node=>node.textContent==='Open Long').disabled,true);
+ assert.match(nodes.find(node=>node.id==='jupiter-ticket-eligibility').textContent,/ZEC displays market data only/);
+ ticket.selectAsset({symbol:'SOL'});
+ assert.match(nodes.find(node=>node.id==='jupiter-ticket-eligibility').textContent,/at least 10 USDC/);
 });

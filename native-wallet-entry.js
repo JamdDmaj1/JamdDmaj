@@ -10,29 +10,33 @@ export function setupMainWalletEntry(language,doc=document,win=window,pluginFact
  add('h2',t('Tu billetera JamdDmaj','Your JamdDmaj wallet'));
  add('p',t('Tu cuenta de Solana, integrada con Activos y Trade. Consultar el saldo no requiere huella; cada operación conserva su revisión y autorización nativa.','Your Solana account, shared with Assets and Trade. Viewing public balances does not require biometrics; transactions retain native review and approval.'));
  const button=add('button',t('Abrir mi billetera','Open my wallet'));button.type='button';
+ const useWallet=add('button',t('Usar mi billetera en Trade y Futuros','Use my wallet in Trade and Futures'));useWallet.type='button';
  const status=add('p','');status.setAttribute('role','status');
  const available=win.Capacitor?.isNativePlatform?.()&&win.Capacitor?.getPlatform?.()==='android'&&win.Capacitor?.isPluginAvailable?.('NativeWallet');
  button.hidden=!available;
+ useWallet.hidden=!available;
+ panel.hidden=!available;
  if(!available)status.textContent=t('Necesitas una versión Android compatible. Esta página no guarda claves ni crea billeteras ficticias.','A compatible Android build is required. This page does not store keys or create fictitious wallets.');
  let pending=false,disposed=false;
  let refreshing=false,timer;
- const refreshPublic=async()=>{
-  if(!available||disposed||refreshing||selectedWalletAccount(doc)?.source==='external')return;
+ const refreshPublic=async(explicit=false)=>{
+  if(!available||disposed||refreshing||!explicit&&selectedWalletAccount(doc)?.source==='external')return;
   refreshing=true;
   try{
    const plugin=pluginFactory();if(typeof plugin.getPublicAccount!=='function')return;
    const account=await plugin.getPublicAccount();
-   if(disposed||selectedWalletAccount(doc)?.source==='external')return;
-   if(account?.available!==true){if(selectedWalletAccount(doc)?.source==='native')selectWalletAccount(doc,null);return;}
+   if(disposed||!explicit&&selectedWalletAccount(doc)?.source==='external')return;
+   if(account?.available!==true){if(selectedWalletAccount(doc)?.source==='native')selectWalletAccount(doc,null);if(explicit)status.textContent=t('Abre tu billetera y selecciona un perfil primero. No se creó ni sustituyó ninguna billetera.','Open your wallet and select a profile first. No wallet was created or replaced.');return;}
    selectWalletAccount(doc,{address:account.address,source:'native',name:account.name||'JamdDmaj'});
    const selected=selectedWalletAccount(doc),base=win.Capacitor?.isNativePlatform?.()?'https://www.jamddmaj.com':'';
    const response=await fetch(base+'/api/solana-portfolio?address='+encodeURIComponent(account.address),{cache:'no-store',signal:AbortSignal.timeout(15000)});
    const data=await response.json();const age=Date.now()-Date.parse(data.updatedAt);
    if(!response.ok||!Number.isFinite(age)||age< -5000||age>120000)throw Error('Invalid public balance');
-   if(!disposed)publishWalletPortfolio(doc,data,selected);
-  }catch{if(!disposed&&selectedWalletAccount(doc)?.source==='native')publishWalletPortfolio(doc,null,selectedWalletAccount(doc));}
+   if(!disposed){publishWalletPortfolio(doc,data,selected);if(explicit)status.textContent=t('Billetera nativa seleccionada y saldo actualizado. Cada operación aún requiere revisión y aprobación.','Native wallet selected and balance refreshed. Each transaction still requires review and approval.');}
+  }catch{if(!disposed&&selectedWalletAccount(doc)?.source==='native')publishWalletPortfolio(doc,null,selectedWalletAccount(doc));if(explicit&&!disposed)status.textContent=t('No se pudo actualizar el saldo. No se firmó ni envió ninguna operación.','Balance could not be refreshed. Nothing was signed or submitted.');}
   finally{refreshing=false;}
  };
+ useWallet.onclick=async()=>{if(pending||disposed)return;useWallet.disabled=true;try{await refreshPublic(true);}finally{if(!disposed)useWallet.disabled=false;}};
  const visible=()=>{if(!doc.hidden)refreshPublic();};
  const openSwap=async()=>{
   if(!available||disposed||pending||selectedWalletAccount(doc)?.source!=='native')return;

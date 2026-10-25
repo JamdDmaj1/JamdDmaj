@@ -1,6 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {exactSwapUnits, setupSwapQuote,futuresDraftSummary} from '../lib/swap-quote-ui.js';
+import {selectWalletAccount} from '../lib/wallet-portfolio-store.js';
+
+test('unsupported chart does not block the explicitly separate native SOL USDC swap',()=>{
+ const nodes=[],events=[];
+ const doc={createElement(tag){const n={tag,children:[],value:'',append(...v){this.children.push(...v);},setAttribute(){},addEventListener(){}};nodes.push(n);return n;},dispatchEvent:e=>events.push(e),defaultView:{Event}};
+ const ui=setupSwapQuote(doc.createElement('main'),'en',doc);
+ const open=nodes.find(n=>n.textContent==='Swap SOL ↔ USDC in my wallet');
+ ui.selectAsset({symbol:'XRP'});assert.equal(open.disabled,false);
+ open.onclick();assert.equal(events.filter(e=>e.type==='jamd-wallet-open-swap').length,0);
+ selectWalletAccount(doc,{source:'native',address:'7cZzabJQqgWR6yg5jSZZZA5Af5JhrMZaQ32XsKZVxfLy'});
+ open.onclick();assert.equal(events.filter(e=>e.type==='jamd-wallet-open-swap').length,1);
+ assert.equal(nodes.find(n=>n.id==='swap-quote-button').disabled,true);
+});
 test('order summary separates collateral from leveraged indicative exposure',()=>{
  assert.deepEqual(futuresDraftSummary('20','10'),{margin:20,leverage:10,notional:200});
  for(const [m,l]of [['',3],[-1,3],[20,0],[20,51],[Infinity,3]])assert.equal(futuresDraftSummary(m,l),null);

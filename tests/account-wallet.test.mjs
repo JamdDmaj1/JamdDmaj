@@ -68,7 +68,11 @@ test('compiled Assets links once and a second signed-in browser restores the sam
   await panel.getByRole('textbox').fill(address);assert.equal(await panel.getByRole('button',{name:'Link public address',exact:true}).isDisabled(),true);await panel.getByRole('checkbox').check();await panel.getByRole('button',{name:'Link public address',exact:true}).click();
   await panel.getByRole('status').filter({hasText:'Public balance updated'}).waitFor();assert.equal(f.writes(),1);assert.match(await page.locator('.wallet-total-usd').textContent(),/15/);await context.close();
   ({page,context}=await open(tokenA2));await page.locator('#account-linked-wallet').getByRole('status').filter({hasText:'Public balance updated'}).waitFor();assert.match(await page.locator('.wallet-total-usd').textContent(),/15/);
-  assert.equal(await page.locator('#account-linked-wallet input[type=text]').inputValue(),address);assert.equal(await page.getByRole('button',{name:'Confirm, sign and submit',exact:true,includeHidden:true}).first().isDisabled(),true);await context.close();
+  assert.equal(await page.locator('#account-linked-wallet input[type=text]').inputValue(),address);
+  assert.equal(await page.locator('#native-main-wallet').isVisible(),false);
+  assert.equal(await page.locator('#account-linked-wallet .wallet-native-balance').textContent(),'0.1 SOL');
+  assert.match(await page.locator('#account-linked-wallet .wallet-holdings').textContent(),/USDC.*5/);
+  assert.equal(await page.getByRole('button',{name:'Confirm, sign and submit',exact:true,includeHidden:true}).first().isDisabled(),true);await context.close();
   ({page,context}=await open(tokenB));await page.locator('#account-linked-wallet').getByRole('status').filter({hasText:'No address linked'}).waitFor();assert.equal(await page.locator('#account-linked-wallet input[type=text]').inputValue(),'');assert.equal(f.writes(),1);assert.equal(financialRequests,0);await context.close();
  }finally{await browser.close();await new Promise(r=>server.close(r));}
 });
