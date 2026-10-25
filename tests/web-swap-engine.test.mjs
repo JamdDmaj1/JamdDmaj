@@ -40,3 +40,16 @@ test('journal reservation is atomic across two tabs and never stores a private k
  const idb=new IDBFactory(),a=await openWebSwapJournal(idb),b=await openWebSwapJournal(idb),record={address:'public',signature:'public-signature',lastValidBlockHeight:'500'};
  try{const results=await Promise.allSettled([a.begin(record),b.begin(record)]);assert.equal(results.filter(v=>v.status==='fulfilled').length,1);assert.deepEqual(Object.keys(await a.read('public')).sort(),['address','createdAt','lastValidBlockHeight','signature','state']);}finally{a.close();b.close();}
 });
+test('incomplete or inconsistent status responses cannot release a pending operation',async()=>{
+ const pending={address:'public',signature:'fixture',state:'UNKNOWN'},valid={slot:90,err:null,confirmationStatus:'finalized',confirmations:null};
+ for(const response of [{},{context:{slot:100},value:[]},{context:{slot:100},value:[{...valid,err:undefined}]},{context:{slot:100},value:[{slot:90,confirmationStatus:'finalized',confirmations:null}]},{context:{slot:80},value:[valid]},{context:{slot:100},value:[{...valid,confirmations:0}]},{context:{slot:100},value:[{...valid,err:false}]},{context:{slot:100},value:[{...valid,err:{}}]}]){
+  let released=0;const engine=createWebSwapEngine({journal:{read:async()=>pending,resolve:async()=>{released++;}},rpc:async m=>m==='getGenesisHash'?'5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d':response});
+  await assert.rejects(engine.checkPending('public'),/STATUS_UNVERIFIED/);assert.equal(released,0);
+ }
+});
+test('only verified finalized success or failure releases pending; unknown and confirming remain held',async()=>{
+ for(const [status,expected,releases]of [[null,'UNKNOWN',0],[{slot:90,err:null,confirmationStatus:'confirmed',confirmations:1},'CONFIRMING',0],[{slot:90,err:null,confirmationStatus:'finalized',confirmations:null},'FINALIZED',1],[{slot:90,err:{InstructionError:[1,'Custom']},confirmationStatus:'finalized',confirmations:null},'FAILED',1]]){
+  let released=0;const pending={signature:'fixture',state:'UNKNOWN'};const engine=createWebSwapEngine({journal:{read:async()=>pending,resolve:async(address,signature,state)=>{assert.equal(signature,'fixture');assert.equal(state,expected);released++;}},rpc:async m=>m==='getGenesisHash'?'5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d':{context:{slot:100},value:[status]}});
+  assert.equal((await engine.checkPending('public')).state,expected);assert.equal(released,releases);
+ }
+});

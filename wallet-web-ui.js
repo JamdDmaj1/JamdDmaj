@@ -5,11 +5,15 @@ import bs58 from 'bs58';
 import {openWebSwapJournal} from './lib/web-swap-journal.js';
 import {createWebSwapEngine,createWebSwapRpc} from './lib/web-swap-engine.js';
 import {SWAP_IDS as I} from './lib/web-swap-policy.js';
+import {webWalletPendingText,webWalletReviewSeconds} from './lib/web-wallet-status.js';
 const $=id=>document.getElementById(id),session=createWebWalletKeySession(),rpc=createWebSwapRpc();
 let engine,journal,review=null,busy=false,expiry,unlockGeneration=0;
 const decimal=(value,decimals)=>{const raw=String(value).padStart(decimals+1,'0');return raw.slice(0,-decimals)+'.'+raw.slice(-decimals);};
 function reset(){engine?.invalidate();review=null;clearTimeout(expiry);$('swap-summary').replaceChildren();$('swap-approve').checked=false;$('swap-confirm').disabled=true;}
-function render(){const current=session.current();$('swap-review').disabled=busy||!current||!engine;$('wallet-unlock').disabled=busy;$('wallet-create').disabled=busy||!$('wallet-create-consent').checked;$('wallet-lock').disabled=!current;$('swap-pending').disabled=busy||!engine||!$('wallet-address').value.trim();$('swap-confirm').disabled=busy||!current||!review||!$('swap-approve').checked||Date.now()>=review.expiresAt;}
+function render(){const current=session.current();$('swap-review').disabled=busy||!current||!engine;$('wallet-unlock').disabled=busy;$('wallet-create').disabled=busy||!$('wallet-create-consent').checked;$('wallet-lock').disabled=!current;$('swap-pending').disabled=busy||!engine||!$('wallet-address').value.trim();$('swap-confirm').disabled=busy||!current||!review||!$('swap-approve').checked||Date.now()>=review.expiresAt;
+ if(!current&&$('wallet-status').textContent.startsWith('Desbloqueada:'))$('wallet-status').textContent='Bloqueada automáticamente por seguridad. Desbloquéala de nuevo para operar.';
+ let countdown=$('swap-countdown');if(!countdown){countdown=document.createElement('p');countdown.id='swap-countdown';$('swap-summary').after(countdown);}countdown.textContent=review?'Revisión vigente durante '+webWalletReviewSeconds(review.expiresAt)+' s. Al caducar debes revisar de nuevo.':'';
+}
 function lock(){unlockGeneration++;session.lock();reset();$('wallet-password').value='';$('wallet-backup').value='';$('wallet-status').textContent='Bloqueada. Tus claves no se guardaron en este navegador.';render();}
 async function run(fn){
  if(busy)return;busy=true;render();
@@ -25,6 +29,7 @@ async function run(fn){
    WEB_SWAP_EXISTING_WRAPPED_SOL:'Hay WSOL previo en la cuenta de esta ruta. No se desenvolverá como efecto secundario; esta ruta no está admitida.',
    WEB_SWAP_REVIEW_EXPIRED:'La revisión caducó o cambió. Solicita una nueva.',
    WEB_SWAP_PENDING_CHECK_REQUIRED:'Hay una operación pendiente o un resultado desconocido. Consulta su estado; no la repitas.',
+   WEB_SWAP_STATUS_UNVERIFIED:'Solana no devolvió un estado completo y verificable. La operación sigue pendiente; no la repitas.',
    WEB_SWAP_ROUTE_TOO_LARGE:'Esta ruta excede el tamaño admitido. No se firmó; solicita otra cotización.',
    WEB_SWAP_INSUFFICIENT_FUNDS:'Saldo insuficiente del token o de SOL para los costes.',
    WEB_WALLET_NETWORK_UNAVAILABLE:'No se pudo consultar Solana. No se repetirá automáticamente ningún envío.',
@@ -45,7 +50,7 @@ $('wallet-backup').addEventListener('change',()=>{unlockGeneration++;session.loc
 $('swap-review').onclick=()=>run(async()=>{reset();const current=session.current();if(!current)throw Error('WALLET_LOCKED');const input=$('swap-pay').value,nativeInput=input==='SOL';const value=await engine.prepare({payer:current.address,inputMint:I[input],outputMint:nativeInput?I.USDC:I.SOL,amount:units($('swap-value').value.trim(),nativeInput?9:6),slippageBps:Number($('swap-slippage').value)});if(session.current()?.address!==value.address)throw Error('WALLET_LOCKED');review=value;for(const text of ['Billetera: '+value.address,'Entregas: '+decimal(value.input,nativeInput?9:6)+' '+input,'Recibes al menos: '+decimal(value.minimum,nativeInput?6:9)+' '+(nativeInput?'USDC':'SOL'),'Comisión: '+decimal(value.fee,9)+' SOL','SOL reservado en cuentas: '+decimal(value.rent,9)]){const p=document.createElement('p');p.textContent=text;$('swap-summary').append(p);}expiry=setTimeout(()=>{reset();$('swap-status').textContent='Revisión caducada. Solicita otra antes de firmar.';render();},Math.max(0,value.expiresAt-Date.now()));});
 $('swap-approve').onchange=render;
 $('swap-confirm').onclick=()=>run(async()=>{if(!review||!$('swap-approve').checked)throw Error('WEB_SWAP_APPROVAL_REQUIRED');const approved=review,grant=engine.authorize(approved,true);const signed=await session.signReviewed(grant);const signature=await engine.submit(approved,signed);reset();$('swap-status').textContent='Enviada a Solana, aún no confirmada: '+signature+'. Pulsa Consultar operación pendiente.';});
-$('swap-pending').onclick=()=>run(async()=>{const address=session.current()?.address||$('wallet-address').value.trim(),pending=await engine.checkPending(address);$('swap-status').textContent=pending?'Operación '+pending.signature+' · '+pending.state:'No hay operaciones web pendientes registradas en este navegador.';if(session.current())await refreshBalance(address);});
+$('swap-pending').onclick=()=>run(async()=>{const address=session.current()?.address||$('wallet-address').value.trim(),pending=await engine.checkPending(address);$('swap-status').textContent=webWalletPendingText(pending);if(session.current())await refreshBalance(address);});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)lock();});window.addEventListener('pagehide',()=>{lock();journal?.close();});setInterval(()=>{if(!session.current()&&review)reset();render();},1000);
 const expected=new URL(location.href).searchParams.get('address');if(expected&&/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(expected))$('wallet-address').value=expected;
 try{journal=await openWebSwapJournal();engine=createWebSwapEngine({rpc,journal,isForeground:()=>!document.hidden&&!!session.current()});render();}catch{$('wallet-status').textContent='No se pudo abrir el registro seguro de pendientes. Esta página no permite operar sin él.';}
