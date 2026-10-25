@@ -53,6 +53,7 @@ public final class NativeWalletActivity extends Activity {
     private volatile NativePerpsTransfers perpsService;
     private volatile NativePerpsCloseTransfers perpsCloseService;
     private volatile NativePerpsCancelTransfers perpsCancelService;
+    private volatile NativePerpsConversionTransfers perpsConversionService;
     private Spinner perpsExits;
     private final java.util.ArrayList<NativePerpsCancelIntent> pendingPerpsExits=new java.util.ArrayList<>();
     private final java.util.ArrayList<LinearLayout> sections=new java.util.ArrayList<>();
@@ -163,6 +164,9 @@ public final class NativeWalletActivity extends Activity {
         action(perpsSection,text("Consultar TP/SL restantes","Read remaining TP/SL"),()->readPerpsExits());
         perpsExits=new Spinner(this);perpsExits.setTag("native-perps-pending-exits");perpsSection.addView(perpsExits);
         action(perpsSection,text("Revisar cancelación seleccionada","Review selected cancellation"),()->reviewPerpsCancellation());
+        label(perpsSection,text("Conversión después del cierre: convierte solo el importe recibido y finalizado a USDC, con mínimo protegido y otra huella. Si ya recibiste USDC, no se intercambia de nuevo.","Conversion after closing: convert only the finalized received amount to USDC, with a protected minimum and another biometric approval. If you already received USDC, it is not swapped again."),16);
+        action(perpsSection,text("Consultar recibo del cierre y conversión","Check close receipt and conversion"),()->checkPerpsSettlement());
+        action(perpsSection,text("Revisar conversión a USDC","Review conversion to USDC"),()->reviewPerpsConversion());
         action(perpsSection,text("Consultar última operación de Solana","Check latest Solana operation"),()->checkSolana());
         action(root,text("Bloquear billetera","Lock wallet"),()->lock());
         if("perps".equals(getIntent().getStringExtra("wallet-navigation"))){
@@ -449,14 +453,28 @@ public final class NativeWalletActivity extends Activity {
         }catch(Exception failure){runOnUiThread(()->{if(ticket==epoch){lock();status.setText(text("La autorización no está disponible o la revisión caducó. Revisa una orden nueva. No se envió esta solicitud.","Authorization unavailable or review expired. Review a fresh order. This request was not sent."));}});}});
     }
     private void authorizeSwap(NativeWalletProfiles.Profile profile,NativeSwapTransfers service,NativeSwapTransfers.Draft draft,long ticket){
+        authorizeSwapApproval(profile,draft.review,new SwapApproval(){
+            public void require()throws Exception{service.requireReview(draft,()->ticket==epoch);}
+            public byte[] sign(byte[] entropy,SolanaNativeTransfers.Signer signer)throws Exception{return service.signReviewed(draft,entropy,signer,()->ticket==epoch);}
+            public String submit(byte[] signature)throws Exception{return service.submit(draft,signature,()->ticket==epoch);}
+            public void invalidate(){service.invalidate();}
+        },ticket);
+    }
+    private interface SwapApproval {
+        void require()throws Exception;
+        byte[] sign(byte[] entropy,SolanaNativeTransfers.Signer signer)throws Exception;
+        String submit(byte[] signature)throws Exception;
+        void invalidate();
+    }
+    private void authorizeSwapApproval(NativeWalletProfiles.Profile profile,NativeSwapReview review,SwapApproval approval,long ticket){
         if(ticket!=epoch)return;
         worker.execute(()->{try{
-            service.requireReview(draft,()->ticket==epoch);
+            approval.require();
             HardwareWalletVault selected=new HardwareWalletVault(this,profile.ownerId,profile.vaultId);
             var operation=selected.prepareOpen();
             runOnUiThread(()->{if(ticket!=epoch){selected.cancel();return;}vault=selected;cancellation=new CancellationSignal();
                 new BiometricPrompt.Builder(this).setTitle(text("Autorizar intercambio real","Authorize real swap"))
-                    .setSubtitle("Solana mainnet · "+draft.review.inputAmount)
+                    .setSubtitle("Solana mainnet · "+review.inputAmount+" · "+text("Mínimo ","Minimum ")+review.minimumOutput)
                     .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
                     .setNegativeButton(text("Cancelar","Cancel"),getMainExecutor(),(dialog,which)->lock()).build()
                     .authenticate(new BiometricPrompt.CryptoObject(operation.authenticationCipher()),cancellation,getMainExecutor(),new BiometricPrompt.AuthenticationCallback(){
@@ -466,18 +484,47 @@ public final class NativeWalletActivity extends Activity {
                             if(result.getCryptoObject()==null||result.getCryptoObject().getCipher()!=operation.authenticationCipher()){error(ticket);return;}
                             worker.execute(()->{byte[][] signature=new byte[1][];try{
                                 if(ticket!=epoch)return;
-                                operation.completeOpen(entropy->signature[0]=service.signReviewed(draft,entropy,new SolanaNativeTransfers.Signer(){
+                                operation.completeOpen(entropy->signature[0]=approval.sign(entropy,new SolanaNativeTransfers.Signer(){
                                     public String address(byte[] input){return NativeHdWallet.addresses(input).solana;}
                                     public byte[] sign(byte[] input,byte[] message){return NativeHdWallet.signSolana(input,message);}
-                                },()->ticket==epoch));
-                                String id=service.submit(draft,signature[0],()->ticket==epoch);
+                                }));
+                                String id=approval.submit(signature[0]);
                                 runOnUiThread(()->{if(ticket==epoch){status.setText(text("Intercambio presentado; comprobando confirmación. No repitas.\n","Swap submitted; checking confirmation. Do not repeat.\n")+id);pollSwapConfirmation(profile,id,ticket,0);}});
                             }catch(Exception failure){runOnUiThread(()->{if(ticket==epoch)status.setText(text("Intercambio no confirmado. Consulta la última operación de Solana antes de repetir; el intento podría haberse transmitido.","Swap unconfirmed. Check the latest Solana operation before retrying; the attempt may have been broadcast."));});}
-                            finally{if(signature[0]!=null)Arrays.fill(signature[0],(byte)0);selected.cancel();}});
+                            finally{if(signature[0]!=null)Arrays.fill(signature[0],(byte)0);approval.invalidate();selected.cancel();}});
                         }
                     });
             });
         }catch(Exception failure){runOnUiThread(()->{if(ticket==epoch){lock();status.setText(text("La autorización no está disponible o la cotización caducó. Desbloquea y revisa el intercambio de nuevo. No se envió esta solicitud.","Authorization unavailable or quote expired. Unlock and review the swap again. This request was not sent."));}});}});
+    }
+    void checkPerpsSettlement(){
+        NativeWalletProfiles.Profile profile=selectedProfile;if(profile==null){status.setText(text("Selecciona primero tu billetera.","Select your wallet first."));return;}
+        String asset=perpsAsset.getSelectedItem().toString();int side=perpsSide.getSelectedItemPosition()+1;long ticket=epoch;
+        worker.execute(()->{try{NativePerpsConversionTransfers service=new NativePerpsConversionTransfers(this,profile);String message=service.status(asset,side,es);service.invalidate();
+            runOnUiThread(()->{if(ticket==epoch)status.setText(message);});
+        }catch(Exception unavailable){runOnUiThread(()->{if(ticket==epoch)status.setText(text("Recibo finalizado aún no verificado. Consulta la última operación. No repitas una conversión pendiente; no se firmó ni envió nada.","Finalized receipt not yet verified. Check the latest operation. Do not repeat a pending conversion; nothing was signed or sent."));});}});
+    }
+    void reviewPerpsConversion(){
+        NativeWalletProfiles.Profile profile=selectedProfile;if(profile==null){status.setText(text("Selecciona primero tu billetera.","Select your wallet first."));return;}
+        String asset=perpsAsset.getSelectedItem().toString();int side=perpsSide.getSelectedItemPosition()+1;
+        lock();selectedProfile=profile;long ticket=epoch;
+        status.setText(text("Comprobando recibo finalizado y mínimo USDC. No se firma ni envía.","Checking finalized receipt and USDC minimum. Nothing is signed or sent."));
+        worker.execute(()->{try{
+            NativePerpsConversionTransfers service=new NativePerpsConversionTransfers(this,profile);perpsConversionService=service;
+            NativePerpsConversionTransfers.Draft draft=service.prepare(asset,side);
+            runOnUiThread(()->{if(ticket!=epoch){service.invalidate();return;}
+                try{service.requireReview(draft,()->ticket==epoch);}catch(Exception expired){service.invalidate();status.setText(text("Cotización caducada; revisa otra conversión.","Quote expired; review another conversion."));return;}
+                WalletReviewDialog.show(this,text("Revisar conversión independiente a USDC","Review separate conversion to USDC"),draft.description(es),text("Autorizar con huella","Authorize with biometrics"),()->{
+                    authorizeSwapApproval(profile,draft.review,new SwapApproval(){
+                        public void require()throws Exception{service.requireReview(draft,()->ticket==epoch);}
+                        public byte[] sign(byte[] entropy,SolanaNativeTransfers.Signer signer)throws Exception{return service.signReviewed(draft,entropy,signer,()->ticket==epoch);}
+                        public String submit(byte[] signature)throws Exception{return service.submit(draft,signature,()->ticket==epoch);}
+                        public void invalidate(){service.invalidate();}
+                    },ticket);
+                },text("Cancelar","Cancel"),()->lock());
+            });
+        }catch(Exception failure){NativePerpsConversionTransfers service=perpsConversionService;if(service!=null)service.invalidate();
+            runOnUiThread(()->{if(ticket==epoch)status.setText(text("Conversión no preparada. Comprueba el recibo finalizado, el saldo y las operaciones pendientes. Si ya recibiste USDC, no requiere conversión. No se firmó ni envió nada.","Conversion not prepared. Check the finalized receipt, funds and pending operations. If you already received USDC, no conversion is required. Nothing was signed or sent."));});}});
     }
     void reviewPerpsClose(){
         NativeWalletProfiles.Profile profile=selectedProfile;
@@ -792,7 +839,7 @@ public final class NativeWalletActivity extends Activity {
         });
     }
     private void error(long ticket){runOnUiThread(()->{if(ticket!=epoch)return;lock();status.setText(text("No se pudo verificar esta operación. Esto no confirma un cambio de huella. Conserva tu respaldo; no se ha enviado dinero.","This operation could not be verified. This does not confirm a biometric change. Keep your backup; no money was sent."));});}
-    private void lock(){epoch++;NativePerpsTransfers previous=perpsService;perpsService=null;if(previous!=null)previous.invalidate();NativePerpsCloseTransfers close=perpsCloseService;perpsCloseService=null;if(close!=null)close.invalidate();NativePerpsCancelTransfers cancel=perpsCancelService;perpsCancelService=null;if(cancel!=null)cancel.invalidate();pendingPerpsExits.clear();if(perpsExits!=null)perpsExits.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,new String[0]));selectedProfile=null;if(cancellation!=null)cancellation.cancel();cancellation=null;if(vault!=null)vault.cancel();vault=null;if(enrollment!=null)enrollment.cancel();if(password!=null)password.setText("");if(passwordRepeat!=null)passwordRepeat.setText("");if(addresses!=null)addresses.setText("");if(status!=null)status.setText(text("Billetera bloqueada.","Wallet locked."));}
+    private void lock(){epoch++;NativePerpsConversionTransfers conversion=perpsConversionService;perpsConversionService=null;if(conversion!=null)conversion.invalidate();NativePerpsTransfers previous=perpsService;perpsService=null;if(previous!=null)previous.invalidate();NativePerpsCloseTransfers close=perpsCloseService;perpsCloseService=null;if(close!=null)close.invalidate();NativePerpsCancelTransfers cancel=perpsCancelService;perpsCancelService=null;if(cancel!=null)cancel.invalidate();pendingPerpsExits.clear();if(perpsExits!=null)perpsExits.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,new String[0]));selectedProfile=null;if(cancellation!=null)cancellation.cancel();cancellation=null;if(vault!=null)vault.cancel();vault=null;if(enrollment!=null)enrollment.cancel();if(password!=null)password.setText("");if(passwordRepeat!=null)passwordRepeat.setText("");if(addresses!=null)addresses.setText("");if(status!=null)status.setText(text("Billetera bloqueada.","Wallet locked."));}
     @Override protected void onStop(){if(seedDialog!=null){seedDialog.dismiss();seedDialog=null;}lock();super.onStop();}
     @Override protected void onDestroy(){lock();worker.shutdownNow();super.onDestroy();}
 }

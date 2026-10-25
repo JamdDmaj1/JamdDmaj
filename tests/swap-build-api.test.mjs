@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHandler } from '../api/swap-build.js';
+test('wrapped SOL mode is explicit, singular and never accepts executable settings',async()=>{
+  let seen;
+  const handler=createHandler({env:{JUPITER_API_KEY:'fixture',UPSTASH_REDIS_REST_URL:'fixture',UPSTASH_REDIS_REST_TOKEN:'fixture'},limit:async()=>{},build:async intent=>{seen=intent;return {executable:false};}});
+  assert.equal((await handler(request('&wrapAndUnwrapSol=false'))).status,200);assert.equal(seen.wrapAndUnwrapSol,false);
+  for(const suffix of ['&wrapAndUnwrapSol=true','&wrapAndUnwrapSol=false&wrapAndUnwrapSol=false','&wrapAndUnwrapSol=false&execute=true'])assert.equal((await handler(request(suffix))).status,400);
+});
 const env={JUPITER_API_KEY:'secret-fixture',UPSTASH_REDIS_REST_URL:'configured',UPSTASH_REDIS_REST_TOKEN:'configured'};
 const query='inputMint=So11111111111111111111111111111111111111112&outputMint=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v&amount=1000000&taker=11111111111111111111111111111111&slippageBps=50';
 const request=(suffix='')=>new Request('https://app.example/api/swap-build?'+query+suffix);

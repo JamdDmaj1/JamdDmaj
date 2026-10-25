@@ -18,13 +18,15 @@ final class NativeSwapEffects {
         if(!NativeSwapSetup.SYSTEM.equals(payer.get("owner")) || !Boolean.FALSE.equals(payer.get("executable"))
                 || NativeSwapChainState.data(payer).length!=0) throw invalid();
         BigInteger sol=NativeSwapChainState.lamports(payer),input=new BigInteger(preparation.intent.amount);
-        boolean nativeInput=NativeSwapSetup.SOL.equals(preparation.intent.inputMint),nativeOutput=NativeSwapSetup.SOL.equals(preparation.intent.outputMint);
+        boolean nativeInput=NativeSwapSetup.SOL.equals(preparation.intent.inputMint)&&preparation.intent.wrapAndUnwrapSol,nativeOutput=NativeSwapSetup.SOL.equals(preparation.intent.outputMint)&&preparation.intent.wrapAndUnwrapSol;
         BigInteger sourceRent=BigInteger.ZERO,destinationRent=BigInteger.ZERO;
         if(nativeInput) { if(!closed(source)) throw invalid(); }
         else {
             BigInteger remaining=NativeSwapChainState.token(source,preparation.intent.payer,preparation.intent.inputMint,false);
             if(!before.sourceBalance.subtract(remaining).equals(input)) throw invalid();
-            sourceRent=rent(before.sourceLamports,NativeSwapChainState.lamports(source),rentMinimum);
+            if(NativeSwapSetup.SOL.equals(preparation.intent.inputMint)){
+                if(!before.sourceLamports.subtract(input).equals(NativeSwapChainState.lamports(source)))throw invalid();
+            }else sourceRent=rent(before.sourceLamports,NativeSwapChainState.lamports(source),rentMinimum);
         }
         BigInteger received;
         if(nativeOutput) {

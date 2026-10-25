@@ -18,6 +18,15 @@ import static org.junit.Assert.*;
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk=30)
 public class NativeWalletActivityTest {
+    @Test public void postCloseConversionIsSeparateAndCannotReviewOrAuthorizeWhenLocked(){
+        try(var controller=Robolectric.buildActivity(NativeWalletActivity.class).create()){
+            var activity=controller.get();activity.checkPerpsSettlement();activity.reviewPerpsConversion();
+            assertNull(org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog());assertNull(org.robolectric.Shadows.shadowOf(activity).getNextStartedActivity());
+            android.view.ViewGroup form=activity.getWindow().getDecorView().findViewWithTag("native-perps-form");boolean found=false;
+            for(int i=0;i<form.getChildCount();i++)if(form.getChildAt(i) instanceof android.widget.Button&&((android.widget.Button)form.getChildAt(i)).getText().toString().equals("Review conversion to USDC"))found=true;
+            assertTrue(found);
+        }
+    }
     @Test public void leftoverExitControlsCannotReadOrAuthorizeWhenWalletIsLocked(){
         try(var controller=Robolectric.buildActivity(NativeWalletActivity.class).create()){
             var activity=controller.get();assertNotNull(activity.getWindow().getDecorView().findViewWithTag("native-perps-pending-exits"));

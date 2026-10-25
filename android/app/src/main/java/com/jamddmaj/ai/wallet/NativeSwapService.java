@@ -115,7 +115,8 @@ final class NativeSwapService {
     private static JSONObject request(NativeSwapPreparation.Intent intent,NativeSwapClock clock) throws Exception {
         // Fixed first-party server only. No API key or private wallet material enters this request.
         String query="inputMint="+encode(intent.inputMint)+"&outputMint="+encode(intent.outputMint)
-            +"&amount="+encode(intent.amount)+"&taker="+encode(intent.payer)+"&slippageBps="+intent.slippageBps;
+            +"&amount="+encode(intent.amount)+"&taker="+encode(intent.payer)+"&slippageBps="+intent.slippageBps
+            +(intent.wrapAndUnwrapSol?"":"&wrapAndUnwrapSol=false");
         HttpsURLConnection connection=(HttpsURLConnection)new URL("https://www.jamddmaj.com/api/swap-build?"+query).openConnection();
         connection.setInstanceFollowRedirects(false); connection.setUseCaches(false);
         connection.setConnectTimeout(10000); connection.setReadTimeout(10000);

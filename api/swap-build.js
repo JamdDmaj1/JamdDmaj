@@ -12,13 +12,14 @@ export function createHandler({ env=process.env, build, limit=enforceQuoteLimit 
       return jsonResponse(request,{error:'SWAP_NOT_CONFIGURED',executable:false},503);
     const params=new URL(request.url).searchParams;
     const allowed=['inputMint','outputMint','amount','taker','slippageBps'];
-    if(request.url.length>800||[...params.keys()].some(key=>!allowed.includes(key))||allowed.some(key=>params.getAll(key).length!==1)
+    if(request.url.length>800||[...params.keys()].some(key=>!allowed.includes(key)&&key!=='wrapAndUnwrapSol')||allowed.some(key=>params.getAll(key).length!==1)
+        ||params.has('wrapAndUnwrapSol')&&(params.getAll('wrapAndUnwrapSol').length!==1||params.get('wrapAndUnwrapSol')!=='false')
         || !/^[1-9][0-9]{0,2}$/.test(params.get('slippageBps')))
       return jsonResponse(request,{error:'INVALID_SWAP_REQUEST',executable:false},400);
     try {
       await limit(request);
       const prepare=build||createSolanaSwapBuildService({apiKey:env.JUPITER_API_KEY});
-      const preparation=await prepare({...Object.fromEntries(params),slippageBps:Number(params.get('slippageBps'))});
+      const preparation=await prepare({...Object.fromEntries(params),slippageBps:Number(params.get('slippageBps')),wrapAndUnwrapSol:!params.has('wrapAndUnwrapSol')});
       return jsonResponse(request,{ok:true,preparation});
     }catch(error){
       const limited=error?.status===429;

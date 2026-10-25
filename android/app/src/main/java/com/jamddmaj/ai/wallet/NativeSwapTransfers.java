@@ -8,8 +8,10 @@ import org.bouncycastle.math.ec.rfc8032.Ed25519;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-/** Manual native swap lifecycle. Not connected to the launcher until acceptance testing. */
+/** Manual native exact-wire swap lifecycle; no automatic authorization or resend. */
 final class NativeSwapTransfers {
+    interface BeforeBroadcast {void record(String signature,NativeSwapService.Preview preview)throws Exception;}
+    private volatile boolean invalidated;
     private final NativeWalletProfiles.Profile owner;
     private final NativeSwapService service;
     private final NativeTransferJournal journal;
@@ -25,7 +27,8 @@ final class NativeSwapTransfers {
     static final class Draft {
         final NativeSwapReview review;
         private final NativeSwapService.Preview preview;
-        private boolean consumed;
+        private boolean signed,consumed;
+        private java.math.BigInteger settlementSlot;
         private Draft(NativeSwapService.Preview preview,NativeSwapReview review){this.preview=preview;this.review=review;}
     }
     Draft prepare(NativeSwapPreparation.Intent intent) throws Exception {
@@ -33,6 +36,16 @@ final class NativeSwapTransfers {
         journal.requireNoPending();
         var preview=service.preview(intent);
         return new Draft(preview,service.review(preview));
+    }
+    Draft prepareSettlement(NativeSwapPreparation.Intent intent,java.math.BigInteger minimumSlot)throws Exception{
+        if(minimumSlot==null||minimumSlot.signum()<=0||minimumSlot.bitLength()>64)throw new IOException("Missing finalized receipt bank");
+        Draft draft=prepare(intent);draft.settlementSlot=minimumSlot;requireSettlement(draft,draft.preview);return draft;
+    }
+    private void requireSettlement(Draft draft,NativeSwapService.Preview evidence)throws IOException{
+        if(draft.settlementSlot==null)return;
+        if(evidence.balances.slot.compareTo(draft.settlementSlot)<0)throw new IOException("Swap balance predates the finalized close");
+        if(NativeSwapSetup.SOL.equals(evidence.candidate.preparation.intent.inputMint)&&evidence.candidate.preparation.intent.wrapAndUnwrapSol&&evidence.balances.sourceBalance.signum()!=0)
+            throw new IOException("Native conversion would also unwrap pre-existing WSOL; review that balance separately");
     }
     Draft prepareAmount(String inputMint,String outputMint,String amount,int slippageBps) throws Exception {
         // Validate addresses and limits before RPC; fetch precision from the chain, not the UI/provider.
@@ -50,18 +63,23 @@ final class NativeSwapTransfers {
     }
     byte[] signReviewed(Draft draft,byte[] entropy,SolanaNativeTransfers.Signer signer,BooleanSupplier foreground) throws Exception {
         synchronized(draft) {
-            require(draft,foreground); journal.requireNoPending();
+            require(draft,foreground); if(draft.signed)throw new IOException("Swap already signed");journal.requireNoPending();
+            requireSettlement(draft,service.revalidate(draft.preview,draft.review,owner.solanaAddress));require(draft,foreground);
             if(!owner.solanaAddress.equals(signer.address(entropy))) throw new IOException("Unlocked wallet differs from review");
-            byte[] signature=signer.sign(entropy,draft.preview.candidate.message.bytes());
+            draft.signed=true;byte[] signature=signer.sign(entropy,draft.preview.candidate.message.bytes());
             verify(draft,signature); require(draft,foreground); return signature;
         }
     }
     String submit(Draft draft,byte[] signature,BooleanSupplier foreground) throws Exception {
+        return submit(draft,signature,foreground,(id,preview)->{});
+    }
+    String submit(Draft draft,byte[] signature,BooleanSupplier foreground,BeforeBroadcast beforeBroadcast) throws Exception {
         synchronized(draft) {
-            require(draft,foreground);
+            require(draft,foreground);if(!draft.signed||beforeBroadcast==null)throw new IOException("Swap was not authorized");
             byte[] approved=signature==null?null:signature.clone(); verify(draft,approved);
             journal.requireNoPending();
             var current=service.revalidate(draft.preview,draft.review,owner.solanaAddress);
+            requireSettlement(draft,current);
             rpc.verifyNetwork();
             String wire=Base64.encodeToString(wire(current.candidate.message,approved),Base64.NO_WRAP);
             JSONObject simulation=(JSONObject)rpc.request("simulateTransaction",new JSONArray().put(wire)
@@ -71,6 +89,7 @@ final class NativeSwapTransfers {
             require(draft,foreground); draft.consumed=true;
             String expected=DevnetSolana.encode(approved);
             journal.beginSwap(expected,current);
+            beforeBroadcast.record(expected,current);
             if(!foreground.getAsBoolean()) throw new IOException("Wallet locked; check transaction status");
             Object response=rpc.request("sendTransaction",new JSONArray().put(wire).put(new JSONObject()
                 .put("encoding","base64").put("skipPreflight",false).put("preflightCommitment","confirmed").put("maxRetries",0)));
@@ -79,10 +98,11 @@ final class NativeSwapTransfers {
         }
     }
     private void require(Draft draft,BooleanSupplier foreground) throws IOException {
-        if(draft.consumed || !foreground.getAsBoolean()) throw new IOException("Swap authorization unavailable");
+        if(invalidated||draft.consumed || !foreground.getAsBoolean()) throw new IOException("Swap authorization unavailable");
         draft.review.requireCurrent(owner.solanaAddress,draft.preview.candidate.message);
     }
     void requireReview(Draft draft,BooleanSupplier foreground) throws IOException { synchronized(draft){require(draft,foreground);} }
+    void invalidate(){invalidated=true;}
     private void verify(Draft draft,byte[] signature) throws IOException {
         byte[] message=draft.preview.candidate.message.bytes();
         if(signature==null || signature.length!=64 || !Ed25519.verify(signature,0,DevnetSolana.decode(owner.solanaAddress,32),0,message,0,message.length))

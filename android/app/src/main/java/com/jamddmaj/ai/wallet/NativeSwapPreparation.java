@@ -19,11 +19,17 @@ final class NativeSwapPreparation {
     static final class Intent {
         final String payer, inputMint, outputMint, amount;
         final int slippageBps;
+        final boolean wrapAndUnwrapSol;
         Intent(String payer, String inputMint, String outputMint, String amount, int slippageBps) {
+            this(payer,inputMint,outputMint,amount,slippageBps,true);
+        }
+        Intent(String payer,String inputMint,String outputMint,String amount,int slippageBps,boolean wrapAndUnwrapSol) {
             address(payer); address(inputMint); address(outputMint); units(amount);
             if (inputMint.equals(outputMint) || slippageBps < 1 || slippageBps > 500) throw invalid();
             this.payer=payer; this.inputMint=inputMint; this.outputMint=outputMint;
             this.amount=amount; this.slippageBps=slippageBps;
+            if(!wrapAndUnwrapSol&&!(NativeSwapSetup.SOL.equals(inputMint)&&NativeSolanaTokens.USDC.equals(outputMint)))throw invalid();
+            this.wrapAndUnwrapSol=wrapAndUnwrapSol;
         }
     }
     final Intent intent;

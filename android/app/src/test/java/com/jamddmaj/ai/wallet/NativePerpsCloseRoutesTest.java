@@ -44,7 +44,7 @@ public class NativePerpsCloseRoutesTest {
         feed.putLong(73,103000000).put(81,(byte)-6).putLong(82,NOW).putInt(91,1+id(c.asset));
         String address=DevnetSolana.encode(lazer);NativePerpsSimulation.Account f=account(NativePerpsCloseOracleContext.DOVES,feed.array(),RENT);before.put(address,f);after.put(address,f);
     }
-    private static NativePerpsCloseServiceTest.Rpc fixture(String asset,int side,boolean v2)throws Exception{
+    static NativePerpsCloseServiceTest.Rpc fixture(String asset,int side,boolean v2)throws Exception{
         NativePerpsCustody market=custody(asset),usdc=custody("USDC"),collateral=side==1?market:usdc;
         byte[] position=NativePerpsPositionTest.fixture();System.arraycopy(DevnetSolana.decode(payer(),32),0,position,8,32);
         System.arraycopy(DevnetSolana.decode(market.address,32),0,position,72,32);System.arraycopy(DevnetSolana.decode(collateral.address,32),0,position,104,32);

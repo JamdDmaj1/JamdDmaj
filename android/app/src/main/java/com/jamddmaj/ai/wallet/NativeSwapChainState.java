@@ -62,7 +62,7 @@ final class NativeSwapChainState {
         }
         BigInteger source=token(values.get(route.source),payer,preparation.intent.inputMint,setup.createsSource);
         BigInteger destination=token(values.get(route.destination),payer,preparation.intent.outputMint,setup.createsDestination);
-        if(!NativeSwapSetup.SOL.equals(preparation.intent.inputMint) && source.compareTo(new BigInteger(preparation.intent.amount))<0)
+        if(!(NativeSwapSetup.SOL.equals(preparation.intent.inputMint)&&preparation.intent.wrapAndUnwrapSol) && source.compareTo(new BigInteger(preparation.intent.amount))<0)
             throw new IOException("Insufficient input token balance");
         if(sol.compareTo(setup.wrappedSol)<0) throw new IOException("Insufficient SOL to fund swap");
         int inputDecimals=mint(values.get(preparation.intent.inputMint)),outputDecimals=mint(values.get(preparation.intent.outputMint));

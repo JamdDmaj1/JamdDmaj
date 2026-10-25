@@ -13,10 +13,12 @@ final class NativePerpsCloseTransfers {
     }
     private final NativeWalletProfiles.Profile owner;private final NativePerpsCloseService service;private final NativeTransferJournal journal;private final NativePerpsBroadcast broadcaster;
     private Draft current;
+    private final NativePerpsSettlementStore settlements;
     NativePerpsCloseTransfers(Context context,NativeWalletProfiles.Profile owner)throws Exception{this(context,owner,new NativePerpsCloseService(),NativePerpsBroadcast.live());}
     NativePerpsCloseTransfers(Context context,NativeWalletProfiles.Profile owner,NativePerpsCloseService service,NativePerpsBroadcast.Transport transport)throws Exception{
         if(owner==null||service==null)throw new IllegalArgumentException("Missing native close wallet");this.owner=owner;this.service=service;
         journal=new NativeTransferJournal(context,owner,WalletNetwork.SOLANA_MAINNET);broadcaster=new NativePerpsBroadcast(journal,transport);
+        settlements=new NativePerpsSettlementStore(context,owner);
     }
     synchronized Draft prepare(String asset,int side,String price,int bps)throws Exception{journal.requireNoPending();current=new Draft(service.review(owner.solanaAddress,asset,side,price,bps));return current;}
     void invalidate(){service.invalidate();}
@@ -37,7 +39,10 @@ final class NativePerpsCloseTransfers {
         if(draft==null)throw new IOException("Missing native close draft");synchronized(draft){
             requireReview(draft,foreground);if(!draft.signed)throw new IOException("Close was not authorized");NativePerpsSignedEnvelope envelope=NativePerpsSignedEnvelope.attach(draft.review.transaction,signature);
             journal.requireNoPending();java.math.BigInteger minimumSlot=service.revalidate(draft.review);requireReview(draft,foreground);draft.consumed=true;
+            settlements.remember(envelope,draft.review.intent,draft.review.amounts,minimumSlot);
+            requireReviewBeforeSend(foreground);
             return broadcaster.submitClose(envelope,draft.review.intent,draft.review.amounts.networkFee,minimumSlot,foreground);
         }
     }
+    private void requireReviewBeforeSend(BooleanSupplier foreground)throws Exception{if(!foreground.getAsBoolean())throw new IOException("Wallet locked before close submission");}
 }

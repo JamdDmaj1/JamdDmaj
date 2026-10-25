@@ -9,6 +9,7 @@ import java.util.Arrays;
 final class NativeSwapReview {
     final String payer,inputMint,outputMint,inputAmount,minimumOutput,simulatedOutput,feeSol,rentSol;
     final int slippageBps;
+    final boolean nativeSolInput,wrappedSolInput;
     private final byte[] message;
     private final NativeSwapService.Clock clock;
     private final long started,expiresAt,wallAtCreation;
@@ -17,6 +18,8 @@ final class NativeSwapReview {
                 || !preview.simulation.matches(preview.candidate.message)) throw new IOException("Incomplete swap review evidence");
         var preparation=preview.candidate.preparation;
         payer=preparation.intent.payer; inputMint=preparation.intent.inputMint; outputMint=preparation.intent.outputMint;
+        nativeSolInput=NativeSwapSetup.SOL.equals(inputMint)&&preparation.intent.wrapAndUnwrapSol;
+        wrappedSolInput=NativeSwapSetup.SOL.equals(inputMint)&&!preparation.intent.wrapAndUnwrapSol;
         inputAmount=decimal(new BigInteger(preparation.intent.amount),preview.balances.inputDecimals);
         minimumOutput=decimal(preparation.minimumOut,preview.balances.outputDecimals);
         simulatedOutput=decimal(preview.simulation.effects.output,preview.balances.outputDecimals);
@@ -35,7 +38,7 @@ final class NativeSwapReview {
     String description(boolean spanish) {
         return "Solana MAINNET\n\n"+(spanish?"Billetera: ":"Wallet: ")+payer+
             "\n\n"+(spanish?"Token entregado: ":"Input token: ")+inputMint+
-            "\n"+(spanish?"Cantidad exacta: ":"Exact amount: ")+inputAmount+
+            "\n"+(spanish?"Cantidad exacta: ":"Exact amount: ")+inputAmount+(nativeSolInput?" SOL":wrappedSolInput?" WSOL":"")+
             "\n\n"+(spanish?"Token recibido: ":"Output token: ")+outputMint+
             "\n"+(spanish?"Mínimo recibido: ":"Minimum received: ")+minimumOutput+
             "\n"+(spanish?"Resultado simulado (no garantizado): ":"Simulated output (not guaranteed): ")+simulatedOutput+

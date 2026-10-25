@@ -20,7 +20,7 @@ final class NativeSwapSetup {
         NativeSwapPreparation.Intent intent=preparation.intent;
         if (!route.source.equals(deriver.associated(intent.payer,intent.inputMint,route.sourceTokenProgram))
                 || !route.destination.equals(deriver.associated(intent.payer,intent.outputMint,route.destinationTokenProgram))) throw invalid();
-        boolean inputSol=SOL.equals(intent.inputMint), outputSol=SOL.equals(intent.outputMint);
+        boolean inputSol=SOL.equals(intent.inputMint)&&intent.wrapAndUnwrapSol, outputSol=SOL.equals(intent.outputMint)&&intent.wrapAndUnwrapSol;
         if ((inputSol && !NativeJupiterRoute.TOKEN.equals(route.sourceTokenProgram))
                 || (outputSol && !NativeJupiterRoute.TOKEN.equals(route.destinationTokenProgram))) throw invalid();
         boolean sourceCreated=false,destinationCreated=false,transfer=false,sync=false,close=false,limitSeen=false,priceSeen=false;

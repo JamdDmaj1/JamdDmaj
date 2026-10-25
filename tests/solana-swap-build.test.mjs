@@ -9,6 +9,13 @@ function body(){return {inputMint:sol,outputMint:usdc,inAmount:'10000000',outAmo
   cleanupInstruction:null,tipInstruction:null,addressesByLookupTableAddress:{[sol]:['untrusted-provider-address']},
   blockhashWithMetadata:{blockhash:Array(32).fill(1),lastValidBlockHeight:100}};}
 function service(value){return createSolanaSwapBuildService({apiKey:'fixture',fetchImpl:async()=>Response.json(value),now:()=>100});}
+test('existing wrapped SOL conversion explicitly disables native SOL wrapping',async()=>{
+  const build=createSolanaSwapBuildService({apiKey:'fixture',now:()=>100,fetchImpl:async url=>{
+    assert.equal(new URL(url).searchParams.get('wrapAndUnwrapSol'),'false');return Response.json(body());
+  }});
+  assert.equal((await build({...request,wrapAndUnwrapSol:false})).minimumOut,'995000');
+  for(const change of [{wrapAndUnwrapSol:'false'},{wrapAndUnwrapSol:false,inputMint:usdc,outputMint:sol}])await assert.rejects(build({...request,...change}));
+});
 test('prepares bounded instructions without signing or trusting resolved provider accounts',async()=>{
   let calls=0;
   const build=createSolanaSwapBuildService({apiKey:'fixture',fetchImpl:async(url,options)=>{
