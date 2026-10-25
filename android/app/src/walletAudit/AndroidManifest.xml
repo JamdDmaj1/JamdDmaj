@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+    <!-- Fixture-only device build: cannot access any RPC, builder or executor. -->
+    <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" tools:node="remove" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" tools:node="remove" />
+    <application android:label="JamdDmaj Offline Checks" android:allowBackup="false"
+        android:usesCleartextTraffic="false" tools:replace="android:label,android:allowBackup">
+        <activity android:name="com.jamddmaj.ai.MainActivity" android:label="JamdDmaj Offline Checks" tools:replace="android:label">
+            <intent-filter tools:node="remove">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="jamddmaj" android:host="oauth" />
+                <data android:scheme="jamddmaj" android:host="google" />
+                <data android:scheme="jamddmaj" android:host="phantom" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

@@ -15,6 +15,13 @@ android {
             jvmArgs '--add-opens=java.base/java.lang=ALL-UNNAMED', '--add-opens=java.base/java.util=ALL-UNNAMED', '--add-opens=java.base/java.io=ALL-UNNAMED', '--add-opens=java.base/java.net=ALL-UNNAMED', '--add-opens=java.base/java.security=ALL-UNNAMED', '--add-opens=java.base/java.text=ALL-UNNAMED', '--add-opens=java.base/jdk.internal.access=ALL-UNNAMED'
         }
     }
+    // Device verification is opt-in and may target only the network-disabled,
+    // separately installed audit package, never a user's production wallet.
+    def deviceTestVariant = project.findProperty('walletDeviceTestBuildType') ?: 'debug'
+    if (!(deviceTestVariant in ['debug', 'walletAudit'])) {
+        throw new GradleException('Device tests may target only debug or walletAudit')
+    }
+    testBuildType deviceTestVariant
     defaultConfig {
         applicationId "com.jamddmaj.ai"
         minSdkVersion rootProject.ext.minSdkVersion
@@ -64,6 +71,13 @@ android {
             signingConfig signingConfigs.release
             applicationIdSuffix ".walletacceptance"
             versionNameSuffix "-walletacceptance"
+            matchingFallbacks = ['walletPreview', 'release']
+        }
+        walletAudit {
+            initWith walletPreview
+            signingConfig signingConfigs.debug
+            applicationIdSuffix ".walletaudit"
+            versionNameSuffix "-walletaudit"
             matchingFallbacks = ['walletPreview', 'release']
         }
     }
