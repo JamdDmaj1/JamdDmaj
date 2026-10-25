@@ -91,3 +91,17 @@ test('missing execution/backup, changed limits or lost activation acknowledgemen
  await f.connect.onclick();await f.prepareActivation.onclick();f.fields.margin.value='25';f.activationConsent.checked=true;await f.activate.onclick();assert.equal(writes,0);assert.equal(f.activate.disabled,true);
  f.fields.margin.value='20';await f.connect.onclick();await f.prepareActivation.onclick();f.activationConsent.checked=true;await f.activate.onclick();assert.equal(writes,1);assert.match(f.status.textContent,/Activación sin confirmar/);assert.equal(f.prepareActivation.disabled,true);
 });
+test('custom limits remain adjustable and activation review stays available after saving or disabling',async()=>{
+ let stored={...state},activations=0;const f=fixture({readStatus:async()=>({controls:stored,recovery:{backupVerified:true},executionAvailable:true}),
+  save:async input=>{stored={...stored,settings:input.settings,revision:'saved-revision',enabled:false,paused:true};return stored;},
+  pause:async()=>{stored={...stored,revision:'paused-revision',enabled:false,paused:true};return stored;},
+  prepareActivation:async()=>({...stored,expiresAt:Date.now()+60000}),activate:async()=>{activations++;return {...stored,enabled:true,paused:false};}});
+ await f.connect.onclick();f.fields.margin.value='15';f.fields.dailyTrades.value='7';await f.save.onclick();
+ assert.equal(stored.settings.margin,15);assert.equal(stored.settings.dailyTrades,7);assert.equal(f.prepareActivation.disabled,false);assert.equal(activations,0);
+ await f.prepareActivation.onclick();assert.match(f.activationSummary.textContent,/15 USDC/);assert.match(f.activationSummary.textContent,/7/);assert.equal(f.activate.disabled,true);
+ await f.pause.onclick();assert.equal(f.prepareActivation.disabled,false);assert.equal(f.activationConsent.checked,false);assert.equal(activations,0);
+});
+test('readiness after saving must match the same wallet and revision before re-enabling activation',async()=>{
+ let reads=0;const f=fixture({readStatus:async()=>({controls:++reads===1?state:{...state,revision:'foreign-new-revision'},recovery:{backupVerified:true},executionAvailable:true}),save:async()=>state});
+ await f.connect.onclick();await f.save.onclick();assert.equal(f.prepareActivation.disabled,true);assert.match(f.status.textContent,/configuración cambió/);
+});
