@@ -13,9 +13,12 @@ function fail(){throw Error('VERCEL_CANDIDATE_UNVERIFIED');}
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
 export function candidateRouting(config){
  if(Object.keys(config).sort().join(',')!=='$schema,buildCommand,headers,outputDirectory'||config.buildCommand!=='npm run build'||config.outputDirectory!=='www'
-  ||config.headers?.length!==1||config.headers[0].source!=='/(.*)')fail();
- const headers={};for(const row of config.headers[0].headers){if(typeof row.key!=='string'||typeof row.value!=='string'||headers[row.key]!==undefined)fail();headers[row.key]=row.value;}
- return {version:3,routes:[{src:'/(.*)',headers,continue:true},{src:'/',dest:'/index.html'},{handle:'filesystem'}]};
+  ||config.headers?.length!==2||config.headers[0].source!=='/wallet-web(.*)'||config.headers[1].source!=='/(.*)')fail();
+ const routes=[...config.headers].reverse().map(rule=>{
+  const headers={};for(const row of rule.headers){if(typeof row.key!=='string'||typeof row.value!=='string'||headers[row.key]!==undefined)fail();headers[row.key]=row.value;}
+  return {src:rule.source,headers,continue:true};
+ });
+ return {version:3,routes:[...routes,{src:'/',dest:'/index.html'},{handle:'filesystem'}]};
 }
 export function candidateEnvironmentNames(code){
  if(/process\.env\s*\[/.test(code))fail();

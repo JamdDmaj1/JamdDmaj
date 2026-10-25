@@ -172,7 +172,7 @@ test("the official web app declares installability and baseline edge protections
   const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
   const manifest = JSON.parse(readFileSync(new URL("../manifest.json", import.meta.url), "utf8"));
   const vercel = JSON.parse(readFileSync(new URL("../vercel.json", import.meta.url), "utf8"));
-  const headers = Object.fromEntries(vercel.headers[0].headers.map(({ key, value }) => [key, value]));
+  const headers = Object.fromEntries(vercel.headers.find((rule) => rule.source === '/(.*)').headers.map(({ key, value }) => [key, value]));
   assert.match(html, /rel="manifest" href="\/manifest\.json"/);
   assert.equal(manifest.id, "/");
   assert.ok(manifest.shortcuts.some((shortcut) => shortcut.url === "/?view=fair-launch"));

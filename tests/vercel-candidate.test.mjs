@@ -5,6 +5,7 @@ import {candidateRouting,candidateEnvironmentNames} from '../scripts/build-verce
 test('prebuilt candidate preserves existing security headers without adding schedules or writable routes',()=>{
  const config=JSON.parse(readFileSync(new URL('../vercel.json',import.meta.url),'utf8')),out=candidateRouting(config);
  assert.equal(out.version,3);assert.equal(out.crons,undefined);assert.equal(out.routes[0].headers['X-Frame-Options'],'DENY');assert.deepEqual(out.routes.at(-1),{handle:'filesystem'});
+ assert.equal(out.routes[1].src,'/wallet-web(.*)');assert.equal(out.routes[1].headers['Cache-Control'],'no-store');assert.equal(out.routes[1].headers['Referrer-Policy'],'no-referrer');
  for(const extra of [{crons:[{path:'/api/pro-cron'}]},{rewrites:[]},{outputDirectory:'.'},{buildCommand:'npm run unknown'}])assert.throws(()=>candidateRouting({...config,...extra}));
 });
 test('edge runtime variable declarations use names only, preserve runtime lookup and reject dynamic credential enumeration',()=>{
