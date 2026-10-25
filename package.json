@@ -18,7 +18,6 @@
     "mainnet:gate": "node scripts/check-mainnet-readiness.mjs --enforce"
   },
   "dependencies": {
-    "@noble/curves": "2.4.0",
     "@capacitor-community/speech-recognition": "^7.0.1",
     "@capacitor-community/text-to-speech": "^8.0.1",
     "@capacitor/android": "8.4.3",
@@ -26,6 +25,8 @@
     "@capacitor/browser": "^8.0.0",
     "@capacitor/core": "8.4.3",
     "@capacitor/ios": "8.4.3",
+    "@noble/curves": "2.4.0",
+    "@scure/bip39": "2.4.0",
     "@solana-program/system": "^0.12.2",
     "@solana-program/token-2022": "0.9.0",
     "@solana/kit": "^6.10.0",

@@ -6,6 +6,8 @@ const root = resolve(import.meta.dirname, "..");
 const output = resolve(root, "www");
 const assets = [
   "index.html",
+  "wallet-web.html",
+  "wallet-web.css",
   "private-simulator.html",
   "private-simulator-ui.js",
   "manual-order-review-ui.js",
@@ -43,6 +45,10 @@ for (const asset of assets) {
 
 await mkdir(resolve(output, ".well-known"), { recursive: true });
 await cp(resolve(root, ".well-known", "security.txt"), resolve(output, ".well-known", "security.txt"));
+
+await build({
+  absWorkingDir:root,entryPoints:[resolve(root,'wallet-web-ui.js')],outfile:resolve(output,'wallet-web-ui.js'),bundle:true,format:'esm',platform:'browser',target:['es2022'],legalComments:'none'
+});
 
 await build({
   absWorkingDir: root,
