@@ -66,4 +66,11 @@ final class NativePerpsBroadcast {
         if(result==null||!"decrease-position".equals(result.opt("action"))||!envelope.transactionId.equals(result.opt("txid")))throw new IOException("Unknown close submission result; do not resend");
         journal.submitted(envelope.transactionId);return envelope.transactionId;
     }
+    synchronized String submitCancellation(NativePerpsSignedEnvelope envelope,NativePerpsCancelIntent intent,BigInteger fee,BigInteger slot,BooleanSupplier foreground)throws Exception{
+        if(attempted||envelope==null||intent==null||foreground==null||!foreground.getAsBoolean())throw new IOException("Cancellation broadcast unavailable");
+        journal.requireNoPending();JSONObject body=new JSONObject().put("action","cancel-tpsl").put("serializedTxBase64",Base64.encodeToString(envelope.bytes(),Base64.NO_WRAP));
+        attempted=true;journal.beginPerpsCancellation(envelope,intent,fee,slot);if(!foreground.getAsBoolean())throw new IOException("Wallet locked; inspect recorded cancellation");
+        JSONObject result=transport.execute(body);if(result==null||!"cancel-tpsl".equals(result.opt("action"))||!envelope.transactionId.equals(result.opt("txid")))throw new IOException("Unknown cancellation result; do not resend");
+        journal.submitted(envelope.transactionId);return envelope.transactionId;
+    }
 }

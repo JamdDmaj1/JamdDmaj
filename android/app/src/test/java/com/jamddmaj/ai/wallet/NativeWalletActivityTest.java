@@ -18,6 +18,13 @@ import static org.junit.Assert.*;
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk=30)
 public class NativeWalletActivityTest {
+    @Test public void leftoverExitControlsCannotReadOrAuthorizeWhenWalletIsLocked(){
+        try(var controller=Robolectric.buildActivity(NativeWalletActivity.class).create()){
+            var activity=controller.get();assertNotNull(activity.getWindow().getDecorView().findViewWithTag("native-perps-pending-exits"));
+            activity.readPerpsExits();activity.reviewPerpsCancellation();assertNull(org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog());
+            assertNull(org.robolectric.Shadows.shadowOf(activity).getNextStartedActivity());
+        }
+    }
     @Test public void nativeFullCloseIsExplicitAndCannotPrepareWhileWalletIsLocked(){
         var app=org.robolectric.RuntimeEnvironment.getApplication();
         var intent=new android.content.Intent(app,NativeWalletActivity.class).putExtra("wallet-navigation","perps");

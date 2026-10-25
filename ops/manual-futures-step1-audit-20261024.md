@@ -71,3 +71,20 @@ Final source verification:
 - Navigation/web-review regression tests: 14/14 passed. Staged diff whitespace checks passed. No release/version bump, push, deployment, APK installation, real owner signature or financial submission occurred.
 
 Implementation checkpoint: the previously missing native full-close code/UI path is implemented and tested with isolated fixtures. This is not a claim of physical-device or funded mainnet acceptance, and it does not complete native conversion/TP-SL cancellation or the overall seven-step project.
+
+## Native orphan TP/SL cancellation checkpoint (source only)
+
+Implemented a separate native action to discover and cancel one owned remaining USDC-receive TP/SL request at a time. A finalized closed-position proof is required before preparation and again before authorization/submission; an active position is rejected. Request data, owner, position, request PDA/counter and token accounts are independently decoded. Both supported cancellation layouts have exact account-role and instruction allowlists. The builder uses the existing backend's v2/tpsl contract; its response is not authorization.
+
+The exact original wire is simulated at a matching account bank. Effects must conserve returned USDC, account rent and bounded SOL fees, without changing the position, pool or unrelated accounts. Review expires, revalidation repeats the checks, and a separate strong-biometric native approval signs only the reviewed message. Lock/background invalidates authorization. No generic WebView signer was added.
+
+The durable CANCEL_TPSL journal records one request (not monetary exposure), its counter, signed-wire hash and latest validated bank before transport. Uncertainty blocks retries and other native financial operations. Confirmation remains pending until the signature is finalized; the UI additionally checks finalized absence of both request accounts before reporting removal. Legacy entry and full-close journal records remain supported.
+
+Verification of current compiled sources:
+
+- 185 native core tests passed in isolated Linux fixture JVMs: 136 baseline, 36 close, 2 close-bank and 11 cancellation tests. Fixtures cover BTC/ETH/SOL in both directions, both cancellation layouts, ATA creation/refunds, active or merely confirmed positions, changed accounts/state, bad effects, timeout/restart, replay and locked/wrong-wallet authorization.
+- 8 additional ordinary SOL transfer regression tests passed in an isolated JVM.
+- 13 Android UI tests passed with Windows Gradle and the real merged manifest; the non-exported separate native process assertion remains intact.
+- 14 navigation/web-review regression tests passed.
+
+Fixture logs are under .perps-build/native-cancel-verified-20261024.log and .perps-build/native-cancel-solana-regression-20261024.log. No real financial transaction was prepared, signed or sent, no bot setting was changed, and no production deployment, release/version bump or APK installation occurred. Native protected conversion to USDC is the next separate implementation step. Physical-device acceptance and publication remain outstanding.

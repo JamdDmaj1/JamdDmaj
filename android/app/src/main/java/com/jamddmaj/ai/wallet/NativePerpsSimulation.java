@@ -132,17 +132,24 @@ final class NativePerpsSimulation {
      * produces signing authority. Effects/policy must consume the exact result. */
     Result inspectClose(NativePerpsTransaction transaction,NativePerpsCloseIntent intent,BigInteger lastValidHeight,
             BigInteger minimumSlot,java.util.Set<String> additionalAddresses)throws Exception{
-        if(transaction==null||intent==null||lastValidHeight==null||lastValidHeight.signum()<=0||lastValidHeight.bitLength()>64
+        if(intent==null)throw invalid("Missing close intent");return inspectExactEffects(transaction,intent.payer,intent.positionAddress,lastValidHeight,minimumSlot,additionalAddresses,100);
+    }
+    Result inspectCancellation(NativePerpsTransaction transaction,NativePerpsCancelIntent intent,BigInteger height,BigInteger minimum,java.util.Set<String> additional)throws Exception{
+        if(intent==null)throw invalid("Missing cancellation intent");return inspectExactEffects(transaction,intent.payer,intent.positionAddress,height,minimum,additional,10);
+    }
+    private Result inspectExactEffects(NativePerpsTransaction transaction,String payer,String positionAddress,BigInteger lastValidHeight,
+            BigInteger minimumSlot,java.util.Set<String> additionalAddresses,int maximumAccounts)throws Exception{
+        if(transaction==null||lastValidHeight==null||lastValidHeight.signum()<=0||lastValidHeight.bitLength()>64
                 ||minimumSlot==null||minimumSlot.signum()<0||minimumSlot.bitLength()>64||additionalAddresses==null
-                ||!Arrays.equals(transaction.message.staticKey(0),DevnetSolana.decode(intent.payer,32)))throw invalid("Invalid close simulation intent");
+                ||!Arrays.equals(transaction.message.staticKey(0),DevnetSolana.decode(payer,32)))throw invalid("Invalid close simulation intent");
         long started=SystemClock.elapsedRealtime();
         SolanaLookupTables.Resolved keys=accounts.resolve(transaction.message);
         LinkedHashSet<String> watched=new LinkedHashSet<>();
         for(int i=0;i<transaction.message.accountCount;i++)if(transaction.message.isWritable(i))watched.add(DevnetSolana.encode(keys.key(i)));
         for(String address:additionalAddresses){DevnetSolana.decode(address,32);watched.add(address);}
-        watched.add(intent.payer);watched.add(intent.positionAddress);
-        String source=deriver.associated(intent.payer,NativeSolanaTokens.USDC,SplTokenAccount.PROGRAM);watched.add(source);
-        if(watched.size()>100)throw invalid("Too many close simulation accounts");
+        watched.add(payer);watched.add(positionAddress);
+        String source=deriver.associated(payer,NativeSolanaTokens.USDC,SplTokenAccount.PROGRAM);watched.add(source);
+        if(watched.size()>maximumAccounts)throw invalid("Too many simulation accounts");
         List<String> addresses=new ArrayList<>(watched);JSONArray encodedAddresses=new JSONArray();for(String address:addresses)encodedAddresses.put(address);
         rpc.verifyNetwork();
         BigInteger slot=units(rpc.request("getSlot",new JSONArray().put(confirmed().put("minContextSlot",minimumSlot))));

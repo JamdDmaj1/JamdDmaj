@@ -131,7 +131,8 @@ public final class SolanaNativeTransfers {
         if (!values.isNull(0)) {
             JSONObject result = values.getJSONObject(0);
             String state = result.optString("confirmationStatus");
-            if ((state.equals("confirmed") || state.equals("finalized")) && result.has("err"))
+            boolean cancellation=record.perps!=null&&"CANCEL_TPSL".equals(record.perps.operation);
+            if ((state.equals("finalized") || !cancellation&&state.equals("confirmed")) && result.has("err"))
                 journal.settled(record.transactionId, result.isNull("err"));
         }
         return journal.latest();

@@ -55,22 +55,41 @@ public final class NativeTransferJournal {
     }
 
     /** Descriptive identity, never signing authority. Entry units are margin;
-     * FULL_CLOSE units are removed exposure, both integer USD micro-units. */
+     * FULL_CLOSE units are removed exposure (USD micro-units); CANCEL_TPSL
+     * units are a count of one request, never a monetary debit. */
     public static final class Perps {
         public final String asset,position,signedWireSha256,operation;
         public final BigInteger minimumSlot;
+        public final String requestAddress;public final BigInteger requestCounter;
         public final int side;
         private Perps(String asset,int side,String position,String digest,String payer){
             this(asset,side,position,digest,payer,"INCREASE",BigInteger.ZERO);
         }
         private Perps(String asset,int side,String position,String digest,String payer,String operation,BigInteger minimumSlot){
+            this(asset,side,position,digest,payer,operation,minimumSlot,null,null);
+        }
+        private Perps(String asset,int side,String position,String digest,String payer,String operation,BigInteger minimumSlot,String request,BigInteger counter){
             if(!("BTC".equals(asset)||"ETH".equals(asset)||"SOL".equals(asset))||(side!=1&&side!=2)
                     ||digest==null||!digest.matches("[0-9a-f]{64}")
-                    ||!DevnetSolana.encode(NativePerpsAddresses.position(payer,asset,side)).equals(position)||!("INCREASE".equals(operation)||"FULL_CLOSE".equals(operation))
+                    ||!DevnetSolana.encode(NativePerpsAddresses.position(payer,asset,side)).equals(position)||!("INCREASE".equals(operation)||"FULL_CLOSE".equals(operation)||"CANCEL_TPSL".equals(operation))
                     ||minimumSlot==null||minimumSlot.signum()<0||minimumSlot.bitLength()>64||"INCREASE".equals(operation)&&minimumSlot.signum()!=0)
                 throw new IllegalArgumentException("Invalid perps journal identity");
+            if("CANCEL_TPSL".equals(operation)){
+                if(minimumSlot.signum()<=0||counter==null||counter.signum()<0||counter.bitLength()>64||request==null
+                        ||!request.equals(DevnetSolana.encode(NativePerpsAddresses.exitRequest(DevnetSolana.decode(position,32),counter))))throw new IllegalArgumentException("Invalid cancellation journal identity");
+            }else if(request!=null||counter!=null)throw new IllegalArgumentException("Unexpected cancellation metadata");
             this.asset=asset;this.side=side;this.position=position;this.signedWireSha256=digest;this.operation=operation;this.minimumSlot=minimumSlot;
+            requestAddress=request;requestCounter=counter;
         }
+    }
+    void beginPerpsCancellation(NativePerpsSignedEnvelope envelope,NativePerpsCancelIntent intent,BigInteger fee,BigInteger slot)throws Exception{
+        if(network!=WalletNetwork.SOLANA_MAINNET||envelope==null||intent==null||!owner.solanaAddress.equals(envelope.payer)||!owner.solanaAddress.equals(intent.payer)
+                ||fee==null||fee.signum()<=0||fee.compareTo(BigInteger.valueOf(1000000))>0)throw new IOException("Cancellation journal owner mismatch");
+        byte[] hash=java.security.MessageDigest.getInstance("SHA-256").digest(envelope.bytes());StringBuilder digest=new StringBuilder();for(byte b:hash)digest.append(String.format(java.util.Locale.ROOT,"%02x",b&255));
+        Perps metadata=new Perps(intent.asset,intent.side,intent.positionAddress,digest.toString(),owner.solanaAddress,"CANCEL_TPSL",slot,intent.requestAddress,intent.counter);
+        validate(envelope.transactionId,intent.requestAddress,BigInteger.ONE,fee);
+        synchronized(LOCK){Record old=read();if(old!=null&&(old.pending()||old.transactionId.equals(envelope.transactionId)))throw new IOException("Unresolved or recorded transaction");
+            write(new Record(envelope.transactionId,intent.requestAddress,BigInteger.ONE,fee,Phase.UNKNOWN,System.currentTimeMillis(),null,null,null,null,metadata));}
     }
 
     void beginPerpsClose(NativePerpsSignedEnvelope envelope,NativePerpsCloseIntent intent,BigInteger fee,BigInteger minimumSlot)throws Exception{
@@ -199,10 +218,12 @@ public final class NativeTransferJournal {
         if(value.has("perps")){
             if(network!=WalletNetwork.SOLANA_MAINNET||value.has("swap")||tokenMint!=null)throw new IOException("Invalid perps journal network or kind");
             JSONObject p=value.getJSONObject("perps");Object side=p.get("side");
-            if(!(side instanceof Integer)||p.length()!=4+(p.has("operation")?1:0)+(p.has("minimumSlot")?1:0)||p.has("minimumSlot")&&!p.has("operation"))throw new IOException("Invalid perps journal metadata");
+            if(!(side instanceof Integer)||p.length()!=4+(p.has("operation")?1:0)+(p.has("minimumSlot")?1:0)+(p.has("request")?1:0)+(p.has("counter")?1:0)||p.has("minimumSlot")&&!p.has("operation"))throw new IOException("Invalid perps journal metadata");
             String slot=p.has("minimumSlot")?p.getString("minimumSlot"):"0";if(!slot.matches("0|[1-9][0-9]{0,19}"))throw new IOException("Invalid perps journal bank");
-            perps=new Perps(p.getString("asset"),(Integer)side,p.getString("position"),p.getString("signedWireSha256"),owner.solanaAddress,p.has("operation")?p.getString("operation"):"INCREASE",new BigInteger(slot));
-            if(!perps.position.equals(value.getString("recipient")))throw new IOException("Invalid perps journal position");
+            String counter=p.has("counter")?p.getString("counter"):null;if(counter!=null&&!counter.matches("0|[1-9][0-9]{0,19}"))throw new IOException("Invalid cancellation counter");
+            perps=new Perps(p.getString("asset"),(Integer)side,p.getString("position"),p.getString("signedWireSha256"),owner.solanaAddress,p.has("operation")?p.getString("operation"):"INCREASE",new BigInteger(slot),p.has("request")?p.getString("request"):null,counter==null?null:new BigInteger(counter));
+            if(!("CANCEL_TPSL".equals(perps.operation)?perps.requestAddress:perps.position).equals(value.getString("recipient")))throw new IOException("Invalid perps journal destination");
+            if("CANCEL_TPSL".equals(perps.operation)&&(!"1".equals(amount)||new BigInteger(fee).compareTo(BigInteger.valueOf(1000000))>0))throw new IOException("Invalid cancellation count or fee");
         }
         Record record = new Record(value.getString("transactionId"), value.getString("recipient"), new BigInteger(amount),
             new BigInteger(fee), Phase.valueOf(value.getString("phase")), ((Number) timestamp).longValue(),inputMint,outputMint,minimumOutput,tokenMint,perps);
@@ -219,7 +240,8 @@ public final class NativeTransferJournal {
         if(record.tokenMint!=null)value.put("tokenMint",record.tokenMint);
         if(record.perps!=null)value.put("perps",new JSONObject().put("asset",record.perps.asset).put("side",record.perps.side)
             .put("position",record.perps.position).put("signedWireSha256",record.perps.signedWireSha256));
-        if(record.perps!=null&&"FULL_CLOSE".equals(record.perps.operation))value.getJSONObject("perps").put("operation",record.perps.operation).put("minimumSlot",record.perps.minimumSlot.toString());
+        if(record.perps!=null&&!"INCREASE".equals(record.perps.operation))value.getJSONObject("perps").put("operation",record.perps.operation).put("minimumSlot",record.perps.minimumSlot.toString());
+        if(record.perps!=null&&"CANCEL_TPSL".equals(record.perps.operation))value.getJSONObject("perps").put("request",record.perps.requestAddress).put("counter",record.perps.requestCounter.toString());
         byte[] expected = value.toString().getBytes(StandardCharsets.UTF_8);
         FileOutputStream output = null;
         try {
