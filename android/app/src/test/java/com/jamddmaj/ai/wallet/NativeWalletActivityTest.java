@@ -18,6 +18,13 @@ import static org.junit.Assert.*;
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk=30)
 public class NativeWalletActivityTest {
+    @Test public void accessCheckResultIsSeparateAndClearedWhenLeavingWallet(){
+        try(var controller=Robolectric.buildActivity(NativeWalletActivity.class).create()){
+            var activity=controller.get();android.widget.TextView result=activity.getWindow().getDecorView().findViewWithTag("native-wallet-access-check-result");
+            assertNotNull(result);assertEquals("",result.getText().toString());result.setText("fixture verified access; not signing authority");
+            activity.returnToAssets();assertEquals("",result.getText().toString());
+        }
+    }
     @Test public void postCloseConversionIsSeparateAndCannotReviewOrAuthorizeWhenLocked(){
         try(var controller=Robolectric.buildActivity(NativeWalletActivity.class).create()){
             var activity=controller.get();activity.checkPerpsSettlement();activity.reviewPerpsConversion();

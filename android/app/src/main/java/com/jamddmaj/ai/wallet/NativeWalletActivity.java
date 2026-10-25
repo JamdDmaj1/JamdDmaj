@@ -35,7 +35,7 @@ public final class NativeWalletActivity extends Activity {
     private volatile long epoch;
     private HardwareWalletVault vault;
     private CancellationSignal cancellation;
-    private TextView status,addresses;
+    private TextView status,addresses,accessCheckStatus;
     private LinearLayout accounts;
     private boolean es;
     private NativeWalletEnrollment enrollment;
@@ -91,6 +91,7 @@ public final class NativeWalletActivity extends Activity {
         accounts=new LinearLayout(this);accounts.setOrientation(LinearLayout.VERTICAL);root.addView(accounts);
         addresses=label(root,"",17);addresses.setTextIsSelectable(true);
         status=label(root,"",16);
+        accessCheckStatus=label(root,"",16);accessCheckStatus.setTag("native-wallet-access-check-result");
         LinearLayout receiveSection=section(root,text("Recibir · elegir red","Receive · choose network"));
         action(receiveSection,text("Ver dirección para recibir SOL","View SOL receiving address"),()->receive(WalletNetwork.SOLANA_MAINNET));
         action(receiveSection,text("Ver dirección para recibir BNB","View BNB receiving address"),()->receive(WalletNetwork.BNB_MAINNET));
@@ -311,6 +312,7 @@ public final class NativeWalletActivity extends Activity {
                     worker.execute(()->readBalances(known,ticket));break;
                 }
                 for(var profile:profiles){Button button=new Button(this);button.setText(profile.name+" · "+text("Ver saldo","View balance"));NativeWalletStyle.button(button);accounts.addView(button);button.setOnClickListener(v->viewPublicProfile(profile));
+                    action(accounts,profile.name+" · "+text("Verificar huella sin operar","Verify biometrics without trading"),()->unlock(profile.ownerId));
                     action(accounts,profile.name+" · "+text("Recuperar acceso","Recover access"),()->{lock();openedBackup=null;recoveryOwner=profile.ownerId;walletName.setText(profile.name);showRecoveryForm();status.setText(text("Abre el respaldo de esta billetera para recuperar su acceso.","Open this wallet's backup to recover its access."));});}
             });
         }catch(Exception failure){error(ticket);}});
@@ -336,7 +338,7 @@ public final class NativeWalletActivity extends Activity {
             var operation=selected.prepareOpen();
             runOnUiThread(()->{if(ticket!=epoch){selected.cancel();return;}vault=selected;cancellation=new CancellationSignal();
                 new BiometricPrompt.Builder(this).setTitle("JamdDmaj Wallet")
-                    .setSubtitle(text("Verificar acceso a esta billetera","Verify access to this wallet"))
+                    .setSubtitle(text("Solo verificar acceso; no firma ni envía operaciones","Verify access only; no transaction signing or sending"))
                     .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
                     .setNegativeButton(text("Cancelar","Cancel"),getMainExecutor(),(dialog,which)->lock()).build()
                     .authenticate(new BiometricPrompt.CryptoObject(operation.authenticationCipher()),cancellation,getMainExecutor(),new BiometricPrompt.AuthenticationCallback(){
@@ -351,7 +353,7 @@ public final class NativeWalletActivity extends Activity {
                                     if(!profile.solanaAddress.equals(verified.solana)||!profile.bnbAddress.equalsIgnoreCase(verified.bnb))throw new SecurityException("Wallet metadata mismatch");
                                 });
                                 if(ticket==epoch)getSharedPreferences("wallet-selection",MODE_PRIVATE).edit().putString("owner",profile.ownerId).apply();
-                                runOnUiThread(()->{if(ticket==epoch){selectedProfile=profile;addresses.setText("Solana mainnet · SOL\n"+profile.solanaAddress+"\n\nBNB Smart Chain · BNB\n"+profile.bnbAddress);status.setText(text("Consultando saldos…","Checking balances…"));}});
+                                runOnUiThread(()->{if(ticket==epoch){selectedProfile=profile;addresses.setText("Solana mainnet · SOL\n"+profile.solanaAddress+"\n\nBNB Smart Chain · BNB\n"+profile.bnbAddress);accessCheckStatus.setText(text("Acceso verificado con huella. No se firmó ni envió ninguna operación. Cada operación requiere su propia revisión y huella.","Biometric access verified. No transaction was signed or sent. Each transaction still requires its own review and biometric approval."));status.setText(text("Consultando saldos…","Checking balances…"));}});
                                 readBalances(profile,ticket);
                             }catch(Exception failure){error(ticket);}});
                         }
@@ -839,7 +841,7 @@ public final class NativeWalletActivity extends Activity {
         });
     }
     private void error(long ticket){runOnUiThread(()->{if(ticket!=epoch)return;lock();status.setText(text("No se pudo verificar esta operación. Esto no confirma un cambio de huella. Conserva tu respaldo; no se ha enviado dinero.","This operation could not be verified. This does not confirm a biometric change. Keep your backup; no money was sent."));});}
-    private void lock(){epoch++;NativePerpsConversionTransfers conversion=perpsConversionService;perpsConversionService=null;if(conversion!=null)conversion.invalidate();NativePerpsTransfers previous=perpsService;perpsService=null;if(previous!=null)previous.invalidate();NativePerpsCloseTransfers close=perpsCloseService;perpsCloseService=null;if(close!=null)close.invalidate();NativePerpsCancelTransfers cancel=perpsCancelService;perpsCancelService=null;if(cancel!=null)cancel.invalidate();pendingPerpsExits.clear();if(perpsExits!=null)perpsExits.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,new String[0]));selectedProfile=null;if(cancellation!=null)cancellation.cancel();cancellation=null;if(vault!=null)vault.cancel();vault=null;if(enrollment!=null)enrollment.cancel();if(password!=null)password.setText("");if(passwordRepeat!=null)passwordRepeat.setText("");if(addresses!=null)addresses.setText("");if(status!=null)status.setText(text("Billetera bloqueada.","Wallet locked."));}
+    private void lock(){epoch++;if(accessCheckStatus!=null)accessCheckStatus.setText("");NativePerpsConversionTransfers conversion=perpsConversionService;perpsConversionService=null;if(conversion!=null)conversion.invalidate();NativePerpsTransfers previous=perpsService;perpsService=null;if(previous!=null)previous.invalidate();NativePerpsCloseTransfers close=perpsCloseService;perpsCloseService=null;if(close!=null)close.invalidate();NativePerpsCancelTransfers cancel=perpsCancelService;perpsCancelService=null;if(cancel!=null)cancel.invalidate();pendingPerpsExits.clear();if(perpsExits!=null)perpsExits.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,new String[0]));selectedProfile=null;if(cancellation!=null)cancellation.cancel();cancellation=null;if(vault!=null)vault.cancel();vault=null;if(enrollment!=null)enrollment.cancel();if(password!=null)password.setText("");if(passwordRepeat!=null)passwordRepeat.setText("");if(addresses!=null)addresses.setText("");if(status!=null)status.setText(text("Billetera bloqueada.","Wallet locked."));}
     @Override protected void onStop(){if(seedDialog!=null){seedDialog.dismiss();seedDialog=null;}lock();super.onStop();}
     @Override protected void onDestroy(){lock();worker.shutdownNow();super.onDestroy();}
 }
