@@ -8,6 +8,8 @@ const assets = [
   "index.html",
   "wallet-web.html",
   "wallet-web.css",
+  "fee-recipient-setup.html",
+  "fee-recipient-setup.css",
   "private-simulator.html",
   "private-simulator-ui.js",
   "manual-order-review-ui.js",
@@ -49,6 +51,7 @@ await cp(resolve(root, ".well-known", "security.txt"), resolve(output, ".well-kn
 await build({
   absWorkingDir:root,entryPoints:[resolve(root,'wallet-web-ui.js')],outfile:resolve(output,'wallet-web-ui.js'),bundle:true,format:'esm',platform:'browser',target:['es2022'],legalComments:'none'
 });
+await build({absWorkingDir:root,entryPoints:[resolve(root,'fee-recipient-setup-ui.js')],outfile:resolve(output,'fee-recipient-setup-ui.js'),bundle:true,format:'esm',platform:'browser',target:['es2022'],legalComments:'none'});
 
 await build({
   absWorkingDir: root,
