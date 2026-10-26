@@ -14,7 +14,9 @@ try{
  const page=await browser.newPage(),errors=[];page.on('pageerror',error=>errors.push(error.message));
  await page.route('**/api/**',route=>route.fulfill({status:503,contentType:'application/json',body:'{}'}));
  await page.route('https://solana-rpc.publicnode.com/**',route=>route.abort());
- await page.goto('http://127.0.0.1:'+server.address().port+'/private-simulator.html#lang=en');
+ const base=process.argv[2]||'http://127.0.0.1:'+server.address().port;
+ if(!/^https:\/\/www\.jamddmaj\.com$/.test(base)&&!base.startsWith('http://127.0.0.1:'))throw Error('Unexpected QA origin');
+ await page.goto(base+'/private-simulator.html?inlineSwap=20261026#lang=en');
  await page.locator('#tab-assets').click();
  await page.evaluate(async()=>{
   const store=await import('/lib/wallet-portfolio-store.js'),session=await import('/lib/perps-web-wallet-session.js');

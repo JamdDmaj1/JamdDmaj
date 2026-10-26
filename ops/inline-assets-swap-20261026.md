@@ -24,4 +24,15 @@ The inline confirmation holds a same-origin per-wallet Web Lock across review au
 - Built Edge browser check opens/closes the inline panel, retains Assets selection, requires reconnect for remembered accounts and reviews a fully simulated quote through the bundled shared provider module without signing. Mobile viewport has no horizontal overflow or page errors.
 - Web build: 31 assets.
 
-Publication must be independently confirmed; source completion is not proof of public availability.
+## Web publication evidence
+
+- Published application source commit: `83c3fd7`.
+- Team/project verified before release: `jamd-dmaj-s-projects/jamd-dmaj`, project `prj_MDNgTRQMQhZHy0Np4HuKiqTKbsjd`.
+- Staged production deployment `dpl_7ssWt1PJ8ziK4n22TP8uDFprhLXm` reached READY, then was promoted without rebuilding.
+- Candidate: https://jamd-dmaj-r1clxk4pg-jamd-dmaj-s-projects.vercel.app
+- Public domain: https://www.jamddmaj.com
+- Candidate and public built asset/session bundles match local tested bytes. HTML matches after CRLF/LF normalization (the committed export uses LF).
+- Public-domain browser regression passed with synthetic public account and mocked quote/RPC only: inline open/close, no navigation, reconnect requirement, quote display, zero signing calls, no mobile overflow/page errors.
+- Deployment error-log query covering ten minutes returned zero records. This is a point-in-time scan, not ongoing monitoring.
+- Final focused tests: 21 passed, zero failed, including the additional durable-pending guard regression.
+- This is a web publication only, not a new Android APK and not completion of the server-custodied bot-wallet swap.
