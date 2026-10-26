@@ -20,3 +20,12 @@ User could verify the exclusive wallet but reviewing 0.08 SOL produced the misle
 Focused tests passed 11/11 before the complete regression run. New cases prove exactly two unsigned quote attempts at most, zero signatures/broadcasts during review, no quote retry at confirmation, and correct public error classification. Publication evidence follows after verification.
 
 Official routing reference consulted during diagnosis: https://developers.jup.ag/docs/guides/how-to-build-a-custom-swap-with-metis . No new routing parameters or DEX restrictions were added.
+
+## Publication and verification
+
+- Source fix: `b559a4b`. Complete regression: 1,111 tests, 1,092 passed, 19 skipped, zero failures. Isolated Linux fixture suite: 8/8 passed without production custody or network access.
+- Corrected worker installed with SHA-256 `2e0ba4f080a952f70e5bb6ac5bf57e1a96763a10a3f7ef1a79eb59259f51a24c`; previous worker preserved as `worker-before-routefix.mjs`. Worker, web and HTTPS services verified active; health returned HTTP 200. No schema, keys or account settings changed.
+- Web deployment `dpl_H2VsPsiw8MbpjywHGbLrbaSBCG16` (`https://jamd-dmaj-fkvgz4us3-jamd-dmaj-s-projects.vercel.app`) reached READY and was promoted to the public domain without rebuilding.
+- Public Assets bundle returned HTTP 200 and exactly matched local SHA-256 `ed62c4a0101a33691150720d89e8baa9950673fc6268b51a6840180d199af3b0`.
+- Browser regression against `https://www.jamddmaj.com` passed, including mocked route failure followed by a new successful review, inline Assets navigation, provider binding and layout checks. Financial requests in browser regression were mocked.
+- No funded transaction was signed or submitted, and no bot was activated. Mainnet verification was preparation/simulation only; external routes can still fail and now receive an accurate error. No Android APK was published for this web correction.
