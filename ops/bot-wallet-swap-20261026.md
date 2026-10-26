@@ -1,5 +1,7 @@
 # Dedicated bot wallet manual swap — implementation status
 
+**Current status: integrated source `11c15a5` is installed on the VPS and published on the public web.** The review-only sections below describe the earlier checkpoint. This completes the manual SOL/USDC swap path for the exclusive bot wallet, not automatic trading activation or a new Android APK. Actual user-session acceptance and a funded user-approved swap have not been performed by the agent.
+
 The owner's requested target is the separately custodied bot wallet, not the native Android or Phantom account. A watch-only public link is insufficient signing authority. No source/name change may promote that public link into custody access.
 
 ## Completed in this change
@@ -40,3 +42,21 @@ Evidence before production changes:
 - A transient diagnostic unit initially applied systemd's default 0755 state-directory mode. The original 0700 modes on both exact private directories were immediately restored, and subsequent units explicitly require StateDirectoryMode=0700. Their parent remained private. Worker/web stayed active; no permission checks were relaxed. The corrected rehearsal passed.
 
 Publication and actual installed backup attestation remain to be recorded below. No real swap or bot activation has been requested by these tests.
+
+## Installed and published
+
+- Worker bundle SHA-256: `1880efa9f9706b35b2e9cdc7b4673c1e132672c7dad895b5bb4987933be7bda7`.
+- Manual web service bundle SHA-256: `a9f44835c71354b668bade350f40e812d3665b64f1df49b85d2eb22938dbcf16`.
+- Worker starts with the explicit `--bot-swaps` option. No account was enabled. Worker/web/TLS are active, both application services report success and NRestarts=0. The scoped error-log scan returned no entries.
+- The verified-empty paused journal was migrated in place through the existing approved migration helper. It preserved controls and retained exact rollback copies in `/var/lib/private/jamddmaj-perps-runtime/jamd-journal-upgrade-t03apX`. Prior worker/web bundles remain under the private `/opt/jamddmaj-perps/backups/bot-swaps-20261026` directory.
+- Before archive SHA-256: `c0f0f2f38041b815ccb81ed6cf826da0745eaa5e569b1545fa74119d1293ed48`.
+- After archive SHA-256, including swaps: `3206dc463dec967fb3b836c86a0c864bfaee3b81fcb2c1005417409310f634cc`.
+- Both encrypted archives were copied to `C:/Users/JamdDmaj/AppData/Local/JamdDmaj-Recovery/production-bot-swaps-20261026`, restored into fresh quarantined private directories on this PC using the existing operator recovery identity, and their restore proofs accepted by the VPS. No private recovery key was uploaded to the VPS or printed.
+- Final operator-only read check: one configured account, zero active accounts, zero swap records/pending swaps; backupVerified=true and botSwapStateIncluded=true. No funded signature, transaction submission or activation occurred.
+- Actual HTTPS boundary rejects unauthenticated bot-swap requests with 401 and foreign Origin with 403. It was not tested with an impersonated user session.
+- Public deployment: `dpl_42tHn6bcZupnRgtutvcnVX43PiNc`, https://jamd-dmaj-7v2xa1dil-jamd-dmaj-s-projects.vercel.app, staged production READY and promoted without rebuilding to https://www.jamddmaj.com.
+- Team/project verified before publication: `jamd-dmaj-s-projects/jamd-dmaj`, `prj_MDNgTRQMQhZHy0Np4HuKiqTKbsjd`.
+- Candidate and public asset bundles match the locally tested bytes; HTML matches after LF/CRLF normalization. Assets bundle SHA-256: `34f54c6a7f09bbd351ecd875a46d2ae6290551fad79a71e9798b3efe1543e32e`.
+- Public-domain mobile browser fixture passed inline opening, remembered-wallet rejection, mocked owner verification, bot review, explicit unchecked approval, one mocked confirmation, recovery and retained Assets selection. All service/quote/signing operations in browser QA were intercepted fixtures, not real funded operations.
+- Vercel ten-minute deployment error query returned zero records. This and the VPS log check are point-in-time observations, not a newly scheduled monitoring service.
+- The user was asked to read their actual wallet status without confirming a swap. No response was available when this evidence was recorded.
