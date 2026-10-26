@@ -26,3 +26,10 @@ test('choosing native trading wallet explicitly replaces external display using 
  assert.equal(reads,1);assert.equal(selectedWalletAccount(f.doc).source,'native');
  assert.equal(currentWalletPortfolio(f.doc).address,address);dispose();
 });
+
+test('native background refresh cannot replace a selected public watch account',async()=>{
+ const f=fixture(true),address='3AXFGU5ErJB46YT6oCFbYh7fq54an1TmFsV5fNWmbQ5T';let reads=0;
+ selectWalletAccount(f.doc,{address,source:'watch',name:'Solo consulta'});
+ const dispose=setupMainWalletEntry('es',f.doc,f.win,()=>({getPublicAccount:async()=>{reads++;return {available:true,address:'7cZzabJQqgWR6yg5jSZZZA5Af5JhrMZaQ32XsKZVxfLy'};}}));
+ await new Promise(resolve=>setImmediate(resolve));assert.equal(reads,0);assert.equal(selectedWalletAccount(f.doc).address,address);dispose();
+});

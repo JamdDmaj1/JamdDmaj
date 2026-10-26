@@ -20,12 +20,12 @@ export function setupMainWalletEntry(language,doc=document,win=window,pluginFact
  let pending=false,disposed=false;
  let refreshing=false,timer;
  const refreshPublic=async(explicit=false)=>{
-  if(!available||disposed||refreshing||!explicit&&selectedWalletAccount(doc)?.source==='external')return;
+  if(!available||disposed||refreshing||!explicit&&selectedWalletAccount(doc)&&selectedWalletAccount(doc).source!=='native')return;
   refreshing=true;
   try{
    const plugin=pluginFactory();if(typeof plugin.getPublicAccount!=='function')return;
    const account=await plugin.getPublicAccount();
-   if(disposed||!explicit&&selectedWalletAccount(doc)?.source==='external')return;
+   if(disposed||!explicit&&selectedWalletAccount(doc)&&selectedWalletAccount(doc).source!=='native')return;
    if(account?.available!==true){if(selectedWalletAccount(doc)?.source==='native')selectWalletAccount(doc,null);if(explicit)status.textContent=t('Abre tu billetera y selecciona un perfil primero. No se creó ni sustituyó ninguna billetera.','Open your wallet and select a profile first. No wallet was created or replaced.');return;}
    selectWalletAccount(doc,{address:account.address,source:'native',name:account.name||'JamdDmaj'});
    const selected=selectedWalletAccount(doc),base=win.Capacitor?.isNativePlatform?.()?'https://www.jamddmaj.com':'';
