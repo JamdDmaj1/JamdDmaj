@@ -16,11 +16,12 @@ try{
   const ciphertext=readPrivateRecoveryFile(args[4],24*1024*1024+65536);
   if(createHash('sha256').update(ciphertext).digest('hex')!==args[8])throw Error();
   result=await restorePerpsCustodyRecoveryArchive({ciphertext,operatorDirectory:args[2],destinationDirectory:args[6],explicitOperatorApproval:true});
- }else if(args.length===15&&args[0]==='archive'&&['--directory','--key-file','--controls','--journal','--recipient-file','--registry','--output'].every((key,index)=>args[1+index*2]===key)){
+ }else if([15,17].includes(args.length)&&args[0]==='archive'&&['--directory','--key-file','--controls','--journal','--recipient-file','--registry','--output'].every((key,index)=>args[1+index*2]===key)&& (args.length===15||args[15]==='--swaps')){
   if(new Set([4,6,8,10,12,14].map(index=>resolve(args[index]))).size!==6)throw Error();
   if(!args[12].endsWith('.sqlite')||!args[14].endsWith('.age'))throw Error();
   const recipient=readPrivateRecoveryFile(args[10],256).toString('utf8').trim();
-  const archive=await createPerpsCustodyRecoveryArchive({directory:args[2],keyFile:args[4],recipient,explicitOperatorApproval:true,requireRestoreProof:true,runtimePaths:{controlsPath:args[6],journalPath:args[8],temporaryDirectory:dirname(args[12])}});
+  if(args.length===17&&[2,4,6,8,10,12,14].some(index=>resolve(args[index])===resolve(args[16])))throw Error();
+  const archive=await createPerpsCustodyRecoveryArchive({directory:args[2],keyFile:args[4],recipient,explicitOperatorApproval:true,requireRestoreProof:true,runtimePaths:{controlsPath:args[6],journalPath:args[8],temporaryDirectory:dirname(args[12]),...(args.length===17?{swapsPath:args[16]}:{})}});
   registry=openPerpsBackupRegistry(args[12]);await registry.registerArchive(archive,{explicitOperatorApproval:true});writePrivateRecoveryFile(args[14],archive.ciphertext);
   result={stage:'ENCRYPTED_BACKUP_AWAITING_OPERATOR_RESTORE',archiveSha256:archive.sha256,output:args[14],backupVerified:false,readyForSigning:false};
  }else if(args.length===7&&args[0]==='verify'&&args[1]==='--registry'&&args[3]==='--proof'&&args[5]==='--expected-archive'){

@@ -22,6 +22,7 @@ import {initializePerpsOperatorRecovery,createPerpsCustodyRecoveryArchive,restor
 import {createPerpsControlClient} from '../lib/perps-control-client.js';
 import {setupPerpsControlPanel} from '../lib/perps-control-panel.js';
 import {validateAutomationSettings} from '../lib/automation-panel.js';
+import {openBotSwapJournal} from '../lib/perps-bot-swap-journal.js';
 const allowNonPosixForTests=process.platform==='win32',ownerAccountHash='c'.repeat(64);
 function fixture(t,{active=false}={}){
  const directory=mkdtempSync(join(tmpdir(),'jamd-runtime-unfunded-'));chmodSync(directory,0o700);
@@ -46,6 +47,12 @@ test('the composed default runtime reconciles existing active accounts without f
  assert.equal(JSON.stringify(status).includes(f.identity.walletAddress),false);assert.equal(JSON.stringify(status).includes(ownerAccountHash),false);
  await runtime.close();assert.equal(existsSync(join(f.directory,'worker.lock')),false);
  assert.throws(()=>runtime.run());const again=openServerPerpsRuntime(f.options);await again.close();
+});
+test('bot swap runtime refuses missing stores and opens only an explicitly initialized private journal',async t=>{
+ const f=fixture(t),path=join(f.directory,'swaps.sqlite');
+ assert.throws(()=>openServerPerpsRuntime({...f.options,botSwapsEnabled:true}));assert.equal(existsSync(path),false);
+ const store=openBotSwapJournal(path,{initialize:true,explicitOperatorApproval:true,allowNonPosixForTests});store.close();
+ const runtime=openServerPerpsRuntime({...f.options,botSwapsEnabled:true});try{assert.equal(runtime.capabilities().tradingEnabled,false);assert.equal(f.calls.length,0);}finally{await runtime.close();}
 });
 
 test('fee-enabled runtime requires existing private stores and never manufactures them at startup',async t=>{

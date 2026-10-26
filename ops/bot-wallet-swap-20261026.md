@@ -19,3 +19,24 @@ Tests: four synthetic test cases passed, covering both directions, owner-bound t
 5. Integrated tests and publication of the matching server/web components. This component alone must not change UI capability claims.
 
 This review component is source-only and is not connected to the running server. The bot wallet remains watch-only in Assets until the remaining path is implemented and verified. The operator fee-account setup is a separate activation prerequisite; it is not a substitute for implementing the bot-wallet swap.
+
+## Completed integrated source, subsequent work on 2026-10-26
+
+The earlier review-only status above is historical. Source now includes a private SQLite swap journal, one-use custody grant, exact owner-signed transaction validation, a single durable UNKNOWN-before-send transport attempt, finalized status recovery without resubmission, and explicit recovery of SIGNING records that provably never reached transport. API actions authenticate against the existing session ledger and check durable wallet ownership before accessing the service. The browser receives public review/result projections only, never a key or signed transaction.
+
+Swaps require paused controls, zero open/pending journal activity, zero fee debt and a fresh chain bank with no supported open positions. The activation authorizer checks both current requests and durable pending swaps. The runtime fails closed if its swap-journal flag is omitted after a swap store exists. Startup never creates that store. A runtime with bot swaps but without the final fee integration cannot activate automation; this release must not be advertised as completion of bot trading.
+
+The new journal is included in consistent encrypted runtime backups. A prior custody-only/runtime backup does not authorize bot swaps. Restore coverage is separately recorded and rechecked by the custody signer. UNKNOWN signatures remain held after restore; restoring keys leaves custody quarantined and controls paused. The recovery key remains exclusively on the user's PC.
+
+Assets opens an inline bot-specific panel for the selected watch-linked account, then verifies authenticated ownership with the VPS. Only after that response does its local portfolio heading identify it as the server-custodied bot wallet. A generic watch address remains display-only for other trading flows; it is never promoted into a Phantom/native signer. Input is token units, not bank USD. Explicit unchecked consent is required before confirmation. Finalization requests a refresh of the same linked wallet, not a transfer between accounts.
+
+Evidence before production changes:
+
+- Full suite r2: 1,108 cases, 1,089 passed, 19 skipped, zero failures.
+- Final balance-refresh focused rerun: 10 passed, 1 optional browser test skipped.
+- Built Edge mobile fixture: inline Phantom and bot panels, owner status, review/minimum/costs, explicit confirmation with mocked service only, result recovery, no navigation or page errors. No real financial requests.
+- Linux VPS isolated DynamicUser/PrivateNetwork fixture: 6/6 passed on Node 22.23.1; no access to funded custody or network.
+- Existing legacy journal migration rehearsal: schema `e92bbd…` → `505c96…`, one paused account, zero reservations; original stores unchanged by rehearsal.
+- A transient diagnostic unit initially applied systemd's default 0755 state-directory mode. The original 0700 modes on both exact private directories were immediately restored, and subsequent units explicitly require StateDirectoryMode=0700. Their parent remained private. Worker/web stayed active; no permission checks were relaxed. The corrected rehearsal passed.
+
+Publication and actual installed backup attestation remain to be recorded below. No real swap or bot activation has been requested by these tests.

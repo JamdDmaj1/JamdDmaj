@@ -18,7 +18,7 @@ test('native swap opens the wallet action directly without navigating to Trade',
 test('the publicly linked bot address never launches a different native wallet or navigates to Trade',t=>{
  const f=fixture();t.after(f.dispose);selectWalletAccount(f.doc,{address:bot,source:'watch',name:'Solo consulta'});f.swap();
  assert.deepEqual(f.counts(),{tradeClicks:0,swapEvents:0});assert.equal(selectedWalletAccount(f.doc).address,bot);
- assert(f.nodes.some(n=>n.textContent.includes('revisión y firma en el servidor')));
+ assert(f.nodes.some(n=>n.textContent==='Swap de la billetera del bot'));
 });
 test('missing and external accounts cannot silently open a native swap',t=>{
  const f=fixture();t.after(f.dispose);f.swap();selectWalletAccount(f.doc,{address:native,source:'external',name:'Phantom'});f.swap();
