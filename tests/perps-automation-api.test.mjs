@@ -51,6 +51,14 @@ test('fee-enabled activation discloses terms and cannot record another account c
  assert.equal((await f.handler(request(accepted))).status,503);assert.equal(consent.length,1);assert.equal(consent[0].ownerAccountHash,owner);
 });
 
+test('commission totals are projected only after authenticated wallet ownership succeeds',async t=>{
+ const reads=[],platformFees={automationDisclosure:()=>quotePerpsPlatformFee('20000000'),recordAutomationConsent:()=>{},status:who=>{reads.push(who);return {stage:'PLATFORM_FEE_STATUS',walletAddress,termsVersion:quotePerpsPlatformFee('20000000').version,dueUnits:'40000',paidUnits:'0',pendingCount:1,failedCount:0};}};
+ const f=await fixture(t,{platformFees});
+ const read=credential=>f.handler(new Request('https://executor.example/v1/automation?walletAddress='+walletAddress,{headers:{Authorization:'Bearer '+credential}}));
+ const own=await read(token);assert.equal(own.status,200);assert.equal((await own.json()).platformFees.dueUnits,'40000');assert.equal(reads.length,1);assert.equal(reads[0].ownerAccountHash,owner);
+ assert.equal((await read(otherToken)).status,403);assert.equal(reads.length,1);
+});
+
 test('exclusive funding status uses fresh native owner-bound evidence and never equates unknown with zero or trading authority',async t=>{
  let reads=0,mode='zero';
  const account=await readServerPerpsAccount({walletAddress},{now:()=>now,request:async method=>{

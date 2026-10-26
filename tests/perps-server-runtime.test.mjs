@@ -12,6 +12,8 @@ import {openServerPerpsRuntime,startServerPerpsControlBoundary} from '../lib/per
 import {perpsWorkerEnvironment} from '../lib/perps-server-runtime.js';
 import {openPerpsAutomationControls} from '../lib/perps-automation-controls.js';
 import {openPerpsExecutionJournal} from '../lib/perps-execution-journal.js';
+import {openPerpsPlatformFeeJournal} from '../lib/perps-platform-fee-journal.js';
+import {openPerpsPlatformFeePaymentJournal} from '../lib/perps-platform-fee-payment-journal.js';
 import {openWebPerpsSubmissionJournal} from '../lib/perps-web-submission-journal.js';
 import bs58 from 'bs58';
 import {openPerpsBackupRegistry} from '../lib/perps-backup-registry.js';
@@ -44,6 +46,16 @@ test('the composed default runtime reconciles existing active accounts without f
  assert.equal(JSON.stringify(status).includes(f.identity.walletAddress),false);assert.equal(JSON.stringify(status).includes(ownerAccountHash),false);
  await runtime.close();assert.equal(existsSync(join(f.directory,'worker.lock')),false);
  assert.throws(()=>runtime.run());const again=openServerPerpsRuntime(f.options);await again.close();
+});
+
+test('fee-enabled runtime requires existing private stores and never manufactures them at startup',async t=>{
+ const f=fixture(t);assert.throws(()=>openServerPerpsRuntime({...f.options,platformFeesEnabled:true}));
+ assert.equal(existsSync(join(f.directory,'fees.sqlite')),false);assert.equal(existsSync(join(f.directory,'payments.sqlite')),false);
+ const risk=openPerpsExecutionJournal(f.journalPath),fees=openPerpsPlatformFeeJournal(join(f.directory,'fees.sqlite'),{entryJournal:risk});fees.close();risk.close();
+ openPerpsPlatformFeePaymentJournal(join(f.directory,'payments.sqlite')).close();
+ const runtime=openServerPerpsRuntime({...f.options,platformFeesEnabled:true});try{
+  const report=await runtime.run({once:true});assert.equal(report.results.RECONCILIATION_ONLY,1);assert.equal(f.calls.length,0);
+ }finally{await runtime.close();}
 });
 
 test('composed authenticated runtime carries native exclusive balance through client to panel without financial transports',async t=>{

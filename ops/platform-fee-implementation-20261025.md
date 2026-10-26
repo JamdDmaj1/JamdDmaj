@@ -1,5 +1,7 @@
 # Platform fee — implementation checkpoint
 
+Historical checkpoint below. Newer bot integration, shared reservation/signing/recovery work and the remaining operator prerequisite are recorded in `automation-step2-fees-20261025.md`. Do not interpret the earlier source-only statements as the current implementation inventory, or the new source as an installed production release.
+
 Agreed terms: 20 basis points (0.20%) of USDC opening margin, not leveraged position size. Integer rounding down to USDC's six decimals. No extra platform closing fee. Recipient: `4WMnKm3KvLEHiw8tVFTynka8jBYvwekM2BpZz9iyyBjr`. Payment must be separate from the provider-cosigned Jupiter transaction and may be assessed only after a finalized successful opening. These are additional commercial fees, not the provider or Solana network fees.
 
 Implemented and tested:
