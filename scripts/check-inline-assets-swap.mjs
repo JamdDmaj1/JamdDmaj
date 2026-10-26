@@ -49,10 +49,11 @@ try{
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
  await panel.scrollIntoViewIfNeeded();await page.screenshot({path:'.perps-build/inline-assets-swap-mobile.png'});
  await panel.getByRole('button',{name:'Close',exact:true}).click();await panel.waitFor({state:'hidden'});
- let botSends=0;const botAddress='3AXFGU5ErJB46YT6oCFbYh7fq54an1TmFsV5fNWmbQ5T',botId='d'.repeat(64);
+ let botSends=0,botPrepares=0;const botAddress='3AXFGU5ErJB46YT6oCFbYh7fq54an1TmFsV5fNWmbQ5T',botId='d'.repeat(64);
  await page.route('https://157.230.54.133/**',async route=>{
   if(route.request().method()==='OPTIONS'){await route.fulfill({status:204,headers:{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Authorization, Content-Type','Access-Control-Allow-Methods':'POST'}});return;}
   const request=route.request(),body=request.postDataJSON();let botSwap;
+  if(body.action==='botSwapPrepare'&&botPrepares++===0){await route.fulfill({status:409,contentType:'application/json',headers:{'Access-Control-Allow-Origin':'*'},body:JSON.stringify({error:{code:'bot-swap-simulation-failed'}})});return;}
   if(body.action==='botSwapStatus')botSwap={stage:'EXCLUSIVE_BOT_WALLET_OPERATIONS',walletAddress:botAddress,swapAvailable:true,reason:null,paused:true,operations:[],readyForSigning:false};
   else if(body.action==='botSwapPrepare')botSwap={id:botId,stage:'BOT_SWAP_REVIEW',walletAddress:botAddress,controlRevision:'00000000-0000-4000-8000-000000000000',direction:'SOL_TO_USDC',inputUnits:'100000000',minimumOutputUnits:'9950000',simulatedOutputUnits:'10000000',networkFeeLamports:'5000',accountRentLamports:'2039280',slippageBps:50,expiresAt:Date.now()+15000,submitted:false};
   else if(body.action==='botSwapConfirm'){botSends++;botSwap={id:botId,walletAddress:botAddress,state:'UNKNOWN',signature:'1'.repeat(64),readyForRetry:false};}
@@ -65,6 +66,9 @@ try{
  const botPanel=portfolio.locator('.wallet-inline-swap').filter({has:page.getByRole('heading',{name:'Bot wallet swap',exact:true})});
  await botPanel.getByText(/Bot wallet verified/).waitFor();assert.match(await portfolio.locator('h2').innerText(),/Bot wallet/);
  await botPanel.getByRole('textbox',{name:'Bot input amount'}).fill('0.1');await botPanel.getByRole('button',{name:'Review bot swap',exact:true}).click();
+ await botPanel.getByText(/Solana rejected the proposed route simulation/).waitFor();assert.equal(botSends,0);
+ assert.doesNotMatch(await botPanel.innerText(),/could not verify access/);
+ await botPanel.getByRole('button',{name:'Review bot swap',exact:true}).click();
  await botPanel.getByText(/Minimum received: 9.950000 USDC/).waitFor();assert.equal(botSends,0);
  assert.equal(await botPanel.getByRole('button',{name:'Confirm this real swap',exact:true}).isDisabled(),true);
  await botPanel.getByRole('checkbox').check();await botPanel.getByRole('button',{name:'Confirm this real swap',exact:true}).click();

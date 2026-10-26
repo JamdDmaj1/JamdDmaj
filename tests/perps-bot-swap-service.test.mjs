@@ -29,12 +29,16 @@ async function fixture(t,{nativeInput=true,withBackup=true,timeout=false}={}){
  const backupOptions={directory,keyFile,recipient:operator.recipient,explicitOperatorApproval:true,requireRestoreProof:true,...common,runtimePaths:{controlsPath,journalPath,swapsPath,temporaryDirectory:root}};
  if(withBackup){const archive=await createPerpsCustodyRecoveryArchive(backupOptions);await backupRegistry.registerArchive(archive,{explicitOperatorApproval:true});const restored=await restorePerpsCustodyRecoveryArchive({ciphertext:archive.ciphertext,operatorDirectory,destinationDirectory:join(root,'initial-restore'),explicitOperatorApproval:true,...common});backupRegistry.acceptRestoreProof({proofFile:restored.proofFile,explicitOperatorApproval:true});}
  const chain=await swapFixture(walletAddress,{nativeInput,slippageBps:50,now:clock});
- const readRequest=async(method,params)=>method==='getSignatureStatuses'?{context:{slot:100},value:[{slot:99,err:null,confirmationStatus:'finalized',confirmations:null}]}:chain.rpc(method,params);
+ let simulationFailures=0,builds=0;
+ const readRequest=async(method,params)=>{
+  if(method==='simulateTransaction'&&simulationFailures>0){simulationFailures--;return {context:{slot:100},value:{err:{InstructionError:[6,{Custom:1}]},unitsConsumed:100000,accounts:null}};}
+  return method==='getSignatureStatuses'?{context:{slot:100},value:[{slot:99,err:null,confirmationStatus:'finalized',confirmations:null}]}:chain.rpc(method,params);
+ };
  const options={controls,vault,journal,riskJournal,backupRegistry,readAccount:who=>readServerPerpsAccount({walletAddress:who.walletAddress},{request:readRequest,now}),readRequest,
   sendRequest:async(method,params)=>{assert.equal(method,'sendTransaction');sends++;if(timeout)throw Error('MOCK_TIMEOUT');return bs58.encode(Buffer.from(params[0],'base64').subarray(1,65));},
-  fetchImpl:async()=>Response.json({ok:true,preparation:chain.preparation}),isRunning:()=>running,now};
+  fetchImpl:async()=>{builds++;return Response.json({ok:true,preparation:chain.preparation});},isRunning:()=>running,now};
  const service=createBotWalletSwapService(options),who={ownerAccountHash,walletAddress};
- return {root,common,who,service,options,controls,journal,riskJournal,backupRegistry,operatorDirectory,backupOptions,chain,sends:()=>sends,expire:()=>{clock+=16000;},stop:()=>{running=false;}};
+ return {root,common,who,service,options,controls,journal,riskJournal,backupRegistry,operatorDirectory,backupOptions,chain,sends:()=>sends,builds:()=>builds,failSimulations:n=>{simulationFailures=n;},expire:()=>{clock+=16000;},stop:()=>{running=false;}};
 }
 for(const nativeInput of [true,false])test('exclusive bot wallet review → real fixture custody signature → one mocked send → finalized recovery '+nativeInput,async t=>{
  const f=await fixture(t,{nativeInput}),review=await f.service.prepare({...f.who,direction:nativeInput?'SOL_TO_USDC':'USDC_TO_SOL',amount:nativeInput?'0.1':'10'});
@@ -68,4 +72,13 @@ test('activation authorizer refuses a pending manual bot swap before any risk re
  let reads=0;const authorize=createServerPerpsActivationAuthorizer({controls:{read(){}},vault:{describe(){}},backupRegistry:{readVerified(){}},journal:{pending(){return [];},openPositions(){return [];}},
   readAccount:async()=>{reads++;throw Error('must not reach');},isExecutionRunning:()=>true,hasPendingBotSwap:()=>true});
  await assert.rejects(authorize({ownerAccountHash,walletAddress:'11111111111111111111111111111111'}),/PERPS_EXECUTION_NOT_CONFIGURED/);assert.equal(reads,0);
+});
+test('a failed unsigned route requests one fresh quote and never signs or sends during review',async t=>{
+ const f=await fixture(t);f.failSimulations(1);const review=await f.service.prepare({...f.who,direction:'SOL_TO_USDC',amount:'0.1'});
+ assert.equal(review.stage,'BOT_SWAP_REVIEW');assert.equal(f.builds(),2);assert.equal(f.sends(),0);assert.equal(f.journal.recent(f.who.ownerAccountHash,f.who.walletAddress).length,0);
+});
+test('unsigned route refresh is bounded, and confirmation never retries a failed simulation',async t=>{
+ const failed=await fixture(t);failed.failSimulations(3);await assert.rejects(failed.service.prepare({...failed.who,direction:'SOL_TO_USDC',amount:'0.1'}),/WEB_SWAP_SIMULATION_FAILED/);assert.equal(failed.builds(),2);assert.equal(failed.sends(),0);
+ const f=await fixture(t),review=await f.service.prepare({...f.who,direction:'SOL_TO_USDC',amount:'0.1'});f.failSimulations(1);
+ await assert.rejects(f.service.confirm({...f.who,id:review.id,explicitApproval:true}),/WEB_SWAP_SIMULATION_FAILED/);assert.equal(f.builds(),1);assert.equal(f.sends(),0);assert.equal(f.journal.pending(f.who.walletAddress).length,0);
 });

@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createPerpsAutomationApi} from '../lib/perps-automation-api.js';
 const owner='a'.repeat(64),token='b'.repeat(64),wallet='3AXFGU5ErJB46YT6oCFbYh7fq54an1TmFsV5fNWmbQ5T';
-function fixture(){
+function fixture({prepareError=null}={}){
  const calls=[],controls={read:who=>{if(who.ownerAccountHash!==owner||who.walletAddress!==wallet)throw Error('PERPS_CONTROLS_UNAVAILABLE');return {walletAddress:wallet};},readForOwner:()=>({walletAddress:wallet}),save(){},pause(){},issueActivationChallenge(){},activate(){}};
- const botSwaps=Object.fromEntries(['status','prepare','confirm','recover'].map(method=>[method,async args=>{calls.push({method,args});return {stage:'fixture',walletAddress:wallet};}]));
+ const botSwaps=Object.fromEntries(['status','prepare','confirm','recover'].map(method=>[method,async args=>{calls.push({method,args});if(method==='prepare'&&prepareError)throw Error(prepareError);return {stage:'fixture',walletAddress:wallet};}]));
  const handler=createPerpsAutomationApi({controls,botSwaps,authenticate:async r=>r.headers.get('authorization')==='Bearer '+token?owner:'c'.repeat(64),rateLimit:async()=>true});
  const request=(body,headers={})=>handler(new Request('https://executor.example/v1/automation',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json',Origin:'https://www.jamddmaj.com',...headers},body:JSON.stringify(body)}));
  return {calls,request};
@@ -12,6 +12,11 @@ function fixture(){
 test('all bot swap actions bind to the authenticated owner before invoking custody service',async()=>{
  const f=fixture();for(const [action,method,extra]of [['botSwapStatus','status',{}],['botSwapPrepare','prepare',{direction:'SOL_TO_USDC',amount:'0.1'}],['botSwapConfirm','confirm',{id:'d'.repeat(64),explicitApproval:true}],['botSwapRecover','recover',{id:'d'.repeat(64)}]]){
   const response=await f.request({action,walletAddress:wallet,...extra});assert.equal(response.status,200);assert.equal(response.headers.get('cache-control'),'no-store, max-age=0');assert.equal(f.calls.at(-1).method,method);assert.equal(f.calls.at(-1).args.ownerAccountHash,owner);
+ }
+});
+test('route, simulation, funding and transport failures are not mislabeled as missing wallet access',async()=>{
+ for(const [prepareError,status,code]of [['WEB_SWAP_SIMULATION_FAILED',409,'bot-swap-simulation-failed'],['WEB_SWAP_INSUFFICIENT_FUNDS',409,'bot-swap-insufficient-funds'],['PERPS_READ_ONLY_RPC_UNAVAILABLE',503,'bot-swap-network-unavailable'],['WEB_SWAP_POLICY_REJECTED',409,'bot-swap-route-rejected']]){
+  const f=fixture({prepareError}),response=await f.request({action:'botSwapPrepare',walletAddress:wallet,direction:'SOL_TO_USDC',amount:'0.08'});assert.equal(response.status,status);assert.equal((await response.json()).error.code,code);
  }
 });
 test('foreign owner, forged body identity, foreign origin and missing session never reach bot swap service',async()=>{
