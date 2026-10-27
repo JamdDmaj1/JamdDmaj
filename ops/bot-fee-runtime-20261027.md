@@ -24,3 +24,12 @@ Resolve the production bot configuration blocker while preserving paused control
 - Full regression exposed an older backup-status expectation: fee error had overwritten independently verified recovery information. Panel now retains both facts; focused registry regression passes. Fresh full result and web publication are recorded after completion.
 
 The goal is NOT complete. The operator Phantom must independently approve recipient USDC ATA creation through /fee-recipient-setup.html. Do not bypass this requirement, charge a customer to create it, or declare real automation enabled. After chain verification, check the remaining account risk/readiness and user review flow without confirming activation.
+
+## Published verification
+
+- Source `0ad608c`; deployment `dpl_ECZ6Me5Ewnmtm4vzatCVCFnCG9Fi`, candidate https://jamd-dmaj-ey4p3nm32-jamd-dmaj-s-projects.vercel.app, production READY and promoted to www.jamddmaj.com without rebuilding.
+- Fresh complete regression after the backup-message correction: 1,140 tests, 1,121 passed, 19 skipped, zero failures, 210 seconds. The earlier run's sole failure was corrected and the entire suite rerun.
+- Authenticated candidate and public byte hashes matched the local build (LF-normalized raw panel): panel `f65b55a479eb4c014314ac5c0194cb0586c923311d1105efdc79f24f196efe3d`, compiled client `3164791e44faacae4b9f5dce9c1129f6732c575c38d1ae1a753cb04c57510cb9`.
+- Public browser regressions passed for specific fee-recipient readiness error, first-visit access and existing inline Assets swaps. Financial requests were synthetic/intercepted; no real session, activation, signing or submission.
+- Bounded production deployment error query over the last ten minutes returned zero records. Not continuous monitoring.
+- Web/server release only; no APK generated or installed.
