@@ -9,7 +9,7 @@ await new Promise(r=>server.listen(0,'127.0.0.1',r));const browser=await chromiu
 try{
  const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[];page.on('pageerror',e=>errors.push(e.message));let calls=0,receiver='';
  await page.route('**/api/**',r=>r.fulfill({status:503,contentType:'application/json',body:'{}'}));
- await page.route('https://solana-rpc.publicnode.com/**',async route=>{calls++;const q=route.request().postDataJSON();let result;const signature='1'.repeat(64),time=Math.ceil(Date.now()/1000);
+ await page.route(/^https:\/\/(?:solana-rpc\.publicnode\.com|api\.mainnet-beta\.solana\.com)\//,async route=>{calls++;const q=route.request().postDataJSON();let result;const signature='1'.repeat(64),time=Math.ceil(Date.now()/1000);
   if(q.method==='getGenesisHash')result='5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
   else if(q.method==='getTokenAccountsByOwner')result={value:[]};
   else if(q.method==='getSignaturesForAddress'){receiver=q.params[0];result=[{signature,err:null,confirmationStatus:'finalized',blockTime:time}];}
