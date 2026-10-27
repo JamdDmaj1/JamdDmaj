@@ -89,13 +89,20 @@ try{
  assert.equal(await page.locator('#tab-assets').getAttribute('aria-selected'),'true');
  await botPanel.scrollIntoViewIfNeeded();await page.screenshot({path:'.perps-build/bot-assets-swap-mobile.png'});
  await botPanel.getByRole('button',{name:'Close',exact:true}).click();
- await page.evaluate(async address=>{const s=await import('/lib/wallet-portfolio-store.js');s.publishWalletPortfolio(document,{ok:true,address,network:'solana:mainnet',updatedAt:new Date().toISOString(),sol:{amount:0.06},tokens:[{symbol:'USDC',mint:'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',amount:13}],partial:false,estimatedValueUsd:19,valuationCoverage:1},s.selectedWalletAccount(document));},botAddress);
+ await page.evaluate(async address=>{const s=await import('/lib/wallet-portfolio-store.js');s.publishWalletPortfolio(document,{ok:true,address,network:'solana:mainnet',updatedAt:new Date().toISOString(),sol:{amount:0.06},tokens:[{symbol:'USDC',mint:'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',amount:13,decimals:6}],partial:false,estimatedValueUsd:19,valuationCoverage:1},s.selectedWalletAccount(document));},botAddress);
  await portfolio.getByRole('button',{name:'Send',exact:true}).click();await sendPanel.getByText(/Bot wallet verified/).waitFor();assert.match(await sendPanel.getByRole('combobox').innerText(),/USDC · 13/);
+ assert.doesNotMatch(await sendPanel.innerText(),/view only/);assert.equal(await sendPanel.getByRole('button',{name:'Check pending result',exact:true}).isVisible(),false);
+ await sendPanel.getByRole('button',{name:'Max',exact:true}).click();assert.equal(await sendPanel.getByRole('textbox',{name:'Amount to send',exact:true}).inputValue(),'0.055000000');
+ await sendPanel.getByRole('combobox').selectOption('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');await sendPanel.getByText('Amount in USDC',{exact:true}).waitFor();
+ await sendPanel.getByRole('button',{name:'50%',exact:true}).click();assert.equal(await sendPanel.getByRole('textbox',{name:'Amount to send',exact:true}).inputValue(),'6.500000');
+ await sendPanel.getByRole('combobox').selectOption('SOL');
  await sendPanel.getByRole('textbox',{name:'Amount to send',exact:true}).fill('0.08');await sendPanel.getByRole('textbox',{name:'Solana recipient address',exact:true}).fill(recipient);
  await sendPanel.getByRole('button',{name:'Review send',exact:true}).click();await sendPanel.getByText(/Send: 0.080000000 SOL/).waitFor();assert.equal(botSends,1);
+ await sendPanel.getByText(/Total debit: 0.080005000 SOL/).waitFor();
  assert.equal(await sendPanel.getByRole('button',{name:'Confirm this real send',exact:true}).isDisabled(),true);await sendPanel.getByRole('checkbox').check();await sendPanel.getByRole('button',{name:'Confirm this real send',exact:true}).click();
  await sendPanel.getByText(/Submission recorded/).waitFor();assert.equal(botSends,2);await sendPanel.getByRole('button',{name:'Check pending result',exact:true}).click();await sendPanel.getByText(/Send finalized/).waitFor();
  assert.equal(await page.locator('#tab-assets').getAttribute('aria-selected'),'true');assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
- await sendPanel.scrollIntoViewIfNeeded();await page.screenshot({path:'.perps-build/bot-assets-send-mobile.png'});
+ await sendPanel.getByRole('button',{name:'Close',exact:true}).scrollIntoViewIfNeeded();const closeBox=await sendPanel.getByRole('button',{name:'Close',exact:true}).boundingBox(),navBox=await page.locator('.terminal-nav').boundingBox();assert.ok(closeBox.y+closeBox.height<=navBox.y);
+ await page.screenshot({path:'.perps-build/bot-assets-send-mobile.png'});
  assert.deepEqual(errors,[]);console.log('PASS: built Assets inline swap opens/closes without navigation; remembered wallet requires reconnect; bound provider reviews a simulated quote without signing; no overflow or page errors.');
 }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
