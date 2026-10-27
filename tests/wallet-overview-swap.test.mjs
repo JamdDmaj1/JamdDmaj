@@ -6,7 +6,7 @@ const native='7cZzabJQqgWR6yg5jSZZZA5Af5JhrMZaQ32XsKZVxfLy',bot='3AXFGU5ErJB46YT
 function fixture(){
  const doc=new EventTarget(),nodes=[];let tradeClicks=0,swapEvents=0;
  doc.defaultView={Event,CustomEvent};doc.getElementById=id=>id==='terminal-assets'?{prepend(){}}:id==='tab-trade'?{click(){tradeClicks++;}}:null;
- doc.createElement=tag=>{const n={tag,textContent:'',append(){},replaceChildren(){},setAttribute(){},remove(){}};nodes.push(n);return n;};
+ doc.createElement=tag=>{const n={tag,textContent:'',style:{},append(){},replaceChildren(){},setAttribute(){},remove(){}};nodes.push(n);return n;};
  doc.addEventListener('jamd-wallet-open-swap',()=>swapEvents++);
  const dispose=setupWalletOverview('es',doc,{Event});
  return {doc,nodes,dispose,counts:()=>({tradeClicks,swapEvents}),swap:()=>nodes.find(n=>n.tag==='button'&&n.textContent==='Swap').onclick()};

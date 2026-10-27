@@ -14,6 +14,7 @@ import {initializePerpsOperatorRecovery,createPerpsCustodyRecoveryArchive,restor
 import {readServerPerpsAccount} from '../lib/perps-server-account.js';
 import {swapFixture} from './fixtures/web-swap.mjs';
 import {createServerPerpsActivationAuthorizer} from '../lib/perps-server-activation.js';
+import {transferFixture,recipient,USDC} from './fixtures/wallet-transfer.mjs';
 const ownerAccountHash='f'.repeat(64),other='e'.repeat(64),allowNonPosixForTests=process.platform==='win32';
 async function fixture(t,{nativeInput=true,withBackup=true,timeout=false}={}){
  const root=mkdtempSync(join(tmpdir(),'jamd-bot-swap-'));chmodSync(root,0o700);let clock=Date.now(),running=true,sends=0;
@@ -81,4 +82,16 @@ test('unsigned route refresh is bounded, and confirmation never retries a failed
  const failed=await fixture(t);failed.failSimulations(3);await assert.rejects(failed.service.prepare({...failed.who,direction:'SOL_TO_USDC',amount:'0.1'}),/WEB_SWAP_SIMULATION_FAILED/);assert.equal(failed.builds(),2);assert.equal(failed.sends(),0);
  const f=await fixture(t),review=await f.service.prepare({...f.who,direction:'SOL_TO_USDC',amount:'0.1'});f.failSimulations(1);
  await assert.rejects(f.service.confirm({...f.who,id:review.id,explicitApproval:true}),/WEB_SWAP_SIMULATION_FAILED/);assert.equal(f.builds(),1);assert.equal(f.sends(),0);assert.equal(f.journal.pending(f.who.walletAddress).length,0);
+});
+
+for(const mint of ['SOL',USDC])test('bot transfer binds exact recipient and owner, shares pending exclusion, and recovers without resend '+mint,async t=>{
+ const f=await fixture(t,{timeout:true}),chain=await transferFixture(f.who.walletAddress,{mint,missing:mint!=='SOL'});
+ const service=createBotWalletSwapService({...f.options,readRequest:(method,params)=>method==='getSignatureStatuses'?f.options.readRequest(method,params):chain.rpc(method,params)});
+ const r=await service.prepareTransfer({...f.who,recipient,mint,amount:mint==='SOL'?'0.08':'2.5'});assert.equal(r.stage,'BOT_TRANSFER_REVIEW');assert.equal(r.recipient,recipient);assert.equal(f.sends(),0);
+ await assert.rejects(service.confirm({...f.who,id:r.id,explicitApproval:true}),/REVIEW_REQUIRED/); // swap confirmation cannot authorize a transfer
+ await assert.rejects(service.confirm({...f.who,ownerAccountHash:other,id:r.id,explicitApproval:true,transfer:true}));
+ const result=await service.confirm({...f.who,id:r.id,explicitApproval:true,transfer:true});assert.equal(result.state,'UNKNOWN');assert.equal(f.sends(),1);
+ await assert.rejects(f.service.prepare({...f.who,direction:'SOL_TO_USDC',amount:'0.1'}),/RECONCILIATION_REQUIRED/);
+ await assert.rejects(service.prepareTransfer({...f.who,recipient,mint,amount:'0.01'}),/RECONCILIATION_REQUIRED/);
+ const restarted=createBotWalletSwapService(f.options);assert.equal((await restarted.recover({...f.who,id:r.id})).state,'FINALIZED');assert.equal(f.sends(),1);assert.equal(f.controls.read(f.who).enabled,false);
 });

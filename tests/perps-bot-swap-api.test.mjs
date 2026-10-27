@@ -4,7 +4,7 @@ import {createPerpsAutomationApi} from '../lib/perps-automation-api.js';
 const owner='a'.repeat(64),token='b'.repeat(64),wallet='3AXFGU5ErJB46YT6oCFbYh7fq54an1TmFsV5fNWmbQ5T';
 function fixture({prepareError=null}={}){
  const calls=[],controls={read:who=>{if(who.ownerAccountHash!==owner||who.walletAddress!==wallet)throw Error('PERPS_CONTROLS_UNAVAILABLE');return {walletAddress:wallet};},readForOwner:()=>({walletAddress:wallet}),save(){},pause(){},issueActivationChallenge(){},activate(){}};
- const botSwaps=Object.fromEntries(['status','prepare','confirm','recover'].map(method=>[method,async args=>{calls.push({method,args});if(method==='prepare'&&prepareError)throw Error(prepareError);return {stage:'fixture',walletAddress:wallet};}]));
+ const botSwaps=Object.fromEntries(['status','prepare','prepareTransfer','confirm','recover'].map(method=>[method,async args=>{calls.push({method,args});if(['prepare','prepareTransfer'].includes(method)&&prepareError)throw Error(prepareError);return {stage:'fixture',walletAddress:wallet};}]));
  const handler=createPerpsAutomationApi({controls,botSwaps,authenticate:async r=>r.headers.get('authorization')==='Bearer '+token?owner:'c'.repeat(64),rateLimit:async()=>true});
  const request=(body,headers={})=>handler(new Request('https://executor.example/v1/automation',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json',Origin:'https://www.jamddmaj.com',...headers},body:JSON.stringify(body)}));
  return {calls,request};
@@ -26,4 +26,12 @@ test('foreign owner, forged body identity, foreign origin and missing session ne
  assert.equal((await f.request({...body,ownerAccountHash:owner})).status,400);
  assert.equal((await f.request(body,{Origin:'https://attacker.example'})).status,403);
  assert.equal(f.calls.length,0);
+});
+test('bot Send uses authenticated ownership, typed fields, and an explicit transfer-only confirmation',async()=>{
+ const f=fixture();const body={action:'botTransferPrepare',walletAddress:wallet,recipient:'7cZzabJQqgWR6yg5jSZZZA5Af5JhrMZaQ32XsKZVxfLy',mint:'SOL',amount:'0.01'};
+ assert.equal((await f.request(body)).status,200);assert.equal(f.calls.at(-1).method,'prepareTransfer');assert.equal(f.calls.at(-1).args.ownerAccountHash,owner);
+ assert.equal((await f.request({...body,ownerAccountHash:owner})).status,400);
+ assert.equal((await f.request({...body,walletAddress:'7cZzabJQqgWR6yg5jSZZZA5Af5JhrMZaQ32XsKZVxfLy'})).status,403);
+ assert.equal((await f.request({action:'botTransferConfirm',walletAddress:wallet,id:'d'.repeat(64),explicitApproval:true})).status,200);assert.equal(f.calls.at(-1).args.transfer,true);
+ const err=fixture({prepareError:'TRANSFER_INVALID_ADDRESS'}),r=await err.request(body);assert.equal(r.status,409);assert.equal((await r.json()).error.code,'transfer-invalid-address');
 });
