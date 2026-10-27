@@ -94,6 +94,8 @@ async function approvalScenario(kind){
  const account={address:f.owner,publicKey:new Uint8Array(f.pub),chains:['solana:mainnet'],features:['solana:signTransaction']};
  const wallet={name:'Phantom',accounts:[account],features:{'standard:connect':{connect:async()=>({accounts:[account]})},'solana:signTransaction':{supportedTransactionVersions:['legacy'],signTransaction:async()=>{
   f.state.prompts++;if(kind==='expired')clock=at+60000;
+  if(kind==='provider-rejected')throw Object.assign(Error('PRIVATE_PROVIDER_ERROR_MUST_NOT_RENDER'),{code:4001});
+  if(kind==='provider-error')throw Error('PRIVATE_PROVIDER_ERROR_MUST_NOT_RENDER');
   if(['focus-return','focus-missing','hidden','changed-account'].includes(kind))focused=false;
   if(kind==='hidden')doc.hidden=true;
   const wire=Uint8Array.from(Buffer.from(f.signed,'base64'));
@@ -110,8 +112,14 @@ test('extension focus lag waits for foreground and submits only the exact approv
  const {f,el,focusWaits}=await approvalScenario('focus-return');assert.equal(focusWaits,1);assert.equal(f.state.prompts,1);assert.equal(f.state.sends,1);
  await el.recover.onclick();assert.match(el.status.textContent,/operación finalizada/);assert.equal(f.state.sends,1);
 });
-for(const [kind,message]of [['expired',/La revisión venció/],['changed-wire',/SETUP_WALLET_TRANSACTION_CHANGED/],['focus-missing',/SETUP_FOCUS_NOT_RETURNED/],['hidden',/SETUP_FOCUS_NOT_RETURNED/],['changed-account',/La cuenta o la revisión cambió/]])test('approval safely retains the exact reason without submission: '+kind,async()=>{
+for(const [kind,message]of [['expired',/La revisión venció/],['changed-wire',/SETUP_WALLET_TRANSACTION_CHANGED/],['focus-missing',/SETUP_FOCUS_NOT_RETURNED/],['hidden',/SETUP_FOCUS_NOT_RETURNED/],['changed-account',/La cuenta o la revisión cambió/],['provider-rejected',/SETUP_WALLET_DECLINED/],['provider-error',/SETUP_WALLET_SIGN_FAILED/]])test('approval safely retains the exact reason without submission: '+kind,async()=>{
  const {f,el,values}=await approvalScenario(kind);assert.equal(f.state.prompts,1);assert.equal(f.state.sends,0);assert.match(el.status.textContent,message);
  await el.recover.onclick();assert.match(el.status.textContent,message);assert.equal(f.state.sends,0);assert.equal(f.state.prompts,1);
+ assert.doesNotMatch(el.status.textContent,/PRIVATE_PROVIDER_ERROR/);
  assert.equal(JSON.parse([...values.values()][0]).stage,'SIGNING');await el.discard.onclick();assert.equal(values.size,0);
+});
+
+test('old SIGNING records are identified as unclassified, never replayed or silently discarded',async()=>{
+ const {f,el,values}=await approvalScenario('provider-error'),key=[...values.keys()][0];values.set(key,JSON.stringify({stage:'SIGNING',createdAt:at}));
+ await el.recover.onclick();assert.match(el.status.textContent,/SETUP_LEGACY_SIGNING/);assert.equal(f.state.sends,0);assert.equal(f.state.prompts,1);assert.equal(values.size,1);
 });

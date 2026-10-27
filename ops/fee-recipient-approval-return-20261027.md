@@ -16,3 +16,12 @@ Verification: 16 flow/protocol/preparation tests passed, including focus-return 
 No real signatures or sends performed by the agent. No bot activation. A live user retry is still needed to establish that this specific failure is resolved; if a changed-wallet-transaction code appears, diagnose it without bypassing wire validation.
 
 Published source `0b52ba2` as production deployment `dpl_CjekSPaBFDko9E5rjEJpPByiQKbn` (Other framework, remote build 16 seconds), staged READY then promoted without rebuilding to www.jamddmaj.com. Authenticated candidate and public bundle SHA-256 matched local: `b43c70ca2fb90b636cbfff168da3292da3ec3867e13a8f34978603ea8ed27021`. Bounded deployment error query returned zero records. No new continuous monitoring configured.
+
+## Follow-up: unclassified SIGNING still observed
+
+The user again reported the legacy generic SIGNING message. It does not establish whether the old page/record was reused or the wallet feature rejected before returning a signature. Do not claim an exact cause from that message.
+
+- Visible assistant version 2026.10.27.3 and versioned script URL distinguish the new page from a stale tab.
+- Wallet request rejection and no-return exceptions now have bounded persistent codes, without rendering raw provider error messages. Local storage failure and other pre-submission checks are also classified. SUBMITTING records always retain an uncertain-send warning.
+- Old SIGNING records with no reason explicitly show SETUP_LEGACY_SIGNING, remain non-replayable, and are not silently discarded.
+- 19 focused flow/protocol/preparation tests passed; compiled-browser test verifies the visible version, preparation, no signing/submission and no page errors. No financial policy relaxation or production signature/send. Historical failure remains unproven until the new version produces a classified result.
