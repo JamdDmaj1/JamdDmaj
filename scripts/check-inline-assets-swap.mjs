@@ -13,6 +13,7 @@ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'});
 try{
  const page=await browser.newPage(),errors=[];page.on('pageerror',error=>errors.push(error.message));
+ await page.addInitScript(()=>localStorage.setItem('jamd.firstVisitAccess.v1','true')); // Returning-user fixture only, not an auth grant.
  await page.route('**/api/**',route=>route.fulfill({status:503,contentType:'application/json',body:'{}'}));
  await page.route('https://solana-rpc.publicnode.com/**',route=>route.abort());
  const base=process.argv[2]||'http://127.0.0.1:'+server.address().port;

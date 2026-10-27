@@ -12141,7 +12141,7 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         initGoogleAccount();
         els.settings.showModal();
         showSettingsPanel(settingsPanelForFocus(focusSection));
-        if (localStorage.getItem(STORAGE.settingsCoach) !== "true") {
+        if (localStorage.getItem(STORAGE.settingsCoach) !== "true" && document.documentElement.dataset.accountOnboarding !== "true") {
           settingsCoachIndex = 0;
           setTimeout(showSettingsCoachStep, 180);
         }
@@ -14647,6 +14647,8 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         document.body.classList.add("light");
       }
       if (redirectNativeOAuthCallback()) return;
+      document.documentElement.dataset.settingsReady = "true";
+      window.dispatchEvent(new Event("jamd-settings-ready"));
       await initializeNativeOAuth();
       await finishOpenRouterConnection();
       await checkManagedAccess();
@@ -14743,7 +14745,7 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
       }
       if (localStorage.getItem(STORAGE.tutorial) !== "true") {
         setTimeout(() => {
-          if (!els.settings.open) openTutorial();
+          if (!els.settings.open && !document.getElementById('first-visit-access')?.open) openTutorial();
         }, 850);
       }
       maybeShowNormalReleaseNotes();
@@ -14753,5 +14755,6 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
   <script type="module" src="wallet-login-ui.js?v=1.38.4"></script>
   <script type="module" src="web-trial-ui.js"></script>
   <script type="module" src="jamd-credit-ui.js"></script>
+  <script type="module" src="first-visit-ui.js"></script>
 </body>
 </html>

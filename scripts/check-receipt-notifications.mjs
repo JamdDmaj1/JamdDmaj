@@ -8,6 +8,7 @@ const root=resolve('www'),server=createServer(async(req,res)=>{try{const path=re
 await new Promise(r=>server.listen(0,'127.0.0.1',r));const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'});
 try{
  const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[];page.on('pageerror',e=>errors.push(e.message));let calls=0,receiver='';
+ await page.addInitScript(()=>localStorage.setItem('jamd.firstVisitAccess.v1','true')); // Returning user; does not authorize wallet access.
  await page.route('**/api/**',r=>r.fulfill({status:503,contentType:'application/json',body:'{}'}));
  await page.route(/^https:\/\/(?:solana-rpc\.publicnode\.com|api\.mainnet-beta\.solana\.com)\//,async route=>{calls++;const q=route.request().postDataJSON();let result;const signature='1'.repeat(64),time=Math.ceil(Date.now()/1000);
   if(q.method==='getGenesisHash')result='5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
