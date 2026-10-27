@@ -87,3 +87,31 @@ test('page + Wallet Standard + HTTP uses explicit approval and exposes finalized
  await el.confirm.onclick();assert.equal(f.state.prompts,1);assert.equal(f.state.sends,1);assert.equal(el.confirm.disabled,true);
  await el.recover.onclick();assert.match(el.status.textContent,/operación finalizada/);assert.equal(values.size,0);
 });
+
+async function approvalScenario(kind){
+ const f=await fixture(),{doc}=domFixture(),values=new Map(),storage={getItem:k=>values.get(k)??null,setItem:(k,v)=>values.set(k,v),removeItem:k=>values.delete(k)};
+ let clock=at,focused=true,focusWaits=0;doc.hasFocus=()=>focused;
+ const account={address:f.owner,publicKey:new Uint8Array(f.pub),chains:['solana:mainnet'],features:['solana:signTransaction']};
+ const wallet={name:'Phantom',accounts:[account],features:{'standard:connect':{connect:async()=>({accounts:[account]})},'solana:signTransaction':{supportedTransactionVersions:['legacy'],signTransaction:async()=>{
+  f.state.prompts++;if(kind==='expired')clock=at+60000;
+  if(['focus-return','focus-missing','hidden','changed-account'].includes(kind))focused=false;
+  if(kind==='hidden')doc.hidden=true;
+  const wire=Uint8Array.from(Buffer.from(f.signed,'base64'));
+  return [{signedTransaction:kind==='changed-wire'?new Uint8Array([...wire,0]):wire}];
+ }}}};
+ const registry={get:()=>[wallet],on(){return ()=>{};}};
+ const page=setupFeeRecipientSetupPage({doc,registry,storage,locks:{request:(_name,_opts,fn)=>fn({})},now:()=>clock,protocol:f.protocol,
+  waitForFocus:async()=>{focusWaits++;if(kind==='focus-return'||kind==='changed-account')focused=true;if(kind==='changed-account')wallet.accounts=[];},
+  fetchImpl:(url,options)=>f.handler(new Request('https://www.jamddmaj.com'+url,options))});
+ const el=page.elements;el.wallets.value='0';await el.connect.onclick();await el.prepare.onclick();el.consent.checked=true;el.consent.onchange();await el.confirm.onclick();
+ return {f,el,values,focusWaits};
+}
+test('extension focus lag waits for foreground and submits only the exact approved signature once',async()=>{
+ const {f,el,focusWaits}=await approvalScenario('focus-return');assert.equal(focusWaits,1);assert.equal(f.state.prompts,1);assert.equal(f.state.sends,1);
+ await el.recover.onclick();assert.match(el.status.textContent,/operación finalizada/);assert.equal(f.state.sends,1);
+});
+for(const [kind,message]of [['expired',/La revisión venció/],['changed-wire',/SETUP_WALLET_TRANSACTION_CHANGED/],['focus-missing',/SETUP_FOCUS_NOT_RETURNED/],['hidden',/SETUP_FOCUS_NOT_RETURNED/],['changed-account',/La cuenta o la revisión cambió/]])test('approval safely retains the exact reason without submission: '+kind,async()=>{
+ const {f,el,values}=await approvalScenario(kind);assert.equal(f.state.prompts,1);assert.equal(f.state.sends,0);assert.match(el.status.textContent,message);
+ await el.recover.onclick();assert.match(el.status.textContent,message);assert.equal(f.state.sends,0);assert.equal(f.state.prompts,1);
+ assert.equal(JSON.parse([...values.values()][0]).stage,'SIGNING');await el.discard.onclick();assert.equal(values.size,0);
+});
