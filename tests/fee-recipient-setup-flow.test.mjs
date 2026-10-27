@@ -15,7 +15,7 @@ async function fixture(){
  const blockhash=bs58.encode(Buffer.alloc(32,8)),compiled=await protocol.compileRecipientSetupMessage(blockhash),unsigned=Buffer.concat([Buffer.from([1]),Buffer.alloc(64),compiled.message]);
  const packet=Object.freeze({stage:'UNSIGNED_FEE_RECIPIENT_USDC_SETUP',network:'solana-mainnet',owner,mint:FEE.mint,destination:compiled.destination,payer:owner,
   preparedAt:at,reviewExpiresAt:at+60000,observedSlot:100,blockhash,lastValidBlockHeight:200,
-  operatorBalanceLamports:'5000000',rentReserveLamports:'1488440',networkFeeLamports:'5000',estimatedTotalLamports:'1493440',serializedTxBase64:unsigned.toString('base64'),
+  operatorBalanceLamports:'5000000',rentReserveLamports:'1488440',networkFeeLamports:'8000',estimatedTotalLamports:'1496440',serializedTxBase64:unsigned.toString('base64'),
   messageSha256:createHash('sha256').update(compiled.message).digest('hex'),operation:'CREATE_ASSOCIATED_USDC_ACCOUNT_IDEMPOTENT',usdcTransferredUnits:'0',requiresFreshWalletReview:true,readyForSigning:false,signed:false,submitted:false});
  const signed=Buffer.concat([Buffer.from([1]),sign(null,compiled.message,privateKey),compiled.message]).toString('base64');
  const state={exists:false,pending:false,failed:false,timeout:false,invalidBlockhash:false,badEffects:false,sends:0,prompts:0};
@@ -25,7 +25,7 @@ async function fixture(){
  const request=async(method,params)=>{calls.push({method,params});
   if(method==='getGenesisHash')return '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
   if(method==='isBlockhashValid')return {context:{slot:100},value:!state.invalidBlockhash};
-  if(method==='simulateTransaction')return {context:{slot:100},value:{err:null,accounts:[{owner:'11111111111111111111111111111111',executable:false,lamports:3506560+(state.badEffects?1:0),data:['','base64']},ata]}};
+  if(method==='simulateTransaction')return {context:{slot:100},value:{err:null,accounts:[{owner:'11111111111111111111111111111111',executable:false,lamports:3503560+(state.badEffects?1:0),data:['','base64']},ata]}};
   if(method==='sendTransaction'){state.sends++;assert.equal(params[0],signed);assert.equal(params[1].maxRetries,0);state.exists=true;if(state.timeout)throw Error('TIMEOUT');return bs58.encode(Buffer.from(signed,'base64').subarray(1,65));}
   if(method==='getAccountInfo')return {context:{slot:200},value:state.exists?ata:null};
   if(method==='getSignatureStatuses')return {context:{slot:200},value:[state.pending?null:{slot:200,confirmationStatus:'finalized',err:state.failed?{InstructionError:[0,'Custom']}:null}]};
@@ -42,6 +42,18 @@ test('canonical setup validates a fixture owner signature but rejects changed pa
  assert.equal((await f.protocol.validateSignedRecipientSetup(f.packet,f.signed,{now:at})).destination,f.packet.destination);
  for(const patch of [{payer:FEE.recipient},{destination:FEE.recipient},{estimatedTotalLamports:'1'},{networkFeeLamports:'10001'},{usdcTransferredUnits:'1'}])await assert.rejects(f.protocol.validateSignedRecipientSetup({...f.packet,...patch},f.signed,{now:at}));
  const bad=Buffer.from(f.signed,'base64');bad[80]^=1;await assert.rejects(f.protocol.inspectSignedRecipientSetup(bad.toString('base64')));
+});
+
+test('priority budget is fixed before signing; even freshly owner-signed budget mutations are rejected',async()=>{
+ const f=await fixture(),wire=Buffer.from(f.signed,'base64');assert.equal(wire.length,356);
+ for(const offset of [65+265,65+273,65+281]){
+  const changed=Buffer.from(wire);changed[offset]^=1;sign(null,changed.subarray(65),f.privateKey).copy(changed,1);
+  await assert.rejects(f.protocol.inspectSignedRecipientSetup(changed.toString('base64')));
+ }
+ const legacy=await f.protocol.compileRecipientSetupMessage(f.packet.blockhash,{legacy:true});
+ const old=Buffer.concat([Buffer.from([1]),sign(null,legacy.message,f.privateKey),legacy.message]).toString('base64');
+ assert.equal((await f.protocol.inspectSignedRecipientSetup(old)).destination,f.packet.destination,'read-only reconciliation still recognizes old exact signatures');
+ await assert.rejects(f.protocol.validateSignedRecipientSetup(f.packet,old,{now:at}),'new review must not submit an old no-budget message');
 });
 test('setup HTTP reaches exact owner-signed RPC submission once and read-only finalized recovery',async()=>{
  const f=await fixture();let response=await f.handler(new Request('https://www.jamddmaj.com/api/fee-recipient-setup'));
@@ -82,7 +94,7 @@ test('page + Wallet Standard + HTTP uses explicit approval and exposes finalized
  const page=setupFeeRecipientSetupPage({doc,registry,storage,locks:{request:(_name,_opts,fn)=>fn({})},now:()=>at,protocol:f.protocol,
   fetchImpl:(url,options)=>f.handler(new Request('https://www.jamddmaj.com'+url,options))});
  const el=page.elements;el.wallets.value='0';assert.equal(f.state.prompts,0);assert.equal(f.state.sends,0);
- await el.connect.onclick();await el.prepare.onclick();assert.match(el.summary.textContent,/0\.00149344 SOL/);assert.equal(el.confirm.disabled,true);
+ await el.connect.onclick();await el.prepare.onclick();assert.match(el.summary.textContent,/0\.00149644 SOL/);assert.equal(el.confirm.disabled,true);
  await el.confirm.onclick();assert.equal(f.state.prompts,0);el.consent.checked=true;el.consent.onchange();assert.equal(el.confirm.disabled,false);
  await el.confirm.onclick();assert.equal(f.state.prompts,1);assert.equal(f.state.sends,1);assert.equal(el.confirm.disabled,true);
  await el.recover.onclick();assert.match(el.status.textContent,/operación finalizada/);assert.equal(values.size,0);

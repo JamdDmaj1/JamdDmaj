@@ -6,7 +6,7 @@ import {preparePerpsFeeRecipientSetup} from '../lib/perps-fee-recipient-setup.js
 import {PERPS_PLATFORM_FEE as fee} from '../lib/perps-platform-fee.js';
 const TOKEN='TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
 function fixture(change={}){
- const calls=[],rent=1488440,network=5000,ownerSol=75610623;
+ const calls=[],rent=1488440,network=8000,ownerSol=75610623;
  const account=(owner,data,lamports)=>({owner,executable:false,lamports,data:[data.toString('base64'),'base64']});
  const payer=after=>account('11111111111111111111111111111111',Buffer.alloc(0),ownerSol-(after?rent+network:0));
  const mint=Buffer.alloc(82);mint[44]=6;mint[45]=1;
@@ -25,11 +25,11 @@ function fixture(change={}){
   assert.fail('must not sign or send: '+method);
  };return {calls,request};
 }
-test('operator-only preparation builds exactly one unsigned idempotent USDC account creation, with simulated exact costs',async()=>{
+test('operator-only preparation builds fixed compute budget and one unsigned idempotent USDC account creation, with simulated exact costs',async()=>{
  const f=fixture(),p=await preparePerpsFeeRecipientSetup({request:f.request,now:()=>100000});
  assert.equal(p.owner,fee.recipient);assert.equal(p.payer,fee.recipient);assert.equal(p.destination,'AKyJkfAEqmPMCbKRFmtdYzkHry3oJjPxtZFathpSwKNL');
- assert.equal(p.usdcTransferredUnits,'0');assert.equal(p.estimatedTotalLamports,'1493440');assert.equal(p.readyForSigning,false);assert.equal(p.submitted,false);
- const wire=Buffer.from(p.serializedTxBase64,'base64');assert.equal(wire[0],1);assert.ok(wire.subarray(1,65).every(v=>v===0));assert.deepEqual([...wire.subarray(-11)],[1,5,6,0,1,0,2,3,4,1,1]);
+ assert.equal(p.usdcTransferredUnits,'0');assert.equal(p.estimatedTotalLamports,'1496440');assert.equal(p.readyForSigning,false);assert.equal(p.submitted,false);
+ const wire=Buffer.from(p.serializedTxBase64,'base64');assert.equal(wire.length,356);assert.equal(wire[0],1);assert.ok(wire.subarray(1,65).every(v=>v===0));assert.deepEqual([...wire.subarray(-31)],[3,6,0,5,2,160,134,1,0,6,0,9,3,48,117,0,0,0,0,0,0,5,6,0,1,0,2,3,4,1,1]);
  assert.equal(f.calls.some(c=>c.method==='sendTransaction'),false);
 });
 test('an existing valid USDC account produces no new creation transaction or fee request',async()=>{

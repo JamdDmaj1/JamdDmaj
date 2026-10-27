@@ -13,7 +13,7 @@ test('compiled operator page discovers mocked Phantom, renders exact costs and n
  await new Promise(r=>server.listen(0,'127.0.0.1',r));const target='http://127.0.0.1:'+server.address().port;
  const at=Date.now(),blockhash=bs58.encode(new Uint8Array(32).fill(8)),{destination,message}=await compileRecipientSetupMessage(blockhash);
  const packet={stage:'UNSIGNED_FEE_RECIPIENT_USDC_SETUP',network:'solana-mainnet',owner:FEE.recipient,mint:FEE.mint,destination,payer:FEE.recipient,
-  preparedAt:at,reviewExpiresAt:at+60000,observedSlot:100,blockhash,lastValidBlockHeight:200,operatorBalanceLamports:'5000000',rentReserveLamports:'1488440',networkFeeLamports:'5000',estimatedTotalLamports:'1493440',
+  preparedAt:at,reviewExpiresAt:at+60000,observedSlot:100,blockhash,lastValidBlockHeight:200,operatorBalanceLamports:'5000000',rentReserveLamports:'1488440',networkFeeLamports:'8000',estimatedTotalLamports:'1496440',
   serializedTxBase64:Buffer.concat([Buffer.from([1]),Buffer.alloc(64),message]).toString('base64'),messageSha256:createHash('sha256').update(message).digest('hex'),operation:'CREATE_ASSOCIATED_USDC_ACCOUNT_IDEMPOTENT',usdcTransferredUnits:'0',requiresFreshWalletReview:true,readyForSigning:false,signed:false,submitted:false};
  let browser;try{
   const {chromium}=await import(process.env.JAMDDMAJ_TEST_BROWSER_MODULE);browser=await chromium.launch({headless:true,executablePath:process.env.JAMDDMAJ_TEST_BROWSER_EXECUTABLE});
@@ -28,8 +28,8 @@ test('compiled operator page discovers mocked Phantom, renders exact costs and n
    if(url.origin!==target)return route.abort();return route.continue();
   });
   await page.goto(target+'/fee-recipient-setup.html');await page.locator('#connect').click();await page.locator('#wallet-status').filter({hasText:'Phantom conectada'}).waitFor();
-  assert.equal(await page.locator('#flow-version').innerText(),'Asistente 2026.10.27.3');
-  await page.locator('#prepare').click();await page.locator('#summary').filter({hasText:'0.00149344 SOL'}).waitFor();
+  assert.equal(await page.locator('#flow-version').innerText(),'Asistente 2026.10.27.4');
+  await page.locator('#prepare').click();await page.locator('#summary').filter({hasText:'0.00149644 SOL'}).waitFor();
   assert.equal(await page.locator('#confirm').isDisabled(),true);await page.locator('#consent').check();assert.equal(await page.locator('#confirm').isDisabled(),false);
   assert.equal(await page.evaluate(()=>window.setupSignCalls),0);assert.deepEqual(methods,['GET']);assert.deepEqual(errors,[]);
   await page.screenshot({path:'.perps-build/fee-recipient-setup-desktop.png',fullPage:true});await page.setViewportSize({width:390,height:844});
