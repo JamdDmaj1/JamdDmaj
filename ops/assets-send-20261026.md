@@ -24,4 +24,13 @@ Implemented Assets-local token selection with observed balances, token amount, f
 
 Official references consulted: https://solana.com/docs/tokens/basics/transfer-tokens and https://solana.com/docs/payments/send-payments/verify-address .
 
-Publication evidence follows after release verification. No real funds were signed, submitted or moved during implementation/testing.
+## Published and verified
+
+- Source commit `289f512`. Fresh complete regression: 1,120 tests, 1,101 passed, 19 skipped, zero failures (241 seconds). Built browser regression passed locally and against the public domain after promotion.
+- VPS worker SHA-256 `8c4a25c5cce043b1f35a2f987f20baed9b3377006d4da22fa2cf87260439b698`. Previous worker preserved at `/opt/jamddmaj-perps/backups/bot-swaps-20261026/worker-before-assets-send.mjs`. No state migration, keys or controls changes.
+- Before/after operator checks: one configured account, zero active accounts, two existing operation records, zero pending operations; verified backup still includes operations. These two records predated this deployment; no new production transaction record was created by tests. Worker, manual web service and HTTPS active, zero service restarts, health HTTP 200.
+- Staged production deployment `dpl_2AXsx1iGssTusGLP632pXcJ9jeFg`, `https://jamd-dmaj-7jjns0swb-jamd-dmaj-s-projects.vercel.app`, READY and promoted without rebuilding to `https://www.jamddmaj.com`.
+- Authenticated candidate and public byte hashes matched the local build: Assets bundle `f0c6fac4a9afe2a609c3b7a39c309061d96b0616d6862316dd04b1e1f1985613`; shared signing-session bundle `5d6765ad1c73d3bf60fd35a82f240af068e469ca3f527bcdd45d7f1a6b86873a`.
+- Public browser tests kept financial calls mocked and verified inline token/amount/recipient review, invalidation after editing, unchecked consent, one mock confirmation and recovery, correct account selection, no mobile overflow and no page errors. Vercel deployment error query over the last ten minutes returned zero records; this is a bounded observation, not ongoing monitoring.
+
+No real funds were signed, submitted or moved during implementation/testing. The bot was not activated. This is a web/server release, not a new Android APK; native Android sends retain their existing secure review screen.
