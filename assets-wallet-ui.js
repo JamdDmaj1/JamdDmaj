@@ -20,7 +20,8 @@ export function setupAssetsWallets(language, doc=document, win=window) {
   el('p',t('Conecta para consultar tu cuenta pública. Las claves permanecen en tu billetera. Esta conexión no inicia sesión, no firma ni mueve dinero. Es independiente de Bitget.','Connect to inspect your public account. Keys stay in your wallet. This connection does not sign you in, sign messages or move funds. It is separate from Bitget.'));
   const label=el('label',t('Billetera detectada','Detected wallet'));label.htmlFor='assets-wallet-choice';
   const select=el('select');select.id='assets-wallet-choice';
-  const connect=el('button',t('Conectar billetera','Connect wallet'));connect.type='button';
+  el('p',t('Conectar Phantom no requiere iniciar sesión con Google. Google identifica tu cuenta JamdDmaj; Phantom autoriza su propia billetera. En incógnito debes permitir la extensión en ventanas privadas; iniciar sesión no instala ni habilita la extensión.','Connecting Phantom does not require Google sign-in. Google identifies your JamdDmaj account; Phantom authorizes its own wallet. In incognito, allow the extension in private windows; signing in does not install or enable it.'));
+  const connect=el('button',t('Conectar billetera','Connect wallet'));connect.type='button';connect.id='assets-connect-wallet';
   const refresh=el('button',t('Consultar saldo nativo','Check native balance'));refresh.type='button';refresh.hidden=true;
   const disconnect=el('button',t('Desconectar de esta vista','Disconnect from this view'));disconnect.type='button';disconnect.hidden=true;
   const identity=el('p');identity.style.overflowWrap='anywhere';
@@ -47,7 +48,7 @@ export function setupAssetsWallets(language, doc=document, win=window) {
     choices.forEach((choice,i)=>{const option=doc.createElement('option');option.value=String(i);option.textContent=choice.name+' · '+(choice.kind==='mobile-entry'?t('Conexión móvil','Mobile connection'):choice.kind==='solana'?'Solana':'Ethereum / BNB');select.append(option)});
     if(choices[Number(previous)])select.value=previous;
     connect.disabled=!choices.length;
-    if(!choices.length)status.textContent=t('No hay una billetera compatible en este navegador. La app Android necesita una conexión móvil específica; no crearemos una cuenta ficticia.','No compatible wallet is available in this browser. Android needs a separate mobile connection; no fictitious account will be created.');
+    if(!choices.length)status.textContent=t('No se detectó una extensión compatible. Si estás en incógnito, permite Phantom en ventanas privadas desde la configuración de extensiones o usa una ventana normal con Phantom instalado. Google no resuelve esta detección. En Android utiliza la conexión móvil.','No compatible extension detected. In incognito, allow Phantom in private windows in extension settings, or use a normal window with Phantom installed. Google sign-in does not resolve detection. On Android use the mobile connection.');
     else status.textContent=t('Selecciona la billetera que reconoces. Los nombres son informados por las extensiones.','Select a wallet you recognize. Names are supplied by browser extensions.');
   }
   function announced(event){try{const p=event.detail?.provider;if(typeof p?.request==='function'&&typeof p?.on==='function'&&typeof p?.removeListener==='function'&&providers.size<20){providers.set(p,sanitizeWalletName(event.detail.info?.name));discover();}}catch{}}

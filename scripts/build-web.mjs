@@ -109,6 +109,8 @@ await build({
   }}]
 });
 await cp(resolve(root, "lib", "terminal-layout.js"), resolve(output, "lib", "terminal-layout.js"));
+await cp(resolve(root, "lib", "wallet-receipt-reader.js"), resolve(output, "lib", "wallet-receipt-reader.js"));
+await cp(resolve(root, "lib", "wallet-receipt-notifications.js"), resolve(output, "lib", "wallet-receipt-notifications.js"));
 await cp(resolve(root, "lib", "market-sentiment-ui.js"), resolve(output, "lib", "market-sentiment-ui.js"));
 await cp(resolve(root, "lib", "finance-markets.js"), resolve(output, "lib", "finance-markets.js"));
 await cp(resolve(root, "lib", "finance-preferences.js"), resolve(output, "lib", "finance-preferences.js"));

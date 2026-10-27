@@ -5,6 +5,10 @@ import {validateAutomationSettings} from '../lib/automation-panel.js';
 import {quotePerpsPlatformFee} from '../lib/perps-platform-fee.js';
 const settings={capital:100,loss:50,positions:2,margin:20,leverage:3,dailyTrades:3,stopLossPercent:null,takeProfitPercent:null,reductionPercent:50,lossAction:'disable'};
 const state={walletAddress:'exclusive-public-wallet',revision:'server-revision',settings,enabled:false,paused:true};
+test('a missing production fee service is explained and cannot be solved by adding collateral',async()=>{
+ let reviews=0;const f=fixture({readStatus:async()=>({controls:state,recovery:{backupVerified:true},executionAvailable:true,feeStatus:null}),prepareActivation:async()=>{reviews++;throw Error();}});
+ await f.connect.onclick();assert.match(f.status.textContent,/comisiones de producción/);assert.match(f.status.textContent,/aunque tengas más de 10 USDC/);assert.equal(f.prepareActivation.disabled,true);assert.equal(reviews,0);
+});
 function fixture(client){
  const node=()=>({children:[],append(...values){this.children.push(...values);},setAttribute(){}}),doc={createElement:node};
  const fields=Object.fromEntries(Object.entries(settings).map(([key,value])=>[key,{value:value??''}]));
