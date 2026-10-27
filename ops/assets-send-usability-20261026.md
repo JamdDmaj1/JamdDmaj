@@ -11,4 +11,4 @@ Scope: web Assets Send presentation only, not custody, signing, journal, worker 
 
 Verification: 10 focused tests passed; built mocked browser flow passed, including verified identity, SOL reserve sizing, USDC percentages and label, exact reviewed total, hidden idle pending button, unchanged explicit consent, recovery, and no overflow/page errors. No real transaction was signed or sent. Native Android keeps its existing secure screen; no APK update in this change.
 
-Deployment evidence follows after publication.
+Published source `f4ac6e3` as staged production `dpl_4jW1Roz9vmYYZL7XaikkMqSGRsP1`, candidate `https://jamd-dmaj-qoeqr1azi-jamd-dmaj-s-projects.vercel.app`, READY and promoted without rebuilding. Authenticated candidate and public Assets bundle both matched local SHA-256 `a2f448d843eff950fb785d737d7a3c62c460f013fc97d8f45c7f1c1e644476e0` (public HTTP 200). Expanded mocked browser regression passed against `https://www.jamddmaj.com` after promotion. Deployment error query for the preceding ten minutes returned zero records. No server, account settings, wallet funds or bot activation changes.
