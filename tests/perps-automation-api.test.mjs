@@ -59,6 +59,18 @@ test('commission totals are projected only after authenticated wallet ownership 
  assert.equal((await read(otherToken)).status,403);assert.equal(reads.length,1);
 });
 
+test('missing fee recipient blocks review and confirmation before recording consent',async t=>{
+ let checks=0,consents=0;const platformFees={automationDisclosure:()=>quotePerpsPlatformFee('20000000'),recordAutomationConsent:()=>consents++,assertActivationReadiness:async()=>{checks++;throw Error('PLATFORM_FEE_RECIPIENT_USDC_ACCOUNT_MISSING');}};
+ const f=await fixture(t,{platformFees});
+ const review=await f.handler(request({action:'activationReview',walletAddress,expectedRevision:f.first.revision}));
+ assert.equal(review.status,409);assert.equal((await review.json()).error.code,'fee-recipient-account-missing');assert.equal(checks,1);
+ const foreign=await f.handler(request({action:'activationReview',walletAddress,expectedRevision:f.first.revision},{headers:{Authorization:'Bearer '+otherToken,'Content-Type':'application/json'}}));assert.equal(foreign.status,403);assert.equal(checks,1);
+ const confirmation=await f.handler(request({action:'activate',walletAddress,expectedRevision:f.first.revision,token:'fixture',explicitApproval:true,explicitFeeApproval:true,feeTermsVersion:quotePerpsPlatformFee('20000000').version}));
+ assert.equal(confirmation.status,409);assert.equal(consents,0);assert.equal(f.controls.read({ownerAccountHash:owner,walletAddress}).enabled,false);
+ const client=createPerpsControlClient({readSessionToken:()=>token,validateSettings:validateAutomationSettings,now:()=>now,fetchImpl:async(url,options)=>url.endsWith('/health')?Response.json({ok:true,mode:'execute',tradingEnabled:false,executionAvailable:true,custodyProvisioningAvailable:true}):f.handler(new Request(url,options))});
+ await assert.rejects(client.prepareActivation({walletAddress,expectedRevision:f.first.revision}),e=>e.code==='fee-recipient-account-missing');
+});
+
 test('exclusive funding status uses fresh native owner-bound evidence and never equates unknown with zero or trading authority',async t=>{
  let reads=0,mode='zero';
  const account=await readServerPerpsAccount({walletAddress},{now:()=>now,request:async method=>{

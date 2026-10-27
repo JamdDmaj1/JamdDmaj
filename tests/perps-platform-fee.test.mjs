@@ -407,3 +407,11 @@ test('new entries require the current mandate, full backup and an existing opera
  assert.equal(f.entry.pendingPlatformFeePayments(f.who.walletAddress).length,0);assert.equal(f.calls.some(c=>c.method==='sendTransaction'),false);
  f.changes.destinationMissing=false;f.changeControls({enabled:false,paused:true});await assert.rejects(service.assertEntryReadiness(f.who));
 });
+
+test('activation readiness only checks backup, recipient and current revision without consent or payment',async t=>{
+ const f=await paymentFixture(t,{automation:true}),custody=custodyFixture(t,f),payments=f.openPayments(),before=f.controls.read(f.who);
+ const service=createPerpsAutomationFees({feeJournal:f.fees,paymentJournal:payments,riskJournal:f.entry,controls:f.controls,vault:custody.vault,backupRegistry:custody.registry,request:f.request,isExecutionRunning:()=>true,now:f.now});
+ await service.assertActivationReadiness(f.who);assert.deepEqual(f.controls.read(f.who),before);
+ f.changes.destinationMissing=true;await assert.rejects(service.assertActivationReadiness(f.who),/PLATFORM_FEE_RECIPIENT_USDC_ACCOUNT_MISSING/);
+ assert.equal(f.calls.some(c=>c.method==='sendTransaction'),false);
+});

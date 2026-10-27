@@ -60,6 +60,7 @@ test('fee-enabled runtime requires existing private stores and never manufacture
  assert.equal(existsSync(join(f.directory,'fees.sqlite')),false);assert.equal(existsSync(join(f.directory,'payments.sqlite')),false);
  const risk=openPerpsExecutionJournal(f.journalPath),fees=openPerpsPlatformFeeJournal(join(f.directory,'fees.sqlite'),{entryJournal:risk});fees.close();risk.close();
  openPerpsPlatformFeePaymentJournal(join(f.directory,'payments.sqlite')).close();
+ assert.throws(()=>openServerPerpsRuntime(f.options)); // Existing fee state cannot be forgotten on restart.
  const runtime=openServerPerpsRuntime({...f.options,platformFeesEnabled:true});try{
   const report=await runtime.run({once:true});assert.equal(report.results.RECONCILIATION_ONLY,1);assert.equal(f.calls.length,0);
  }finally{await runtime.close();}
