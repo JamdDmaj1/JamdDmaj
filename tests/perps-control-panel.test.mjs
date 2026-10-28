@@ -14,6 +14,19 @@ function fixture(client){
  const fields=Object.fromEntries(Object.entries(settings).map(([key,value])=>[key,{value:value??''}]));
  const result=setupPerpsControlPanel({panel:node(),fields,client,validateSettings:validateAutomationSettings,language:'es',doc});return {...result,fields};
 }
+
+test('actual 10 capital / 10 margin / 5 daily loss review explains both limits, preserves custom values and never activates',async()=>{
+ const chosen={...state,settings:{...settings,capital:10,margin:10,loss:5}},review={...chosen,platformFee:quotePerpsPlatformFee('10000000'),expiresAt:Date.now()+60000};let activations=0,saves=0;
+ const f=fixture({readStatus:async()=>({controls:chosen,recovery:{backupVerified:true},executionAvailable:true}),prepareActivation:async()=>review,activate:async()=>{activations++;return chosen;},save:async()=>{saves++;return chosen;}});
+ await f.connect.onclick();await f.prepareActivation.onclick();assert.match(f.status.textContent,/capital máximo \/ pérdida diaria/);assert.match(f.status.textContent,/10\.02 USDC/);
+ assert.equal(f.fields.capital.value,10);assert.equal(f.fields.loss.value,5);assert.equal(f.fields.margin.value,10);assert.equal(saves,0);assert.equal(activations,0);
+ f.activationConsent.checked=true;f.feeConsent.checked=true;f.feeConsent.onchange();assert.equal(f.activate.disabled,true);await f.activate.onclick();assert.equal(activations,0);
+});
+test('the exact margin-plus-fee boundary can be reviewed, but never auto-consents or auto-activates',async()=>{
+ const chosen={...state,settings:{...settings,capital:10.02,margin:10,loss:10.02}};let activations=0;
+ const f=fixture({readStatus:async()=>({controls:chosen,recovery:{backupVerified:true},executionAvailable:true}),prepareActivation:async()=>({...chosen,platformFee:quotePerpsPlatformFee('10000000'),expiresAt:Date.now()+60000}),activate:async()=>{activations++;return chosen;}});
+ await f.connect.onclick();await f.prepareActivation.onclick();assert.match(f.status.textContent,/Revisión preparada/);assert.equal(f.activate.disabled,true);assert.equal(f.activationConsent.checked,false);assert.equal(f.feeConsent.checked,false);assert.equal(activations,0);
+});
 test('missing browser session and rejected server session have distinct safe diagnostic codes',async()=>{
  for(const [code,message]of [['session-missing','SESSION_MISSING'],['login-required','SESSION_REJECTED'],['session-changed','sesión cambió']]){
   const f=fixture({read:async()=>{throw Object.assign(Error('private credentials'),{code});}});
