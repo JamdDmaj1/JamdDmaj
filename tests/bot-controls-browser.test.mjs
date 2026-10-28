@@ -22,7 +22,12 @@ test('compiled bot controls keep custom limits and activation available after a 
     if(input){writes.push(input.action);if(input.action==='save'){controls={...controls,settings:input.settings,revision:randomUUID(),updatedAt:Date.now()};}
      else if(input.action==='pause')controls={...controls,enabled:false,paused:true,revision:randomUUID(),updatedAt:Date.now()};
      else if(input.action==='activationReview')return route.fulfill({headers,json:{ok:true,review:{walletAddress:controls.walletAddress,revision:controls.revision,settings:controls.settings,expiresAt:Date.now()+60000,token:'b'.repeat(64),platformFee:quotePerpsPlatformFee(String(Math.round(controls.settings.margin*1000000)))}}});
-     else assert.fail('This browser test must not activate any bot');
+     else if(input.action==='activate'){
+      // Synthetic browser fixture only: never forward to a financial server.
+      assert.equal(input.explicitApproval,true);assert.equal(input.explicitFeeApproval,true);
+      assert.equal(input.expectedRevision,controls.revision);assert.equal(input.token,'b'.repeat(64));
+      controls={...controls,enabled:true,paused:false,reason:'EXPLICITLY_ACTIVATED',revision:randomUUID(),updatedAt:Date.now()};
+     }else assert.fail('Unexpected synthetic control action');
     }
     return route.fulfill({headers,json:{ok:true,controls,recovery:{walletAddress:controls.walletAddress,stage:'BACKUP_VERIFIED_EXECUTION_PENDING',backupVerified:true,verifiedAt:Date.now(),fundingAvailable:false,readyForSigning:false},platformFees:{stage:'PLATFORM_FEE_STATUS',walletAddress:controls.walletAddress,termsVersion:quotePerpsPlatformFee('10000000').version,dueUnits:'0',paidUnits:'0',pendingCount:0,failedCount:0}}});
    }
@@ -45,5 +50,17 @@ test('compiled bot controls keep custom limits and activation available after a 
   await panel.getByRole('status').filter({hasText:'Review prepared. Not active yet:'}).waitFor();
   assert.equal(await panel.getByRole('button',{name:'Confirm and activate bot',exact:true}).isDisabled(),true);
   assert.deepEqual(writes,['save','activationReview','pause','activationReview','activationReview']);assert.equal(controls.enabled,false);
+  // Both approvals are required in the real compiled UI, not just the client.
+  const approvals=panel.locator('label').filter({hasText:'I authorize 24/7 trading'}).locator('input');
+  const fees=panel.locator('label').filter({hasText:'I accept the JamdDmaj fee'}).locator('input');
+  await approvals.check();assert.equal(await panel.getByRole('button',{name:'Confirm and activate bot',exact:true}).isDisabled(),true);
+  await fees.check();await panel.getByRole('button',{name:'Confirm and activate bot',exact:true}).click();
+  await panel.getByRole('status').filter({hasText:'The server reports active automation.'}).waitFor();
+  assert.equal(controls.enabled,true);assert.equal(controls.paused,false);
+  assert.equal(await review.isDisabled(),true);
+  await panel.getByRole('button',{name:'Disable bot · stop new entries',exact:true}).click();
+  await page.waitForFunction(()=>!Array.from(document.querySelectorAll('button')).find(b=>b.textContent==='Activate bot · review limits')?.disabled);
+  assert.equal(controls.enabled,false);assert.equal(controls.paused,true);
+  assert.deepEqual(writes,['save','activationReview','pause','activationReview','activationReview','activate','pause']);
  }finally{await browser?.close();await new Promise(r=>server.close(r));}
 });
