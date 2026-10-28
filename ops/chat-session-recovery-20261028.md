@@ -1,0 +1,7 @@
+# Managed chat session recovery hotfix
+
+Source f161956. A rejected managed-chat session previously produced only an assistant error after clearing the composer. Added preflight using existing server identity verification before capture/persistence/credit requests. Missing/rejected access opens Account with explicit Google renewal and retains draft/attachments; uncertain verification retains the composer without sending. Duplicate clicks, changed chat/text/attachments during the check do not send stale content. No OAuth auto-approval, session fabrication, quota changes or chat retries. Server-side trial-login race also opens Account recovery. Own-key chat remains independent.
+
+Eleven focused session/quota/native tests passed. Isolated Edge checks verify rejected access (Account visible, original draft, zero chat posts) and valid synthetic access (one mock chat post, rendered mock reply); no actual user session or provider request used. Build passed.
+
+Vercel project/team verified. Clean committed-source production candidate dpl_EQGULTUMq2jZDsuvyMcn34bzSuJY READY, five-second build. Authenticated candidate HTML exactly matched local output, SHA256 23521b1d8fb5b00515a18d4c08a311c996fe2c3e030f77bb4cf06e642b837ade. Promoted unchanged. Public exact-source check and actual published browser expired-session recovery passed. User still must explicitly renew Google access; their authenticated provider response cannot be verified without that step. This web-only hotfix does not update the already-published Android 1.38.5 APK.
