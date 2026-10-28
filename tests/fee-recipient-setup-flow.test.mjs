@@ -88,10 +88,23 @@ test('guarded signed flow submits once and reconciles the exact signature withou
  assert.equal((await f.service.recover(result.signature)).stage,'RECIPIENT_SETUP_CONFIRMED');assert.equal(f.state.sends,1);
  const parsed=parseSetupSignedMessage(Buffer.from(f.state.signedWire,'base64'));assert.deepEqual(parsed.instructions.slice(3).map(ix=>ix.data[0]),[6,10]);
 });
+test('guard failure-only log ordinals 4/5 preserve the exact 26/17-byte assertion guards from the reported shape',async()=>{
+ const f=await fixture(),u64=n=>{const b=Buffer.alloc(8);b.writeBigUInt64LE(BigInt(n));return [...b];};
+ for(const log of [0,1,2,4,5]){
+  const guards=[{program:7,accounts:[0],data:[6,log,3,0,...u64(3503560),4,1,...u64(0),0,7,0,0]},
+   {program:7,accounts:[1],data:[10,log,3,2,...u64(0),4,4,1,0,8]}];
+  const encoded=guardedFixtureWire(f,{guards});assert.equal(Buffer.from(encoded,'base64').length,439);
+  assert.equal((await f.protocol.validateSignedRecipientSetup(f.packet,encoded,{now:at})).guards,2);
+ }
+ for(const log of [3,6,16,17,255]){
+  const encoded=guardedFixtureWire(f,{guards:[{program:7,accounts:[0],data:[6,log,1,7,0,0]}]});
+  await assert.rejects(f.protocol.validateSignedRecipientSetup(f.packet,encoded,{now:at}));
+ }
+});
 test('guard diagnostics contain only public program IDs and bounded structural numbers, never signed data',async()=>{
  const f=await fixture(),wire=Buffer.from(guardedFixtureWire(f),'base64'),summary=setupInstructionSummary(wire);
  assert.equal(summary.length,5);assert.equal(summary[3].program,SETUP_LIGHTHOUSE);assert.equal(summary[3].opcode,6);
- for(const ix of summary)assert.deepEqual(Object.keys(ix),['program','opcode','bytes','accounts']);
+ for(const ix of summary)assert.deepEqual(Object.keys(ix),['program','opcode','bytes','accounts',...ix.program===SETUP_LIGHTHOUSE?['log']:[]]);
  const text=JSON.stringify(summary);assert.ok(!text.includes(f.owner));assert.ok(!text.includes(f.packet.blockhash));assert.ok(!text.includes(wire.toString('base64')));
  for(let length=0;length<wire.length;length++)assert.deepEqual(setupInstructionSummary(wire.subarray(0,length)),[]);
 });

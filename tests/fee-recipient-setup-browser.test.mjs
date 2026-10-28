@@ -28,7 +28,7 @@ test('compiled operator page discovers mocked Phantom, renders exact costs and n
    if(url.origin!==target)return route.abort();return route.continue();
   });
   await page.goto(target+'/fee-recipient-setup.html');await page.locator('#connect').click();await page.locator('#wallet-status').filter({hasText:'Phantom conectada'}).waitFor();
-  assert.equal(await page.locator('#flow-version').innerText(),'Asistente 2026.10.27.7');
+  assert.equal(await page.locator('#flow-version').innerText(),'Asistente 2026.10.27.8');
   await page.locator('#prepare').click();await page.locator('#summary').filter({hasText:'0.00149644 SOL'}).waitFor();
   assert.equal(await page.locator('#confirm').isDisabled(),true);await page.locator('#consent').check();assert.equal(await page.locator('#confirm').isDisabled(),false);
   assert.equal(await page.evaluate(()=>window.setupSignCalls),0);assert.deepEqual(methods,['GET']);assert.deepEqual(errors,[]);
