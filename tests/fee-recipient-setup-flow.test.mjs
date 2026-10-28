@@ -48,6 +48,30 @@ function reorderedFixtureWire(f,order){
  assert.equal(p,wire.length);sign(null,wire.subarray(65),f.privateKey).copy(wire,1);return wire.toString('base64');
 }
 function permutations(values){if(!values.length)return [[]];return values.flatMap((value,i)=>permutations(values.filter((_,j)=>j!==i)).map(tail=>[value,...tail]));}
+function versionedFixtureWire(f,encoded=f.signed){
+ const wire=Buffer.from(encoded,'base64'),message=Buffer.concat([Buffer.from([128]),wire.subarray(65),Buffer.from([0])]);
+ return Buffer.concat([Buffer.from([1]),sign(null,message,f.privateKey),message]).toString('base64');
+}
+
+test('v0 with no lookups preserves the exact fixed recipe through all 120 readonly orderings',async()=>{
+ const f=await fixture();for(const order of permutations([2,3,4,5,6])){
+  const encoded=versionedFixtureWire(f,reorderedFixtureWire(f,order)),checked=await f.protocol.validateSignedRecipientSetup(f.packet,encoded,{now:at});
+  assert.equal(checked.versioned,true);assert.equal(checked.legacy,false);assert.equal(checked.blockhash,f.packet.blockhash);assert.equal(checked.destination,f.packet.destination);
+ }
+});
+test('v0 cannot introduce lookups, extra instructions, changed permissions, fees, owner or blockhash',async()=>{
+ const f=await fixture(),original=Buffer.from(versionedFixtureWire(f),'base64');
+ for(const offset of [65,66,67,68,70,102,134,294,326,327,330,334,338,346,357]){
+  const wire=Buffer.from(original);wire[offset]^=1;sign(null,wire.subarray(65),f.privateKey).copy(wire,1);
+  await assert.rejects(f.protocol.validateSignedRecipientSetup(f.packet,wire.toString('base64'),{now:at}));
+ }
+ const extra=Buffer.concat([original,Buffer.from([0])]);sign(null,extra.subarray(65),f.privateKey).copy(extra,1);
+ await assert.rejects(f.protocol.inspectSignedRecipientSetup(extra.toString('base64')));
+});
+test('v0 service submits once, verifies exact simulated effects and recovers its actual signature',async()=>{
+ const f=await fixture();f.state.signedWire=versionedFixtureWire(f);const result=await f.service.submit({packet:f.packet,signedBase64:f.state.signedWire,explicitApproval:true});
+ assert.equal(f.state.sends,1);assert.equal((await f.service.recover(result.signature)).stage,'RECIPIENT_SETUP_CONFIRMED');assert.equal(f.state.sends,1);
+});
 
 test('all 120 readonly-key permutations preserve the fixed recipe, signature and review',async()=>{
  const f=await fixture();for(const order of permutations([2,3,4,5,6])){
@@ -144,6 +168,7 @@ async function approvalScenario(kind){
   if(kind==='hidden')doc.hidden=true;
   const wire=Uint8Array.from(Buffer.from(f.signed,'base64'));
   if(kind==='readonly-reorder'){f.state.signedWire=reorderedFixtureWire(f,[3,5,6,2,4]);return [{signedTransaction:Uint8Array.from(Buffer.from(f.state.signedWire,'base64'))}];}
+  if(kind==='v0'){f.state.signedWire=versionedFixtureWire(f);return [{signedTransaction:Uint8Array.from(Buffer.from(f.state.signedWire,'base64'))}];}
   return [{signedTransaction:kind==='changed-wire'?new Uint8Array([...wire,0]):wire}];
  }}}};
  const registry={get:()=>[wallet],on(){return ()=>{};}};
@@ -160,11 +185,14 @@ test('extension focus lag waits for foreground and submits only the exact approv
 test('page accepts a verified readonly-key reorder without a second signature prompt or changed effects',async()=>{
  const {f,el}=await approvalScenario('readonly-reorder');assert.equal(f.state.prompts,1);assert.equal(f.state.sends,1);await el.recover.onclick();assert.match(el.status.textContent,/operación finalizada/);assert.equal(f.state.sends,1);
 });
+test('page accepts an owner-signed v0 equivalent and reconciles without requesting a second signature',async()=>{
+ const {f,el}=await approvalScenario('v0');assert.equal(f.state.prompts,1);assert.equal(f.state.sends,1);await el.recover.onclick();assert.match(el.status.textContent,/operación finalizada/);assert.equal(f.state.sends,1);
+});
 for(const [kind,message]of [['expired',/La revisión venció/],['changed-wire',/SETUP_WALLET_TRANSACTION_CHANGED/],['focus-missing',/SETUP_FOCUS_NOT_RETURNED/],['hidden',/SETUP_FOCUS_NOT_RETURNED/],['changed-account',/La cuenta o la revisión cambió/],['provider-rejected',/SETUP_WALLET_DECLINED/],['provider-error',/SETUP_WALLET_SIGN_FAILED/]])test('approval safely retains the exact reason without submission: '+kind,async()=>{
  const {f,el,values}=await approvalScenario(kind);assert.equal(f.state.prompts,1);assert.equal(f.state.sends,0);assert.match(el.status.textContent,message);
  await el.recover.onclick();assert.match(el.status.textContent,message);assert.equal(f.state.sends,0);assert.equal(f.state.prompts,1);
  assert.doesNotMatch(el.status.textContent,/PRIVATE_PROVIDER_ERROR/);
- assert.equal(JSON.parse([...values.values()][0]).stage,'SIGNING');await el.discard.onclick();assert.equal(values.size,0);
+ const pending=JSON.parse([...values.values()][0]);assert.equal(pending.stage,'SIGNING');if(kind==='changed-wire'){assert.deepEqual(pending.shape,{bytes:357,format:'legacy'});assert.match(el.status.textContent,/357 bytes/);}await el.discard.onclick();assert.equal(values.size,0);
 });
 
 test('old SIGNING records are identified as unclassified, never replayed or silently discarded',async()=>{
