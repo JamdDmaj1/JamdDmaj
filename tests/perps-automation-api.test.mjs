@@ -15,9 +15,11 @@ import {hashIdentifier} from '../lib/server.js';
 import {fixtureWallet as walletAddress,fixtureNow as now} from './helpers/perps-history-fixture.mjs';
 import {readServerPerpsAccount} from '../lib/perps-server-account.js';
 import {quotePerpsPlatformFee} from '../lib/perps-platform-fee.js';
+import {readServerPerpsDailyAccount} from '../lib/perps-server-daily-account.js';
+import bs58 from 'bs58';
 const owner='a'.repeat(64),otherOwner='b'.repeat(64),token='c'.repeat(64),otherToken='d'.repeat(64),settings={capital:100,loss:50,positions:2,margin:20,leverage:3,dailyTrades:3};
-async function fixture(t,overrides={}){
- const dir=mkdtempSync(join(tmpdir(),'jamd-perps-api-')),controls=openPerpsAutomationControls(join(dir,'controls.sqlite'),{now:()=>now});
+async function fixture(t,overrides={},controlOptions={}){
+ const dir=mkdtempSync(join(tmpdir(),'jamd-perps-api-')),controls=openPerpsAutomationControls(join(dir,'controls.sqlite'),{now:()=>now,...controlOptions});
  t.after(()=>{controls.close();rmSync(dir,{recursive:true,force:true});});
  const first=controls.provision({ownerAccountHash:owner,walletAddress,settings}),keys=new Map([[await hashIdentifier(token),owner],[await hashIdentifier(otherToken),otherOwner]]),authCalls=[];
  const storage=async(method,commands)=>{
@@ -30,6 +32,34 @@ async function fixture(t,overrides={}){
 function request(body,options={}){
  return new Request('https://executor.example/v1/automation',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json',Origin:'https://www.jamddmaj.com',...options.headers},body:JSON.stringify(body),...options});
 }
+
+test('isolated authenticated client -> fee review -> two explicit consents -> durable activation -> pause, with no financial transport',async t=>{
+ const clock=Date.now(),consents=[],actions=[];let readinessChecks=0;
+ const usdc=Buffer.alloc(165);Buffer.from(bs58.decode(quotePerpsPlatformFee('20000000').mint)).copy(usdc);Buffer.from(bs58.decode(walletAddress)).copy(usdc,32);usdc.writeBigUInt64LE(150000000n,64);usdc[108]=1;
+ const daily=()=>readServerPerpsDailyAccount({walletAddress},{now:()=>clock,monotonicNow:()=>0,request:async(method,params)=>{
+  if(method==='getGenesisHash')return '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
+  if(method==='getSlot')return 500000;
+  if(method==='getBlocks')return [68000];
+  if(method==='getBlockTime')return params[0]===500000?Math.floor(clock/1000)-5:Math.floor(clock/1000)-172800;
+  if(method==='getFirstAvailableBlock')return 100;
+  if(method==='getMultipleAccounts')return {context:{slot:500000},value:[{owner:'11111111111111111111111111111111',executable:false,lamports:100000000,data:['','base64']},{owner:'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',executable:false,lamports:2039280,data:[usdc.toString('base64'),'base64']},...Array(6).fill(null)]};
+  if(method==='getSignaturesForAddress')return [];
+  assert.fail('No signing, sendTransaction or other financial transport: '+method);
+ }});
+ const platformFees={assertActivationReadiness:async()=>{readinessChecks++;},automationDisclosure:()=>quotePerpsPlatformFee('20000000'),recordAutomationConsent:args=>consents.push(args)};
+ const f=await fixture(t,{platformFees},{now:()=>clock,authorizeActivation:async()=>({custodyAuthorized:true,executionReady:true,dailyAccount:await daily()})});
+ const client=createPerpsControlClient({readSessionToken:()=>token,validateSettings:validateAutomationSettings,now:()=>clock,fetchImpl:async(url,options)=>{
+  if(url.endsWith('/health'))return Response.json({ok:true,mode:'execute',tradingEnabled:false,executionAvailable:true,custodyProvisioningAvailable:true});
+  if(options.body)actions.push(JSON.parse(options.body).action);
+  return f.handler(new Request(url,options));
+ }});
+ const review=await client.prepareActivation({walletAddress,expectedRevision:f.first.revision});
+ assert.equal(review.platformFee.feeUnits,'40000');assert.equal(consents.length,0);assert.equal(f.controls.readForExecutor({walletAddress}).enabled,false);
+ assert.throws(()=>client.activate({review,explicitApproval:true}),/fee-approval-required/);assert.equal(consents.length,0);
+ const active=await client.activate({review,explicitApproval:true,explicitFeeApproval:true});assert.equal(active.enabled,true);assert.equal(active.paused,false);assert.equal(consents.length,1);assert.equal(readinessChecks,2);
+ assert.throws(()=>client.activate({review,explicitApproval:true,explicitFeeApproval:true}),/activation-review-expired/);assert.equal(consents.length,1);
+ const paused=await client.pause({walletAddress});assert.equal(paused.enabled,false);assert.equal(paused.paused,true);assert.deepEqual(actions,['activationReview','activate','pause']);
+});
 test('verified session identity, not JSON identity, governs ownership and all responses are noncacheable',async t=>{
  const f=await fixture(t),response=await f.handler(new Request('https://executor.example/v1/automation?walletAddress='+walletAddress,{headers:{Authorization:'Bearer '+token}}));
  assert.equal(response.status,200);assert.equal(response.headers.get('cache-control'),'no-store, max-age=0');assert.equal((await response.json()).controls.enabled,false);assert.equal(f.authCalls.length,1);

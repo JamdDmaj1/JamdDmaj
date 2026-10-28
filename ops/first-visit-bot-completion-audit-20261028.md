@@ -1,5 +1,7 @@
 # First visit / production bot configuration audit — 2026-10-28
 
+Historical assessment: superseded by first-visit-bot-final-audit-20261028.md, which verifies the integrated isolated activation transition and corrects the unnecessary condition that the customer must change risk limits for this non-activating technical objective to finish.
+
 Objective retained: explicit first-visit access and removal of production bot setup blocker; verify review/activation without activating accounts or moving funds in production verification.
 
 ## Current authoritative evidence
