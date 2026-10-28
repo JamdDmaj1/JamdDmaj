@@ -10206,6 +10206,7 @@
             await window.JamdTrial?.refresh();
             if (!response.ok) {
               const failure=await response.json().catch(()=>({}));
+              if (failure?.error?.code === "trial-login") requestChatSignIn();
               return new Response(JSON.stringify({error:{message:window.JamdTrial?.error(failure?.error?.code,response.status) || learnText("chatNetworkError")}}), {status:response.status,headers:{"Content-Type":"application/json"}});
             }
           }
@@ -10391,7 +10392,20 @@
         }
       }
 
+      let checkingChatSession = false;
+      function requestChatSignIn() {
+        openSettings();
+        document.querySelector('[data-settings-panel="account"]')?.click();
+        const button = document.getElementById("googleSignInBtn");
+        button?.scrollIntoView?.({block:"center"});
+        button?.focus?.();
+        showToast(resolvedLanguage() === "es"
+          ? "Renueva el acceso con Google. Tu mensaje se conserva; después vuelve a enviarlo."
+          : "Renew access with Google. Your message is preserved; send it again after signing in.");
+        void initGoogleAccount();
+      }
       async function sendMessage() {
+        if (checkingChatSession) return;
         if (activeController) {
           activeController.abort();
           return;
@@ -10399,6 +10413,31 @@
 
         const prompt = els.prompt.value.trim();
         if (!prompt && !pendingImages.length && !pendingTextFiles.length) return;
+        // Check before clearing the composer, saving a turn or starting credit use.
+        // A remembered Google profile is not a server-verified session.
+        if (!getApiKey() && !imageGenerationMode) {
+          const sessionChat = currentChatId, sessionImages = [...pendingImages], sessionFiles = [...pendingTextFiles];
+          checkingChatSession = true;
+          let session;
+          try { session = await window.JamdTrial?.sessionStatus?.(); }
+          catch { session = "unavailable"; }
+          finally { checkingChatSession = false; }
+          if (session === "missing" || session === "rejected") {
+            requestChatSignIn();
+            return;
+          }
+          if (session !== "valid") {
+            showToast(resolvedLanguage() === "es"
+              ? "No se pudo verificar el acceso. Tu mensaje sigue aquí; inténtalo de nuevo."
+              : "Access could not be verified. Your message is still here; try again.");
+            return;
+          }
+          // Do not send changed text or attachments after an asynchronous check.
+          if (els.prompt.value.trim() !== prompt || currentChatId !== sessionChat
+            || sessionImages.length !== pendingImages.length || sessionFiles.length !== pendingTextFiles.length
+            || sessionImages.some((value,index)=>value!==pendingImages[index])
+            || sessionFiles.some((value,index)=>value!==pendingTextFiles[index])) return;
+        }
         captureMemoryIntent(prompt);
         if (imageGenerationMode) {
           if (!settings.allowPaidImages) {
