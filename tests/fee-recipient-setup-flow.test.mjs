@@ -7,6 +7,7 @@ import {createFeeRecipientSetupService} from '../lib/fee-recipient-setup-service
 import {createFeeRecipientSetupHandler} from '../lib/fee-recipient-setup-http.js';
 import {setupFeeRecipientSetupPage} from '../lib/fee-recipient-setup-page.js';
 import {PERPS_PLATFORM_FEE as FEE} from '../lib/perps-platform-fee.js';
+import {SETUP_LIGHTHOUSE,parseSetupSignedMessage,setupInstructionSummary} from '../lib/fee-recipient-setup-guards.js';
 const at=Date.parse('2026-10-25T12:00:00Z');
 async function fixture(){
  // Public deterministic, unfunded fixture only. No live wallet/provider/RPC.
@@ -52,6 +53,48 @@ function versionedFixtureWire(f,encoded=f.signed){
  const wire=Buffer.from(encoded,'base64'),message=Buffer.concat([Buffer.from([128]),wire.subarray(65),Buffer.from([0])]);
  return Buffer.concat([Buffer.from([1]),sign(null,message,f.privateKey),message]).toString('base64');
 }
+function guardedFixtureWire(f,{versioned=false,guards,mutate}={}){
+ const original=Buffer.from(f.signed,'base64'),u64=n=>{const b=Buffer.alloc(8);b.writeBigUInt64LE(BigInt(n));return [...b];};
+ guards??=[{program:7,accounts:[0],data:[6,1,2,0,...u64(3503560),0,1,...u64(0),0]},
+  {program:7,accounts:[1],data:[10,1,4,2,...u64(0),0,3,0,0,4,1,0,8]}];
+ const fixed=Buffer.from(original.subarray(325));fixed[0]=3+guards.length;
+ let message=Buffer.concat([Buffer.from([1,0,6,8]),original.subarray(69,293),Buffer.from(bs58.decode(SETUP_LIGHTHOUSE)),original.subarray(293,325),fixed,
+  ...guards.map(ix=>Buffer.from([ix.program,ix.accounts.length,...ix.accounts,ix.data.length,...ix.data]))]);
+ if(mutate)message=mutate(message);
+ if(versioned)message=Buffer.concat([Buffer.from([128]),message,Buffer.from([0])]);
+ return Buffer.concat([Buffer.from([1]),sign(null,message,f.privateKey),message]).toString('base64');
+}
+test('439-byte guarded setup preserves the exact three core instructions and only appends read-only assertions',async()=>{
+ const f=await fixture();for(const versioned of [false,true]){
+  const encoded=guardedFixtureWire(f,{versioned}),wire=Buffer.from(encoded,'base64');assert.equal(wire.length,versioned?441:439);
+  const checked=await f.protocol.validateSignedRecipientSetup(f.packet,encoded,{now:at});assert.equal(checked.guards,2);assert.equal(checked.versioned,versioned);
+  assert.equal(checked.destination,f.packet.destination);assert.equal(checked.blockhash,f.packet.blockhash);
+ }
+});
+test('guard compatibility never permits memory writes, extra programs/accounts, CPI logging, changed core instructions or costs',async()=>{
+ const f=await fixture();const guard=(kind=6,log=1,target=0,data=[1,0,...Array(8).fill(0),0])=>({program:7,accounts:[target],data:[kind,log,...data]});
+ for(const guards of [[guard(0)],[guard(1)],[guard(2)],[guard(6,3)],[guard(6,6)],[guard(6,1,2)],
+  [{...guard(),program:3}],[{...guard(),accounts:[0,1]}],[guard(6,1,0,[129])],[guard(6,1,0,[1,8])],
+  [guard(6,1,0,[1,0,...Array(8).fill(0),0,0])],[guard(10,1,0,[1,2,...Array(8).fill(0),0])]]){
+  await assert.rejects(f.protocol.validateSignedRecipientSetup(f.packet,guardedFixtureWire(f,{guards}),{now:at}));
+ }
+ for(const offset of [0,1,2,3,4,36,68,228,260,293,300,308,316]){
+  await assert.rejects(f.protocol.validateSignedRecipientSetup(f.packet,guardedFixtureWire(f,{mutate:message=>{message[offset]^=1;return message;}}),{now:at}));
+ }
+ for(const flag of ['badEffects','invalidBlockhash']){const g=await fixture();g.state[flag]=true;g.state.signedWire=guardedFixtureWire(g);await assert.rejects(g.service.submit({packet:g.packet,signedBase64:g.state.signedWire,explicitApproval:true}));assert.equal(g.state.sends,0);}
+});
+test('guarded signed flow submits once and reconciles the exact signature without replacing wallet safeguards',async()=>{
+ const f=await fixture();f.state.signedWire=guardedFixtureWire(f);const result=await f.service.submit({packet:f.packet,signedBase64:f.state.signedWire,explicitApproval:true});assert.equal(f.state.sends,1);
+ assert.equal((await f.service.recover(result.signature)).stage,'RECIPIENT_SETUP_CONFIRMED');assert.equal(f.state.sends,1);
+ const parsed=parseSetupSignedMessage(Buffer.from(f.state.signedWire,'base64'));assert.deepEqual(parsed.instructions.slice(3).map(ix=>ix.data[0]),[6,10]);
+});
+test('guard diagnostics contain only public program IDs and bounded structural numbers, never signed data',async()=>{
+ const f=await fixture(),wire=Buffer.from(guardedFixtureWire(f),'base64'),summary=setupInstructionSummary(wire);
+ assert.equal(summary.length,5);assert.equal(summary[3].program,SETUP_LIGHTHOUSE);assert.equal(summary[3].opcode,6);
+ for(const ix of summary)assert.deepEqual(Object.keys(ix),['program','opcode','bytes','accounts']);
+ const text=JSON.stringify(summary);assert.ok(!text.includes(f.owner));assert.ok(!text.includes(f.packet.blockhash));assert.ok(!text.includes(wire.toString('base64')));
+ for(let length=0;length<wire.length;length++)assert.deepEqual(setupInstructionSummary(wire.subarray(0,length)),[]);
+});
 
 test('v0 with no lookups preserves the exact fixed recipe through all 120 readonly orderings',async()=>{
  const f=await fixture();for(const order of permutations([2,3,4,5,6])){
@@ -169,6 +212,7 @@ async function approvalScenario(kind){
   const wire=Uint8Array.from(Buffer.from(f.signed,'base64'));
   if(kind==='readonly-reorder'){f.state.signedWire=reorderedFixtureWire(f,[3,5,6,2,4]);return [{signedTransaction:Uint8Array.from(Buffer.from(f.state.signedWire,'base64'))}];}
   if(kind==='v0'){f.state.signedWire=versionedFixtureWire(f);return [{signedTransaction:Uint8Array.from(Buffer.from(f.state.signedWire,'base64'))}];}
+  if(kind==='guards'){f.state.signedWire=guardedFixtureWire(f);return [{signedTransaction:Uint8Array.from(Buffer.from(f.state.signedWire,'base64'))}];}
   return [{signedTransaction:kind==='changed-wire'?new Uint8Array([...wire,0]):wire}];
  }}}};
  const registry={get:()=>[wallet],on(){return ()=>{};}};
@@ -188,11 +232,14 @@ test('page accepts a verified readonly-key reorder without a second signature pr
 test('page accepts an owner-signed v0 equivalent and reconciles without requesting a second signature',async()=>{
  const {f,el}=await approvalScenario('v0');assert.equal(f.state.prompts,1);assert.equal(f.state.sends,1);await el.recover.onclick();assert.match(el.status.textContent,/operación finalizada/);assert.equal(f.state.sends,1);
 });
+test('page accepts validated 439-byte protection guards, submits once and recovers',async()=>{
+ const {f,el}=await approvalScenario('guards');assert.equal(f.state.prompts,1);assert.equal(f.state.sends,1);await el.recover.onclick();assert.match(el.status.textContent,/operación finalizada/);assert.equal(f.state.sends,1);
+});
 for(const [kind,message]of [['expired',/La revisión venció/],['changed-wire',/SETUP_WALLET_TRANSACTION_CHANGED/],['focus-missing',/SETUP_FOCUS_NOT_RETURNED/],['hidden',/SETUP_FOCUS_NOT_RETURNED/],['changed-account',/La cuenta o la revisión cambió/],['provider-rejected',/SETUP_WALLET_DECLINED/],['provider-error',/SETUP_WALLET_SIGN_FAILED/]])test('approval safely retains the exact reason without submission: '+kind,async()=>{
  const {f,el,values}=await approvalScenario(kind);assert.equal(f.state.prompts,1);assert.equal(f.state.sends,0);assert.match(el.status.textContent,message);
  await el.recover.onclick();assert.match(el.status.textContent,message);assert.equal(f.state.sends,0);assert.equal(f.state.prompts,1);
  assert.doesNotMatch(el.status.textContent,/PRIVATE_PROVIDER_ERROR/);
- const pending=JSON.parse([...values.values()][0]);assert.equal(pending.stage,'SIGNING');if(kind==='changed-wire'){assert.deepEqual(pending.shape,{bytes:357,format:'legacy'});assert.match(el.status.textContent,/357 bytes/);}await el.discard.onclick();assert.equal(values.size,0);
+ const pending=JSON.parse([...values.values()][0]);assert.equal(pending.stage,'SIGNING');if(kind==='changed-wire'){assert.deepEqual(pending.shape,{bytes:357,format:'legacy',instructions:[]});assert.match(el.status.textContent,/357 bytes/);}await el.discard.onclick();assert.equal(values.size,0);
 });
 
 test('old SIGNING records are identified as unclassified, never replayed or silently discarded',async()=>{
