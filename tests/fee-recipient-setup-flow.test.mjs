@@ -95,6 +95,8 @@ test('guard failure-only log ordinals 4/5 preserve the exact 26/17-byte assertio
    {program:7,accounts:[1],data:[10,log,3,2,...u64(0),4,4,1,0,8]}];
   const encoded=guardedFixtureWire(f,{guards});assert.equal(Buffer.from(encoded,'base64').length,439);
   assert.equal((await f.protocol.validateSignedRecipientSetup(f.packet,encoded,{now:at})).guards,2);
+  guards[0].data.splice(-3,3,3,0,0); // KnownOwner(System) == true; same bounded 26 bytes.
+  assert.equal((await f.protocol.validateSignedRecipientSetup(f.packet,guardedFixtureWire(f,{guards}),{now:at})).guards,2);
  }
  for(const log of [3,6,16,17,255]){
   const encoded=guardedFixtureWire(f,{guards:[{program:7,accounts:[0],data:[6,log,1,7,0,0]}]});
