@@ -27,3 +27,13 @@ test('payment-token changes cannot size SOL using USDC or overwrite an edited am
  eligible=false;slider.value='100';slider.oninput();assert.equal(amount.value,'12');
  listener({detail:snapshot()});assert.equal(slider.disabled,true);assert.equal(amount.value,'12');
 });
+
+test('typed amounts update percentage without changing the amount or granting spending authority',()=>{
+ let publish,input;const doc={addEventListener:(name,fn)=>{if(name==='jamd-wallet-portfolio')publish=fn;},defaultView:{addEventListener(){}}};
+ const out={},slider={},amount={value:'',addEventListener:(name,fn)=>{if(name==='input')input=fn;}};
+ bindWalletDisplay(doc,'en',out,slider,amount);publish({detail:{...snapshot(),tokens:[{mint,amount:20}]}});
+ amount.value='4';input();assert.equal(Number(slider.value),20);assert.equal(amount.value,'4');
+ amount.value='30';input();assert.equal(Number(slider.value),100);assert.equal(amount.value,'30');
+ amount.value='';input();assert.equal(Number(slider.value),0);
+ publish({detail:null});amount.value='4';input();assert.equal(slider.disabled,true);assert.equal(Number(slider.value),0);
+});

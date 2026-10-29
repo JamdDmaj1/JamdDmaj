@@ -44,6 +44,15 @@ test('unsupported BTC cannot request an unrelated SOL swap after editing',async 
  await ui.button.onclick();assert.equal(calls,0);
  ui.controller.selectAsset({symbol:'SOL'});assert.equal(ui.button.disabled,false);
 });
+
+test('unsupported LTC is explicitly chart-only and hides unrelated purchase sizing',()=>{
+ const nodes=[],doc={createElement(tag){const n={tag,children:[],value:'',append(...items){this.children.push(...items);},setAttribute(){},addEventListener(name,fn){this[name]=fn;}};nodes.push(n);return n;}};
+ const ui=setupSwapQuote(doc.createElement('main'),'en',doc);ui.selectAsset({symbol:'LTC'});
+ assert.equal(nodes.find(n=>n.tag==='h2').textContent,'LTC · Chart only');
+ for(const n of nodes.filter(n=>['swap-amount','swap-direction','swap-quote-button'].includes(n.id)||n.type==='range'||n.className==='trade-size-presets'))assert.equal(n.hidden,true);
+ assert.match(nodes.find(n=>n.className==='swap-market-availability').textContent,/Purchases are not supported/);
+ ui.selectAsset({symbol:'SOL'});assert.equal(nodes.find(n=>n.tag==='h2').textContent,'Buy SOL');assert.equal(nodes.find(n=>n.id==='swap-amount').hidden,false);
+});
 test('editing amount discards an older network response', async t => {
   let finish;
   t.mock.method(globalThis, 'fetch', () => new Promise(resolve => { finish = resolve; }));
