@@ -6,6 +6,7 @@
   "description": "JamdDmaj AI mobile application",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
+    "test:ci": "node --test --test-reporter=./scripts/ci-test-reporter.mjs tests/*.test.mjs",
     "build": "npm run build:web",
     "postinstall": "node scripts/prepare-plugins.mjs",
     "build:web": "node scripts/build-web.mjs",

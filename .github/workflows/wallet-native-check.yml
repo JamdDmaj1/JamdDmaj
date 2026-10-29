@@ -72,7 +72,7 @@ jobs:
       - name: Build web assets and synchronize
         run: |
           npm ci
-          npm test
+          npm run test:ci
           npm run mobile:sync
       - name: Verify native wallet cryptography and transaction encoding
         run: |
