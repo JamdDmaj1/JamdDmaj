@@ -1,3 +1,4 @@
+import {registerPlugin} from '@capacitor/core';
 // Checks the existing session, not a saved profile. Never renews access,
 // returns credentials, clears a token, or grants financial authority.
 export async function inspectGoogleSession({readToken,fetchImpl=globalThis.fetch,apiRoot='',now=Date.now}={}){
@@ -55,6 +56,17 @@ if (typeof document !== "undefined") {
   const paidCopy={en:"Recharged credits",es:"Créditos recargados",fr:"Crédits rechargés",de:"Aufgeladene Credits",pt:"Créditos recarregados",it:"Crediti ricaricati",ja:"チャージ済みクレジット",ko:"충전 크레딧",zh:"已充值积分",ar:"الأرصدة المشحونة"};
   const key = "jamdWebTrialSession";
   const getToken = () => { try { return sessionStorage.getItem(key) || ""; } catch { return ""; } };
+  const nativeSession = window.Capacitor?.isNativePlatform?.() && window.Capacitor?.getPlatform?.()==='android'
+    ? registerPlugin('AccountSession') : null;
+  let accepting = false;
+  const ready = (async()=>{
+    if (!nativeSession || getToken()) return;
+    try {
+      const restored = await nativeSession.restore();
+      // A concurrent fresh Google sign-in always wins over a restored session.
+      if (!accepting && !getToken() && /^[a-f0-9]{64}$/.test(restored?.token||'')) sessionStorage.setItem(key,restored.token);
+    } catch { /* Older installed builds have no plugin. Require Google, not a fake session. */ }
+  })();
   const panel = document.createElement("section");
   panel.id = "jamdTrialPanel";
   panel.className = "backup-status";
@@ -73,6 +85,7 @@ if (typeof document !== "undefined") {
     else if (!record) panel.append(node("p",c[1]));
   }
   async function refresh() {
+    await ready;
     if (!getToken()) return render();
     try {
       const base = !window.Capacitor?.isNativePlatform?.() && location.protocol === "https:" && location.hostname !== 'localhost' ? location.origin : "https://www.jamddmaj.com";
@@ -84,10 +97,15 @@ if (typeof document !== "undefined") {
     render();
   }
   window.JamdTrial = {
-    getToken, refresh, error:(code,status)=>managedChatError(code,status,language()),
-    sessionStatus:()=>inspectGoogleSession({readToken:getToken,apiRoot:window.Capacitor?.isNativePlatform?.()?'https://www.jamddmaj.com':''}),
-    accept(value) {sessionStorage.setItem(key,value.token);record=value.trial;failed=false;render();}
+    getToken, ready, refresh, error:(code,status)=>managedChatError(code,status,language()),
+    sessionStatus:async()=>{await ready;return inspectGoogleSession({readToken:getToken,apiRoot:window.Capacitor?.isNativePlatform?.()?'https://www.jamddmaj.com':''});},
+    async accept(value) {
+      if(!/^[a-f0-9]{64}$/.test(value?.token||''))throw Error('session-format-rejected');
+      accepting=true;sessionStorage.setItem(key,value.token);record=value.trial;failed=false;render();
+      if(nativeSession)try{await nativeSession.save({token:value.token});}catch{/* Current session remains usable; no plaintext fallback. */}
+    }
   };
+  ready.then(()=>window.dispatchEvent(new Event('jamd-account-session-ready')));
   new MutationObserver(render).observe(document.documentElement,{attributes:true,attributeFilter:["lang"]});
   render(); refresh();
 }

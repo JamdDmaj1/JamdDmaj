@@ -10,6 +10,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(ExternalWalletPlugin.class);
         registerPlugin(DevnetWalletPlugin.class);
         registerPlugin(NativeWalletPlugin.class);
+        registerPlugin(AccountSessionPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

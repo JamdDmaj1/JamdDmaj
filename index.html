@@ -5110,7 +5110,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.38.5";
+      const APP_VERSION = "1.38.6";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -11950,7 +11950,7 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
 
       async function applyGoogleAccountResponse(data, currentCode, status, spanish) {
         if (!data.linked || !data.recoveryCode) throw new Error(spanish ? "No se pudo vincular el perfil." : "The profile could not be linked.");
-        if (data.webTrial) window.JamdTrial?.accept(data.webTrial);
+        if (data.webTrial) await window.JamdTrial?.accept(data.webTrial);
         accountProfile = data.profile;
         localStorage.setItem(STORAGE.accountProfile, JSON.stringify(accountProfile));
         if (normalizeRecoveryCode(data.recoveryCode) !== normalizeRecoveryCode(currentCode)) {
