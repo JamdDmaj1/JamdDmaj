@@ -7730,7 +7730,7 @@
 
         const text = document.createElement("div");
         text.className = `message-text${message.streaming ? " typing" : ""}`;
-        renderSafeText(text, message.content || (message.streaming ? "Thinking" : ""));
+        renderSafeText(text, message.content || (message.streaming ? chatProgressText(message.progress) : ""));
         card.append(text);
         const phraseChips = createLearningPhraseChips(message);
         if (phraseChips) card.append(phraseChips);
@@ -10479,6 +10479,7 @@
           role: "assistant",
           content: "",
           time: new Date().toISOString(),
+          progress: "preparing",
           streaming: true
         };
         chat.messages.push(assistantMessage);
@@ -10492,6 +10493,7 @@
         autoSizePrompt();
         renderAll();
         setSending(true);
+        document.getElementById("idleNudge")?.classList.remove("show");
 
         if (voiceConversationActive) {
           voiceSubmitting = true;
@@ -10502,12 +10504,19 @@
         activeController = new AbortController();
         try {
           const currentUserRequest = userMessage.content;
+          assistantMessage.progress = "lookup";
+          updateLastMessage(assistantMessage);
           const freeLiveContext = await buildFreeLiveContext(currentUserRequest);
+          assistantMessage.progress = "preparing";
+          updateLastMessage(assistantMessage);
           const directLiveAnswer = shouldUseDirectLiveAnswer(currentUserRequest)
             ? buildDirectLiveAnswer(latestFreeLiveLookup)
             : "";
           if (directLiveAnswer) {
-            assistantMessage.content = directLiveAnswer;
+            await revealAnswerText(directLiveAnswer, part => {
+              assistantMessage.content += part;
+              updateLastMessage(assistantMessage);
+            }, activeController.signal);
             assistantMessage.streaming = false;
             chat.updatedAt = new Date().toISOString();
             persistChats();
@@ -10842,7 +10851,7 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         const decoder = new TextDecoder();
         let buffer = "";
 
-        while (true) {
+        try { while (true) {
           const { value, done } = await reader.read();
           buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
           const lines = buffer.split("\n");
@@ -10861,9 +10870,32 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
             }
             if (data.error) throw new Error(data.error.message || "The provider stopped the response.");
             const token = data.choices?.[0]?.delta?.content;
-            if (token) onToken(token);
+            if (typeof token === "string" && token) await revealAnswerText(token, onToken, activeController?.signal);
           }
           if (done) break;
+        } } finally {
+          try { await reader.cancel(); } catch {}
+          reader.releaseLock();
+        }
+      }
+
+      function chatProgressText(stage) {
+        const es = resolvedLanguage() === "es";
+        return stage === "lookup"
+          ? (es ? "Consultando fuentes disponibles…" : "Checking available sources…")
+          : (es ? "Preparando respuesta…" : "Preparing response…");
+      }
+
+      // Progressive presentation of visible answer text, not internal reasoning.
+      // Buffered providers may finish generation before this presentation begins.
+      async function revealAnswerText(value, append, signal) {
+        const characters = Array.from(value);
+        const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+        const chunk = reduced ? Math.max(1, characters.length) : 64;
+        for (let offset = 0; offset < characters.length; offset += chunk) {
+          if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+          append(characters.slice(offset, offset + chunk).join(""));
+          if (offset + chunk < characters.length) await new Promise(resolve => setTimeout(resolve, 16));
         }
       }
 
@@ -10875,7 +10907,7 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
           return;
         }
         text.classList.toggle("typing", message.streaming);
-        renderSafeText(text, message.content || "Thinking");
+        renderSafeText(text, message.content || chatProgressText(message.progress));
         if (autoFollowStream) scrollToBottom(false);
       }
 
@@ -12329,7 +12361,7 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         }
         const delay = idlePhase === "prompt" ? 30000 : 60000;
         idleTimer = setTimeout(() => {
-          if (!activeController && !els.settings.open && !els.tutorial.open && document.visibilityState === "visible") {
+          if (!activeController && !els.prompt.value.trim() && !getCurrentChat()?.messages?.length && !els.settings.open && !els.tutorial.open && document.visibilityState === "visible") {
             showIdleNudge();
           }
         }, delay);
