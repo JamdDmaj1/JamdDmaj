@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {readFile} from 'node:fs/promises';
 const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
-const source=html.slice(html.indexOf('function productGuideEntries()'),html.indexOf('function buildApiMessages('));
+const source=html.slice(html.indexOf('function productGuideEntries('),html.indexOf('function buildApiMessages('));
 function fixture(language='es',missing=false){let clicks=0;const c={resolvedLanguage:()=>language,document:{getElementById:()=>missing?null:{textContent:'private account fixture',click(){clicks++;}}}};vm.createContext(c);vm.runInContext(source,c);return {...c,clicks:()=>clicks};}
 test('every guide destination refers to an actual build button and guide never invokes it automatically',()=>{
  const f=fixture();for(const entry of f.productGuideEntries())assert.ok(html.includes('id="'+entry.id+'"'),entry.id);
