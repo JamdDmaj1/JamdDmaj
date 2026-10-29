@@ -1,0 +1,9 @@
+# Grounded JamdDmaj navigation help
+
+Application source b0995a4; test-extraction correction dc20e5c. Added a fixed navigation registry for ten current build destinations. Every target ID is present in index.html; context exposes route descriptions and existence, not private DOM text, account data or execution state. Build API messages include this bounded map and instructions not to invent tabs or infer live capability from navigation.
+
+Common named navigation questions have deterministic bilingual replies with the exact route and sidebar-scroll advice. Spanish complaint detection works with English UI. Only explicit user clicks activate a registry-allowlisted navigation button; no model-generated selector, URL or financial tool is accepted. Local navigation help requires no AI/provider request. Unknown questions fall through to ordinary chat. Missing buttons yield an honest unavailable response without an action target.
+
+Thirteen focused tests passed. Test extraction initially used the old zero-argument signature after language handling changed; fixed the test delimiter and reran all thirteen. Local and public isolated Edge checks prove the user's exact Pro Signals complaint receives the correct Spanish route and clicking the explicit shortcut opens the actual traderView. No real session/provider request or financial POST. This is grounded UI guidance, not a claim that the model knows every implementation detail or current user's balances/permissions.
+
+Correct Vercel project/team verified, clean committed export, production dpl_3isgCNSFWLr1uU3mNx3uFe5bfJvu READY (seven-second build). Authenticated candidate HTML equals local build; promoted unchanged; public exact-source and real navigation checks passed. Bounded runtime error scan zero records. Web-only hotfix; existing Android APK unchanged.
