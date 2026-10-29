@@ -37,3 +37,11 @@ transfers; closed accounts/archival history not indexed, non-USDC pricing and
 non-Jupiter trades not classified. SOL-native movements not reconstructed.
 Eight focused tests pass and mocked browser RPC verifies history row/summary.
 No real wallet history queried, signatures requested, or transactions sent.
+
+In-app walkthrough refreshed ES/EN: 15 steps including wallet separation,
+historical stats/partial activity, Send sizing, Trade, Futures and bot review.
+Settings tour no longer claims no-account chat; states Google 50/5h policy.
+Sidebar opens for its targets rather than skipping them on mobile; delayed
+steps cancel on Next/Skip, progress shown, actual tooltip height clamps onscreen.
+Discover's wallet walkthrough copy reviewed alongside these changes; CSS and
+tour CSS remain compatible, no unrelated marketing redesign. Not yet published.

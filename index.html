@@ -6554,7 +6554,7 @@
       if (!Array.isArray(explicitMemories)) explicitMemories = [];
       let learnReminderTimer = null;
       const SETTINGS_COACH_STEPS = [
-        { selector: ".connection-card", title: "Acceso automatico", text: "El chat normal funciona con JamdDmaj sin crear una cuenta. OpenRouter personal queda solo como opcion avanzada." },
+        { selector: ".connection-card", title: "Acceso a la IA", text: "Inicia sesión con Google para usar los 50 mensajes gratuitos cada 5 horas. Aquí puedes revisar el acceso; una clave personal es una opción avanzada, no un requisito del modo gratuito." },
         { selector: "#languageInput", title: "Idioma automático", text: "Cambia la interfaz. El chat además detecta por separado el idioma de cada mensaje." },
         { selector: "#personalityInput", title: "Elige cómo responde", text: "Puedes hacerla más directa, didáctica, técnica, creativa o motivadora." },
         { selector: "#accentInput", title: "Hazla tuya", text: "Personaliza colores, fuente, tamaño, esquinas, ancho y fondos. Los cambios se guardan en este dispositivo." },
@@ -6567,7 +6567,7 @@
         { selector: "#socialSection", title: "Sigue a JamdDmaj", text: "Aquí encontrarás las redes oficiales, tutoriales y anuncios de nuevas versiones." }
       ];
       const SETTINGS_COACH_STEPS_EN = [
-        { selector: ".connection-card", title: "Automatic access", text: "Normal chat works through JamdDmaj without creating an account. Personal OpenRouter stays as an advanced option only." },
+        { selector: ".connection-card", title: "AI access", text: "Sign in with Google for 50 free messages every 5 hours. Check access here; a personal key is an advanced option, not a requirement for free mode." },
         { selector: "#languageInput", title: "Interface language", text: "Change the interface language. Chat separately detects the language of each message." },
         { selector: "#personalityInput", title: "Choose how it responds", text: "Make JamdDmaj direct, patient, technical, creative, or motivating." },
         { selector: "#accentInput", title: "Make it yours", text: "Customize colors, font, size, corners, width, and backgrounds. Changes stay on this device." },
@@ -6584,6 +6584,12 @@
         { selector: "#menuBtn", title: "Tu espacio de trabajo", text: "Abre el menú para ver el historial, tus proyectos guardados, el tema y los ajustes." },
         { selector: "#learnBtn", title: "JamdDmaj Learn", text: "Elige una materia, configura desde qué idioma aprender, realiza una prueba de nivel y guarda tu progreso." },
         { selector: "#marketsBtn", title: "Mercados en vivo", text: "Consulta criptomonedas organizadas por función y usa un precio como contexto para preguntar." },
+        { selector: "#sideAssetsBtn", sidebar: true, title: "Activos y billeteras", text: "Elige tu billetera en Activos. Google identifica tu perfil, pero no conecta Phantom ni autoriza operaciones. Cada dirección conserva su saldo separado." },
+        { selector: "#sideAssetsBtn", sidebar: true, title: "Información de tus tokens", text: "En Activos → Ver gráfico puedes explorar velas históricas y datos del par. Consulta capitalización y FDV por separado e historial parcial de operaciones; los datos ausentes no se inventan." },
+        { selector: "#sideAssetsBtn", sidebar: true, title: "Recibir, intercambiar y enviar", text: "En Activos selecciona Receive, Swap o Send. Enviar muestra saldo estimado, porcentajes y barra de cantidad. Revisa token, red, destino y costes; seleccionar un importe no autoriza un envío." },
+        { selector: "#tradingDemoBtn", title: "Trade", text: "Consulta el mercado y prepara un intercambio compatible. Ver un gráfico no significa que el token se pueda intercambiar; la red, el mint y la conexión de firma deben coincidir." },
+        { selector: "#sideFuturesBtn", sidebar: true, title: "Futuros", text: "Accede desde este menú. La ejecución depende del mercado compatible, billetera, saldo, límites y disponibilidad verificada. Cada operación manual requiere revisión y aprobación." },
+        { selector: "#sideAutomationBtn", sidebar: true, title: "Automatización 24/7", text: "Consulta el servidor y configura tus límites para la billetera exclusiva del bot. Guardar pausa las entradas; la activación requiere revisión y confirmación separadas. Desactivar no cierra posiciones existentes." },
         { selector: "#saveChatBtn", title: "Guarda proyectos", text: "Convierte una conversación en proyecto para conservarla, renombrarla o volver a abrirla después." },
         { selector: "#topThemeBtn", title: "Modo claro u oscuro", text: "Cambia rápidamente la apariencia. En Ajustes encontrarás muchas más opciones visuales." },
         { selector: "#attachBtn", title: "Herramientas rápidas", text: "Adjunta imágenes o archivos, inicia voz, crea una imagen o abre una conversación nueva." },
@@ -6595,6 +6601,12 @@
         { selector: "#menuBtn", title: "Your workspace", text: "Open the menu for chat history, saved projects, backups, social links, theme, and settings." },
         { selector: "#learnBtn", title: "JamdDmaj Learn", text: "Choose a subject, set your learning languages, take a placement test, hear pronunciation, and save progress." },
         { selector: "#marketsBtn", title: "Live markets", text: "View cryptocurrencies grouped by purpose and use a displayed price as context for a question." },
+        { selector: "#sideAssetsBtn", sidebar: true, title: "Assets and wallets", text: "Select your wallet in Assets. Google identifies your profile, but does not connect Phantom or authorize operations. Each address keeps a separate balance." },
+        { selector: "#sideAssetsBtn", sidebar: true, title: "Your token information", text: "In Assets → View chart, explore historical candles and pair statistics. Market cap and FDV are separate; operation history is partial. Missing data is not fabricated." },
+        { selector: "#sideAssetsBtn", sidebar: true, title: "Receive, swap and send", text: "In Assets choose Receive, Swap or Send. Send shows estimated balance, percentages and an amount slider. Check token, network, recipient and costs; sizing does not authorize a send." },
+        { selector: "#tradingDemoBtn", title: "Trade", text: "Research a market and prepare a supported swap. A chart does not mean the token can be swapped; network, mint and signing connection must match." },
+        { selector: "#sideFuturesBtn", sidebar: true, title: "Futures", text: "Open Futures from this menu. Execution depends on supported market, wallet, funds, limits and verified availability. Each manual operation requires review and approval." },
+        { selector: "#sideAutomationBtn", sidebar: true, title: "24/7 automation", text: "Read server state and configure limits for the bot’s dedicated wallet. Saving pauses entries; activation requires a separate review and confirmation. Disabling does not close existing positions." },
         { selector: "#saveChatBtn", title: "Save projects", text: "Turn a conversation into a saved project that you can rename and reopen later." },
         { selector: "#topThemeBtn", title: "Light or dark mode", text: "Quickly change the appearance. Settings contains many more visual options." },
         { selector: "#attachBtn", title: "Quick tools", text: "Attach images or files, start voice mode, create an image, or open a new conversation." },
@@ -11593,7 +11605,10 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         showMainCoachStep();
       }
 
+      let mainCoachTimer = null;
       function showMainCoachStep() {
+        clearTimeout(mainCoachTimer);
+        document.getElementById("mainCoach").classList.remove("show");
         clearMainCoachHighlight();
         const steps = resolvedLanguage() === "es" ? MAIN_COACH_STEPS : MAIN_COACH_STEPS_EN;
         const step = steps[mainCoachIndex];
@@ -11601,6 +11616,7 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
           finishMainCoach();
           return;
         }
+        if (step.sidebar) openSidebar(); else closeSidebar();
         const target = document.querySelector(step.selector);
         if (!target || target.offsetParent === null) {
           mainCoachIndex += 1;
@@ -11608,27 +11624,31 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
           return;
         }
         target.scrollIntoView({ block: "center", behavior: "smooth" });
-        setTimeout(() => {
+        mainCoachTimer = setTimeout(() => {
           target.classList.add("coach-highlight");
           const coach = document.getElementById("mainCoach");
-          document.getElementById("mainCoachTitle").textContent = step.title;
+          document.getElementById("mainCoachTitle").textContent = `${mainCoachIndex + 1}/${steps.length} · ${step.title}`;
           document.getElementById("mainCoachText").textContent = step.text;
           document.getElementById("nextMainCoachBtn").textContent = mainCoachIndex === steps.length - 1
             ? translate("finish")
             : translate("next");
           document.getElementById("skipMainCoachBtn").textContent = translate("skip");
-          positionCoach(coach, target);
           coach.classList.add("show");
+          positionCoach(coach, target);
         }, 180);
       }
 
       function positionCoach(coach, target) {
         const rect = target.getBoundingClientRect();
         const width = Math.min(330, window.innerWidth - 24);
+        coach.style.width = `${width}px`;
+        coach.style.maxHeight = `${window.innerHeight - 24}px`;
+        coach.style.overflowY = "auto";
         const left = Math.max(12, Math.min(window.innerWidth - width - 12, rect.left + rect.width / 2 - width / 2));
-        const below = rect.bottom + 190 < window.innerHeight;
+        const height = coach.getBoundingClientRect().height || 200;
+        const below = rect.bottom + height + 12 < window.innerHeight;
         coach.style.left = `${left}px`;
-        coach.style.top = `${below ? rect.bottom + 12 : Math.max(12, rect.top - 180)}px`;
+        coach.style.top = `${Math.max(12, Math.min(window.innerHeight - height - 12, below ? rect.bottom + 12 : rect.top - height - 12))}px`;
       }
 
       function clearMainCoachHighlight() {
@@ -11638,6 +11658,7 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
       }
 
       function finishMainCoach() {
+        clearTimeout(mainCoachTimer);
         clearMainCoachHighlight();
         document.getElementById("mainCoach").classList.remove("show");
       }
