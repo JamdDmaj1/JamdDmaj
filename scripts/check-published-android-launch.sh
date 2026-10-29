@@ -3,10 +3,12 @@ set -euo pipefail
 # Disposable CI emulator only; no phone, wallet import, login or financial action.
 mkdir -p launch-evidence
 report_crash() {
-  while IFS= read -r line; do
-    line="${line//%/%25}"
-    printf '::error title=Android launch crash::%s\n' "$line"
-  done < <(head -50 "$1")
+  local detail
+  detail="$(head -80 "$1")"
+  detail="${detail//%/%25}"
+  detail="${detail//$'\r'/%0D}"
+  detail="${detail//$'\n'/%0A}"
+  printf '::error title=Android launch crash::%s\n' "$detail"
 }
 adb install "$RUNNER_TEMP/app.apk"
 adb shell svc wifi disable
