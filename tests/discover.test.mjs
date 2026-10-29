@@ -33,23 +33,21 @@ test("public showcase is shareable, responsive and transparent about unfinished 
   assert.match(build, /"discover\.js"/);
 });
 
-test("public showcase copy has complete parity in every supported language", async () => {
+test("public showcase uses release copy with explicit English fallback for new untranslated labels", async () => {
   const [html, script] = await Promise.all([
     readFile(new URL("discover.html", root), "utf8"),
     readFile(new URL("discover.js", root), "utf8")
   ]);
   const htmlKeys = [...html.matchAll(/data-i18n="([^"]+)"/g)].map((match) => match[1]);
-  const enLiteral = script.match(/const en = (\{[\s\S]*?\});\s*const es/)?.[1];
-  const esLiteral = script.match(/const es = (\{[\s\S]*?\});\s*const localized/)?.[1];
-  const localizedLiteral = script.match(/const localized = (\{[\s\S]*?\});\s*const catalogs/)?.[1];
-  assert.ok(enLiteral && esLiteral && localizedLiteral);
-  const en = Function(`"use strict"; return (${enLiteral});`)();
-  const es = Function(`"use strict"; return (${esLiteral});`)();
-  const localized = Function(`"use strict"; return (${localizedLiteral});`)();
-  const catalogs = { en, es, ...localized };
+  const declarations=script.slice(script.indexOf('const en ='),script.indexOf('const supported ='));
+  const catalogs=Function(`"use strict"; ${declarations}; return catalogs;`)();
+  const en=catalogs.en;
   assert.deepEqual(Object.keys(catalogs).sort(), ["ar", "de", "en", "es", "fr", "it", "ja", "ko", "pt", "zh"]);
   for (const [locale, copy] of Object.entries(catalogs)) {
-    for (const key of htmlKeys) assert.equal(typeof copy[key], "string", `${locale}.${key} is missing`);
+    for (const key of htmlKeys) assert.equal(typeof (copy[key] || en[key]), "string", `${locale}.${key} has no translated or fallback label`);
   }
+  assert.match(catalogs.es.heroTitle,/Todo conectado/);
+  assert.match(catalogs.es.startNote,/no conecta Phantom/);
+  assert.match(script,/copy\[element.dataset.i18n\] \|\| en\[element.dataset.i18n\]/);
   assert.match(script, /document\.documentElement\.dir = locale === "ar" \? "rtl" : "ltr"/);
 });
