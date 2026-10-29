@@ -1,0 +1,44 @@
+name: Published Android launcher smoke test
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/android-launch-smoke.yml'
+      - 'scripts/check-published-android-launch.sh'
+permissions:
+  contents: read
+jobs:
+  launch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [30, 35]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - name: Download exact published APK, not a new build
+        run: |
+          curl --fail --location --retry 3 https://github.com/JamdDmaj1/JamdDmaj/releases/download/v1.38.8/JamdDmaj-AI.apk -o "$RUNNER_TEMP/app.apk"
+          printf '%s  %s\n' '907cfb9d820e6d258d5a03b5ac79fa40a52695e12cd70f365a4f1cb422c8c50b' "$RUNNER_TEMP/app.apk" | sha256sum --check
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          script: bash scripts/check-published-android-launch.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: launcher-${{ matrix.api }}
+          path: launch-evidence/
+          retention-days: 7
