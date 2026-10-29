@@ -27,6 +27,10 @@
   };
   // Public release facts: do not confuse account eligibility with feature support.
   Object.assign(en, {
+    releaseLabel:"Explore the refreshed experience",heroTitle:"Your crypto world. All connected.",heroText:"Ask with AI, research the market and manage supported Solana wallet operations. One identity, with clear permissions for every space.",
+    allowanceLabel:"Free AI · with Google",allowanceValue:"50 messages / 5 hours",allowanceShort:"free messages / 5 hours",networkLabel:"supported operations",
+    startKicker:"CHOOSE YOUR SPACE",startTitle:"What will you do today?",startText:"A clear starting point for each tool. Your account and your wallets have different permissions.",
+    startAi:"Ask. Learn. Create.",startAiText:"Open chat and check your free allowance in Settings → Account.",startWallet:"Your assets, in their place.",startWalletText:"Open Finance and select your wallet in Assets to receive, review swaps and send supported tokens.",startMarkets:"Research before you act.",startMarketsText:"Explore markets and charts. Futures and bot execution require separate checks and authorization.",startNote:"Signing in identifies your account; it does not connect Phantom or activate the bot. Each operation requires the corresponding permissions.",
     aiText:"Chat, analyze images and organize projects. Verified Google accounts receive 50 free messages every 5 hours; check Account for your remaining allowance.",
     walletText:"Select your wallet in Assets to receive, review swaps or send supported Solana tokens. Public-address viewing does not grant signing authority; the server-custodied bot wallet is separate.",
     safetyText:"Review token, amount, destination and costs before approving. External-wallet keys stay in the wallet; the dedicated automation wallet uses separate server custody and explicit consent.",
@@ -34,6 +38,10 @@
     nowText:"AI chat, Learn, market research and supported real Solana wallet operations. Futures and automation require compatible markets, account checks, limits and explicit authorization; balance alone does not activate them."
   });
   Object.assign(catalogs.es, {
+    releaseLabel:"Descubre la nueva experiencia",heroTitle:"Tu mundo cripto. Todo conectado.",heroText:"Pregunta con IA, investiga el mercado y gestiona operaciones Solana compatibles. Una identidad, con permisos claros para cada espacio.",
+    allowanceLabel:"IA gratuita · con Google",allowanceValue:"50 mensajes / 5 horas",allowanceShort:"mensajes gratis / 5 horas",networkLabel:"operaciones compatibles",
+    startKicker:"ELIGE TU ESPACIO",startTitle:"¿Qué quieres hacer hoy?",startText:"Una entrada clara para cada herramienta. Sin confundir tu cuenta con tus billeteras.",
+    startAi:"Pregunta. Aprende. Crea.",startAiText:"Abre el chat y consulta tu cuota gratuita en Ajustes → Cuenta.",startWallet:"Tus activos, en su lugar.",startWalletText:"Abre Finanzas y selecciona tu billetera en Activos para recibir, revisar swaps y enviar tokens compatibles.",startMarkets:"Investiga antes de actuar.",startMarketsText:"Explora mercados y gráficos. Futuros y bot requieren verificaciones y autorización independientes.",startNote:"Iniciar sesión identifica tu cuenta; no conecta Phantom ni activa el bot. Cada operación requiere los permisos correspondientes.",
     aiText:"Conversa, analiza imágenes y organiza proyectos. Tu cuenta Google verificada recibe 50 mensajes gratis cada 5 horas; consulta los restantes en Cuenta.",
     walletText:"Selecciona tu billetera en Activos para recibir, revisar swaps o enviar tokens Solana compatibles. Consultar una dirección no permite firmar; la billetera del bot tiene custodia separada en el servidor.",
     safetyText:"Revisa token, importe, destino y costes antes de aprobar. Las claves externas siguen en tu wallet; la billetera exclusiva de automatización usa custodia separada en el servidor y consentimiento explícito.",
@@ -59,7 +67,7 @@
     document.title = `${copy.navTour} · JamdDmaj AI`;
     document.querySelector('meta[name="description"]').setAttribute("content", copy.heroText);
     document.querySelectorAll("[data-i18n]").forEach((element) => {
-      const value = copy[element.dataset.i18n];
+      const value = copy[element.dataset.i18n] || en[element.dataset.i18n];
       if (value) element.textContent = value;
     });
     language.value = locale;

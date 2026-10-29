@@ -15,10 +15,10 @@ const assets = [
   "manual-order-review-ui.js",
   "discover.html",
   "discover.css",
+  "discover-refresh.css",
   "discover-tour.css",
   "discover.js",
   "jamd-roadmap.js",
-  "web-trial-ui.js",
   "jamd-credit-ui.js",
   "candlesticks.js",
   "fair-launch.css",
@@ -46,6 +46,7 @@ for (const asset of assets) {
 }
 
 await mkdir(resolve(output, ".well-known"), { recursive: true });
+await build({absWorkingDir:root,entryPoints:[resolve(root,'web-trial-ui.js')],outfile:resolve(output,'web-trial-ui.js'),bundle:true,format:'esm',platform:'browser',target:['es2020'],legalComments:'none'});
 await cp(resolve(root, ".well-known", "security.txt"), resolve(output, ".well-known", "security.txt"));
 
 await build({
