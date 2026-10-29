@@ -24,3 +24,16 @@ UI uses labeled responsive tiles, missing values explicitly Unavailable.
 DEX Screener official API reference schema reviewed 2026-10-29.
 Six focused tests pass; browser verifies 10 metrics, distinct cap/FDV and missing
 labels alongside chart interactions. No changes to authorization or trading.
+
+Token activity: explicit read-only request loads 10 finalized wallet-address
+signatures per page, verifies mainnet, reads transactions, shows dated quantities
+and explorer links. Simple Jupiter/USDC opposite token deltas with wallet signer
+are labeled observed buy/sell; amounts and weighted buy price are in USDC, NOT
+historical bank USD. Other movements stay unpriced. Counts apply only to loaded
+pages, not lifetime totals. No P/L/cost-basis inference. Failed retrieval is not
+zero activity; partial/unavailable counts visible. Abort on close/account change.
+Limitations: wallet-address signatures can omit incoming token-account-only
+transfers; closed accounts/archival history not indexed, non-USDC pricing and
+non-Jupiter trades not classified. SOL-native movements not reconstructed.
+Eight focused tests pass and mocked browser RPC verifies history row/summary.
+No real wallet history queried, signatures requested, or transactions sent.
