@@ -1,4 +1,4 @@
-# 1.38.8 — pending publication
+# 1.38.8 — publication verified
 
 ## Scope and limits
 
@@ -39,7 +39,37 @@ not the actual paper/real execution ledger and does not explain all prior losses
   candles with DEX Screener market metrics.
 - Discover HTML/JS updated to explain token research and simulated diagnostics;
   existing discover.css/discover-tour.css reviewed; no layout changes necessary.
-- Full regression, deployment checks, Android release verification still pending.
+- Full local regression: 1199 tests, 1180 passed, 19 skipped, zero failures.
+  Subsequent focused final checks: 75 passed. Build succeeded.
+- Web source commit `2db2347`, production deployment
+  `dpl_Deb4yARWtDFWpqpDwJhrBEQi8sVm`:
+  https://jamd-dmaj-nf09lpk50-jamd-dmaj-s-projects.vercel.app
+  Candidate bytes for index, Discover HTML/JS, funding and trial bundles matched
+  local built output before promotion. Candidate real token lookup succeeded.
+- Promoted to https://www.jamddmaj.com. Public browser verified current Discover
+  through old `?version=1.37.69` URL, updated text, desktop/mobile layout, and
+  main welcome/check control. No browser JavaScript errors. Anonymous write
+  requests were blocked by the test harness, not executed.
+- Bounded post-deploy runtime scan: zero error records in 10 minutes. This
+  does not prove an authenticated chat request or actual phone restart works.
+- Android workflow 40866261877 completed successfully. Non-draft/non-prerelease
+  https://github.com/JamdDmaj1/JamdDmaj/releases/tag/v1.38.8 contains APK and
+  checksum. Downloaded public APK SHA256 matches published checksum:
+  `907cfb9d820e6d258d5a03b5ac79fa40a52695e12cd70f365a4f1cb422c8c50b`.
+  apksigner verified the unchanged permanent certificate SHA256:
+  `d4799319516f9b243b12ef4678823baed39d9203e42fa70f8de0ba0f7c0080d6`.
+  aapt confirmed `com.jamddmaj.ai`, code 164, name 1.38.8.
+  Public `/api/status` reports webVersion/latestVersion both 1.38.8 and the
+  exact published APK URL. No device install, reset or wallet transaction.
+
+## Remaining evidence gaps
+
+The production paper ledger cannot be read using the current local connection:
+Vercel correctly withholds production Secret values. No secret file created,
+requested or printed. The owner can supply the aggregate diagnostics now visible
+in the paper panel; actual failed trade attribution needs this retained ledger,
+not only the independent historical-candle experiment. Real chat reproduction
+was requested from the user after publication; no response received yet.
 
 ## X
 

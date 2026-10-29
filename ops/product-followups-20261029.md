@@ -1,6 +1,8 @@
 # Product follow-ups — 2026-10-29
 
-Work in progress, not a published release.
+Original implementation notes; publication status is superseded by
+`release-1.38.8-20261029.md`. Web and Android 1.38.8 are now verified published.
+X connection and actual paper-ledger attribution remain incomplete.
 
 ## X
 
