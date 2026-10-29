@@ -3146,6 +3146,11 @@
     .overlay.show {
       display: block;
     }
+    @media (min-width: 821px) {
+      #mobileOverlay.show { display: none; }
+      .app.sidebar-collapsed { grid-template-columns: 0 minmax(0, 1fr); }
+      .app.sidebar-collapsed > .sidebar { visibility: hidden; overflow: hidden; pointer-events: none; }
+    }
 
     dialog {
       width: min(560px, calc(100% - 24px));
@@ -3918,7 +3923,7 @@
 
     <main class="main">
       <header class="topbar">
-        <button class="icon-btn mobile-menu" id="menuBtn" type="button" aria-label="Open menu">☰</button>
+        <button class="icon-btn mobile-menu" id="menuBtn" type="button" aria-label="Toggle menu" aria-controls="sidebar" aria-expanded="true">☰</button>
         <div class="conversation-heading">
           <b class="persistent-brand" id="brandSecretTap" role="button" tabindex="0">JamdDmaj AI</b>
           <strong id="chatTitle">New conversation</strong>
@@ -12524,13 +12529,27 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
       }
 
       function openSidebar() {
-        els.sidebar.classList.add("open");
-        els.mobileOverlay.classList.add("show");
+        const mobile = window.matchMedia("(max-width: 820px)").matches;
+        document.querySelector(".app").classList.remove("sidebar-collapsed");
+        els.sidebar.classList.toggle("open", mobile);
+        els.mobileOverlay.classList.toggle("show", mobile);
+        document.getElementById("menuBtn").setAttribute("aria-expanded", "true");
       }
 
       function closeSidebar() {
         els.sidebar.classList.remove("open");
         els.mobileOverlay.classList.remove("show");
+        document.getElementById("menuBtn").setAttribute("aria-expanded", String(!window.matchMedia("(max-width: 820px)").matches && !document.querySelector(".app").classList.contains("sidebar-collapsed")));
+      }
+
+      function toggleSidebar() {
+        if (window.matchMedia("(max-width: 820px)").matches) {
+          if (els.sidebar.classList.contains("open")) closeSidebar(); else openSidebar();
+        } else {
+          closeSidebar();
+          const collapsed = document.querySelector(".app").classList.toggle("sidebar-collapsed");
+          document.getElementById("menuBtn").setAttribute("aria-expanded", String(!collapsed));
+        }
       }
 
       function showToast(message) {
@@ -14504,7 +14523,7 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
       }
 
       document.getElementById("newChatBtn").addEventListener("click", newChat);
-      document.getElementById("menuBtn").addEventListener("click", openSidebar);
+      document.getElementById("menuBtn").addEventListener("click", toggleSidebar);
       els.mobileOverlay.addEventListener("click", closeSidebar);
       document.getElementById("themeBtn").addEventListener("click", toggleTheme);
       document.getElementById("topThemeBtn").addEventListener("click", toggleTheme);
@@ -14940,6 +14959,8 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         setTimeout(connectOpenRouter, 150);
       }
       updateViewportHeight();
+      closeSidebar();
+      window.addEventListener("resize", () => { if (!window.matchMedia("(max-width: 820px)").matches) closeSidebar(); });
       window.addEventListener("resize", updateViewportHeight);
       window.addEventListener("resize", () => {
         if (selectedMarketPayload && !els.marketDetailView.hidden) requestAnimationFrame(() => drawAssetChart());
