@@ -25,6 +25,21 @@
     ja:["JamdDmaj 製品ツアー","前へ","次へ","再生","一時停止"], ko:["JamdDmaj 제품 둘러보기","이전","다음","재생","일시정지"],
     zh:["JamdDmaj 产品导览","上一个","下一个","播放","暂停"], ar:["جولة JamdDmaj","السابق","التالي","تشغيل","إيقاف مؤقت"]
   };
+  // Public release facts: do not confuse account eligibility with feature support.
+  Object.assign(en, {
+    aiText:"Chat, analyze images and organize projects. Verified Google accounts receive 50 free messages every 5 hours; check Account for your remaining allowance.",
+    walletText:"Select your wallet in Assets to receive, review swaps or send supported Solana tokens. Public-address viewing does not grant signing authority; the server-custodied bot wallet is separate.",
+    safetyText:"Review token, amount, destination and costs before approving. External-wallet keys stay in the wallet; the dedicated automation wallet uses separate server custody and explicit consent.",
+    safeOneTitle:"Separate wallet permissions",safeOneText:"Google sign-in identifies your account; it does not import keys or activate trading.",
+    nowText:"AI chat, Learn, market research and supported real Solana wallet operations. Futures and automation require compatible markets, account checks, limits and explicit authorization; balance alone does not activate them."
+  });
+  Object.assign(catalogs.es, {
+    aiText:"Conversa, analiza imágenes y organiza proyectos. Tu cuenta Google verificada recibe 50 mensajes gratis cada 5 horas; consulta los restantes en Cuenta.",
+    walletText:"Selecciona tu billetera en Activos para recibir, revisar swaps o enviar tokens Solana compatibles. Consultar una dirección no permite firmar; la billetera del bot tiene custodia separada en el servidor.",
+    safetyText:"Revisa token, importe, destino y costes antes de aprobar. Las claves externas siguen en tu wallet; la billetera exclusiva de automatización usa custodia separada en el servidor y consentimiento explícito.",
+    safeOneTitle:"Permisos separados",safeOneText:"Google identifica tu cuenta; no importa claves ni activa operaciones.",
+    nowText:"Chat IA, Learn, investigación y operaciones reales Solana compatibles. Futuros y automatización requieren mercados compatibles, verificaciones, límites y autorización explícita; tener saldo no los activa."
+  });
   const supported = Object.keys(catalogs);
   const browserLanguage = String(navigator.language || "en").split("-")[0].toLowerCase();
   let locale = supported.includes(localStorage.getItem("jamddmaj_discover_language"))

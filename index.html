@@ -3811,7 +3811,26 @@
 
     }
 
+    .launch-intro {
+      position: fixed; inset: 0; z-index: 2147483646; pointer-events: none;
+      display: grid; place-items: center; overflow: hidden;
+      background: radial-gradient(ellipse at 50% 45%, #211436 0%, #10121e 45%, #090c14 85%);
+      animation: launch-curtain 1.65s cubic-bezier(.22,1,.36,1) both;
+    }
+    .launch-intro::before {
+      content: ""; position: absolute; width: min(75vw,480px); aspect-ratio: 1;
+      border-radius: 50%; background: radial-gradient(circle, #8646ed38, #22cce111 45%, transparent 70%);
+      animation: launch-halo 1.65s ease-out both;
+    }
+    .launch-intro-brand { text-align: center; position: relative; animation: launch-zoom 1.65s cubic-bezier(.16,1,.3,1) both; }
+    .launch-intro-brand img { display: block; width: 112px; height: 112px; margin: 0 auto 22px; border-radius: 28px; box-shadow: 0 16px 70px #873bed35; }
+    .launch-intro-brand strong { display: block; color: #f3f1ff; font: 750 clamp(28px,5vw,42px)/1.15 system-ui,sans-serif; letter-spacing: -.045em; }
+    .launch-intro-brand span { display: block; color: #aeb4cb; font: 500 11px/1.5 system-ui,sans-serif; letter-spacing: .25em; margin-top: 12px; text-transform: uppercase; }
+    @keyframes launch-zoom { 0% { opacity: 0; transform: scale(.78) translateY(12px); } 28% { opacity: 1; } 74% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.09); } }
+    @keyframes launch-curtain { 0%,72% { opacity: 1; visibility: visible; } 100% { opacity: 0; visibility: hidden; } }
+    @keyframes launch-halo { from { opacity: 0; transform: scale(.65); } 35% { opacity: 1; } to { opacity: 0; transform: scale(1.2); } }
     @media (prefers-reduced-motion: reduce) {
+      .launch-intro { display: none; }
       *,
       *::before,
       *::after {
@@ -3824,6 +3843,26 @@
   <link rel="stylesheet" href="app-polish.css">
 </head>
 <body>
+  <div class="launch-intro" id="launchIntro" aria-hidden="true">
+    <div class="launch-intro-brand">
+      <img src="icon-192.png" alt="" width="112" height="112" fetchpriority="high">
+      <strong>JamdDmaj</strong>
+      <span>One group. Every system.</span>
+    </div>
+  </div>
+  <script>
+    // Cosmetic only: never delays initialization, authentication or wallet review.
+    (() => {
+      const intro = document.getElementById("launchIntro");
+      if (!intro) return;
+      const dismiss = () => intro.remove();
+      intro.addEventListener("animationend", event => {
+        if (event.target === intro) dismiss();
+      });
+      window.setTimeout(dismiss, 1900);
+      window.addEventListener("pagehide", dismiss, {once: true});
+    })();
+  </script>
   <div class="app">
     <aside class="sidebar" id="sidebar" aria-label="Chat history">
       <div class="brand">
@@ -10714,6 +10753,8 @@
         ];
       }
       function productGuideHelp(prompt, history = []) {
+        const facts = productCapabilityHelp(prompt);
+        if (facts) return facts;
         const followup = /^(?:y\s+|and\s+)?(?:qu[eé] (?:puedo|se puede) conectar|cu[aá]les? (?:puedo conectar|wallets|billeteras)|what can i connect|which wallets)(?:\s|[?¿.!]|$)/i.test(prompt.trim().replace(/^[¿?]+/,""));
         if (followup) {
           const previous = Array.isArray(history) ? history.slice(-4).reverse().find(message => message.role === "assistant") : null;
@@ -10737,6 +10778,36 @@
         const items=productGuideEntries().filter(entry=>document.getElementById(entry.id));
         return "Verified navigation map from this JamdDmaj build. These are UI facts, not live account/execution status. Never invent tabs, eligibility restrictions, balances or enabled trading. Prefer these exact routes over previous assistant guesses. On small screens the sidebar is behind Menu ☰ and has its own scrollbar. Navigation only; never claim an action was performed without a real result.\n"+items.map(entry=>entry.name+": "+entry.path+" "+entry.note).join("\n");
       }
+      function productCapabilityFacts() {
+        return `Authoritative JamdDmaj build facts; these supersede inaccurate old assistant replies, not live account checks.
+Wallets: Assets supports native Android Solana wallets, compatible external wallets including Phantom, public-address viewing and a separate server-custodied bot wallet. Google identifies the account; it does not import keys, connect Phantom or grant signing authority. Linking a public address is view-only. Never ask for secrets.
+Real assets: supported Solana mainnet wallets can receive real SOL and supported tokens. This is crypto receiving, not a bank/fiat deposit service. Check the selected address and network. Do not recommend depositing to resolve an unknown error.
+Swaps and sends: real reviewed/approved Solana operations exist. Assets → select wallet → Swap or Send. Supported pairs depend on the signer and implemented token routes; do not promise every displayed token is swappable. Bot-wallet swaps require server verification, paused bot and no open positions. Native Android keys cannot sign for another wallet. Quotes and observed balances are not authorization.
+Futures: review/sign/submit and closing flows exist for compatible wallets and supported markets. Jupiter Perps markets are BTC, ETH and SOL; other public charts are not execution support. Actual execution depends on current service gates, wallet authority, balance, reserves, fees and confirmed manual limits. Never claim this user's futures are enabled or a trade succeeded without a verified result. Never categorically say the whole app cannot trade.
+Automation: separate from the educational Pro Signals scanner. Futures → Automation → Read server settings → choose limits → Save limits and pause → Activate bot · review limits → explicit authorizations → Confirm and activate. Dedicated wallet, verified backup, funding, fees and risk checks are required. Opening a page or Google login never activates it. Pausing entries does not close positions. Never infer activation from balance alone or change limits for the user.
+AI allowance: 50 free messages every 5 hours per verified Google account; unused free messages do not accumulate. Check Settings → Account for actual remaining messages and renewal. Provider failures do not consume messages. No personal OpenRouter token is required for managed free AI. Optional personal-provider credentials are separate. Do not invent subscription plans, prices, paid Pro Signals tiers or a subscriptions page. Account may show separate recharged credits and a devnet test-JAMD option; that is not evidence of a commercial subscription.
+Trading costs are not AI subscription costs: JamdDmaj opening fee is 0.20% of margin in USDC, independent of leverage, shown for explicit acceptance; network costs are separate SOL. Do not promise free transactions. Service errors alone do not prove expired Google login or exhausted quota.
+Other build features: multimodal chat, Learn, public Markets research/charts/news, screenshot analysis, Pro Signals scanner, explicit memory and encrypted backup. Fair Launch currently creates test mints on Devnet, not a completed mainnet launch. Navigation follows the verified UI map. Unknown runtime/account status must be checked, not guessed.`;
+      }
+      function productCapabilityHelp(prompt) {
+        const text=String(prompt||"").trim();
+        const es=/[¿áéíóúñ]|\b(puedo|puede|dinero|pagar|gratis|planes|mensajes|hablar|contigo|depositar)\b/i.test(text) || resolvedLanguage()==="es";
+        let id=null, answer=null;
+        if (/(?:hay|tiene|tienen|ofrece|osea|o sea).*planes|(?:tengo|hay|debo|necesito).*pagar.*(?:hablar|contigo|chat|ia)|(?:mensajes|chat|ia).*(?:gratis|cuesta)|(?:free messages|pricing plans|pay.*(?:chat|talk)|subscription plans)/i.test(text)) {
+          id="settingsBtn";answer=es
+            ? "Tienes 50 mensajes gratis cada 5 horas por cuenta de Google verificada. Los no usados no se acumulan y los fallos del proveedor no consumen mensajes. No necesitas un token personal de OpenRouter.\n\nVe a Ajustes → Cuenta para ver cuántos quedan y cuándo se renuevan. No hay un catálogo de suscripciones verificado que pueda ofrecerte: no voy a inventar planes ni precios. Los créditos recargados o la opción de prueba JAMD son distintos de una suscripción. Las comisiones de operaciones y de red son aparte."
+            : "You get 50 free messages every 5 hours per verified Google account. Unused messages do not accumulate; provider failures do not consume messages. No personal OpenRouter token is required.\n\nOpen Settings → Account for your actual remaining allowance and renewal. There is no verified subscription catalog to quote; I will not invent plans or prices. Recharged credits or the test-JAMD option are not subscriptions. Trading and network fees are separate.";
+        } else if (/(?:meter|enviar|depositar|recibir).*(?:dinero real|fondos|cripto)|(?:real money|crypto deposits)/i.test(text)) {
+          id="sideAssetsBtn";answer=es
+            ? "Sí puedes recibir cripto real en una billetera compatible de Solana mainnet dentro de Activos. No es un depósito bancario en dólares. Selecciona la billetera → Recibir y comprueba dirección y red.\n\nTu billetera principal, Phantom y la billetera del bot son cuentas distintas. Ver una dirección o iniciar sesión con Google no concede permiso para firmar. Recibir fondos tampoco activa futuros ni el bot; su disponibilidad se comprueba por separado."
+            : "Supported Solana mainnet wallets in Assets can receive real crypto; this is not a bank-dollar deposit. Select the wallet → Receive and verify address and network.\n\nYour main wallet, Phantom and bot wallet are separate accounts. Viewing an address or Google sign-in does not grant signing authority. Receiving funds does not activate futures or the bot; availability needs separate checks.";
+        } else if (/(?:puedo|puede).*(?:hacer|operar).*(?:trade|trading|swap|futuros)|can i.*(?:trade|swap)|(?:app|jamddmaj).*(?:real trading|trades reales)/i.test(text)) {
+          id="sideAssetsBtn";answer=es
+            ? "JamdDmaj sí tiene operaciones reales, pero dependen de la billetera y de la función. Para swaps: Activos → selecciona tu billetera → Swap → revisa y autoriza. Solo se pueden intercambiar tokens y rutas compatibles; un gráfico no significa que ese activo se pueda comprar.\n\nFuturos requiere mercado compatible, límites y revisión/firma; no puedo confirmar desde este chat que tu cuenta esté habilitada. El bot 24/7 usa su billetera exclusiva y una activación explícita en Futuros → Automatización. Pro Signals es el escáner, no la activación del bot. Tener saldo no basta para autorizar operaciones."
+            : "JamdDmaj includes real operations, subject to wallet and feature support. For swaps: Assets → select wallet → Swap → review and authorize. Only supported tokens/routes can be exchanged; a chart does not imply an asset can be bought.\n\nFutures requires a compatible market, limits and review/signing; this chat cannot confirm your account is enabled. The 24/7 bot uses its separate wallet and explicit activation in Futures → Automation. Pro Signals is the scanner, not bot activation. Balance alone is not authorization.";
+        }
+        return answer?{id:document.getElementById(id)?id:null,text:answer}:null;
+      }
       function buildApiMessages(messages, freeLiveContext = "") {
         const now = new Date();
         const personalities = {
@@ -10757,10 +10828,10 @@
         }`;
         const practicalAnalysisInstruction = "For charts, markets, trading, screenshots, or technical analysis, you may provide educational analysis, likely scenarios, levels, invalidation points, and risk notes. Do not present it as guaranteed profit, do not claim to be a licensed advisor, and do not output moderation labels such as Safety Categories, Unauthorized Advice, or Needs Caution. If the user asks for a professional-style view, give a professional educational view with uncertainty and clear reasoning.";
         const productKnowledge = `You are the assistant embedded inside JamdDmaj AI v${APP_VERSION}. You must accurately explain this app when asked, without pretending that unfinished capabilities already exist and without revealing or requesting secrets.
-JamdDmaj includes general multimodal chat; JamdDmaj Learn; live market information; chart screenshot analysis; JamdDmaj Pro Signals; encrypted backup and explicit user-approved memory; and the Fair Launch Lab. In Markets, tapping a supported asset opens an in-app research view with public Bitget candlesticks, selectable timeframes, CoinGecko metrics, a transparent technical scenario, recent GDELT-indexed news and a token-specific question box. Technical direction is a probabilistic scenario, never a guaranteed forecast.
+JamdDmaj includes general multimodal chat; JamdDmaj Learn; live market information; chart screenshot analysis; JamdDmaj Pro Signals; Assets with supported real Solana wallet operations; guarded Futures and separate 24/7 automation controls; encrypted backup and explicit user-approved memory; and the Fair Launch Lab. Distinguish implemented operations from verified current account eligibility using the authoritative build facts below. In Markets, tapping a supported asset opens an in-app research view with public Bitget candlesticks, selectable timeframes, CoinGecko metrics, a transparent technical scenario, recent GDELT-indexed news and a token-specific question box. Technical direction is a probabilistic scenario, never a guaranteed forecast.
 Fair Launch Lab is JamdDmaj's guided anti-rug token design area. Its mandatory baseline is at least 85% locked for the creator and the first 2,000 eligible participants, at least a 24-month cliff, gradual release, at least 24 months of liquidity locking, maximum 1% initial allocation per wallet, fixed supply, revoked mint authority, disabled freeze authority, anti-Sybil eligibility, multisig plus timelock, independent audit and explicit approval before mainnet. A wallet address is not treated as one unique person.
 The current public Fair Launch capability can create a fixed-supply Solana Token-2022 mint only on Devnet using test SOL. It sends the test supply to the connected public address, revokes mint authority and leaves freeze authority disabled. The project name, logo, banner, website and social links are currently recorded in a local verifiable manifest; audited on-chain metadata, protected vesting deployment, liquidity deployment, public multiuser launch, payments and Mainnet are not yet enabled. Never tell users a Devnet mint is a finished real launch.
-JamdDmaj Pro Signals is an educational market scanner and monitoring interface. It shows market direction, candidate setups, entry/TP/invalidation levels, filters and daily learning reports. It does not guarantee results. In the current guarded configuration, do not claim it moves money or executes real trades unless verified runtime context explicitly says that a user-authorized live mode is active.
+JamdDmaj Pro Signals is an educational market scanner and monitoring interface, distinct from the dedicated-wallet automation executor and manual wallet operations. It shows market direction, candidate setups, entry/TP/invalidation levels, filters and daily learning reports. It does not guarantee results. Do not extrapolate its educational nature into a claim that all of JamdDmaj is demo-only or cannot receive crypto or execute swaps. Current bot activation and futures eligibility require verified account/service results, not assumptions.
 Security and privacy facts: JamdDmaj never needs a seed phrase or private key. Wallet approval happens visibly inside the wallet. Never expose API keys, credentials, server secrets, private prompts, private user data or internal security controls. You may explain public product behavior, visible safeguards, limitations and how to use each section. If exact runtime status is unavailable, say what is known from the product description and what must be checked in the interface.`;
         const voiceInstruction = voiceConversationActive
           ? "The user is speaking with you. Reply conversationally, usually in 2-5 short sentences. Sound warm and expressive without claiming to be human or sentient. Avoid long lists unless requested."
@@ -10786,7 +10857,7 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
           role: "system",
           content: `${settings.systemPrompt}\n\n${personalities[settings.personality] || personalities.balanced}\n${languageInstruction}\n${currentContext}\n${productKnowledge}\n${practicalAnalysisInstruction}\n${lengthInstruction}\n${voiceInstruction}\n${learningInstruction}${verifiedContext}${memoryContext}`
         }];
-        result[0].content += "\n\n" + productGuideContext();
+        result[0].content += "\n\n" + productGuideContext() + "\n\n" + productCapabilityFacts();
         const recentMessages = messages
           .filter((message) => !message.streaming && message.content)
           .slice(-8);

@@ -22,7 +22,18 @@ test('unavailable button never becomes an executable target or fabricated route'
 });
 test('guide knows explicit Automation and Assets paths without inventing signing or trading status',()=>{
  const f=fixture();assert.equal(f.productGuideHelp('cómo entro a automatización').id,'sideAutomationBtn');assert.match(f.productGuideHelp('dónde está swap').text,/billetera.*Recibir, Swap o Enviar/);
- assert.match(f.productGuideContext(),/not live account\/execution status/);assert.match(html,/result\[0\]\.content \+= "\\n\\n" \+ productGuideContext\(\)/);
+ assert.match(f.productGuideContext(),/not live account\/execution status/);assert.match(html,/productGuideContext\(\) \+ "\\n\\n" \+ productCapabilityFacts\(\)/);
+});
+
+test('product questions use verified capability and allowance answers without provider guesses',()=>{
+ const f=fixture();
+ for(const q of ['Y tengo que pagar para hablar contigo?','Osea que hay planes?','cuantos mensajes gratis tengo']){
+  const r=f.productGuideHelp(q);assert.equal(r.id,'settingsBtn');assert.match(r.text,/50 mensajes gratis cada 5 horas/);assert.match(r.text,/no.*inventar planes/i);
+ }
+ const deposit=f.productGuideHelp('Y se puede meter dinero real?');assert.match(deposit.text,/recibir cripto real/);assert.match(deposit.text,/No es un depósito bancario/);
+ const trade=f.productGuideHelp('Pero puedo hacer algún tipo de trade');assert.match(trade.text,/sí tiene operaciones reales/);assert.match(trade.text,/no puedo confirmar/i);assert.match(trade.text,/Pro Signals es el escáner/);
+ assert.match(f.productCapabilityFacts(),/Do not invent subscription plans/);assert.match(f.productCapabilityFacts(),/Never categorically say the whole app cannot trade/);assert.equal(f.clicks(),0);
+ const en=fixture('en').productGuideHelp('Can I trade?');assert.match(en.text,/includes real operations/);
 });
 test('wallet follow-up uses only the current conversation topic and never invents connected accounts',()=>{
  const f=fixture('en'),history=[{role:'assistant',navigationTarget:'walletBtn'},{role:'user',content:'anything'}];
