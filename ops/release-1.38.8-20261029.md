@@ -68,8 +68,14 @@ The production paper ledger cannot be read using the current local connection:
 Vercel correctly withholds production Secret values. No secret file created,
 requested or printed. The owner can supply the aggregate diagnostics now visible
 in the paper panel; actual failed trade attribution needs this retained ledger,
-not only the independent historical-candle experiment. Real chat reproduction
-was requested from the user after publication; no response received yet.
+not only the independent historical-candle experiment.
+
+The user confirmed an actual successful web chat response after refreshing
+1.38.8 and sending a greeting: "Hello! How can I assist you today?". This verifies
+that one authenticated request completed; it does not establish that intermittent
+provider failures are eliminated. Actual Android cold-start session persistence
+still needs confirmation on the user's updated phone. No extra release needed
+for this evidence-only record; Discover content remains unchanged.
 
 ## X
 
