@@ -48,8 +48,8 @@
     safeOneTitle:"Permisos separados",safeOneText:"Google identifica tu cuenta; no importa claves ni activa operaciones.",
     nowText:"Chat IA, Learn, investigación y operaciones reales Solana compatibles. Futuros y automatización requieren mercados compatibles, verificaciones, límites y autorización explícita; tener saldo no los activa."
   });
-  en.walletText="In Assets, tap a token or View chart. Explore historical pool candles with zoom, horizontal drag and candle price/date inspection. Exact Solana address, market data and Jupiter verification remain visible. Missing data stays unavailable; verification is not a safety guarantee.";
-  catalogs.es.walletText="En Activos, toca un token o Ver gráfico. Explora las velas históricas con zoom, arrastre horizontal y consulta del precio y fecha de cada vela. Dirección Solana exacta, mercado y verificación de Jupiter visibles. Los datos ausentes se indican; la verificación no garantiza seguridad.";
+  en.walletText="In Assets, tap a token or View chart. Explore historical candles with zoom and inspection, plus separate market cap and FDV, pair liquidity, volume and buys/sells when provided by the source. Exact Solana address and Jupiter status remain visible. Missing data stays unavailable; verification is not a safety guarantee.";
+  catalogs.es.walletText="En Activos, toca un token o Ver gráfico. Explora velas históricas con zoom y consulta capitalización y FDV por separado, liquidez, volumen y compras/ventas del par cuando la fuente los proporcione. Dirección Solana exacta y estado de Jupiter visibles. Los datos ausentes se indican; la verificación no garantiza seguridad.";
   en.signalDiagnostics="Paper trading diagnostics group partial exits and show net expectancy, mean wins/losses and estimated fees. Historical validation is research only and never changes or activates your real bot.";
   catalogs.es.signalDiagnostics="El diagnóstico simulado agrupa salidas parciales y muestra expectativa neta, ganancias/pérdidas medias y comisiones estimadas. La validación histórica es investigación: nunca modifica ni activa tu bot real.";
   const supported = Object.keys(catalogs);

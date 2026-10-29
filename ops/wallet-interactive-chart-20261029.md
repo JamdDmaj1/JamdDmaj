@@ -15,3 +15,12 @@ Discover HTML/JS now explains historical interactions. Reviewed Discover CSS
 and tour CSS: existing responsive styles need no change for this feature.
 Publication/versioned Android packaging remains pending; not available in the
 already published 1.38.10 APK.
+
+Additional token statistics: DEX Screener exact-mint selected pair now exposes
+separate marketCap/FDV, 1h/6h/24h changes, pair liquidity/volume/buy/sell counts,
+DEX, quote symbol and pair creation time. Nonnegative metrics reject invalid,
+empty, negative and boolean values. No FDV fallback for absent market cap.
+UI uses labeled responsive tiles, missing values explicitly Unavailable.
+DEX Screener official API reference schema reviewed 2026-10-29.
+Six focused tests pass; browser verifies 10 metrics, distinct cap/FDV and missing
+labels alongside chart interactions. No changes to authorization or trading.

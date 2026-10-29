@@ -21,10 +21,11 @@ export default async function handler(request){
   candles=(Array.isArray(rows)?rows:[]).slice(0,100).filter(row=>Array.isArray(row)&&row.length>=6&&row.slice(0,6).every(Number.isFinite)&&row[0]>0&&row[1]>0&&row[2]>=Math.max(row[1],row[4])&&row[3]<=Math.min(row[1],row[4])&&row[3]>0&&row[5]>=0)
    .map(([time,open,high,low,close,volume])=>({time,open,high,low,close,volume})).sort((a,b)=>a.time-b.time);
  }catch{}
- const finite=value=>Number.isFinite(Number(value))&&value!=null?Number(value):null;
+ const finite=value=>value!==''&&typeof value!=='boolean'&&Number.isFinite(Number(value))&&value!=null?Number(value):null;
+ const nonnegative=value=>{const n=finite(value);return n!==null&&n>=0?n:null;};
  const payload={ok:true,mint,network:'solana:mainnet',updatedAt:new Date().toISOString(),
   verification:{source:'Jupiter Tokens V2',status:metadata?.audit&&Object.hasOwn(metadata.audit,'isSus')?'flagged':metadata?.isVerified===true?'verified':metadata?.isVerified===false?'unverified':'unknown'},
-  market:market?{pairAddress:market.pairAddress,priceUsd:finite(market.priceUsd),change24h:finite(market.priceChange?.h24),liquidityUsd:finite(market.liquidity?.usd),volume24h:finite(market.volume?.h24),source:'DEX Screener'}:null,
+  market:market?{pairAddress:market.pairAddress,name:String(market.baseToken?.name||'').slice(0,100),symbol:String(market.baseToken?.symbol||'').slice(0,44),dex:String(market.dexId||'').slice(0,60),quoteSymbol:String(market.quoteToken?.symbol||'').slice(0,44),priceUsd:nonnegative(market.priceUsd),change24h:finite(market.priceChange?.h24),change1h:finite(market.priceChange?.h1),change6h:finite(market.priceChange?.h6),liquidityUsd:nonnegative(market.liquidity?.usd),volume24h:nonnegative(market.volume?.h24),marketCapUsd:nonnegative(market.marketCap),fdvUsd:nonnegative(market.fdv),buys24h:nonnegative(market.txns?.h24?.buys),sells24h:nonnegative(market.txns?.h24?.sells),pairCreatedAt:nonnegative(market.pairCreatedAt),source:'DEX Screener'}:null,
   candles,chartSource:candles.length?'GeckoTerminal · pool OHLCV · 1h':null};
  if(cache.size>=100)cache.delete(cache.keys().next().value);cache.set(mint,{at:Date.now(),value:payload});
  return jsonResponse(request,payload);
