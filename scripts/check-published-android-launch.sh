@@ -2,6 +2,12 @@
 set -euo pipefail
 # Disposable CI emulator only; no phone, wallet import, login or financial action.
 mkdir -p launch-evidence
+report_crash() {
+  while IFS= read -r line; do
+    line="${line//%/%25}"
+    printf '::error title=Android launch crash::%s\n' "$line"
+  done < <(head -50 "$1")
+}
 adb install "$RUNNER_TEMP/app.apk"
 adb shell svc wifi disable
 adb shell svc data disable
@@ -17,10 +23,12 @@ for attempt in 1 2 3; do
   if ! adb shell pidof com.jamddmaj.ai > "launch-evidence/pid-$attempt.txt"; then
     echo "::error::Published 1.38.8 terminated on cold launch $attempt"
     cat "launch-evidence/crash-$attempt.txt"
+    report_crash "launch-evidence/crash-$attempt.txt"
     exit 1
   fi
   if grep -q 'FATAL EXCEPTION' "launch-evidence/crash-$attempt.txt"; then
     cat "launch-evidence/crash-$attempt.txt"
+    report_crash "launch-evidence/crash-$attempt.txt"
     exit 1
   fi
 done

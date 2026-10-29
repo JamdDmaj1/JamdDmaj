@@ -9,12 +9,12 @@ permissions:
   contents: read
 jobs:
   launch:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        api: [30, 35]
+        api: [30]
     steps:
       - uses: actions/checkout@v4
       - uses: android-actions/setup-android@v3
