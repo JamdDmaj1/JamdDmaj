@@ -43,10 +43,11 @@ for (const [language,copy] of Object.entries(trialCopy)) {
 }
 export function managedChatError(code,status,language='en'){
  const es=language==='es';
- if(code==='trial-upstream')return es?'El proveedor de IA no respondió. Tu mensaje gratuito no se ha consumido; inténtalo de nuevo.':'The AI provider did not respond. Your free message was refunded; try again.';
+ if(code==='trial-upstream')return es?'El proveedor de IA rechazó o no completó la respuesta. No es un fallo de acceso de Google. La solicitud fue reembolsada. Código: CHAT_PROVIDER_'+Number(status)+'.':'The AI provider rejected or did not complete the response. This is not a Google access failure. The request was refunded. Code: CHAT_PROVIDER_'+Number(status)+'.';
  if(status===401||code==='trial-login')return es?'Tu sesión de IA venció. Vuelve a iniciar sesión con Google; no necesitas una clave de OpenRouter.':'Your AI session expired. Sign in with Google again; no OpenRouter key is required.';
  if(status===429)return es?'Se alcanzó un límite temporal de solicitudes. Espera un momento antes de reintentar.':'A temporary request limit was reached. Wait briefly before trying again.';
  if(code?.startsWith('credits-')||code?.startsWith('trial-exhausted'))return es?'Tu cuota gratuita se agotó. Revisa la hora de renovación en tu cuenta.':'Your free allowance is exhausted. Check the renewal time in your account.';
+ if(status>=500&&status<=599)return es?'El servicio de chat devolvió un error del servidor. Esto no confirma que tu sesión haya vencido ni que se agotaran tus mensajes. Inténtalo más tarde. Código: CHAT_SERVICE_'+status+'.':'The chat service returned a server error. This does not confirm an expired session or exhausted messages. Try again later. Code: CHAT_SERVICE_'+status+'.';
  return es?'La IA no está disponible temporalmente. No necesitas introducir un token personal.':'AI is temporarily unavailable. You do not need to enter a personal token.';
 }
 if (typeof document !== "undefined") {

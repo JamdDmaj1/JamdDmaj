@@ -10421,7 +10421,7 @@
 
         const prompt = els.prompt.value.trim();
         if (!prompt && !pendingImages.length && !pendingTextFiles.length) return;
-        const localProductHelp = !imageGenerationMode && !pendingImages.length && !pendingTextFiles.length ? productGuideHelp(prompt) : null;
+        const localProductHelp = !imageGenerationMode && !pendingImages.length && !pendingTextFiles.length ? productGuideHelp(prompt, getCurrentChat()?.messages || []) : null;
         // Check before clearing the composer, saving a turn or starting credit use.
         // A remembered Google profile is not a server-verified session.
         if (!getApiKey() && !imageGenerationMode && !localProductHelp) {
@@ -10706,7 +10706,17 @@
           {id:"settingsBtn",name:es?"Ajustes":"Settings",match:/\b(ajustes|settings|google|mensajes gratis|free messages|cuenta|account)\b/i,path:es?"Menú ☰ → Ajustes → Cuenta para Google y mensajes gratis. Apariencia, Memoria y Respaldo tienen sus propias pestañas.":"Menu ☰ → Settings → Account for Google and free messages. Appearance, Memory and Backup have separate tabs.",note:""}
         ];
       }
-      function productGuideHelp(prompt) {
+      function productGuideHelp(prompt, history = []) {
+        const followup = /^(?:y\s+|and\s+)?(?:qu[eé] (?:puedo|se puede) conectar|cu[aá]les? (?:puedo conectar|wallets|billeteras)|what can i connect|which wallets)(?:\s|[?¿.!]|$)/i.test(prompt.trim().replace(/^[¿?]+/,""));
+        if (followup) {
+          const previous = Array.isArray(history) ? history.slice(-4).reverse().find(message => message.role === "assistant") : null;
+          const known = productGuideEntries().find(entry => entry.id === previous?.navigationTarget);
+          if (!known || !["walletBtn","sideAssetsBtn"].includes(known.id)) return null;
+          const es = /qu[eé]|cu[aá]l|conectar|billetera/i.test(prompt) || resolvedLanguage() === "es";
+          return {id:document.getElementById("sideAssetsBtn")?"sideAssetsBtn":null,text:es
+            ? "Puedes conectar Phantom y las extensiones compatibles que detecte tu navegador. En Android está la conexión móvil de Phantom.\n\nVe a Menú ☰ → Activos → Tu billetera externa → selecciona una billetera detectada → Conectar billetera. En incógnito debes permitir la extensión en ventanas privadas. Si no aparece ninguna, iniciar sesión con Google no instala ni detecta Phantom.\n\nLas operaciones Solana requieren una cuenta Solana compatible. La detección EVM permite consultar cuentas Ethereum/BNB; no implica soporte de swaps o futuros en esas redes. Conectar no mueve fondos ni activa el bot."
+            : "You can connect Phantom and compatible extensions detected by your browser. Android also has Phantom mobile connection.\n\nGo to Menu ☰ → Assets → Your external wallet → choose a detected wallet → Connect wallet. Incognito requires extension permission for private windows. Google sign-in does not install or detect Phantom.\n\nSolana operations require a compatible Solana account. EVM detection allows Ethereum/BNB account viewing; it does not imply swaps or futures support on those networks. Connecting does not move funds or activate the bot."};
+        }
         if (!/(d[oó]nde|c[oó]mo (?:llego|entro|abro|encuentro|voy)|no (?:lo |la )?(?:veo|encuentro)|ll[eé]vame|where|how (?:do i|to) (?:open|find|get|access)|can.?t find)/i.test(prompt)) return null;
         const language = /(d[oó]nde|c[oó]mo|no (?:lo |la )?(?:veo|encuentro)|ll[eé]vame)/i.test(prompt) ? "es" : resolvedLanguage();
         const entry = productGuideEntries(language).find(item => item.match.test(prompt));

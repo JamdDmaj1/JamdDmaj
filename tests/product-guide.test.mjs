@@ -24,3 +24,10 @@ test('guide knows explicit Automation and Assets paths without inventing signing
  const f=fixture();assert.equal(f.productGuideHelp('cómo entro a automatización').id,'sideAutomationBtn');assert.match(f.productGuideHelp('dónde está swap').text,/billetera.*Recibir, Swap o Enviar/);
  assert.match(f.productGuideContext(),/not live account\/execution status/);assert.match(html,/result\[0\]\.content \+= "\\n\\n" \+ productGuideContext\(\)/);
 });
+test('wallet follow-up uses only the current conversation topic and never invents connected accounts',()=>{
+ const f=fixture('en'),history=[{role:'assistant',navigationTarget:'walletBtn'},{role:'user',content:'anything'}];
+ const reply=f.productGuideHelp('y que puedo conectar',history);assert.equal(reply.id,'sideAssetsBtn');assert.match(reply.text,/Phantom/);assert.match(reply.text,/incógnito/);assert.match(reply.text,/no mueve fondos/);
+ assert.equal(f.productGuideHelp('y que puedo conectar',[]),null);
+ assert.equal(f.productGuideHelp('y que puedo conectar',[{role:'assistant',navigationTarget:'sideSignalsBtn'}]),null);
+ assert.equal(f.clicks(),0);
+});
