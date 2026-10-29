@@ -9,7 +9,7 @@ const code=html.slice(start,end)+'return true; }';
 function fixture(status){
  const calls=[],prompt={value:'Keep my message'},images=[],files=[];
  const c={els:{prompt},pendingImages:images,pendingTextFiles:files,currentChatId:'first',activeController:null,imageGenerationMode:false,
-  getApiKey:()=>'',window:{JamdTrial:{sessionStatus:typeof status==='function'?status:async()=>status}},
+  getApiKey:()=>'',productGuideHelp:()=>null,window:{JamdTrial:{sessionStatus:typeof status==='function'?status:async()=>status}},
   openSettings:()=>calls.push('settings'),document:{querySelector:()=>({click:()=>calls.push('account')}),getElementById:()=>({scrollIntoView(){},focus(){}})},
   showToast:()=>calls.push('notice'),resolvedLanguage:()=> 'es',initGoogleAccount:async()=>calls.push('refresh')};
  vm.createContext(c);vm.runInContext(code,c);return {c,calls,prompt,images,files};

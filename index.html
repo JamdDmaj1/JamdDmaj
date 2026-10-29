@@ -7732,6 +7732,14 @@
         text.className = `message-text${message.streaming ? " typing" : ""}`;
         renderSafeText(text, message.content || (message.streaming ? chatProgressText(message.progress) : ""));
         card.append(text);
+        if (!message.streaming && message.navigationTarget) {
+          const destination = productGuideEntries().find(entry => entry.id === message.navigationTarget);
+          if (destination && document.getElementById(destination.id)) {
+            const jump = makeMiniButton((resolvedLanguage() === "es" ? "Abrir " : "Open ") + destination.name,
+              () => document.getElementById(destination.id)?.click());
+            card.append(jump);
+          }
+        }
         const phraseChips = createLearningPhraseChips(message);
         if (phraseChips) card.append(phraseChips);
         const inlineVisuals = createLearningInlineVisuals(message);
@@ -10413,9 +10421,10 @@
 
         const prompt = els.prompt.value.trim();
         if (!prompt && !pendingImages.length && !pendingTextFiles.length) return;
+        const localProductHelp = !imageGenerationMode && !pendingImages.length && !pendingTextFiles.length ? productGuideHelp(prompt) : null;
         // Check before clearing the composer, saving a turn or starting credit use.
         // A remembered Google profile is not a server-verified session.
-        if (!getApiKey() && !imageGenerationMode) {
+        if (!getApiKey() && !imageGenerationMode && !localProductHelp) {
           const sessionChat = currentChatId, sessionImages = [...pendingImages], sessionFiles = [...pendingTextFiles];
           checkingChatSession = true;
           let session;
@@ -10504,6 +10513,12 @@
         activeController = new AbortController();
         try {
           const currentUserRequest = userMessage.content;
+          if (localProductHelp) {
+            assistantMessage.content = localProductHelp.text;
+            assistantMessage.navigationTarget = localProductHelp.id;
+            assistantMessage.streaming = false;
+            persistChats();renderAll();return;
+          }
           assistantMessage.progress = "lookup";
           updateLastMessage(assistantMessage);
           const freeLiveContext = await buildFreeLiveContext(currentUserRequest);
@@ -10676,6 +10691,35 @@
         }[settings.creativity] || 0.55;
       }
 
+      function productGuideEntries(language = resolvedLanguage()) {
+        const es = language === "es";
+        return [
+          {id:"sideSignalsBtn",name:es?"Señales Pro":"Pro Signals",match:/\b(pro\s*signals|se[nñ]ales\s*pro)\b/i,path:es?"Menú ☰ → barra lateral → Señales Pro (Pro Signals). Si no lo ves, desplázate dentro de la barra lateral, no dentro del chat.":"Menu ☰ → sidebar → Pro Signals. Scroll inside the sidebar, not inside the conversation, if the button is below the visible area.",note:es?"Abre el escáner de señales; no activa el bot.":"Opens the signals scanner; it does not activate the bot."},
+          {id:"sideAutomationBtn",name:es?"Automatización 24/7":"Automation 24/7",match:/\b(automatizaci[oó]n|automation|bot autom[aá]tico)\b/i,path:es?"Menú ☰ → Automatización 24/7. También: Futuros → Automatización → Consultar servidor.":"Menu ☰ → Automation 24/7. Also: Futures → Automation → Read server settings.",note:es?"Consultar o abrir no activa operaciones. Requiere tu sesión y revisión explícita de límites para activar.":"Opening or reading does not activate trading. Activation requires your session and explicit limit review."},
+          {id:"sideFuturesBtn",name:es?"Futuros":"Futures",match:/\b(futuros|futures)\b/i,path:es?"Menú ☰ → Futuros.":"Menu ☰ → Futures.",note:es?"La disponibilidad depende de la billetera seleccionada y del mercado compatible; ver un saldo no autoriza una orden.":"Availability depends on the selected wallet and supported market; viewing a balance does not authorize an order."},
+          {id:"sideAssetsBtn",name:es?"Activos":"Assets",match:/\b(activos|assets|depositar|recibir|retirar|swap|intercambiar|enviar tokens)\b/i,path:es?"Menú ☰ → Activos → selecciona la billetera → Recibir, Swap o Enviar.":"Menu ☰ → Assets → select the wallet → Receive, Swap or Send.",note:es?"La billetera nativa, Phantom y la del bot son cuentas distintas. Una dirección de solo consulta no puede firmar.":"Native wallet, Phantom and bot wallet are separate accounts. A view-only address cannot sign."},
+          {id:"marketsBtn",name:es?"Mercados":"Markets",match:/\b(mercados|markets)\b/i,path:es?"Botón Mercados en la barra superior → selecciona un activo para investigarlo.":"Markets button in the top bar → select an asset to research it.",note:es?"Un gráfico disponible no implica que ese token admita compras.":"An available chart does not mean that token supports purchases."},
+          {id:"sideLearnBtn",name:"JamdDmaj Learn",match:/\b(learn|aprender|cursos)\b/i,path:es?"Botón Learn de arriba o Menú ☰ → JamdDmaj Learn.":"Top Learn button or Menu ☰ → JamdDmaj Learn.",note:""},
+          {id:"walletBtn",name:es?"Billetera":"Wallet",match:/\b(wallet|billetera|phantom)\b/i,path:es?"Botón Wallet de arriba para la billetera, o Menú ☰ → Activos para seleccionar y conectar cuentas.":"Top Wallet button for the wallet, or Menu ☰ → Assets to select and connect accounts.",note:es?"Google identifica tu cuenta; no importa claves ni conecta Phantom automáticamente.":"Google identifies your account; it does not import keys or automatically connect Phantom."},
+          {id:"sideBackupBtn",name:es?"Datos y respaldo":"Data and backup",match:/\b(respaldo|backup|sync id|restaurar)\b/i,path:es?"Menú ☰ → Datos y respaldo. En Ajustes → Cuenta también está tu Sync ID y Restaurar progreso.":"Menu ☰ → Data and backup. Settings → Account also contains your Sync ID and Restore progress.",note:es?"Nunca compartas claves, frases semilla ni tu código de recuperación.":"Never share keys, seed phrases or your recovery code."},
+          {id:"fairLaunchBtn",name:"Fair Launch",match:/\b(fair launch|crear token)\b/i,path:es?"Botón Fair Launch en la barra superior.":"Fair Launch button in the top bar.",note:es?"Comprueba la red y las restricciones que muestra el laboratorio; no asumas disponibilidad en mainnet.":"Check the network and restrictions shown in the lab; do not assume mainnet availability."},
+          {id:"settingsBtn",name:es?"Ajustes":"Settings",match:/\b(ajustes|settings|google|mensajes gratis|free messages|cuenta|account)\b/i,path:es?"Menú ☰ → Ajustes → Cuenta para Google y mensajes gratis. Apariencia, Memoria y Respaldo tienen sus propias pestañas.":"Menu ☰ → Settings → Account for Google and free messages. Appearance, Memory and Backup have separate tabs.",note:""}
+        ];
+      }
+      function productGuideHelp(prompt) {
+        if (!/(d[oó]nde|c[oó]mo (?:llego|entro|abro|encuentro|voy)|no (?:lo |la )?(?:veo|encuentro)|ll[eé]vame|where|how (?:do i|to) (?:open|find|get|access)|can.?t find)/i.test(prompt)) return null;
+        const language = /(d[oó]nde|c[oó]mo|no (?:lo |la )?(?:veo|encuentro)|ll[eé]vame)/i.test(prompt) ? "es" : resolvedLanguage();
+        const entry = productGuideEntries(language).find(item => item.match.test(prompt));
+        if (!entry) return null;
+        const available = Boolean(document.getElementById(entry.id));
+        return {id:available?entry.id:null,text:available
+          ? entry.name+"\n\n"+entry.path+"\n\n"+entry.note
+          : (language==="es"?"Ese acceso no está presente en esta pantalla. No voy a inventar otra pestaña; vuelve a Inicio y abre el menú ☰.":"That shortcut is not present on this screen. I will not invent a tab; return Home and open Menu ☰.")};
+      }
+      function productGuideContext() {
+        const items=productGuideEntries().filter(entry=>document.getElementById(entry.id));
+        return "Verified navigation map from this JamdDmaj build. These are UI facts, not live account/execution status. Never invent tabs, eligibility restrictions, balances or enabled trading. Prefer these exact routes over previous assistant guesses. On small screens the sidebar is behind Menu ☰ and has its own scrollbar. Navigation only; never claim an action was performed without a real result.\n"+items.map(entry=>entry.name+": "+entry.path+" "+entry.note).join("\n");
+      }
       function buildApiMessages(messages, freeLiveContext = "") {
         const now = new Date();
         const personalities = {
@@ -10725,6 +10769,7 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
           role: "system",
           content: `${settings.systemPrompt}\n\n${personalities[settings.personality] || personalities.balanced}\n${languageInstruction}\n${currentContext}\n${productKnowledge}\n${practicalAnalysisInstruction}\n${lengthInstruction}\n${voiceInstruction}\n${learningInstruction}${verifiedContext}${memoryContext}`
         }];
+        result[0].content += "\n\n" + productGuideContext();
         const recentMessages = messages
           .filter((message) => !message.streaming && message.content)
           .slice(-8);
