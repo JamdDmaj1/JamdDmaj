@@ -5110,7 +5110,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.38.7";
+      const APP_VERSION = "1.38.8";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -9135,6 +9135,18 @@
         document.getElementById("paperPnl").textContent = formatPaperMoney(paper.realizedPnl || 0, true);
         document.getElementById("paperWinRate").textContent = `${Number(paper.winRate || 0).toFixed(1)}%`;
         document.getElementById("paperDrawdown").textContent = `${Number(paper.maxDrawdownPercent || 0).toFixed(1)}%`;
+        let auditPanel = document.getElementById("paperPerformanceAudit");
+        if (!auditPanel) { auditPanel = document.createElement("p"); auditPanel.id = "paperPerformanceAudit"; document.getElementById("paperPositionList").before(auditPanel); }
+        const audit = paper.performanceAudit;
+        auditPanel.textContent = audit ? `${spanish ? "Diagnóstico neto de cierres conservados" : "Net diagnostics of retained completed trades"}: ${audit.sampleSize} · ${spanish ? "Ganancia media" : "Average win"}: ${formatPaperMoney(audit.averageWin || 0)} · ${spanish ? "Pérdida media" : "Average loss"}: ${formatPaperMoney(audit.averageLoss || 0)} · ${spanish ? "Expectativa por trade" : "Expectancy per trade"}: ${formatPaperMoney(audit.expectancy || 0)} · Profit factor: ${audit.profitFactor === null ? "—" : Number(audit.profitFactor).toFixed(2)}. ${spanish ? "Incluye comisiones estimadas; excluye trades aún abiertos. La muestra puede estar truncada. No garantiza resultados futuros ni cambia la estrategia real." : "Includes estimated fees; excludes still-open trades. The sample may be truncated. No guarantee of future results or change to the live strategy."}` : (spanish ? "Diagnóstico disponible tras la siguiente actualización del simulador. No cambia el bot real." : "Diagnostics available after the next simulator update. Does not change the live bot.");
+        let breakdown = document.getElementById("paperPerformanceBreakdown");
+        if (!breakdown) { breakdown = document.createElement("details"); breakdown.id = "paperPerformanceBreakdown"; auditPanel.after(breakdown); }
+        breakdown.replaceChildren();
+        const breakdownTitle = document.createElement("summary"); breakdownTitle.textContent = spanish ? "Resultados netos por par · muestra conservada" : "Net results by pair · retained sample"; breakdown.append(breakdownTitle);
+        if (audit) {
+          const sampleNote = document.createElement("p"); sampleNote.textContent = audit.sufficientSample ? (spanish ? "La cantidad de cierres no demuestra capacidad predictiva; comprueba también validación fuera de muestra." : "The count of completed trades does not prove predictive ability; also check out-of-sample validation.") : (spanish ? "Menos de 30 trades cerrados: muestra pequeña. No permite concluir qué par funcionará mejor." : "Fewer than 30 completed trades: small sample. Cannot establish which pair will perform best."); breakdown.append(sampleNote);
+          for (const item of (audit.bySymbol || []).slice(0, 50)) { const line = document.createElement("p"); line.textContent = `${item.symbol} · ${item.trades} trades · ${formatPaperMoney(item.netPnl, true)}`; breakdown.append(line); }
+        }
         const list = document.getElementById("paperPositionList");
         list.replaceChildren();
         const positions = [...(paper.open || []), ...(paper.closed || []).slice(0, 12)];
@@ -14979,7 +14991,7 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
     })();
   </script>
   <script type="module" src="fair-launch-ui.js?v=1.37.71"></script>
-  <script type="module" src="wallet-login-ui.js?v=1.38.7"></script>
+  <script type="module" src="wallet-login-ui.js?v=1.38.8"></script>
   <script type="module" src="web-trial-ui.js"></script>
   <script type="module" src="jamd-credit-ui.js"></script>
   <script type="module" src="first-visit-ui.js"></script>

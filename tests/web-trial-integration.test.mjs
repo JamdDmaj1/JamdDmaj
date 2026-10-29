@@ -46,6 +46,8 @@ test("managed chat enforces session, quota and replay protection and refunds pro
     }
     calls++;
     assert.equal(JSON.parse(options.body).stream,false);
+    if(fail === 'timeout') throw new DOMException('sensitive upstream detail','TimeoutError');
+    if(fail === 'empty') return Response.json({choices:[{message:{content:''}}]});
     return fail ? Response.json({error:{message:"failure"}},{status:503}) : Response.json({choices:[{message:{content:"Hello"}}]});
   };
   const request=(id,auth=true)=>new Request("https://www.jamddmaj.com/api/chat",{method:"POST",headers:{"x-jamddmaj-device":"device-1234567890123456",...(auth?{Authorization:`Bearer ${"b".repeat(64)}`}:{})},body:JSON.stringify({messages:[{role:"user",content:"hi"}],trialRequestId:id})});
@@ -55,6 +57,14 @@ test("managed chat enforces session, quota and replay protection and refunds pro
     const success=await chat(request(id));assert.equal(success.status,200);assert.match(await success.text(),/data:.*Hello/);assert.equal(credits,19);
     assert.equal((await chat(request(id))).status,403);assert.equal(calls,1);
     fail=true;assert.equal((await chat(request(crypto.randomUUID()))).status,503);assert.equal(credits,19);
-    credits=0;assert.equal((await chat(request(crypto.randomUUID()))).status,403);assert.equal(calls,2);
+    for(const mode of ['timeout','empty']) {
+      fail=mode;
+      const failed=await chat(request(crypto.randomUUID()));
+      assert.equal(failed.status,503);
+      const body=await failed.json();assert.equal(body.error.code,'trial-provider-unavailable');
+      assert.equal(body.error.stage,mode==='timeout'?'provider':'provider-response');
+      assert.equal(JSON.stringify(body).includes('sensitive'),false);assert.equal(credits,19);
+    }
+    credits=0;assert.equal((await chat(request(crypto.randomUUID()))).status,403);assert.equal(calls,4);
   } finally {globalThis.fetch=originalFetch; for(const key of Object.keys(process.env))if(!(key in env))delete process.env[key];Object.assign(process.env,env);}
 });

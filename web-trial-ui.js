@@ -44,6 +44,7 @@ for (const [language,copy] of Object.entries(trialCopy)) {
 }
 export function managedChatError(code,status,language='en'){
  const es=language==='es';
+ if(code==='trial-provider-unavailable')return es?'El proveedor de IA no completó una respuesta válida. No confirma un problema con tu sesión ni falta de mensajes. Código: CHAT_PROVIDER_UNAVAILABLE.':'The AI provider did not complete a valid response. This does not establish a session or message allowance problem. Code: CHAT_PROVIDER_UNAVAILABLE.';
  if(code==='trial-upstream')return es?'El proveedor de IA rechazó o no completó la respuesta. No es un fallo de acceso de Google. La solicitud fue reembolsada. Código: CHAT_PROVIDER_'+Number(status)+'.':'The AI provider rejected or did not complete the response. This is not a Google access failure. The request was refunded. Code: CHAT_PROVIDER_'+Number(status)+'.';
  if(status===401||code==='trial-login')return es?'Tu sesión de IA venció. Vuelve a iniciar sesión con Google; no necesitas una clave de OpenRouter.':'Your AI session expired. Sign in with Google again; no OpenRouter key is required.';
  if(status===429)return es?'Se alcanzó un límite temporal de solicitudes. Espera un momento antes de reintentar.':'A temporary request limit was reached. Wait briefly before trying again.';

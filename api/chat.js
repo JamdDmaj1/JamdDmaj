@@ -38,7 +38,7 @@ export default async function handler(request) {
     return jsonResponse(request, { error: { message: "No se pudo identificar este dispositivo." } }, 400);
   }
 
-  let trialAccount, trialRequest, reserved = false, creditSource = "";
+  let trialAccount, trialRequest, reserved = false, creditSource = "", stage = "request";
   try {
     const rawBody = await request.text();
     if (new TextEncoder().encode(rawBody).byteLength > MAX_BODY_BYTES) {
@@ -55,12 +55,15 @@ export default async function handler(request) {
       return jsonResponse(request, { error: { message: "No se recibió ningún mensaje válido." } }, 400);
     }
 
+    stage = "usage";
     const usage = await enforceRateLimits(request, deviceId);
+    stage = "session";
     trialAccount = await authenticateTrial(request);
     if (!/^[a-f0-9-]{36}$/.test(input.trialRequestId || "")) {
       return jsonResponse(request, {error:{code:"trial-request"}},400);
     }
     trialRequest = await trialHash(input.trialRequestId);
+    stage = "credits";
     const trial = await consumeTrial(trialAccount, trialRequest);
     if (trial.status === "active") creditSource = "trial";
     else if (["missing","expired","exhausted"].includes(trial.status)) {
@@ -75,6 +78,7 @@ export default async function handler(request) {
       ? configuredModel
       : "openrouter/free";
     const userHash = await hashIdentifier(deviceId);
+    stage = "provider";
     const upstream = await fetch(OPENROUTER_URL, {
       method: "POST",
       headers: {
@@ -112,6 +116,7 @@ export default async function handler(request) {
       } catch {}
       return jsonResponse(request, { error: { code: "trial-upstream" } }, upstream.status, headers);
     }
+    stage = "provider-response";
     const completed = await upstream.json();
     const content = completed.choices?.[0]?.message?.content;
     if (completed.error || typeof content !== "string" || !content.trim()) throw new Error("trial-empty-response");
@@ -129,11 +134,14 @@ export default async function handler(request) {
       try { await refundReservedCredit(creditSource,trialAccount,trialRequest); }
       catch { console.error("trial-refund-reconciliation-required", trialRequest); }
     }
-    const status = Number(error.status) || 500;
+    const providerFailure = stage === "provider" || stage === "provider-response";
+    const status = Number(error.status) || (providerFailure ? 503 : 500);
+    // Fixed stage/status only: never log prompts, tokens, account IDs or upstream bodies.
+    if (status >= 500) console.error("managed-chat-failure", JSON.stringify({stage,status}));
     const message = status === 429
       ? error.message
       : "El acceso automático no está disponible temporalmente.";
-    return jsonResponse(request, { error: { code: status === 401 ? "trial-login" : "trial-unavailable" } }, status);
+    return jsonResponse(request, { error: { code: status === 401 ? "trial-login" : providerFailure ? "trial-provider-unavailable" : "trial-unavailable", stage: status >= 500 ? stage : undefined } }, status);
   }
 }
 

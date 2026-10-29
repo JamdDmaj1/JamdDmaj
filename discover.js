@@ -48,6 +48,10 @@
     safeOneTitle:"Permisos separados",safeOneText:"Google identifica tu cuenta; no importa claves ni activa operaciones.",
     nowText:"Chat IA, Learn, investigación y operaciones reales Solana compatibles. Futuros y automatización requieren mercados compatibles, verificaciones, límites y autorización explícita; tener saldo no los activa."
   });
+  en.walletText="In Assets, open Information and chart on a token to inspect its exact Solana address, indexed market data, pool candles and Jupiter verification status. Missing data stays clearly unavailable; verification is not a safety guarantee.";
+  catalogs.es.walletText="En Activos, abre Información y gráfico en un token para consultar su dirección Solana exacta, datos de mercado, velas del pool y estado de verificación de Jupiter. Los datos ausentes se indican; la verificación no garantiza seguridad.";
+  en.signalDiagnostics="Paper trading diagnostics group partial exits and show net expectancy, mean wins/losses and estimated fees. Historical validation is research only and never changes or activates your real bot.";
+  catalogs.es.signalDiagnostics="El diagnóstico simulado agrupa salidas parciales y muestra expectativa neta, ganancias/pérdidas medias y comisiones estimadas. La validación histórica es investigación: nunca modifica ni activa tu bot real.";
   const supported = Object.keys(catalogs);
   const browserLanguage = String(navigator.language || "en").split("-")[0].toLowerCase();
   let locale = supported.includes(localStorage.getItem("jamddmaj_discover_language"))
