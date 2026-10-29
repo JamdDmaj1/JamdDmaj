@@ -58,6 +58,8 @@
     ? localStorage.getItem("jamddmaj_discover_language")
     : supported.includes(browserLanguage) ? browserLanguage : "en";
   const language = document.getElementById("language");
+  en.marketsText="Explore market lists and trending pairs in a dedicated workspace, without chat overlap. Open a token for research, then return to chat with one button. Public market data is not execution support or a recommendation.";
+  catalogs.es.marketsText="Explora listas de mercados y pares destacados en una vista dedicada, sin el chat superpuesto. Abre un token para investigar y vuelve al chat con un botón. Los datos públicos no garantizan compatibilidad para operar ni son una recomendación.";
   const tour = ["aiTitle", "marketsTitle", "walletTitle", "learnTitle", "launchTitle", "ctaTitle"];
   const tourDescription = ["aiText", "marketsText", "walletText", "learnText", "launchText", "ctaText"];
   let scene = 0;

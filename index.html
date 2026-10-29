@@ -439,6 +439,24 @@
       display: none;
     }
 
+    /* Markets is a workspace, not a short drawer competing with the chat. */
+    .main > .ticker:not(.is-hidden) {
+      flex: 1 1 0;
+      min-height: 0;
+      max-height: none;
+      overscroll-behavior: contain;
+      scrollbar-gutter: stable;
+    }
+    .ticker:not(.is-hidden) ~ .messages,
+    .ticker:not(.is-hidden) ~ .composer-wrap { display: none; }
+    .ticker .market-toolbar > div:first-child { display: grid; gap: 4px; }
+    .ticker .market-toolbar > div:first-child strong { font-size: 1.25rem; letter-spacing: -.025em; }
+    .ticker .market-trending { gap: 16px; margin-top: 18px; }
+    .ticker .market-toolbar-actions { flex-wrap: wrap; }
+    .ticker .trend-panel { padding: 16px; background: linear-gradient(145deg,var(--panel-2),var(--panel-solid)); }
+    .ticker .trend-row { border-radius: 12px; }
+    #backToChatFromMarkets { white-space: nowrap; }
+
     .market-toolbar {
       position: sticky;
       top: -12px;
@@ -3945,6 +3963,7 @@
               </span>
             </button>
             <button class="coin" id="refreshPricesBtn" type="button" aria-live="polite">Refresh <b id="priceTime">loading</b></button>
+            <button class="pill-btn" id="backToChatFromMarkets" type="button">← Back to chat</button>
           </div>
         </div>
         <div class="market-trending" id="marketTrending" aria-live="polite"></div>
@@ -8083,6 +8102,7 @@
         const marketsOpen = !els.ticker.classList.contains("is-hidden");
         els.marketsButton.classList.toggle("active", marketsOpen);
         els.marketsButton.textContent = marketsOpen ? translate("hideMarkets") : translate("markets");
+        document.getElementById("backToChatFromMarkets").textContent = resolvedLanguage() === "es" ? "← Volver al chat" : "← Back to chat";
         els.voiceModeButton.classList.toggle("active", settings.autoSpeak);
         els.voiceModeButton.textContent = settings.autoSpeak ? translate("voiceOn") : translate("voiceOff");
         document.querySelector("#sideVoiceBtn span:last-child").textContent = settings.autoSpeak
@@ -14514,6 +14534,7 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         renderLearnDashboard();
       });
       document.getElementById("marketsBtn").addEventListener("click", toggleMarkets);
+      document.getElementById("backToChatFromMarkets").addEventListener("click", toggleMarkets);
       document.getElementById("scanSignalsBtn").addEventListener("click", () => scanProSignals(true));
       document.getElementById("searchTradeBtn").addEventListener("click", searchTokenTrade);
       document.getElementById("selectChartBtn").addEventListener("click", () => document.getElementById("chartImageInput").click());
