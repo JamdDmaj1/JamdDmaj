@@ -2,6 +2,8 @@
 set -euo pipefail
 # Disposable CI emulator only; no phone, wallet import, login or financial action.
 mkdir -p launch-evidence
+package="${SMOKE_PACKAGE:-com.jamddmaj.ai}"
+if [[ "$package" != 'com.jamddmaj.ai' && "$package" != 'com.jamddmaj.ai.walletpreview' ]]; then exit 2; fi
 report_crash() {
   local detail
   detail="$(head -80 "$1")"
@@ -15,15 +17,15 @@ adb shell svc wifi disable
 adb shell svc data disable
 adb shell getprop ro.build.version.release > launch-evidence/android-version.txt
 for attempt in 1 2 3; do
-  adb shell am force-stop com.jamddmaj.ai
+  adb shell am force-stop "$package"
   adb logcat -c
-  adb shell am start -W -n com.jamddmaj.ai/.MainActivity > "launch-evidence/start-$attempt.txt"
+  adb shell am start -W -n "$package/com.jamddmaj.ai.MainActivity" > "launch-evidence/start-$attempt.txt"
   sleep 12
   adb logcat -d -b crash > "launch-evidence/crash-$attempt.txt"
   adb shell dumpsys activity activities > "launch-evidence/activities-$attempt.txt"
   adb exec-out screencap -p > "launch-evidence/screen-$attempt.png"
-  if ! adb shell pidof com.jamddmaj.ai > "launch-evidence/pid-$attempt.txt"; then
-    echo "::error::Published 1.38.8 terminated on cold launch $attempt"
+  if ! adb shell pidof "$package" > "launch-evidence/pid-$attempt.txt"; then
+    echo "::error::Android app terminated on cold launch $attempt"
     cat "launch-evidence/crash-$attempt.txt"
     report_crash "launch-evidence/crash-$attempt.txt"
     exit 1

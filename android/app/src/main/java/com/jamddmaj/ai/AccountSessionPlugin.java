@@ -1,6 +1,7 @@
 package com.jamddmaj.ai;
 
 import android.net.Uri;
+import android.os.Looper;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
 import android.util.Base64;
@@ -21,7 +22,18 @@ import javax.crypto.spec.GCMParameterSpec;
 public final class AccountSessionPlugin extends Plugin {
     private static final String ALIAS = "jamddmaj.account.session.v1";
     private static final String PREFS = "jamddmaj_account_session";
+    // Capacitor invokes plugin methods on its worker thread. WebView.getUrl()
+    // is UI-thread-only: checking the origin there otherwise kills the process.
+    private void onUiThread(PluginCall call, Runnable action) {
+        android.app.Activity activity = getActivity();
+        if (activity == null) { call.reject("session-activity-unavailable"); return; }
+        activity.runOnUiThread(() -> {
+            try { action.run(); }
+            catch (Exception unavailable) { call.reject("session-access-unavailable"); }
+        });
+    }
     private boolean trusted() {
+        if (Looper.myLooper() != Looper.getMainLooper()) throw new IllegalStateException("session-ui-thread-required");
         Uri page = Uri.parse(getBridge().getWebView().getUrl() == null ? "" : getBridge().getWebView().getUrl());
         return "https".equals(page.getScheme()) && "localhost".equals(page.getHost())
             && page.getPort() == -1 && page.getUserInfo() == null
@@ -35,7 +47,8 @@ public final class AccountSessionPlugin extends Plugin {
             .setBlockModes(KeyProperties.BLOCK_MODE_GCM).setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE).build());
         return generator.generateKey();
     }
-    @PluginMethod public synchronized void save(PluginCall call) {
+    @PluginMethod public void save(PluginCall call) { onUiThread(call, () -> saveOnUiThread(call)); }
+    private synchronized void saveOnUiThread(PluginCall call) {
         if (!trusted()) { call.reject("session-origin-rejected"); return; }
         String token = call.getString("token", "");
         if (!token.matches("^[a-f0-9]{64}$")) { call.reject("session-format-rejected"); return; }
@@ -50,7 +63,8 @@ public final class AccountSessionPlugin extends Plugin {
             call.resolve();
         } catch (Exception unavailable) { call.reject("session-save-unavailable"); }
     }
-    @PluginMethod public synchronized void restore(PluginCall call) {
+    @PluginMethod public void restore(PluginCall call) { onUiThread(call, () -> restoreOnUiThread(call)); }
+    private synchronized void restoreOnUiThread(PluginCall call) {
         if (!trusted()) { call.reject("session-origin-rejected"); return; }
         try {
             android.content.SharedPreferences prefs = getContext().getSharedPreferences(PREFS, 0);
@@ -67,7 +81,8 @@ public final class AccountSessionPlugin extends Plugin {
             result.put("token", token); call.resolve(result);
         } catch (Exception unavailable) { call.reject("session-restore-unavailable"); }
     }
-    @PluginMethod public synchronized void clear(PluginCall call) {
+    @PluginMethod public void clear(PluginCall call) { onUiThread(call, () -> clearOnUiThread(call)); }
+    private synchronized void clearOnUiThread(PluginCall call) {
         if (!trusted()) { call.reject("session-origin-rejected"); return; }
         if (getContext().getSharedPreferences(PREFS, 0).edit().clear().commit()) call.resolve();
         else call.reject("session-clear-unavailable");

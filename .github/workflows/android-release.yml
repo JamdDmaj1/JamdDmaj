@@ -14,8 +14,10 @@ jobs:
     uses: ./.github/workflows/wallet-native-check.yml
   wallet-sdk-verification:
     uses: ./.github/workflows/wallet-sdk-verify.yml
+  launcher-verification:
+    uses: ./.github/workflows/android-launch-smoke.yml
   release:
-    needs: [wallet-native-verification, wallet-sdk-verification]
+    needs: [wallet-native-verification, wallet-sdk-verification, launcher-verification]
     runs-on: ubuntu-latest
     steps:
       - name: Download source
