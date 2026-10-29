@@ -2449,6 +2449,10 @@
       scrollbar-width: thin;
     }
 
+    .chat-activity { margin:0 0 16px; padding:12px 14px; border:1px solid var(--line); border-radius:12px; background:var(--panel-2); font-size:13px; line-height:1.6; }
+    .chat-activity strong { display:block; margin-bottom:6px; }
+    .chat-activity ol { margin:0; padding-left:20px; color:var(--muted); }
+    .chat-activity li:last-child { color:var(--text); }
     .welcome {
       display: grid;
       min-height: 100%;
@@ -6451,6 +6455,7 @@
         placementScores: {}
       });
       let currentChatId = localStorage.getItem(STORAGE.current) || "";
+      const chatActivitySteps = new WeakMap();
       let pendingImages = [];
       let pendingTextFiles = [];
       let imageGenerationMode = false;
@@ -7730,8 +7735,10 @@
 
         const text = document.createElement("div");
         text.className = `message-text${message.streaming ? " typing" : ""}`;
+        text.hidden = Boolean(message.streaming && message.progress && !message.content);
         renderSafeText(text, message.content || (message.streaming ? chatProgressText(message.progress) : ""));
         card.append(text);
+        syncChatActivity(message, card);
         if (!message.streaming && message.navigationTarget) {
           const destination = productGuideEntries().find(entry => entry.id === message.navigationTarget);
           if (destination && document.getElementById(destination.id)) {
@@ -10488,7 +10495,7 @@
           role: "assistant",
           content: "",
           time: new Date().toISOString(),
-          progress: "preparing",
+          progress: "received",
           streaming: true
         };
         chat.messages.push(assistantMessage);
@@ -10936,9 +10943,30 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
 
       function chatProgressText(stage) {
         const es = resolvedLanguage() === "es";
+        if (stage === "received") return es ? "Solicitud recibida…" : "Request received…";
+        if (stage === "display") return es ? "Mostrando respuesta…" : "Displaying answer…";
         return stage === "lookup"
           ? (es ? "Consultando fuentes disponibles…" : "Checking available sources…")
           : (es ? "Preparando respuesta…" : "Preparing response…");
+      }
+
+      function syncChatActivity(message, card) {
+        const existing = card.querySelector(".chat-activity");
+        if (!message.streaming || !message.progress) {
+          existing?.remove();chatActivitySteps.delete(message);return;
+        }
+        const stage = message.content ? "display" : message.progress;
+        const steps = chatActivitySteps.get(message) || [];
+        if (steps[steps.length - 1] !== stage) steps.push(stage);
+        chatActivitySteps.set(message, steps);
+        if (existing?.dataset.stage === stage) return;
+        const panel = document.createElement("section");panel.className="chat-activity";panel.dataset.stage=stage;
+        panel.setAttribute("aria-label",resolvedLanguage()==="es"?"Actividad de la respuesta":"Response activity");
+        panel.setAttribute("role","status");
+        const title = document.createElement("strong");title.textContent=resolvedLanguage()==="es"?"En curso":"In progress";
+        const list = document.createElement("ol");
+        for (const step of steps) { const row=document.createElement("li");row.textContent=chatProgressText(step);list.append(row); }
+        panel.append(title,list);existing?.remove();card.prepend(panel);
       }
 
       // Progressive presentation of visible answer text, not internal reasoning.
@@ -10962,6 +10990,8 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
           return;
         }
         text.classList.toggle("typing", message.streaming);
+        text.hidden = Boolean(message.streaming && message.progress && !message.content);
+        syncChatActivity(message, text.parentElement);
         renderSafeText(text, message.content || chatProgressText(message.progress));
         if (autoFollowStream) scrollToBottom(false);
       }
