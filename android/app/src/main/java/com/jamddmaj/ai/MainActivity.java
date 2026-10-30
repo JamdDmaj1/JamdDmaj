@@ -11,6 +11,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(DevnetWalletPlugin.class);
         registerPlugin(NativeWalletPlugin.class);
         registerPlugin(AccountSessionPlugin.class);
+        registerPlugin(MarketPushPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

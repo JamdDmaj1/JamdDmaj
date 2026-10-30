@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Public client configuration, not a server credential. Release identity only. -->
+<resources>
+    <string name="google_app_id" translatable="false">1:224373038543:android:4a892cc25987b68b74c6ba</string>
+    <string name="gcm_defaultSenderId" translatable="false">224373038543</string>
+    <string name="project_id" translatable="false">jamddmaj-2afc8</string>
+    <string name="google_api_key" translatable="false">AIzaSyAYrtmMmdNgkH-lQ8xLxu2E9tJ8HAqtXdM</string>
+</resources>
+

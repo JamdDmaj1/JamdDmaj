@@ -3,6 +3,8 @@ node_modules/
 *.jks
 *.keystore
 .server-secrets.txt
+**/*firebase-adminsdk*.json
+**/firebase-service-account*.json
 www/
 .npm-cache/
 .perps-build/
