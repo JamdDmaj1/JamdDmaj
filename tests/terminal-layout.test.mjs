@@ -5,14 +5,14 @@ import {setupTerminalLayout} from '../lib/terminal-layout.js';
 for(const language of ['es','en'])test(`finance navigation preserves accounts and hides unfinished features (${language})`,()=>{
   const all=[];
   function node(tag='div'){
-    const n={tag,children:[],attrs:{},style:{},append(...items){this.children.push(...items)},replaceChildren(...items){this.children=items},insertBefore(item){this.children.push(item)},setAttribute(k,v){this.attrs[k]=v},addEventListener(k,v){this[k]=v},focus(){this.focused=true},closest(){return this.section}};
+    const n={tag,children:[],attrs:{},style:{},append(...items){this.children.push(...items)},prepend(...items){this.children.unshift(...items)},replaceChildren(...items){this.children=items},insertBefore(item){this.children.push(item)},setAttribute(k,v){this.attrs[k]=v},addEventListener(k,v){this[k]=v},focus(){this.focused=true},closest(){return this.section}};
     all.push(n);return n;
   }
   const main=node(),heading=node(),intro=node(),search=node(),stats=node(),notice=node(),chart=node(),history=node(),funding=node(),manual=node(),connection=node(),badge=node();
   heading.nextElementSibling=intro;stats.previousElementSibling=notice;manual.nextElementSibling=connection;
   main.querySelector=s=>({'h1':heading,'.stats':stats,'.grid':chart,'.badge':badge}[s]);
   const ids={searchForm:{section:search},history:{section:history},deposit:{section:funding},'manual-review-symbol':{section:manual}};
-  const doc={head:node(),body:node(),querySelector:()=>main,createElement:node,getElementById:id=>ids[id]?{closest:()=>ids[id].section}:null};
+  const doc={head:node(),body:node(),querySelector:()=>main,createElement:node,addEventListener(){},removeEventListener(){},getElementById:id=>ids[id]?{closest:()=>ids[id].section}:null};
   setupTerminalLayout(language,doc);
   const find=id=>all.find(n=>n.id===id),pages=all.filter(n=>n.attrs.role==='tabpanel');
   assert.equal(pages.length,5);

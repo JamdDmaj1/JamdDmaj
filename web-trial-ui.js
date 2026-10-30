@@ -1,4 +1,5 @@
 import {registerPlugin} from '@capacitor/core';
+import {setupMarketSignalAlerts} from './lib/market-signal-alerts.js';
 // Checks the existing session, not a saved profile. Never renews access,
 // returns credentials, clears a token, or grants financial authority.
 export async function inspectGoogleSession({readToken,fetchImpl=globalThis.fetch,apiRoot='',now=Date.now}={}){
@@ -53,6 +54,8 @@ export function managedChatError(code,status,language='en'){
  return es?'La IA no está disponible temporalmente. No necesitas introducir un token personal.':'AI is temporarily unavailable. You do not need to enter a personal token.';
 }
 if (typeof document !== "undefined") {
+  const markets=document.getElementById('marketTrending');
+  if(markets){const host=document.createElement('div');markets.before(host);const alerts=setupMarketSignalAlerts({marketHost:host,language:document.documentElement.lang.split('-')[0],doc:document,win:window});window.addEventListener('pagehide',()=>alerts.dispose(),{once:true});}
   let record = null, paidCredits = 0, failed = false;
   const paidCopy={en:"Recharged credits",es:"Créditos recargados",fr:"Crédits rechargés",de:"Aufgeladene Credits",pt:"Créditos recarregados",it:"Crediti ricaricati",ja:"チャージ済みクレジット",ko:"충전 크레딧",zh:"已充值积分",ar:"الأرصدة المشحونة"};
   const key = "jamdWebTrialSession";
