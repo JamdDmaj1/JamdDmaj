@@ -111,6 +111,8 @@ await build({
 });
 await cp(resolve(root, "lib", "terminal-layout.js"), resolve(output, "lib", "terminal-layout.js"));
 await build({absWorkingDir:root,entryPoints:[resolve(root,'lib/market-signal-alerts.js')],outfile:resolve(output,'lib/market-signal-alerts.js'),bundle:true,format:'esm',platform:'browser',target:['es2020'],legalComments:'none'});
+await build({absWorkingDir:root,entryPoints:[resolve(root,'firebase-messaging-sw.js')],outfile:resolve(output,'firebase-messaging-sw.js'),bundle:true,format:'iife',platform:'browser',target:['es2020'],legalComments:'none'});
+await build({absWorkingDir:root,entryPoints:[resolve(root,'lib/firebase-push-web.js')],outfile:resolve(output,'lib/firebase-push-web.js'),bundle:true,format:'esm',platform:'browser',target:['es2020'],legalComments:'none'});
 await cp(resolve(root, "lib", "first-visit-access.js"), resolve(output, "lib", "first-visit-access.js"));
 await build({absWorkingDir:root,entryPoints:[resolve(root,'first-visit-ui.js')],outfile:resolve(output,'first-visit-ui.js'),bundle:true,format:'esm',platform:'browser',target:['es2020'],legalComments:'none'});
 await cp(resolve(root, "lib", "wallet-receipt-reader.js"), resolve(output, "lib", "wallet-receipt-reader.js"));

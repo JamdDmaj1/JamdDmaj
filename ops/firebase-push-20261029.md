@@ -37,3 +37,19 @@ Do not claim completion or closed-app delivery, do not enable finance/bot.
 Discover HTML/JS/CSS/tour CSS reviewed: internal disabled client integration does
 not alter public availability; existing explicit open-app-only copy retained.
 Private Firebase Admin SDK filename patterns added to gitignore preemptively.
+
+Web client provisioned by user: app ID 1:224373038543:web:7bab7d90aa392e3274c6ba.
+User-supplied public VAPID validates as 65-byte uncompressed P-256 point. Public
+client config shares the project key from provided Android config; Analytics
+measurement ID deliberately omitted. Firebase JS 13.1.0 pinned from npm, actual
+installed Messaging register/onRegistered/unregister FID APIs verified.
+
+Web transport now exports explicit-permission registration/FID, disposal and
+unregistration. No eager initialization or subscription, no local UI claims of
+push activation. Same-origin HTTPS allowlist, bundled Firebase service worker,
+bounded data-only messages, fixed safe notification click destination, no offline
+wallet cache. Worker response configured no-store and root allowed scope.
+Build passes; public config and payload/worker regressions added. No production
+worker registration, FID retrieval, real delivery, server credentials or backend
+enrollment available yet. Need authenticated subscription API + delivery worker
+before exposing activation. Existing local notifications remain open-app only.
