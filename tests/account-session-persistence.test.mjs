@@ -7,11 +7,11 @@ const source=await readFile(new URL('../web-trial-ui.js',import.meta.url),'utf8'
 function client(plugin,initial=''){
  const memory=new Map(initial?[['jamdWebTrialSession',initial]]:[]),events=[];
  const element=()=>({setAttribute(){},replaceChildren(){},append(){},after(){}});
- const context={registerPlugin:()=>plugin,document:{createElement:element,getElementById:element,documentElement:{lang:'en'}},
+ const context={registerPlugin:()=>plugin,setupMarketSignalAlerts:()=>({dispose(){}}),document:{createElement:element,getElementById:id=>id==='marketTrending'?null:element(),documentElement:{lang:'en'}},
   window:{Capacitor:{isNativePlatform:()=>true,getPlatform:()=> 'android'},dispatchEvent:e=>events.push(e.type)},
   sessionStorage:{getItem:k=>memory.get(k)||'',setItem:(k,v)=>memory.set(k,v)},MutationObserver:class{observe(){}},
   fetch:async()=>Response.json({}, {status:503}),location:{protocol:'https:',hostname:'localhost'},Event,Response,Intl,Date,AbortSignal};
- vm.createContext(context);vm.runInContext(source.replace(/^import .*;\r?\n/, '').replaceAll('export ',''),context);
+ vm.createContext(context);vm.runInContext(source.replace(/^import .*;\r?$/gm, '').replaceAll('export ',''),context);
  return {trial:context.window.JamdTrial,events};
 }
 test('native cold start restores an encrypted-plugin session without granting account verification',async()=>{

@@ -13,7 +13,9 @@ function fail(){throw Error('VERCEL_CANDIDATE_UNVERIFIED');}
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
 export function candidateRouting(config){
  if(Object.keys(config).sort().join(',')!=='$schema,buildCommand,headers,outputDirectory'||config.buildCommand!=='npm run build'||config.outputDirectory!=='www'
-  ||config.headers?.length!==2||config.headers[0].source!=='/wallet-web(.*)'||config.headers[1].source!=='/(.*)')fail();
+  ||config.headers?.length!==3||config.headers[0].source!=='/firebase-messaging-sw.js'||config.headers[1].source!=='/wallet-web(.*)'||config.headers[2].source!=='/(.*)')fail();
+ const workerHeaders=Object.fromEntries(config.headers[0].headers.map(row=>[row.key,row.value]));
+ if(workerHeaders['Service-Worker-Allowed']!=='/'||workerHeaders['Cache-Control']!=='no-cache, no-store, must-revalidate'||workerHeaders['Content-Type']!=='application/javascript; charset=utf-8')fail();
  const routes=[...config.headers].reverse().map(rule=>{
   const headers={};for(const row of rule.headers){if(typeof row.key!=='string'||typeof row.value!=='string'||headers[row.key]!==undefined)fail();headers[row.key]=row.value;}
   return {src:rule.source,headers,continue:true};

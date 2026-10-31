@@ -1,0 +1,18 @@
+[Unit]
+Description=JamdDmaj notification dispatch (no trading)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+DynamicUser=yes
+LoadCredential=worker-secret:/etc/jamddmaj-push/worker-secret
+ExecStart=/usr/bin/node /usr/local/libexec/jamddmaj-push-worker.mjs
+TimeoutStartSec=60
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+UMask=0077
+

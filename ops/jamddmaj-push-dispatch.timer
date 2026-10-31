@@ -1,0 +1,11 @@
+[Unit]
+Description=Check JamdDmaj notification subscriptions approximately every minute
+
+[Timer]
+OnBootSec=30
+OnUnitActiveSec=60
+AccuracySec=5
+Unit=jamddmaj-push-dispatch.service
+
+[Install]
+WantedBy=timers.target

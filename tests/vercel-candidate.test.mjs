@@ -6,6 +6,7 @@ test('prebuilt candidate preserves existing security headers without adding sche
  const config=JSON.parse(readFileSync(new URL('../vercel.json',import.meta.url),'utf8')),out=candidateRouting(config);
  assert.equal(out.version,3);assert.equal(out.crons,undefined);assert.equal(out.routes[0].headers['X-Frame-Options'],'DENY');assert.deepEqual(out.routes.at(-1),{handle:'filesystem'});
  assert.equal(out.routes[1].src,'/wallet-web(.*)');assert.equal(out.routes[1].headers['Cache-Control'],'no-store');assert.equal(out.routes[1].headers['Referrer-Policy'],'no-referrer');
+ assert.equal(out.routes[2].src,'/firebase-messaging-sw.js');assert.equal(out.routes[2].headers['Service-Worker-Allowed'],'/');
  for(const extra of [{crons:[{path:'/api/pro-cron'}]},{rewrites:[]},{outputDirectory:'.'},{buildCommand:'npm run unknown'}])assert.throws(()=>candidateRouting({...config,...extra}));
 });
 test('edge runtime variable declarations use names only, preserve runtime lookup and reject dynamic credential enumeration',()=>{

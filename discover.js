@@ -60,8 +60,8 @@
   const language = document.getElementById("language");
   en.marketsText="Explore market lists and trending pairs in a dedicated workspace, without chat overlap. Open a token for research, then return to chat with one button. Public market data is not execution support or a recommendation.";
   catalogs.es.marketsText="Explora listas de mercados y pares destacados en una vista dedicada, sin el chat superpuesto. Abre un token para investigar y vuelve al chat con un botón. Los datos públicos no garantizan compatibilidad para operar ni son una recomendación.";
-  en.marketsText+=" Set on-device USD price alerts; enable published Telegram signal notices in Trade Profile → Notifications. Checks require JamdDmaj open and visible, not closed-app push, and never place trades.";
-  catalogs.es.marketsText+=" Configura alertas locales de precio USD y avisos de señales publicadas en Trade → Perfil → Notificaciones. Requieren JamdDmaj abierto y visible; no son push con la app cerrada ni ejecutan operaciones.";
+  en.marketsText+=" Set USD price alerts in Markets. In Trade Profile → Notifications, enable and save push for this device, then send a test. Server checks run approximately every minute; delivery can be delayed or blocked by device settings. Telegram signal notices require authorized access. Alerts never place trades. Without push enrollment, local checks require the app open and visible.";
+  catalogs.es.marketsText+=" Configura alertas de precio USD en Mercados. En Trade → Perfil → Notificaciones, activa y guarda push para este dispositivo y envía una prueba. El servidor consulta aproximadamente cada minuto; la entrega puede retrasarse o bloquearse por ajustes del dispositivo. Los avisos de señales requieren acceso autorizado. No ejecutan operaciones. Sin registro push, los avisos locales requieren la app abierta y visible.";
   const tour = ["aiTitle", "marketsTitle", "walletTitle", "learnTitle", "launchTitle", "ctaTitle"];
   const tourDescription = ["aiText", "marketsText", "walletText", "learnText", "launchText", "ctaText"];
   let scene = 0;

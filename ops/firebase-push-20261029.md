@@ -53,3 +53,34 @@ Build passes; public config and payload/worker regressions added. No production
 worker registration, FID retrieval, real delivery, server credentials or backend
 enrollment available yet. Need authenticated subscription API + delivery worker
 before exposing activation. Existing local notifications remain open-app only.
+# Server sender progress · 2026-10-30
+
+## Enrollment API progress · 2026-10-31
+
+Added authenticated `api/push-subscriptions.js` and its account-scoped storage
+service. Explicit enrollment validates up to 20 catalog price conditions,
+preserves the existing signal-access restriction, caps accounts at eight devices,
+and uses an atomic Redis operation for target ownership, a per-minute write
+limit and a 30-day expiry. Disable is account-scoped and remains available when
+new enrollment is disabled. Responses never contain delivery targets.
+
+Six sender/enrollment isolated tests pass. The API remains fail-closed without
+both the production enable setting and server credential. It is NOT deployed,
+and client enrollment controls and dispatch scheduling are still pending.
+Discover was reviewed for this internal-only API addition; no public capability
+is announced until production delivery is actually verified.
+
+The locally supplied service-account credential was checked outside the repository:
+project identity and RSA key parsed successfully, and Google OAuth accepted it.
+No access token, private key or registration identifier was printed or committed.
+
+`lib/firebase-push-sender.js` now builds bounded data-only FCM notices, supports
+Android registration tokens and web FIDs, caches short-lived OAuth credentials,
+and sanitizes provider errors. Three isolated tests pass. No real notification
+was sent; the sender is not yet wired to production subscriptions or a scheduler.
+
+Discover HTML, JS, CSS and tour styling were considered for this internal-only
+server module: no shipped feature or public availability changes, so no marketing
+content was changed. Push delivery remains unannounced until enrollment,
+dispatch, deployment and a closed-app receipt check are complete.
+
