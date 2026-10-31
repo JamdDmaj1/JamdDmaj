@@ -48,6 +48,7 @@ for (const asset of assets) {
 await mkdir(resolve(output, ".well-known"), { recursive: true });
 await build({absWorkingDir:root,entryPoints:[resolve(root,'web-trial-ui.js')],outfile:resolve(output,'web-trial-ui.js'),bundle:true,format:'esm',platform:'browser',target:['es2020'],legalComments:'none'});
 await cp(resolve(root, ".well-known", "security.txt"), resolve(output, ".well-known", "security.txt"));
+await build({absWorkingDir:root,entryPoints:[resolve(root,'lib/account-session-client.js')],outfile:resolve(output,'lib/account-session-client.js'),bundle:true,format:'esm',platform:'browser',target:['es2020'],legalComments:'none'});
 
 await build({
   absWorkingDir:root,entryPoints:[resolve(root,'wallet-web-ui.js')],outfile:resolve(output,'wallet-web-ui.js'),bundle:true,format:'esm',platform:'browser',target:['es2022'],legalComments:'none'

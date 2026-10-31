@@ -1,5 +1,6 @@
 import {registerPlugin} from '@capacitor/core';
 import {setupMarketSignalAlerts} from './lib/market-signal-alerts.js';
+import {setupAccountSession} from './lib/account-session-client.js';
 // Checks the existing session, not a saved profile. Never renews access,
 // returns credentials, clears a token, or grants financial authority.
 export async function inspectGoogleSession({readToken,fetchImpl=globalThis.fetch,apiRoot='',now=Date.now}={}){
@@ -63,14 +64,8 @@ if (typeof document !== "undefined") {
   const nativeSession = window.Capacitor?.isNativePlatform?.() && window.Capacitor?.getPlatform?.()==='android'
     ? registerPlugin('AccountSession') : null;
   let accepting = false;
-  const ready = (async()=>{
-    if (!nativeSession || getToken()) return;
-    try {
-      const restored = await nativeSession.restore();
-      // A concurrent fresh Google sign-in always wins over a restored session.
-      if (!accepting && !getToken() && /^[a-f0-9]{64}$/.test(restored?.token||'')) sessionStorage.setItem(key,restored.token);
-    } catch { /* Older installed builds have no plugin. Require Google, not a fake session. */ }
-  })();
+  const accountSession=setupAccountSession({win:window,readToken:getToken,writeToken:token=>sessionStorage.setItem(key,token),nativePlugin:nativeSession,fetchImpl:fetch});
+  const ready=accountSession.ready;
   const panel = document.createElement("section");
   panel.id = "jamdTrialPanel";
   panel.className = "backup-status";
@@ -102,11 +97,11 @@ if (typeof document !== "undefined") {
   }
   window.JamdTrial = {
     getToken, ready, refresh, error:(code,status)=>managedChatError(code,status,language()),
-    sessionStatus:async()=>{await ready;return inspectGoogleSession({readToken:getToken,apiRoot:window.Capacitor?.isNativePlatform?.()?'https://www.jamddmaj.com':''});},
+    sessionStatus:async()=>{await ready;if(!getToken())await accountSession.restore();if(!getToken()&&accountSession.status==='unavailable')return 'unavailable';return inspectGoogleSession({readToken:getToken,apiRoot:window.Capacitor?.isNativePlatform?.()?'https://www.jamddmaj.com':''});},
     async accept(value) {
       if(!/^[a-f0-9]{64}$/.test(value?.token||''))throw Error('session-format-rejected');
       accepting=true;sessionStorage.setItem(key,value.token);record=value.trial;failed=false;render();
-      if(nativeSession)try{await nativeSession.save({token:value.token});}catch{/* Current session remains usable; no plaintext fallback. */}
+      try{await accountSession.save(value.token);}catch{/* Current session remains usable; no plaintext fallback. */}
     }
   };
   ready.then(()=>window.dispatchEvent(new Event('jamd-account-session-ready')));

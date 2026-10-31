@@ -3,11 +3,12 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {readFile} from 'node:fs/promises';
 import {issueTrialSession,authenticateTrial} from '../lib/web-trial-session.js';
+import {setupAccountSession} from '../lib/account-session-client.js';
 const source=await readFile(new URL('../web-trial-ui.js',import.meta.url),'utf8');
 function client(plugin,initial=''){
  const memory=new Map(initial?[['jamdWebTrialSession',initial]]:[]),events=[];
  const element=()=>({setAttribute(){},replaceChildren(){},append(){},after(){}});
- const context={registerPlugin:()=>plugin,setupMarketSignalAlerts:()=>({dispose(){}}),document:{createElement:element,getElementById:id=>id==='marketTrending'?null:element(),documentElement:{lang:'en'}},
+ const context={setupAccountSession,registerPlugin:()=>plugin,setupMarketSignalAlerts:()=>({dispose(){}}),document:{createElement:element,getElementById:id=>id==='marketTrending'?null:element(),documentElement:{lang:'en'}},
   window:{Capacitor:{isNativePlatform:()=>true,getPlatform:()=> 'android'},dispatchEvent:e=>events.push(e.type)},
   sessionStorage:{getItem:k=>memory.get(k)||'',setItem:(k,v)=>memory.set(k,v)},MutationObserver:class{observe(){}},
   fetch:async()=>Response.json({}, {status:503}),location:{protocol:'https:',hostname:'localhost'},Event,Response,Intl,Date,AbortSignal};

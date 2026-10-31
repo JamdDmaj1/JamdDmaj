@@ -1,5 +1,6 @@
 import { corsHeaders, hashIdentifier, jsonResponse, redisRequest } from "../lib/server.js";
 import { issueTrialSession, trialHash } from "../lib/web-trial-session.js";
+import {sameOriginBrowser,sessionCookie} from '../lib/browser-account-session.js';
 
 export const config = { runtime: "edge" };
 
@@ -77,7 +78,7 @@ export default async function handler(request) {
 
     const result = await linkGoogleProfile(input, identity, accountSecret);
     if (result.linked) result.webTrial = await issueTrialSession(await trialHash(`google:${identity.sub}`));
-    return jsonResponse(request, result);
+    return jsonResponse(request, result,200,result.webTrial?.token&&sameOriginBrowser(request)?{'Set-Cookie':sessionCookie(result.webTrial.token,604800)}:{});
   } catch (error) {
     return jsonResponse(request, {
       error: { message: error?.message || "Google sign-in could not be completed." }

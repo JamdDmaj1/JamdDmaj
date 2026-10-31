@@ -37,7 +37,7 @@ public final class AccountSessionPlugin extends Plugin {
         Uri page = Uri.parse(getBridge().getWebView().getUrl() == null ? "" : getBridge().getWebView().getUrl());
         return "https".equals(page.getScheme()) && "localhost".equals(page.getHost())
             && page.getPort() == -1 && page.getUserInfo() == null
-            && ("/".equals(page.getPath()) || "/index.html".equals(page.getPath()));
+            && ("/".equals(page.getPath()) || "/index.html".equals(page.getPath()) || "/private-simulator.html".equals(page.getPath()));
     }
     private SecretKey key() throws Exception {
         KeyStore store = KeyStore.getInstance("AndroidKeyStore"); store.load(null);
