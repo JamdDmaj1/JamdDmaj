@@ -17,3 +17,8 @@ Unit tests and a real Edge browser with synthetic data verified status, saved
 signal/count details, expiry, unsaved changes and read-only refresh. Web build
 passed. Discover HTML/JS updated; CSS and tour CSS reviewed, no layout change
 needed for this settings update. Android APK publication is not claimed here.
+
+Published web source: 98a4ed2; staged candidate checked before promotion.
+Production: dpl_3bm8gGSYtTdSz1R3uZpBJuFDnn2i. Public main bundle,
+Discover HTML/JS and unauthenticated status rejection verified after promotion.
+Full suite: 1,220 passed, 19 skipped, zero failures (1,239 total).
