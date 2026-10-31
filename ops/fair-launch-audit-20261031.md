@@ -50,3 +50,35 @@ Full baseline after recovery changes: 1,225 passed, 19 skipped, zero failures.
 Subsequent fixed-policy validation and signature tests: 77 focused tests passed;
 web build and mobile DOM recovery check passed again. No real wallet was connected
 and no creation, signature, fee payment or deployment was performed by the agent.
+
+## Cost review and end-to-end rehearsal
+
+Prepared 1.38.14: a fresh simulation supplies payer pre/post balances and network
+fee. The review separates the 0.1 test-SOL platform fee, network/priority fee and
+account reserves; explicit consent is required before wallet signing, with a
+45-second lifetime including time in the wallet. A bounded compute budget is
+included before simulation to prevent wallet-side unreviewed fee rewriting.
+
+Live Devnet simulation, without wallet approval or broadcast, passed:
+100,000,000 platform + 10,600 network + 8,595,360 account-reserve lamports =
+108,605,960 lamports estimated debit. This is a fixture-specific estimate, not a
+fixed price or a mainnet quote. No funds moved.
+
+Real browser/actual HTML tested the full pipeline using disposable fixture keys
+and intercepted RPC only: consent, SDK signature, one mocked send, pending state,
+reload, read-only confirmation and persisted local receipt. Separate cases
+passed cancellation before signing, changed-message rejection, storage failure
+before send and uncertain-send recovery. An unavailable/missing signature alone
+never clears an intent. Expiry also requires finalized block-height expiry and
+absence of the unique mint. Terminal receipts are saved before pending removal.
+
+Public readiness endpoint returns only redacted requirement IDs/status, not
+legal/approval references. UI explicitly labels this documentary, not an audit.
+Discover HTML/JS and README updated; styles reviewed for mobile cost-dialog QA.
+Independent audit, legal approval, governance evidence and production launch
+remain incomplete. Publication receipts follow verified deployment only.
+
+Final pre-publication checks: full suite 1,237 passed, 19 skipped, no failures;
+17 focused latest checks passed after cross-tab exclusion was added. Android
+release Java/resources compiled successfully. All three browser rehearsals
+passed again after the final build. No financial transaction was sent.

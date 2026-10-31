@@ -1,6 +1,6 @@
 # JamdDmaj protected launch program
 
-This workspace contains the Devnet-only prototype for JamdDmaj Fair Launch. It is a real Solana/Anchor program, but it has **not been audited, deployed, or approved for Mainnet**.
+This workspace contains the Devnet-only prototype for JamdDmaj Fair Launch. The configured program address was observed executable on Solana Devnet on 2026-10-31. That observation does not independently prove a matching source build. The program has **not been independently audited or approved for Mainnet**.
 
 ## Enforced rules
 

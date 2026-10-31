@@ -6,7 +6,8 @@ import {
   normalizeFairLaunchDraft
 } from "./lib/fair-launch.js";
 import { buildBoostPlan } from "./lib/fair-launch-boost.js";
-import {fairLaunchRecovery,readFairLaunchTransaction} from './lib/fair-launch-transaction.js';
+import {fairLaunchRecovery,readFairLaunchTransaction,fairLaunchExclusive} from './lib/fair-launch-transaction.js';
+import {formatTestSol} from './lib/fair-launch-costs.js';
 import { verifyFairLaunchOnDevnet } from "./lib/fair-launch-devnet-verifier.js";
 import { fairLaunchText, resolveFairLaunchLocale } from "./lib/fair-launch-locales.js";
 import { fairLaunchVerifierText } from "./lib/fair-launch-verifier-locales.js";
@@ -85,17 +86,56 @@ const VERIFIER_LABEL_KEYS = Object.freeze({
   const recoveryPanel=document.createElement('section'),recoveryText=document.createElement('p'),recoverButton=document.createElement('button');
   recoveryPanel.className='fair-launch-card';recoveryText.setAttribute('role','status');recoverButton.type='button';
   recoveryPanel.append(recoveryText,recoverButton);document.getElementById('fairDevnetStatus')?.after(recoveryPanel);
+  const receiptPanel=document.createElement('details'),receiptTitle=document.createElement('summary'),receiptList=document.createElement('div');receiptPanel.className='fair-launch-card';receiptPanel.append(receiptTitle,receiptList);recoveryPanel.after(receiptPanel);
+  function renderReceipts(){const es=locale==='es';receiptTitle.textContent=es?'Mis pruebas de Devnet · historial local':'My Devnet tests · local history';receiptList.replaceChildren();
+   try{for(const r of recovery.receipts().reverse()){const row=document.createElement('p'),link=document.createElement('a');row.textContent=`${r.kind} · ${r.state} · ${new Date(r.observedAt).toLocaleString(locale)} · `;link.textContent=es?'Ver transacción':'View transaction';link.href=`https://explorer.solana.com/tx/${encodeURIComponent(r.signature)}?cluster=devnet`;link.target='_blank';link.rel='noopener noreferrer';row.append(link);receiptList.append(row);}
+    if(!receiptList.children.length)receiptList.textContent=es?'Sin resultados registrados en este dispositivo.':'No results recorded on this device.';
+   }catch{receiptList.textContent=es?'No se pudo leer el historial local.':'Local history could not be read.';}
+  }
+  renderReceipts();
   function pendingLaunch(){try{return recovery.read();}catch{recoveryError=true;return {invalid:true};}}
   function renderRecovery(){const r=pendingLaunch();recoveryPanel.hidden=!r;const es=locale==='es';recoverButton.textContent=es?'Consultar resultado pendiente':'Check pending result';recoverButton.disabled=recoveryError;recoveryText.textContent=r?.invalid?(es?'No se pudo leer el registro pendiente. No repitas la creación.':'Pending record could not be read. Do not repeat creation.'):(es?'Hay una operación de Devnet pendiente. Consultar no firma ni reenvía.':'A Devnet operation is pending. Checking does not sign or resend.');}
   async function checkPendingLaunch(){const r=pendingLaunch();if(!r||r.invalid)return;recoverButton.disabled=true;
-   try{const result=await readFairLaunchTransaction(r.signature);if(result.state==='pending'){renderRecovery();return;}
-    recovery.clear(r.signature);renderRecovery();const status=document.getElementById('fairDevnetStatus');
+   try{const result=await readFairLaunchTransaction(r.signature,{lastValidBlockHeight:r.lastValidBlockHeight,mintAddress:r.mintAddress});if(result.state==='pending'){renderRecovery();return;}
+    recovery.finish(r.signature,result.state);renderRecovery();renderReceipts();const status=document.getElementById('fairDevnetStatus');
     status.textContent=locale==='es'?(result.state==='confirmed'?'Operación confirmada en Devnet. Verifica la política y los bloqueos antes de continuar.':'La red confirmó el fallo. No se reintentó automáticamente.'):(result.state==='confirmed'?'Operation confirmed on Devnet. Verify policy and locks before continuing.':'The network confirmed failure. No automatic retry was made.');
+    if(result.state==='expired')status.textContent=locale==='es'?'El plazo venció en la red finalizada y el mint no existe. Puedes preparar otra revisión; no se reenvió nada.':'Finalized blockhash lifetime expired and the mint is absent. You can prepare a new review; nothing was resent.';
     if(result.state==='confirmed'){document.getElementById('fairVerifyMint').value=r.mintAddress;document.getElementById('fairVerifyPolicy').value=r.policyAddress;}
     updateDevnetReadiness(true);
    }catch{recoveryText.textContent=locale==='es'?'No se pudo consultar. Conservamos el registro; no repitas la operación.':'Status unavailable. The pending record is preserved; do not repeat the operation.';}finally{recoverButton.disabled=recoveryError;}
   }
   recoverButton.onclick=checkPendingLaunch;renderRecovery();
+  const releasePanel=document.createElement('details'),releaseTitle=document.createElement('summary'),releaseStatus=document.createElement('p'),releaseChecks=document.createElement('ul'),releaseRefresh=document.createElement('button');
+  releasePanel.className='fair-launch-card';releasePanel.append(releaseTitle,releaseStatus,releaseChecks,releaseRefresh);launchView.querySelector('.fair-launch-shell')?.append(releasePanel);
+  releaseRefresh.type='button';
+  async function refreshReleaseReadiness(){
+    const es=locale==='es';releaseTitle.textContent=es?'Qué falta para Mainnet':'What remains before Mainnet';releaseRefresh.textContent=es?'Consultar requisitos':'Check requirements';releaseRefresh.disabled=true;
+    releaseStatus.textContent=es?'Consultando requisitos documentados…':'Checking documented requirements…';
+    const labels={independentAudit:es?'Auditoría independiente':'Independent audit',legalReview:es?'Revisión legal':'Legal review',devnetAdversarialRehearsal:es?'Evidencia de pruebas adversariales':'Adversarial rehearsal evidence',verifiableBuild:es?'Compilación verificada independientemente':'Independently verified build',upgradeAuthorityMultisig:es?'Multifirma y timelock':'Multisig and timelock',incidentResponse:es?'Respuesta a incidentes':'Incident response',ownerApproval:es?'Aprobación final del propietario':'Final owner approval'};
+    try{const root=window.Capacitor?.isNativePlatform?.()?'https://www.jamddmaj.com':'';const r=await fetch(root+'/api/fair-launch-status',{cache:'no-store',redirect:'error',signal:AbortSignal.timeout(10000)});if(!r.ok)throw Error();const data=await r.json();if(data.documentaryOnly!==true||data.total!==7||!Array.isArray(data.requirements)||data.requirements.length!==7)throw Error();releaseChecks.replaceChildren();
+      for(const item of data.requirements){if(!labels[item.id]||!['recorded','missing','invalid'].includes(item.status))throw Error();const li=document.createElement('li');li.textContent=labels[item.id]+': '+(item.status==='recorded'?(es?'documentado, no certificación':'recorded, not certification'):(es?'pendiente':'pending'));releaseChecks.append(li);}
+      releaseStatus.textContent=(es?`${data.completed} de 7 requisitos documentados. `:`${data.completed} of 7 requirements recorded. `)+(es?'Este resumen no verifica una auditoría ni autoriza fondos reales. Mainnet no se activa desde aquí.':'This summary does not verify an audit or authorize real funds. Mainnet cannot be enabled here.');
+    }catch{releaseStatus.textContent=es?'Estado de requisitos no disponible. No implica que Mainnet esté listo.':'Requirements status unavailable. This does not mean Mainnet is ready.';}finally{releaseRefresh.disabled=false;}
+  }
+  releaseRefresh.onclick=refreshReleaseReadiness;void refreshReleaseReadiness();
+  function reviewDevnetCosts(review){
+    return new Promise(resolve=>{
+      const es=locale==='es',dialog=document.createElement('dialog');
+      if(typeof dialog.showModal!=='function'){resolve(false);return;}
+      dialog.className='fair-cost-review';dialog.setAttribute('aria-label',es?'Revisar coste de prueba':'Review test cost');
+      const heading=document.createElement('h2');heading.textContent=es?'Revisa antes de abrir la wallet':'Review before opening your wallet';dialog.append(heading);
+      const lines=[es?'Solana Devnet · solo SOL de prueba, sin valor real':'Solana Devnet · valueless test SOL only',review.owner,
+        `${es?'Comisión de JamdDmaj':'JamdDmaj fee'}: ${formatTestSol(review.platformFeeLamports)} SOL`,
+        `${es?'Red':'Network'}: ${formatTestSol(review.networkFeeLamports)} SOL`,
+        `${es?'Reservas de cuentas':'Account reserves'}: ${formatTestSol(review.accountReservesLamports)} SOL`,
+        `${es?'Total estimado':'Estimated total'}: ${formatTestSol(review.estimatedTotalLamports)} SOL`,
+        es?'Estimación de la simulación. La revisión vence en 45 segundos, incluyendo el tiempo en la wallet. No crea liquidez real ni activa Mainnet.':'Simulation estimate. Review expires in 45 seconds including time in the wallet. Does not create real liquidity or activate Mainnet.'];
+      for(const text of lines){const p=document.createElement('p');p.textContent=text;dialog.append(p);}
+      const cancel=document.createElement('button'),approve=document.createElement('button');cancel.type=approve.type='button';cancel.textContent=es?'Cancelar':'Cancel';approve.textContent=es?'Acepto el coste · abrir wallet':'Accept cost · open wallet';dialog.append(cancel,approve);document.body.append(dialog);
+      let done=false;const finish=approved=>{if(done)return;done=true;clearTimeout(timer);dialog.close();dialog.remove();resolve(approved&&Date.now()<review.expiresAt);};
+      const timer=setTimeout(()=>finish(false),Math.max(1,review.expiresAt-Date.now()));cancel.onclick=()=>finish(false);approve.onclick=()=>finish(true);dialog.addEventListener('cancel',e=>{e.preventDefault();finish(false);});dialog.addEventListener('close',()=>finish(false));dialog.showModal();
+    });
+  }
   const stepPanels = [...form.querySelectorAll("[data-fair-step]")];
   const stepButtons = [...form.querySelectorAll("[data-fair-step-target]")];
 
@@ -162,9 +202,10 @@ const VERIFIER_LABEL_KEYS = Object.freeze({
   connectWalletButton?.addEventListener("click", connectSelectedWallet);
   disconnectWalletButton?.addEventListener("click", disconnectWallet);
   copyWalletButton?.addEventListener("click", copyWalletAddress);
-  createDevnetButton?.addEventListener("click", createDevnetToken);
+  async function exclusiveLaunch(task){try{await fairLaunchExclusive(navigator.locks,task);}catch(error){const es=locale==='es';document.getElementById('fairDevnetStatus').textContent=error.message==='FAIR_OPERATION_BUSY'?(es?'Ya hay una revisión abierta en otra pestaña. Termínala antes de continuar.':'A review is already open in another tab. Finish it before continuing.'):(es?'Este navegador no pudo asegurar una revisión exclusiva. No se abrió la wallet ni se envió nada.':'This browser could not secure an exclusive review. The wallet was not opened and nothing was sent.');}}
+  createDevnetButton?.addEventListener("click", ()=>exclusiveLaunch(createDevnetToken));
   verifyDevnetButton?.addEventListener("click", verifyPublicDevnetPolicy);
-  testLiquidityButton?.addEventListener("click", createDevnetLiquidityRehearsal);
+  testLiquidityButton?.addEventListener("click", ()=>exclusiveLaunch(createDevnetLiquidityRehearsal));
   devnetConfirm?.addEventListener("change", () => updateDevnetReadiness());
   document.getElementById("fairPrevStepBtn")?.addEventListener("click", () => showStep(currentStep - 1));
   document.getElementById("fairNextStepBtn")?.addEventListener("click", () => {
@@ -752,10 +793,10 @@ const VERIFIER_LABEL_KEYS = Object.freeze({
     status.textContent = ui("preparing");
     resultBox.hidden = true;
     try {
-      const result = await createFixedSupplyTokenOnDevnet({ config, wallet: connectedWallet, account: connectedAccount,onSigned:record=>{recovery.save(record);renderRecovery();} });
+      const result = await createFixedSupplyTokenOnDevnet({ config, wallet: connectedWallet, account: connectedAccount,onReview:reviewDevnetCosts,onSigned:record=>{recovery.save(record);renderRecovery();} });
       const confirmation=await readFairLaunchTransaction(result.signature);
       if(confirmation.state==='pending'){renderRecovery();return;}
-      recovery.clear(result.signature);renderRecovery();
+      recovery.finish(result.signature,confirmation.state);renderRecovery();renderReceipts();
       if(confirmation.state==='failed')throw Error('FAIR_NETWORK_FAILED');
       const mintUrl = `https://explorer.solana.com/address/${encodeURIComponent(result.mintAddress)}?cluster=devnet`;
       const transactionUrl = `https://explorer.solana.com/tx/${encodeURIComponent(result.signature)}?cluster=devnet`;
@@ -823,11 +864,12 @@ const VERIFIER_LABEL_KEYS = Object.freeze({
         policyAddress: liquidityCandidatePolicy,
         wallet: connectedWallet,
         account: connectedAccount,
-        onSigned:record=>{recovery.save(record);renderRecovery();}
+        onSigned:record=>{recovery.save(record);renderRecovery();},
+        onReview:reviewDevnetCosts
       });
       const confirmation=await readFairLaunchTransaction(rehearsal.signature);
       if(confirmation.state==='pending'){renderRecovery();return;}
-      recovery.clear(rehearsal.signature);renderRecovery();
+      recovery.finish(rehearsal.signature,confirmation.state);renderRecovery();renderReceipts();
       if(confirmation.state==='failed')throw Error('FAIR_NETWORK_FAILED');
       const lockLink = document.createElement("a");
       lockLink.href = `https://explorer.solana.com/address/${encodeURIComponent(rehearsal.liquidityLockAddress)}?cluster=devnet`;
