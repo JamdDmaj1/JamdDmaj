@@ -55,3 +55,13 @@ webVersion and latestVersion now report 1.38.12. User subsequently reported
 test scheduling succeeded. Closed-tab/system notification receipt still awaits
 the user's report. Worker logs now include only aggregate processed/accepted
 counts, never targets, accounts, message content or provider credentials.
+
+## Closed-tab receipt confirmed by user
+
+User answered "si ya llego" to the explicit question asking whether the system
+notification titled JamdDmaj arrived after closing the JamdDmaj tab and waiting.
+This confirms real end-to-end delivery in Brave with the web tab closed.
+It does not establish receipt on the user's Android handset: the Android APK is
+published, signature-verified and passed native/emulator gates, but its hardware
+push receipt must not be represented as tested. Price/signal trigger selection
+has isolated tests; the receipt check used the explicitly requested test notice.
