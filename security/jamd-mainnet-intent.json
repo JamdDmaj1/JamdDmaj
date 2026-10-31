@@ -3,18 +3,19 @@
   "status": "tokenomics-approved-preparation-only",
   "network": "solana-mainnet-beta",
   "mainnetEnabled": false,
-  "configurationConfirmedOn": "2026-09-06",
+  "configurationConfirmedOn": "2026-10-31",
+  "supersedesConfigurationDate": "2026-09-06",
   "intendedOperatingJurisdiction": {
     "city": "Miami",
     "state": "Florida",
     "country": "United States"
   },
   "token": {
-    "name": "Jamd",
+    "name": "JamdDmaj",
     "symbol": "JAMD",
-    "totalSupply": "1000000000",
+    "totalSupply": "100000000",
     "fixedSupply": true,
-    "decimals": 9,
+    "decimals": 6,
     "mintAddress": null
   },
   "protections": {
@@ -28,22 +29,31 @@
     "independentAuditRequired": true
   },
   "allocation": [
-    { "category": "community", "percent": 40, "tokens": "400000000", "lockedBps": 9000 },
-    { "category": "treasury", "percent": 25, "tokens": "250000000", "lockedBps": 9000 },
-    { "category": "team", "percent": 15, "tokens": "150000000", "lockedBps": 10000 },
-    { "category": "ecosystem", "percent": 15, "tokens": "150000000", "lockedBps": 9000 },
-    { "category": "liquidity", "percent": 5, "tokens": "50000000", "lockedBps": 0 }
+    { "category": "community", "percent": 35, "tokens": "35000000", "distributionMonths": 60, "distributionBasis": "verified-use-not-artificial-volume" },
+    { "category": "liquidity", "percent": 25, "tokens": "25000000", "purpose": "reserve-for-pools-not-all-deposited-at-launch" },
+    { "category": "treasury", "percent": 20, "tokens": "20000000", "distributionBasis": "public-milestones-multisig" },
+    { "category": "team", "percent": 15, "tokens": "15000000", "plannedLockedBps": 10000 },
+    { "category": "partnerships", "percent": 5, "tokens": "5000000", "distributionBasis": "public-milestones-multisig" }
   ],
-  "initialLockedTokens": "870000000",
-  "initialLockedPercent": 87,
+  "allocationStatus": "plan-only-not-distributed-or-enforced",
+  "initialLockedTokens": null,
+  "initialLockedPercent": null,
   "vesting": {
     "cliffCalendarMonths": 24,
     "releaseCalendarMonths": 36,
     "releaseFrequency": "monthly"
   },
+  "teamVestingAllocationTokens": "15000000",
+  "implementationCompatibility": {
+    "existingDevnetFlowExecutesThisDistribution": false,
+    "reason": "Existing creation locks a creator allocation; it does not create the five distribution vaults or enforce these milestone schedules."
+  },
   "beneficiaries": null,
-  "liquidityBudget": null,
-  "liquidityPair": null,
+  "liquidityBudget": { "token": "USDC", "amount": "1000", "networkCostsIncluded": false, "funded": false },
+  "liquidityPair": "JAMD/USDC",
+  "initialPoolJamdTokens": "1000000",
+  "initialPriceUsdc": "0.001",
+  "poolStatus": "planning-only-not-created",
   "liquidityLockEvidence": null,
   "eligibilityEvidence": null,
   "legalReviewEvidence": null,

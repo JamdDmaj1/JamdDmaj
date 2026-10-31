@@ -138,3 +138,19 @@ identity documents in chat, mark these gates approved, or request deposits.
 Overall completion remains unproven. No mainnet activation or transaction is
 authorized by this audit. Further approval-gate work needs external evidence;
 cosmetic changes would not resolve these blockers.
+
+## Revised JAMD plan requested by owner
+
+The 2026-10-31 plan supersedes the old billion-token draft: 100 million JAMD,
+six decimals, allocation 35% community / 25% liquidity reserve / 20% treasury /
+15% team / 5% partnerships. Initial pool planning uses one million JAMD and
+1,000 USDC, giving 0.001 USDC/JAMD and leaving 24 million JAMD in the liquidity
+allocation. This is not funding, deployment, an enforced vesting schedule or
+permission to sign. No price or return is guaranteed.
+
+The offline pool planner checks exact base-unit arithmetic, reserve bounds,
+precision and price consistency. Tests pass, including rejection cases. Existing
+Devnet creation does not implement the five distribution vaults; that mismatch
+is recorded rather than silently using its old creator-allocation flow.
+Discover HTML/JS/CSS/tour were reviewed: this internal unexecuted plan does not
+justify advertising a launched token or a live pool. No web publication needed.
