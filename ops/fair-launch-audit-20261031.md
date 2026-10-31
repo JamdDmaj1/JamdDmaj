@@ -163,3 +163,12 @@ tests passed, including unchanged creation behavior. This is one distribution
 component, not all five vaults or a live pool. Beneficiaries remain unspecified;
 no Phantom or bot account is silently assigned to treasury or team control.
 Discover reviewed: internal-only preparation, no new public availability claim.
+
+Owner explicitly confirmed Phantom 4WMnKm3KvLEHiw8tVFTynka8jBYvwekM2BpZz9iyyBjr
+as the single administrator of the JAMD plan. Recorded as a project-specific
+design change, not multisig or on-chain assignment. The general platform's
+multisig policy/readiness was not weakened or marked approved. Compatibility
+still requires implementation review. Fixed supply, vesting, LP locks and
+transaction consent are not overridden; the bot wallet is not assigned control.
+No ownership challenge was signed and no beneficiary funds were transferred.
+Discover review: no public update for unexecuted internal administration intent.

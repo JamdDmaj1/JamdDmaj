@@ -45,6 +45,14 @@ test("approved Jamd tokenomics remain preparation-only and cannot authorize main
   assert.equal(draft.vesting.cliffCalendarMonths,24);
   assert.equal(draft.vesting.releaseCalendarMonths,36);
   assert.equal(draft.transactionApproval, null);
+  assert.equal(draft.administration.wallet,'4WMnKm3KvLEHiw8tVFTynka8jBYvwekM2BpZz9iyyBjr');
+  assert.equal(draft.administration.model,'single-owner');
+  assert.equal(draft.administration.onchainAuthorityAssigned,false);
+  assert.equal(draft.administration.ownershipProofVerified,false);
+  assert.equal(draft.administration.controlsBotWallet,false);
+  assert.equal(draft.protections.multisigAndTimelockRequired,false);
+  assert.equal(draft.protections.timelockRequired,true);
+  assert.match(draft.administration.riskDisclosure,/not multisig/);
   assert.equal(draft.protections.minimumLockedBps, 8500);
   assert.equal(draft.protections.protectedParticipantSlots, 2000);
   assert.equal(draft.protections.minimumCliffCalendarMonths, 24);

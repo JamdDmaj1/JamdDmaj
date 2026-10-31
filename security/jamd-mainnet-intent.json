@@ -25,15 +25,16 @@
     "gradualReleaseRequired": true,
     "mintAuthorityRevokedRequired": true,
     "freezeAuthorityDisabledRequired": true,
-    "multisigAndTimelockRequired": true,
+    "multisigAndTimelockRequired": false,
+    "timelockRequired": true,
     "independentAuditRequired": true
   },
   "allocation": [
     { "category": "community", "percent": 35, "tokens": "35000000", "distributionMonths": 60, "distributionBasis": "verified-use-not-artificial-volume" },
     { "category": "liquidity", "percent": 25, "tokens": "25000000", "purpose": "reserve-for-pools-not-all-deposited-at-launch" },
-    { "category": "treasury", "percent": 20, "tokens": "20000000", "distributionBasis": "public-milestones-multisig" },
+    { "category": "treasury", "percent": 20, "tokens": "20000000", "distributionBasis": "public-milestones-single-owner" },
     { "category": "team", "percent": 15, "tokens": "15000000", "plannedLockedBps": 10000 },
-    { "category": "partnerships", "percent": 5, "tokens": "5000000", "distributionBasis": "public-milestones-multisig" }
+    { "category": "partnerships", "percent": 5, "tokens": "5000000", "distributionBasis": "public-milestones-single-owner" }
   ],
   "allocationStatus": "plan-only-not-distributed-or-enforced",
   "initialLockedTokens": null,
@@ -44,6 +45,18 @@
     "releaseFrequency": "monthly"
   },
   "teamVestingAllocationTokens": "15000000",
+  "administration": {
+    "model": "single-owner",
+    "wallet": "4WMnKm3KvLEHiw8tVFTynka8jBYvwekM2BpZz9iyyBjr",
+    "walletType": "external-phantom",
+    "confirmedOn": "2026-10-31",
+    "onchainAuthorityAssigned": false,
+    "ownershipProofVerified": false,
+    "controlsBotWallet": false,
+    "riskDisclosure": "One wallet controls administration; loss or compromise of its key is a single point of failure. This is not multisig governance.",
+    "doesNotOverride": ["fixed-supply", "team-vesting", "liquidity-lock", "transaction-review"],
+    "platformPolicyCompatibility": "requires-explicit-implementation-review-not-approved"
+  },
   "implementationCompatibility": {
     "existingDevnetFlowExecutesThisDistribution": false,
     "reason": "Existing creation locks a creator allocation; it does not create the five distribution vaults or enforce these milestone schedules."
