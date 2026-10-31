@@ -1,7 +1,6 @@
 import {authenticateTrial} from '../lib/web-trial-session.js';
 import {corsHeaders,jsonResponse,redisRequest,hashIdentifier} from '../lib/server.js';
 import {pushSubscriptions} from '../lib/push-subscriptions.js';
-import {serverPushSender} from '../lib/firebase-push-server.js';
 async function handler(request){
  if(request.method==='OPTIONS')return new Response(null,{status:204,headers:corsHeaders(request)});
  if(!['GET','POST'].includes(request.method))return jsonResponse(request,{code:'METHOD_NOT_ALLOWED'},405);
@@ -23,8 +22,10 @@ async function handler(request){
    const r=await redisRequest('pipeline',[['GET','jamd:push:device:'+id],['SET','jamd:push:test:'+id,'1','NX','EX',60]]);
    if(r.some(x=>x.error))throw Error();if(r[1]?.result!=='OK')return jsonResponse(request,{code:'PUSH_RATE_LIMIT'},429);
    const record=JSON.parse(r[0]?.result||'null');if(!record||record.expiresAt<=Date.now())return jsonResponse(request,{code:'PUSH_NOT_REGISTERED'},409);
-   const result=await serverPushSender().send({transport:record.transport,target:record.target,kind:'test',body:'JamdDmaj · Notificaciones conectadas / Notifications connected',eventId:await hashIdentifier(id+':test:'+Date.now())});
-   return jsonResponse(request,{accepted:result.accepted},result.accepted?200:503);
+   const scheduledAt=Date.now()+15000;
+   const queued=await redisRequest('pipeline',[['SET','jamd:push:test-due:'+id,String(scheduledAt),'EX',180],['ZADD','jamd:push:index',scheduledAt,id]]);
+   if(queued.some(x=>x.error)||queued[0]?.result!=='OK')throw Error();
+   return jsonResponse(request,{scheduled:true,scheduledAt});
   }
   if(input.action!=='save')return jsonResponse(request,{code:'PUSH_ACTION'},400);
   if(!configured)return jsonResponse(request,{code:'PUSH_NOT_READY'},503);

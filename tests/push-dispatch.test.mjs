@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 import {pushDispatcher} from '../lib/push-dispatch.js';
 const id='a'.repeat(32),now=1793455000000;
 function fixture(options={}){
- const {signals=[],recordChanges={}}=options,price=Object.hasOwn(options,'price')?options.price:11;
+ const {signals=[],recordChanges={},testAt=null}=options,price=Object.hasOwn(options,'price')?options.price:11;
  const record={id,account:'b'.repeat(64),transport:'android-token',target:'test_delivery_token_12345',expiresAt:now+100000,signalSince:now-10000,preferences:{signals:true,alerts:[{id:'price_alert_123',coin:'bitcoin',direction:'above',target:10}]},...recordChanges};
  const sent=new Map(),calls=[];
  const storage=async(path,commands)=>commands.map(c=>{
-  let result='OK';if(c[0]==='ZRANGEBYSCORE')result=[id];else if(c[0]==='GET')result=JSON.stringify(record);
+  let result='OK';if(c[0]==='ZRANGEBYSCORE')result=[id];else if(c[0]==='GET')result=c[1].includes(':test-due:')?testAt:JSON.stringify(record);
   else if(c[0]==='SET'&&c[1].startsWith('jamd:push:sent:')){if(c.includes('NX')&&sent.has(c[1]))result=null;else sent.set(c[1],c[2]);}
   return {result};
  });
@@ -29,4 +29,8 @@ test('only newly published authorized signal preferences generate notices',async
  const signals=[{id:'published',status:'OPEN',pair:'BTCUSDT',side:'LONG',entry:100,telegramMessageId:123,telegramSentAt:new Date(now-1000).toISOString()}];
  const f=fixture({price:1,signals});await f.dispatch();assert.equal(f.calls.length,1);assert.equal(f.calls[0].kind,'signal');
  const disabled=fixture({price:1,signals,recordChanges:{preferences:{signals:false,alerts:[]}}});await disabled.dispatch();assert.equal(disabled.calls.length,0);
+});
+test('scheduled test waits until due and is deduplicated',async()=>{
+ const early=fixture({price:1,testAt:String(now+15000)});await early.dispatch();assert.equal(early.calls.length,0);
+ const due=fixture({price:1,testAt:String(now-15000)});await due.dispatch();await due.dispatch();assert.equal(due.calls.length,1);assert.equal(due.calls[0].kind,'test');
 });
