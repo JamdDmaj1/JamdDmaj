@@ -182,3 +182,11 @@ shortened cliff, insufficient source and duplicate vault. Account checks do not
 replace simulation or authorization and do not deploy distribution/pool logic.
 Discover HTML/JS/CSS/tour reviewed: no shipped UI feature added by this internal
 check, so no public availability wording changed.
+
+Integrated explicit JAMD identity template into Fair Launch's existing form:
+name/symbol/100-million supply/six decimals, without overwriting unrelated fields.
+The notice distinguishes Devnet creation from the unimplemented distribution and
+pool. Existing user drafts are not silently migrated. Two focused tests and web
+build passed. Discover HTML includes matching non-issued-token wording;
+Discover JS/CSS/tour reviewed, no style/navigation change needed. This change is
+prepared locally, not a verified production publication or mainnet enablement.

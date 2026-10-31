@@ -6,6 +6,7 @@ import {
   normalizeFairLaunchDraft
 } from "./lib/fair-launch.js";
 import { buildBoostPlan } from "./lib/fair-launch-boost.js";
+import {applyJamdTokenPreset} from './lib/jamd-token-preset.js';
 import {fairLaunchRecovery,readFairLaunchTransaction,fairLaunchExclusive} from './lib/fair-launch-transaction.js';
 import {formatTestSol} from './lib/fair-launch-costs.js';
 import { verifyFairLaunchOnDevnet } from "./lib/fair-launch-devnet-verifier.js";
@@ -193,6 +194,18 @@ const VERIFIER_LABEL_KEYS = Object.freeze({
   const savedDraft = loadDraft();
   populateForm(savedDraft);
   populateBoostPlan(savedDraft.boost);
+  const presetButton=document.getElementById('fairJamdPresetBtn');
+  const presetNote=document.getElementById('fairJamdPresetNote');
+  function labelJamdPreset(){
+    if(presetButton)presetButton.textContent=locale==='es'?'Usar JAMD · 100 millones':'Use JAMD · 100 million';
+    if(presetNote)presetNote.textContent=locale==='es'?'Plantilla de nombre y suministro. No configura la distribución, el administrador ni el pool JAMD/USDC. La creación disponible sigue siendo una prueba en Devnet.':'Name and supply template. Does not configure distribution, administrator or the JAMD/USDC pool. Available creation remains a Devnet test.';
+  }
+  labelJamdPreset();
+  presetButton?.addEventListener('click',()=>{
+    if(pendingLaunch()||document.getElementById('fairDevnetStatus')?.dataset.running==='true')return;
+    populateForm(applyJamdTokenPreset(readForm()));
+    updatePlan(false);showStep(0);presetNote.hidden=false;
+  });
   updatePlan(false);
   refreshWalletOptions();
   refreshProtectionProgramStatus();
@@ -218,6 +231,7 @@ const VERIFIER_LABEL_KEYS = Object.freeze({
   window.addEventListener("jamddmaj:languagechange", (event) => {
     locale = resolveFairLaunchLocale(event.detail?.language || document.documentElement.lang);
     applyFairLaunchLocale();
+    labelJamdPreset();
   });
   window.addEventListener("jamddmaj:wallet-connected", (event) => {
     if (event.detail?.source === "fair-launch") return;
