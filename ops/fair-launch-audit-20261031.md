@@ -154,3 +154,12 @@ Devnet creation does not implement the five distribution vaults; that mismatch
 is recorded rather than silently using its old creator-allocation flow.
 Discover HTML/JS/CSS/tour were reviewed: this internal unexecuted plan does not
 justify advertising a launched token or a live pool. No web publication needed.
+
+Unsigned team-vesting instruction preparation now supports a beneficiary distinct
+from the payer, canonical policy/vault derivation and the full 15-million-JAMD
+team allocation. Devnet only; no signer, RPC, deployment or transfer is invoked.
+Schedule/account validation remains mandatory before any execution. 22 focused
+tests passed, including unchanged creation behavior. This is one distribution
+component, not all five vaults or a live pool. Beneficiaries remain unspecified;
+no Phantom or bot account is silently assigned to treasury or team control.
+Discover reviewed: internal-only preparation, no new public availability claim.
