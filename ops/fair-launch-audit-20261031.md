@@ -172,3 +172,13 @@ still requires implementation review. Fixed supply, vesting, LP locks and
 transaction consent are not overridden; the bot wallet is not assigned control.
 No ownership challenge was signed and no beneficiary funds were transferred.
 Discover review: no public update for unexecuted internal administration intent.
+
+Added read-only Devnet team preflight: canonical policy, exact mint supply and
+decimals, revoked mint/freeze authorities, policy owner/authority, v2 schedule,
+source mint/authority/balance and absence of existing team vaults. Only
+getMultipleAccounts is issued to fixed Devnet RPC; it never signs or submits.
+Ten focused tests pass including rejection of wrong decimals, mint authority,
+shortened cliff, insufficient source and duplicate vault. Account checks do not
+replace simulation or authorization and do not deploy distribution/pool logic.
+Discover HTML/JS/CSS/tour reviewed: no shipped UI feature added by this internal
+check, so no public availability wording changed.
