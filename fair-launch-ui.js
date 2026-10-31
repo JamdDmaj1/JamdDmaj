@@ -6,6 +6,7 @@ import {
   normalizeFairLaunchDraft
 } from "./lib/fair-launch.js";
 import { buildBoostPlan } from "./lib/fair-launch-boost.js";
+import {fairLaunchRecovery,readFairLaunchTransaction} from './lib/fair-launch-transaction.js';
 import { verifyFairLaunchOnDevnet } from "./lib/fair-launch-devnet-verifier.js";
 import { fairLaunchText, resolveFairLaunchLocale } from "./lib/fair-launch-locales.js";
 import { fairLaunchVerifierText } from "./lib/fair-launch-verifier-locales.js";
@@ -79,6 +80,22 @@ const VERIFIER_LABEL_KEYS = Object.freeze({
   let liquidityCandidatePolicy = "";
   let protectionProgramAvailable = false;
   let protectionProgramChecked = false;
+  let recoveryError=false;
+  const recovery=fairLaunchRecovery({getItem:key=>window.localStorage.getItem(key),setItem:(key,value)=>window.localStorage.setItem(key,value),removeItem:key=>window.localStorage.removeItem(key)});
+  const recoveryPanel=document.createElement('section'),recoveryText=document.createElement('p'),recoverButton=document.createElement('button');
+  recoveryPanel.className='fair-launch-card';recoveryText.setAttribute('role','status');recoverButton.type='button';
+  recoveryPanel.append(recoveryText,recoverButton);document.getElementById('fairDevnetStatus')?.after(recoveryPanel);
+  function pendingLaunch(){try{return recovery.read();}catch{recoveryError=true;return {invalid:true};}}
+  function renderRecovery(){const r=pendingLaunch();recoveryPanel.hidden=!r;const es=locale==='es';recoverButton.textContent=es?'Consultar resultado pendiente':'Check pending result';recoverButton.disabled=recoveryError;recoveryText.textContent=r?.invalid?(es?'No se pudo leer el registro pendiente. No repitas la creación.':'Pending record could not be read. Do not repeat creation.'):(es?'Hay una operación de Devnet pendiente. Consultar no firma ni reenvía.':'A Devnet operation is pending. Checking does not sign or resend.');}
+  async function checkPendingLaunch(){const r=pendingLaunch();if(!r||r.invalid)return;recoverButton.disabled=true;
+   try{const result=await readFairLaunchTransaction(r.signature);if(result.state==='pending'){renderRecovery();return;}
+    recovery.clear(r.signature);renderRecovery();const status=document.getElementById('fairDevnetStatus');
+    status.textContent=locale==='es'?(result.state==='confirmed'?'Operación confirmada en Devnet. Verifica la política y los bloqueos antes de continuar.':'La red confirmó el fallo. No se reintentó automáticamente.'):(result.state==='confirmed'?'Operation confirmed on Devnet. Verify policy and locks before continuing.':'The network confirmed failure. No automatic retry was made.');
+    if(result.state==='confirmed'){document.getElementById('fairVerifyMint').value=r.mintAddress;document.getElementById('fairVerifyPolicy').value=r.policyAddress;}
+    updateDevnetReadiness(true);
+   }catch{recoveryText.textContent=locale==='es'?'No se pudo consultar. Conservamos el registro; no repitas la operación.':'Status unavailable. The pending record is preserved; do not repeat the operation.';}finally{recoverButton.disabled=recoveryError;}
+  }
+  recoverButton.onclick=checkPendingLaunch;renderRecovery();
   const stepPanels = [...form.querySelectorAll("[data-fair-step]")];
   const stepButtons = [...form.querySelectorAll("[data-fair-step-target]")];
 
@@ -148,7 +165,7 @@ const VERIFIER_LABEL_KEYS = Object.freeze({
   createDevnetButton?.addEventListener("click", createDevnetToken);
   verifyDevnetButton?.addEventListener("click", verifyPublicDevnetPolicy);
   testLiquidityButton?.addEventListener("click", createDevnetLiquidityRehearsal);
-  devnetConfirm?.addEventListener("change", updateDevnetReadiness);
+  devnetConfirm?.addEventListener("change", () => updateDevnetReadiness());
   document.getElementById("fairPrevStepBtn")?.addEventListener("click", () => showStep(currentStep - 1));
   document.getElementById("fairNextStepBtn")?.addEventListener("click", () => {
     if (validateCurrentStep()) showStep(currentStep + 1);
@@ -414,6 +431,9 @@ const VERIFIER_LABEL_KEYS = Object.freeze({
         mintAddress: mintInput?.value,
         policyAddress: policyInput?.value
       });
+      devnetVerified=result.verified===true;
+      const badge=document.getElementById('fairDevnetBadgeText');
+      if(badge)badge.textContent=t(devnetVerified?'devnetVerified':'noOnchainVerification');
       result.checks.forEach((item) => {
         const row = document.createElement("li");
         row.dataset.passed = String(item.passed);
@@ -436,6 +456,7 @@ const VERIFIER_LABEL_KEYS = Object.freeze({
       updateDevnetReadiness();
     } catch (error) {
       liquidityCandidatePolicy = "";
+      devnetVerified=false;
       status.dataset.state = "error";
       status.textContent = `${fairLaunchVerifierText(resolveFairLaunchUiLocale(locale), "failure")}: ${String(error?.message || error)}`;
     } finally {
@@ -678,16 +699,19 @@ const VERIFIER_LABEL_KEYS = Object.freeze({
     updateDevnetReadiness();
   }
 
-  function updateDevnetReadiness() {
+  function updateDevnetReadiness(preserveStatus = false) {
     if (!createDevnetButton) return;
     const confirmed = Boolean(devnetConfirm?.checked);
     const errors = validateDevnetTokenRequest(readForm(), connectedWallet, connectedAccount);
-    createDevnetButton.disabled = !confirmed || errors.length > 0 || !protectionProgramAvailable;
+    const pending=pendingLaunch();
+    const running=document.getElementById('fairDevnetStatus')?.dataset.running==='true';
+    createDevnetButton.disabled = running || !confirmed || errors.length > 0 || !protectionProgramAvailable || Boolean(pending);
     if (testLiquidityButton) {
-      testLiquidityButton.disabled = !confirmed || !connectedWallet || !connectedAccount || !liquidityCandidatePolicy || !protectionProgramAvailable;
+      testLiquidityButton.disabled = running || !confirmed || !connectedWallet || !connectedAccount || !liquidityCandidatePolicy || !protectionProgramAvailable || Boolean(pending);
     }
     const status = document.getElementById("fairDevnetStatus");
-    if (!status || status.dataset.running === "true") return;
+    if (!status || status.dataset.running === "true" || preserveStatus) return;
+    if(pending){status.textContent=locale==='es'?'Consulta la operación pendiente antes de crear otra.':'Check the pending operation before creating another.';return;}
     status.textContent = protectionProgramChecked && !protectionProgramAvailable
       ? ui("protectionUnavailable")
       : !protectionProgramChecked
@@ -715,8 +739,9 @@ const VERIFIER_LABEL_KEYS = Object.freeze({
   async function createDevnetToken() {
     const status = document.getElementById("fairDevnetStatus");
     const resultBox = document.getElementById("fairDevnetResult");
-    if (!status || !resultBox || !devnetConfirm?.checked) return;
+    if (!status || !resultBox || !devnetConfirm?.checked || status.dataset.running === "true") return;
     const config = readForm();
+    if(pendingLaunch()){renderRecovery();return;}
     const errors = validateDevnetTokenRequest(config, connectedWallet, connectedAccount);
     if (errors.length) {
       status.textContent = localizeDevnetError(errors[0]);
@@ -727,7 +752,11 @@ const VERIFIER_LABEL_KEYS = Object.freeze({
     status.textContent = ui("preparing");
     resultBox.hidden = true;
     try {
-      const result = await createFixedSupplyTokenOnDevnet({ config, wallet: connectedWallet, account: connectedAccount });
+      const result = await createFixedSupplyTokenOnDevnet({ config, wallet: connectedWallet, account: connectedAccount,onSigned:record=>{recovery.save(record);renderRecovery();} });
+      const confirmation=await readFairLaunchTransaction(result.signature);
+      if(confirmation.state==='pending'){renderRecovery();return;}
+      recovery.clear(result.signature);renderRecovery();
+      if(confirmation.state==='failed')throw Error('FAIR_NETWORK_FAILED');
       const mintUrl = `https://explorer.solana.com/address/${encodeURIComponent(result.mintAddress)}?cluster=devnet`;
       const transactionUrl = `https://explorer.solana.com/tx/${encodeURIComponent(result.signature)}?cluster=devnet`;
       const policyUrl = `https://explorer.solana.com/address/${encodeURIComponent(result.policyAddress)}?cluster=devnet`;
@@ -768,7 +797,7 @@ const VERIFIER_LABEL_KEYS = Object.freeze({
       devnetVerified = false;
     } catch (error) {
       const message = String(error?.message || error);
-      status.textContent = /simulation/i.test(message)
+      status.textContent = pendingLaunch()?(locale==='es'?'Resultado pendiente. Consulta el registro antes de repetir.':'Result pending. Check the record before repeating.'):/FAIR_WALLET_TRANSACTION_CHANGED/.test(message)?(locale==='es'?'La wallet cambió la transacción revisada. No se envió.':'The wallet changed the reviewed transaction. It was not sent.'):/simulation/i.test(message)
         ? ui("simulationFailed")
         : /reject|declin|cancel|denied|user/i.test(message)
         ? ui("requestCanceled")
@@ -777,14 +806,14 @@ const VERIFIER_LABEL_KEYS = Object.freeze({
           : ui("createFailed");
     } finally {
       status.dataset.running = "false";
-      updateDevnetReadiness();
+      updateDevnetReadiness(true);
     }
   }
 
   async function createDevnetLiquidityRehearsal() {
     const status = document.getElementById("fairDevnetStatus");
     const resultBox = document.getElementById("fairDevnetResult");
-    if (!status || !resultBox || !testLiquidityButton || !liquidityCandidatePolicy) return;
+    if (!status || !resultBox || !testLiquidityButton || !liquidityCandidatePolicy || status.dataset.running === "true" || pendingLaunch()) return;
     if (!window.confirm(ui("mockLiquidityConfirm"))) return;
     testLiquidityButton.disabled = true;
     status.dataset.running = "true";
@@ -793,8 +822,13 @@ const VERIFIER_LABEL_KEYS = Object.freeze({
       const rehearsal = await createMockLiquidityLockOnDevnet({
         policyAddress: liquidityCandidatePolicy,
         wallet: connectedWallet,
-        account: connectedAccount
+        account: connectedAccount,
+        onSigned:record=>{recovery.save(record);renderRecovery();}
       });
+      const confirmation=await readFairLaunchTransaction(rehearsal.signature);
+      if(confirmation.state==='pending'){renderRecovery();return;}
+      recovery.clear(rehearsal.signature);renderRecovery();
+      if(confirmation.state==='failed')throw Error('FAIR_NETWORK_FAILED');
       const lockLink = document.createElement("a");
       lockLink.href = `https://explorer.solana.com/address/${encodeURIComponent(rehearsal.liquidityLockAddress)}?cluster=devnet`;
       lockLink.target = "_blank";
@@ -808,14 +842,14 @@ const VERIFIER_LABEL_KEYS = Object.freeze({
       liquidityCandidatePolicy = "";
     } catch (error) {
       const message = String(error?.message || error);
-      status.textContent = /reject|declin|cancel|denied|user/i.test(message)
+      status.textContent = pendingLaunch()?(locale==='es'?'Resultado pendiente. Consulta el registro antes de repetir.':'Result pending. Check the record before repeating.'):/reject|declin|cancel|denied|user/i.test(message)
         ? ui("requestCanceled")
         : /simulation/i.test(message)
           ? ui("mockLiquiditySimulationFailed")
           : ui("mockLiquidityFailed");
     } finally {
       status.dataset.running = "false";
-      updateDevnetReadiness();
+      updateDevnetReadiness(true);
     }
   }
 

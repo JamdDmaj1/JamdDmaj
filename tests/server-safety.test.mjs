@@ -1277,9 +1277,9 @@ test("devnet token creation stays gated to safe fixed-supply Token-2022 requests
   const account = { address: "11111111111111111111111111111111", chains: ["solana:devnet"] };
   const wallet = {
     features: {
-      "solana:signAndSendTransaction": {
+      "solana:signTransaction": {
         supportedTransactionVersions: [0],
-        signAndSendTransaction() {}
+        signTransaction() {}
       }
     }
   };

@@ -66,6 +66,8 @@
   catalogs.es.aiText+=" El acceso vigente se puede recuperar al reabrir el navegador o la app Android. Una sesión caducada o la navegación privada pueden requerir iniciar sesión con Google otra vez; esto nunca importa claves ni activa operaciones.";
   en.marketsText+=" Notification settings show this device's saved status, signal preference, price alerts and expiry. Save changes explicitly; activation is not required on every visit.";
   catalogs.es.marketsText+=" La configuración de notificaciones muestra el estado guardado de este dispositivo, señales, alertas de precio y vencimiento. Guarda los cambios explícitamente; no hace falta activar en cada visita.";
+  en.launchText+=" Devnet submission and network confirmation are separate states. Pending test signatures can be checked without signing or resending. Mainnet remains blocked pending independent evidence.";
+  catalogs.es.launchText+=" En Devnet, enviar y confirmar en la red son estados distintos. Las firmas pendientes de prueba se pueden consultar sin firmar ni reenviar. Mainnet sigue bloqueado hasta contar con evidencia independiente.";
   const tour = ["aiTitle", "marketsTitle", "walletTitle", "learnTitle", "launchTitle", "ctaTitle"];
   const tourDescription = ["aiText", "marketsText", "walletText", "learnText", "launchText", "ctaText"];
   let scene = 0;
