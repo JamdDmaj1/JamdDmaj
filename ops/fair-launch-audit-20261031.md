@@ -82,3 +82,21 @@ Final pre-publication checks: full suite 1,237 passed, 19 skipped, no failures;
 17 focused latest checks passed after cross-tab exclusion was added. Android
 release Java/resources compiled successfully. All three browser rehearsals
 passed again after the final build. No financial transaction was sent.
+
+## Verified publication receipts
+
+Web source 37dc24a51000e0d5a1068244cd8f66a42301d20a was staged, checked and
+promoted to https://www.jamddmaj.com (deployment dpl_7LeJBgr5uPGAF6S6kC9bkGNnW9ua).
+Discover and the redacted readiness API were checked after promotion.
+Android release v1.38.14 is public, not a draft, with JamdDmaj-AI.apk;
+workflow 41236490915 passed launcher, native-wallet, SDK and release checks.
+Downloaded APK SHA256:
+b98034a97fdaee7248065a469997d62da1d15de79cdb01091cf21599584945a7.
+Package com.jamddmaj.ai, versionCode 170; usual signing certificate verified.
+Physical-phone acceptance is not yet verified. Install over the existing app;
+do not uninstall or clear its data. Publication does not enable mainnet.
+
+Post-release preparation adds an offline signed-provider-export verifier and a
+mocked confirmed-liquidity pipeline test. These are not advertised as deployed UI
+features. The user confirmed no provider or reviewed participant list exists.
+No real identities were collected and no eligibility root was approved or sealed.

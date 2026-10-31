@@ -39,3 +39,21 @@ provider keeps any required records under its own retention and deletion policy.
 7. Registration proofs reveal only the commitment, wallet, allocation and proof.
 
 No synthetic or invented participant may be used as production evidence.
+
+## Offline export verification (Devnet preparation only)
+
+`lib/fair-launch-provider-export.js` accepts schema
+`jamddmaj-eligibility-export/v1`. A separately reviewed provider configuration
+supplies its ID, Ed25519 public key and ruleset hash; an import cannot select its
+own trust key. The signature covers the canonical header (schema, cluster,
+providerId, policyAddress, rulesetHash, generatedAt, count, root). Records are
+bound through the independently rebuilt Merkle root. Each record contains only
+identityCommitment, beneficiary and totalAllocation. Allocations and supply are
+canonical decimal strings in base units, never floating-point numbers.
+
+The verifier rejects extra fields, stale exports, invalid signatures, duplicates,
+incorrect roots and aggregate beneficiary allocations exceeding 1% of supply.
+It performs no network calls, signing, root sealing or participant approval.
+Successful cryptographic verification still returns eligibilityApproved=false
+and mainnetAuthorized=false. A real provider, legal rules, appeals and independent
+review remain required. No provider or reviewed participant list is configured.
