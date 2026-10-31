@@ -302,6 +302,10 @@ test("public Devnet verifier decodes and enforces the on-chain policy", async ()
     fetchImpl
   });
   assert.equal(result.verified, true);
+  assert.equal(result.verificationScope, "mint-policy-creator-vault");
+  assert.equal(result.liquidityCustodyVerified, false);
+  assert.equal(result.participantUniquenessVerified, false);
+  assert.equal(result.mainnetAuthorized, false);
   assert.equal(result.policy.minimumLockBps, 8_500);
   assert.equal(result.policy.protectedLimit, 2_000);
   assert.equal(result.policy.platformTreasury, JAMDDMAJ_PLATFORM_TREASURY);

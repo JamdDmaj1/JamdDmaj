@@ -100,3 +100,14 @@ Post-release preparation adds an offline signed-provider-export verifier and a
 mocked confirmed-liquidity pipeline test. These are not advertised as deployed UI
 features. The user confirmed no provider or reviewed participant list exists.
 No real identities were collected and no eligibility root was approved or sealed.
+
+## Verification scope correction
+
+The mint/policy verifier checks the configured liquidity lock duration, not the
+existence, economic value or custody of a real pool's LP receipts. Its structured
+result now explicitly reports liquidityCustodyVerified=false and
+participantUniquenessVerified=false even when all account checks pass. Sealing a
+root is not independent proof of human uniqueness. Mainnet authorization remains
+false. This internal result clarification is not yet a new deployed UI release.
+Discover HTML/JS/CSS and tour CSS reviewed: no public content change is appropriate
+for this internal-only clarification; current public mainnet restrictions remain.
