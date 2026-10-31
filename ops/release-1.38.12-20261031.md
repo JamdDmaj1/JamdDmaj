@@ -47,3 +47,11 @@ provider errors. Update feed also selects highest non-draft/non-prerelease APK
 version so an older release workflow finishing later cannot downgrade discovery.
 Discover HTML/JS/CSS/tour reviewed; existing push diagnostic instructions remain
 accurate. These web-only follow-ups do not change the native wallet or keys.
+
+Latest web promotion: `dpl_9KShp29YUpLtdopo7pZ49PGS2bAP` (source e1adb46),
+including browser-service error mapping and highest-version update feed. Both
+webVersion and latestVersion now report 1.38.12. User subsequently reported
+"Test scheduled" after the Brave setup instructions: authenticated enrollment and
+test scheduling succeeded. Closed-tab/system notification receipt still awaits
+the user's report. Worker logs now include only aggregate processed/accepted
+counts, never targets, accounts, message content or provider credentials.
