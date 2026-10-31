@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {safePushNotice} from '../lib/firebase-push-web.js';
+import {safePushNotice,classifyPushRegistrationError} from '../lib/firebase-push-web.js';
 import {firebasePushConfig,firebasePushVapid} from '../lib/firebase-push-config.js';
 test('public Firebase web identity and VAPID point match provisioned project',()=>{
  assert.equal(firebasePushConfig.projectId,'jamddmaj-2afc8');assert.equal(firebasePushConfig.appId,'1:224373038543:web:7bab7d90aa392e3274c6ba');
@@ -11,6 +11,11 @@ test('public Firebase web identity and VAPID point match provisioned project',()
 test('push accepts bounded notices, never arbitrary actions or destinations',()=>{
  assert.deepEqual(safePushNotice({kind:'price',body:'BTC reached target',eventId:'alert_123',url:'https://evil.test'}),{kind:'price',body:'BTC reached target',eventId:'alert_123'});
  for(const data of [null,{kind:'trade',body:'execute',eventId:'alert_123'},{kind:'signal',body:'x'.repeat(241),eventId:'alert_123'},{kind:'test',body:'hi',eventId:'../evil'}])assert.equal(safePushNotice(data),null);
+});
+test('browser push service failure is distinguished from login or server enrollment',()=>{
+ assert.equal(classifyPushRegistrationError({name:'AbortError',message:'Registration failed - push service error'}).message,'PUSH_BROWSER_SERVICE');
+ assert.equal(classifyPushRegistrationError({name:'NotAllowedError'}).message,'PUSH_PERMISSION_DENIED');
+ const other=Error('PUSH_REGISTRATION_TIMEOUT');assert.equal(classifyPushRegistrationError(other),other);
 });
 test('worker has fixed same-origin navigation, no cache or financial action',async()=>{
  const sw=await readFile(new URL('../firebase-messaging-sw.js',import.meta.url),'utf8');

@@ -24,3 +24,26 @@ User has been asked to enroll explicitly and test closed-app receipt.
 
 Android signed-release workflow 41211595526: native, SDK and three-cold-launch
 emulator gates passed; final release packaging is still running at this record.
+
+## APK and client diagnosis follow-up
+
+Workflow 41211595526 completed successfully. Release v1.38.12 is not a draft and
+contains JamdDmaj-AI.apk plus checksum. Download verified SHA-256:
+`2cc8a98879aabf66c48a4dd4ab6a4baf386f8bdd10c1d878ab65829887c6c783`.
+Permanent signing certificate remains
+`d4799319516f9b243b12ef4678823baed39d9203e42fa70f8de0ba0f7c0080d6`.
+APK identity: com.jamddmaj.ai / versionCode 168 / versionName 1.38.12.
+
+User's Brave registration failed before preference saving. Bounded stage codes
+were published in dpl_D1PVuc2AJh5gbx2BT6T7bd3sR45U, and user confirmed
+PUSH_DEVICE_REGISTRATION. An independent fresh browser reproduced a PushManager
+AbortError (push service unavailable), not an account or server failure. This does
+not prove the exact user's browser configuration. Asked user to check Brave's
+documented Google push service setting, without disabling other protections.
+Actual closed-app receipt remains unverified; goal is not complete.
+
+Follow-up client mapping distinguishes that AbortError without displaying raw
+provider errors. Update feed also selects highest non-draft/non-prerelease APK
+version so an older release workflow finishing later cannot downgrade discovery.
+Discover HTML/JS/CSS/tour reviewed; existing push diagnostic instructions remain
+accurate. These web-only follow-ups do not change the native wallet or keys.
