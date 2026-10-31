@@ -64,6 +64,8 @@
   catalogs.es.marketsText+=" Configura alertas de precio USD en Mercados. En Trade → Perfil → Notificaciones, activa y guarda push para este dispositivo y envía una prueba. Comprueba el título y el texto del aviso; una prueba no es una señal de trading. Si falla, conserva el código breve mostrado; nunca compartas tokens de acceso. El servidor consulta aproximadamente cada minuto; la entrega puede retrasarse o bloquearse por ajustes del dispositivo. Los avisos de señales requieren acceso autorizado. No ejecutan operaciones. Sin registro push, los avisos locales requieren la app abierta y visible.";
   en.aiText+=" Valid account access can be recovered when reopening the browser or Android app. Expired access and private browsing may require Google sign-in again; signing in never imports wallet keys or activates trading.";
   catalogs.es.aiText+=" El acceso vigente se puede recuperar al reabrir el navegador o la app Android. Una sesión caducada o la navegación privada pueden requerir iniciar sesión con Google otra vez; esto nunca importa claves ni activa operaciones.";
+  en.marketsText+=" Notification settings show this device's saved status, signal preference, price alerts and expiry. Save changes explicitly; activation is not required on every visit.";
+  catalogs.es.marketsText+=" La configuración de notificaciones muestra el estado guardado de este dispositivo, señales, alertas de precio y vencimiento. Guarda los cambios explícitamente; no hace falta activar en cada visita.";
   const tour = ["aiTitle", "marketsTitle", "walletTitle", "learnTitle", "launchTitle", "ctaTitle"];
   const tourDescription = ["aiText", "marketsText", "walletText", "learnText", "launchText", "ctaText"];
   let scene = 0;

@@ -10,7 +10,7 @@ async function handler(request){
   if(request.method==='GET'){
    const device=new URL(request.url).searchParams.get('deviceId');let record=null;
    if(device){if(!/^[A-Za-z0-9_-]{16,100}$/.test(device))return jsonResponse(request,{code:'PUSH_REGISTRATION'},400);const id=await hashIdentifier(account+':'+device);const r=await redisRequest('pipeline',[['GET','jamd:push:device:'+id]]);if(r[0]?.error)throw Error();record=JSON.parse(r[0]?.result||'null');}
-   return jsonResponse(request,{configured,enabled:configured&&Boolean(record&&record.expiresAt>Date.now()),expiresAt:record?.expiresAt||null});
+   return jsonResponse(request,{configured,enabled:configured&&Boolean(record&&record.expiresAt>Date.now()),expiresAt:record?.expiresAt||null,updatedAt:record?.updatedAt||null,preferences:record?{signals:record.preferences?.signals===true,alerts:(record.preferences?.alerts||[]).map(({id,coin,direction,target})=>({id,coin,direction,target}))}:null});
   }
   const text=await request.text();if(text.length>14000)return jsonResponse(request,{code:'PUSH_INPUT_TOO_LARGE'},413);
   let input;try{input=JSON.parse(text);}catch{return jsonResponse(request,{code:'PUSH_INPUT'},400);}
