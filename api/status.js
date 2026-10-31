@@ -5,7 +5,7 @@ export const config = { runtime: "edge" };
 
 const FALLBACK_VERSION = "1.37.71";
 const FALLBACK_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
-const GITHUB_LATEST_RELEASE_URL = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
+const GITHUB_LATEST_RELEASE_URL = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases?per_page=10";
 
 export default async function handler(request) {
   if (request.method === "OPTIONS") {
@@ -81,13 +81,17 @@ async function resolveLatestRelease() {
   try {
     const response = await fetch(GITHUB_LATEST_RELEASE_URL, {
       cache: "no-store",
+      signal: AbortSignal.timeout(8000),
       headers: {
         "Accept": "application/vnd.github+json",
         "User-Agent": "JamdDmaj-App-Update-Checker"
       }
     });
     if (!response.ok) throw new Error("GitHub release " + response.status);
-    const release = await response.json();
+    const releases = await response.json();
+    if(!Array.isArray(releases))throw Error('Invalid release feed');
+    for(const release of releases){
+    if(release.draft||release.prerelease||!Array.isArray(release.assets)||!release.assets.some(asset=>asset.name==='JamdDmaj-AI.apk'))continue;
     const githubVersion = cleanVersion(release?.tag_name || release?.name || "");
     if (githubVersion && compareVersions(githubVersion, best.latestVersion) >= 0) {
       const apkAsset = Array.isArray(release.assets)
@@ -100,6 +104,7 @@ async function resolveLatestRelease() {
         releaseName: String(release.name || "JamdDmaj AI v" + githubVersion),
         source: "github-release"
       };
+    }
     }
   } catch {
     // Keep the env or fallback release if GitHub is temporarily unavailable.
