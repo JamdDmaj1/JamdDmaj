@@ -111,3 +111,30 @@ root is not independent proof of human uniqueness. Mainnet authorization remains
 false. This internal result clarification is not yet a new deployed UI release.
 Discover HTML/JS/CSS and tour CSS reviewed: no public content change is appropriate
 for this internal-only clarification; current public mainnet restrictions remain.
+
+## Completion audit after e5b2738
+
+Current focused run: 35 passed, zero failures (transaction, costs, creation flow,
+provider export, on-chain model/verifier, readiness and status tests). These tests
+use intercepted RPC for submission paths, not real financial transactions.
+
+| Requirement | Authoritative evidence | Remaining boundary |
+| --- | --- | --- |
+| Review before signing | Cost and creation-flow tests, explicit expiring consent | Physical wallet acceptance not independently observed |
+| Safe interrupted operation | Transaction tests: journal, status read, expiry, no resend | Not a guarantee against every RPC outage |
+| Creator protection | Canonical accounts, vesting/vault checks and model tests | Independent source/build audit missing |
+| Liquidity protection | Mock-LP instruction tests and simulated attack rehearsals | Real pool integration/custody not certified |
+| Participant eligibility | Signed export verification and Merkle tests | No selected provider, reviewed cohort or sealed approved root |
+| Mainnet readiness | security/mainnet-readiness.json | Six requirements missing; mainnetEnabled=false |
+| Publication | Web deployment and Android release receipts above | Post-release internal additions not deployed as new UI |
+
+Required outside decisions/evidence: select a legally reviewed uniqueness provider
+or supply an independently reviewed cohort; commission an independent security
+audit and reproducible-build verification; approve governance signers/timelock;
+provide final owner approval only after remaining evidence exists. None can be
+replaced by a passing unit test or an agent's own approval. Do not collect raw
+identity documents in chat, mark these gates approved, or request deposits.
+
+Overall completion remains unproven. No mainnet activation or transaction is
+authorized by this audit. Further approval-gate work needs external evidence;
+cosmetic changes would not resolve these blockers.
