@@ -45,8 +45,8 @@ include those in this financial release or overwrite them.
 
 ## Publication and verification
 
-1. Clean-worktree full suite: 1315 tests, 1296 passed, 19 skipped, zero failures.
-   Additional client/API/policy regressions after final copy adjustment pass.
+1. Final clean-worktree full suite: 1316 tests, 1297 passed, 19 skipped, zero
+   failures, including the final client/API/policy and close regressions.
 2. Compiled real DOM positions/close panel tested desktop and mobile, financial
    network blocked. Separate unchecked close consent required; pending recovery
    retained. Entry form regression stays in Futures for watch accounts.
