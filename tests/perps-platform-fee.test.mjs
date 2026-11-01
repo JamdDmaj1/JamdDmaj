@@ -37,7 +37,7 @@ test('20 bps are exact USDC margin units, never leveraged size; no close fee or 
  for(const bad of [10,'10','0','-1','1.5','010000000','1e7','1000000000000000',null])assert.throws(()=>quotePerpsPlatformFee(bad));
  assert.equal(bs58.decode(PERPS_PLATFORM_FEE.recipient).length,32);
 });
-async function fixture(t,{platformFeeUnits='0'}={}){
+async function fixture(t,{platformFeeUnits='0',manual=false}={}){
  const dir=mkdtempSync(join(tmpdir(),'jamd-platform-fee-')),journals=[];
  t.after(()=>{for(const j of journals)j.close();rmSync(dir,{recursive:true,force:true});});
  const keys=[81,82,83].map(n=>createPrivateKey({key:Buffer.concat([Buffer.from('302e020100300506032b657004220420','hex'),Buffer.alloc(32,n)]),format:'der',type:'pkcs8'}));
@@ -57,7 +57,7 @@ async function fixture(t,{platformFeeUnits='0'}={}){
  const rpc=async method=>{if(method==='getGenesisHash')return genesis;if(method==='getTransaction')return tx;if(method==='getSignatureStatuses')return {context:{slot:400},value:[{slot:400,err:tx.meta.err,confirmationStatus:'finalized'}]};throw Error('UNEXPECTED_RPC');};
  let clock=time;const now=()=>clock,entry=openPerpsExecutionJournal(join(dir,'entries.sqlite'),{now});journals.push(entry);
  const snapshot={walletAddress:wallet,network:'solana-mainnet',balancesComplete:true,observedAt:time,day:'2026-10-25',availableUsdcUnits:'100000000',allocatedUsdcUnits:'0',lossTodayUsdcUnits:'0',openPositions:0,tradesToday:0};
- entry.reserve({walletAddress:wallet,reservationId:'entry',signalId:'signal',marginUsd:'40',positionAddress:ids.position,limits:{capitalUsd:'100',dailyLossUsd:'100',positions:1,dailyTrades:5},snapshot,platformFeeUnits});
+ entry.reserve({walletAddress:wallet,reservationId:'entry',signalId:manual?'manual:entry':'signal',marginUsd:'40',positionAddress:ids.position,limits:{capitalUsd:'100',dailyLossUsd:'100',positions:1,dailyTrades:5},snapshot,platformFeeUnits});
  const open=(options={})=>{const j=openPerpsPlatformFeeJournal(join(dir,'fees.sqlite'),{entryJournal:entry,now,...options});journals.push(j);return j;};
  const consent={reservationId:'entry',walletAddress:wallet,termsVersion:PERPS_PLATFORM_FEE.version,explicitConsent:true};
  return {entry,open,consent,tx,rpc,now,dir,journals,signFee(review){const m=Buffer.from(review.messageBase64,'base64');return Buffer.concat([Buffer.from([1]),sign(null,m,keys[0]),m]).toString('base64');},advance(ms){clock+=ms;},async finalize(){entry.beginSigning('entry',snapshot);entry.recordBroadcastIntent('entry',{signature,wireHash});clock=time+2000;const r=await readPerpsBroadcastReceipt({walletAddress:wallet,signature,wireHash},rpc,{now,requireFinalized:true});entry.reconcileBroadcast('entry',r);return readServerPerpsTradeTransaction({walletAddress:wallet,signature,day:'2026-10-25'},{request:rpc,now});}};
@@ -67,6 +67,19 @@ test('finalized opening creates one durable assessment after prior consent, neve
  const first=one.assessFinalizedOpen('entry',receipt);assert.equal(first.fee,'80000');assert.equal(first.state,'AWAITING_PAYMENT_REVIEW');
  const two=f.open();assert.deepEqual(two.assessFinalizedOpen('entry',receipt),first);assert.deepEqual(two.read('entry'),first);
  assert.equal(two.sign,undefined);assert.equal(two.markPaid,undefined);assert.equal(two.send,undefined);
+});
+
+test('per-entry manual fee consent works paused without granting an automation mandate',async t=>{
+ const f=await fixture(t,{manual:true,platformFeeUnits:'80000'}),ownerAccountHash='a'.repeat(64),walletAddress=f.consent.walletAddress;
+ let state={walletAddress,revision:'paused-manual',enabled:false,paused:true,settings:{margin:40}};
+ const controls={read:who=>{assert.equal(who.ownerAccountHash,ownerAccountHash);assert.equal(who.walletAddress,walletAddress);return state;}};
+ const fees=f.open({controls});fees.recordConsent(f.consent);const receipt=await f.finalize(),assessment=fees.assessFinalizedOpen('entry',receipt);
+ const args={ownerAccountHash,walletAddress,controlRevision:state.revision,review:{assessmentId:assessment.id,reservationId:'entry',feeUnits:'80000',marginUnits:'40000000'}};
+ assert.equal(fees.requireAutomationPaymentConsent(args).walletAddress,walletAddress);
+ assert.throws(()=>fees.requireAutomationMandate({ownerAccountHash,walletAddress}));
+ assert.throws(()=>fees.requireAutomationPaymentConsent({...args,ownerAccountHash:'b'.repeat(64)}));
+ assert.throws(()=>fees.requireAutomationPaymentConsent({...args,review:{...args.review,feeUnits:'80001'}}));
+ state={...state,enabled:true,paused:false};assert.throws(()=>fees.requireAutomationPaymentConsent(args));
 });
 test('absent consent, retroactive consent, forged proof and unaccepted terms cannot create charges',async t=>{
  const f=await fixture(t),j=f.open();

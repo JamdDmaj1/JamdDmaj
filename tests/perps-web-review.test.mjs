@@ -64,6 +64,15 @@ test('web Futures offers wallet selection and explicit review rather than disabl
  assert(!f.nodes.some(n=>n.textContent?.includes('Trading requires a compatible Android build')));
 });
 
+test('a linked bot address stays in Futures and asks the authenticated server, never Phantom or Android signing',async()=>{
+ const calls=[];const f=ui(async(url,options)=>{
+  calls.push(JSON.parse(options.body));return Response.json({ok:true,botManual:{walletAddress:wallet,stage:'BOT_MANUAL_STATUS',available:false,reason:'BOT_MANUAL_PAUSE_REQUIRED',operations:[]}});
+ });
+ selectWalletAccount(f.doc,{source:'watch',address:wallet,name:'Bot wallet'});f.price.value='100';
+ await f.long.onclick();assert.equal(f.connectCalls,0);assert.equal(calls.length,1);assert.equal(calls[0].action,'botManualStatus');
+ assert.ok(f.nodes.some(n=>n.textContent?.includes('Pause the bot')));assert.equal(f.events.filter(e=>e.type==='jamd-wallet-open-perps').length,0);
+});
+
 test('Futures recovery requires a selected external wallet and an empty local journal never claims no open positions',async()=>{
  let requests=0;const f=ui(async()=>{requests++;throw Error('must not request');});
  const button=f.nodes.find(n=>n.textContent==='Check pending operation'),message=f.nodes.at(-1);

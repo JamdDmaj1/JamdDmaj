@@ -8,6 +8,11 @@ import {DatabaseSync} from 'node:sqlite';
 import bs58 from 'bs58';
 import {inspectServerPerpsPreparation,prepareInspectedServerAutomation,readServerPerpsPreparationEvidence} from '../lib/perps-server-preparation.js';
 import {prepareInspectedPerpsManualOrder} from '../lib/perps-manual-preparation.js';
+import {authorizeBotManualSigning} from '../lib/perps-bot-manual-signing.js';
+import {createBotManualPerpsService} from '../lib/perps-bot-manual-service.js';
+import {openPerpsPlatformFeeJournal} from '../lib/perps-platform-fee-journal.js';
+import {openPerpsPlatformFeePaymentJournal} from '../lib/perps-platform-fee-payment-journal.js';
+import {openManualPerpsPolicyStore} from '../lib/perps-manual-policy-store.js';
 import {createWebPerpsReviewStore,createOwnerBoundWebPerpsReviewStore,requireOwnerBoundWebPerpsReviewStore} from '../lib/perps-web-review-store.js';
 import {createWebPerpsSubmissionHandler} from '../lib/perps-web-submission-http.js';
 import {createWebPerpsSubmissionClient} from '../lib/perps-web-submit-client.js';
@@ -1103,11 +1108,11 @@ test('changed network, blockhash, expired instruction or mismatched intent canno
 
 // Full signing rehearsal: ephemeral, unfunded local keys and mocked read-only
 // RPC/builder responses. No HTTP submission or real account key is involved.
-async function custodySigningFixture(t,{beginSigning=true,reserve=true,ownerIndexed=false}={}){
+async function custodySigningFixture(t,{beginSigning=true,reserve=true,ownerIndexed=false,manualServices=false}={}){
  const directory=mkdtempSync(join(tmpdir(),'jamd-custody-signing-')),wallets=join(directory,'wallets'),keysDirectory=join(directory,'keys');
  mkdirSync(wallets,{mode:0o700});mkdirSync(keysDirectory,{mode:0o700});
  const keyFile=join(keysDirectory,'master.key'),allowNonPosixForTests=process.platform==='win32',ownerAccountHash='a'.repeat(64),clock={value:0};
- let controls,journal,backupRegistry;t.after(()=>{try{try{backupRegistry?.close();}catch{}controls?.close();}finally{journal?.close();rmSync(directory,{recursive:true,force:true});}});
+ let controls,journal,backupRegistry,feeJournal,paymentJournal,policyStore;t.after(()=>{try{try{backupRegistry?.close();}catch{}controls?.close();}finally{feeJournal?.close();paymentJournal?.close();policyStore?.close();journal?.close();rmSync(directory,{recursive:true,force:true});}});
  createPerpsCustodyMasterKey(keyFile,{allowNonPosixForTests});const vault=openPerpsCustodyVault({directory:wallets,keyFile,allowNonPosixForTests});
  const wallet=vault[ownerIndexed?'createOrReadExclusiveWallet':'createExclusiveWallet']({ownerAccountHash,explicitCustodyApproval:true}),walletAddress=wallet.walletAddress;
  let daily=await emptyFixtureDailyAccount(walletAddress,{monotonicNow:()=>clock.value});
@@ -1128,13 +1133,21 @@ async function custodySigningFixture(t,{beginSigning=true,reserve=true,ownerInde
  // Genuine operator restore proof for this ephemeral UNFUNDED wallet. No mock
  // readiness boolean is accepted by the production signing/broadcast gates.
  const recoveryOptions={allowNonPosixForTests,now:()=>now,monotonicNow:()=>clock.value},controlsPath=join(directory,'controls.sqlite'),journalPath=join(directory,'journal.sqlite');
+ let feePaths={};
+ if(manualServices){
+  const feesPath=join(directory,'fees.sqlite'),paymentsPath=join(directory,'payments.sqlite');
+  feeJournal=openPerpsPlatformFeeJournal(feesPath,{entryJournal:journal,controls,now:()=>now});
+  paymentJournal=openPerpsPlatformFeePaymentJournal(paymentsPath,{now:()=>now});
+  policyStore=openManualPerpsPolicyStore(join(directory,'manual-policy.sqlite'),{initialize:true,allowNonPosixForTests,now:()=>now});
+  for(const path of [feesPath,paymentsPath])chmodSync(path,0o600);feePaths={feesPath,paymentsPath};
+ }
  for(const path of [controlsPath,journalPath])chmodSync(path,0o600);
  const operatorDirectory=join(directory,'operator'),operator=await initializePerpsOperatorRecovery({directory:operatorDirectory,...recoveryOptions});
- const archive=await createPerpsCustodyRecoveryArchive({directory:wallets,keyFile,recipient:operator.recipient,explicitOperatorApproval:true,requireRestoreProof:true,runtimePaths:{controlsPath,journalPath,temporaryDirectory:directory},...recoveryOptions});
+ const archive=await createPerpsCustodyRecoveryArchive({directory:wallets,keyFile,recipient:operator.recipient,explicitOperatorApproval:true,requireRestoreProof:true,runtimePaths:{controlsPath,journalPath,temporaryDirectory:directory,...feePaths},...recoveryOptions});
  backupRegistry=openPerpsBackupRegistry(join(directory,'backup.sqlite'),recoveryOptions);await backupRegistry.registerArchive(archive,{explicitOperatorApproval:true});
  const restored=await restorePerpsCustodyRecoveryArchive({ciphertext:archive.ciphertext,operatorDirectory,destinationDirectory:join(directory,'restored'),explicitOperatorApproval:true,...recoveryOptions});
  backupRegistry.acceptRestoreProof({proofFile:restored.proofFile,explicitOperatorApproval:true});args.backupRegistry=backupRegistry;
- return {prepared,args,vault,controls,journal,backupRegistry,backupArchiveSha:archive.sha256,clock,wallet,daily,walletDirectory:wallets,rpcRequest:f.request,builderRequest:async()=>new Response(JSON.stringify(f.preparation)),
+ return {prepared,args,vault,controls,journal,feeJournal,policyStore,backupRegistry,backupArchiveSha:archive.sha256,clock,wallet,daily,walletDirectory:wallets,rpcRequest:f.request,builderRequest:async()=>new Response(JSON.stringify(f.preparation)),
   async replaceBalance(units){daily=await emptyFixtureDailyAccount(walletAddress,{availableUsdcUnits:units,monotonicNow:()=>clock.value});}};
 }
 
@@ -1146,6 +1159,50 @@ test('exclusive custody signs only the inspected reserved operation once, preser
  assert.notEqual(wire.subarray(1,65).toString('hex'),original.subarray(1,65).toString('hex'));assert.deepEqual(wire.subarray(65),original.subarray(65));
  assert.equal(signed.signature,bs58.encode(wire.subarray(1,65)));assert.equal(f.journal.read(f.args.reservationId).state,'SIGNING');
  assert.throws(()=>f.vault.signPrepared(grant));assert.equal(f.journal.pending(f.wallet.walletAddress).length,1);
+});
+
+test('manual bot custody signs an exact inspected entry once while automation stays paused',async t=>{
+ const f=await custodySigningFixture(t,{reserve:false,beginSigning:false}),who={ownerAccountHash:f.args.ownerAccountHash,walletAddress:f.wallet.walletAddress};
+ f.controls.pause(who);
+ const native=await prepareInspectedPerpsManualOrder({asset:'SOL',side:'LONG',margin:'10',leverage:'3',referencePrice:'100',stopLoss:'95',takeProfit:'110'},who.walletAddress,
+  {rpcRequest:async(method,params)=>{const value=await f.rpcRequest(method,params);if(value?.context)value.context.slot=Math.max(value.context.slot,params[1]?.minContextSlot||0);return value;},builderRequest:f.builderRequest,now:()=>now,monotonicNow:()=>f.clock.value});
+ const {readInspectedPerpsManualReview}=await import('../lib/perps-manual-preparation.js');
+ const proof=readInspectedPerpsManualReview(native),id='manual-fixture',limits={capitalUsd:'50',dailyLossUsd:'30',positions:1,dailyTrades:5};
+ f.journal.reserve({walletAddress:who.walletAddress,signalId:'manual:'+id,reservationId:id,marginUsd:'10',limits,snapshot:f.daily,
+  positionAddress:proof.material.positionPubkey,entryExitPlan:proof.entryExitPlan,platformFeeUnits:'20000'});
+ f.journal.beginSigning(id);
+ const assertCurrent=()=>{const s=f.controls.read(who);assert.equal(s.paused,true);assert.equal(s.enabled,false);};
+ const options={...who,journal:f.journal,reservationId:id,readAccount:f.args.readAccount,backupRegistry:f.backupRegistry,
+  readLimits:()=>({walletAddress:who.walletAddress,revision:'manual-policy',limits}),assertCurrent,explicitApproval:true};
+ await assert.rejects(authorizeBotManualSigning({...native},options));
+ await assert.rejects(authorizeBotManualSigning(native,{...options,explicitApproval:false}));
+ const grant=await authorizeBotManualSigning(native,options),signed=f.vault.signManualEntry(grant);
+ assert.equal(Buffer.from(signed.signedBase64,'base64').subarray(65).toString('base64'),Buffer.from(proof.material.serializedTxBase64,'base64').subarray(65).toString('base64'));
+ assertCurrent();assert.throws(()=>f.vault.signManualEntry(grant));assert.equal(f.journal.read(id).state,'SIGNING');
+});
+
+test('bot manual review -> two approvals -> durable risk and fee consent -> one exact send; timeout cannot replay',async t=>{
+ const f=await custodySigningFixture(t,{reserve:false,beginSigning:false,manualServices:true}),who={ownerAccountHash:f.args.ownerAccountHash,walletAddress:f.wallet.walletAddress};
+ f.controls.pause(who);
+ f.policyStore.save({...who,expectedRevision:null,limits:{capitalUsd:'50',dailyLossUsd:'30',positions:2,dailyTrades:5},explicitApproval:true});
+ const sends=[];
+ const service=createBotManualPerpsService({controls:f.controls,vault:f.vault,journal:f.journal,policyStore:f.policyStore,backupRegistry:f.backupRegistry,
+  readAccount:f.args.readAccount,rpcRequest:async(method,params)=>{const value=await f.rpcRequest(method,params);if(value?.context)value.context.slot=Math.max(value.context.slot,params[1]?.minContextSlot||0);return value;},
+  builderRequest:f.builderRequest,feeJournal:f.feeJournal,platformFees:{assertActivationReadiness:async()=>{},status:()=>({dueUnits:'0',pendingCount:0,failedCount:0})},hasPendingSwap:()=>false,isRunning:()=>true,readFinalizedAccount:f.args.readAccount,
+  now:()=>now,monotonicNow:()=>f.clock.value,fetchImpl:async(url,options)=>{
+   assert.equal(url,'https://perps-api.jup.ag/v2/transaction/execute');
+   assert.equal(f.journal.pending(who.walletAddress).at(-1).state,'UNCERTAIN');sends.push(JSON.parse(options.body));throw Error('fixture timeout');
+  }});
+ assert.equal((await service.status(who)).available,true);
+ const draft={asset:'SOL',side:'LONG',margin:'10',leverage:'3',referencePrice:'100',stopLoss:'95',takeProfit:'110'},review=await service.prepare({...who,draft});
+ assert.equal(review.fee.feeUnits,'20000');assert.equal(f.journal.pending(who.walletAddress).length,0);assert.equal(sends.length,0);
+ const confirmation={...who,id:review.id,explicitApproval:true,explicitFeeApproval:true,feeTermsVersion:review.fee.version};
+ await assert.rejects(service.confirm({...confirmation,explicitFeeApproval:false}));assert.equal(sends.length,0);
+ const result=await service.confirm(confirmation);assert.equal(result.state,'UNCERTAIN');assert.equal(sends.length,1);
+ assert.equal(sends[0].action,'increase-position');assert.equal((await service.status(who)).operations.length,1);
+ assert.equal(service.recover({...who,id:review.id}).signature,result.signature);
+ await assert.rejects(service.confirm(confirmation));await assert.rejects(service.prepare({...who,draft}));assert.equal(sends.length,1);
+ assert.equal(f.controls.read(who).paused,true);assert.equal(f.controls.read(who).enabled,false);
 });
 test('runtime activation approval binds actual backup, exclusive custody, reconciled account and live worker without activating anything',async t=>{
  const f=await custodySigningFixture(t,{reserve:false}),state=f.controls.read(f.args);let running=true,reads=0;

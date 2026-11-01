@@ -52,6 +52,8 @@
   catalogs.es.walletText="En Activos, toca un token o Ver gráfico. Consulta velas históricas interactivas, capitalización, FDV y datos del par disponibles. Carga historial parcial de la billetera con fechas y cantidades; swaps simples Jupiter/USDC detectados muestran precio y conteos solo de las páginas cargadas. Una transferencia no se supone compra. La verificación no garantiza seguridad.";
   en.signalDiagnostics="Paper trading diagnostics group partial exits and show net expectancy, mean wins/losses and estimated fees. Historical validation is research only and never changes or activates your real bot.";
   catalogs.es.signalDiagnostics="El diagnóstico simulado agrupa salidas parciales y muestra expectativa neta, ganancias/pérdidas medias y comisiones estimadas. La validación histórica es investigación: nunca modifica ni activa tu bot real.";
+  en.manualBotNotice="Manual bot-wallet orders are reviewed inside Futures. They require paused automation, verified ownership, manual limits and explicit order and fee confirmation. Reviewing never activates automation.";
+  catalogs.es.manualBotNotice="Las órdenes manuales de la billetera del bot se revisan dentro de Futuros. Requieren bot pausado, titularidad verificada, límites manuales y confirmación de orden y comisión. Revisar no activa la automatización.";
   const supported = Object.keys(catalogs);
   const browserLanguage = String(navigator.language || "en").split("-")[0].toLowerCase();
   let locale = supported.includes(localStorage.getItem("jamddmaj_discover_language"))

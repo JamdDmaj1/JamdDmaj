@@ -32,6 +32,7 @@ import {openPerpsBackupRegistry} from '../lib/perps-backup-registry.js';
 import {initializePerpsOperatorRecovery,createPerpsCustodyRecoveryArchive,restorePerpsCustodyRecoveryArchive} from '../lib/perps-custody-recovery.js';
 import {createNativePerpsCloseBroadcaster} from '../lib/perps-close-broadcast.js';
 import {createNativePerpsCloseExecutor} from '../lib/perps-close-executor.js';
+import {createBotManualClose} from '../lib/perps-bot-manual-close.js';
 import {closePayoutFixture} from './helpers/perps-close-payout-fixture.mjs';
 import {createServerPerpsDailyAccountReader} from '../lib/perps-server-daily-account.js';
 import {createPerpsNetworkFeeValuationReader} from '../lib/perps-network-fee-valuation.js';
@@ -1287,6 +1288,25 @@ async function nativeSigningFixture(t,{side='LONG',asset='SOL',minimumReturnUnit
  const restoredVault=openPerpsCustodyVault({directory:restored.directory,keyFile:restored.keyFile,...common});
  return {...f,row,args,vault,restoredVault,archiveSha256:archive.sha256,disallow(){allowed=false;},expireGrant(){mono=2001;}};
 }
+
+test('bot manual close reviews tracked positions and persists a single send before recovering without signing again',async t=>{
+ const f=await nativeSigningFixture(t);f.journal.cancelPreparedPositionClose(f.row.id);
+ const who={ownerAccountHash:f.args.ownerAccountHash,walletAddress:wallet};let sends=0;
+ const owned=identity=>{assert.deepEqual(identity,who);return f.args.controls.read(identity);};
+ const close=createBotManualClose({journal:f.journal,vault:f.vault,controls:f.args.controls,backupRegistry:f.args.backupRegistry,
+  rpcRequest:f.args.request,builderRequest:async()=>Response.json(f.preparation),fetchImpl:async()=>{sends++;throw Error('timeout');},
+  readFinalizedAccount:async()=>{throw Error('not finalized');},owned,assertCustody:()=>{},exclusive:async(_wallet,fn)=>fn(),
+  hasPendingSwap:()=>false,isRunning:()=>true,now:f.args.now,monotonicNow:f.args.monotonicNow});
+ const positions=await close.positions(who);assert.equal(positions.positions[0].tracked,true);
+ await assert.rejects(close.prepare({...who,positionAddress:wallet,referencePrice:'100'}),/UNTRACKED/);
+ const review=await close.prepare({...who,positionAddress:f.options.positionAddress,referencePrice:'100'});
+ assert.equal(review.protection.firstLegProtection,'ON_CHAIN_PRICE_LIMIT');assert.equal(sends,0);
+ await assert.rejects(close.confirm({...who,id:review.id,explicitApproval:false}));assert.equal(sends,0);
+ const result=await close.confirm({...who,id:review.id,explicitApproval:true});assert.equal(sends,1);
+ assert.equal(result.phase,'UNCERTAIN');assert.equal(f.journal.readPositionCloseExecution(review.id).state,'UNCERTAIN');
+ await assert.rejects(close.confirm({...who,id:review.id,explicitApproval:true}));assert.equal(sends,1);
+ assert.equal(owned(who).enabled,false);
+});
 
 test('native close authority signs only its reviewed original close once while automation stays paused',async t=>{
  for(const asset of ['SOL','ETH','BTC'])for(const side of ['LONG','SHORT']){
