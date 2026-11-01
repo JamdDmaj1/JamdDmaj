@@ -1204,6 +1204,25 @@ test('bot manual review -> two approvals -> durable risk and fee consent -> one 
  await assert.rejects(service.confirm(confirmation));await assert.rejects(service.prepare({...who,draft}));assert.equal(sends.length,1);
  assert.equal(f.controls.read(who).paused,true);assert.equal(f.controls.read(who).enabled,false);
 });
+test('bot manual confirmation refuses changed policy, controls and revoked backup before any send or reservation',async t=>{
+ for(const change of ['policy','controls','backup']){
+  const f=await custodySigningFixture(t,{reserve:false,beginSigning:false,manualServices:true}),who={ownerAccountHash:f.args.ownerAccountHash,walletAddress:f.wallet.walletAddress};
+  f.controls.pause(who);
+  const limits={capitalUsd:'50',dailyLossUsd:'30',positions:2,dailyTrades:5};
+  const policy=f.policyStore.save({...who,expectedRevision:null,limits,explicitApproval:true});let sends=0;
+  const service=createBotManualPerpsService({controls:f.controls,vault:f.vault,journal:f.journal,policyStore:f.policyStore,backupRegistry:f.backupRegistry,
+   readAccount:f.args.readAccount,rpcRequest:async(method,params)=>{const value=await f.rpcRequest(method,params);if(value?.context)value.context.slot=Math.max(value.context.slot,params[1]?.minContextSlot||0);return value;},
+   builderRequest:f.builderRequest,feeJournal:f.feeJournal,platformFees:{assertActivationReadiness:async()=>{},status:()=>({dueUnits:'0',pendingCount:0,failedCount:0})},hasPendingSwap:()=>false,isRunning:()=>true,
+   readFinalizedAccount:f.args.readAccount,now:()=>now,monotonicNow:()=>f.clock.value,fetchImpl:async()=>{sends++;assert.fail('No financial send after review changed');}});
+  const review=await service.prepare({...who,draft:{asset:'SOL',side:'LONG',margin:'10',leverage:'3',referencePrice:'100',stopLoss:'95',takeProfit:'110'}});
+  if(change==='policy')f.policyStore.save({...who,expectedRevision:policy.revision,limits:{...limits,dailyTrades:4},explicitApproval:true});
+  if(change==='controls')f.controls.pause(who);
+  if(change==='backup')f.backupRegistry.revokeArchive({archiveSha256:f.backupArchiveSha,explicitOperatorApproval:true});
+  await assert.rejects(service.confirm({...who,id:review.id,explicitApproval:true,explicitFeeApproval:true,feeTermsVersion:review.fee.version}));
+  assert.equal(sends,0);assert.equal(f.journal.pending(who.walletAddress).length,0);assert.equal(f.controls.read(who).enabled,false);
+ }
+});
+
 test('runtime activation approval binds actual backup, exclusive custody, reconciled account and live worker without activating anything',async t=>{
  const f=await custodySigningFixture(t,{reserve:false}),state=f.controls.read(f.args);let running=true,reads=0;
  const options={controls:f.controls,vault:f.vault,backupRegistry:f.backupRegistry,journal:f.journal,readAccount:async()=>{reads++;return f.daily;},isExecutionRunning:()=>running};

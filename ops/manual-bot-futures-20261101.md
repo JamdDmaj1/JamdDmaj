@@ -73,6 +73,9 @@ include those in this financial release or overwrite them.
    own per-wallet manual limits before order review. No default risk values or
    bot limits were copied. Genuine signed-in user review requested; awaiting
    user result. Do not call this a completed real-money trade test.
+8. Additional actual service regression passes: changing manual policy or control
+   revision, or revoking custody backup after review, rejects confirmation before
+   reservation/signing/send. These three scenarios use ephemeral fixture state.
 
 Android APK remains 1.38.17 on the public update feed; this publication does not
 claim an Android 1.38.18 release or a financial operation on a phone.
