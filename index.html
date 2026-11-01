@@ -4107,6 +4107,9 @@
               <label>Decimales<input data-token="decimals" type="number" min="0" max="9" value="6"></label>
               <label>Wallet<select data-token="wallets"></select></label>
             </div>
+            <button type="button" data-token="check-name">Comprobar nombre y símbolo</button>
+            <p>Consultamos nombres y símbolos en índices públicos, sin enviar datos de tu wallet. Las coincidencias detectadas bloquean este formulario; no existe reserva universal de nombres en Solana.</p>
+            <div data-token="name-results" role="status" aria-live="polite"></div>
             <button type="button" data-token="connect">Conectar wallet</button>
             <button type="button" data-token="prepare" disabled>Revisar creación · no envía</button>
             <div data-token="review" aria-live="polite"></div>
@@ -5174,7 +5177,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.38.16";
+      const APP_VERSION = "1.38.17";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -15099,8 +15102,8 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
       maybeShowNormalReleaseNotes();
     })();
   </script>
-  <script type="module" src="fair-launch-ui.js?v=1.38.16"></script>
-  <script type="module" src="wallet-login-ui.js?v=1.38.16"></script>
+  <script type="module" src="fair-launch-ui.js?v=1.38.17"></script>
+  <script type="module" src="wallet-login-ui.js?v=1.38.17"></script>
   <script type="module" src="web-trial-ui.js"></script>
   <script type="module" src="jamd-credit-ui.js"></script>
   <script type="module" src="first-visit-ui.js"></script>

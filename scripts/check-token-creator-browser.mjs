@@ -8,9 +8,14 @@ import {chromium} from 'file:///C:/Users/JamdDmaj/.cache/codex-runtimes/codex-pr
 await build({stdin:{contents:"export {generateKeyPairSigner,getTransactionDecoder,getTransactionEncoder,partiallySignTransactionWithSigners} from '@solana/kit';",resolveDir:process.cwd()},bundle:true,format:'esm',platform:'browser',outfile:'.perps-build/token-fixture-sdk.js'});
 const browser=await chromium.launch({executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',headless:true});
 try{
- const page=await browser.newPage({viewport:{width:390,height:844}}),calls=[],errors=[];let submittedWire;page.on('pageerror',e=>errors.push(e.message));
+ const page=await browser.newPage({viewport:{width:390,height:844}}),calls=[],errors=[];let submittedWire,nameBlocked=true,nameUnavailable=true;page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/*',async route=>{
   const u=new URL(route.request().url());
+  if(u.hostname==='www.jamddmaj.com'&&u.pathname==='/api/token-name-check'){
+   const name=u.searchParams.get('name'),symbol=u.searchParams.get('symbol');
+   if(nameUnavailable)return route.fulfill({status:503,json:{error:{code:'TOKEN_NAME_LOOKUP_UNAVAILABLE'}}});
+   return route.fulfill({json:{network:'solana:mainnet',name,symbol,checkedAt:Date.now(),expiresAt:Date.now()+120000,status:nameBlocked?'duplicate':'no-indexed-match',matches:nameBlocked?[{mint:'So11111111111111111111111111111111111111112',name,symbol}]:[],globalUniquenessGuaranteed:false}});
+  }
   if(u.hostname==='solana-rpc.publicnode.com'){
    const q=JSON.parse(route.request().postData());calls.push(q.method);let result;
    if(q.method==='getGenesisHash')result='5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
@@ -38,7 +43,12 @@ try{
   window.dispatchEvent(new CustomEvent('wallet-standard:register-wallet',{detail:api=>api.register(wallet)}));
  });
  const root=page.locator('#tokenCreatorMainnet'),button=name=>root.locator('[data-token="'+name+'"]');
- await button('connect').click();await button('prepare').click();await page.waitForFunction(()=>document.querySelector('[data-token="review"]').textContent.includes('Total estimado'));
+ await button('check-name').click();await page.waitForFunction(()=>document.querySelector('[data-token="name-results"]').textContent.includes('No se pudo completar'));
+ assert.equal(await page.evaluate(()=>window.signs),0);assert.equal(calls.includes('simulateTransaction'),false);
+ nameUnavailable=false;await button('connect').click();await button('prepare').click();
+ await page.waitForFunction(()=>document.querySelector('[data-token="name-results"]').textContent.includes('ya detectado'));
+ assert.equal(await page.evaluate(()=>window.signs),0);assert.equal(calls.includes('simulateTransaction'),false);assert.equal(await button('submit').isDisabled(),true);
+ nameBlocked=false;await button('prepare').click();await page.waitForFunction(()=>document.querySelector('[data-token="review"]').textContent.includes('Total estimado'));
  assert.equal(await page.evaluate(()=>window.signs),0);assert.equal(await button('submit').isDisabled(),true);
  await root.scrollIntoViewIfNeeded();await page.screenshot({path:'.perps-build/token-creator-review-mobile.png',fullPage:false});
  await button('approval').check();await button('submit').click();await page.waitForFunction(()=>localStorage.getItem('jamd.tokenCreator.mainnet.pending.v1'));
