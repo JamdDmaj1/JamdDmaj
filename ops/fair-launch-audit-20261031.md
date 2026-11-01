@@ -209,3 +209,11 @@ All test wallets are disposable; no network broadcast or real wallet signature
 was performed. Web build passes. Publication and a live read-only simulation are
 still unverified. Discover HTML reflects the separate creator; JS/CSS/tour were
 reviewed without unrelated style/navigation changes.
+
+Real mainnet read-only preparation passed against PublicNode: fixed genesis,
+rent, blockhash and simulation only. Disposable mint key was used solely for
+simulation; user wallet was never called and no transaction broadcast was
+possible through the probe's method allowlist. Observed fixture quote:
+10,600 network + 3,896,360 account-reserve lamports = 3,906,960 lamports.
+This is an observation, not a fixed price. Prepared source version 1.38.15;
+publication remains unproven until deployment/release receipts are recorded.
