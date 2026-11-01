@@ -190,3 +190,22 @@ pool. Existing user drafts are not silently migrated. Two focused tests and web
 build passed. Discover HTML includes matching non-issued-token wording;
 Discover JS/CSS/tour reviewed, no style/navigation change needed. This change is
 prepared locally, not a verified production publication or mainnet enablement.
+
+## Separate simple mainnet creator (unpublished implementation)
+
+Added a separate basic Token-2022 issuer: identity, exact supply units, fixed
+mainnet RPC/genesis, atomic mint/metadata/supply/authority revocation, zero
+JamdDmaj issuance fee, explicit fresh cost review and Wallet Standard consent.
+This does not execute the approved five-bucket distribution, vesting or pool.
+No protected-launch readiness gate was marked approved or removed.
+
+Pending public metadata is durably saved before the one permitted transport
+attempt. It includes a SHA256 of the signed message, not secret keys or signed
+wire bytes. Read-only recovery requires finalized chain evidence, exact message
+and owner signature plus matching issued token balance before success. Confirmed
+but unfinalized observations and inconsistent receipts preserve the pending guard.
+Twelve focused tests and the complete intercepted mobile browser rehearsal pass.
+All test wallets are disposable; no network broadcast or real wallet signature
+was performed. Web build passes. Publication and a live read-only simulation are
+still unverified. Discover HTML reflects the separate creator; JS/CSS/tour were
+reviewed without unrelated style/navigation changes.

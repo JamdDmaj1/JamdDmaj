@@ -7,6 +7,7 @@ import {
 } from "./lib/fair-launch.js";
 import { buildBoostPlan } from "./lib/fair-launch-boost.js";
 import {applyJamdTokenPreset} from './lib/jamd-token-preset.js';
+import {initializeTokenCreator} from './token-creator-ui.js';
 import {fairLaunchRecovery,readFairLaunchTransaction,fairLaunchExclusive} from './lib/fair-launch-transaction.js';
 import {formatTestSol} from './lib/fair-launch-costs.js';
 import { verifyFairLaunchOnDevnet } from "./lib/fair-launch-devnet-verifier.js";
@@ -67,6 +68,7 @@ const VERIFIER_LABEL_KEYS = Object.freeze({
   const launchView = document.getElementById("fairLaunchView");
   const form = document.getElementById("fairLaunchForm");
   if (!launchButton || !launchView || !form) return;
+  initializeTokenCreator(document.getElementById('tokenCreatorMainnet'));
 
   let active = false;
   let previousUi = null;

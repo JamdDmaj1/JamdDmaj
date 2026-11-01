@@ -159,6 +159,7 @@ await cp(resolve(root, "lib", "simulator-account.js"), resolve(output, "lib", "s
 await cp(resolve(root, "lib", "simulator-i18n.js"), resolve(output, "lib", "simulator-i18n.js"));
 await cp(resolve(root, "lib", "fair-launch.js"), resolve(output, "lib", "fair-launch.js"));
 await cp(resolve(root, "lib", "wallet-security.js"), resolve(output, "lib", "wallet-security.js"));
+await cp(resolve(root, 'lib', 'current-knowledge.js'), resolve(output, 'lib', 'current-knowledge.js'));
 await cp(resolve(root, "lib", "wallet-standard-registry.js"), resolve(output, "lib", "wallet-standard-registry.js"));
 await cp(resolve(root, "lib", "fair-launch-boost.js"), resolve(output, "lib", "fair-launch-boost.js"));
 await cp(resolve(root, "lib", "fair-launch-locales.js"), resolve(output, "lib", "fair-launch-locales.js"));
