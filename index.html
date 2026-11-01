@@ -4115,6 +4115,24 @@
             <button type="button" data-token="recover" hidden>Consultar creación pendiente · no reenvía</button>
             <p data-token="status" role="status">Conecta una wallet compatible para revisar. No se importa ninguna clave.</p>
           </section>
+          <section class="fair-launch-panel" id="cpmmPoolMainnet" aria-label="Crear pool o añadir liquidez en Solana mainnet">
+            <h2>Pool y liquidez · Token / USDC</h2>
+            <p>Crea un pool Raydium CPMM o añade liquidez al pool existente, usando su configuración estándar. Se aportan los dos tokens y SOL real. Introduce la dirección exacta de tu token; el nombre no demuestra su identidad.</p>
+            <p><strong>Esta aportación NO queda bloqueada.</strong> No activa la comisión del 1%, el bloqueo permanente ni la distribución de JAMD. Esos mecanismos siguen pendientes.</p>
+            <div class="fair-form-grid">
+              <label>Dirección del token · Solana<input data-pool="mint" autocomplete="off" spellcheck="false" placeholder="Dirección mint, no dirección de tu wallet"></label>
+              <label>Cantidad de tokens · máximo al añadir<input data-pool="tokens" inputmode="decimal" autocomplete="off" placeholder="Por ejemplo: 1000000"></label>
+              <label>USDC · máximo al añadir<input data-pool="usdc" inputmode="decimal" autocomplete="off" placeholder="Elige tu importe"></label>
+              <label>Wallet para aportar<select data-pool="wallets"></select></label>
+            </div>
+            <button type="button" data-pool="connect">Conectar wallet</button>
+            <button type="button" data-pool="prepare" disabled>Consultar saldos y revisar pool · no envía</button>
+            <div data-pool="review" aria-live="polite"></div>
+            <label><input type="checkbox" data-pool="approval"> Revisé la wallet, el token, el pool, los importes y los costes. Entiendo el riesgo y que los LP NO quedan bloqueados. Autorizo únicamente esta aportación.</label>
+            <button type="button" data-pool="submit" disabled>Aprobar aportación en mi wallet</button>
+            <button type="button" data-pool="recover" hidden>Consultar aportación pendiente · no reenvía</button>
+            <p data-pool="status" role="status">Conecta una wallet compatible con Solana mainnet. Solo tokens sin emisión adicional, congelación ni extensiones de transferencia especiales; USDC canónico.</p>
+          </section>
           <h2>Laboratorio protegido · solo Devnet</h2>
           <div class="fair-launch-grid">
             <form class="fair-launch-panel" id="fairLaunchForm">
@@ -5156,7 +5174,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.38.15";
+      const APP_VERSION = "1.38.16";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -15081,8 +15099,8 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
       maybeShowNormalReleaseNotes();
     })();
   </script>
-  <script type="module" src="fair-launch-ui.js?v=1.38.15"></script>
-  <script type="module" src="wallet-login-ui.js?v=1.38.15"></script>
+  <script type="module" src="fair-launch-ui.js?v=1.38.16"></script>
+  <script type="module" src="wallet-login-ui.js?v=1.38.16"></script>
   <script type="module" src="web-trial-ui.js"></script>
   <script type="module" src="jamd-credit-ui.js"></script>
   <script type="module" src="first-visit-ui.js"></script>

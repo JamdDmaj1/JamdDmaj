@@ -20,6 +20,13 @@
 #tokenCreatorMainnet [data-token="submit"] { background:#255e62;color:#edfffc; }
 #tokenCreatorMainnet [data-token="submit"]:disabled { opacity:.45; }
 #tokenCreatorMainnet label:has(input[type="checkbox"]) { display:flex;gap:10px;align-items:flex-start;line-height:1.6; }
+#cpmmPoolMainnet { border-color:#287e8b; }
+#cpmmPoolMainnet button { min-height:44px;margin:8px 6px 8px 0;padding:11px 16px;border:1px solid #33526d;border-radius:12px;background:#142333;color:#e9f7ff;font:inherit;cursor:pointer; }
+#cpmmPoolMainnet button:disabled { opacity:.45;cursor:not-allowed; }
+#cpmmPoolMainnet button:focus-visible { outline:3px solid #53e5d3;outline-offset:3px; }
+#cpmmPoolMainnet p { overflow-wrap:anywhere; }
+#cpmmPoolMainnet [data-pool="review"]:not(:empty) { padding:16px;border:1px solid #287e8b;border-radius:16px;background:#0a1824; }
+#cpmmPoolMainnet label:has(input[type="checkbox"]) { display:flex;gap:10px;align-items:flex-start;line-height:1.6; }
 
 .fair-cost-review{box-sizing:border-box;width:min(560px,calc(100vw - 28px));max-height:calc(100dvh - 28px);overflow:auto;padding:24px;border:1px solid #2a5363;border-radius:22px;background:#101a27;color:#e8f2fc;box-shadow:0 24px 80px #0009;font:inherit}
 .fair-cost-review::backdrop{background:#050b16c9;backdrop-filter:blur(7px)}
