@@ -62,3 +62,17 @@ finalized block height, repeated absent signature and absent pool.
 
 Publication is not implied by this source audit; deployment/release receipts
 must be checked separately before declaring the feature available.
+
+## Publication receipts
+
+Source `b4b580a` staged in production deployment
+`dpl_EVN1qGAaNG5zoRy42KhjC26RX1MH`. Authenticated candidate checks passed for
+main form/version, bundled financial checks, CSS, Discover, status and unchanged
+protected-launch gate. The tested production candidate was then promoted to
+the canonical public domain. No protection setting was disabled.
+
+Final `npm run test:ci`: 1301 tests, 1282 passed, 19 skipped, zero failures.
+Log `.perps-build/cpmm-release16-tests.log`. Both browser rehearsals pass on
+the rebuilt 1.38.16 assets. Android tag `v1.38.16` starts signed release run
+https://github.com/JamdDmaj1/JamdDmaj/actions/runs/41266280710
+and must not be described as a published APK until the non-draft asset is verified.
