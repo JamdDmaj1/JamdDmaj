@@ -31,3 +31,19 @@ is verified separately.
 Primary references:
 - https://solana.com/docs/tokens/basics/create-mint
 - https://developers.jup.ag/docs/tokens/index
+
+## Publication verification
+
+Version 1.38.17, source `74052f5`, staged in production deployment
+`dpl_7xTczTvEvUqZQqS7RbBzCE42gdY8`. Authenticated candidate checks passed for
+HTML, bundle, Discover, status and live API query (26 indexed SOL matches).
+The candidate was promoted only after these checks. Full `test:ci` exits 0:
+1306 tests, 1287 passed, 19 skipped, zero failures. No user transaction signed.
+
+Android 1.38.16 release did not publish: job 124729638238 exited 22 in the native
+crypto/encoding step containing a Maven download; no JUnit files were produced.
+This does not establish a cryptographic assertion failure. The same dependency
+URL currently returns HTTP 200. The changed 1.38.17 source has its own release
+run https://github.com/JamdDmaj1/JamdDmaj/actions/runs/41267866723 and remains
+unpublished until its non-draft APK and signature are verified. Do not advertise
+either pending/failed Android release as available.
