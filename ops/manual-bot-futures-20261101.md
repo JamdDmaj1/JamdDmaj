@@ -138,3 +138,30 @@ oracle mutations, replaced blockhash, native errors and moving bank snapshots.
 These prove only their covered boundaries, not a complete two-leg Long flow.
 Durable entry-conversion coordination, finalized first-leg receipt binding,
 exact-collateral opening and its UI/signing integration remain pending.
+
+### Joined first-leg preparation and lifecycle (unpublished)
+
+`prepareProtectedPerpsEntryConversion` now joins a validated Long draft to
+fresh confirmed custodies, native oracle bounds, a fixed unsigned wire and
+exact-effects simulation. Its public review contains no transaction bytes,
+is bound by private evidence, expires within ten seconds and still reports
+readyForSigning false. Actual unsigned server runs reached
+PROTECTED_ENTRY_CONVERSION_PREPARED for BTC at 464271401, ETH at 464271406
+and SOL at 464271413. None was signed or sent.
+
+The separate first-leg engine requires explicit one-use approval and current
+external authorization, re-simulates the original wire before consumption
+and submission, compares reviewed costs, and writes durable uncertainty before
+one send. Fixture tests use newly generated unfunded keys and mocked transport:
+both success and transport-timeout paths record before send and reject reuse.
+This engine is not an HTTP endpoint, a custody grant, or the complete Long
+workflow. Bot ownership/manual-policy/risk/backup composition, finalized
+collateral receipt binding and the second-leg opening remain required.
+
+Discover was reviewed for this internal-only work. No page/tour change is
+appropriate until the complete path is available and verified. No deployment
+or real financial operation was performed.
+
+Post-change CI completed with 1334 tests: 1315 passed, 19 skipped, zero failed.
+The skipped tests and absence of a real financial send are not proof of a
+completed production Long order. Publication remains pending.

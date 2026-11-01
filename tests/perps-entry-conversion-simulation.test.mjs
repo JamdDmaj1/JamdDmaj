@@ -1,11 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import bs58 from 'bs58';
+import {generateKeyPairSync,sign} from 'node:crypto';
 import {conversionFixture} from './helpers/perps-conversion-fixture.mjs';
 import {buildUnsignedPerpsEntryConversionWire} from '../lib/perps-entry-conversion-wire.js';
 import {simulatePerpsEntryConversion,readSimulatedPerpsEntryConversion} from '../lib/perps-entry-conversion-simulation.js';
-async function fixture(asset='BTC',newDestination=false){
- const f=await conversionFixture({asset,nativeSolInput:false,closeWrappedAccount:false,strictWire:false}),input=10000000n,output=9970000n,owner=f.walletAddress;
+import {prepareProtectedPerpsEntryConversion,readPreparedPerpsEntryConversion} from '../lib/perps-entry-conversion-preparation.js';
+import {createPerpsEntryConversionEngine,consumePerpsEntryConversionGrant} from '../lib/perps-entry-conversion-engine.js';
+async function fixture(asset='BTC',newDestination=false,walletAddress){
+ const f=await conversionFixture({asset,nativeSolInput:false,closeWrappedAccount:false,strictWire:false,...(walletAddress?{walletAddress}:{})}),input=10000000n,output=9970000n,owner=f.walletAddress;
  const wire=await buildUnsignedPerpsEntryConversionWire({walletAddress:owner,asset,blockhash:f.wire.blockhash,lastValidBlockHeight:f.wire.lastValidBlockHeight,usdcUnits:String(input),minimumCollateralUnits:asset==='SOL'?'99500000':'9950000'},f.u,f.c);
  const actualOutput=asset==='SOL'?99700000n:output;
  for(const map of [f.before,f.after])for(const c of [f.u,f.c]){const a=map.get(c.address),old=Buffer.from(a.data[0],'base64'),b=Buffer.alloc(1200);old.copy(b);a.data[0]=b.toString('base64');}
@@ -39,4 +42,48 @@ test('entry conversion rejects altered funding, configuration, principal, wire a
   const request=f.options.request;f.options.request=async(m,p)=>{const r=await request(m,p);if(mode==='bank'&&m==='simulateTransaction')r.context.slot++;if(mode==='height'&&m==='getBlockHeight')return 1001;return r;};
   await assert.rejects(simulatePerpsEntryConversion(f.wire,f.options),mode);
  }
+});
+test('joined entry preparation binds draft, oracle, exact wire and costs without exposing signing bytes',async()=>{
+ for(const asset of ['BTC','ETH','SOL']){
+  const f=await fixture(asset,true),draft={asset,side:'LONG',margin:'10',leverage:'3',referencePrice:'100'},r=await prepareProtectedPerpsEntryConversion(draft,f.walletAddress,f.options);
+  assert.deepEqual(r.draft,draft);assert.equal(r.maxSlippageBps,50);assert.equal(r.usdcUnits,'10000000');assert.equal(r.readyForSigning,false);assert.equal(r.submitted,false);
+  assert.equal(r.simulatedCollateralUnits,String(f.output));assert.equal(r.rentLockedLamports,'2039280');assert.equal('serializedTxBase64' in r,false);
+  const p=readPreparedPerpsEntryConversion(r);assert.equal(p.wire.minimumCollateralUnits,r.minimumCollateralUnits);assert.equal(p.simulation.observedSlot,r.observedSlot);
+  assert.throws(()=>readPreparedPerpsEntryConversion({...r}));f.expire();assert.throws(()=>readPreparedPerpsEntryConversion(r));
+ }
+});
+test('joined entry preparation rejects Short, stale/foreign oracles and insufficient exact funding before any authorization',async()=>{
+ const draft={asset:'BTC',side:'LONG',margin:'10',leverage:'3',referencePrice:'100'};
+ for(const mode of ['short','oracle','source','time','bank']){
+  const f=await fixture();
+  if(mode==='oracle')for(const map of [f.before,f.after])map.get(f.c.dovesAgOracle).owner=f.c.address;
+  if(mode==='source')f.before.set(f.wire.source,f.token(f.walletAddress,f.u.mint,1n));
+  if(mode==='time')f.expire();
+  const request=f.options.request;f.options.request=async(m,p)=>{const r=await request(m,p);if(mode==='bank'&&m==='getMultipleAccounts'&&p[1].minContextSlot)r.context.slot=0;return r;};
+  if(mode==='time'){
+   let calls=0;const clock=f.options.monotonicNow;f.options.monotonicNow=()=>clock()+(calls++?10001:0);
+  }
+  await assert.rejects(prepareProtectedPerpsEntryConversion({...draft,side:mode==='short'?'SHORT':'LONG'},f.walletAddress,f.options),mode);
+ }
+});
+test('first-leg lifecycle requires one-use explicit approval and journals before its only mocked send',async()=>{
+ for(const timeout of [false,true]){
+  const pair=generateKeyPairSync('ed25519'),wallet=bs58.encode(pair.publicKey.export({type:'spki',format:'der'}).subarray(-32)),f=await fixture('BTC',false,wallet),events=[];let pending=null,sends=0;
+  const journal={read:async()=>pending,begin:async row=>{events.push('journal');pending=row;},resolve:async()=>{}};
+  const engine=createPerpsEntryConversionEngine({...f.options,sendRequest:async(method,p)=>{sends++;events.push('send');assert.equal(method,'sendTransaction');assert.equal(p[1].maxRetries,0);if(timeout)throw Error('transport-timeout');return pending.signature;},journal,isCurrent:()=>true});
+  const review=await engine.prepare({asset:'BTC',side:'LONG',margin:'10',leverage:'3',referencePrice:'100'},wallet);
+  assert.throws(()=>engine.authorize(review,false));assert.throws(()=>engine.authorize({...review},true));
+  await assert.rejects(engine.submit(review,'not-a-signature'));assert.equal(sends,0);
+  const grant=engine.authorize(review,true),approved=await consumePerpsEntryConversionGrant(grant,wallet);assert.throws(()=>engine.authorize(review,true));await assert.rejects(consumePerpsEntryConversionGrant(grant,wallet));
+  const message=Buffer.from(approved.message),signature=sign(null,message,pair.privateKey),signed=Buffer.concat([Buffer.from([1]),signature,message]).toString('base64');
+  if(timeout)await assert.rejects(engine.submit(review,signed),/transport-timeout/);else assert.equal(await engine.submit(review,signed),bs58.encode(signature));
+  assert.deepEqual(events,['journal','send']);assert.equal(sends,1);assert.equal(pending.signature,bs58.encode(signature));await assert.rejects(engine.submit(review,signed));assert.equal(sends,1);
+ }
+});
+test('entry lifecycle refuses changed external authorization and never turns a review into a signature',async()=>{
+ const f=await fixture(),journal={read:async()=>null,begin:async()=>assert.fail('No durable send allowed'),resolve:async()=>{}};let current=true;
+ const engine=createPerpsEntryConversionEngine({...f.options,journal,isCurrent:()=>current,sendRequest:async()=>assert.fail('No send allowed')});
+ const review=await engine.prepare({asset:'BTC',side:'LONG',margin:'10',leverage:'3',referencePrice:'100'},f.walletAddress),grant=engine.authorize(review,true);
+ current=false;await assert.rejects(consumePerpsEntryConversionGrant(grant,f.walletAddress));assert.equal(review.readyForSigning,false);
+ engine.invalidate();assert.throws(()=>engine.authorize(review,true));
 });
