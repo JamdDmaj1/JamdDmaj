@@ -19,3 +19,10 @@ test('a lost policy save clears claimed confirmation and requires a fresh read, 
  await f.read.onclick();for(const [k,v]of Object.entries(limits))f.fields[k].value=String(v);f.approval.checked=true;await f.save.onclick();
  assert.equal(saves,1);assert.equal(f.save.disabled,true);assert.match(f.status.textContent,/sin confirmar/);assert.doesNotMatch(f.status.textContent,/private/);
 });
+
+test('order flow automatically reads protection and opens setup only when limits are missing, never saving defaults',async()=>{
+ let reads=0;const f=fixture({read:async()=>{reads++;return {policy:null,executionAvailable:true};},save:()=>assert.fail('No automatic save')});
+ assert.equal(await f.ensureForReview(),false);assert.equal(reads,1);assert.equal(f.panel.open,true);assert.equal(f.fields.capitalUsd.value,'');
+ const ready=fixture({read:async()=>({policy:{walletAddress:address,revision:'saved',limits},executionAvailable:true}),save:()=>assert.fail('No automatic save')});
+ assert.equal(await ready.ensureForReview(),true);assert.notEqual(ready.panel.open,true);assert.equal(ready.fields.capitalUsd.value,'50');assert.equal(ready.approval.checked,false);
+});
