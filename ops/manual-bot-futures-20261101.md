@@ -79,3 +79,62 @@ include those in this financial release or overwrite them.
 
 Android APK remains 1.38.17 on the public update feed; this publication does not
 claim an Android 1.38.18 release or a financial operation on a phone.
+
+## Unpublished follow-up: strict 50 bps entry protection
+
+The owner explicitly chose to retain 0.5 percent protection. The provider's
+USDC-funded Long pre-swap floor remains insufficient; it is NOT waived.
+Short preparation passed genuine unsigned server simulation after validating
+the program-owned, readonly optional TokenLedger account. These local changes
+are not installed in the production worker or published web.
+
+The candidate web now retrieves the public market reference before a bot-wallet
+review, discards stale responses on edits/market changes, and includes that
+module in its browser build. Focused web review/navigation/import tests pass.
+The full suite's two observed failures were the missing built module and the
+outdated test transport fixture; both were corrected and their focused tests
+passed. A complete post-fix suite has not yet been rerun.
+
+A fixed, unsigned Swap2 first-leg constructor for USDC to BTC/ETH/SOL was added
+for investigation of a protected collateral-funded Long. Actual mainnet RPC
+simulations for all three assets returned `err: null` without signatures or
+submission. This is NOT a complete entry path or spending authorization.
+
+The new exact-effects validator remains fail-closed: genuine BTC simulation
+changes custody suffix bytes beyond the older conversion policy's immutable
+prefix/tail model. Observed USDC changed offsets include 972–976, 988,
+1004–1010 and 1020–1026; BTC includes 988. These fields require native IDL
+identification and bounded effect validation before any permission is granted.
+No tail check was removed. Opening with exact received collateral, durable
+first-leg reservation/receipt, recovery and explicit second-leg review are
+still incomplete. No financial operation, signature or send was performed.
+
+Discover HTML, JS, CSS and tour were reviewed. No public description changed:
+this work is unpublished and does not yet establish Long trading availability.
+
+### Follow-up native accounting validation
+
+The genuine Anchor IDL was re-read at confirmed slot 464254894. Its SHA256
+still matches the pinned 1d90a653...f7d653 layout. The previously rejected
+suffix changes are borrowsFundingRateState (972), debt (1004) and
+borrowLendInterestsAccured (1020), not changed permissions. A narrow helper
+now preserves all other suffix/configuration bytes, requires monotonic clocks
+and interest indices, and requires debt growth to equal accrued-interest growth
+(no new principal). It does not claim to independently reproduce protocol
+interest economics. Exact fixed Swap2 wire and vault/wallet conservation are
+independent mandatory checks.
+
+Actual read-only server diagnostics subsequently reached
+PROTECTED_ENTRY_CONVERSION_EFFECTS_SIMULATED for BTC, ETH and SOL, all with
+readyForSigning false and submitted false. SOL had one transient RPC failure
+and passed a subsequent fresh read-only preparation. A stricter 2 bps output
+buffer was used during unsigned construction; the independent cap remains
+the user's 50 bps. No existing signed message was altered.
+
+The post-fix CI suite completed: 1330 tests, 1311 passed, 19 skipped, zero
+failed. New effect tests cover all three markets, existing/new collateral
+ATAs, wallet/vault conservation, malformed principal/configuration changes,
+oracle mutations, replaced blockhash, native errors and moving bank snapshots.
+These prove only their covered boundaries, not a complete two-leg Long flow.
+Durable entry-conversion coordination, finalized first-leg receipt binding,
+exact-collateral opening and its UI/signing integration remain pending.

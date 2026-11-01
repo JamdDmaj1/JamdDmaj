@@ -36,6 +36,13 @@ test('pre-swap binds trusted custody vaults, associated accounts, ledger and exa
  await assert.rejects(checkServerPerpsPreSwapBindings(f.inspection,f.intent,{...f.usdc},f.collateral,f.swap,f.ledger,f.opening,encoded()));
  for(const data of [encoded(9999999n),encoded(10000001n),encoded(10000000n,99499999n)])await assert.rejects(checkServerPerpsPreSwapBindings(f.inspection,f.intent,f.usdc,f.collateral,f.swap,f.ledger,f.opening,data));
 });
+
+test('strict 0.5 percent output protection rejects the native wider floor with a specific error',async()=>{
+ const f=await fixture();
+ await assert.rejects(checkServerPerpsPreSwapBindings(f.inspection,f.intent,f.usdc,f.collateral,f.swap,f.ledger,f.opening,encoded(10000000n,95000000n)),{message:'PERPS_PRESWAP_INTENT_MISMATCH_MINIMUM_OUTPUT'});
+ const accepted=await checkServerPerpsPreSwapBindings(f.inspection,f.intent,f.usdc,f.collateral,f.swap,f.ledger,f.opening,encoded(10000000n,99500000n));
+ assert.equal(accepted.requiredMinimumOut,'99500000');
+});
 async function planFixture(){
  const f=await fixture();
  const readonly=[f.swap[3],f.swap[4],TOKEN,f.swap[13],f.swap[14],PERPS_PROGRAM,'11111111111111111111111111111111'];
@@ -71,5 +78,16 @@ test('short plan requires direct native USDC collateral and forbids auxiliary co
  assert.equal((await run()).ledger,null);
  data.writeBigUInt64LE(9999999n,17);ix.dataBase64=data.toString('base64');await assert.rejects(run());data.writeBigUInt64LE(10000000n,17);ix.dataBase64=data.toString('base64');
  for(const role of [3,14,15]){const previous=ix.accounts[role];ix.accounts[role]=0;await assert.rejects(run());ix.accounts[role]=previous;}
+ const optional=key(99);keys.push(optional);f.inspection.envelope.accountCount++;f.inspection.envelope.readonlyUnsigned++;ix.accounts[14]=keys.length-1;f.inspection.observedSlot=100;
+ const bytes=Buffer.concat([Buffer.from('9cf709bc366c554d','hex'),Buffer.alloc(40)]);
+ const snapshot={context:{slot:100},value:[{owner:PERPS_PROGRAM,executable:false,data:[bytes.toString('base64'),'base64']}]};
+ const checkOptional=()=>inspectServerPerpsPreSwapPlan(f.inspection,f.intent,f.usdc,f.collateral,{request:async(method,params)=>{assert.equal(method,'getMultipleAccounts');assert.deepEqual(params[0],[optional]);assert.equal(params[1].minContextSlot,100);return snapshot;}});
+ await assert.rejects(run());assert.equal((await checkOptional()).ledger,null);
+ snapshot.value[0].owner=TOKEN;await assert.rejects(checkOptional());snapshot.value[0].owner=PERPS_PROGRAM;
+ snapshot.value[0].executable=true;await assert.rejects(checkOptional());snapshot.value[0].executable=false;
+ snapshot.context.slot=99;await assert.rejects(checkOptional());snapshot.context.slot=100;
+ snapshot.value[0].data[0]=Buffer.alloc(48).toString('base64');await assert.rejects(checkOptional());snapshot.value[0].data[0]=bytes.toString('base64');
+ const savedReadonly=f.inspection.envelope.readonlyUnsigned;f.inspection.envelope.readonlyUnsigned=0;await assert.rejects(checkOptional());f.inspection.envelope.readonlyUnsigned=savedReadonly;
+ ix.accounts[14]=0;await assert.rejects(checkOptional());ix.accounts[14]=keys.length-1;
  f.inspection.envelope.instructions.unshift({program:ix.program,accounts:[0,0,0],dataBase64:Buffer.from('e455b9704e4f4d02','hex').toString('base64')});await assert.rejects(run());
 });

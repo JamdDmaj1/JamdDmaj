@@ -66,6 +66,7 @@ test('web Futures offers wallet selection and explicit review rather than disabl
 
 test('a linked bot address stays in Futures and asks the authenticated server, never Phantom or Android signing',async()=>{
  const calls=[];const f=ui(async(url,options)=>{
+  if(String(url).startsWith('https://perps-api.jup.ag/v1/market-stats')){assert.equal(options.method,'GET');return Response.json({price:'100'});}
   calls.push(JSON.parse(options.body));
   if(url==='/api/perps-manual-policy')return Response.json({ok:true,readyForSigning:false,executionAvailable:true,policy:{walletAddress:wallet,revision:'11111111-1111-4111-8111-111111111111',updatedAt:Date.now(),limits:{capitalUsd:'50',dailyLossUsd:'5',positions:1,dailyTrades:5}}});
   return Response.json({ok:true,botManual:{walletAddress:wallet,stage:'BOT_MANUAL_STATUS',available:false,reason:'BOT_MANUAL_PAUSE_REQUIRED',operations:[]}});

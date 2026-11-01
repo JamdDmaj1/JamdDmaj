@@ -193,7 +193,7 @@ test('manual web review uses actual wallet funding and the full exact-wire inspe
   return reply;
  };
  let builders=0;
- const options={now:()=>now,monotonicNow:()=>clock,rpcRequest:request,builderRequest:async()=>{builders++;return Response.json(f.preparation);}};
+ const options={now:()=>now,monotonicNow:()=>clock,rpcRequest:request,builderRequest:async(url,options)=>{assert.equal(JSON.parse(options.body).maxSlippageBps,'25');builders++;return Response.json(f.preparation);}};
  const review=await prepareInspectedPerpsManualOrder(draft,f.intent.walletAddress,options);
  assert.equal(review.stage,'MANUAL_PERPS_REVIEW_VALIDATED');assert.equal(review.readyForSigning,false);assert.equal(review.tradingEnabled,false);
  assert.equal(review.marginUsdcUnits,'10000000');assert.equal(review.availableUsdcUnits,'20000000');assert.equal(review.networkFeeLamports,'15100');

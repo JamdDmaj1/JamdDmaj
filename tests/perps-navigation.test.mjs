@@ -54,3 +54,18 @@ test('Long and Short buttons open only a native review draft and clear prices wh
  ticket.selectAsset({symbol:'SOL'});
  assert.match(nodes.find(node=>node.id==='jupiter-ticket-eligibility').textContent,/at least 10 USDC/);
 });
+
+test('bot ticket fetches a fresh public price and discards it when the market changes',async()=>{
+ const nodes=[],requests=[];let resolvePrice;
+ const doc={createElement(tag){const n={tag,children:[],value:'',append(...v){this.children.push(...v);},replaceChildren(...v){this.children=v;},setAttribute(){},addEventListener(){},remove(){}};nodes.push(n);return n;},
+  addEventListener(){},removeEventListener(){},defaultView:{fetch:async(url)=>{requests.push(url);if(String(url).startsWith('https://perps-api.jup.ag/v1/market-stats'))return new Promise(resolve=>{resolvePrice=resolve;});throw Error('No authenticated service in this test');}}};
+ const ticket=setupFuturesTicket(doc.createElement('main'),'en',doc);
+ selectWalletAccount(doc,{address:'7cZzabJQqgWR6yg5jSZZZA5Af5JhrMZaQ32XsKZVxfLy',source:'watch',name:'Bot'});
+ const price=nodes.find(n=>n.id==='jupiter-reference-price'),button=nodes.find(n=>n.textContent==='Review Long');
+ const pending=button.onclick();assert.equal(button.disabled,true);assert.equal(typeof resolvePrice,'function');
+ ticket.selectAsset({symbol:'ETH'});
+ resolvePrice({ok:true,redirected:false,text:async()=>JSON.stringify({price:'78000'})});await pending;
+ assert.equal(price.value,'');assert.equal(requests.filter(url=>String(url).includes('market-stats')).length,1);
+ assert.equal(requests.some(url=>String(url).includes('/manual/review')),false);
+ ticket.dispose();
+});
