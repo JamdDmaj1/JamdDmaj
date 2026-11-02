@@ -188,3 +188,27 @@ operation, deployment or change to the user's strict 0.5% limit was performed.
 
 Full CI after this change: 1337 tests, 1318 passed, 19 skipped, zero failures.
 These checks do not prove the still-unconnected production opening flow.
+
+### Collateral-funded opening debit and builder transport (local only)
+
+Added a separate funding inspector requiring the fresh private entry binding.
+It debits exactly the finalized received collateral, preserves old collateral
+and unrelated USDC, and reports zero new USDC debit. The original USDC funding
+path is unchanged. WSOL debit and ATA closure account for native principal
+separately from refunded rent; a fabricated principal refund is rejected.
+
+The second-leg builder adapter now uses the bound collateral symbol and exact
+received integer units. Original margin USD must match the conversion cost,
+side must be Long, asset/wallet must match, and intent protection remains 50
+bps while the builder is asked for a tighter 25 bps. Builder output remains
+UNVERIFIED_PREPARATION; no transport result is signing authorization.
+Official /positions/increase inputToken and integer-unit contract rechecked:
+https://perps-api.jup.ag/v1/docs (2026-11-01).
+
+Targeted BTC/ETH/SOL binding, funding and mocked builder tests passed. Web build
+passed. Full service integration, independent collateral-opening transaction
+inspection, durable risk reservation and separate confirmation remain pending.
+No real financial send or deployment occurred. Discover page/script/styles/tour
+were reviewed; no public content update is appropriate for unpublished work.
+
+Final CI for this change: 1339 tests, 1320 passed, 19 skipped, zero failed.
