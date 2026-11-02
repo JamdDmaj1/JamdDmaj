@@ -165,3 +165,26 @@ or real financial operation was performed.
 Post-change CI completed with 1334 tests: 1315 passed, 19 skipped, zero failed.
 The skipped tests and absence of a real financial send are not proof of a
 completed production Long order. Publication remains pending.
+
+### Finalized protected-entry receipt and signed-intent binding (local only)
+
+The finalized conversion reader now has distinct private receipt brands for
+entry collateral and close payout. Entry reconciliation verifies the exact
+signed wire, finalized native CPI and vault/token/SOL deltas for BTC, ETH and
+SOL, including new or existing collateral ATAs. Only the received delta is
+reported; pre-existing collateral cannot inflate it. A pending status returns
+no receipt. An entry receipt cannot pass the close-payout guard.
+
+The entry binding reads the authoritative private swap journal, requires the
+same owner, wallet, signed intent, wire hashes, protected review and finalized
+receipt, and rejects a never-broadcast claim. It produces no signing authority
+or risk release. Separate durable entry reservation and opening authorization
+remain required; this component is not yet wired to the production service.
+Eleven targeted tests passed using ephemeral unfunded keys and local fixtures.
+
+Discover HTML, JS, CSS and tour applicability reviewed: no public content change
+is appropriate for this unpublished internal reconciliation work. No financial
+operation, deployment or change to the user's strict 0.5% limit was performed.
+
+Full CI after this change: 1337 tests, 1318 passed, 19 skipped, zero failures.
+These checks do not prove the still-unconnected production opening flow.
