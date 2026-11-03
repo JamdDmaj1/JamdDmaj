@@ -212,3 +212,33 @@ No real financial send or deployment occurred. Discover page/script/styles/tour
 were reviewed; no public content update is appropriate for unpublished work.
 
 Final CI for this change: 1339 tests, 1320 passed, 19 skipped, zero failed.
+
+### Joined collateral-opening inspection (local, 2026-11-02)
+
+Manual preparation now accepts the private finalized entry binding explicitly.
+The opening-instruction policy requires Long, exactly the received collateral
+delta, canonical collateral ATA, native custody/PDA bindings and a chain bank
+at or after the finalized conversion. Auxiliary pre-swap/ledger instructions
+are forbidden on this explicit-amount path; a builder-supplied optional native
+ledger must remain genuine, readonly and inert. The old USDC Long and Short
+policies retain their existing behavior.
+
+Exact-wire position simulation privately carries the binding and watches both
+collateral and USDC. Its funding gate consumes that private evidence and checks
+the collateral debit, original holdings, fees and rent without inventing an
+additional USDC margin debit. The full manual-review function connects builder,
+envelope/core inspection, native custody, token setup, funding-plan inspection,
+position/exits simulation, exact spending and current account checks.
+
+Joined tests pass for BTC, ETH and SOL with a provider-only fixture signature,
+no owner signature/send, and only 3 USDC left after the modeled conversion.
+Review remains non-signing and requires the original fresh private receipt.
+Full CI: 1339 tests, 1320 passed, 19 skipped, zero failed. An earlier observation
+handle was absent after the turn change; this result is from a new completed
+run, not an assumption about the missing handle.
+
+The production service still needs a reservation spanning both legs, signing
+composition and durable recovery. In particular, do not feed the new review
+into the old USDC-only signing reserve or fabricate available-USDC balances.
+No deployment/financial operation occurred. Discover page, script and both
+stylesheets/tour remain unchanged appropriately for internal unpublished work.

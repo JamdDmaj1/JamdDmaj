@@ -9,6 +9,13 @@ import {readFinalizedPerpsEntryConversionReceipt} from '../lib/perps-close-conve
 import {bindFinalizedPerpsEntryConversion,readBoundPerpsEntryCollateral} from '../lib/perps-entry-conversion-binding.js';
 import {inspectServerPerpsEntryCollateralFunding} from '../lib/perps-server-funding.js';
 import {planProtectedPerpsCollateralLong,prepareProtectedPerpsCollateralLong} from '../lib/perps-entry-collateral-preparation.js';
+import {inspectServerPerpsPreSwapPlan} from '../lib/perps-server-preswap.js';
+import {PERPS_PROGRAM,PERPS_POOL,deriveServerPerpsIdentities,decodeServerPerpsCustody} from '../lib/perps-server-custody.js';
+import bs58 from 'bs58';
+import {entryOpeningFixture} from './helpers/perps-entry-opening-fixture.mjs';
+import {simulateServerPerpsPositionEffects} from '../lib/perps-server-simulation.js';
+import {checkServerPerpsFundingSimulation} from '../lib/perps-server-funding-simulation.js';
+import {prepareInspectedPerpsManualOrder,readInspectedPerpsManualReview} from '../lib/perps-manual-preparation.js';
 
 for(const asset of ['BTC','ETH','SOL'])test('entry collateral binds exact signed intent and opening debit: '+asset,async t=>{
  const root=mkdtempSync(join(tmpdir(),'jamd-entry-binding-'));chmodSync(root,0o700);
@@ -31,6 +38,30 @@ for(const asset of ['BTC','ETH','SOL'])test('entry collateral binds exact signed
   return Response.json({serializedTxBase64:f.wire.serializedTxBase64,positionPubkey:f.c.address,quote:{side:'long'},txMetadata:{blockhash:f.wire.blockhash,lastValidBlockHeight:f.wire.lastValidBlockHeight}});
  });
  assert.equal(builds,1);assert.equal(packet.readyForSigning,false);assert.equal(packet.stage,'UNVERIFIED_PREPARATION');assert.equal(packet.requiresIndependentCollateralIntentInspection,true);
+ const ids=await deriveServerPerpsIdentities(intent),key=n=>bs58.encode(Buffer.alloc(32,n)),TOKEN='TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
+ const roles=[key(2),key(3),f.walletAddress,f.wire.destination,ids.perpetuals,PERPS_POOL,ids.position,f.c.address,f.c.dovesAgOracle,f.c.oracle,f.c.address,f.c.dovesAgOracle,f.c.oracle,f.c.tokenAccount,PERPS_PROGRAM,PERPS_PROGRAM,TOKEN,'11111111111111111111111111111111',ids.eventAuthority,PERPS_PROGRAM];
+ const signers=[f.walletAddress,key(2),key(3)],readonly=[ids.perpetuals,TOKEN,'11111111111111111111111111111111',ids.eventAuthority,PERPS_PROGRAM];
+ const keys=[...signers,...new Set(roles.filter(k=>!signers.includes(k)&&!readonly.includes(k))),...readonly];
+ const data=Buffer.alloc(42);Buffer.from('a47e44b6dfa640b7','hex').copy(data);data.writeBigUInt64LE(30000000n,8);data[16]=1;data.writeBigUInt64LE(f.received,17);data[25]=1;data.writeBigUInt64LE(100500000n,26);data.writeBigUInt64LE(1000n,34);
+ const ix={program:keys.indexOf(PERPS_PROGRAM),accounts:roles.map(k=>keys.indexOf(k)),dataBase64:data.toString('base64')};
+ const inspection={stage:'INSPECTED_NOT_AUTHORIZED',observedSlot:receipt.slot,resolvedKeys:keys,envelope:{stage:'STRUCTURE_ONLY',staticKeys:keys,accountCount:keys.length,readonlySigned:1,readonlyUnsigned:readonly.length,lookups:[],instructions:[ix]}};
+ const openingAccount=structuredClone(f.before.get(f.c.address)),openingBytes=Buffer.from(openingAccount.data[0],'base64');openingBytes[202]=1;openingAccount.data[0]=openingBytes.toString('base64');
+ const openingMarket=decodeServerPerpsCustody(asset,f.c.address,openingAccount);
+ const inspect=()=>inspectServerPerpsPreSwapPlan(inspection,intent,f.u,openingMarket,{entryBinding:bound});
+ assert.equal((await inspect()).collateralUnits,String(f.received));
+ await assert.rejects(inspectServerPerpsPreSwapPlan(inspection,intent,f.u,f.c));
+ data.writeBigUInt64LE(f.received+1n,17);ix.dataBase64=data.toString('base64');await assert.rejects(inspect());data.writeBigUInt64LE(f.received,17);ix.dataBase64=data.toString('base64');
+ inspection.observedSlot--;await assert.rejects(inspect());inspection.observedSlot++;
+ const savedSource=ix.accounts[3];ix.accounts[3]=0;await assert.rejects(inspect());ix.accounts[3]=savedSource;
+ const opening=await entryOpeningFixture(f,intent,bound,openingMarket);
+ const simulation=await simulateServerPerpsPositionEffects(opening.prepared,{request:opening.request,monotonicNow:()=>0,entryBinding:bound});
+ const checkedFunding=await checkServerPerpsFundingSimulation(opening.prepared,simulation,{request:opening.request,monotonicNow:()=>0});
+ assert.equal(checkedFunding.collateralDebitUnits,String(f.received));assert.equal(checkedFunding.usdcDebitUnits,'0');assert.equal(checkedFunding.readyForSigning,false);
+ // Leave less USDC than the original margin: the conversion already spent it.
+ for(const map of [opening.before,opening.after])map.set(f.wire.source,f.token(f.walletAddress,f.u.mint,3000000n));
+ const joined=await prepareInspectedPerpsManualOrder({asset,side:'LONG',margin:'10',leverage:'3',referencePrice:'100'},f.walletAddress,{rpcRequest:opening.request,builderRequest:opening.builderRequest,now:f.receiptOptions.now,monotonicNow:()=>0,entryBinding:bound});
+ assert.equal(joined.availableUsdcUnits,'3000000');assert.equal(joined.fundingMode,'FINALIZED_ENTRY_COLLATERAL');assert.equal(joined.collateralDebitUnits,String(f.received));assert.equal(joined.readyForSigning,false);
+ assert.equal(readInspectedPerpsManualReview(joined).entryBinding,bound);
  assert.equal(readBoundPerpsEntryCollateral(bound),bound);assert.throws(()=>readBoundPerpsEntryCollateral({...bound}));
  assert.throws(()=>bindFinalizedPerpsEntryConversion({...input,ownerAccountHash:'e'.repeat(64)}));
  assert.throws(()=>bindFinalizedPerpsEntryConversion({...input,receipt:{...receipt}}));
