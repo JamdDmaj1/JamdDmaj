@@ -16,12 +16,13 @@ import {entryOpeningFixture} from './helpers/perps-entry-opening-fixture.mjs';
 import {simulateServerPerpsPositionEffects} from '../lib/perps-server-simulation.js';
 import {checkServerPerpsFundingSimulation} from '../lib/perps-server-funding-simulation.js';
 import {prepareInspectedPerpsManualOrder,readInspectedPerpsManualReview} from '../lib/perps-manual-preparation.js';
+import {openPerpsExecutionJournal} from '../lib/perps-execution-journal.js';
 
 for(const asset of ['BTC','ETH','SOL'])test('entry collateral binds exact signed intent and opening debit: '+asset,async t=>{
  const root=mkdtempSync(join(tmpdir(),'jamd-entry-binding-'));chmodSync(root,0o700);
  const f=await conversionReceiptFixture({entry:true,asset}),ownerAccountHash='f'.repeat(64),id='a'.repeat(64);
  const journal=openBotSwapJournal(join(root,'swaps.sqlite'),{initialize:true,explicitOperatorApproval:true,allowNonPosixForTests:process.platform==='win32',now:f.receiptOptions.now});
- t.after(()=>{journal.close();rmSync(root,{recursive:true,force:true});});
+ let risk;t.after(()=>{risk?.close();journal.close();rmSync(root,{recursive:true,force:true});});
  const receipt=await readFinalizedPerpsEntryConversionReceipt(f.wire,f.identity,f.receiptOptions);
  const review={id,stage:'PROTECTED_ENTRY_CONVERSION_PREPARED',walletAddress:f.walletAddress,controlRevision:'1',maxSlippageBps:50,draft:{side:'LONG',asset:f.wire.asset},usdcUnits:f.wire.usdcUnits,minimumCollateralUnits:f.wire.minimumCollateralUnits,collateralMint:receipt.collateralMint,collateralDecimals:receipt.collateralDecimals,observedSlot:105,networkFeeLamports:'5400'};
  const claim=journal.claim({id,ownerAccountHash,walletAddress:f.walletAddress,revision:'1',review,message:Buffer.from(f.wire.messageBase64,'base64')});
@@ -39,6 +40,23 @@ for(const asset of ['BTC','ETH','SOL'])test('entry collateral binds exact signed
  });
  assert.equal(builds,1);assert.equal(packet.readyForSigning,false);assert.equal(packet.stage,'UNVERIFIED_PREPARATION');assert.equal(packet.requiresIndependentCollateralIntentInspection,true);
  const ids=await deriveServerPerpsIdentities(intent),key=n=>bs58.encode(Buffer.alloc(32,n)),TOKEN='TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
+ const riskPath=join(root,'risk.sqlite'),riskNow=f.receiptOptions.now(),reservationId='entry-'+asset;
+ risk=openPerpsExecutionJournal(riskPath,{now:()=>riskNow});
+ const limits={capitalUsd:'20',dailyLossUsd:'20',positions:1,dailyTrades:1};
+ const riskSnapshot={walletAddress:f.walletAddress,network:'solana-mainnet',balancesComplete:true,observedAt:riskNow,day:new Date(riskNow).toISOString().slice(0,10),availableUsdcUnits:'13000000',allocatedUsdcUnits:'0',lossTodayUsdcUnits:'0',openPositions:0,tradesToday:0};
+ risk.reserve({walletAddress:f.walletAddress,signalId:'manual:'+reservationId,reservationId,marginUsd:'10',limits,snapshot:riskSnapshot,positionAddress:ids.position,platformFeeUnits:'20000'});
+ risk.holdEntryConversion({reservationId,conversionId:id,wire:f.wire,draft:{asset,side:'LONG',margin:'10',leverage:'3',referencePrice:'100'}});
+ risk.close();risk=openPerpsExecutionJournal(riskPath,{now:()=>riskNow});
+ assert.equal(risk.entryConversionHold(reservationId).state,'HELD');
+ assert.throws(()=>risk.cancelUnsigned(reservationId));assert.throws(()=>risk.beginSigning(reservationId));
+ risk.finalizeEntryConversionHold(reservationId,bound);
+ assert.throws(()=>risk.beginSigning(reservationId));risk.beginSigning(reservationId,{entryBinding:bound});
+ const convertedSnapshot={...riskSnapshot,availableUsdcUnits:'3000000'};
+ assert.throws(()=>risk.revalidateSigning(reservationId,{limits,snapshot:convertedSnapshot}));
+ assert.equal(risk.revalidateSigning(reservationId,{limits,snapshot:convertedSnapshot,entryBinding:bound}).state,'SIGNING');
+ assert.throws(()=>risk.revalidateSigning(reservationId,{limits:{...limits,capitalUsd:'9',dailyLossUsd:'9'},snapshot:convertedSnapshot,entryBinding:bound}),/CAPITAL_LIMIT/);
+ assert.throws(()=>risk.revalidateSigning(reservationId,{limits,snapshot:{...convertedSnapshot,availableUsdcUnits:'19999'},entryBinding:bound}),/INSUFFICIENT_UNRESERVED_BALANCE/);
+ assert.throws(()=>risk.cancelUnsigned(reservationId));
  const roles=[key(2),key(3),f.walletAddress,f.wire.destination,ids.perpetuals,PERPS_POOL,ids.position,f.c.address,f.c.dovesAgOracle,f.c.oracle,f.c.address,f.c.dovesAgOracle,f.c.oracle,f.c.tokenAccount,PERPS_PROGRAM,PERPS_PROGRAM,TOKEN,'11111111111111111111111111111111',ids.eventAuthority,PERPS_PROGRAM];
  const signers=[f.walletAddress,key(2),key(3)],readonly=[ids.perpetuals,TOKEN,'11111111111111111111111111111111',ids.eventAuthority,PERPS_PROGRAM];
  const keys=[...signers,...new Set(roles.filter(k=>!signers.includes(k)&&!readonly.includes(k))),...readonly];

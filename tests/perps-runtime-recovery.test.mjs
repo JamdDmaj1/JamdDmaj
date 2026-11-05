@@ -14,6 +14,7 @@ import {initializePerpsOperatorRecovery,createPerpsCustodyRecoveryArchive,restor
 import {withLockedPerpsRuntimeRecoverySnapshot,readPerpsRuntimeRecoverySnapshot,inspectExistingPerpsRuntimeDatabases} from '../lib/perps-runtime-recovery.js';
 import {canonicalPerpsCloseSettlement} from '../lib/perps-close-settlement.js';
 import {PERPS_CUSTODIES} from '../lib/perps-server-custody.js';
+import {openBotSwapJournal} from '../lib/perps-bot-swap-journal.js';
 const allowNonPosixForTests=process.platform==='win32',ownerAccountHash='e'.repeat(64),now=Date.now(),day=new Date(now).toISOString().slice(0,10);
 const settings={capital:100,loss:90,positions:10,margin:10,leverage:3,dailyTrades:10};
 async function fixture(t,{singleOpen=false}={}){
@@ -59,6 +60,33 @@ async function mutateArchive(f,archive,mutate){
  const payload=JSON.parse(new TextDecoder().decode(await decrypt.decrypt(archive.ciphertext)));await mutate(payload);
  const encrypt=new Encrypter();encrypt.addRecipient(f.operator.recipient);return encrypt.encrypt(new TextEncoder().encode(JSON.stringify(payload)));
 }
+
+test('encrypted recovery retains a pre-broadcast entry hold and rejects inconsistent margin or missing swap history',async t=>{
+ const f=await fixture(t),swapsPath=join(f.root,'swaps.sqlite');
+ const swaps=openBotSwapJournal(swapsPath,{initialize:true,explicitOperatorApproval:true,...f.common});swaps.close();
+ f.runtimePaths.swapsPath=swapsPath;
+ const draft={asset:'BTC',side:'LONG',margin:'10',leverage:'3',referencePrice:'100'};
+ // Persistence corpus only, not a private execution capability or a funded wallet.
+ const raw=new DatabaseSync(f.journalPath);
+ try{
+  raw.prepare('UPDATE perps_reservations SET signal=? WHERE reservation=?').run('manual:reserved','reserved');
+  raw.prepare("INSERT INTO perps_entry_conversion_holds VALUES(?,?,?,?,?,'HELD',NULL,NULL,?,?)")
+   .run('reserved','a'.repeat(64),'BTC','10000000',JSON.stringify(draft),now,now);
+ }finally{raw.close();}
+ const archive=await createPerpsCustodyRecoveryArchive(f.request);
+ const restored=await restorePerpsCustodyRecoveryArchive({...f.restore,ciphertext:archive.ciphertext});
+ const journal=openPerpsExecutionJournal(join(restored.runtimeDirectory,'journal.sqlite'),{now:()=>now});f.restoredStores.push(journal);
+ assert.deepEqual(journal.entryConversionHold('reserved'),f.journal.entryConversionHold('reserved'));
+ assert.equal(journal.riskState(f.wallet.walletAddress).pendingMarginUsdcUnits,'30000000');
+ assert.throws(()=>journal.cancelUnsigned('reserved'),/RECONCILIATION_REQUIRED/);
+ assert.throws(()=>journal.beginSigning('reserved'));
+ const bad=new DatabaseSync(f.journalPath);
+ try{bad.prepare('UPDATE perps_entry_conversion_holds SET draft_json=?').run(JSON.stringify({...draft,margin:'11'}));}finally{bad.close();}
+ await assert.rejects(()=>createPerpsCustodyRecoveryArchive(f.request));
+ const repair=new DatabaseSync(f.journalPath);try{repair.prepare('UPDATE perps_entry_conversion_holds SET draft_json=?').run(JSON.stringify(draft));}finally{repair.close();}
+ delete f.runtimePaths.swapsPath;
+ await assert.rejects(()=>createPerpsCustodyRecoveryArchive(f.request));
+});
 
 test('complete encrypted recovery preserves all reservation states, limits, risk markers and quota while forcing a fresh pause',async t=>{
  const f=await fixture(t),before=f.controls.read({ownerAccountHash,walletAddress:f.wallet.walletAddress});assert.equal(before.enabled,true);
@@ -157,6 +185,7 @@ test('recovery refuses settlement metadata that loses pending conversion or bind
 
 test('previous direct-close schema remains recoverable but cannot silently start or invent settlement metadata',async t=>{
  const f=await fixture(t),parent=f.journal.read('open'),raw=new DatabaseSync(f.journalPath);
+ raw.exec('DROP TABLE perps_entry_conversion_holds');
  raw.exec('DROP TABLE perps_platform_fee_locks; ALTER TABLE perps_reservations DROP COLUMN platform_fee_units; DROP TABLE perps_close_completions; DROP TABLE perps_close_conversions; DROP TABLE perps_position_close_executions; DROP TABLE perps_position_closes');raw.exec(PERPS_POSITION_CLOSE_SCHEMA_SQL.replace(",'COMPLETED'",'').replace(', settlement TEXT NOT NULL','').split('CREATE TABLE IF NOT EXISTS perps_position_close_executions')[0]);
  const entries=[{reservation:parent.reservation,signature:parent.signature,wire_hash:parent.wire_hash,confirmed_slot:parent.confirmed_slot,entry_exit_plan:parent.entry_exit_plan}];
  raw.prepare('INSERT INTO perps_position_closes(id,wallet,position,state,created,updated,observed_slot,fee_lamports,unsigned_wire_hash,entries) VALUES(?,?,?,?,?,?,?,?,?,?)')
@@ -193,7 +222,7 @@ test('encrypted recovery preserves uncertain cancellation identities and the sta
   assert.deepEqual(store.readExitCancellation('recovery-cancel'),f.journal.readExitCancellation('recovery-cancel'));
   assert.equal(store.pendingExitCancellations(f.wallet.walletAddress).length,1);assert.equal(store.read('open').state,'OPEN');
  }
- const f=await fixture(t),raw=new DatabaseSync(f.journalPath);raw.exec('DROP TABLE perps_platform_fee_locks; ALTER TABLE perps_reservations DROP COLUMN platform_fee_units; DROP TABLE perps_close_completions; DROP TABLE perps_close_conversions; DROP TABLE perps_position_close_executions; DROP TABLE perps_position_closes; DROP TABLE perps_exit_cancellations');raw.close();
+ const f=await fixture(t),raw=new DatabaseSync(f.journalPath);raw.exec('DROP TABLE perps_entry_conversion_holds; DROP TABLE perps_platform_fee_locks; ALTER TABLE perps_reservations DROP COLUMN platform_fee_units; DROP TABLE perps_close_completions; DROP TABLE perps_close_conversions; DROP TABLE perps_position_close_executions; DROP TABLE perps_position_closes; DROP TABLE perps_exit_cancellations');raw.close();
  assert.throws(()=>inspectExistingPerpsRuntimeDatabases({...f.runtimePaths,...f.common}));
  const check=new DatabaseSync(f.journalPath,{readOnly:true});assert.equal(check.prepare("SELECT count(*) AS n FROM sqlite_master WHERE name='perps_exit_cancellations'").get().n,0);check.close();
  // A recognized old archive remains recoverable; startup itself never upgrades it.

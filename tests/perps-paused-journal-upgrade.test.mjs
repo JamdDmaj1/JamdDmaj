@@ -11,12 +11,14 @@ import {openPerpsBackupRegistry} from '../lib/perps-backup-registry.js';
 import {upgradePausedEmptyPerpsJournal} from '../lib/perps-paused-journal-upgrade.js';
 import {inspectExistingPerpsRuntimeDatabases} from '../lib/perps-runtime-recovery.js';
 const owner='a'.repeat(64),wallet='11111111111111111111111111111111',now=1792454400000;
-function fixture(t,{withCancellations=false,withPreparedCloses=false,withCloseExecutions=false,withConversions=false}={}){
+function fixture(t,{withCancellations=false,withPreparedCloses=false,withCloseExecutions=false,withConversions=false,withPlatformFees=false}={}){
  let registry;const root=mkdtempSync(join(tmpdir(),'jamd-paused-upgrade-'));chmodSync(root,0o700);t.after(()=>{registry?.close();rmSync(root,{recursive:true,force:true});});
  const lockDirectory=join(root,'runtime'),backupDirectory=join(root,'backups');for(const path of [lockDirectory,backupDirectory])mkdirSync(path,{mode:0o700});
  const controlsPath=join(root,'controls.sqlite'),journalPath=join(root,'journal.sqlite'),registryPath=join(root,'backup.sqlite'),allowNonPosixForTests=process.platform==='win32';
  const controls=openPerpsAutomationControls(controlsPath,{now:()=>now});const before=controls.provision({ownerAccountHash:owner,walletAddress:wallet,settings:{capital:100,loss:50,positions:2,margin:10,leverage:3,dailyTrades:5}});controls.close();
  const journal=openPerpsExecutionJournal(journalPath);journal.close();const raw=new DatabaseSync(journalPath);
+ raw.exec('DROP TABLE perps_entry_conversion_holds');
+ if(!withPlatformFees){
  raw.exec('DROP TABLE perps_platform_fee_locks; ALTER TABLE perps_reservations DROP COLUMN platform_fee_units; DROP TABLE perps_close_completions; DROP TABLE perps_close_conversions; DROP TABLE perps_position_close_executions; DROP TABLE perps_position_closes');
  const legacy=PERPS_POSITION_CLOSE_SCHEMA_SQL.replace(",'COMPLETED'",'');
  if(withConversions)raw.exec(legacy.split('CREATE TABLE IF NOT EXISTS perps_close_completions')[0]);
@@ -24,7 +26,8 @@ function fixture(t,{withCancellations=false,withPreparedCloses=false,withCloseEx
   if(withPreparedCloses)raw.exec(legacy.split('CREATE TABLE IF NOT EXISTS perps_position_close_executions')[0]);
   if(withCloseExecutions)raw.exec('CREATE TABLE IF NOT EXISTS perps_position_close_executions'+legacy.split('CREATE TABLE IF NOT EXISTS perps_position_close_executions')[1].split('CREATE TABLE IF NOT EXISTS perps_close_conversions')[0]);
  }
- if(!withCancellations)raw.exec('DROP TABLE perps_exit_cancellations');raw.close();
+ if(!withCancellations)raw.exec('DROP TABLE perps_exit_cancellations');
+ }raw.close();
  registry=openPerpsBackupRegistry(registryPath,{allowNonPosixForTests,now:()=>now});registry.close();
  // Persistence corpus only, no real wallet/key/archive. The cryptographic
  // restore acceptance path has separate tests; this case uses its persisted
@@ -39,10 +42,23 @@ function fixture(t,{withCancellations=false,withPreparedCloses=false,withCloseEx
 }
 function liveRows(f){const c=new DatabaseSync(f.controlsPath,{readOnly:true}),j=new DatabaseSync(f.journalPath,{readOnly:true});try{return {controls:c.prepare('SELECT * FROM perps_automation_controls').all(),schema:j.prepare("SELECT type,name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name").all()};}finally{c.close();j.close();}}
 
+test('the platform-fee schema admits only an explicit paused empty upgrade to entry holds',async t=>{
+ const f=fixture(t,{withPlatformFees:true}),before=liveRows(f);
+ assert.throws(()=>inspectExistingPerpsRuntimeDatabases(f.input));
+ const result=await upgradePausedEmptyPerpsJournal(f.input);
+ assert.equal(result.sourceSchema,'505c96362bd65d613ca90ddd17f846c3bfca04d5f0ee69c732b9f3ebf05d91b9');
+ assert.equal(result.targetSchema,'f098dd3ae6e6568cc004ac775a7a14f0cef56277f3a0ff3107e4c53868e42c16');
+ assert.deepEqual(liveRows(f).controls,before.controls);
+ assert.equal(result.readyForSigning,false);
+ assert.equal(inspectExistingPerpsRuntimeDatabases(f.input).stage,'EXISTING_RUNTIME_STORES_VERIFIED');
+ const rollback=new DatabaseSync(join(result.rollbackDirectory,'journal.sqlite'),{readOnly:true});
+ try{assert.deepEqual(rollback.prepare("SELECT type,name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name").all(),before.schema);}finally{rollback.close();}
+});
+
 test('the current production cancellation-aware empty schema has an explicit paused upgrade path',async t=>{
  const f=fixture(t,{withCancellations:true}),before=liveRows(f),result=await upgradePausedEmptyPerpsJournal(f.input);
  assert.equal(result.sourceSchema,'cba66ff21abc8f2dd3db1bbebbbc3908a9d8cda2fa24b41a2191e184c5477e54');
- assert.equal(result.targetSchema,'505c96362bd65d613ca90ddd17f846c3bfca04d5f0ee69c732b9f3ebf05d91b9');
+ assert.equal(result.targetSchema,'f098dd3ae6e6568cc004ac775a7a14f0cef56277f3a0ff3107e4c53868e42c16');
  assert.deepEqual(liveRows(f).controls,before.controls);
  assert.equal(inspectExistingPerpsRuntimeDatabases(f.input).stage,'EXISTING_RUNTIME_STORES_VERIFIED');
 });
@@ -51,7 +67,7 @@ test('the previous empty prepared-close schema requires an explicit paused migra
  const f=fixture(t,{withCancellations:true,withPreparedCloses:true});assert.throws(()=>inspectExistingPerpsRuntimeDatabases(f.input));
  const result=await upgradePausedEmptyPerpsJournal(f.input);
  assert.equal(result.sourceSchema,'1657eaa7e4eb82efe0e045597e1ec06dd736b9bdc9f2b6a88125c987dc6ea563');
- assert.equal(result.targetSchema,'505c96362bd65d613ca90ddd17f846c3bfca04d5f0ee69c732b9f3ebf05d91b9');
+ assert.equal(result.targetSchema,'f098dd3ae6e6568cc004ac775a7a14f0cef56277f3a0ff3107e4c53868e42c16');
  assert.equal(result.controlsChanged,false);assert.equal(result.newRecoveryVerificationRequired,true);
 });
 
@@ -59,14 +75,14 @@ test('the previous empty first-leg execution schema needs an explicit paused upg
  const f=fixture(t,{withCancellations:true,withPreparedCloses:true,withCloseExecutions:true});
  assert.throws(()=>inspectExistingPerpsRuntimeDatabases(f.input));const result=await upgradePausedEmptyPerpsJournal(f.input);
  assert.equal(result.sourceSchema,'d48b3b21a0aaa1addfa5735406f90e634f99f3b344cb418237de24938a9672e7');
- assert.equal(result.targetSchema,'505c96362bd65d613ca90ddd17f846c3bfca04d5f0ee69c732b9f3ebf05d91b9');
+ assert.equal(result.targetSchema,'f098dd3ae6e6568cc004ac775a7a14f0cef56277f3a0ff3107e4c53868e42c16');
  assert.equal(result.readyForSigning,false);assert.equal(result.newRecoveryVerificationRequired,true);
 });
 test('the previous conversion-aware schema is quarantined until an explicitly approved verified-empty rebuild',async t=>{
  const f=fixture(t,{withCancellations:true,withConversions:true});assert.throws(()=>inspectExistingPerpsRuntimeDatabases(f.input));
  const result=await upgradePausedEmptyPerpsJournal(f.input);
  assert.equal(result.sourceSchema,'42653dcbee61271989264b68e8829787afc7d1b2c5e54ae759b100571088fbaf');
- assert.equal(result.targetSchema,'505c96362bd65d613ca90ddd17f846c3bfca04d5f0ee69c732b9f3ebf05d91b9');
+ assert.equal(result.targetSchema,'f098dd3ae6e6568cc004ac775a7a14f0cef56277f3a0ff3107e4c53868e42c16');
  assert.equal(inspectExistingPerpsRuntimeDatabases(f.input).readyForSigning,false);
 });
 
@@ -84,8 +100,8 @@ test('atomic paused upgrade retains exact rollback copies, controls, and zero fi
  await assert.rejects(()=>upgradePausedEmptyPerpsJournal(f.input));assert.equal(existsSync(join(f.lockDirectory,'worker.lock')),false);
 });
 test('active controls, historical rows, unknown schema, missing backup, wrong paths, and an existing worker lease refuse migration',async t=>{
- for(const fault of ['active','rows','foreign','backup','lease','alias','approval']){
-  const f=fixture(t),input={...f.input};
+ for(const withPlatformFees of [false,true])for(const fault of ['active','rows','foreign','backup','lease','alias','approval']){
+  const f=fixture(t,{withPlatformFees}),input={...f.input};
   if(fault==='active'){const db=new DatabaseSync(f.controlsPath);db.exec('UPDATE perps_automation_controls SET enabled=1,paused=0');db.close();}
   if(fault==='rows'){const db=new DatabaseSync(f.journalPath);db.prepare("INSERT INTO perps_reservations(wallet,signal,reservation,day,margin,state,created,updated) VALUES(?,?,?,?,?,'CANCELLED',?,?)").run(wallet,'past','past','2026-10-20',10000000,now,now);db.close();}
   if(fault==='foreign'){const db=new DatabaseSync(f.journalPath);db.exec('CREATE TABLE foreign_data(value TEXT)');db.close();}

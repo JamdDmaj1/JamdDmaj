@@ -242,3 +242,40 @@ composition and durable recovery. In particular, do not feed the new review
 into the old USDC-only signing reserve or fabricate available-USDC balances.
 No deployment/financial operation occurred. Discover page, script and both
 stylesheets/tour remain unchanged appropriately for internal unpublished work.
+
+### Durable entry-conversion reservation (local, 2026-11-04)
+
+Added a distinct entry hold in the execution journal, unique by conversion ID
+and linked to the existing manual reservation. Holding requires the privately
+constructed strict conversion wire, exact wallet/asset/USDC amount and canonical
+Long draft. Finalization requires a fresh private finalized receipt binding.
+Neither an unfinished hold nor a finalized one can be released using ordinary
+unsigned cancellation. Signing and revalidation require the matching private
+binding; the original margin continues to consume capital/loss/position limits.
+Only the already-converted margin is excluded from the new USDC cash debit;
+platform fees and other reservations still require available USDC.
+
+BTC/ETH/SOL tests reopen the real temporary SQLite journal, retain the hold,
+refuse missing bindings, enforce full capital limits and require fee reserves
+even with only 3 USDC remaining after the modeled conversion. Encrypted archive
+tests retain a pre-broadcast hold, restore it without permitting signing or
+cancellation, and reject a changed draft margin or missing swap history.
+
+The recovery schema now includes entry holds. Previous archives remain
+recoverable, but startup cannot silently migrate the prior production schema.
+The explicit paused-empty migration handles that precise prior schema by adding
+only the hold table; a test verifies rollback copies and unchanged controls.
+Historical rows are still refused by the empty-only migration, not erased.
+The new migration has NOT been run on production.
+
+Still required: service-level first-leg authorization, durable recovery for
+finalized collateral and failed steps, daily-account history integration,
+second-leg signing composition, API/UI integration and full-story verification.
+No deployment, owner/custody signature, send, trade or bot activation occurred.
+Discover HTML/JS/CSS/tour were reviewed as internal-only unchanged functionality;
+no public claim or content update is appropriate yet.
+
+Validation: full CI completed with 1341 tests, 1322 passed, 19 skipped and zero
+failures. The expanded paused-migration refusal corpus also passed separately
+for both legacy and prior-platform-fee schemas (9 tests total). The skipped
+checks are not evidence of full production readiness.
