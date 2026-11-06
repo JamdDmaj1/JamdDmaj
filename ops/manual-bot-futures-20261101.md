@@ -391,3 +391,38 @@ refusal of client transaction bytes, and a safe 409 pending-finality response
 without automatic retry. The earlier test failure was a stale second settlement
 expectation after recovery began settling the exact receipt; it was corrected
 to assert the already-FINALIZED state, not to permit duplicate settlement.
+
+### Service-owned protected first leg (local, 2026-11-05)
+
+Added the first-leg orchestrator to the manual service, available only with an
+explicit native swap journal, custody swap signer and separate send transport.
+The default service remains unchanged when these dependencies are absent. A
+Long rejected specifically for the native pre-swap minimum can offer a separate
+strict 50-bps conversion review; other native inspection failures are not waived.
+Review creation cannot reserve risk, sign, collect fees or submit transactions.
+
+Explicit current-order and fee-term consent consumes that review once. The
+service reserves original margin plus fee, records the exact original draft and
+position, attaches the durable conversion hold, obtains the private one-use
+custody grant, signs through the vault and journals UNKNOWN before one send.
+No automatic opening follows; the existing finalized-collateral continuation
+requires its own fresh review and explicit opening confirmation. Operation/status
+projection retains conversion identity/state without exposing transaction bytes.
+
+BTC/ETH/SOL service tests use actual new encrypted unfunded custody wallets and
+mocked reads/sends. They cover preparation via the strict-floor fallback, direct
+first-leg review, missing order consent, missing fee consent, wrong terms, one
+send, duplicate refusal and a transport timeout. Reconstructing the service
+retains UNKNOWN state and never resends. These tests do not prove live provider
+or production daily-history compatibility.
+
+Failure before a proven broadcast currently retains HELD capital for explicit
+recovery rather than guessing that it is safe to release. Durable unsent/failed
+recovery, entry-conversion daily history, browser progression, complete opening
+confirmation/broadcast tests and deployment remain pending. No production funds,
+keys, sends or bot activation were used. Discover HTML/JS/CSS/tour were reviewed;
+no public change is appropriate for this unpublished internal-only increment.
+
+Validation: full CI completed with 1367 total / 1348 passed / 19 skipped / zero
+failed. The six service/funding timeout tests passed again with an additional
+assertion that Short cannot enter this Long-only conversion path.
