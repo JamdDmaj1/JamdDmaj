@@ -306,3 +306,23 @@ remain pending. No release or Discover functionality change is claimed.
 Validation: full CI completed, 1341 total / 1322 passed / 19 skipped / zero
 failed. Additional targeted adversarial recovery checks passed for all three
 assets after that run: modified durable minimum and journal change during RPC.
+
+### Pre-conversion risk revalidation (local, 2026-11-05)
+
+The execution journal now exposes a distinct pre-conversion revalidation for
+the RESERVED/HELD stage, requiring the privately constructed wire, original
+conversion ID and exact canonical draft. It checks the complete original USDC
+margin plus platform fee; no finalized-conversion cash discount is allowed at
+this stage. A shared internal risk check preserves the existing opening-signing
+capital/loss/position/daily limits and account freshness behavior.
+
+BTC/ETH/SOL tests reject changed IDs/drafts, stale balances, insufficient USDC
+including fees, lowered capital and reuse after hold finalization. The existing
+journal concurrency/restart tests passed alongside these (11 tests total).
+This is a risk gate, not custody authorization: first-leg signing composition,
+service/API/UI integration and release remain incomplete. No financial action
+or public functionality/Discover change occurred.
+
+Full CI completed: 1341 total, 1322 passed, 19 skipped, zero failed. Targeted
+tests also cover the new gate's daily-loss/position/trade quota refusals and
+confirm refusals leave the reservation RESERVED, without signing or release.

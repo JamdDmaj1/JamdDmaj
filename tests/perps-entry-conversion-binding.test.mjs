@@ -79,6 +79,17 @@ for(const asset of ['BTC','ETH','SOL'])test('entry collateral binds exact signed
  risk.holdEntryConversion({reservationId,conversionId:id,wire:f.wire,draft:{asset,side:'LONG',margin:'10',leverage:'3',referencePrice:'100'}});
  risk.close();risk=openPerpsExecutionJournal(riskPath,{now:()=>riskNow});
  assert.equal(risk.entryConversionHold(reservationId).state,'HELD');
+ const firstLeg={limits,snapshot:riskSnapshot,wire:f.wire,draft:{asset,side:'LONG',margin:'10',leverage:'3',referencePrice:'100'},conversionId:id};
+ assert.equal(risk.revalidateEntryConversion(reservationId,firstLeg).state,'RESERVED');
+ assert.throws(()=>risk.revalidateEntryConversion(reservationId,{...firstLeg,conversionId:'b'.repeat(64)}));
+ assert.throws(()=>risk.revalidateEntryConversion(reservationId,{...firstLeg,draft:{...firstLeg.draft,leverage:'4'}}));
+ assert.throws(()=>risk.revalidateEntryConversion(reservationId,{...firstLeg,snapshot:{...riskSnapshot,availableUsdcUnits:'10019999'}}),/INSUFFICIENT_UNRESERVED_BALANCE/);
+ assert.throws(()=>risk.revalidateEntryConversion(reservationId,{...firstLeg,limits:{...limits,capitalUsd:'9',dailyLossUsd:'9'}}),/CAPITAL_LIMIT/);
+ assert.throws(()=>risk.revalidateEntryConversion(reservationId,{...firstLeg,snapshot:{...riskSnapshot,observedAt:riskNow-10001}}),/STALE_OR_UNRECONCILED_ACCOUNT/);
+ assert.throws(()=>risk.revalidateEntryConversion(reservationId,{...firstLeg,snapshot:{...riskSnapshot,lossTodayUsdcUnits:'10000000'}}),/DAILY_LOSS_LIMIT/);
+ assert.throws(()=>risk.revalidateEntryConversion(reservationId,{...firstLeg,snapshot:{...riskSnapshot,openPositions:1}}),/POSITION_LIMIT/);
+ assert.throws(()=>risk.revalidateEntryConversion(reservationId,{...firstLeg,snapshot:{...riskSnapshot,tradesToday:1}}),/DAILY_TRADE_LIMIT/);
+ assert.equal(risk.read(reservationId).state,'RESERVED');
  assert.throws(()=>risk.cancelUnsigned(reservationId));assert.throws(()=>risk.beginSigning(reservationId));
  const recoverHeld=()=>recoverHeldPerpsEntryCollateral({executionJournal:risk,journal,reservationId,ownerAccountHash},recoveryOptions);
  await assert.rejects(()=>recoverHeldPerpsEntryCollateral({executionJournal:risk,journal,reservationId,ownerAccountHash:'e'.repeat(64)},recoveryOptions));
@@ -87,6 +98,7 @@ for(const asset of ['BTC','ETH','SOL'])test('entry collateral binds exact signed
  assert.equal(risk.entryConversionHold(reservationId).state,'HELD');f.status.confirmationStatus='finalized';
  assert.deepEqual(await recoverHeld(),bound);
  assert.equal(risk.entryConversionHold(reservationId).state,'FINALIZED');
+ assert.throws(()=>risk.revalidateEntryConversion(reservationId,firstLeg));
  assert.deepEqual(await recoverHeld(),bound);
  assert.equal(risk.read(reservationId).state,'RESERVED');
  assert.throws(()=>risk.beginSigning(reservationId));risk.beginSigning(reservationId,{entryBinding:bound});
