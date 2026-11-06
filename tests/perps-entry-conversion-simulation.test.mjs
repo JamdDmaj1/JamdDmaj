@@ -1,7 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import bs58 from 'bs58';
-import {generateKeyPairSync,sign} from 'node:crypto';
+import {generateKeyPairSync,sign,randomUUID} from 'node:crypto';
+import {mkdtempSync,mkdirSync,chmodSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {DatabaseSync} from 'node:sqlite';
+import {openBotSwapJournal} from '../lib/perps-bot-swap-journal.js';
+import {openPerpsExecutionJournal} from '../lib/perps-execution-journal.js';
+import {openPerpsAutomationControls} from '../lib/perps-automation-controls.js';
+import {openPerpsBackupRegistry,PERPS_BACKUP_FEE_SCOPE_SCHEMA_SQL,PERPS_BACKUP_SWAP_SCOPE_SCHEMA_SQL} from '../lib/perps-backup-registry.js';
+import {deriveServerPerpsIdentities} from '../lib/perps-server-custody.js';
+import {readServerPerpsDailyAccount} from '../lib/perps-server-daily-account.js';
+import {authorizeBotEntryConversionCustody,consumeBotSwapCustody} from '../lib/perps-bot-swap-signing.js';
+import {createPerpsCustodyMasterKey,openPerpsCustodyVault} from '../lib/perps-custody-vault.js';
 import {conversionFixture} from './helpers/perps-conversion-fixture.mjs';
 import {buildUnsignedPerpsEntryConversionWire} from '../lib/perps-entry-conversion-wire.js';
 import {simulatePerpsEntryConversion,readSimulatedPerpsEntryConversion} from '../lib/perps-entry-conversion-simulation.js';
@@ -86,4 +98,72 @@ test('entry lifecycle refuses changed external authorization and never turns a r
  const review=await engine.prepare({asset:'BTC',side:'LONG',margin:'10',leverage:'3',referencePrice:'100'},f.walletAddress),grant=engine.authorize(review,true);
  current=false;await assert.rejects(consumePerpsEntryConversionGrant(grant,f.walletAddress));assert.equal(review.readyForSigning,false);
  engine.invalidate();assert.throws(()=>engine.authorize(review,true));
+});
+
+for(const asset of ['BTC','ETH','SOL'])for(const mode of ['success','limits','backup','hold','controls','account'])test('reserved bot entry conversion one-use custody: '+asset+' '+mode,async t=>{
+ const root=mkdtempSync(join(tmpdir(),'jamd-entry-custody-'));chmodSync(root,0o700);
+ const ownerAccountHash='f'.repeat(64),directory=join(root,'wallets'),keyDirectory=join(root,'keys'),keyFile=join(keyDirectory,'master.key');
+ for(const path of [directory,keyDirectory])mkdirSync(path,{mode:0o700});
+ const vaultOptions={allowNonPosixForTests:process.platform==='win32',now:()=>Date.parse('2026-10-20T20:00:00Z')};
+ createPerpsCustodyMasterKey(keyFile,vaultOptions);const vault=openPerpsCustodyVault({directory,keyFile,...vaultOptions});
+ const {walletAddress}=vault.createOrReadExclusiveWallet({ownerAccountHash,explicitCustodyApproval:true});
+ const f=await fixture(asset,false,walletAddress),who={ownerAccountHash,walletAddress};
+ const common={allowNonPosixForTests:process.platform==='win32',now:f.options.now,monotonicNow:()=>0};
+ const controls=openPerpsAutomationControls(join(root,'controls.sqlite'),common),executionJournal=openPerpsExecutionJournal(join(root,'risk.sqlite'),common);
+ const journal=openBotSwapJournal(join(root,'swaps.sqlite'),{...common,initialize:true,explicitOperatorApproval:true});
+ const backupPath=join(root,'backup.sqlite');let backupRegistry;
+ t.after(()=>{backupRegistry?.close();journal.close();executionJournal.close();controls.close();rmSync(root,{recursive:true,force:true});});
+ const state=controls.provision({...who,settings:{capital:20,loss:20,positions:1,margin:10,leverage:3,dailyTrades:1}});
+ openPerpsBackupRegistry(backupPath,common).close();
+ // Restore-accepted persistence corpus for an unfunded ephemeral wallet. Real
+ // encrypted restore/attestation is exercised separately, not fabricated here.
+ const db=new DatabaseSync(backupPath),archive='b'.repeat(64),at=f.options.now();
+ try{
+  db.exec(PERPS_BACKUP_FEE_SCOPE_SCHEMA_SQL+';'+PERPS_BACKUP_SWAP_SCOPE_SCHEMA_SQL);
+  db.prepare("INSERT INTO perps_backup_challenges(archive,token_hash,created,expires,bindings,status) VALUES(?,?,?,?,?,'ACCEPTED')").run(archive,'c'.repeat(64),at,at+86400000,JSON.stringify([who]));
+  db.prepare('INSERT INTO perps_verified_backups VALUES(?,?,?,?,?)').run(ownerAccountHash,walletAddress,archive,randomUUID(),at);
+  db.prepare('INSERT INTO perps_backup_fee_scope VALUES(?,1)').run(archive);db.prepare('INSERT INTO perps_backup_swap_scope VALUES(?,1)').run(archive);
+ }finally{db.close();}
+ chmodSync(backupPath,0o600);backupRegistry=openPerpsBackupRegistry(backupPath,common);
+ const accountRequest=async(method,params)=>{
+  if(method==='getMultipleAccounts')return {context:{slot:500000},value:params[0].map(key=>f.before.get(key)??null)};
+  if(method==='getGenesisHash')return '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
+  if(method==='getSlot')return 500000;if(method==='getBlocks')return [68000];if(method==='getFirstAvailableBlock')return 100;
+  if(method==='getBlockTime')return at/1000-(params[0]===500000?5:172800);
+  if(method==='getSignaturesForAddress')return [];throw Error('UNEXPECTED_ACCOUNT_RPC');
+ };
+ const readAccount=()=>readServerPerpsDailyAccount({walletAddress},{request:accountRequest,...common,journal:executionJournal});
+ const limits={capitalUsd:'20',dailyLossUsd:'20',positions:1,dailyTrades:1};let policy={walletAddress,limits};
+ let claim,sends=0;
+ const adapter={read:async()=>journal.pending(walletAddress).find(row=>row.state==='UNKNOWN')??null,
+  begin:async row=>journal.beginBroadcast(claim,row),resolve:async()=>assert.fail('No recovery mutation')};
+ const engine=createPerpsEntryConversionEngine({...f.options,journal:adapter,isCurrent:()=>true,
+  sendRequest:async(method,params)=>{assert.equal(method,'sendTransaction');assert.equal(journal.read(claim.id).state,'UNKNOWN');sends++;return bs58.encode(Buffer.from(params[0],'base64').subarray(1,65));}});
+ const prepared=await engine.prepare({asset,side:'LONG',margin:'10',leverage:'3',referencePrice:'100'},walletAddress);
+ const reservationId='entry-'+asset,id='a'.repeat(64),wire=readPreparedPerpsEntryConversion(prepared).wire;
+ executionJournal.reserve({walletAddress,signalId:'manual:'+reservationId,reservationId,marginUsd:'10',limits,snapshot:await readAccount(),positionAddress:(await deriveServerPerpsIdentities({walletAddress,asset,side:'LONG'})).position,platformFeeUnits:'20000'});
+ executionJournal.holdEntryConversion({reservationId,conversionId:id,wire,draft:prepared.draft});
+ const review={...prepared,id,controlRevision:state.revision,reservationId};
+ const input={prepared,review,journal,executionJournal,reservationId,ownerAccountHash,controls,backupRegistry,readAccount,readLimits:()=>policy,assertCurrent:()=>{}};
+ await assert.rejects(authorizeBotEntryConversionCustody({...input,prepared:{...prepared}}));
+ await assert.rejects(authorizeBotEntryConversionCustody({...input,review:{...review,maxSlippageBps:500}}));
+ await assert.rejects(authorizeBotEntryConversionCustody({...input,ownerAccountHash:'e'.repeat(64)}));
+ await assert.rejects(authorizeBotEntryConversionCustody({...input,executionJournal:{...executionJournal}}));
+ if(mode==='account'){
+  await assert.rejects(authorizeBotEntryConversionCustody({...input,readAccount:async()=>({...await readAccount()}),engineGrant:engine.authorize(prepared,true)}));
+  assert.equal(journal.pending(walletAddress).length,0);assert.equal(sends,0);return;
+ }
+ const result=await authorizeBotEntryConversionCustody({...input,engineGrant:engine.authorize(prepared,true)});claim=result.claim;
+ assert.throws(()=>consumeBotSwapCustody({...result.grant}));
+ if(mode!=='success'){
+  if(mode==='limits')policy={walletAddress,limits:{...limits,capitalUsd:'19'}};
+  if(mode==='backup'){const db=new DatabaseSync(backupPath);try{db.exec("UPDATE perps_backup_challenges SET status='REVOKED'");}finally{db.close();}}
+  if(mode==='hold'){const db=new DatabaseSync(join(root,'risk.sqlite'));try{db.exec("UPDATE perps_entry_conversion_holds SET conversion_id='"+'d'.repeat(64)+"'");}finally{db.close();}}
+  if(mode==='controls'){const db=new DatabaseSync(join(root,'controls.sqlite'));try{db.prepare('UPDATE perps_automation_controls SET revision=?').run(randomUUID());}finally{db.close();}}
+  assert.throws(()=>vault.signBotSwap(result.grant));assert.throws(()=>vault.signBotSwap(result.grant));
+  assert.equal(sends,0);assert.equal(journal.read(id).signed,null);assert.equal(executionJournal.read(reservationId).state,'RESERVED');return;
+ }
+ const signed=vault.signBotSwap(result.grant);assert.throws(()=>vault.signBotSwap(result.grant));journal.signed(claim,signed);
+ await engine.submit(prepared,signed);assert.equal(sends,1);await assert.rejects(engine.submit(prepared,signed));
+ assert.equal(executionJournal.read(reservationId).state,'RESERVED');assert.equal(executionJournal.entryConversionHold(reservationId).state,'HELD');
 });

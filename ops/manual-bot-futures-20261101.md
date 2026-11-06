@@ -326,3 +326,34 @@ or public functionality/Discover change occurred.
 Full CI completed: 1341 total, 1322 passed, 19 skipped, zero failed. Targeted
 tests also cover the new gate's daily-loss/position/trade quota refusals and
 confirm refusals leave the reservation RESERVED, without signing or release.
+
+### One-use first-leg custody authorization (local, 2026-11-05)
+
+Added a distinct protected-entry authorization path to the existing one-use
+custody capability module. Generic swap/transfer consent cannot authorize this
+stage. It consumes the private engine grant, requires the private preparation,
+and compares the exact native message with the durable swap claim and original
+entry reservation/draft. A freshly branded finalized daily-account proof,
+current owner control revision, unchanged manual policy, exclusive pending-work
+checks, and restore-verified swap/platform-fee backup scope are mandatory.
+All checks run again when the custody vault consumes the one-use permission.
+
+Tests create new unfunded encrypted custody wallets and use the actual vault
+signer, followed by one mocked send only after durable UNKNOWN state. They
+verify one-use consumption and retain the original HELD reservation for later
+finality. Changed controls, policy, backup or hold reject before vault signing;
+copied preparation, weakened review and unbranded daily-account JSON reject.
+The backup-attestation rows are an explicit persistence corpus; real encrypted
+archive restore verification remains separately tested, not claimed by this
+fixture. No production key/wallet, network send or real trade is used.
+
+Service orchestration still must create and bind both reviews/reservations,
+recover interrupted stages and wire the API/UI. This module does not make the
+public Long/Short flow complete. No release occurred; Discover HTML/JS/CSS/tour
+remain appropriately unchanged for this unpublished internal functionality.
+
+Full CI completed with the new authorization code: 1353 total, 1334 passed,
+19 skipped, zero failed. The subsequent expanded targeted corpus covers all
+three assets with actual ephemeral vault signing and rejects changed controls,
+unbranded daily accounts, foreign owners and copied execution journals; this
+adds tests, not broader production-readiness evidence.
