@@ -36,7 +36,7 @@ export async function conversionReceiptFixture({identityPoint=false,fixturePriva
  const gross=entry?f.received+50n:f.amount*100000000n/10n**BigInt(f.c.decimals),event=Buffer.alloc(216);
  Buffer.from('e445a52e51cb9a1d286bd41adf8827dc','hex').copy(event);
  for(const [at,key]of [[16,sourceCustody.address],[48,targetCustody.address],[80,PERPS_POOL],[152,f.walletAddress],[184,f.wire.destination]])Buffer.from(bs58.decode(key)).copy(event,at);
- for(const [at,n]of [[112,f.amount],[120,gross],[128,gross],[136,f.received],[144,50n]])event.writeBigUInt64LE(n,at);
+ for(const [at,n]of [[112,f.amount],[120,gross],[128,entry?10000000n:gross],[136,f.received],[144,50n]])event.writeBigUInt64LE(n,at);
  const meta={err:null,fee:5400,preBalances:balances(f.before),postBalances:balances(f.after),preTokenBalances:tokens(f.before),postTokenBalances:tokens(f.after),
   innerInstructions:[{index:coreIndex,instructions:[transfer(f.wire.source,sourceCustody.tokenAccount,f.walletAddress,f.amount),transfer(targetCustody.tokenAccount,f.wire.destination,ids.transferAuthority,f.received),
    {programIdIndex:index(PERPS_PROGRAM),accounts:[index(ids.eventAuthority)],data:bs58.encode(event),stackHeight:2}]}]};

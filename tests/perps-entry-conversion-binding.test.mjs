@@ -20,6 +20,8 @@ import {prepareInspectedPerpsManualOrder,readInspectedPerpsManualReview} from '.
 import {openPerpsExecutionJournal} from '../lib/perps-execution-journal.js';
 import {recoverRecordedPerpsEntryCollateral,recoverHeldPerpsEntryCollateral} from '../lib/perps-entry-conversion-recovery.js';
 import {entryServiceReviewHarness} from './helpers/perps-entry-service-review.mjs';
+import {readServerPerpsTradeTransaction} from '../lib/perps-server-trade-transaction.js';
+import {readJournalledPerpsEntryConversion,requireVerifiedPerpsEntryConversionHistory} from '../lib/perps-entry-conversion-history.js';
 
 for(const asset of ['BTC','ETH','SOL'])test('entry collateral binds exact signed intent and opening debit: '+asset,async t=>{
  const root=mkdtempSync(join(tmpdir(),'jamd-entry-binding-'));chmodSync(root,0o700);
@@ -27,7 +29,7 @@ for(const asset of ['BTC','ETH','SOL'])test('entry collateral binds exact signed
  const journal=openBotSwapJournal(join(root,'swaps.sqlite'),{initialize:true,explicitOperatorApproval:true,allowNonPosixForTests:process.platform==='win32',now:f.receiptOptions.now});
  let risk;t.after(()=>{risk?.close();journal.close();rmSync(root,{recursive:true,force:true});});
  const receipt=await readFinalizedPerpsEntryConversionReceipt(f.wire,f.identity,f.receiptOptions);
- const review={id,stage:'PROTECTED_ENTRY_CONVERSION_PREPARED',walletAddress:f.walletAddress,controlRevision:'1',maxSlippageBps:50,draft:{side:'LONG',asset:f.wire.asset},usdcUnits:f.wire.usdcUnits,minimumCollateralUnits:f.wire.minimumCollateralUnits,collateralMint:receipt.collateralMint,collateralDecimals:receipt.collateralDecimals,observedSlot:105,networkFeeLamports:'5400'};
+ const review={id,stage:'PROTECTED_ENTRY_CONVERSION_PREPARED',walletAddress:f.walletAddress,controlRevision:'1',reservationId:'entry-'+asset,maxSlippageBps:50,draft:{asset,side:'LONG',margin:'10',leverage:'3',referencePrice:'100'},usdcUnits:f.wire.usdcUnits,minimumCollateralUnits:f.wire.minimumCollateralUnits,collateralMint:receipt.collateralMint,collateralDecimals:receipt.collateralDecimals,observedSlot:105,networkFeeLamports:'5400'};
  const claim=journal.claim({id,ownerAccountHash,walletAddress:f.walletAddress,revision:'1',review,message:Buffer.from(f.wire.messageBase64,'base64')});
  journal.signed(claim,f.transaction.transaction[0]);
  const input={journal,id,ownerAccountHash,wire:f.wire,receipt};
@@ -110,6 +112,29 @@ for(const asset of ['BTC','ETH','SOL'])test('entry collateral binds exact signed
  assert.throws(()=>risk.revalidateSigning(reservationId,{limits:{...limits,capitalUsd:'9',dailyLossUsd:'9'},snapshot:convertedSnapshot,entryBinding:bound}),/CAPITAL_LIMIT/);
  assert.throws(()=>risk.revalidateSigning(reservationId,{limits,snapshot:{...convertedSnapshot,availableUsdcUnits:'19999'},entryBinding:bound}),/INSUFFICIENT_UNRESERVED_BALANCE/);
  assert.throws(()=>risk.cancelUnsigned(reservationId));
+ const readTransaction=()=>readServerPerpsTradeTransaction({walletAddress:f.walletAddress,signature:f.identity.signature,day:new Date(riskNow).toISOString().slice(0,10)},
+  {...f.receiptOptions,requireTradeEvent:false});
+ const transaction=await readTransaction(),historyOptions={journal:risk,swapJournal:journal,...recoveryOptions};
+ const history=await readJournalledPerpsEntryConversion(transaction,historyOptions);
+ assert.equal(history.stage,'FINALIZED_JOURNALED_ENTRY_CONVERSION');assert.equal(history.reservationId,reservationId);
+ assert.equal(history.spentUsdcUnits,'10000000');assert.equal(history.receivedCollateralUnits,String(f.received));
+ assert.equal(history.swapFeeCollateralUnits,'50');assert.equal(history.nativeSwapUsdUnits,'10000000');
+ assert.equal(history.requiresIndependentUsdValuation,true);assert.equal(history.readyForSigning,false);
+ assert.equal(requireVerifiedPerpsEntryConversionHistory(history,{transaction,journal:risk,swapJournal:journal}),history);
+ assert.equal(await readJournalledPerpsEntryConversion(transaction,historyOptions),history);
+ assert.throws(()=>requireVerifiedPerpsEntryConversionHistory({...history}));
+ const emptyJournal=openPerpsExecutionJournal(join(root,'unrelated-history.sqlite'),{now:()=>riskNow});
+ try{
+  assert.equal(await readJournalledPerpsEntryConversion(transaction,{...historyOptions,journal:emptyJournal}),null);
+  assert.throws(()=>requireVerifiedPerpsEntryConversionHistory(history,{journal:emptyJournal}));
+ }finally{emptyJournal.close();}
+ await assert.rejects(()=>readJournalledPerpsEntryConversion({...transaction},historyOptions));
+ const beforeMeta=structuredClone(f.transaction.meta);
+ try{
+  const balance=f.transaction.meta.postTokenBalances.find(row=>row.accountIndex===f.index(f.wire.destination));
+  balance.uiTokenAmount.amount=String(BigInt(balance.uiTokenAmount.amount)+1n);
+  await assert.rejects(async()=>readJournalledPerpsEntryConversion(await readTransaction(),historyOptions));
+ }finally{f.transaction.meta=beforeMeta;}
  const roles=[key(2),key(3),f.walletAddress,f.wire.destination,ids.perpetuals,PERPS_POOL,ids.position,f.c.address,f.c.dovesAgOracle,f.c.oracle,f.c.address,f.c.dovesAgOracle,f.c.oracle,f.c.tokenAccount,PERPS_PROGRAM,PERPS_PROGRAM,TOKEN,'11111111111111111111111111111111',ids.eventAuthority,PERPS_PROGRAM];
  const signers=[f.walletAddress,key(2),key(3)],readonly=[ids.perpetuals,TOKEN,'11111111111111111111111111111111',ids.eventAuthority,PERPS_PROGRAM];
  const keys=[...signers,...new Set(roles.filter(k=>!signers.includes(k)&&!readonly.includes(k))),...readonly];
@@ -199,5 +224,9 @@ for(const asset of ['BTC','ETH','SOL'])test('entry collateral binds exact signed
   return result;
  }}));
  assert.deepEqual(await recoverHeld(),bound);
+ assert.throws(()=>requireVerifiedPerpsEntryConversionHistory(history));
+ const refreshedHistory=await readJournalledPerpsEntryConversion(transaction,historyOptions);
+ assert.notEqual(refreshedHistory,history);
  f.expire();assert.throws(()=>readBoundPerpsEntryCollateral(bound));
+ assert.equal(requireVerifiedPerpsEntryConversionHistory(refreshedHistory),refreshedHistory);
 });

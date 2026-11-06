@@ -462,3 +462,36 @@ recovery work does not justify a public availability claim.
 Validation: full CI completed, 1379 total / 1360 passed / 19 skipped / zero
 failed. The expanded encrypted-recovery test also passed separately after
 adding rejection of a mismatched reservation ID in the retained swap review.
+
+### Rooted entry-conversion history facts (local, 2026-11-05)
+
+Added a distinct private history proof for the protected first leg. It requires
+the genuine finalized transaction, execution hold, original manual reservation
+and swap journal. Signature lookup is bounded and does not whitelist unrelated
+PoolSwap events. The exact recorded native wire is reconstructed and its strict
+receipt verified again, using the complete-history reader's captured immutable
+transaction bytes/metadata rather than a conflicting second RPC transaction.
+
+The fact binds original wallet/asset/draft/amount, received collateral, fee in
+collateral units, native CPI swap-USD field, slot/day and network fee. It is not
+an opening, signing permission, complete daily account or an independent USD
+valuation. The network fee remains a separate daily-account component; future
+entry valuation must not count it twice or assume USDC equals one USD.
+
+The original short-lived recovery proof is now returned by an internal evidence
+reader shared with the history checker; the public recovery behavior is retained.
+Historical facts can outlive a signing lease, but are invalidated if their journal
+snapshot changes. An unchanged cached finalized fact cannot authorize a trade.
+BTC/ETH/SOL tests reject copied facts/transactions, an unrelated journal,
+conflicting token balances and stale journal snapshots, then rebuild the proof
+from the original captured transaction. Fixture swap-USD fields now model the
+entry's USD amount independently of collateral base-unit decimals.
+
+Independent USD cost valuation and daily-reader integration are still required;
+the existing reader continues rejecting unrecognized swaps instead of assuming
+zero loss. No production deployment or financial operation occurred. Discover
+HTML/JS/CSS/tour were reviewed: no public availability change is appropriate.
+
+Validation: full CI completed, 1379 total / 1360 passed / 19 skipped / zero
+failed. The focused entry history/receipt corpus also passed (5 tests), covering
+captured contradictory token metadata and cache invalidation/reconstruction.
