@@ -22,6 +22,9 @@ import {recoverRecordedPerpsEntryCollateral,recoverHeldPerpsEntryCollateral} fro
 import {entryServiceReviewHarness} from './helpers/perps-entry-service-review.mjs';
 import {readServerPerpsTradeTransaction} from '../lib/perps-server-trade-transaction.js';
 import {readJournalledPerpsEntryConversion,requireVerifiedPerpsEntryConversionHistory} from '../lib/perps-entry-conversion-history.js';
+import {entryDailyAccountFixture} from './helpers/perps-entry-daily-account.mjs';
+import {createPerpsEntryConversionUsdValuationReader,requirePerpsEntryConversionUsdValuation} from '../lib/perps-entry-conversion-usd-valuation.js';
+import {readServerPerpsDailyAccount,requireFreshServerPerpsDailyAccount,createServerPerpsCustodyRiskReader} from '../lib/perps-server-daily-account.js';
 
 for(const asset of ['BTC','ETH','SOL'])test('entry collateral binds exact signed intent and opening debit: '+asset,async t=>{
  const root=mkdtempSync(join(tmpdir(),'jamd-entry-binding-'));chmodSync(root,0o700);
@@ -123,6 +126,52 @@ for(const asset of ['BTC','ETH','SOL'])test('entry collateral binds exact signed
  assert.equal(requireVerifiedPerpsEntryConversionHistory(history,{transaction,journal:risk,swapJournal:journal}),history);
  assert.equal(await readJournalledPerpsEntryConversion(transaction,historyOptions),history);
  assert.throws(()=>requireVerifiedPerpsEntryConversionHistory({...history}));
+ const dailyFixture=entryDailyAccountFixture(f,{journal:risk,swapJournal:journal}),valuationInput={conversions:[history],day:transaction.day};
+ const readValuation=createPerpsEntryConversionUsdValuationReader(dailyFixture.common),valuation=await readValuation(valuationInput);
+ assert.equal(valuation.entryConversionLossUsdUnits,'229700');assert.equal(valuation.networkFeesIncluded,false);
+ assert.equal(valuation.usesUnderlyingMarketProxy,true);assert.equal(valuation.items[0].spentUsdUpperUnits,'10100000');
+ assert.equal(valuation.items[0].receivedUsdLowerUnits,'9870300');assert.equal(valuation.readyForSigning,false);
+ assert.equal(requirePerpsEntryConversionUsdValuation(valuation,valuationInput),valuation);
+ assert.throws(()=>requirePerpsEntryConversionUsdValuation({...valuation},valuationInput));
+ const gainFixture=entryDailyAccountFixture(f,{journal:risk,swapJournal:journal,collateralLow:'110',collateralHigh:'111'});
+ const gain=await createPerpsEntryConversionUsdValuationReader(gainFixture.common)(valuationInput);
+ assert.equal(gain.entryConversionLossUsdUnits,asset==='SOL'?'6':'56');
+ assert.equal(gain.items[0].lossUsdUnits,gain.items[0].feeUsdUpperUnits);
+ const roundingFixture=entryDailyAccountFixture(f,{journal:risk,swapJournal:journal,inputHigh:'1.00000001',collateralLow:'100',collateralHigh:'100'});
+ const rounded=await createPerpsEntryConversionUsdValuationReader(roundingFixture.common)(valuationInput);
+ assert.equal(rounded.items[0].spentUsdUpperUnits,'10000001');assert.equal(rounded.entryConversionLossUsdUnits,'30001');
+ let valuationAge=0;
+ const leased=await createPerpsEntryConversionUsdValuationReader({...dailyFixture.common,monotonicNow:()=>valuationAge})(valuationInput);
+ valuationAge=10001;assert.throws(()=>requirePerpsEntryConversionUsdValuation(leased,valuationInput));
+ await assert.rejects(()=>readValuation({conversions:[history,history],day:transaction.day}));
+ await assert.rejects(()=>readValuation({conversions:[{...history}],day:transaction.day}));
+ const daily=await readServerPerpsDailyAccount({walletAddress:f.walletAddress},dailyFixture.options);
+ assert.equal(daily.entryConversionLossUsdUnits,'229700');assert.equal(daily.walletNetworkFeesLamports,'5400');
+ assert.equal(daily.networkFeeUsdUnits,'540');assert.equal(daily.lossTodayUsdcUnits,'230240');
+ assert.equal(daily.tradesToday,0);assert.equal(daily.entryConversions.length,1);assert.equal(daily.transactions.length,1);
+ assert.equal(requireFreshServerPerpsDailyAccount(daily,{walletAddress:f.walletAddress,journal:risk}),daily);
+ const custodyReader=createServerPerpsCustodyRiskReader({...dailyFixture.options,
+  verifyExclusiveCustody:async()=>({walletAddress:f.walletAddress,ownerAccountHash,exclusive:true,purpose:'jamddmaj-perps-automation'})});
+ dailyFixture.setHistoryVisible(false);
+ const baseline=await custodyReader({walletAddress:f.walletAddress,ownerAccountHash});assert.equal(baseline.entryConversionLossUsdUnits,'0');
+ await assert.rejects(()=>custodyReader({walletAddress:f.walletAddress,ownerAccountHash,entryBinding:bound}));
+ dailyFixture.setHistoryVisible(true);
+ const afterConversion=await custodyReader({walletAddress:f.walletAddress,ownerAccountHash,entryBinding:bound});
+ assert.equal(afterConversion.entryConversionLossUsdUnits,'229700');assert.equal(afterConversion.entryConversions[0].signature,bound.signature);
+ const tomorrow=Date.parse(transaction.day+'T00:00:00Z')+86400000+60000;
+ const overnightFixture=entryDailyAccountFixture(f,{journal:risk,swapJournal:journal});overnightFixture.setNow(tomorrow);overnightFixture.setHistoryVisible(false);
+ const overnightBound=await recoverRecordedPerpsEntryCollateral({journal,id,ownerAccountHash},{...recoveryOptions,now:()=>tomorrow});
+ assert.equal(overnightBound.executionDay,transaction.day);
+ const overnightRisk=openPerpsExecutionJournal(riskPath,{now:()=>tomorrow});
+ try{
+  const overnightReader=createServerPerpsCustodyRiskReader({...overnightFixture.options,journal:overnightRisk,
+   verifyExclusiveCustody:async()=>({walletAddress:f.walletAddress,ownerAccountHash,exclusive:true,purpose:'jamddmaj-perps-automation'})});
+  const overnight=await overnightReader({walletAddress:f.walletAddress,ownerAccountHash,entryBinding:overnightBound});
+  assert.notEqual(overnight.day,transaction.day);assert.equal(overnight.entryConversionLossUsdUnits,'0');assert.equal(overnight.pendingMarginUsdcUnits,'10020000');
+ }finally{overnightRisk.close();}
+ await assert.rejects(()=>readServerPerpsDailyAccount({walletAddress:f.walletAddress},{...dailyFixture.options,readEntryConversionLoss:undefined}));
+ await assert.rejects(()=>readServerPerpsDailyAccount({walletAddress:f.walletAddress},{...dailyFixture.options,readEntryConversionLoss:async()=>({...valuation})}));
+ await assert.rejects(()=>readServerPerpsDailyAccount({walletAddress:f.walletAddress},{...dailyFixture.options,swapJournal:undefined}));
  const emptyJournal=openPerpsExecutionJournal(join(root,'unrelated-history.sqlite'),{now:()=>riskNow});
  try{
   assert.equal(await readJournalledPerpsEntryConversion(transaction,{...historyOptions,journal:emptyJournal}),null);
@@ -225,6 +274,7 @@ for(const asset of ['BTC','ETH','SOL'])test('entry collateral binds exact signed
  }}));
  assert.deepEqual(await recoverHeld(),bound);
  assert.throws(()=>requireVerifiedPerpsEntryConversionHistory(history));
+ assert.throws(()=>requireFreshServerPerpsDailyAccount(daily,{walletAddress:f.walletAddress,journal:risk}));
  const refreshedHistory=await readJournalledPerpsEntryConversion(transaction,historyOptions);
  assert.notEqual(refreshedHistory,history);
  f.expire();assert.throws(()=>readBoundPerpsEntryCollateral(bound));

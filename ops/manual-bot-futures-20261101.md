@@ -495,3 +495,57 @@ HTML/JS/CSS/tour were reviewed: no public availability change is appropriate.
 Validation: full CI completed, 1379 total / 1360 passed / 19 skipped / zero
 failed. The focused entry history/receipt corpus also passed (5 tests), covering
 captured contradictory token metadata and cache invalidation/reconstruction.
+
+### Entry USD valuation and daily-account integration (local, 2026-11-05)
+
+Added bounded read-only historical USD references for USDC/BTC/ETH/SOL, with
+fixed Kraken pair identities and explicit assetVersion=1 display keys. API
+contract rechecked against https://docs.kraken.com/api-reference/market-data/get-ohlc-data:
+current last bars are uncommitted and retention is limited. Recent facts use
+closed minute bars; older same-day facts or minute gaps use one bounded closed
+five-minute fallback. Open/absent/zero-trade bars, malformed prices, wrong pairs,
+overlarge bodies, stale leases and HTTP failures never become zero-cost data.
+Only validated closed bars survive the current-day cache.
+
+The privately branded entry valuation rounds spent-USDC upper USD value upward,
+received collateral lower USD value downward, and observed collateral-fee upper
+USD value upward. Per-entry risk is the greater of the nonnegative basis/value
+gap and output-fee floor. The input basis also retains the verified native CPI
+swap-USD value as a floor. Arithmetic is integer-only; gains cannot offset other
+entry losses. Network fees are excluded here and counted once by the existing
+network-fee valuation. BTC/ETH/SOL are underlying-market proxies, NOT guarantees
+that the wrapped collateral mint tracks its underlying or an executable quote.
+
+The finalized daily reader now recognizes only the exact journalled first leg,
+requires this independent valuation, includes its cost in daily loss and counts
+no futures Increase event for the conversion. Missing/forged valuation, missing
+swap history or an unrecognized swap still fail closed. Runtime account-reader
+construction now passes the native swap journal and this valuation reader.
+This does not yet enable the first-leg send dependency or publish a release.
+
+An opening's private entry binding forces the exclusive-custody baseline to
+include that known finalized conversion and its costs, even if an otherwise
+fresh five-second cached baseline predates it. Signing independently verifies
+this inclusion. Binding metadata now retains verified execution day/block time;
+an older-day conversion is not charged a second time today, while original held
+margin and fees remain reserved. No caller-supplied dates create that binding.
+
+Tests cover real private entry-history facts for all three markets, depegged
+USDC reference bounds, exact rounding, fee floors despite a reference gain,
+expiry, incomplete quote data, duplicate/forged facts, no extra futures trade,
+one network-fee charge, stale pre-conversion cache refusal and overnight risk.
+Public read-only smoke check also validated current closed OHLC response shapes
+for all four fixed pairs, with zero signatures and zero sends. These market data
+reads disclose no wallet/owner/balance or transaction bytes.
+
+Still required: complete opening-confirmation/broadcast integration, failed or
+expired on-chain conversion recovery, public client/UI progression, deployment
+and full-story verification. Discover HTML/JS/CSS/tour were reviewed; unpublished
+internal accounting changes do not justify an availability claim. No real funds
+were signed, transferred or traded, and automation was not activated.
+
+Validation: full CI completed, 1382 total / 1363 passed / 19 skipped / zero
+failed. The final targeted accounting/history/bounds/signing corpus passed all
+20 tests after the additional overnight-binding checks. The public quote-only
+smoke probe validated four closed minute-bar shapes without logging prices,
+wallet identities, balances, signatures or transaction bytes.
