@@ -19,6 +19,7 @@ import {checkServerPerpsFundingSimulation} from '../lib/perps-server-funding-sim
 import {prepareInspectedPerpsManualOrder,readInspectedPerpsManualReview} from '../lib/perps-manual-preparation.js';
 import {openPerpsExecutionJournal} from '../lib/perps-execution-journal.js';
 import {recoverRecordedPerpsEntryCollateral,recoverHeldPerpsEntryCollateral} from '../lib/perps-entry-conversion-recovery.js';
+import {entryServiceReviewHarness} from './helpers/perps-entry-service-review.mjs';
 
 for(const asset of ['BTC','ETH','SOL'])test('entry collateral binds exact signed intent and opening debit: '+asset,async t=>{
  const root=mkdtempSync(join(tmpdir(),'jamd-entry-binding-'));chmodSync(root,0o700);
@@ -98,6 +99,7 @@ for(const asset of ['BTC','ETH','SOL'])test('entry collateral binds exact signed
  assert.equal(risk.entryConversionHold(reservationId).state,'HELD');f.status.confirmationStatus='finalized';
  assert.deepEqual(await recoverHeld(),bound);
  assert.equal(risk.entryConversionHold(reservationId).state,'FINALIZED');
+ assert.equal(journal.read(id).state,'FINALIZED');assert.equal(journal.pending(f.walletAddress).length,0);
  assert.throws(()=>risk.revalidateEntryConversion(reservationId,firstLeg));
  assert.deepEqual(await recoverHeld(),bound);
  assert.equal(risk.read(reservationId).state,'RESERVED');
@@ -131,10 +133,36 @@ for(const asset of ['BTC','ETH','SOL'])test('entry collateral binds exact signed
  const joined=await prepareInspectedPerpsManualOrder({asset,side:'LONG',margin:'10',leverage:'3',referencePrice:'100'},f.walletAddress,{rpcRequest:opening.request,builderRequest:opening.builderRequest,now:f.receiptOptions.now,monotonicNow:()=>0,entryBinding:bound});
  assert.equal(joined.availableUsdcUnits,'3000000');assert.equal(joined.fundingMode,'FINALIZED_ENTRY_COLLATERAL');assert.equal(joined.collateralDebitUnits,String(f.received));assert.equal(joined.readyForSigning,false);
  assert.equal(readInspectedPerpsManualReview(joined).entryBinding,bound);
+ const openingRisk=openPerpsExecutionJournal(join(root,'opening-risk.sqlite'),{now:()=>riskNow});
+ try{
+  openingRisk.reserve({walletAddress:f.walletAddress,signalId:'manual:'+reservationId,reservationId,marginUsd:'10',limits,snapshot:riskSnapshot,positionAddress:ids.position,platformFeeUnits:'20000'});
+  openingRisk.holdEntryConversion({reservationId,conversionId:id,wire:f.wire,draft:joined.draft});
+  assert.throws(()=>openingRisk.bindEntryOpeningReview(reservationId,joined));
+  openingRisk.finalizeEntryConversionHold(reservationId,bound);
+  assert.throws(()=>openingRisk.bindEntryOpeningReview(reservationId,{...joined}));
+  const boundRow=openingRisk.bindEntryOpeningReview(reservationId,joined);
+  assert.equal(boundRow.entry_exit_plan,JSON.stringify(readInspectedPerpsManualReview(joined).entryExitPlan));
+  assert.equal(boundRow.state,'RESERVED');assert.equal(boundRow.signature,null);
+  assert.deepEqual(openingRisk.bindEntryOpeningReview(reservationId,joined),boundRow);
+  const harness=entryServiceReviewHarness(root,f,opening,{risk:openingRisk,journal,ownerAccountHash,limits});
+  try{
+   const request={...harness.who,draft:joined.draft,entryReservationId:reservationId};
+   await assert.rejects(()=>harness.service.prepare({...request,ownerAccountHash:'e'.repeat(64)}));
+   await assert.rejects(()=>harness.service.prepare({...request,draft:{...joined.draft,leverage:'4'}}));
+   const serviceReview=await harness.service.prepare(request);
+   assert.equal(serviceReview.entryReservationId,reservationId);assert.equal(serviceReview.fundingMode,'FINALIZED_ENTRY_COLLATERAL');
+   assert.equal(serviceReview.submitted,false);assert.equal(openingRisk.pending(f.walletAddress).length,1);
+   assert.equal(openingRisk.read(reservationId).state,'RESERVED');
+   await assert.rejects(()=>harness.service.confirm({...harness.who,id:serviceReview.id,explicitApproval:false}));
+   assert.equal(openingRisk.read(reservationId).signature,null);
+  }finally{harness.close();}
+  openingRisk.beginSigning(reservationId,{entryBinding:bound});
+  assert.throws(()=>openingRisk.bindEntryOpeningReview(reservationId,joined));
+ }finally{openingRisk.close();}
  assert.equal(readBoundPerpsEntryCollateral(bound),bound);assert.throws(()=>readBoundPerpsEntryCollateral({...bound}));
  assert.throws(()=>bindFinalizedPerpsEntryConversion({...input,ownerAccountHash:'e'.repeat(64)}));
  assert.throws(()=>bindFinalizedPerpsEntryConversion({...input,receipt:{...receipt}}));
- journal.settle(id,f.identity.signature,'FINALIZED');assert.equal(readBoundPerpsEntryCollateral(bound),bound);
+ assert.equal(journal.read(id).state,'FINALIZED');assert.equal(readBoundPerpsEntryCollateral(bound),bound);
  // Simulated opening spends only this conversion's delta, preserving the
  // seventeen pre-existing collateral units and the remaining USDC unchanged.
  const payer=f.walletAddress,source=f.wire.destination,usdc=f.wire.source;
@@ -167,7 +195,7 @@ for(const asset of ['BTC','ETH','SOL'])test('entry collateral binds exact signed
  // that recovery attempt; the caller must request a new coherent snapshot.
  await assert.rejects(()=>recoverRecordedPerpsEntryCollateral({journal,id,ownerAccountHash},{...recoveryOptions,request:async(method,params)=>{
   const result=await recoveryRequest(method,params);
-  if(method==='getGenesisHash')journal.settle(id,f.identity.signature,'FINALIZED');
+  if(method==='getGenesisHash'){const db=new DatabaseSync(join(root,'swaps.sqlite'));try{db.prepare('UPDATE bot_wallet_swaps SET updated=updated+1 WHERE id=?').run(id);}finally{db.close();}}
   return result;
  }}));
  assert.deepEqual(await recoverHeld(),bound);

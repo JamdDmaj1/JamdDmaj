@@ -357,3 +357,37 @@ Full CI completed with the new authorization code: 1353 total, 1334 passed,
 three assets with actual ephemeral vault signing and rejects changed controls,
 unbranded daily accounts, foreign owners and copied execution journals; this
 adds tests, not broader production-readiness evidence.
+
+### Original-reservation opening continuation (local, 2026-11-05)
+
+The manual service can review a collateral-funded opening against its original
+entry reservation. Before builder access it checks the authenticated owner,
+paused controls, exact stored draft, RESERVED parent, native swap journal and
+fresh finalized recovery. Exact receipt recovery now settles the original swap
+exclusion FINALIZED, without releasing the execution reservation. Other pending
+orders still block continuation. The API accepts an optional entryReservationId
+only on manual preparation, after existing authenticated ownership checks; it
+does not accept transaction bytes or confer signing authority from that ID.
+
+The review requires only remaining USDC fees, not a second margin debit. On
+explicit confirmation the service reuses the original reservation and fee terms,
+binds its fresh privately inspected exact position/exit plan, then uses the
+existing one-use opening authorization with the finalized entry binding.
+An already-bound different plan or a non-RESERVED parent cannot be overwritten.
+Errors before signing do not cancel the already-converted collateral hold.
+
+Joined BTC/ETH/SOL tests exercise the real service review with 3 USDC remaining,
+one existing reservation, owner/draft refusal and missing confirmation consent.
+The review-only harness forbids every vault signature, send and fee collection.
+Its finalized-history RPC is an explicit empty-history model, not evidence that
+production entry-conversion daily history is implemented. Real pending-entry
+daily-account reconciliation, first-leg service creation, public UI progression,
+opening signing/broadcast integration tests and release remain required.
+Discover HTML/JS/CSS/tour remain unchanged: no public functionality was released.
+
+Full CI for the continuation core completed: 1359 total, 1340 passed, 19 skipped,
+zero failed. Subsequent API tests also verify the owner-bound continuation ID,
+refusal of client transaction bytes, and a safe 409 pending-finality response
+without automatic retry. The earlier test failure was a stale second settlement
+expectation after recovery began settling the exact receipt; it was corrected
+to assert the already-FINALIZED state, not to permit duplicate settlement.

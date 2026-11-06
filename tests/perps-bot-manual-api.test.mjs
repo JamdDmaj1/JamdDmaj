@@ -7,7 +7,7 @@ function fixture(available=true){
  const botManual=Object.fromEntries(['status','prepare','confirm','recover','positions','prepareClose','confirmClose','recoverClose'].map(method=>[method,async args=>{calls.push({method,args});return {walletAddress:wallet,stage:method};}]));
  const handler=createPerpsAutomationApi({controls,authenticate:async()=>owner,rateLimit:async()=>true,botManual:available?botManual:null});
  const request=body=>handler(new Request('https://controls.example/v1/automation',{method:'POST',headers:{Authorization:'Bearer '+'b'.repeat(64),'Content-Type':'application/json',Origin:'https://www.jamddmaj.com'},body:JSON.stringify(body)}));
- return {calls,request};
+ return {calls,request,botManual};
 }
 test('manual bot API binds verified owner before status, review, confirmation or recovery',async()=>{
  const f=fixture();
@@ -23,4 +23,21 @@ test('manual bot API binds verified owner before status, review, confirmation or
 test('manual custody execution is unavailable by default, never inferred from public funds',async()=>{
  const f=fixture(false),r=await f.request({action:'botManualStatus',walletAddress:wallet});assert.equal(r.status,503);assert.equal((await r.json()).error.code,'bot-manual-unavailable');
  assert.equal(f.calls.length,0);
+});
+
+test('entry-reservation continuation reaches only the authenticated manual review service',async()=>{
+ const f=fixture(),body={action:'botManualPrepare',walletAddress:wallet,draft:{asset:'BTC'},entryReservationId:'original-order'};
+ assert.notEqual((await f.request({...body,walletAddress:other})).status,200);
+ assert.equal(f.calls.length,0);
+ assert.equal((await f.request(body)).status,200);
+ assert.equal(f.calls[0].method,'prepare');assert.equal(f.calls[0].args.entryReservationId,'original-order');
+ assert.equal(f.calls[0].args.ownerAccountHash,owner);
+ assert.equal((await f.request({...body,serializedTxBase64:'untrusted'})).status,400);
+ assert.equal(f.calls.length,1);
+});
+
+test('an unfinalized entry conversion returns a safe pending conflict, not a server outage or an automatic retry',async()=>{
+ const f=fixture();let attempts=0;f.botManual.prepare=async()=>{attempts++;throw Error('BOT_MANUAL_CONVERSION_PENDING');};
+ const response=await f.request({action:'botManualPrepare',walletAddress:wallet,draft:{asset:'BTC'},entryReservationId:'original-order'});
+ assert.equal(response.status,409);assert.deepEqual(await response.json(),{error:{code:'bot-manual-conversion-pending'}});assert.equal(attempts,1);
 });
