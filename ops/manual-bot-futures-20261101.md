@@ -426,3 +426,39 @@ no public change is appropriate for this unpublished internal-only increment.
 Validation: full CI completed with 1367 total / 1348 passed / 19 skipped / zero
 failed. The six service/funding timeout tests passed again with an additional
 assertion that Short cannot enter this Long-only conversion path.
+
+### Never-broadcast recovery without lost audit (local, 2026-11-05)
+
+Added a separate terminal recovery path for an entry conversion still in swap
+SIGNING or already ABORTED. The swap journal atomically aborts SIGNING before
+risk release; it cannot abort UNKNOWN. The execution journal requires the real
+swap journal, exact owner/wallet/conversion ID, original reservation ID, canonical
+draft, amount, strict cap and terminal ABORTED record before cancelling the
+RESERVED parent. Both the original hold and the swap record are retained.
+Repeated recovery is idempotent and requires a new review for any new order.
+
+Manual-service failure cleanup uses that same path. If failure occurs before
+claim creation, it records an unsigned terminal ABORTED audit intent first.
+The cached original wire used for that audit is never used as fresh signing
+authority. Failure after durable UNKNOWN never releases capital or retries.
+The authenticated recover endpoint also handles interrupted SIGNING without
+any network call, new signature or transport attempt.
+
+BTC/ETH/SOL tests cover consent-store failure, signer refusal, simulation failure
+after an actual unfunded custody signature but before broadcast, and interrupted
+SIGNING with an unused grant. The terminal journal transition invalidates that
+grant before signing; foreign owners and UNKNOWN release attempts are refused.
+An encrypted archive test restores CANCELLED + retained HELD + ABORTED history,
+preserves the reduced pending-risk count, and rejects a contradictory SIGNING
+record. No tables/rows or history are deleted to achieve recovery.
+
+On-chain failed/expired attempts and finalized-collateral recovery remain
+distinct; this increment does not release them. Complete daily entry accounting,
+opening-confirmation integration, public interface, live unsigned verification
+and deployment still remain. No real-funded signatures/sends/trades occurred.
+Discover HTML/JS/CSS/tour were reviewed and left unchanged: internal unpublished
+recovery work does not justify a public availability claim.
+
+Validation: full CI completed, 1379 total / 1360 passed / 19 skipped / zero
+failed. The expanded encrypted-recovery test also passed separately after
+adding rejection of a mismatched reservation ID in the retained swap review.

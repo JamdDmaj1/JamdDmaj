@@ -86,6 +86,30 @@ test('encrypted recovery retains a pre-broadcast entry hold and rejects inconsis
  const repair=new DatabaseSync(f.journalPath);try{repair.prepare('UPDATE perps_entry_conversion_holds SET draft_json=?').run(JSON.stringify(draft));}finally{repair.close();}
  delete f.runtimePaths.swapsPath;
  await assert.rejects(()=>createPerpsCustodyRecoveryArchive(f.request));
+ f.runtimePaths.swapsPath=swapsPath;
+ const unsent=openBotSwapJournal(swapsPath,f.common);
+ try{
+  const id='a'.repeat(64),review={id,stage:'PROTECTED_ENTRY_CONVERSION_PREPARED',walletAddress:f.wallet.walletAddress,
+   controlRevision:'1',reservationId:'reserved',draft,usdcUnits:'10000000',maxSlippageBps:50};
+  const claim=unsent.claim({id,ownerAccountHash,walletAddress:f.wallet.walletAddress,revision:'1',review,message:Uint8Array.from([1])});
+  assert.throws(()=>f.journal.releaseNeverBroadcastEntryConversion('reserved',{swapJournal:unsent,ownerAccountHash}));
+  unsent.abortUnsignedOrUnsent(claim);
+  const wrongReservation=new DatabaseSync(swapsPath);
+  try{
+   wrongReservation.prepare('UPDATE bot_wallet_swaps SET review=? WHERE id=?').run(JSON.stringify({...review,reservationId:'different-order'}),id);
+   assert.throws(()=>f.journal.releaseNeverBroadcastEntryConversion('reserved',{swapJournal:unsent,ownerAccountHash}));
+   await assert.rejects(()=>createPerpsCustodyRecoveryArchive(f.request));
+  }finally{wrongReservation.prepare('UPDATE bot_wallet_swaps SET review=? WHERE id=?').run(JSON.stringify(review),id);wrongReservation.close();}
+  f.journal.releaseNeverBroadcastEntryConversion('reserved',{swapJournal:unsent,ownerAccountHash});
+  assert.equal(f.journal.read('reserved').state,'CANCELLED');
+  const cancelledArchive=await createPerpsCustodyRecoveryArchive(f.request);
+  const cancelledRestore=await restorePerpsCustodyRecoveryArchive({...f.restore,destinationDirectory:join(f.root,'restored-unsent'),ciphertext:cancelledArchive.ciphertext});
+  const cancelledJournal=openPerpsExecutionJournal(join(cancelledRestore.runtimeDirectory,'journal.sqlite'),{now:()=>now});f.restoredStores.push(cancelledJournal);
+  assert.equal(cancelledJournal.read('reserved').state,'CANCELLED');assert.deepEqual(cancelledJournal.entryConversionHold('reserved'),f.journal.entryConversionHold('reserved'));
+  assert.equal(cancelledJournal.riskState(f.wallet.walletAddress).pendingMarginUsdcUnits,'20000000');
+  const contradictory=new DatabaseSync(swapsPath);try{contradictory.exec("UPDATE bot_wallet_swaps SET state='SIGNING'");}finally{contradictory.close();}
+  await assert.rejects(()=>createPerpsCustodyRecoveryArchive(f.request));
+ }finally{unsent.close();}
 });
 
 test('complete encrypted recovery preserves all reservation states, limits, risk markers and quota while forcing a fresh pause',async t=>{
