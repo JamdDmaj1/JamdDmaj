@@ -279,3 +279,30 @@ Validation: full CI completed with 1341 tests, 1322 passed, 19 skipped and zero
 failures. The expanded paused-migration refusal corpus also passed separately
 for both legacy and prior-platform-fee schemas (9 tests total). The skipped
 checks are not evidence of full production readiness.
+
+### Recorded entry recovery (local, 2026-11-05)
+
+Added read-only recovery from the original privately verified swap journal.
+It checks ownership and mainnet genesis, reads finalized native custodies,
+extracts only constructor inputs from the historical message and reconstructs
+through the native strict constructor. Every original message byte must match;
+there is no new blockhash, route, signature, send or JSON-to-proof conversion.
+The existing exact finalized receipt reader checks signed wire identity,
+transfers, balances and fees before constructing the fresh private binding.
+The swap row must remain unchanged across asynchronous reads.
+
+Recovery can join that binding to the original execution-journal entry hold.
+It retains pending finality without releasing capital and finalizes the hold
+only when the original wallet/asset/amount match. Repeated recovery is idempotent;
+neither finality nor a recovered binding automatically opens a position.
+
+BTC/ETH/SOL tests use a reopened swap database and a reopened risk journal,
+reject a foreign owner, wrong network, stale bank and exchanged custody roles,
+and preserve the held reservation while awaiting finality. These use unfunded
+fixture keys and mocked read-only RPC, not real custody signatures or sends.
+Service/API/UI integration and real unsigned-provider full-story verification
+remain pending. No release or Discover functionality change is claimed.
+
+Validation: full CI completed, 1341 total / 1322 passed / 19 skipped / zero
+failed. Additional targeted adversarial recovery checks passed for all three
+assets after that run: modified durable minimum and journal change during RPC.

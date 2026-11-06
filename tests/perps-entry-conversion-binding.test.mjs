@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {mkdtempSync,chmodSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
+import {DatabaseSync} from 'node:sqlite';
 import {conversionReceiptFixture} from './helpers/perps-conversion-receipt-fixture.mjs';
 import {openBotSwapJournal} from '../lib/perps-bot-swap-journal.js';
 import {readFinalizedPerpsEntryConversionReceipt} from '../lib/perps-close-conversion-receipt.js';
@@ -17,6 +18,7 @@ import {simulateServerPerpsPositionEffects} from '../lib/perps-server-simulation
 import {checkServerPerpsFundingSimulation} from '../lib/perps-server-funding-simulation.js';
 import {prepareInspectedPerpsManualOrder,readInspectedPerpsManualReview} from '../lib/perps-manual-preparation.js';
 import {openPerpsExecutionJournal} from '../lib/perps-execution-journal.js';
+import {recoverRecordedPerpsEntryCollateral,recoverHeldPerpsEntryCollateral} from '../lib/perps-entry-conversion-recovery.js';
 
 for(const asset of ['BTC','ETH','SOL'])test('entry collateral binds exact signed intent and opening debit: '+asset,async t=>{
  const root=mkdtempSync(join(tmpdir(),'jamd-entry-binding-'));chmodSync(root,0o700);
@@ -31,6 +33,35 @@ for(const asset of ['BTC','ETH','SOL'])test('entry collateral binds exact signed
  assert.throws(()=>bindFinalizedPerpsEntryConversion(input));
  journal.beginBroadcast(claim,{address:f.walletAddress,signature:f.identity.signature,lastValidBlockHeight:f.wire.lastValidBlockHeight});
  const bound=bindFinalizedPerpsEntryConversion(input);assert.equal(bound.receivedCollateralUnits,String(f.received));assert.equal(bound.readyForSigning,false);
+ const recoveredJournal=openBotSwapJournal(join(root,'swaps.sqlite'),{allowNonPosixForTests:process.platform==='win32',now:f.receiptOptions.now});
+ const recoveryRequest=async(method,params)=>{
+  if(method==='getMultipleAccounts')return {context:{slot:130},value:params[0].map(address=>f.before.get(address))};
+  return f.request(method,params);
+ };
+ const recoveryOptions={...f.receiptOptions,request:recoveryRequest};
+ const recover=()=>recoverRecordedPerpsEntryCollateral({journal:recoveredJournal,id,ownerAccountHash},recoveryOptions);
+ try{
+ assert.deepEqual(await recover(),bound);
+ await assert.rejects(()=>recoverRecordedPerpsEntryCollateral({journal,id,ownerAccountHash:'e'.repeat(64)},f.receiptOptions));
+ f.status.confirmationStatus='confirmed';assert.equal((await recover()).stage,'RECORDED_ENTRY_CONVERSION_AWAITING_FINALITY');f.status.confirmationStatus='finalized';
+ for(const fault of ['network','slot','custody'])await assert.rejects(()=>recoverRecordedPerpsEntryCollateral({journal:recoveredJournal,id,ownerAccountHash},{...recoveryOptions,request:async(method,params)=>{
+  if(method==='getGenesisHash'&&fault==='network')return 'wrong-network';
+  const result=await recoveryRequest(method,params);
+  if(method==='getMultipleAccounts'){
+   if(fault==='slot')return {...result,context:{slot:104}};
+   if(fault==='custody')return {...result,value:[result.value[1],result.value[0]]};
+  }return result;
+ }}));
+ // A valid owner signature over the old wire must not authorize a modified
+ // durable review minimum. Reconstruction must match the signed message.
+ const raw=new DatabaseSync(join(root,'swaps.sqlite'));
+ try{
+  raw.prepare('UPDATE bot_wallet_swaps SET review=? WHERE id=?').run(JSON.stringify({...review,minimumCollateralUnits:String(BigInt(review.minimumCollateralUnits)+1n)}),id);
+  await assert.rejects(recover);
+ }finally{
+  raw.prepare('UPDATE bot_wallet_swaps SET review=? WHERE id=?').run(JSON.stringify(review),id);raw.close();
+ }
+ }finally{recoveredJournal.close();}
  const intent={walletAddress:f.walletAddress,asset,side:'LONG',marginUsd:'10',leverage:3,maxSlippageBps:50,referencePrice:'100'};
  const plan=planProtectedPerpsCollateralLong(bound,intent);assert.equal(plan.body.inputToken,asset);assert.equal(plan.body.inputTokenAmount,String(f.received));assert.equal(plan.body.maxSlippageBps,'25');
  for(const wrong of [{side:'SHORT'},{marginUsd:'11'},{maxSlippageBps:500},{asset:asset==='BTC'?'ETH':'BTC'}])assert.throws(()=>planProtectedPerpsCollateralLong(bound,{...intent,...wrong}));
@@ -49,7 +80,15 @@ for(const asset of ['BTC','ETH','SOL'])test('entry collateral binds exact signed
  risk.close();risk=openPerpsExecutionJournal(riskPath,{now:()=>riskNow});
  assert.equal(risk.entryConversionHold(reservationId).state,'HELD');
  assert.throws(()=>risk.cancelUnsigned(reservationId));assert.throws(()=>risk.beginSigning(reservationId));
- risk.finalizeEntryConversionHold(reservationId,bound);
+ const recoverHeld=()=>recoverHeldPerpsEntryCollateral({executionJournal:risk,journal,reservationId,ownerAccountHash},recoveryOptions);
+ await assert.rejects(()=>recoverHeldPerpsEntryCollateral({executionJournal:risk,journal,reservationId,ownerAccountHash:'e'.repeat(64)},recoveryOptions));
+ f.status.confirmationStatus='confirmed';
+ assert.equal((await recoverHeld()).stage,'RECORDED_ENTRY_CONVERSION_AWAITING_FINALITY');
+ assert.equal(risk.entryConversionHold(reservationId).state,'HELD');f.status.confirmationStatus='finalized';
+ assert.deepEqual(await recoverHeld(),bound);
+ assert.equal(risk.entryConversionHold(reservationId).state,'FINALIZED');
+ assert.deepEqual(await recoverHeld(),bound);
+ assert.equal(risk.read(reservationId).state,'RESERVED');
  assert.throws(()=>risk.beginSigning(reservationId));risk.beginSigning(reservationId,{entryBinding:bound});
  const convertedSnapshot={...riskSnapshot,availableUsdcUnits:'3000000'};
  assert.throws(()=>risk.revalidateSigning(reservationId,{limits,snapshot:convertedSnapshot}));
@@ -112,5 +151,13 @@ for(const asset of ['BTC','ETH','SOL'])test('entry collateral binds exact signed
   const invented=structuredClone(closeAfter);invented[payer].lamports+=Number(f.received);
   assert.throws(()=>inspectServerPerpsEntryCollateralFunding({...funding,before:closeBefore,after:invented}));
  }
+ // Even a legitimate journal transition while RPC is in flight invalidates
+ // that recovery attempt; the caller must request a new coherent snapshot.
+ await assert.rejects(()=>recoverRecordedPerpsEntryCollateral({journal,id,ownerAccountHash},{...recoveryOptions,request:async(method,params)=>{
+  const result=await recoveryRequest(method,params);
+  if(method==='getGenesisHash')journal.settle(id,f.identity.signature,'FINALIZED');
+  return result;
+ }}));
+ assert.deepEqual(await recoverHeld(),bound);
  f.expire();assert.throws(()=>readBoundPerpsEntryCollateral(bound));
 });
