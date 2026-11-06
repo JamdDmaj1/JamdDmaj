@@ -18,6 +18,12 @@ import {openManualPerpsPolicyStore} from '../lib/perps-manual-policy-store.js';
 import {createBotManualPerpsService} from '../lib/perps-bot-manual-service.js';
 import {PERPS_PLATFORM_FEE} from '../lib/perps-platform-fee.js';
 import {recoverNeverBroadcastHeldPerpsEntryConversion} from '../lib/perps-entry-conversion-recovery.js';
+import {recoverHeldPerpsEntryCollateral} from '../lib/perps-entry-conversion-recovery.js';
+import {conversionReceiptFixture} from './helpers/perps-conversion-receipt-fixture.mjs';
+import {entryOpeningFixture} from './helpers/perps-entry-opening-fixture.mjs';
+import {entryDailyAccountFixture} from './helpers/perps-entry-daily-account.mjs';
+import {decodeServerPerpsCustody} from '../lib/perps-server-custody.js';
+import {openPerpsPlatformFeeJournal} from '../lib/perps-platform-fee-journal.js';
 import {conversionFixture} from './helpers/perps-conversion-fixture.mjs';
 import {buildUnsignedPerpsEntryConversionWire} from '../lib/perps-entry-conversion-wire.js';
 import {simulatePerpsEntryConversion,readSimulatedPerpsEntryConversion} from '../lib/perps-entry-conversion-simulation.js';
@@ -104,7 +110,7 @@ test('entry lifecycle refuses changed external authorization and never turns a r
  engine.invalidate();assert.throws(()=>engine.authorize(review,true));
 });
 
-for(const asset of ['BTC','ETH','SOL'])for(const mode of ['success','limits','backup','hold','controls','account','service','timeout','unsent','sign-fail','simulation-fail','recovery'])test('reserved bot entry conversion one-use custody: '+asset+' '+mode,async t=>{
+for(const asset of ['BTC','ETH','SOL'])for(const mode of ['success','limits','backup','hold','controls','account','service','timeout','unsent','sign-fail','simulation-fail','recovery','opening','opening-timeout'])test('reserved bot entry conversion one-use custody: '+asset+' '+mode,async t=>{
  const root=mkdtempSync(join(tmpdir(),'jamd-entry-custody-'));chmodSync(root,0o700);
  const ownerAccountHash='f'.repeat(64),directory=join(root,'wallets'),keyDirectory=join(root,'keys'),keyFile=join(keyDirectory,'master.key');
  for(const path of [directory,keyDirectory])mkdirSync(path,{mode:0o700});
@@ -112,7 +118,7 @@ for(const asset of ['BTC','ETH','SOL'])for(const mode of ['success','limits','ba
  createPerpsCustodyMasterKey(keyFile,vaultOptions);const vault=openPerpsCustodyVault({directory,keyFile,...vaultOptions});
  const {walletAddress}=vault.createOrReadExclusiveWallet({ownerAccountHash,explicitCustodyApproval:true});
  const f=await fixture(asset,false,walletAddress),who={ownerAccountHash,walletAddress};
- const common={allowNonPosixForTests:process.platform==='win32',now:f.options.now,monotonicNow:()=>0};
+ let runtimeNow=f.options.now();const common={allowNonPosixForTests:process.platform==='win32',now:()=>runtimeNow,monotonicNow:()=>0};
  const controls=openPerpsAutomationControls(join(root,'controls.sqlite'),common),executionJournal=openPerpsExecutionJournal(join(root,'risk.sqlite'),common);
  const journal=openBotSwapJournal(join(root,'swaps.sqlite'),{...common,initialize:true,explicitOperatorApproval:true});
  const backupPath=join(root,'backup.sqlite');let backupRegistry;
@@ -139,17 +145,19 @@ for(const asset of ['BTC','ETH','SOL'])for(const mode of ['success','limits','ba
  const readAccount=()=>readServerPerpsDailyAccount({walletAddress},{request:accountRequest,...common,journal:executionJournal});
  const limits={capitalUsd:'20',dailyLossUsd:'20',positions:1,dailyTrades:1};let policy={walletAddress,limits};
  let claim,sends=0;
- if(['service','timeout','unsent','sign-fail','simulation-fail'].includes(mode)){
+ if(['service','timeout','unsent','sign-fail','simulation-fail','opening','opening-timeout'].includes(mode)){
   const policyStore=openManualPerpsPolicyStore(join(root,'manual-policy.sqlite'),{...common,initialize:true});
+  let actualFeeJournal;
   try{
    policyStore.save({...who,limits,expectedRevision:null,explicitApproval:true});const consents=[];
    const forbidden=()=>assert.fail('No opening, close, HTTP execution or fee collection');
+   if(mode.startsWith('opening'))actualFeeJournal=openPerpsPlatformFeeJournal(join(root,'fees.sqlite'),{entryJournal:executionJournal,now:common.now});
    let refuseSimulation=false;
    const serviceVault=mode==='sign-fail'?{...vault,signBotSwap:()=>{throw Error('MOCK_SIGN_REFUSED');}}:
     mode==='simulation-fail'?{...vault,signBotSwap:grant=>{const signed=vault.signBotSwap(grant);refuseSimulation=true;return signed;}}:vault;
    const deps={controls,vault:serviceVault,journal:executionJournal,swapJournal:journal,policyStore,backupRegistry,readAccount,
     rpcRequest:(method,params)=>method==='simulateTransaction'&&refuseSimulation?Promise.resolve({context:{slot:params[1].minContextSlot},value:{err:'BlockhashNotFound'}}):f.options.request(method,params),
-    builderRequest:async()=>{throw Error('PERPS_PRESWAP_INTENT_MISMATCH_MINIMUM_OUTPUT');},feeJournal:{recordConsent:value=>{if(mode==='unsent')throw Error('MOCK_CONSENT_STORE_REFUSED');consents.push(value);}},
+    builderRequest:async()=>{throw Error('PERPS_PRESWAP_INTENT_MISMATCH_MINIMUM_OUTPUT');},feeJournal:{recordConsent:value=>{if(mode==='unsent')throw Error('MOCK_CONSENT_STORE_REFUSED');consents.push(value);return actualFeeJournal?.recordConsent(value);}},
     platformFees:{assertActivationReadiness:async()=>{},status:()=>({dueUnits:'0',pendingCount:0,failedCount:0})},
     hasPendingSwap:wallet=>journal.pending(wallet).length>0,isRunning:()=>true,fetchImpl:forbidden,readFinalizedAccount:forbidden,...common,
     sendRequest:async(method,args)=>{
@@ -157,7 +165,7 @@ for(const asset of ['BTC','ETH','SOL'])for(const mode of ['success','limits','ba
      assert.equal(journal.pending(walletAddress)[0].state,'UNKNOWN');
      if(mode==='timeout')throw Error('MOCK_TIMEOUT');return bs58.encode(Buffer.from(args[0],'base64').subarray(1,65));
     }};
-   const service=createBotManualPerpsService(deps),draft={asset,side:'LONG',margin:'10',leverage:'3',referencePrice:'100'};
+   const service=createBotManualPerpsService(deps),draft={asset,side:'LONG',margin:'10',leverage:'3',referencePrice:'100',...(mode.startsWith('opening')?{stopLoss:'95'}:{})};
    await assert.rejects(()=>service.prepareEntryConversion({...who,draft:{...draft,side:'SHORT'}}));assert.equal(sends,0);
    const review=mode==='service'?await service.prepare({...who,draft}):await service.prepareEntryConversion({...who,draft});
    assert.equal(review.stage,'BOT_MANUAL_ENTRY_CONVERSION_REVIEW');assert.equal(review.maxSlippageBps,50);
@@ -188,7 +196,47 @@ for(const asset of ['BTC','ETH','SOL'])for(const mode of ['success','limits','ba
    const restarted=createBotManualPerpsService(deps),status=await restarted.status(who);
    assert.equal(status.available,false);assert.equal(status.operations[0].fundingStage,'UNKNOWN');
    assert.equal(restarted.recover({...who,id:review.id}).fundingStage,'UNKNOWN');assert.equal(sends,1);
-  }finally{policyStore.close();}return;
+   if(mode.startsWith('opening')){
+    const hold=executionJournal.entryConversionHold(review.id),first=journal.read(hold.conversion_id),stored=JSON.parse(first.review);
+    const finalized=await conversionReceiptFixture({entry:true,asset,fixtureSignedEntryWire:first.signed,fixtureWalletAddress:walletAddress,entryMinimumUnits:stored.minimumCollateralUnits});
+    runtimeNow+=120000;
+    const recoveryRequest=async(method,params)=>method==='getMultipleAccounts'?
+     {context:{slot:130},value:params[0].map(key=>finalized.before.get(key))}:finalized.request(method,params);
+    const bound=await recoverHeldPerpsEntryCollateral({executionJournal,journal,reservationId:review.id,ownerAccountHash},{request:recoveryRequest,now:common.now,monotonicNow:()=>0});
+    assert.equal(journal.read(first.id).state,'FINALIZED');assert.equal(executionJournal.read(review.id).state,'RESERVED');
+    const native=structuredClone(finalized.before.get(finalized.c.address)),bytes=Buffer.from(native.data[0],'base64');bytes[202]=1;native.data[0]=bytes.toString('base64');
+    const market=decodeServerPerpsCustody(asset,finalized.c.address,native);
+    const opening=await entryOpeningFixture({...finalized,receiptOptions:{...finalized.receiptOptions,now:common.now}},
+     {walletAddress,asset,side:'LONG',marginUsd:'10',leverage:3,maxSlippageBps:50,referencePrice:'100',stopLoss:draft.stopLoss??null,takeProfit:draft.takeProfit??null},bound,market);
+    const daily=entryDailyAccountFixture(finalized,{journal:executionJournal,swapJournal:journal});let openingSends=0;
+    const openingDeps={...deps,readAccount:()=>readServerPerpsDailyAccount(who,daily.options),readFinalizedAccount:()=>readServerPerpsDailyAccount(who,daily.options),
+     rpcRequest:(method,params)=>['getSignatureStatuses','getTransaction'].includes(method)?finalized.request(method,params):
+      method==='getMultipleAccounts'&&params[0].length===2&&params[0][0]===finalized.u.address?recoveryRequest(method,params):opening.request(method,params),
+     builderRequest:opening.builderRequest,
+     fetchImpl:async(url,options)=>{
+      assert.equal(url,'https://perps-api.jup.ag/v2/transaction/execute');assert.equal(options.method,'POST');
+      const saved=executionJournal.read(review.id);assert.equal(saved.state,'UNCERTAIN');assert.equal(JSON.parse(options.body).action,'increase-position');
+      const wire=Buffer.from(JSON.parse(options.body).serializedTxBase64,'base64');assert.equal(wire[0],3);assert.equal(bs58.encode(wire.subarray(1,65)),saved.signature);
+      openingSends++;if(mode==='opening-timeout')throw Error('MOCK_OPENING_TIMEOUT');return Response.json({ok:true});
+     }};
+    const openingService=createBotManualPerpsService(openingDeps),openingReview=await openingService.prepare({...who,draft,entryReservationId:review.id});
+    assert.equal(openingReview.entryReservationId,review.id);assert.notEqual(openingReview.id,review.id);assert.equal(openingSends,0);
+    const openConfirm={...who,id:openingReview.id,explicitApproval:true,explicitFeeApproval:true,feeTermsVersion:PERPS_PLATFORM_FEE.version};
+    await assert.rejects(()=>openingService.confirm({...openConfirm,explicitApproval:false}));
+    await assert.rejects(()=>openingService.confirm({...openConfirm,explicitFeeApproval:false}));
+    assert.equal(openingSends,0);assert.equal(executionJournal.read(review.id).state,'RESERVED');
+    const opened=await openingService.confirm(openConfirm);
+    assert.equal(opened.id,review.id);assert.equal(opened.state,'UNCERTAIN');assert.equal(openingSends,1);assert.equal(sends,1);
+    assert.equal(executionJournal.pending(walletAddress).length,1);assert.equal(executionJournal.entryConversionHold(review.id).state,'FINALIZED');
+    const exitPlan=JSON.parse(executionJournal.read(review.id).entry_exit_plan);assert.equal(exitPlan.exits.length,1);assert.equal(exitPlan.exits[0].kind,'SL');
+    const riskDb=new DatabaseSync(join(root,'risk.sqlite'),{readOnly:true});
+    try{assert.deepEqual(riskDb.prepare('SELECT address FROM perps_exit_request_bindings WHERE reservation=?').all(review.id).map(row=>row.address),exitPlan.exits.map(exit=>exit.address));}finally{riskDb.close();}
+    await assert.rejects(()=>openingService.confirm(openConfirm));assert.equal(openingSends,1);
+    const feeDb=new DatabaseSync(join(root,'fees.sqlite'),{readOnly:true});
+    try{assert.equal(feeDb.prepare('SELECT COUNT(*) AS n FROM perps_platform_fee_consents').get().n,1);assert.equal(feeDb.prepare('SELECT COUNT(*) AS n FROM perps_platform_fee_assessments').get().n,0);}finally{feeDb.close();}
+    const recovered=createBotManualPerpsService(openingDeps).recover({...who,id:review.id});assert.equal(recovered.state,'UNCERTAIN');assert.equal(openingSends,1);
+   }
+  }finally{actualFeeJournal?.close();policyStore.close();}return;
  }
  const adapter={read:async()=>journal.pending(walletAddress).find(row=>row.state==='UNKNOWN')??null,
   begin:async row=>journal.beginBroadcast(claim,row),resolve:async()=>assert.fail('No recovery mutation')};

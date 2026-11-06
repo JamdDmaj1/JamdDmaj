@@ -7,12 +7,13 @@ import {conversionFixture} from './perps-conversion-fixture.mjs';
 import {buildUnsignedPerpsEntryConversionWire} from '../../lib/perps-entry-conversion-wire.js';
 import {PERPS_PROGRAM,PERPS_POOL,deriveServerPerpsIdentities} from '../../lib/perps-server-custody.js';
 const TOKEN='TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',hash=b=>createHash('sha256').update(b).digest('hex');
-export async function conversionReceiptFixture({identityPoint=false,fixturePrivateKey=null,finalizedSlot=120,entry=false,newEntryDestination=false,...options}={}){
+export async function conversionReceiptFixture({identityPoint=false,fixturePrivateKey=null,fixtureSignedEntryWire=null,fixtureWalletAddress=null,entryMinimumUnits=null,finalizedSlot=120,entry=false,newEntryDestination=false,...options}={}){
  const pair=fixturePrivateKey?{privateKey:fixturePrivateKey,publicKey:createPublicKey(fixturePrivateKey)}:generateKeyPairSync('ed25519'),publicKey=identityPoint?Buffer.from([1,...Array(31).fill(0)]):pair.publicKey.export({format:'der',type:'spki'}).subarray(-32);
- const f=await conversionFixture({...options,...(entry?{nativeSolInput:false,closeWrappedAccount:false,strictWire:false}:{}),walletAddress:bs58.encode(publicKey)});
+ if(fixtureSignedEntryWire!==null)assert(entry&&fixtureWalletAddress&&!identityPoint&&!fixturePrivateKey);
+ const f=await conversionFixture({...options,...(entry?{nativeSolInput:false,closeWrappedAccount:false,strictWire:false}:{}),walletAddress:fixtureSignedEntryWire===null?bs58.encode(publicKey):fixtureWalletAddress});
  if(entry){
   f.amount=10000000n;f.received=f.c.asset==='SOL'?99700000n:9970000n;
-  f.wire=await buildUnsignedPerpsEntryConversionWire({walletAddress:f.walletAddress,asset:f.c.asset,blockhash:f.wire.blockhash,lastValidBlockHeight:f.wire.lastValidBlockHeight,usdcUnits:String(f.amount),minimumCollateralUnits:f.c.asset==='SOL'?'99500000':'9950000'},f.u,f.c);
+  f.wire=await buildUnsignedPerpsEntryConversionWire({walletAddress:f.walletAddress,asset:f.c.asset,blockhash:f.wire.blockhash,lastValidBlockHeight:f.wire.lastValidBlockHeight,usdcUnits:String(f.amount),minimumCollateralUnits:entryMinimumUnits??(f.c.asset==='SOL'?'99500000':'9950000')},f.u,f.c);
   f.before.set(f.wire.source,f.token(f.walletAddress,f.u.mint,20000000n));f.after.set(f.wire.source,f.token(f.walletAddress,f.u.mint,20000000n-f.amount));
   f.before.set(f.wire.destination,newEntryDestination?null:f.token(f.walletAddress,f.c.mint,17n));f.after.set(f.wire.destination,f.token(f.walletAddress,f.c.mint,(newEntryDestination?0n:17n)+f.received));
   const payer=f.before.get(f.walletAddress);f.after.set(f.walletAddress,{...payer,lamports:payer.lamports-5400-(newEntryDestination?2039280:0)});
@@ -22,7 +23,8 @@ export async function conversionReceiptFixture({identityPoint=false,fixturePriva
   }
  }
  const sourceCustody=entry?f.u:f.c,targetCustody=entry?f.c:f.u,message=Buffer.from(f.wire.messageBase64,'base64');
- const signature=identityPoint?Buffer.from([1,...Array(63).fill(0)]):sign(null,message,pair.privateKey),signed=Buffer.concat([Buffer.from([1]),signature,message]);
+ const signed=fixtureSignedEntryWire===null?Buffer.concat([Buffer.from([1]),identityPoint?Buffer.from([1,...Array(63).fill(0)]):sign(null,message,pair.privateKey),message]):Buffer.from(fixtureSignedEntryWire,'base64');
+ assert.equal(signed[0],1);assert.deepEqual(signed.subarray(65),message);const signature=signed.subarray(1,65);
  const keys=Array.from({length:message[3]},(_,i)=>bs58.encode(message.subarray(4+i*32,36+i*32))),index=k=>{const i=keys.indexOf(k);assert.ok(i>=0);return i;};
  const ids=await deriveServerPerpsIdentities({walletAddress:f.walletAddress,asset:f.wire.asset,side:'LONG'}),coreIndex=f.wire.nativeSolInput?6:3;
  const balances=map=>keys.map(k=>Number(map.get(k)?.lamports??0));

@@ -549,3 +549,42 @@ failed. The final targeted accounting/history/bounds/signing corpus passed all
 20 tests after the additional overnight-binding checks. The public quote-only
 smoke probe validated four closed minute-bar shapes without logging prices,
 wallet identities, balances, signatures or transaction bytes.
+
+### Joined custody conversion and opening confirmation (local, 2026-11-05)
+
+Added joined BTC/ETH/SOL tests that take the actual first-leg bytes signed by
+new unfunded encrypted custody wallets, reconstruct those exact bytes through
+the native constructor, and model a finalized strict receipt. The service then
+reviews the collateral-funded opening using complete one-entry daily history
+and independently branded USD/network cost evidence. Its second explicit
+confirmation reaches the actual custody opening signer and one mocked provider
+execution attempt. Conversion and opening keep one original risk reservation.
+Timeout on the opening send leaves UNCERTAIN state and does not permit a second
+attempt on the consumed review or after recreating the service.
+
+The test uses the real fee-consent journal: both phase confirmations retain one
+commercial consent and zero assessments/collections before a finalized opening.
+It also requires separate order/fee approval at the opening step and preserves
+the original collateral hold. Market data, account banks, fees, rent and provider
+transport are explicit mocks. The result is an uncertain submitted opening, NOT
+proof of a real finalized position or mainnet transaction success.
+
+This exposed a missing durable exit-request link in the collateral continuation.
+bindEntryOpeningReview now atomically persists each privately simulated native
+SL/TP request in the same unique binding table used by ordinary reservations.
+It rejects another reservation's address and preserves idempotent same-plan
+binding. The joined tests include a native pending stop loss and verify its
+durable address binding before broadcast. No direct-close/settlement authority
+is inferred from the new records.
+
+The finalized-receipt fixture can consume only an exact already-signed entry
+wire for the explicitly supplied ephemeral wallet, without exporting its custody
+key. This is test infrastructure, never an API path or production signer.
+Still required: finalized-opening reconciliation, failed/expired conversion and
+collateral recovery, full public client/UI flow, unsigned live-provider checks
+and release verification. Discover HTML/JS/CSS/tour were reviewed as internal
+unpublished work; no public functionality or funds were changed.
+
+Validation: full CI completed, 1388 total / 1369 passed / 19 skipped / zero
+failed. The six final joined opening/timeout cases passed again after adding
+separate opening-consent refusal assertions and the persisted native SL link.
