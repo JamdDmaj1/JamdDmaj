@@ -37,3 +37,13 @@ Installer uses exact old/new worker and web hashes, exclusive binary backups,
 paused/empty financial-state guards, policy-row equality checks and all-unit
 health checks. It never modifies policies/controls/database/schema or restores
 a stale database. Do not invoke while a user has a pending financial operation.
+
+Full suite completed: 1469 tests, 1449 passed, 20 skipped, zero failures. Three
+additional BTC/ETH/SOL per-order conversion/opening fixture cases passed after
+their addition, plus the specific per-order signing test. Subsequent heading and
+release-copy edits passed panel/Discover checks and compiled desktop/mobile QA.
+
+First staged production candidate dpl_9K2fwENe4X4hg9KB1HjTVnUoDQ4N failed the
+build because the secret-free source exporter omitted robots.txt (ENOENT). It
+was not promoted and the public site/server were not changed. Corrected the
+exporter to include public TXT/XML build inputs in a new exclusive r2 directory.
