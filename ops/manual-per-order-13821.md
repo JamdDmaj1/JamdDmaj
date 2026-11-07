@@ -47,3 +47,24 @@ First staged production candidate dpl_9K2fwENe4X4hg9KB1HjTVnUoDQ4N failed the
 build because the secret-free source exporter omitted robots.txt (ENOENT). It
 was not promoted and the public site/server were not changed. Corrected the
 exporter to include public TXT/XML build inputs in a new exclusive r2 directory.
+
+## Publication verified
+
+R2 source 1a2ad81fef5d72362e29e990eaff91e1e81ae119 (financial source e1f56a0)
+exported 466 committed allowlisted inputs, built successfully in the isolated
+snapshot, then reached READY production deployment
+dpl_DEJPgojE4YsT4acCuf2q18T3f5D8. Authenticated protected-candidate checks verified
+1.38.21 status, actual compiled policy JS and Discover before promotion.
+
+Exact guarded server installation succeeded for both worker and web binaries;
+all services independently healthy, stored policies/controls/schema unchanged,
+financialSends=0. Preserved old binaries privately. No user mode was enabled by
+the operator. Public trusted health succeeded; unauthenticated automation POST
+still returns 401.
+
+Promoted that same tested production deployment without rebuilding. Public
+www.jamddmaj.com /api/status reports webVersion 1.38.21, latest APK 1.38.17.
+Main HTML, compiled policy JS and canonical Discover independently verified.
+No real user trade/signature/transfer/bot activation performed by the agent.
+The user must explicitly choose the per-order mode once in the new interface;
+until then the existing saved personal caps remain unchanged and enforced.
