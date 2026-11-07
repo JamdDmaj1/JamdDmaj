@@ -1785,3 +1785,33 @@ publication, coordinated paused-server upgrade and public verification succeed.
 Preserve the pre-existing .vercel link and two untracked diagnostic scripts;
 exclude them from the source checkpoint. No real order, signature with funded
 custody, transfer, bot activation or production modification occurred.
+
+### Authorized publication preparation: candidate 1.38.20 (2026-11-07)
+
+After user team consent, the same authenticated Vercel connection successfully
+read the exact known production deployment for jamd-dmaj. The prior 403 is no
+longer the blocker. Revalidated source checkpoint d6ac9de without touching the
+pre-existing .vercel link or two untracked diagnostic scripts.
+
+Prepared 1.38.20 release metadata in app/package/lock/status and Android source
+version (code 176); this does not build or publish an APK, and the public APK
+feed remains independent. Discover HTML/JS now accurately disclose the separate
+50-bps collateral conversion, fresh opening approval, status-only pending-send
+checks and network verification. Reviewed discover.css and discover-tour.css
+responsive/reduced-motion rules; no layout/control changes require CSS edits.
+The English fallback and Spanish copy tests pass, as does highest-published-APK
+selection. Built 31 web assets; compiled desktop/mobile consent checks pass.
+Financial runtime source is unchanged from the 1458-test verified checkpoint.
+
+Fresh read-only server inventory still reports all automation paused and no
+pending/open entries, pending closes or pending swaps. The sole existing account
+has an accepted backup registry record including both fee and swap scopes. This
+is an inventory check, not a new native recovery attestation or a schema change.
+The empty-only upgrade must still revalidate genuine private backup evidence
+under its lock immediately before commit.
+
+Adjusted the existing committed-public-files exporter to use the current verified
+project link when present, retaining its prior fallback. It still exports only
+committed allowlisted public-source files to a fresh constrained build directory,
+never ops, user secrets or pre-existing untracked diagnostics. No deployment,
+migration, restart, bot activation or financial transport has occurred yet.

@@ -48,6 +48,10 @@ test("public showcase uses release copy with explicit English fallback for new u
   }
   assert.match(catalogs.es.heroTitle,/Todo conectado/);
   assert.match(catalogs.es.startNote,/no conecta Phantom/);
+  assert.match(catalogs.es.manualBotNotice,/límite del 0,5 %/);
+  assert.match(catalogs.es.manualBotNotice,/Cada etapa requiere tu aprobación/);
+  assert.match(catalogs.en.manualBotNotice,/never automatically repeated/);
+  assert.ok(html.includes(catalogs.es.manualBotNotice));
   assert.match(script,/copy\[element.dataset.i18n\] \|\| en\[element.dataset.i18n\]/);
   assert.match(script, /document\.documentElement\.dir = locale === "ar" \? "rtl" : "ltr"/);
 });

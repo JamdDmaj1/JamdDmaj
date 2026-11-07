@@ -7,5 +7,6 @@ const files=execFileSync('git',['ls-tree','-r','--name-only','HEAD'],{encoding:'
 const selected=files.filter(p=>/^(api|lib|scripts|\.well-known)\//.test(p)||(!p.includes('/')&&(/\.(html|css|js|png)$/.test(p)||['package.json','package-lock.json','vercel.json','manifest.json','robots.txt','sitemap.xml'].includes(p))));
 for(const p of selected){const out=resolve(target,p);mkdirSync(dirname(out),{recursive:true});writeFileSync(out,execFileSync('git',['show','HEAD:'+p],{maxBuffer:20000000}));}
 mkdirSync(resolve(target,'.vercel'),{recursive:true});
-copyFileSync('.perps-build/release-1383-web/.vercel/project.json',resolve(target,'.vercel/project.json'));
+const projectLink=existsSync('.vercel/project.json')?'.vercel/project.json':'.perps-build/release-1383-web/.vercel/project.json';
+copyFileSync(projectLink,resolve(target,'.vercel/project.json'));
 console.log('Exported',selected.length,'committed public files to',target);
