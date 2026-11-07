@@ -59,3 +59,41 @@ readyForSigning=false. Transport tests 6/6 passed; no financial runtime source,
 These are backend unsigned proofs, not proof that the user's authenticated UI
 review has now succeeded or that a real-money position has executed. Next step
 is a user review-only check; never instruct confirmation as a diagnostic test.
+
+## Repeated user 429: bounded read pacing
+
+User still reported rate limiting. Earlier probes tested native review and
+history separately, not the combined request burst. Extended the diagnostic to
+cover recipient readiness, native preparation, Long protected-conversion
+fallback, and full finalized daily-history reading, with method counts only.
+This still does not impersonate the authenticated user or invoke confirm.
+One unpaced combined probe also hit getBlockTime error -32004, which was not
+bypassed or rewritten as successful evidence.
+
+Added transport start-spacing only for mainnet.helius-rpc.com by default:
+125ms (eight starts/sec), bounded 32 waiting reads / four seconds of queue.
+The queued time remains inside the upstream proof clocks. No evidence is cached,
+no failed read/order is retried, no method/permission/expiry/50-bps limit changed.
+Other providers retain their previous behavior. Unit and API tests: 16 passes;
+daily-account and signature-history tests: 19 passes. Tests cover write refusal,
+bounded queues, pacing, response IDs, stale evidence, history gaps and no retries.
+
+Pre-install combined BTC Long probe passed 47 reads in 5907ms. Source a751956
+installed via exact-hash guarded, paused/empty-state replacement, with previous
+worker backed up exclusively. Installed worker SHA256:
+1804229f6783a8a61c8a0897b11ac04bb21173e6291fcff48d5240bce7b25b02.
+All three services restored and healthy; no schema/state/secret/send change.
+
+Post-install combined Short passed in 5817ms. A simultaneous Long diagnostic
+with normal app ingress present still encountered 429; do not hide this or claim
+the provider cannot throttle. Isolated the diagnostic from app ingress by
+briefly stopping only web/HTTPS (worker remained live), waited two seconds, then
+Long combined preparation/history passed 51 reads in 6424ms. A shell EXIT trap
+restored both ingress services. This demonstrates quota contention between
+independently paced processes remains possible; diagnostic traffic must not run
+beside user tests on the same free key. Public trusted health and all three
+active states were rechecked. No real signature, transfer or trade was made.
+
+User-authenticated review remains to be checked. This is an internal-only server
+update: Discover reviewed, no new availability claim or meaningless web version
+bump. Free-tier capacity and production scaling remain limitations.
