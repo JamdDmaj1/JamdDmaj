@@ -25,6 +25,22 @@ test('manual custody execution is unavailable by default, never inferred from pu
  assert.equal(f.calls.length,0);
 });
 
+test('closed history is owner-bound, read-only and rejects extra monetary arguments',async()=>{
+ const f=fixture();f.botManual.history=async args=>{f.calls.push({method:'history',args});return {walletAddress:wallet,items:[],hasMore:false};};
+ assert.notEqual((await f.request({action:'botManualHistory',walletAddress:other})).status,200);assert.equal(f.calls.length,0);
+ const response=await f.request({action:'botManualHistory',walletAddress:wallet});assert.equal(response.status,200);assert.match(response.headers.get('cache-control'),/no-store/);
+ assert.equal(f.calls.length,1);assert.deepEqual(f.calls[0].args,{ownerAccountHash:owner,walletAddress:wallet});
+ assert.equal((await f.request({action:'botManualHistory',walletAddress:wallet,amount:'10'})).status,400);assert.equal(f.calls.length,1);
+});
+
+test('conversion freshness failures expose fixed diagnostics without provider text or retries',async()=>{
+ for(const [reason,code]of [['PERPS_ENTRY_CONVERSION_REVIEW_EXPIRED','entry-review-expired'],['UNVERIFIED_PERPS_ENTRY_CONVERSION_PREPARATION','entry-review-unverified'],['PERPS_ENTRY_CONVERSION_COST_CHANGED','entry-cost-changed'],['PERPS_ENTRY_CONVERSION_SNAPSHOT_BANK_CHANGED','entry-snapshot-changed'],['UNVERIFIED_PERPS_ENTRY_CONVERSION_SIMULATION','entry-simulation-unverified']]){
+  const f=fixture();let calls=0;f.botManual.confirm=async()=>{calls++;throw Error(reason);};
+  const response=await f.request({action:'botManualConfirm',walletAddress:wallet,id:'review',explicitApproval:true,explicitFeeApproval:true,feeTermsVersion:'terms'});
+  assert.equal(response.status,409);assert.deepEqual(await response.json(),{error:{code}});assert.equal(calls,1);
+ }
+});
+
 test('a provider read rate limit is not a wallet, funds or consent error and cannot trigger a retry',async()=>{
  const f=fixture();let calls=0;f.botManual.prepare=async()=>{calls++;throw Error('PERPS_READ_ONLY_RPC_RATE_LIMITED');};
  const response=await f.request({action:'botManualPrepare',walletAddress:wallet,draft:{asset:'BTC'}});

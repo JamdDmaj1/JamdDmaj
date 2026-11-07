@@ -133,8 +133,8 @@ test('entry lifecycle refuses changed external authorization and never turns a r
  engine.invalidate();assert.throws(()=>engine.authorize(review,true));
 });
 
-for(const asset of ['BTC','ETH','SOL'])for(const caseMode of ['success','limits','backup','hold','controls','account','service','api','timeout','unsent','sign-fail','simulation-fail','recovery','opening','opening-timeout','opening-failed','opening-failed-prior','opening-return','opening-return-prior','opening-return-old-finality','opening-return-retry','opening-return-failed','opening-return-failed-prior','opening-return-failed-claim','opening-return-failed-retry','opening-return-failed-retry-prior','opening-sign-fail','first-failed','first-failed-prior','per-order-opening'])test('reserved bot entry conversion one-use custody: '+asset+' '+caseMode,async t=>{
- const perOrder=caseMode==='per-order-opening',mode=perOrder?'opening':caseMode;
+for(const asset of ['BTC','ETH','SOL'])for(const caseMode of ['success','limits','backup','hold','controls','account','service','api','cold-account','timeout','unsent','sign-fail','simulation-fail','recovery','opening','opening-timeout','opening-failed','opening-failed-prior','opening-return','opening-return-prior','opening-return-old-finality','opening-return-retry','opening-return-failed','opening-return-failed-prior','opening-return-failed-claim','opening-return-failed-retry','opening-return-failed-retry-prior','opening-sign-fail','first-failed','first-failed-prior','per-order-opening'])test('reserved bot entry conversion one-use custody: '+asset+' '+caseMode,async t=>{
+ const perOrder=caseMode==='per-order-opening',mode=perOrder?'opening':caseMode==='cold-account'?'api':caseMode;
  const root=mkdtempSync(join(tmpdir(),'jamd-entry-custody-'));chmodSync(root,0o700);
  const ownerAccountHash='f'.repeat(64),directory=join(root,'wallets'),keyDirectory=join(root,'keys'),keyFile=join(keyDirectory,'master.key');
  for(const path of [directory,keyDirectory])mkdirSync(path,{mode:0o700});
@@ -207,7 +207,8 @@ for(const asset of ['BTC','ETH','SOL'])for(const caseMode of ['success','limits'
   if(method==='getBlockTime')return at/1000-(params[0]===500000?5:172800);
   if(method==='getSignaturesForAddress')return [];throw Error('UNEXPECTED_ACCOUNT_RPC');
  };
- const readAccount=()=>readServerPerpsDailyAccount({walletAddress},{request:accountRequest,...common,journal:executionJournal});
+ let accountReads=0;
+ const readAccount=()=>{if(caseMode==='cold-account'&&accountReads++===0)runtimeNow+=6000;return readServerPerpsDailyAccount({walletAddress},{request:accountRequest,...common,journal:executionJournal});};
  const limits=perOrder?{mode:'perOrder'}:{capitalUsd:'20',dailyLossUsd:'20',positions:1,dailyTrades:1};let policy={walletAddress,limits};
  let claim,sends=0;
  if(['service','api','timeout','unsent','sign-fail','simulation-fail','opening','opening-timeout','opening-failed','opening-failed-prior','opening-return','opening-return-prior','opening-return-old-finality','opening-return-retry','opening-return-failed','opening-return-failed-prior','opening-return-failed-claim','opening-return-failed-retry','opening-return-failed-retry-prior','opening-sign-fail','first-failed','first-failed-prior'].includes(mode)){
@@ -253,6 +254,7 @@ for(const asset of ['BTC','ETH','SOL'])for(const caseMode of ['success','limits'
     if(client.close)t.after(()=>client.close());
     const review=await client.prepare(walletAddress,draft);
     assert.equal(review.stage,'BOT_MANUAL_ENTRY_CONVERSION_REVIEW');assert.equal(review.maxSlippageBps,50);
+    if(caseMode==='cold-account')assert.equal(review.expiresAt-common.now(),10000,'Cold history must finish before the exact-wire review lease starts');
     assert.equal(executionJournal.pending(walletAddress).length,0);assert.equal(sends,0);
     await assert.rejects(client.confirm({...review},true,true));await assert.rejects(client.confirm(review,false,true));
     await assert.rejects(client.confirm(review,true,false));assert.equal(sends,0);

@@ -2,7 +2,7 @@
 import {execFileSync} from 'node:child_process';
 import {mkdirSync,writeFileSync} from 'node:fs';
 import {resolve,dirname,relative,isAbsolute} from 'node:path';
-const root=resolve(import.meta.dirname,'..'),destination=resolve(root,'.perps-build/trading-wallet-13824-candidate');
+const root=resolve(import.meta.dirname,'..'),destination=resolve(root,'.perps-build/entry-history-13825-candidate');
 const commit=execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim();
 execFileSync('git',['diff','--exit-code','HEAD','--','*.js','*.mjs','*.json','*.html','*.css'],{cwd:root,stdio:'pipe'});
 const files=execFileSync('git',['ls-files','-z'],{cwd:root,encoding:'utf8'}).split('\0').filter(Boolean).filter(path=>

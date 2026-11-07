@@ -1294,7 +1294,7 @@ test('external close completes rooted first-leg recovery, protected USDC convers
 async function nativeSigningFixture(t,{side='LONG',asset='SOL',minimumReturnUnits='0'}={}){
  const f=await closeJournalFixture(t,{side,asset,settlement:'COLLATERAL_THEN_USDC'}),root=dirname(f.path),ownerAccountHash='e'.repeat(64);
  const limits={minimumReturnUnits,maximumNetworkFeeLamports:'5000'},returnPolicy=checkSimulatedPerpsCloseReturn(f.oracleEffects,limits);
- const row=f.journal.preparePositionClose('native-close',f.oracleEffects,{returnPolicy});
+ const row=f.journal.preparePositionClose('manual-close:11111111-1111-4111-8111-111111111111',f.oracleEffects,{returnPolicy});
  const directory=join(root,'wallets'),keyFile=join(root,'keys','master.key'),clock=()=>now*1000,common={allowNonPosixForTests:process.platform==='win32',now:clock};
  chmodSync(root,0o700);mkdirSync(directory,{mode:0o700});mkdirSync(dirname(keyFile),{mode:0o700});createPerpsCustodyMasterKey(keyFile,common);
  const key=readFileSync(keyFile),iv=Buffer.alloc(12,7),cipher=createCipheriv('aes-256-gcm',key,iv),purpose='jamddmaj-perps-automation';
@@ -1498,6 +1498,8 @@ test('native close coordinator joins rooted native close, protected conversion w
   assert.equal((await executor.runOnce(f.row.id,options)).stage,side==='LONG'?'NATIVE_CLOSE_CONVERSION_REQUIRED':'NATIVE_CLOSE_ACCOUNTING_REQUIRED');
   assert.equal(f.journal.readPositionCloseConversion(f.row.id),null);assert.equal(sends,1);
   assert.equal(f.journal.readPositionCloseExecution(f.row.id).state,'FIRST_LEG_FINALIZED');assert.equal(f.journal.riskState(wallet).activeMarginUsdcUnits,'20000000');
+  const closedHistory=f.journal.finalizedPositionCloseHistory(wallet);assert.equal(closedHistory.snapshots.length,1);assert.equal(closedHistory.snapshots[0].close.id,f.row.id);assert.equal(closedHistory.snapshots[0].completion,null);assert.equal(closedHistory.hasMore,false);
+  assert.equal(f.journal.finalizedPositionCloseHistory('11111111111111111111111111111112').snapshots.length,0);assert.equal(sends,1);
   if(side==='SHORT'){
    const noConversion=await executor.prepareConversion(f.row.id,{...options,maxSlippageBps:100});
    assert.equal(noConversion.stage,'JOURNALED_CLOSE_REQUIRES_NO_CONVERSION');assert.equal(f.journal.readPositionCloseConversion(f.row.id),null);
@@ -1513,6 +1515,7 @@ test('native close coordinator joins rooted native close, protected conversion w
    const completionOptions={request:historyRequest,readFinalizedAccount,now:clock,monotonicNow:()=>0};
    const completed=await executor.runOnce(f.row.id,completionOptions),saved=completed.completion;assert.equal(completed.stage,'NATIVE_CLOSE_COMPLETED');
    assert.equal(f.journal.readPositionClose(f.row.id).state,'COMPLETED');
+   assert.equal(f.journal.finalizedPositionCloseHistory(wallet).snapshots[0].close.state,'COMPLETED');assert.equal(sends,1);
    assert.equal(f.journal.riskState(wallet).activeMarginUsdcUnits,'0');assert.equal(sends,1);
    assert.deepEqual((await executor.runOnce(f.row.id,completionOptions)).completion,saved);
    const account=await readFinalizedAccount({walletAddress:wallet});assert.equal(account.lossTodayUsdcUnits,'2000500');

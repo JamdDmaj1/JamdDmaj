@@ -6,6 +6,15 @@ import {perpsNavigationDraft} from '../lib/perps-navigation.js';
 const wallet='11111111111111111111111111111112',at=Date.now(),draft=perpsNavigationDraft({asset:'BTC',side:'LONG',margin:'10',leverage:'3',referencePrice:'100'});
 const review=()=>({stage:'BOT_MANUAL_REVIEW',id:'11111111-1111-4111-8111-111111111111',walletAddress:wallet,draft,expiresAt:at+10000,submitted:false,
  marginUsdcUnits:'10000000',networkFeeLamports:'5000',rentLockedLamports:'1000000',fee:quotePerpsPlatformFee('10000000')});
+
+test('closed history reads once without trading and refuses fabricated PnL or uncertain closes',async()=>{
+ const item={id:'manual-close:11111111-1111-4111-8111-111111111111',positionAddress:wallet,asset:'BTC',side:'SHORT',openedAt:at-10000,closedAt:at-1000,state:'COMPLETED',receivedUsdcUnits:'9980000',netPnlUsdcUnits:null,firstLegNetworkFeeLamports:'5000',firstLegSignature:'2'.repeat(88),conversionSignature:null};
+ let rows=[item],calls=0;
+ const client=createBotManualPerpsClient({now:()=>at,readSessionToken:()=>'a'.repeat(64),fetchImpl:async(_url,options)=>{calls++;assert.deepEqual(JSON.parse(options.body),{action:'botManualHistory',walletAddress:wallet});return Response.json({ok:true,botManual:{stage:'BOT_MANUAL_CLOSED_HISTORY',walletAddress:wallet,items:rows,hasMore:false}});}});
+ assert.equal((await client.history(wallet)).items[0].receivedUsdcUnits,'9980000');
+ for(const mutation of [{state:'UNCERTAIN'},{netPnlUsdcUnits:'0'},{closedAt:at+99999},{firstLegSignature:'javascript:bad'},{receivedUsdcUnits:'-1'}]){rows=[{...item,...mutation}];await assert.rejects(client.history(wallet));}
+ assert.equal(calls,6);
+});
 const recoveryReview=()=>({stage:'BOT_MANUAL_ENTRY_RECOVERY_REVIEW',id:review().id,reservationId:review().id,walletAddress:wallet,
  asset:'BTC',amountUnits:'9970000',minimumUsdcUnits:'9920150',maxSlippageBps:50,networkFeeLamports:'5400',rentLockedLamports:'0',
  platformFeeUsdcUnits:'0',submitted:false,expiresAt:at+9000,requiresExplicitRecoveryConfirmation:true});

@@ -16,7 +16,7 @@ try{for(const viewport of [{width:1440,height:900},{width:390,height:844}]){
   const {selectWalletAccount}=await import('/lib/wallet-portfolio-store.js');
   const wallet='11111111111111111111111111111112',calls=[],host=document.createElement('div');document.body.replaceChildren(host);
   selectWalletAccount(document,{source:'watch',address:wallet,name:'Bot fixture'});
-  const client={positions:async()=>({positions:[{address:wallet,asset:'SOL',side:'LONG',sizeUsdUnits:'30000000',collateralUsdUnits:'10000000',tracked:true}],closes:[]}),
+  const client={history:async()=>({items:[{asset:'BTC',side:'SHORT',closedAt:Date.now()-1000,state:'CLOSED_PENDING_ACCOUNTING',receivedUsdcUnits:'9980000',firstLegSignature:'2'.repeat(88)}],hasMore:false}),positions:async()=>({positions:[{address:wallet,asset:'SOL',side:'LONG',sizeUsdUnits:'30000000',collateralUsdUnits:'10000000',tracked:true}],closes:[]}),
    prepareClose:async()=>({id:'fixture',walletAddress:wallet,positionAddress:wallet,asset:'SOL',side:'LONG',expiresAt:Date.now()+15000,protection:{priceLimitUsdUnits:'99500000',receiveAsset:'SOL',estimatedTokenUnits:'100',maximumNetworkFeeLamports:'5000'}}),
    confirmClose:async()=>{calls.push('confirm');return {state:'PREPARED',phase:'UNCERTAIN'};}};
   const panel=setupBotManualPositionsPanel(host,{doc:document,language:'en',client});const buttons=()=>[...host.querySelectorAll('button')];
@@ -25,7 +25,10 @@ try{for(const viewport of [{width:1440,height:900},{width:390,height:844}]){
   await buttons().find(n=>n.textContent==='Review full close').onclick();const confirm=buttons().find(n=>n.textContent==='Confirm bot wallet close');
   if(input.value!=='100.000000')throw Error('Fresh automatic reference missing');
   const disabledBeforeConsent=confirm.disabled,consent=host.querySelector('input[type=checkbox]');consent.checked=true;consent.onchange();const enabledAfterConsent=!confirm.disabled;
-  await confirm.onclick();const text=host.textContent;panel.dispose();host.replaceChildren();
+  await confirm.onclick();await new Promise(resolve=>setTimeout(resolve,0));
+  const history=host.querySelector('.bot-closed-history');if(!history.textContent.includes('9.98 USDC')||!history.textContent.includes('accounting pending')||!history.textContent.includes('Proceeds are not profit.'))throw Error('Verified closed history amounts or status missing');
+  if(history.querySelector('a').href!=='https://solscan.io/tx/'+'2'.repeat(88))throw Error('History explorer link changed');
+  const text=host.textContent;panel.dispose();host.replaceChildren();
   const entry=setupBotManualPerpsPanel(host,{doc:document,language:'en',client:{
    status:async()=>({available:true,operations:[]}),prepare:async(_wallet,draft)=>({walletAddress:wallet,draft,expiresAt:Date.now()+15000,marginUsdcUnits:'10000000',networkFeeLamports:'5000',rentLockedLamports:'1000000',fee:{feeUnits:'20000',recipient:wallet},limits:{capitalUsd:'50',dailyLossUsd:'5',positions:1,dailyTrades:5}}),
    confirm:async(_r,order,fee)=>{if(order!==true||fee!==true)throw Error('Both approvals required');calls.push('entry');return {state:'UNCERTAIN'};}
