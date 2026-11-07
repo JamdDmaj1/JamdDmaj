@@ -1,6 +1,7 @@
 # Closed manual trade history — implementation candidate
 
-Not yet deployed. Production web and server remain unchanged.
+Published with web 1.38.25 and the entry-freshness server release. See
+`entry-freshness-fix-20261107.md` for deployment evidence and limitations.
 
 Authenticated `botManualHistory` is wallet-owner bound and read-only. It
 returns up to 50 native manual closes with verified FIRST_LEG_FINALIZED payout
@@ -29,6 +30,9 @@ Read-only server aggregate observed one COMPLETED/FIRST_LEG_FINALIZED close.
 No financial send or state mutation was performed for this feature.
 
 Discover HTML, JS, CSS and tour CSS reviewed: keep the public descriptions
-unchanged until both server endpoint and browser module are deployed and
-verified. At release, announce verified closed history, not net realised PnL
-or support for additional executable assets. APK feed/version unchanged.
+accurate for the shipped endpoint and browser module. Announce verified closed
+history, not net realised PnL or additional executable assets. APK unchanged.
+
+The existing real COMPLETED close was revalidated through the history snapshot
+reader on a private read-only-source database copy: one finalized, completed
+history item; no financial send or live database write.

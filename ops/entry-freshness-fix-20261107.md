@@ -1,6 +1,6 @@
 # Manual entry review freshness
 
-Candidate, not yet published. Goal: repair manual opening without sending any
+Published and verified as described below. Goal: repair manual opening without sending any
 real trade or widening the user's 50 bps conversion protection.
 
 Authenticated production metadata: three terminal CANCELLED attempts, each
@@ -44,4 +44,36 @@ graceful stops, atomic replacement and binary-only rollback remain mandatory.
 Includes previously requested closed-history UI/API; no net PnL claim. Discover
 HTML/JS reviewed and updated for that feature. Discover CSS/tour CSS reviewed;
 existing responsive layout is unchanged and needs no cosmetic timestamp edit.
-Web target 1.38.25; APK remains 1.38.17. Deployment evidence to be appended.
+Web 1.38.25; APK remains 1.38.17.
+
+## Deployment evidence
+
+Financial source c156bbc488fad1bac2a9238a260c7bd3e37bdb71; independently tested
+operator guard source 0dd1f6af3fc271f695cdde5ca2ae8250f9322b4c.
+Preflight and binary-only installation succeeded. Worker/web/HTTPS active;
+all seven logical financial database fingerprints unchanged, policies
+unchanged, all automation paused, zero financial sends.
+Worker SHA256 420f69a0294f12f442371755fbd89b94b149e1c9159d674083a7c87c06af748c;
+web SHA256 dc4d88e75f0b846ca743c0d1d1a4a95035ab9cb8483a50f1e65b3a6e47b71152.
+
+Opening/recovery/API/client suite: 117 passed, zero failures. Separate native
+close/old fingerprint suite: 88 passed, one optional browser case skipped.
+Updated terminal-unsent operator guard: two passed. Compiled desktop/mobile
+manual UI passed with financial transports mocked.
+
+Vercel production deployment dpl_84rRJti8eVm1YsxFAQBjMpWsiLtV, READY, source
+c156bbc; framework Other; remote build approx. 16 seconds. Stage URL:
+https://jamd-dmaj-8rj2nxrlb-jamd-dmaj-s-projects.vercel.app
+The CLI reported a late authorization error, but authenticated deployment
+inspection showed READY; authenticated asset comparisons passed. Promoted
+that SAME production build without rebuilding. Canonical public site and
+Discover subsequently matched all seven tested assets, including both manual
+position/entry bundles and Discover JS/CSS/tour CSS. Bundle path normalization
+only removes build-directory prefixes before node_modules comments.
+
+Post-deploy bounded Vercel error-log query found no matching errors. This is
+not proof that every dynamic user path was invoked. No real trade was opened
+or signed for verification: on-chain preparation plus isolated signature-boundary
+reproduction and mocked complete flows are the available execution evidence.
+The real existing completed close separately passed the history snapshot
+validator on an isolated SQLite copy. No live journal writes for that check.
