@@ -26,7 +26,7 @@ export function databaseFingerprint(path,excluded=[]){
  }finally{db.close();}
 }
 function count(path,sql){const db=new DatabaseSync(path,{readOnly:true});try{return Number(db.prepare(sql).get().n);}finally{db.close();}}
-export function readReviewedBinaryFinancialState({allowTerminalUnsent=false}={}){
+function state(){
  for(const [file,sql]of [
   ['controls','SELECT COUNT(*) n FROM perps_automation_controls WHERE enabled<>0 OR paused<>1'],
   ['journal',"SELECT COUNT(*) n FROM perps_reservations WHERE state NOT IN ('OPEN','CLOSED','CANCELLED')"],
@@ -34,22 +34,15 @@ export function readReviewedBinaryFinancialState({allowTerminalUnsent=false}={})
   ['journal',"SELECT COUNT(*) n FROM perps_close_conversions WHERE state!='FINALIZED'"],
   ['journal',"SELECT COUNT(*) n FROM perps_exit_cancellations WHERE state IN ('PREPARED','SIGNING','UNCERTAIN')"],
   ['journal',"SELECT COUNT(*) n FROM perps_platform_fee_locks WHERE state='HELD'"],
-  ['journal',allowTerminalUnsent?"SELECT COUNT(*) n FROM perps_entry_conversion_holds h JOIN perps_reservations p ON p.reservation=h.reservation WHERE h.state='HELD' AND (p.state!='CANCELLED' OR h.signature IS NOT NULL OR h.wire_hash IS NOT NULL)":"SELECT COUNT(*) n FROM perps_entry_conversion_holds WHERE state='HELD'"],
+  ['journal',"SELECT COUNT(*) n FROM perps_entry_conversion_holds WHERE state='HELD'"],
   ['swaps',"SELECT COUNT(*) n FROM bot_wallet_swaps WHERE state NOT IN ('ABORTED','FAILED','FINALIZED')"],
   ['payments',"SELECT COUNT(*) n FROM perps_platform_fee_payments WHERE state IN ('SIGNING','UNKNOWN')"]])if(count(files[file],sql)!==0)fail();
  const fees=new DatabaseSync(files.fees,{readOnly:true}),payments=new DatabaseSync(files.payments,{readOnly:true});
  try{for(const row of fees.prepare('SELECT id FROM perps_platform_fee_assessments').all())if(payments.prepare("SELECT 1 FROM perps_platform_fee_payments WHERE assessment_id=? AND state='PAID'").get(row.id)===undefined)fail();}
  finally{fees.close();payments.close();}
- if(allowTerminalUnsent){
-  const j=new DatabaseSync(files.journal,{readOnly:true}),s=new DatabaseSync(files.swaps,{readOnly:true});
-  try{for(const row of j.prepare("SELECT h.conversion_id FROM perps_entry_conversion_holds h JOIN perps_reservations p ON p.reservation=h.reservation WHERE h.state='HELD' AND p.state='CANCELLED'").all()){
-   const swap=s.prepare('SELECT state,signature,signed FROM bot_wallet_swaps WHERE id=?').get(row.conversion_id);if(!swap||swap.state!=='ABORTED'||swap.signature!==null||swap.signed!==null)fail();
-  }}finally{j.close();s.close();}
- }
  const digests=Object.entries(files).map(([name,path])=>[name,databaseFingerprint(path,name==='controls'?['perps_control_request_quota']:[])]);
  return {digest:hash(encode(digests)),open:count(files.journal,"SELECT COUNT(*) n FROM perps_reservations WHERE state='OPEN'")};
 }
-const state=()=>readReviewedBinaryFinancialState();
 const ctl=(...args)=>execFileSync('systemctl',args,{encoding:'utf8',stdio:['ignore','pipe','pipe'],timeout:60000}).trim();
 async function healthy(){for(let i=0;i<30;i++){
  try{for(const unit of units)if(ctl('is-active',unit)!=='active')fail();

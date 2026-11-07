@@ -1,6 +1,6 @@
 // Binary-only reviewed update. No database migration, key access, trade,
 // policy mutation or activation. Original close-fix installer is NOT invoked.
-import {readReviewedBinaryFinancialState} from './install-close-conservation-fix.mjs';
+import {readReviewedBinaryFinancialState} from './reviewed-financial-state.mjs';
 import {createHash} from 'node:crypto';
 import {readFileSync,lstatSync,copyFileSync,chmodSync,renameSync,constants} from 'node:fs';
 import {execFileSync} from 'node:child_process';
@@ -10,7 +10,7 @@ const units=['jamddmaj-perps-worker','jamddmaj-perps-web','jamddmaj-perps-https'
 const hash=value=>createHash('sha256').update(value).digest('hex');
 const fail=()=>{throw Error('ENTRY_FIX_UPDATE_REFUSED');};
 const ctl=(...args)=>execFileSync('systemctl',args,{encoding:'utf8',stdio:['ignore','pipe','pipe'],timeout:60000}).trim();
-const state=()=>readReviewedBinaryFinancialState({allowTerminalUnsent:true});
+const state=()=>readReviewedBinaryFinancialState();
 function regular(path){const s=lstatSync(path);if(!s.isFile()||s.isSymbolicLink()||s.uid!==0)fail();}
 async function healthy(){for(let attempt=0;attempt<30;attempt++){
  try{for(const unit of units)if(ctl('is-active',unit)!=='active')fail();
