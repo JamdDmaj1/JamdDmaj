@@ -32,5 +32,15 @@ and no invented missing values. Discover CSS/tour reviewed: existing responsive,
 reduced-motion and navigation behavior retained. Web/source version 1.38.22;
 highest actually published Android APK remains 1.38.17. No APK is claimed built.
 
-Publication pending. Stage and verify the same committed production build before
-promoting it. No VPS commands or funded-wallet interactions are necessary.
+Published from committed source b1579b1ab94d51d1bfe355501dcd2017b40489a9.
+Clean source snapshot (468 tracked allowlisted inputs) built 32 web assets, with
+the intended Vercel team/project independently verified. Staged production
+dpl_6uCYC4mL8jJh2pWd1ViHoLtN3yTG reached READY. Protected-candidate status,
+stylesheet, actual panel JavaScript and Discover matched the local build before
+promotion. Promoted that same deployment without rebuilding.
+
+Public www.jamddmaj.com status reports webVersion 1.38.22, latest APK 1.38.17.
+Public CSS/panel JS/canonical Discover match the verified build (LF-normalized).
+Bounded ten-minute deployment error scan returned zero records. No ongoing
+monitoring was created. No VPS commands, service restarts, wallet sessions,
+transaction signatures, financial submissions or live-position changes occurred.
