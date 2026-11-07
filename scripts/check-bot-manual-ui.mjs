@@ -8,7 +8,7 @@ const root=resolve('www'),server=createServer(async(req,res)=>{try{const path=re
 await new Promise(r=>server.listen(0,'127.0.0.1',r));const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'});
 try{for(const viewport of [{width:1440,height:900},{width:390,height:844}]){
  const page=await browser.newPage({viewport}),errors=[];page.on('pageerror',e=>errors.push(e.message));
- await page.route('**/*',route=>route.request().url().startsWith('http://127.0.0.1:')?route.continue():route.abort());
+ await page.route('**/*',route=>route.request().url().startsWith('http://127.0.0.1:')?route.continue():route.request().url().startsWith('https://perps-api.jup.ag/v1/market-stats?')?route.fulfill({status:200,contentType:'application/json',headers:{'Access-Control-Allow-Origin':'*'},body:JSON.stringify({price:'100'})}):route.abort());
  await page.goto('http://127.0.0.1:'+server.address().port+'/private-simulator.html#lang=en');
  const result=await page.evaluate(async()=>{
   const {setupBotManualPerpsPanel}=await import('/lib/bot-manual-perps-panel.js');
@@ -20,8 +20,10 @@ try{for(const viewport of [{width:1440,height:900},{width:390,height:844}]){
    prepareClose:async()=>({id:'fixture',walletAddress:wallet,positionAddress:wallet,asset:'SOL',side:'LONG',expiresAt:Date.now()+15000,protection:{priceLimitUsdUnits:'99500000',receiveAsset:'SOL',estimatedTokenUnits:'100',maximumNetworkFeeLamports:'5000'}}),
    confirmClose:async()=>{calls.push('confirm');return {state:'PREPARED',phase:'UNCERTAIN'};}};
   const panel=setupBotManualPositionsPanel(host,{doc:document,language:'en',client});const buttons=()=>[...host.querySelectorAll('button')];
-  await buttons().find(n=>n.textContent==='Read bot positions').onclick();const input=host.querySelector('input[type=number]');input.value='100';input.oninput();
+  await buttons().find(n=>n.textContent==='Read bot positions').onclick();const input=host.querySelector('input[type=number]');
+  if(buttons().find(n=>n.textContent==='Review full close').disabled)throw Error('Close review must not require a typed price');
   await buttons().find(n=>n.textContent==='Review full close').onclick();const confirm=buttons().find(n=>n.textContent==='Confirm bot wallet close');
+  if(input.value!=='100.000000')throw Error('Fresh automatic reference missing');
   const disabledBeforeConsent=confirm.disabled,consent=host.querySelector('input[type=checkbox]');consent.checked=true;consent.onchange();const enabledAfterConsent=!confirm.disabled;
   await confirm.onclick();const text=host.textContent;panel.dispose();host.replaceChildren();
   const entry=setupBotManualPerpsPanel(host,{doc:document,language:'en',client:{

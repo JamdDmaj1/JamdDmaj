@@ -3,7 +3,7 @@ import {getCompatibleSolanaWallets,getSolanaAccount,sanitizeWalletName} from './
 import {createEvmReadOnlySession} from './lib/external-wallet-session.js';
 import {setupNativeWalletEntry,setupMainWalletEntry} from './native-wallet-entry.js';
 import {createPhantomMobileSession} from './lib/phantom-mobile-session.js';
-import {selectWalletAccount,selectedWalletAccount,publishWalletPortfolio,forgetWalletAccount} from './lib/wallet-portfolio-store.js';
+import {selectWalletAccount,restoreWalletAccount,selectedWalletAccount,publishWalletPortfolio,forgetWalletAccount} from './lib/wallet-portfolio-store.js';
 import {setupWalletOverview} from './lib/wallet-overview.js';
 import {setupWalletTradingController} from './lib/wallet-trading-controller.js';
 import {setupWalletTradingPanel} from './lib/wallet-trading-panel.js';
@@ -129,7 +129,7 @@ export function setupAssetsWallets(language, doc=document, win=window) {
   try{
     const saved=JSON.parse(win.localStorage?.getItem('jamd.externalPublicWallet.v1')||'null');
     if(saved?.network==='solana:mainnet'&&typeof saved.address==='string'&&/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(saved.address)){
-      const name=sanitizeWalletName(saved.name);selectWalletAccount(doc,{address:saved.address,source:'external',name});
+      const name=sanitizeWalletName(saved.name);restoreWalletAccount(doc,{address:saved.address,source:'external',name});
       active={kind:'remembered-public',address:saved.address,name};identity.textContent=name+' · '+t('Cuenta pública recordada','Remembered public account')+' · '+saved.address;
       // A remembered address cannot restore a signing session. Let the user
       // reconnect in-place, without first deleting their public watch address.
