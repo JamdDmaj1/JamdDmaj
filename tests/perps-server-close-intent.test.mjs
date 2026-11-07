@@ -910,6 +910,27 @@ test('vault conservation rejects wrong mint/authority, altered custody/pool, una
   await assert.rejects(checkServerPerpsFullCloseVaults(funding,policy),mode);
  }
 });
+test('native full-close vault validation permits only the exact market impact-history transition on all six routes',async()=>{
+ for(const asset of ['BTC','ETH','SOL'])for(const side of ['LONG','SHORT'])for(const corrupt of [false,true]){
+  const f=await fundingFixture(side,asset,'COLLATERAL_THEN_USDC');
+  for(const map of [f.before,f.after]){
+   const account=map.get(f.market.address),old=Buffer.from(account.data[0],'base64'),data=Buffer.alloc(1117);old.copy(data);
+   for(let i=0;i<60;i++)data.writeBigInt64LE(BigInt(i+1),416+i*8);
+   data.writeBigInt64LE(BigInt(now-2),896);
+   if(map===f.after){
+    for(let i=0;i<60;i++)if((now-i+60)%60<2)data.writeBigInt64LE(0n,416+i*8);
+    data.writeBigInt64LE((side==='SHORT'?1n:-1n)*BigInt(f.plan.sizeUsdUnits),416+(now%60)*8);data.writeBigInt64LE(BigInt(now),896);
+    if(corrupt)data[904]=1; // Fee configuration is never a mutable counter.
+   }
+   account.data[0]=data.toString('base64');
+  }
+  const policy=checkServerPerpsFullCloseInstructionPolicy(f.inspection),simulation=await simulateServerPerpsFullCloseEffects(f.inspection,{request:f.request});
+  const funding=await checkServerPerpsFullCloseFunding(simulation,{request:f.fundingRequest});
+  if(corrupt)await assert.rejects(checkServerPerpsFullCloseVaults(funding,policy,{nowSeconds:now}),/IMPACT_HISTORY_MISMATCH/);
+  else assert.equal((await checkServerPerpsFullCloseVaults(funding,policy,{nowSeconds:now})).readyForSigning,false);
+ }
+});
+
 test('close pool book value conserves reserved fees plus owned tokens against the exact vault withdrawal',async()=>{
  for(const mode of ['earned-fees','owned-short-one','fees-extra-one']){
   const f=await fundingFixture('LONG','SOL','COLLATERAL_THEN_USDC'),account=f.after.get(f.collateral.address),data=Buffer.from(account.data[0],'base64');

@@ -31,6 +31,29 @@ test('a provider read rate limit is not a wallet, funds or consent error and can
  assert.equal(response.status,429);assert.deepEqual(await response.json(),{error:{code:'rpc-rate-limit'}});assert.equal(calls,1);
 });
 
+test('full close failures expose bounded stages, never provider data or an execution retry',async()=>{
+ for(const [reason,code,status]of [
+  ['PERPS_CLOSE_PREPARATION_UNAVAILABLE','close-builder-unavailable',503],
+  ['PERPS_CLOSE_ACCOUNT_BINDINGS_MISMATCH','close-account-check-failed',409],
+  ['UNVERIFIED_PERPS_CLOSE_ORACLE_CONTEXT','close-price-context-unverified',409],
+  ['UNSAFE_PERPS_CLOSE_INSTRUCTION_POLICY','close-instruction-check-failed',409],
+  ['UNVERIFIED_PERPS_CLOSE_SIMULATION','close-simulation-unverified',409],
+  ['PERPS_CLOSE_SNAPSHOT_BANK_CHANGED','close-snapshot-changed',409],
+  ['PERPS_CLOSE_WALLET_FUNDING_MISMATCH','close-funding-check-failed',409],
+  ['PERPS_CLOSE_POOL_CONFIGURATION_MISMATCH','close-pool-check-failed',409],
+  ['PERPS_CLOSE_RESERVE_RELEASE_MISMATCH','close-reserve-check-failed',409],
+  ['PERPS_CLOSE_VAULT_CONSERVATION_MISMATCH','close-vault-check-failed',409],
+  ['PERPS_CLOSE_RETURN_POLICY_MISMATCH','close-return-check-failed',409],
+  ['PERPS_CLOSE_IMPACT_HISTORY_MISMATCH','close-impact-history-check-failed',409],
+  ['PERPS_CLOSE_BORROW_ACCRUAL_MISMATCH','close-borrow-accrual-check-failed',409],
+  ['unexpected provider text SECRET','controls-unavailable',503]]){
+  const f=fixture();let attempts=0;
+  f.botManual.prepareClose=async()=>{attempts++;throw Object.assign(Error(reason),{body:'SECRET',signature:'SECRET'});};
+  const r=await f.request({action:'botManualClosePrepare',walletAddress:wallet,positionAddress:wallet,referencePrice:'100'});
+  assert.equal(r.status,status);assert.deepEqual(await r.json(),{error:{code}});assert.equal(attempts,1);assert.equal(f.calls.length,0);
+ }
+});
+
 test('collateral recovery actions bind the authenticated owner and reject client monetary or wire overrides',async()=>{
  const f=fixture();
  for(const action of ['botManualRecoveryPrepare','botManualRecoveryConfirm','botManualRecoveryRecover']){

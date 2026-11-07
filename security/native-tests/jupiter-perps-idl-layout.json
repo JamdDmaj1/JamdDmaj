@@ -4,6 +4,13 @@
   "program": "PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu",
   "slot": 458207867,
   "idlSha256": "1d90a653a1cc88bddb7c5876acee52d3f26c6b1e3306e0833234020dc6f7d653",
+  "closeImpactHistoryLayout": {
+    "source": "Confirmed program-owned mainnet Anchor IDL, read-only 2026-11-07",
+    "openInterest": {"offset":416,"type":"i64","count":60},
+    "lastUpdated": {"offset":896,"type":"i64"},
+    "immutableFeeConfiguration": {"start":904,"end":932},
+    "authority":"Exact history transition comparison only; not signing authority or complete pool accounting"
+  },
   "entryConversionBorrowAccrualLayout": {
     "source": "Confirmed program-owned mainnet Anchor IDL, read-only 2026-11-01",
     "slot": 464254894,
