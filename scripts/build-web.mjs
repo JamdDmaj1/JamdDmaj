@@ -94,6 +94,7 @@ await cp(resolve(root, "lib", "wallet-display.js"), resolve(output, "lib", "wall
 await cp(resolve(root, "lib", "wallet-portfolio-store.js"), resolve(output, "lib", "wallet-portfolio-store.js"));
 await cp(resolve(root, "lib", "wallet-trading-state.js"), resolve(output, "lib", "wallet-trading-state.js"));
 await cp(resolve(root, "lib", "wallet-trading-panel.js"), resolve(output, "lib", "wallet-trading-panel.js"));
+await cp(resolve(root, "lib", "position-display-metrics.js"), resolve(output, "lib", "position-display-metrics.js"));
 await build({
   absWorkingDir: root, entryPoints: [resolve(root, "assets-wallet-ui.js")],
   outfile: resolve(output, "assets-wallet-ui.js"), bundle: true, format: "esm",

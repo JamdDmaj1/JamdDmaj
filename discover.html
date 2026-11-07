@@ -76,7 +76,7 @@
       <div><strong>SOL</strong><span data-i18n="networkLabel">operaciones compatibles</span></div>
     </section>
     <section class="start-section" aria-label="Manual bot wallet orders"><p data-i18n="manualBotNotice">Futuros manuales permite aceptar el modo por orden: tú revisas y confirmas cada operación, sin topes personales obligatorios de capital o pérdida diaria. Puedes perder todo el margen. Los límites avanzados son opcionales y el bot automático conserva sus controles separados. Un Long desde USDC puede requerir conversión con límite del 0,5 % y otra confirmación para abrir. Cada etapa requiere tu aprobación. Se verifican saldo, comisiones y operaciones pendientes; los envíos nunca se repiten automáticamente.</p></section>
-    <section class="start-section" aria-label="Trading account overview"><p data-i18n="accountViewNotice">El resumen de cuenta separa saldo, margen observado y disponibilidad verificada. Las tarjetas de posiciones distinguen exposición y margen, con valores exactos desplegables. Los datos no disponibles no se muestran como saldo cero ni ganancias inventadas.</p></section>
+    <section class="start-section" aria-label="Trading account overview"><p data-i18n="accountViewNotice">Las posiciones muestran entrada, referencia reciente y PnL de precio estimado en USD y porcentaje sobre el margen observado, antes de comisiones y financiación. Gestionar una posición abre el cierre completo existente, sin confirmarlo. Cierres parciales y cambios de TP/SL tras abrir siguen pendientes en JamdDmaj.</p></section>
     <section class="start-section" aria-label="Signal diagnostics"><p data-i18n="signalDiagnostics">El diagnóstico simulado agrupa salidas parciales y muestra expectativa neta, ganancias/pérdidas medias y comisiones estimadas. La validación histórica es investigación: nunca modifica ni activa tu bot real.</p></section>
 
     <section class="start-section" id="start">
@@ -146,6 +146,6 @@
   </main>
 
   <footer><a class="brand compact" href="/"><img src="icon-192.png" width="36" height="36" alt=""><strong>JamdDmaj AI</strong></a><p data-i18n="footerRisk">La información es educativa. Los activos digitales y el trading implican riesgo de pérdida.</p><span>© <span id="year"></span> JamdDmaj</span></footer>
-  <script src="discover.js?v=1.38.22-account-cards" defer></script>
+  <script src="discover.js?v=1.38.23-position-metrics" defer></script>
 </body>
 </html>
