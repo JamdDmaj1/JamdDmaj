@@ -4,6 +4,8 @@ import {createServerPerpsReadOnlyRpc} from '../lib/perps-server-rpc.js';
 import {readPerpsMarketReference} from '../lib/perps-market-reference.js';
 import {prepareInspectedPerpsManualOrder} from '../lib/perps-manual-preparation.js';
 import {prepareProtectedPerpsEntryConversion} from '../lib/perps-entry-conversion-preparation.js';
+import {readServerPerpsDailyAccount} from '../lib/perps-server-daily-account.js';
+import {requirePerpsPlatformFeeRecipient} from '../lib/perps-platform-fee-payment.js';
 const pid=process.argv[2],asset=process.argv[3],side=process.argv[4];
 if(!/^[1-9][0-9]*$/.test(pid)||!['BTC','ETH','SOL'].includes(asset)||!['LONG','SHORT'].includes(side))throw Error('INVALID_READ_ONLY_CHECK');
 const env=readFileSync('/proc/'+pid+'/environ','utf8').split('\0');
@@ -11,7 +13,7 @@ const url=env.find(v=>v.startsWith('JAMDDMAJ_PERPS_RPC_URL='))?.slice('JAMDDMAJ_
 const alternate=process.argv[5];
 if(alternate!==undefined&&!['--publicnode-read-only','--helius-read-only','--configured-read-only'].includes(alternate))throw Error('INVALID_READ_ONLY_CHECK');
 const conversion=process.argv[6];
-if(conversion!==undefined&&(conversion!=='--protected-conversion'||side!=='LONG')||process.argv.length>7)throw Error('INVALID_READ_ONLY_CHECK');
+if(conversion!==undefined&&!['--daily-history','--full-read-path'].includes(conversion)&&(conversion!=='--protected-conversion'||side!=='LONG')||process.argv.length>7)throw Error('INVALID_READ_ONLY_CHECK');
 let selectedUrl=url||'https://api.mainnet-beta.solana.com';
 if(alternate==='--publicnode-read-only')selectedUrl='https://solana-rpc.publicnode.com';
 if(alternate==='--helius-read-only'){
@@ -32,7 +34,18 @@ const read=createServerPerpsReadOnlyRpc({url:selectedUrl,fetchImpl:async(endpoin
 const rpcRequest=(method,params)=>{lastRead=method;return read(method,params);};
 try{
  const referencePrice=await readPerpsMarketReference(asset);
- if(conversion){
+ if(conversion==='--full-read-path'){
+  await requirePerpsPlatformFeeRecipient({request:rpcRequest});
+  try{await prepareInspectedPerpsManualOrder({asset,side,margin:'10',leverage:'3',referencePrice},'3AXFGU5ErJB46YT6oCFbYh7fq54an1TmFsV5fNWmbQ5T',{rpcRequest,builderRequest:fetch});}
+  catch(e){if(side!=='LONG'||e.message!=='PERPS_PRESWAP_INTENT_MISMATCH_MINIMUM_OUTPUT')throw e;
+   await requirePerpsPlatformFeeRecipient({request:rpcRequest});
+   await prepareProtectedPerpsEntryConversion({asset,side,margin:'10',leverage:'3',referencePrice},'3AXFGU5ErJB46YT6oCFbYh7fq54an1TmFsV5fNWmbQ5T',{request:rpcRequest});}
+  await readServerPerpsDailyAccount({walletAddress:'3AXFGU5ErJB46YT6oCFbYh7fq54an1TmFsV5fNWmbQ5T'},{request:rpcRequest});
+  console.log(JSON.stringify({stage:'FULL_MANUAL_READ_PATH',asset,side,ok:true,submitted:false,elapsedMs:Math.round(performance.now()-started),counts}));
+ }else if(conversion==='--daily-history'){
+  await readServerPerpsDailyAccount({walletAddress:'3AXFGU5ErJB46YT6oCFbYh7fq54an1TmFsV5fNWmbQ5T'},{request:rpcRequest});
+  console.log(JSON.stringify({stage:'DAILY_HISTORY_READ_CHECK',ok:true,submitted:false,elapsedMs:Math.round(performance.now()-started),counts}));
+ }else if(conversion){
   const result=await prepareProtectedPerpsEntryConversion({asset,side,margin:'10',leverage:'3',referencePrice},'3AXFGU5ErJB46YT6oCFbYh7fq54an1TmFsV5fNWmbQ5T',{request:rpcRequest});
   console.log(JSON.stringify({stage:result.stage,asset,side,ok:true,submitted:false,readyForSigning:result.readyForSigning,elapsedMs:Math.round(performance.now()-started),counts}));
  }else{
@@ -43,4 +56,4 @@ try{
   }});
  console.log(JSON.stringify({stage:'MANUAL_UNSIGNED_PROVIDER_CHECK',asset,side,ok:true,readyForSigning:result.readyForSigning,submitted:false,alternate:!!alternate,elapsedMs:Math.round(performance.now()-started),counts}));
  }
-}catch(error){console.log(JSON.stringify({stage:'MANUAL_UNSIGNED_PROVIDER_CHECK',asset,side,ok:false,code:/^[A-Z_]{1,120}$/.test(error.message)?error.message:'READ_ONLY_CHECK_UNAVAILABLE',lastRead,httpStatus,rpcErrorCode,submitted:false}));process.exitCode=1;}
+}catch(error){console.log(JSON.stringify({stage:'MANUAL_UNSIGNED_PROVIDER_CHECK',asset,side,ok:false,code:/^[A-Z_]{1,120}$/.test(error.message)?error.message:'READ_ONLY_CHECK_UNAVAILABLE',lastRead,httpStatus,rpcErrorCode,submitted:false,elapsedMs:Math.round(performance.now()-started),counts}));process.exitCode=1;}

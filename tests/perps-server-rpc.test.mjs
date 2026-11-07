@@ -47,3 +47,28 @@ test('rate limits remain distinguishable without exposing provider details or re
   await assert.rejects(rpc('getGenesisHash',[]),/^Error: PERPS_READ_ONLY_RPC_RATE_LIMITED$/);assert.equal(calls,1);
  }
 });
+
+test('paced read transport spaces concurrent starts without caching or retries',async()=>{
+ const starts=[];const rpc=createServerPerpsReadOnlyRpc({readSpacingMs:30,fetchImpl:async(_url,options)=>{
+  starts.push(performance.now());const body=JSON.parse(options.body);return response({jsonrpc:'2.0',id:body.id,result:starts.length});
+ }});
+ assert.deepEqual(await Promise.all([rpc('getGenesisHash',[]),rpc('getGenesisHash',[]),rpc('getSlot',[])]),[1,2,3]);
+ assert.equal(starts.length,3);assert.ok(starts[2]-starts[0]>=50);
+ for(const readSpacingMs of [-1,251,NaN,0.5,'125'])assert.throws(()=>createServerPerpsReadOnlyRpc({readSpacingMs}));
+});
+
+test('Helius gets pacing by default and still rejects every write before scheduling',async()=>{
+ let calls=0;const starts=[];const rpc=createServerPerpsReadOnlyRpc({url:'https://mainnet.helius-rpc.com/?api-key=fixture',fetchImpl:async(_url,options)=>{
+  calls++;starts.push(performance.now());return response({jsonrpc:'2.0',id:JSON.parse(options.body).id,result:1});
+ }});
+ await assert.rejects(rpc('sendTransaction',[]));
+ await Promise.all([rpc('getSlot',[]),rpc('getBlockHeight',[])]);
+ assert.equal(calls,2);assert.ok(starts[1]-starts[0]>=110);
+});
+
+test('paced queue is bounded and rate-limited reads are never retried',async()=>{
+ let calls=0;const rpc=createServerPerpsReadOnlyRpc({readSpacingMs:125,fetchImpl:async()=>{calls++;return new Response('',{status:429});}});
+ const pending=Array.from({length:40},()=>rpc('getSlot',[]));
+ const results=await Promise.allSettled(pending);
+ assert.ok(calls<=33&&calls>0);assert.ok(results.every(r=>r.status==='rejected'&&r.reason.message==='PERPS_READ_ONLY_RPC_RATE_LIMITED'));
+});
