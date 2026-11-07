@@ -20,6 +20,21 @@ function request(id,changes={}){
     snapshot:{walletAddress:wallet,network:'solana-mainnet',balancesComplete:true,observedAt:time,day:'2026-10-18',
       availableUsdcUnits:'100000000',allocatedUsdcUnits:'0',lossTodayUsdcUnits:'0',openPositions:0,tradesToday:0},...changes};
 }
+
+test('explicit per-order manual mode removes personal caps but reserves actual funds and cannot authorize automation',t=>{
+ const j=fixture(t)(),limits={mode:'perOrder'};
+ const snapshot={...request('x').snapshot,lossTodayUsdcUnits:'900000000',tradesToday:200,openPositions:6};
+ const input=request('manual-order',{signalId:'manual:manual-order',limits,snapshot,platformFeeUnits:'20000'});
+ assert.equal(j.reserve(input).state,'RESERVED');
+ assert.equal(j.riskState(wallet).pendingMarginUsdcUnits,'10020000');
+ j.beginSigning('manual-order');assert.equal(j.revalidateSigning('manual-order',{limits,snapshot}).state,'SIGNING');
+ assert.throws(()=>j.reserve(request('bot',{limits})),/INVALID_LIMITS/);
+ assert.throws(()=>j.reserve(request('web',{signalId:'web:web',limits})),/INVALID_LIMITS/);
+ assert.throws(()=>j.reserve(request('wrong',{signalId:'manual:other',limits})),/INVALID_LIMITS/);
+ assert.throws(()=>j.reserve(request('poor',{signalId:'manual:poor',limits,snapshot:{...snapshot,availableUsdcUnits:'15000000'}})),/INSUFFICIENT_UNRESERVED_BALANCE/);
+ assert.throws(()=>j.reserve({...input,reservationId:'stale',signalId:'manual:stale',snapshot:{...snapshot,observedAt:time-10001}}),/STALE_OR_UNRECONCILED_ACCOUNT/);
+ assert.throws(()=>j.reserve({...input,reservationId:'foreign',signalId:'manual:foreign',snapshot:{...snapshot,walletAddress:'foreign'}}),/STALE_OR_UNRECONCILED_ACCOUNT/);
+});
 test('risk reservations persist across independent database connections and restart',t=>{
   const open=fixture(t),one=open(),two=open();
   one.reserve(request('a',{limits:{capitalUsd:'10',dailyLossUsd:'10',positions:1,dailyTrades:1}}));

@@ -133,7 +133,8 @@ test('entry lifecycle refuses changed external authorization and never turns a r
  engine.invalidate();assert.throws(()=>engine.authorize(review,true));
 });
 
-for(const asset of ['BTC','ETH','SOL'])for(const mode of ['success','limits','backup','hold','controls','account','service','api','timeout','unsent','sign-fail','simulation-fail','recovery','opening','opening-timeout','opening-failed','opening-failed-prior','opening-return','opening-return-prior','opening-return-old-finality','opening-return-retry','opening-return-failed','opening-return-failed-prior','opening-return-failed-claim','opening-return-failed-retry','opening-return-failed-retry-prior','opening-sign-fail','first-failed','first-failed-prior'])test('reserved bot entry conversion one-use custody: '+asset+' '+mode,async t=>{
+for(const asset of ['BTC','ETH','SOL'])for(const caseMode of ['success','limits','backup','hold','controls','account','service','api','timeout','unsent','sign-fail','simulation-fail','recovery','opening','opening-timeout','opening-failed','opening-failed-prior','opening-return','opening-return-prior','opening-return-old-finality','opening-return-retry','opening-return-failed','opening-return-failed-prior','opening-return-failed-claim','opening-return-failed-retry','opening-return-failed-retry-prior','opening-sign-fail','first-failed','first-failed-prior','per-order-opening'])test('reserved bot entry conversion one-use custody: '+asset+' '+caseMode,async t=>{
+ const perOrder=caseMode==='per-order-opening',mode=perOrder?'opening':caseMode;
  const root=mkdtempSync(join(tmpdir(),'jamd-entry-custody-'));chmodSync(root,0o700);
  const ownerAccountHash='f'.repeat(64),directory=join(root,'wallets'),keyDirectory=join(root,'keys'),keyFile=join(keyDirectory,'master.key');
  for(const path of [directory,keyDirectory])mkdirSync(path,{mode:0o700});
@@ -207,7 +208,7 @@ for(const asset of ['BTC','ETH','SOL'])for(const mode of ['success','limits','ba
   if(method==='getSignaturesForAddress')return [];throw Error('UNEXPECTED_ACCOUNT_RPC');
  };
  const readAccount=()=>readServerPerpsDailyAccount({walletAddress},{request:accountRequest,...common,journal:executionJournal});
- const limits={capitalUsd:'20',dailyLossUsd:'20',positions:1,dailyTrades:1};let policy={walletAddress,limits};
+ const limits=perOrder?{mode:'perOrder'}:{capitalUsd:'20',dailyLossUsd:'20',positions:1,dailyTrades:1};let policy={walletAddress,limits};
  let claim,sends=0;
  if(['service','api','timeout','unsent','sign-fail','simulation-fail','opening','opening-timeout','opening-failed','opening-failed-prior','opening-return','opening-return-prior','opening-return-old-finality','opening-return-retry','opening-return-failed','opening-return-failed-prior','opening-return-failed-claim','opening-return-failed-retry','opening-return-failed-retry-prior','opening-sign-fail','first-failed','first-failed-prior'].includes(mode)){
   const policyStore=openManualPerpsPolicyStore(join(root,'manual-policy.sqlite'),{...common,initialize:true});

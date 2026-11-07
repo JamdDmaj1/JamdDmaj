@@ -1181,10 +1181,10 @@ test('manual bot custody signs an exact inspected entry once while automation st
  assertCurrent();assert.throws(()=>f.vault.signManualEntry(grant));assert.equal(f.journal.read(id).state,'SIGNING');
 });
 
-test('bot manual review -> two approvals -> durable risk and fee consent -> one exact send; timeout cannot replay',async t=>{
+for(const perOrder of [false,true])test('bot manual review -> two approvals -> durable risk and fee consent -> one exact send; timeout cannot replay'+(perOrder?' (per-order policy)':''),async t=>{
  const f=await custodySigningFixture(t,{reserve:false,beginSigning:false,manualServices:true}),who={ownerAccountHash:f.args.ownerAccountHash,walletAddress:f.wallet.walletAddress};
  f.controls.pause(who);
- f.policyStore.save({...who,expectedRevision:null,limits:{capitalUsd:'50',dailyLossUsd:'30',positions:2,dailyTrades:5},explicitApproval:true});
+ f.policyStore.save({...who,expectedRevision:null,limits:perOrder?{mode:'perOrder'}:{capitalUsd:'50',dailyLossUsd:'30',positions:2,dailyTrades:5},explicitApproval:true});
  const sends=[];
  const service=createBotManualPerpsService({controls:f.controls,vault:f.vault,journal:f.journal,policyStore:f.policyStore,backupRegistry:f.backupRegistry,
   readAccount:f.args.readAccount,rpcRequest:async(method,params)=>{const value=await f.rpcRequest(method,params);if(value?.context)value.context.slot=Math.max(value.context.slot,params[1]?.minContextSlot||0);return value;},

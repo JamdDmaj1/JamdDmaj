@@ -15,6 +15,17 @@ test('manual limits are exact, bounded and have no implicit bot defaults',()=>{
  assert.deepEqual(validateManualPerpsLimits({...limits,capitalUsd:'50.000000',dailyLossUsd:'0.000001'}),{...limits,capitalUsd:'50',dailyLossUsd:'0.000001'});
  for(const changes of [{capitalUsd:50},{capitalUsd:'9'},{dailyLossUsd:'51'},{positions:0},{positions:11},{dailyTrades:101},{dailyLossUsd:'0'},{capitalUsd:'1e3'},{botCapital:'50'}])assert.throws(()=>validateManualPerpsLimits({...limits,...changes}));
 });
+
+test('per-order mode is an exact explicit policy and persists without changing an existing policy by default',t=>{
+ assert.deepEqual(validateManualPerpsLimits({mode:'perOrder'}),{mode:'perOrder'});
+ for(const value of [{mode:'perOrder',capitalUsd:'50'},{mode:'unlimited'},{mode:true},{}])assert.throws(()=>validateManualPerpsLimits(value));
+ const f=fixture(t),store=f.open({initialize:true}),who={ownerAccountHash,walletAddress};
+ const old=store.save({...who,limits,expectedRevision:null,explicitApproval:true});
+ assert.throws(()=>store.save({...who,limits:{mode:'perOrder'},expectedRevision:old.revision}));
+ assert.deepEqual(store.read(who),old);
+ const next=store.save({...who,limits:{mode:'perOrder'},expectedRevision:old.revision,explicitApproval:true});
+ assert.deepEqual(f.open().read(who),next);assert.notEqual(next.revision,old.revision);
+});
 test('policy requires explicit initialization/approval, persists with audit and isolates account and wallet revisions',t=>{
  const f=fixture(t);assert.throws(()=>f.open());assert.equal(existsSync(f.filename),false);const store=f.open({initialize:true}),who={ownerAccountHash,walletAddress};
  assert.equal(store.read(who),null);assert.throws(()=>store.readLimits(who));assert.throws(()=>store.save({...who,limits,expectedRevision:null}));
