@@ -545,7 +545,8 @@ async function fundingFixture(side='SHORT',asset='SOL',settlement='DIRECT_USDC')
  }
  for(const c of new Map([f.collateral,f.usdc].map(c=>[c.address,c])).values()){
   const account=f.after.get(c.address),data=Buffer.from(account.data[0],'base64');
-  data.writeBigUInt64LE(Buffer.from(f.after.get(c.tokenAccount).data[0],'base64').readBigUInt64LE(64),222);account.data[0]=data.toString('base64');
+  const principal=side==='SHORT'&&c.address===f.collateral.address?BigInt(f.plan.collateralUsdUnits):0n;
+  data.writeBigUInt64LE(Buffer.from(f.after.get(c.tokenAccount).data[0],'base64').readBigUInt64LE(64)+principal,222);account.data[0]=data.toString('base64');
  }
  const rentCalls=[],fundingRequest=async(method,params)=>{
   rentCalls.push({method,params});
@@ -928,6 +929,22 @@ test('native full-close vault validation permits only the exact market impact-hi
   const funding=await checkServerPerpsFullCloseFunding(simulation,{request:f.fundingRequest});
   if(corrupt)await assert.rejects(checkServerPerpsFullCloseVaults(funding,policy,{nowSeconds:now}),/IMPACT_HISTORY_MISMATCH/);
   else assert.equal((await checkServerPerpsFullCloseVaults(funding,policy,{nowSeconds:now})).readyForSigning,false);
+ }
+});
+
+test('SHORT returns exactly its segregated USDC collateral for profit, loss, break-even and zero proceeds; one-unit gaps are rejected',async()=>{
+ for(const asset of ['BTC','ETH','SOL'])for(const payout of [0n,8000000n,10000000n,12000000n])for(const gap of [-1n,0n,1n]){
+  const f=await fundingFixture('SHORT',asset,'COLLATERAL_THEN_USDC'),account=f.after.get(f.usdc.address),data=Buffer.from(account.data[0],'base64');
+  const native=Buffer.from(f.before.get(f.usdc.address).data[0],'base64'),owned=native.readBigUInt64LE(222),principal=BigInt(f.plan.collateralUsdUnits);
+  const fees=1000n;data.writeBigUInt64LE(fees,214);data.writeBigUInt64LE(owned+principal-payout-fees+gap,222);account.data[0]=data.toString('base64');
+  const beforeVault=Buffer.from(f.before.get(f.usdc.tokenAccount).data[0],'base64').readBigUInt64LE(64);
+  f.after.set(f.usdc.tokenAccount,f.tokenFor(f.ids.transferAuthority,PERPS_CUSTODIES.USDC.mint,beforeVault-payout));
+  const recipient=f.inspection.bindings.recipient,oldRecipient=Buffer.from(f.before.get(recipient).data[0],'base64').readBigUInt64LE(64);
+  f.after.set(recipient,f.tokenFor(wallet,PERPS_CUSTODIES.USDC.mint,oldRecipient+payout));
+  const policy=checkServerPerpsFullCloseInstructionPolicy(f.inspection),simulation=await simulateServerPerpsFullCloseEffects(f.inspection,{request:f.request});
+  const funding=await checkServerPerpsFullCloseFunding(simulation,{request:f.fundingRequest});
+  if(gap)await assert.rejects(checkServerPerpsFullCloseVaults(funding,policy),/VAULT_CONSERVATION_MISMATCH/);
+  else assert.equal((await checkServerPerpsFullCloseVaults(funding,policy)).usdcVaultDebitUnits,String(payout));
  }
 });
 
