@@ -23,6 +23,7 @@ import {createPerpsControlClient} from '../lib/perps-control-client.js';
 import {setupPerpsControlPanel} from '../lib/perps-control-panel.js';
 import {validateAutomationSettings} from '../lib/automation-panel.js';
 import {openBotSwapJournal} from '../lib/perps-bot-swap-journal.js';
+import {openManualPerpsPolicyStore} from '../lib/perps-manual-policy-store.js';
 const allowNonPosixForTests=process.platform==='win32',ownerAccountHash='c'.repeat(64);
 function fixture(t,{active=false}={}){
  const directory=mkdtempSync(join(tmpdir(),'jamd-runtime-unfunded-'));chmodSync(directory,0o700);
@@ -63,6 +64,29 @@ test('fee-enabled runtime requires existing private stores and never manufacture
  assert.throws(()=>openServerPerpsRuntime(f.options)); // Existing fee state cannot be forgotten on restart.
  const runtime=openServerPerpsRuntime({...f.options,platformFeesEnabled:true});try{
   const report=await runtime.run({once:true});assert.equal(report.results.RECONCILIATION_ONLY,1);assert.equal(f.calls.length,0);
+ }finally{await runtime.close();}
+});
+
+test('manual-enabled runtime composes swap/recovery dependencies but cannot sign, send or activate at startup',async t=>{
+ const f=fixture(t),risk=openPerpsExecutionJournal(f.journalPath);
+ openPerpsPlatformFeeJournal(join(f.directory,'fees.sqlite'),{entryJournal:risk}).close();risk.close();
+ openPerpsPlatformFeePaymentJournal(join(f.directory,'payments.sqlite')).close();
+ openBotSwapJournal(join(f.directory,'swaps.sqlite'),{initialize:true,explicitOperatorApproval:true,allowNonPosixForTests}).close();
+ openManualPerpsPolicyStore(join(f.directory,'manual-policy.sqlite'),{initialize:true,allowNonPosixForTests}).close();
+ const calls=[],runtime=openServerPerpsRuntime({...f.options,mode:'execute',explicitExecutionApproval:true,feedToken:'unfunded-fixture-feed-token',
+  platformFeesEnabled:true,botSwapsEnabled:true,botManualEnabled:true,fetchImpl:async url=>{
+   calls.push(url);assert.equal(url,'https://www.jamddmaj.com/api/perps-identity');
+   return Response.json({ok:true,accountHash:ownerAccountHash,verifiedAt:Date.now()});
+  }});
+ try{
+  assert.equal(calls.length,0);assert.equal((await runtime.run({once:true})).results.AUTOMATION_INACTIVE,1);
+  const request=body=>runtime.handleControlRequest(new Request('https://157.230.54.133/v1/automation',{method:'POST',headers:{Authorization:'Bearer '+'e'.repeat(64),'Content-Type':'application/json',Origin:'https://www.jamddmaj.com'},body:JSON.stringify({...body,walletAddress:f.identity.walletAddress})}));
+  const status=await request({action:'botManualStatus'});assert.equal(status.status,200);assert.equal((await status.json()).botManual.available,false);
+  for(const action of ['botManualRecoveryPrepare','botManualRecoveryConfirm','botManualRecoveryRecover']){
+   const response=await request({action,id:'11111111-1111-4111-8111-111111111111',...(action==='botManualRecoveryConfirm'?{explicitApproval:true}:{})});
+   assert.notEqual(response.status,200);assert.notEqual((await response.json()).error.code,'bot-manual-recovery-unavailable');
+  }
+  assert.equal(calls.length,4);
  }finally{await runtime.close();}
 });
 

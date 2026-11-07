@@ -4,7 +4,7 @@ import {createPerpsAutomationApi} from '../lib/perps-automation-api.js';
 const owner='a'.repeat(64),wallet='11111111111111111111111111111112',other='11111111111111111111111111111113';
 function fixture(available=true){
  const calls=[],controls={read(who){if(who.ownerAccountHash!==owner||who.walletAddress!==wallet)throw Error('FOREIGN');return {walletAddress:wallet};},readForOwner(){},save(){assert.fail('No activation or settings mutation');},pause(){assert.fail('No pause mutation');},activate(){assert.fail('No activation');},issueActivationChallenge(){assert.fail('No activation challenge');}};
- const botManual=Object.fromEntries(['status','prepare','confirm','recover','positions','prepareClose','confirmClose','recoverClose'].map(method=>[method,async args=>{calls.push({method,args});return {walletAddress:wallet,stage:method};}]));
+ const botManual=Object.fromEntries(['status','prepare','confirm','recover','positions','prepareClose','confirmClose','recoverClose','prepareRecovery','confirmRecovery','recoverRecovery'].map(method=>[method,async args=>{calls.push({method,args});return {walletAddress:wallet,stage:method};}]));
  const handler=createPerpsAutomationApi({controls,authenticate:async()=>owner,rateLimit:async()=>true,botManual:available?botManual:null});
  const request=body=>handler(new Request('https://controls.example/v1/automation',{method:'POST',headers:{Authorization:'Bearer '+'b'.repeat(64),'Content-Type':'application/json',Origin:'https://www.jamddmaj.com'},body:JSON.stringify(body)}));
  return {calls,request,botManual};
@@ -23,6 +23,30 @@ test('manual bot API binds verified owner before status, review, confirmation or
 test('manual custody execution is unavailable by default, never inferred from public funds',async()=>{
  const f=fixture(false),r=await f.request({action:'botManualStatus',walletAddress:wallet});assert.equal(r.status,503);assert.equal((await r.json()).error.code,'bot-manual-unavailable');
  assert.equal(f.calls.length,0);
+});
+
+test('a provider read rate limit is not a wallet, funds or consent error and cannot trigger a retry',async()=>{
+ const f=fixture();let calls=0;f.botManual.prepare=async()=>{calls++;throw Error('PERPS_READ_ONLY_RPC_RATE_LIMITED');};
+ const response=await f.request({action:'botManualPrepare',walletAddress:wallet,draft:{asset:'BTC'}});
+ assert.equal(response.status,429);assert.deepEqual(await response.json(),{error:{code:'rpc-rate-limit'}});assert.equal(calls,1);
+});
+
+test('collateral recovery actions bind the authenticated owner and reject client monetary or wire overrides',async()=>{
+ const f=fixture();
+ for(const action of ['botManualRecoveryPrepare','botManualRecoveryConfirm','botManualRecoveryRecover']){
+  const body={action,walletAddress:wallet,id:'original-order',...(action==='botManualRecoveryConfirm'?{explicitApproval:true}:{})};
+  assert.notEqual((await f.request({...body,walletAddress:other})).status,200);
+  assert.equal((await f.request(body)).status,200);assert.equal(f.calls.at(-1).args.ownerAccountHash,owner);
+  for(const change of [{amountUnits:'1'},{maxSlippageBps:500},{serializedTxBase64:'untrusted'},{ownerAccountHash:owner}])assert.equal((await f.request({...body,...change})).status,400);
+ }
+ assert.equal(f.calls.length,3);
+});
+
+test('a stale recovery attempt requires a fresh review, without disguising it as a server outage',async()=>{
+ const f=fixture();let calls=0;
+ f.botManual.confirmRecovery=async()=>{calls++;throw Error('PERPS_ENTRY_RECOVERY_ATTEMPT_REQUIRED');};
+ const response=await f.request({action:'botManualRecoveryConfirm',walletAddress:wallet,id:'old-review',explicitApproval:true});
+ assert.equal(response.status,409);assert.deepEqual(await response.json(),{error:{code:'bot-manual-recovery-review-required'}});assert.equal(calls,1);
 });
 
 test('entry-reservation continuation reaches only the authenticated manual review service',async()=>{

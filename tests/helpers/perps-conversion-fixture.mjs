@@ -7,9 +7,9 @@ import {getProgramDerivedAddress} from '@solana/kit';
 import {buildUnsignedPerpsCloseConversionWire,minimumPerpsConversionUsdcUnits} from '../../lib/perps-close-conversion-wire.js';
 import {PERPS_PROGRAM,PERPS_POOL,PERPS_CUSTODIES,decodeServerPerpsCustody,deriveServerPerpsIdentities} from '../../lib/perps-server-custody.js';
 const TOKEN='TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',SYSTEM='11111111111111111111111111111111',DOVES='DoVEsk76QybCEHQGzkvYPWLQu9gzNoZZZt3TPiL597e';
-const GENESIS='5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d',defaultWallet=bs58.encode(Buffer.alloc(32,1)),blockhash=bs58.encode(Buffer.alloc(32,9)),defaultNow=Date.parse('2026-10-20T20:00:00Z'),rent=2039280n;
+const GENESIS='5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d',defaultWallet=bs58.encode(Buffer.alloc(32,1)),defaultBlockhash=bs58.encode(Buffer.alloc(32,9)),defaultNow=Date.parse('2026-10-20T20:00:00Z'),rent=2039280n;
 export async function conversionFixture({asset='SOL',nativeSolInput=asset==='SOL',closeWrappedAccount=nativeSolInput,newSource=false,newDestination=false,oldWrapped=0n,unsynced=0n,walletAddress=defaultWallet,amountUnits='100000000',strictWire=true,nowMs=defaultNow,
- custodySnapshots={},vaultUnits={},ownerLamports=20000000000n,destinationUnits=2000n,sourceUnits=null}={}){
+ custodySnapshots={},vaultUnits={},ownerLamports=20000000000n,destinationUnits=2000n,sourceUnits=null,blockhash=defaultBlockhash}={}){
  const wallet=walletAddress,oracleAccounts=new Map(),now=nowMs;
  async function custody(asset){
   const c=PERPS_CUSTODIES[asset],n=['BTC','ETH','SOL','USDC'].indexOf(asset),[ag,bump]=await getProgramDerivedAddress({programAddress:DOVES,seeds:['ag_feed',bs58.decode(c.mint)]}),b=Buffer.alloc(416);

@@ -6,6 +6,28 @@ import {simulatePerpsCloseConversion,readSimulatedPerpsCloseConversion} from '..
 import {PERPS_PROGRAM,PERPS_POOL} from '../lib/perps-server-custody.js';
 import {conversionFixture as fixture} from './helpers/perps-conversion-fixture.mjs';
 const wallet=bs58.encode(Buffer.alloc(32,1)),blockhash=bs58.encode(Buffer.alloc(32,9)),now=Date.parse('2026-10-20T20:00:00Z');
+
+test('modern collateral returns accept narrow borrow accrual but reject principal, clock and configuration changes',async()=>{
+ for(const asset of ['BTC','ETH','SOL'])for(const mode of ['accrual','principal','clock','config','suffix','index']){
+  const f=await fixture({asset,nativeSolInput:false,closeWrappedAccount:false});
+  for(const c of [f.c,f.u])for(const map of [f.before,f.after]){
+   const account=map.get(c.address),old=Buffer.from(account.data[0],'base64'),bytes=Buffer.alloc(1200);old.copy(bytes);
+   bytes.writeBigUInt64LE(map===f.after?102n:100n,972);
+   bytes.writeBigInt64LE(BigInt(now/1000)-(map===f.after?0n:1n),988);
+   bytes.writeBigUInt64LE(map===f.after?1002n:1000n,1004);
+   bytes.writeBigUInt64LE(map===f.after?12n:10n,1020);
+   account.data[0]=bytes.toString('base64');
+  }
+  const account=f.after.get(f.c.address),bytes=Buffer.from(account.data[0],'base64');
+  if(mode==='principal')bytes.writeBigUInt64LE(1003n,1004);
+  if(mode==='clock')bytes.writeBigInt64LE(BigInt(now/1000)+3n,988);
+  if(mode==='config')bytes[1036]^=1;if(mode==='suffix')bytes[1199]^=1;
+  if(mode==='index')bytes.writeBigUInt64LE(100n,972);
+  account.data[0]=bytes.toString('base64');
+  if(mode==='accrual')assert.equal((await simulatePerpsCloseConversion(f.wire,f.options)).receivedUsdcUnits,String(f.received));
+  else await assert.rejects(simulatePerpsCloseConversion(f.wire,f.options),/PERPS_CONVERSION_CUSTODY_ACCRUAL_MISMATCH/);
+ }
+});
 test('same-wire conversion proves all supported token/native inputs, exact protected return, fee and vault/wallet conservation',async()=>{
  for(const asset of ['SOL','ETH','BTC'])for(const nativeSolInput of asset==='SOL'?[false,true]:[false]){
   const f=await fixture({asset,nativeSolInput}),r=await simulatePerpsCloseConversion(f.wire,f.options);

@@ -38,3 +38,12 @@ test('timeouts abort the request and invalid endpoint/configuration never starts
  await assert.rejects(rpc('getSlot',[]),/PERPS_READ_ONLY_RPC_UNAVAILABLE/);assert.equal(aborted,true);
  for(const options of [{url:'http://example.com'},{url:'https://user:password@example.com'},{url:'https://example.com/#fragment'},{timeoutMs:15001},{maxResponseBytes:999},{fetchImpl:null}])assert.throws(()=>createServerPerpsReadOnlyRpc(options));
 });
+
+test('rate limits remain distinguishable without exposing provider details or retrying',async()=>{
+ for(const status of [429,200]){
+  let calls=0;const rpc=createServerPerpsReadOnlyRpc({fetchImpl:async(_url,options)=>{
+   calls++;return response({jsonrpc:'2.0',id:JSON.parse(options.body).id,error:{code:429,message:'private provider detail'}},{status});
+  }});
+  await assert.rejects(rpc('getGenesisHash',[]),/^Error: PERPS_READ_ONLY_RPC_RATE_LIMITED$/);assert.equal(calls,1);
+ }
+});

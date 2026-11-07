@@ -1,5 +1,6 @@
 // Unfunded exact-wire opening model. RPC is mocked and has no send method.
-import {generateKeyPairSync,sign} from 'node:crypto';
+import {generateKeyPairSync,sign,verify,createHash} from 'node:crypto';
+import eventLayout from '../../lib/perps-event-layout.json' with {type:'json'};
 import bs58 from 'bs58';
 import {getProgramDerivedAddress} from '@solana/kit';
 import {exactUsdUnits} from '../../lib/jupiter-perps-order.js';
@@ -9,7 +10,8 @@ import {inspectServerPerpsPreSwapPlan} from '../../lib/perps-server-preswap.js';
 import {checkServerPerpsTokenPolicy} from '../../lib/perps-server-token-policy.js';
 const TOKEN='TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',SYSTEM='11111111111111111111111111111111',COMPUTE='ComputeBudget111111111111111111111111111111';
 export async function entryOpeningFixture(f,intent,binding,market){
- const ids=await deriveServerPerpsIdentities(intent),pair=generateKeyPairSync('ed25519'),api=bs58.encode(pair.publicKey.export({format:'der',type:'spki'}).subarray(-32)),keeper=bs58.encode(Buffer.alloc(32,2));
+ const keeperPair=generateKeyPairSync('ed25519');
+ const ids=await deriveServerPerpsIdentities(intent),pair=generateKeyPairSync('ed25519'),api=bs58.encode(pair.publicKey.export({format:'der',type:'spki'}).subarray(-32)),keeper=bs58.encode(keeperPair.publicKey.export({format:'der',type:'spki'}).subarray(-32));
  const roles=[keeper,api,f.walletAddress,f.wire.destination,ids.perpetuals,PERPS_POOL,ids.position,market.address,market.dovesAgOracle,market.oracle,market.address,market.dovesAgOracle,market.oracle,market.tokenAccount,PERPS_PROGRAM,PERPS_PROGRAM,TOKEN,SYSTEM,ids.eventAuthority,PERPS_PROGRAM];
  const seconds=BigInt(f.receiptOptions.now()/1000);
  const ATA='ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL',exits=[];
@@ -61,5 +63,27 @@ export async function entryOpeningFixture(f,intent,binding,market){
  const inspection=await inspectServerPerpsPreparation(preparation,intent,{request,nowSeconds:Number(seconds),minimumSlot:binding.slot});
  const fundingPlan=await inspectServerPerpsPreSwapPlan(inspection,intent,f.u,market,{entryBinding:binding});
  const tokenPolicy=await checkServerPerpsTokenPolicy(inspection,intent);
- return {before,after,request,builderRequest:async()=>Response.json({...preparation,quote:{side:'long'}}),prepared:{stage:inspection.stage,preparation,intent,inspection,fundingPlan,tokenPolicy,custody:{...ids,observedSlot:inspection.observedSlot,market,collateral:market,usdc:f.u}}};
+ // Test-only keeper for this exact generated message, never a general signer.
+ const completeFixtureKeeperSignature=encoded=>{
+  const bytes=Buffer.from(encoded,'base64');
+  if(bytes.toString('base64')!==encoded||bytes[0]!==3||!bytes.subarray(193).equals(message)
+   ||!bytes.subarray(65,129).equals(Buffer.alloc(64))
+   ||!verify(null,message,pair.publicKey,bytes.subarray(129,193)))throw Error('FIXTURE_MESSAGE_REQUIRED');
+  sign(null,message,keeperPair.privateKey).copy(bytes,65);return bytes.toString('base64');
+ };
+ const schema=eventLayout.events.find(e=>e.name==='InstantIncreasePositionEvent'),fields={};
+ for(const [name,type]of schema.fields)fields[name]=typeof type==='object'?null:type==='publicKey'?f.walletAddress:type==='bool'?false:type==='u8'?0:'0';
+ Object.assign(fields,{owner:f.walletAddress,pool:PERPS_POOL,positionKey:ids.position,positionSide:1,positionMint:market.mint,
+  positionCustody:market.address,positionCollateralCustody:market.address,sizeUsdDelta:'30000000',feeUsd:'10000'});
+ if(Object.hasOwn(fields,'positionCollateralMint'))fields.positionCollateralMint=market.mint;
+ const encode=(type,value)=>{
+  if(typeof type==='object')return Buffer.from([0]);if(type==='publicKey')return Buffer.from(bs58.decode(value));
+  if(type==='bool'||type==='u8')return Buffer.from([Number(value)]);
+  const bytes=Buffer.alloc(8);if(type==='i64')bytes.writeBigInt64LE(BigInt(value));else bytes.writeBigUInt64LE(BigInt(value));return bytes;
+ };
+ const event=Buffer.concat([createHash('sha256').update('event:'+schema.name).digest().subarray(0,8),...schema.fields.map(([name,type])=>encode(type,fields[name]))]);
+ const fixtureTradeMeta={err:null,fee:5400,loadedAddresses:{writable:[],readonly:[]},innerInstructions:[{index:2,instructions:[{
+  programIdIndex:keys.indexOf(PERPS_PROGRAM),accounts:[keys.indexOf(ids.eventAuthority)],stackHeight:2,
+  data:bs58.encode(Buffer.concat([Buffer.from('e445a52e51cb9a1d','hex'),event]))}]}]};
+ return {before,after,request,completeFixtureKeeperSignature,fixtureTradeMeta,builderRequest:async()=>Response.json({...preparation,quote:{side:'long'}}),prepared:{stage:inspection.stage,preparation,intent,inspection,fundingPlan,tokenPolicy,custody:{...ids,observedSlot:inspection.observedSlot,market,collateral:market,usdc:f.u}}};
 }

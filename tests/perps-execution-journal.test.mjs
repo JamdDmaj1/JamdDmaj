@@ -45,6 +45,31 @@ test('unsigned cancellation frees risk but never replays the same Telegram signa
   assert.throws(()=>j.reserve(request('a')),/DUPLICATE_SIGNAL/);
   assert.equal(j.reserve(request('b')).state,'RESERVED');
 });
+
+test('manual never-broadcast recovery and broadcast compete through the durable journal, never a missing chain lookup',t=>{
+ for(const winner of ['recovery','broadcast']){
+  const open=fixture(t),one=open(),two=open(),id='manual-'+winner;
+  one.reserve(request(id,{signalId:'manual:'+id}));one.beginSigning(id);
+  const signed={wireHash:'a'.repeat(64),signature:bs58.encode(new Uint8Array(64).fill(7))};
+  assert.throws(()=>two.recoverNeverBroadcastManualOpening(id,{walletAddress:bs58.encode(new Uint8Array(32).fill(2))}));
+  assert.equal(one.read(id).state,'SIGNING');
+  if(winner==='recovery'){
+   assert.equal(two.recoverNeverBroadcastManualOpening(id,{walletAddress:wallet}).state,'CANCELLED');
+   assert.throws(()=>one.recordBroadcastIntent(id,signed),/INVALID_TRANSITION/);
+   assert.throws(()=>one.beginSigning(id),/INVALID_TRANSITION/);
+   assert.throws(()=>one.reserve(request(id,{signalId:'manual:'+id})),/DUPLICATE_SIGNAL/);
+   assert.equal(two.riskState(wallet).pendingMarginUsdcUnits,'0');
+  }else{
+   one.recordBroadcastIntent(id,signed);
+   assert.throws(()=>two.recoverNeverBroadcastManualOpening(id,{walletAddress:wallet}),/RECONCILIATION_REQUIRED/);
+   assert.equal(two.read(id).state,'UNCERTAIN');assert.equal(two.read(id).signature,signed.signature);
+   assert.equal(two.riskState(wallet).pendingMarginUsdcUnits,'10000000');
+  }
+ }
+ const journal=fixture(t)();journal.reserve(request('automation'));journal.beginSigning('automation');
+ assert.throws(()=>journal.recoverNeverBroadcastManualOpening('automation',{walletAddress:wallet}),/RECONCILIATION_REQUIRED/);
+ assert.equal(journal.read('automation').state,'SIGNING');
+});
 test('reserves full collateral against daily loss and position/trade limits',t=>{
   const j=fixture(t)();j.reserve(request('a'));
   for(const [limits,error]of [

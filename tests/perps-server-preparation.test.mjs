@@ -1200,10 +1200,40 @@ test('bot manual review -> two approvals -> durable risk and fee consent -> one 
  await assert.rejects(service.confirm({...confirmation,explicitFeeApproval:false}));assert.equal(sends.length,0);
  const result=await service.confirm(confirmation);assert.equal(result.state,'UNCERTAIN');assert.equal(sends.length,1);
  assert.equal(sends[0].action,'increase-position');assert.equal((await service.status(who)).operations.length,1);
- assert.equal(service.recover({...who,id:review.id}).signature,result.signature);
+ assert.equal((await service.recover({...who,id:review.id})).signature,result.signature);
  await assert.rejects(service.confirm(confirmation));await assert.rejects(service.prepare({...who,draft}));assert.equal(sends.length,1);
  assert.equal(f.controls.read(who).paused,true);assert.equal(f.controls.read(who).enabled,false);
 });
+test('manual single-leg signing interruption cancels only its never-broadcast reservation and retains consent',async t=>{
+ const f=await custodySigningFixture(t,{reserve:false,beginSigning:false,manualServices:true}),who={ownerAccountHash:f.args.ownerAccountHash,walletAddress:f.wallet.walletAddress};
+ f.controls.pause(who);
+ f.policyStore.save({...who,expectedRevision:null,limits:{capitalUsd:'50',dailyLossUsd:'30',positions:2,dailyTrades:5},explicitApproval:true});
+ let discarded;
+ const service=createBotManualPerpsService({controls:f.controls,vault:{...f.vault,signManualEntry:grant=>{
+  discarded=f.vault.signManualEntry(grant);throw Error('MOCK_INTERRUPTED_BEFORE_BROADCAST_IDENTITY');
+ }},journal:f.journal,policyStore:f.policyStore,backupRegistry:f.backupRegistry,readAccount:f.args.readAccount,
+ rpcRequest:async(method,params)=>{const value=await f.rpcRequest(method,params);if(value?.context)value.context.slot=Math.max(value.context.slot,params[1]?.minContextSlot||0);return value;},
+ builderRequest:f.builderRequest,feeJournal:f.feeJournal,platformFees:{assertActivationReadiness:async()=>{},status:()=>({dueUnits:'0',pendingCount:0,failedCount:0})},
+ hasPendingSwap:()=>false,isRunning:()=>true,readFinalizedAccount:f.args.readAccount,now:()=>now,monotonicNow:()=>f.clock.value,
+ fetchImpl:async()=>assert.fail('No financial transport before durable broadcast identity')});
+ const review=await service.prepare({...who,draft:{asset:'SOL',side:'LONG',margin:'10',leverage:'3',referencePrice:'100',stopLoss:'95',takeProfit:'110'}});
+ const confirmation={...who,id:review.id,explicitApproval:true,explicitFeeApproval:true,feeTermsVersion:review.fee.version};
+ assert.equal((await service.confirm(confirmation)).state,'SIGNING');assert.ok(discarded.signature);
+ assert.equal(f.journal.read(review.id).signature,null);assert.equal(f.feeJournal.read(review.id),null);
+ const recovered=await service.recover({...who,id:review.id});assert.equal(recovered.state,'CANCELLED');assert.equal(recovered.requiresNewReview,true);
+ assert.equal(f.journal.riskState(who.walletAddress).pendingMarginUsdcUnits,'0');
+ assert.throws(()=>f.journal.recordBroadcastIntent(review.id,discarded),/INVALID_TRANSITION/);
+ await assert.rejects(service.confirm(confirmation));
+ assert.equal((await service.recover({...who,id:review.id})).state,'CANCELLED');
+ assert.equal((await service.status(who)).operations.length,0);assert.equal(f.controls.read(who).paused,true);
+ const fees=new DatabaseSync(join(f.walletDirectory,'..','fees.sqlite'),{readOnly:true});
+ try{
+  const consent=fees.prepare('SELECT * FROM perps_platform_fee_consents WHERE reservation=?').get(review.id);
+  assert.equal(consent.wallet,who.walletAddress);assert.equal(JSON.parse(consent.terms).feeUnits,'20000');
+  assert.equal(fees.prepare('SELECT COUNT(*) AS n FROM perps_platform_fee_assessments').get().n,0);
+ }finally{fees.close();}
+});
+
 test('bot manual confirmation refuses changed policy, controls and revoked backup before any send or reservation',async t=>{
  for(const change of ['policy','controls','backup']){
   const f=await custodySigningFixture(t,{reserve:false,beginSigning:false,manualServices:true}),who={ownerAccountHash:f.args.ownerAccountHash,walletAddress:f.wallet.walletAddress};

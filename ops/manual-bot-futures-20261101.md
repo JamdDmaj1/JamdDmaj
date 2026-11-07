@@ -588,3 +588,877 @@ unpublished work; no public functionality or funds were changed.
 Validation: full CI completed, 1388 total / 1369 passed / 19 skipped / zero
 failed. The six final joined opening/timeout cases passed again after adding
 separate opening-consent refusal assertions and the persisted native SL link.
+
+### Failed second-leg collateral retention (local, 2026-11-06)
+
+Broadcast reconciliation now refuses to close a failed opening when an entry
+conversion hold exists. A finalized failed second transaction does not undo
+collateral acquired in the first transaction. The original UNCERTAIN reservation
+therefore remains pending until explicit collateral recovery; this change does
+not implement that recovery or allow a replacement send. It also fails closed
+for a HELD row whose conversion reconciliation has not completed.
+
+Regression coverage uses cryptographically verified finalized failed receipts
+and seeded persisted HELD/FINALIZED rows to isolate the journal boundary. Two
+recovery passes retain the exact reservation and pending margin. Existing
+single-leg failure and midnight quota behavior remains covered. These are local
+mock-transport tests, not mainnet execution. Discover files were reviewed; this
+unpublished internal guard makes no new public availability claim.
+
+### Joined opening receipt reconciliation (local, 2026-11-06)
+
+The six joined BTC/ETH/SOL opening and transport-timeout cases now continue from
+the exact custody-owner-signed opening bytes to a modeled finalized receipt.
+A generated test keeper signs only that fixture's exact message; the production
+receipt verifier checks all three signatures and the original pre-keeper hash.
+Processed status remains UNCERTAIN; finalized success transitions the same
+reservation to OPEN and retains the original margin plus uncollected fee reserve.
+Another recovery pass performs no receipt reads and no replacement send.
+
+All six targeted cases passed. This is mocked chain status, not an observed real
+mainnet position. Finalized native Increase-event fee assessment, collateral
+recovery and the complete public interface/release remain pending. Reviewed
+Discover HTML/JS/CSS/tour: internal unpublished test coverage requires no public
+content change. No real funds, trades or automation activation were involved.
+
+### Joined finalized-opening fee assessment (local, 2026-11-06)
+
+The same six joined opening/timeout cases now include a modeled native
+InstantIncreasePositionEvent, bound to instruction 2 and its event-authority
+self-CPI in the exact fully signed opening transaction. The production finalized
+trade reader verifies provenance and decodes one Increase for the expected asset.
+The real fee journal rejects a cloned receipt and creates exactly one 20,000
+micro-USDC assessment for the original 10 USDC margin, never leveraged size.
+Repeated assessment returns the same record; neither conversion nor opening is
+resent. The assessment awaits payment review and is not a transfer or receipt
+of collection. All six targeted cases passed; all chain/provider data remain
+explicit test models. No public release or real-funded transaction occurred.
+
+### Public client two-stage review support (local, 2026-11-06)
+
+The browser client now accepts the explicit conversion-review stage only for
+Long with the strict 50 bps floor, a positive minimum collateral amount and the
+mandatory separate-opening-confirmation flag. Continuation passes only a
+validated original reservation ID and rejects a mismatched or unsolicited ID in
+the returned review. Both reviews retain separate one-use order/fee consent and
+session binding; neither status recovery nor preparation signs or sends.
+
+All four client tests passed, including refused widened tolerances, missing
+separate confirmation, zero minimum, malformed mint and changed continuation
+identity. This is client transport support, not a completed visible UI or public
+release. Full CI session 62679 was already running before these client changes;
+its result cannot certify these later edits. Discover review remains internal:
+no new publicly available feature is claimed.
+
+### Joined failed-opening evidence and resumed intent (local, 2026-11-06)
+
+Three additional joined BTC/ETH/SOL cases model a finalized failure of the exact
+custody-signed second leg, after independently verified first-leg finality. Two
+recovery passes preserve UNCERTAIN and the 10.02 USDC risk reserve with its
+FINALIZED collateral hold. There is no Increase event, collectible assessment or
+second conversion/opening send. This proves retention, not completed collateral
+return: explicit recovery back to USDC still needs implementation and consent.
+All three cases passed.
+
+Authenticated operation status now projects the canonical draft persisted with
+the original conversion hold. The panel resumes that draft instead of borrowing
+unrelated current form values after reload/reselection. Its interaction test
+changes the form to ETH/20 but verifies continuation still reviews the original
+BTC/10 and clears consent. Five client/panel tests and the BTC joined failed
+case passed after this projection change. No production deployment or real
+financial execution occurred; Discover has no new shipped capability to announce.
+
+### Modern native collateral-return simulation (local, 2026-11-06)
+
+The existing collateral-to-USDC simulator now uses the pinned native borrow
+accrual checker for modern custody layouts (at least 1117 bytes). Only monotonic
+interest index/clock and equal debt/accrued-interest deltas are permitted;
+principal, configuration, extension bytes, account identity, token conservation,
+oracle floor and exact-wire checks remain enforced. Short legacy layouts retain
+their exact-tail comparison. This removes a known blocker for contemporary
+collateral-return simulation; it does not bind entry recovery, authorize a key,
+release the original risk reservation or provide a recovery UI.
+
+Eight targeted simulation/accrual tests passed, including modeled native BTC,
+ETH and SOL returns and rejected forged principal, future clock, unchanged
+index with new debt, changed configuration and extension suffix. No live-chain
+success or deployment is claimed. Discover HTML/JS/CSS/tour remain reviewed as
+unpublished internal work, with no new public capability to advertise.
+
+### Original-order collateral recovery eligibility (local, 2026-11-06)
+
+Added a private recovery-eligibility binding joining the genuine finalized entry
+conversion binding to its original execution reservation and FINALIZED hold.
+It exposes exactly the received collateral units in the canonical source ATA,
+not the wallet's older holdings, fixes maximum slippage at 50 bps and retains
+the original risk reservation. An unsigned RESERVED parent must have no opening
+signature; an UNCERTAIN parent requires a fresh branded finalized FAILED receipt
+for its exact wallet/signature/hash, at or after the conversion slot. SIGNING,
+OPEN and CLOSED parents cannot qualify. Re-reading checks unchanged parent/hold
+and revalidates underlying proof provenance and freshness.
+
+The three joined failed-opening cases passed for BTC/ETH/SOL, including missing,
+cloned and expired failure proof rejection. Further coverage checks unsigned
+eligibility is invalidated once the opening progresses. This module is not a
+custody grant, signing flow, conversion send or risk-release capability. Durable
+recovery intent, confirmation, finalized return accounting and UI remain to be
+implemented. Nothing was deployed and no real funds were moved; Discover has no
+new public availability change.
+
+### Strict unsigned collateral recovery preparation (local, 2026-11-06)
+
+Added recovery preparation consuming only the private original-order recovery
+binding. It reads native custody and fresh oracle accounts under increasing bank
+floors, computes the inward-rounded USDC minimum at exactly 50 bps, builds a
+canonical collateral-ATA-to-USDC-ATA Swap2 and simulates those exact bytes. Even
+SOL uses existing WSOL: no native input or account closure can sweep older funds.
+Full simulation checks token/vault/rent/fee conservation and retains at least
+0.001 SOL after modeled effects. Public preparation does not expose transaction
+bytes; its private proof rechecks eligibility, unchanged reservation and fresh
+simulation. No signing grant, send dependency or journal-release method exists.
+
+The joined failed-opening tests prepare recovery for BTC/ETH/SOL, check exact
+received amount/source, strict 50 bps, clone rejection and expiry. Added negative
+coverage for copied eligibility, wrong genesis and an unexplained old-source
+token delta. This is still modeled preparation, not a submitted recovery or
+proof that funds returned. Durable intent, authorization, finalized accounting,
+public UI and deployment remain pending. Discover review is internal-only with
+no new published availability claim; no real funds were moved.
+
+### Persistent recovery audit intent (local, 2026-11-06)
+
+Added an internal explicit-approval audit-intent writer using the existing
+private swap journal schema and its per-wallet pending exclusion. It consumes
+the genuine fresh recovery preparation, verifies original conversion ownership,
+FINALIZED source/hold and wallet binding, and persists the exact unsigned message
+plus recovery amount/minimum/50-bps/original-order metadata. Its deterministic
+identity is derived from the original reservation and conversion signature;
+duplicate attempts, including after journal reopen, are rejected. The record is
+SIGNING with no signature or signed wire, never a claim that funds were sent.
+No general claim/signing capability is exposed by this helper.
+
+Joined BTC/ETH/SOL cases passed, including rejected missing approval, wrong
+owner and duplicates. Additional assertions reopen the native journal and check
+the exact persisted record and unchanged exclusion. Original collateral/risk
+remains held. Cross-journal signing/race guards, custody authorization, timeout
+reconciliation, finalized return accounting and UI are still required before
+this internal path may be enabled. There is no runtime/API wiring or deployment
+of the helper. Discover remains reviewed as unpublished work; no real funds or
+automation state were changed.
+
+### Failed-opening recovery custody authorization (local, 2026-11-06)
+
+Added a separate one-use custody capability consuming only the privately held
+recovery-intent object and genuine fresh recovery preparation. It is restricted
+to UNCERTAIN parents with a verified finalized failed opening; unsigned RESERVED
+recovery is intentionally not authorized until atomic cross-flow exclusion is
+implemented. Exact persisted intent/message/owner, paused control revision,
+backup scopes and wallet contention are rechecked before, during and after the
+existing custody vault decrypt/sign operation. A second grant for the same
+intent and a second consumption are rejected. No wire or generic signing input
+is accepted from an API, and no send dependency was added.
+
+Joined BTC/ETH/SOL cases passed through real encrypted ephemeral custody signing
+of their exact modeled recovery message, rejected missing approval/cloned intent
+and duplicate grants/signatures, then persisted the signature in SIGNING without
+broadcast. Those wallets are unfunded; transports remain mocked and sends stay
+at the original two test attempts. Public integration, signed-wire resimulation,
+controlled broadcast/reconciliation, final accounting and release remain pending.
+Discover has no newly published functionality to announce.
+
+### Exact signed recovery broadcast boundary (local, 2026-11-06)
+
+Added an internal submitter for the same privately authorized recovery intent.
+It verifies the journal's cryptographically checked owner-signed bytes, rechecks
+the captured custody authorization/context, and repeats complete same-bank
+simulation with sigVerify=true on those exact signed bytes. After revalidation,
+the native swap journal atomically persists UNKNOWN/signature/blockheight before
+one sendTransaction attempt (maxRetries=0). A lost or mismatched response stays
+UNKNOWN; no automatic retry, replacement identity or risk release is offered.
+The post-sign reader allows only the expected signature/signed/updated changes
+to the otherwise exact persisted intent. Generic swap/transfer grants cannot
+reach this stage.
+
+Joined BTC/ETH/SOL tests model exact signed resimulation and one mocked send,
+including a BTC transport timeout, duplicate-call rejection and durable UNKNOWN
+after reopening the journal. Added a changed-context refusal before any send.
+This path remains internal and is not wired to production or the public API.
+Finalized recovery receipt/accounting, unsigned-parent race exclusion, failure
+recovery, interface and release verification remain pending. No funded wallet,
+real transport, live trade or automation activation was used.
+
+### Restart-safe finalized recovery receipt (local, 2026-11-06)
+
+Added a read-only recovery receipt reader using persisted swap/execution rows,
+not an in-memory signing grant. It re-verifies original conversion finality and
+the exact failed opening, checks original collateral amount/source/owner binding,
+reconstructs every recovery message byte with the native constructor and checks
+the finalized signed recovery transaction through the strict token-transfer,
+native CPI event, minimum-output, old-balance and fee/rent receipt verifier.
+Journal records are checked for mutation throughout asynchronous reads. Pending
+finality returns no receipt. No signing, send, settlement or risk release occurs.
+
+The test receipt model can consume an exact already-signed ephemeral recovery
+wire without exporting custody keys. Joined coverage checks persisted UNKNOWN,
+wrong-owner refusal, pending finality, journal reopen, exact USDC return evidence
+and unchanged original risk reservation. Finalized accounting/release and public
+integration remain pending. Discover still has no published availability change;
+no real funds or transactions were used.
+
+### Verified recovery swap settlement (local, 2026-11-06)
+
+Added a narrow reconciler that obtains fresh restart-safe native return evidence
+before marking the recovery swap UNKNOWN -> FINALIZED. Pending history leaves
+UNKNOWN unchanged. Parent/hold/swap identity is checked again after asynchronous
+verification; repeated finalized verification returns the same result and never
+sends. The result explicitly says complete recovery accounting is still required
+and original risk was not released. This is not an execution-parent CLOSED state,
+fee charge or permission to open another trade.
+
+All three joined BTC/ETH/SOL cases passed pending-to-finalized and repeated
+verification, retaining the full original 10.02 USDC reserve and no opening fee
+assessment. Added an exact signed-wire tamper check that must leave UNKNOWN.
+Recovery-history cost recognition and typed complete-account proof still need
+integration before capital may be released. Public/UI/runtime wiring, remaining
+recovery modes and release verification are not completed. Discover has no new
+published availability; all transport and chain status were test models.
+
+### Immutable recovery history facts (local, 2026-11-06)
+
+Added a bounded exact wallet/signature lookup in the existing native swap
+journal, rejecting ambiguous duplicate signatures without changing its schema.
+A new history reader recognizes only a persisted entry-recovery stage and binds
+it to the original execution reservation/hold/conversion. It verifies the
+finalized recovery using the transaction reader's captured immutable wire/meta,
+not a competing second getTransaction response. Facts retain exact collateral,
+USDC return, USDC swap fee and SOL network fee separately; no Increase event or
+futures trade is invented. Re-reading rejects cloned facts or changed journal
+snapshots. This is not a general PoolSwap allowlist.
+
+All three joined BTC/ETH/SOL cases passed recovery-history provenance and clone
+checks. Independent USD loss valuation and complete-day account integration are
+still pending, so original risk remains reserved. This internal history reader
+is not enabled as an accounting exemption yet. Discover remains reviewed as
+unpublished internal work; no public release or real funds were involved.
+
+### Independent recovery USD reference loss (local, 2026-11-06)
+
+Added a typed valuation reader for genuine immutable recovery history. It uses
+closed, validated underlying/USD upper and USDC/USD lower bounds at the recovery
+time, inward integer rounding and an independently valued USDC output-fee floor.
+Per-transaction gains never erase other losses. SOL network fees are explicitly
+excluded here for separate accounting. The result labels underlying prices as a
+reference proxy, not a wrapped-token depeg guarantee or execution quote.
+
+Joined BTC/ETH/SOL cases passed with a modeled 0.99–1.01 USDC range and exact
+rounding checks, fee-floor protection, duplicate history rejection, cloned proof
+and expired valuation refusal. Complete-day integration and capital release
+remain pending; the new valuation does not itself authorize another trade.
+Discover has no new published functionality; no real funds or provider sends
+were used.
+
+### Complete-day recovery accounting integration (local, 2026-11-06)
+
+Daily and exclusive-custody account readers now carry a separate typed recovery
+history/valuation dependency. Only verified persisted recoveries bypass the
+otherwise unknown native PoolSwap rejection; their conservative USD loss is added
+to initial-conversion loss, while failed openings remain failed transactions and
+neither swap counts as another futures Increase. Fresh-account validation also
+rechecks recovery history/journal and valuation proof. Runtime construction now
+provides the read-only recovery valuation dependency to both readers; this does
+not enable the internal signing/submission path.
+
+Joined account coverage models the initial conversion, failed opening and return
+in complete finalized signature history. It checks zero successful futures
+trades, one failed transaction, one initial conversion and one recovery, exact
+combined conversion/recovery loss, and 16,200 lamports across the three modeled
+transactions. This first account test deliberately leaves network USD valuation
+disabled and checks lamports separately; a capital-release proof still must
+require separately valued network fees. Missing recovery valuation fails closed.
+Capital is not released by this change. No production deployment, real funds or
+new Discover availability claim is involved.
+
+### Fully valued same-day recovery accounting proof (local, 2026-11-06)
+
+Added a private completion-accounting proof requiring a genuine fresh complete
+daily account, separately valued network fees, finalized recovery history rooted
+through the return slot, original conversion and failed opening in the same-day
+history, and unchanged execution/hold/swap snapshots. Clones, unvalued network
+costs and expired underlying valuation cannot qualify. This proof does not yet
+mutate/release capital. Prior-day completion requires a separate historical-cost
+audit and currently fails closed.
+
+Joined test coverage now values all three 5400-lamport transactions using closed
+SOL/USD reference highs: exactly 1620 micro-USD at the modeled 100 USD high.
+It verifies that network loss is added once to initial/recovery losses, rejects
+the earlier lamport-only account, cloned accounts/proofs and expired valuations,
+and retains the original risk reserve. No real transaction, public rollout or
+new Discover availability claim is made.
+
+### Atomic same-day recovered-capital release (local, 2026-11-06)
+
+Execution journal completion now consumes the private fully accounted recovery
+proof within its transaction, checks exact original parent/hold binding, and
+marks only that failed-entry reservation CLOSED with the independently proven
+failed-opening and return slots. The finalized conversion hold and both swap
+records remain as audit history. Cloned, replayed, foreign-journal or stale
+proofs cannot release capital. No principal or signature records are deleted.
+
+Read-only recovery receipt reconstruction can recheck a completed parent only
+when the recovery swap is FINALIZED and its actual return slot exactly matches
+the recorded closed slot; the failed opening must still be cryptographically
+verified at its recorded slot. Such a history binding is explicitly marked
+already completed and cannot prepare another recovery. This keeps daily history
+and loss accounting intact after release instead of invalidating the evidence.
+
+The joined BTC test passed release, clone/replay refusal and a fresh full-history
+read with unchanged losses and one recovery after completion. No opening fee or
+extra send occurs. Other assets and regression checks are being verified.
+This internal path is not deployed; prior-day/unsigned-parent recovery and full
+public integration still require work. Discover has no new shipped availability
+claim and no funded transaction was executed.
+
+### Opening exclusion during collateral recovery (local, 2026-11-06)
+
+Added an opening-only check on the private collateral binding: any pending
+wallet-swap intent blocks entry review/signing risk checks. Read-only/recovery
+binding validation remains separate, so a recovery can revalidate its own
+original conversion while its own wallet exclusion is held. This prevents an
+older opening review from treating pending-recovery collateral as available.
+
+BTC normal opening, ambiguous-opening recovery and failed-opening return cases
+passed with the new check; a genuine pending recovery explicitly fails the
+opening-only boundary while its underlying recovery binding remains valid.
+Atomic coordination for an unsigned RESERVED parent still requires work; this
+change does not remove the failed-opening-only custody restriction. No runtime
+activation, public deployment or real financial transaction occurred. Discover
+has no new shipped functionality to advertise.
+
+### Atomic unsigned-entry recovery exclusion (local, 2026-11-06)
+
+Recovery swap claims are now created while holding the execution journal's
+write transaction, the same lock used by beginSigning. The journal independently
+checks genuine fresh preparation, original source ownership/hold, deterministic
+recovery ID, exact amount/minimum/accounts and strict 50 bps before persisting
+the swap exclusion. An opening that follows the claim sees the pending swap and
+fails its opening-only collateral check; a recovery following a changed/signing
+parent fails its captured original-order binding. Cross-store commit failure
+can leave an unsent pending audit row, never permission to sign/send twice.
+
+A separate general recovery custody entry point can now authorize a RESERVED
+parent with no opening signature under this exclusion. The previous failed-only
+entry point remains restricted to finalized failed openings. All three asset
+tests passed real unfunded custody signing once, refusal of the competing
+opening, explicit abort of the never-broadcast signed intent and subsequent
+normal opening with the original collateral. Finalized unsigned-parent return
+accounting/closure and public integration remain pending. Nothing was deployed,
+no real funds were moved and Discover has no new published capability.
+
+### Same-day recovery without an opening broadcast (local, 2026-11-06)
+
+Completion accounting distinguishes an unsigned RESERVED parent from a finalized
+failed opening. After both conversions and separately valued costs are included
+in genuine complete-day history, unsigned recovery cancels the original reserve
+as CANCELLED with a return slot and no opening signature/confirmed slot. It
+therefore does not manufacture a failed transaction or consume a futures trade.
+Completed read-only history accepts this narrow finalized-return marker while
+new recovery preparation remains forbidden. Audit rows are retained.
+
+The joined BTC/ETH/SOL unsigned-return cases verify exact custody signing,
+one modeled send, finality, two swaps, zero failed/open futures transactions,
+10,800 network lamports, fully valued costs, released pending margin and unchanged
+history on reread. Recovery archive validation now accepts this cancelled/final
+hold combination only with one deterministic FINALIZED original-owner recovery
+record and no opening signature; generic cancelled finalized holds still fail.
+Archive restore coverage is being checked separately. No production deployment,
+real-funded transaction or new Discover availability claim is made.
+
+### Explicit recovery service orchestration (local, 2026-11-06)
+
+Added an optional server recovery coordinator with prepare/confirm/recover
+methods. Review derives original owned collateral on the server, shows exact
+minimum/network costs and zero platform recovery fee, and cannot sign. A fresh
+explicit one-use confirmation creates the deterministic durable intent, invokes
+the narrow custody capability and exact signed submitter. Status recovery can
+verify finality, obtain a genuine complete valued account and complete only the
+original reservation. Repeated completed recovery never sends again. Owner,
+paused execution context, backup and fresh-account checks remain mandatory.
+The coordinator is available in the manual service only when optional swap/send
+and finalized-account dependencies are provided; production runtime/API/UI are
+not wired to it yet.
+
+The BTC joined unsigned-return test passed through the actual coordinator,
+rejecting a foreign owner, absent approval and duplicate confirmation, modeling
+one send and idempotent fully accounted cancellation. Other asset cases are
+being run. The earlier runtime backup regression completed: 13/13 passed,
+including Windows ACL restore. No public deployment, real-funded trade or new
+Discover availability claim occurred.
+
+### Authenticated recovery API and browser client (local, 2026-11-06)
+
+Added explicit prepare/confirm/recover action allowlists routed to the optional
+manual recovery service only after authenticated wallet ownership. Client bodies
+cannot override amount, slippage, owner identity or transaction bytes. The
+browser client accepts only a server-issued original-reservation-bound recovery
+review with strict 50 bps, positive u64 amount/minimum, zero platform recovery
+fee, bounded expiry and explicit recovery confirmation. It uses a separate
+session-bound one-use proof; ordinary opening/close consent cannot authorize it.
+A lost confirmation response consumes the review rather than allowing retry.
+
+All 12 API/client/panel targeted tests passed, including foreign-wallet refusal,
+strict field allowlists, session change, clone/duplicate confirmation, unsafe
+minima, unexpected fees and widened tolerance rejection. The visible recovery
+panel and full browser-to-native-service story are still pending, as is runtime
+dependency wiring and deployment. No real transaction was executed; Discover
+has no new publicly shipped capability to announce.
+
+### Visible manual collateral recovery panel (local, 2026-11-06)
+
+Added a separate return-to-USDC panel for pending collateral-funded entries.
+It shows exact minimum USDC, base-unit collateral amount, strict 0.5% tolerance,
+zero JamdDmaj recovery fee and SOL network/rent costs. Confirmation starts
+unchecked and authorizes only return, never an opening or bot activation.
+The original reservation ID is retained before confirmation so response loss
+leaves a status-query action instead of a retry. Server status projects durable
+recovery state/signature and suppresses opening continuation while recovery is
+pending or finalized. Foreign-wallet selection hides the panel and clears review.
+
+All 13 API/client/panel model tests passed, including no submission before consent,
+one lost-response confirmation, repeated-click refusal, status-only recovery and
+wallet change. These are DOM-model tests, not rendered-browser/full-story proof.
+Runtime send wiring, live unsigned-provider checks, remaining recovery modes,
+complete release verification and publication are still pending. Discover has
+no newly published capability and no real funds were moved.
+
+### Optional runtime recovery/send composition (local, 2026-11-06)
+
+The explicitly enabled manual runtime now receives the existing private swap
+journal and a shared narrow bot send adapter. That adapter accepts only
+sendTransaction while execution runtime is running; native reads continue through
+the separate read-only RPC adapter. It reuses the established fixed TLS swap RPC
+transport and does not accept caller-selected endpoints. Startup or enabling
+dependency composition does not create a per-order signing grant, activate any
+wallet, waive backup/policy/consent checks or send a transaction.
+
+A new unfunded composed-runtime test passed initialization with existing private
+fee/payment/swap/manual-policy stores, inactive worker status, authenticated
+manual status, and denied recovery requests without verified backup. Its entire
+network corpus is four mocked identity reads and no RPC/provider/send calls.
+Full CI is running separately against this integrated source. This is not a
+deployment or rendered-browser/full-story proof. Remaining recovery edge cases,
+public verification and release are still required; Discover has no newly
+published availability claim and no real funds were used.
+
+### Two-stage order panel (local, 2026-11-06)
+
+The Futures manual-order panel labels conversion as step 1, explicitly says it
+does not open a position, displays its minimum base units and 0.5% limit, and
+retains the original reservation ID across continuation. Pending funding exposes
+a separate review-opening action; server preparation still verifies finality,
+ownership, exact original draft and risk before returning a fresh review.
+Continuation clears the consent checkbox and never auto-confirms or resends.
+A DOM-model interaction test clicks the second-step button and verifies a new
+unchecked opening review, despite pending status blocking unrelated new orders.
+This is not yet rendered-browser/full-story evidence or a published feature.
+
+The earlier full CI session 62679 finished with 1389 total / 1370 passed /
+19 skipped / zero failed. It predates these final client/panel edits; targeted
+client, panel and swap UI checks cover those separately. Discover content was
+reviewed and remains unchanged because the release is still unpublished.
+
+### Isolated rendered recovery client/API verification (local, 2026-11-06)
+
+Story: recovery panel -> real browser client -> actual API validation -> modeled
+recovery service -> rendered response. Separate joined tests exercise the native
+custody/journal path; this is not a single browser-to-native or live proof.
+Desktop automation failed its retry/reset sequence because the native pipe was
+missing. Existing headless Edge/Playwright was used without user login/session.
+Every external browser request was intercepted. Desktop 1280px and mobile 390px
+checks passed: minimum/cost rendering, consent-gated confirmation, one lost-response
+confirmation and status-only recovery, no horizontal overflow or page errors.
+The mobile screenshot was inspected. The fixture's missing UTF-8 declaration was
+corrected afterward; production HTML already declares UTF-8. No app security or
+permission settings changed, and no financial transport was present.
+
+Full CI session 90166 completed: 1403 total / 1384 passed / 19 skipped / zero
+failed. It predates this opt-in browser test, whose explicit successful run is
+separate evidence. Full-story native integration, remaining recovery edges and
+release verification are not completed. Discover has no new published claim.
+
+### Rooted initial-conversion failure evidence (local, 2026-11-06)
+
+Refactored exact recorded first-leg wire reconstruction into a shared internal
+reader and added separate private failure evidence. It requires finalized failed
+status, the exact durable owner-signed wire/signature, matching slot/error and
+native constructor message, verified finalized transaction provenance, no
+committed token changes and only the payer's actual network-fee lamport debit.
+Confirmed failure or missing transaction returns no proof. Wrong owner, changed
+wire/balances, cloned evidence and expired full-read leases fail closed.
+
+BTC/ETH/SOL joined initial-failure cases passed; existing unsigned-return behavior
+also passed after the reconstruction refactor. This evidence does not settle the
+swap or release original capital: complete-day failed-transaction fee accounting
+and a private completion boundary are still required. No replacement send,
+production deployment, real funds or new Discover availability claim occurred.
+
+### Accounted initial-conversion failure release (local, 2026-11-06)
+
+Added a private completion proof joining exact rooted first-leg failure to its
+original RESERVED/HELD parent, canonical draft, amount and genuine complete-day
+account. The matching failed transaction and separately valued network fees are
+mandatory. Journal completion consumes this proof once, settles only the exact
+swap as FAILED and cancels the original reserve with a failure slot. If the
+cross-store journal commit is interrupted, the still-reserved parent can be
+reconciled against the existing FAILED swap; no replacement send is authorized.
+Archive validation accepts that cancelled HELD audit combination only with a
+FAILED swap and an explicit recorded failure slot, distinct from unsent ABORTED.
+
+All three BTC/ETH/SOL joined failure cases passed exact 540 micro-USD modeled
+network loss, clone/missing-valuation/replay refusal, released pending margin,
+zero futures trades and unchanged loss on reread. No failed swap is counted as
+received collateral. This completion is not yet dispatched by the public status
+recovery method; that service integration remains work, as do other edge cases
+and release. No real funds or new public Discover availability were involved.
+
+### Initial-failure status recovery service (local, 2026-11-06)
+
+Manual operation recovery is now asynchronous under the per-wallet service
+exclusion. For a RESERVED/HELD first-leg UNKNOWN/FAILED record it reads exact
+rooted failure evidence; unavailable/unverifiable evidence returns UNVERIFIED
+without release. Genuine failure requires owned paused custody, verified backup,
+a fresh complete valued account and unchanged control revision before private
+journal completion. Never-broadcast SIGNING/ABORTED recovery retains its distinct
+audit path. No status query resends a transaction.
+
+BTC/ETH/SOL initial-failure cases passed through service recover and repeated
+completed queries. Six BTC first-leg/timeout/unsigned/signing/simulation/opening
+regressions and all 13 API/client/panel checks also passed. Prior-day recovery,
+remaining edge cases and complete public release verification remain pending.
+Nothing was deployed, no real funds were moved and Discover has no new claim.
+
+### Current unsigned provider checks and read throttling (2026-11-06)
+
+Ran isolated read-only diagnostic bundles in the server checks directory, not
+the installed worker. Current strict entry-conversion preparation/simulation
+passed BTC (slot 466116362), ETH and SOL (slot 466116489), with no signing or
+submission. Current direct unsigned Short review also passed BTC, ETH and SOL
+after sequential checks. This is not proof of collateral-funded Long opening,
+keeper execution, collection, deployed UI or an actual mainnet position.
+
+Parallel reads initially failed; a later bounded diagnostic established HTTP
+429 / JSON-RPC 429 at getGenesisHash. A subsequent SOL check passed after waiting.
+The read-only transport now preserves a sanitized rate-limit classification;
+the authenticated API returns rpc-rate-limit/429 and the manual panel explains
+temporary read saturation without blaming funds/permissions or retrying an
+order. Thirteen transport/API/panel tests passed, including HTTP and JSON-RPC
+throttling and one-attempt behavior. Provider URLs, credentials, balances and
+transaction bytes were not printed by the new diagnostic. No installed service
+was restarted, no financial operation occurred and Discover has no new release
+availability claim.
+
+### Encrypted post-recovery restoration corpus (local, 2026-11-06)
+
+Added actual encrypted archive/restore checks to the existing unfunded native
+BTC/ETH/SOL flow cases: rooted first-conversion failure, conversion returned
+without broadcasting an opening, and conversion returned after a failed opening.
+All nine targeted cases passed. Restored reservations, holds, complete swap rows
+and risk totals match the source; no pending swap is invented, settings remain
+unchanged, controls are paused and restoration grants no signing or trading.
+Archives include the fee and payment stores as required by the retained original
+commercial consent; omitting these correctly failed the initial test setup.
+
+The full CI run before these additions finished with 1409 tests: 1388 passed,
+20 skipped and one failure. That failure was an old synchronous test assertion
+against the now asynchronous manual recovery method, not a missing transaction
+signature. Updated it to await recovery; its targeted two-approval/timeout test
+passes. A fresh full CI run is in progress; do not treat the earlier run as green.
+
+Reviewed Discover HTML, JS and both CSS entry points for this internal-only
+verification change. No availability/content change is appropriate until the
+manual trading release is actually verified and published. Nothing was deployed
+and no funded transaction was signed or submitted.
+
+The isolated recovery browser test also passed at desktop/mobile widths using
+the real client and authenticated API with a modeled service; it is not evidence
+of a complete browser-to-native-custody story. All 13 runtime recovery tests
+passed, including the actual Windows restricted-ACL encrypted restore test.
+The new native-flow archive assertions additionally compare retained commercial
+consent, fee assessments and payment rows to the source databases.
+
+The repeated full CI run finished successfully: 1409 total, 1389 passed,
+20 skipped, zero failures. All nine BTC/ETH/SOL archive cases also passed after
+adding explicit fee-consent/assessment/payment comparisons. No outstanding test
+process remained from these runs. This does not prove publication readiness or
+the remaining historical-day and recovery edge cases; the objective stays open.
+
+The subsequent sequential `npm run build:web` also completed successfully,
+preparing 31 local web assets. No deployment or installed-worker restart occurred.
+
+### Browser-to-native first-leg boundary (local, 2026-11-06)
+
+Added BTC/ETH/SOL API integration cases using the real manual client, ownership
+boundary, native service, unfunded ephemeral custody signer, execution/swap
+journals and actual fee-consent store. Native RPC and send transports are mocked;
+the builder mismatch exercises the strict-50-bps Long first-leg fallback.
+Both approvals are required, reserve/signing follows review rather than preceding
+it, one send records UNKNOWN before the mocked transport, and replay/status/
+recovery never send again. Consent terms retain the original 20000-unit fee;
+no opening assessment or collection is invented before an opening exists.
+
+An opt-in headless browser bridge runs those same cases with the actual bundled
+browser client, actual API and native custody fixture, rather than a modeled
+service. All three browser cases passed. The isolated bridge rewrites only its
+synthetic loopback origin at the API adapter and has no authorized user session;
+it is not a production CORS, deployed-page, second-leg Long or position-fill test.
+The local bridge initially duplicated the origin header with different casing;
+using Headers.set fixed that fixture error without weakening production origins.
+It permits only its loopback document and the exact controls API route, closes
+its browser/server, and never accesses a real financial submission transport.
+
+Run with JAMDDMAJ_NATIVE_BROWSER=1 and the existing optional browser module and
+executable variables, selecting the three `api` native-entry cases. The ordinary
+client/API cases remain runnable without a browser. Nothing was deployed and
+Discover has no new availability claim for this internal verification increment.
+
+### Both Long approvals and optional return across the API (local, 2026-11-06)
+
+Extended the native opening cases to use the actual client/API boundary for both
+the initial conversion and separately reviewed collateral-funded opening, not
+just service method calls. Opt-in browser runs passed BTC/ETH/SOL through both
+steps and the modeled finalized keeper receipt. Attempting to continue while
+the first conversion is still UNKNOWN is refused without another send. The
+first review cannot authorize the second step, each step requires both consents,
+and repeated confirmations never repeat either financial transport.
+
+Post-finality checks consult the original operation by ID through the real API:
+it is OPEN with the original opening signature, FINALIZED conversion and no
+remaining opening review. The status list intentionally contains pending work,
+not already-open positions; the initial new assertion incorrectly treated it as
+position history and was corrected rather than changing production semantics.
+There is one original fee consent and one independently verified opening fee
+assessment, never two assessments for the conversion and opening.
+
+Nine browser-mode timeout/failed-opening/unsigned-return cases passed. Extended
+the unsigned-return path further to use the real browser recovery client/API,
+native signer, receipt/accounting completion and encrypted archive checks;
+all three BTC/ETH/SOL cases passed in browser mode and ordinary client mode.
+The synthetic native network/send/keeper transports remain strictly mocked.
+These are unfunded integration proofs, not live provider fills, production UI
+or published availability. Prior-day recovery and other release gates remain
+unresolved. Discover content remains unchanged for this internal-only test work.
+
+### Rooted first-leg failure reconciled on a later UTC day (local, 2026-11-06)
+
+Fixed the first-leg-failure completion gate so an exact rooted conversion
+failure from a previous day does not remain reserved merely because today's
+complete history correctly excludes it. This applies only to the private native
+failure proof: exact durable signed wire, finalized matching status/error/slot,
+unchanged token balances and all native balances unchanged except the payer's
+verified network fee. It cannot stand in for a successful conversion, an absent
+transaction or a failed opening with already-converted collateral.
+
+The current account must still be complete, fresh, journal-bound, rooted through
+the failure and include current-day network fees in USD loss. A same-day failure
+must still appear with its exact fee/slot in today's verified transaction list.
+A prior-day failure must precede the current account day and must not appear in
+that list. Its fee remains bound to its original transaction day; it is not
+charged again to today's daily-loss total. The private completion identifies
+both dates and whether the fee was included in the current day, while retaining
+the original swap, failed state, signature and closed slot after cancellation.
+
+Six BTC/ETH/SOL same-day/prior-day service recovery cases passed, including
+real encrypted archive/restore checks. Omitted same-day transaction history,
+cloned account proofs, missing USD fee valuation, changed signed transactions,
+changed native balances and stale failure proofs remain rejected. This closes
+only the prior-day *failed initial conversion* case. Successful initial
+conversion/recovery across days, never-broadcast opening recovery and remaining
+release verification are not claimed complete. Nothing was deployed or sent
+through a real financial transport. Discover remains unchanged because this is
+an unpublished internal recovery fix, not newly available public functionality.
+
+The 25 client/API/runtime-recovery regressions also passed, including the real
+restricted-ACL Windows restore. The subsequent sequential web build prepared
+31 local assets successfully and the scoped whitespace check reported no errors.
+The earlier full-CI result predates this prior-day fix; a new full run remains
+part of release verification rather than an already-passed claim.
+
+### Explicit recovery before an opening broadcast identity (local, 2026-11-06)
+
+Added a narrowly scoped manual-opening recovery transition under the execution
+journal transaction lock. Only an owned manual SIGNING row with no recorded
+signature/wire hash qualifies; UNKNOWN/UNCERTAIN broadcast identities, automated
+signals, foreign wallets, pending swaps, closes, exit cancellation and fee
+payments cannot use it. The service requires paused, running exclusive custody
+with verified backup and serializes the explicit recovery request by wallet.
+
+A single-leg never-broadcast attempt becomes terminal CANCELLED. A two-step
+Long retains its original FINALIZED conversion and full risk/fee reservation,
+returns to RESERVED and requires another independent review and approval.
+Unused exit addresses remain bound to the original reservation, while its
+never-broadcast plan is cleared so the fresh review can bind its new plan.
+
+The hold update value is advanced strictly, even under a frozen clock, and
+captured by manual custody authorization and its verified signed result.
+recordBroadcastIntent rejects a manual collateral opening whose signing epoch
+does not match the current hold. Thus a previous signature cannot attach to a
+newly approved SIGNING attempt after recovery (ABA), including the small window
+after signing has returned but before durable broadcast identity. No schema
+change or age/absence-of-chain-result heuristic is used; journal locking decides
+whether recovery or recording the first broadcast identity wins.
+
+BTC/ETH/SOL interruption-after-signing cases passed both ordinary client/API
+and browser-to-native-fixture flows: zero opening sends before recovery,
+unchanged converted collateral, strictly revoked epoch, fresh review/consents,
+rejected old signed identity, then one opening send only. The three ordinary
+cases also pass actual encrypted restore before continuation, preserving risk,
+holds, swap rows, consent/assessment/payment rows and paused controls. Nine
+journal regressions passed, including both orderings of the independent-
+connection recovery/broadcast race and refusal to recover an automated row.
+Thirteen client/API/panel checks passed; the panel explains that no opening
+submission was recorded and requires another review instead of silently retrying.
+
+A full fresh CI run is in progress. These tests use unfunded generated custody
+keys and mocked financial transports; no real operation was signed or sent.
+No deployment occurred. Discover was reviewed for the unpublished internal
+recovery/UI change: no new public availability claim is appropriate yet.
+
+Additional targeted checks passed: a real unfunded single-leg custody signature
+interrupted before broadcast identity is terminally cancelled through the service,
+its old signed identity cannot be recorded, its fee consent is retained and no
+assessment/collection is created. The two-step reset additionally checks the
+original finalized swap's owner, wallet, signature, signed-wire hash and amount;
+all three native cases passed with wrong-owner and missing-swap-store rejection.
+Nine timeout/failed-opening/return regression cases also passed. The ongoing full
+CI began before these final extra test/assertion additions; its result must be
+reported with that scope rather than treated as a fresh full-source release gate.
+
+That full CI run finished with 1419 tests: 1399 passed, 20 skipped, zero failures.
+The subsequent extra single-leg test and final three owner-bound reset checks
+passed separately as recorded above. All observed test processes are terminal.
+
+### Explicit fresh return after a never-broadcast abort (local, 2026-11-06)
+
+Implemented a bounded immutable return-attempt chain without changing the swap
+schema. The original deterministic root stays readable, including legacy roots;
+each subsequent identity derives from that root and its sequence, retains the
+preceding row and requires that predecessor to be terminal ABORTED. SIGNING,
+UNKNOWN, FAILED and FINALIZED never grant another attempt. Reviews capture the
+exact predecessor, so an approval prepared before an intervening abort cannot
+silently authorize a new attempt. Claiming the new identity still holds the
+execution lock and the genuine swap exclusion and requires fresh explicit
+approval. At most 32 attempts can belong to one original conversion.
+
+The latest attempt is used consistently for status, custody intent, read-only
+receipt reconciliation and audit restore. All ancestor rows are snapshot-bound
+through signing, final receipt/history proofs and completion accounting. Missing
+or changed ancestors, a foreign owner, a live predecessor and orphan identities
+are refused. Archive validation checks all retained return attempts; a tampered
+root is rejected before restoration can provide any signing readiness.
+
+A signed never-broadcast attempt must not share its message/signature with a
+new attempt: preparation and the atomic claim reject messages already signed
+anywhere in that chain. The fixture rotates its invalid fixed blockhash only
+after the stale message is correctly refused. No provider slippage relaxation,
+automatic resend, new fee or silent approval was added.
+
+BTC/ETH/SOL interrupted signed-return -> explicit fresh review -> one final return
+cases passed through ordinary client/API and opt-in browser/native-custody
+fixtures. They retain the original ABORTED signed row, reject old and stale
+approvals, keep risk reserved until receipt/accounting completion, produce a
+different final signature and pass actual encrypted restore plus corrupted-
+ancestry rejection. Twenty-five client/API/runtime-recovery regressions passed;
+the identity/UI/API subset also passed 13 checks, including safe 409 stale-review
+responses and an unchecked fresh review after ABORTED recovery or reload.
+
+The panel now permits a new review only after that verified never-broadcast
+state; UNKNOWN response-loss behavior remains query-only. Discover HTML/JS and
+both CSS entry points were reviewed: this unpublished internal increment adds
+no truthful public availability claim yet. The sequential local web build
+prepared 31 assets. A new full CI run is in progress on the current code; no
+deployment, real financial signature/submission or installed-worker restart
+occurred. Failed-on-chain return recovery and historical successful-conversion
+accounting across UTC days remain separate unfinished work, not covered claims.
+
+The final owner-bound ordinary-client matrix finished six return/return-retry
+cases with zero failures, and the scoped whitespace check passed. The full-CI
+process remains live and must be polled to its actual terminal result, not
+restarted based on the absence of interim reporter output.
+
+### Finalized rejected return: exact evidence and retained collateral (local, 2026-11-06)
+
+The previous full CI process reached its actual terminal result: 1429 tests,
+1409 passed, 20 skipped, zero failures. That result predates the following
+new failed-return code and must not be presented as full-current-source coverage.
+
+Split restart-safe recovery wire reconstruction from success receipt reading;
+success callers still require their original independently verified native
+receipt. Added a separate private finalized-failure proof for an exact recorded
+return: native constructor/message, owner-signed stored wire, matching finalized
+status and transaction error/slot, explicit numeric rooted context, immutable
+original conversion/parent/hold/attempt history, complete unchanged token
+balances and all native balances unchanged except the verified payer fee.
+Missing/unfinalized history is not proof, an altered wire or balance is refused,
+clones lack provenance, and the whole read/failure proof expires in ten seconds.
+The initial-conversion failure reader now also explicitly rejects missing/non-
+numeric status context and an absent error field.
+
+The explicit recovery query retires UNKNOWN -> FAILED only after a fresh complete
+journal-bound current account with USD-valued network fees. Same-day history
+must include that exact failed signature/slot/fee; an earlier-day fee remains
+on its original day and is not charged again today. No committed conversion is
+invented, no commercial opening fee is assessed, and the original execution
+reservation/full converted collateral remains held. Repeated queries reread
+evidence but never submit a replacement. The panel explains the network rejection
+and retained reserve instead of reporting a returned balance or enabling retry.
+
+Six current-day/prior-day BTC/ETH/SOL native service cases passed, including
+exact signature/wire checks, missing status-context rejection, changed source-
+conversion invalidation, changed token/native balance rejection, stale/cloned
+proofs, omitted same-day history, absent fee valuation and actual encrypted
+archive/restore. Three browser/native cases passed; six rejected-opening and
+never-broadcast-return-retry regressions also passed. Twenty identity/client/API/
+panel checks and seventeen runtime/archive/identity checks passed. The sequential
+web build prepared 31 assets; scoped whitespace checks passed. All observed test
+processes are now terminal.
+
+An explicitly approved fresh attempt after a finalized on-chain rejection is
+still unfinished: FAILED alone is deliberately not retry authority. Historical
+successful-conversion cost accounting across UTC days and public release gates
+also remain open. No funded signature/submission, deployment or worker restart
+occurred. Discover HTML/JS and both CSS entry points were reviewed for this
+unpublished internal increment; no new public availability claim was added.
+
+### Current verification baseline and safe boundary traces (local, 2026-11-06)
+
+Re-read the full-story verification and environment guidance and checked current
+source/status before continuing. Story under audit: manual Long/Short UI ->
+authenticated review -> separate approvals -> native custody/journal -> one
+recorded submission -> response/status/recovery. The first unfinished boundary
+remains preparation of a newly approved return after an exact on-chain rejection;
+it is intentionally blocked, not misclassified as insufficient funds or assumed
+working because other tests pass. Production/deployed-page verification cannot
+be inferred from the isolated browser harness.
+
+Added bounded route/outcome traces to the opt-in native browser harness. Only
+action, HTTP status, known stage and sanitized error code are retained, never
+credentials, balances, wallet/reservation IDs or signed bytes. The BTC failed-
+return browser case passed and now proves the exact sequence: prepare 200,
+confirm 200, recover 200, recover 200, new prepare 409 with
+bot-manual-recovery-review-required. It asserts the accounted failed-return stage
+and only one financial transport, rather than merely accepting any rejection.
+No cosmetic or unrelated production change was made.
+
+Environment baseline: the test browser module/executable are present and the
+worktree has .env.example but no .env.local. This is expected for the isolated
+unfunded fixture, not evidence of missing production credentials. No environment
+pull, secret read/write or production-variable modification was performed.
+A current full CI process is live; retain its handle and wait for its terminal
+result instead of restarting on a quiet reporter. Discover requires no new
+availability claim for this test-only observation increment.
+
+The full CI run reached its terminal result: 1436 tests, 1416 passed, 20 skipped,
+zero failures. The new opt-in browser trace assertion passed separately; it
+confirms the known 409 boundary rather than claiming a fresh failed-return
+attempt is functional. No test process remains live. Preparing a local source
+checkpoint excludes .vercel/project.json and the two pre-existing diagnostic
+scripts; this is not a promotion, deployment or completion of the active goal.

@@ -5,6 +5,7 @@ import {mkdtempSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import bs58 from 'bs58';
+import {DatabaseSync} from 'node:sqlite';
 import {readPerpsBroadcastReceipt,isVerifiedPerpsBroadcastReceipt} from '../lib/perps-broadcast-receipt.js';
 import {openPerpsExecutionJournal} from '../lib/perps-execution-journal.js';
 import {reconcilePendingPerps} from '../lib/perps-pending-recovery.js';
@@ -99,6 +100,36 @@ test('journal requires fresh branded proof; confirmed collateral stays held and 
   assert.throws(()=>journal.reserve({...request,reservationId:'next',signalId:'next',limits:{...request.limits,capitalUsd:'10',dailyLossUsd:'10'}}),/CAPITAL_LIMIT/);
  }
 });
+test('a rooted failed opening retains converted collateral and never permits a replacement send',async t=>{
+ for(const holdState of ['HELD','FINALIZED']){
+  const dir=mkdtempSync(join(tmpdir(),'jamd-held-opening-')),path=join(dir,'journal.sqlite');
+  const journal=openPerpsExecutionJournal(path,{now:()=>time});
+  t.after(()=>{journal.close();rmSync(dir,{recursive:true,force:true});});
+  const f=fixture({err:{InstructionError:[0,'InvalidArgument']}}),wallet=f.record.walletAddress;
+  journal.reserve({walletAddress:wallet,signalId:'manual:held',reservationId:'held',marginUsd:'10',
+   limits:{capitalUsd:'10',dailyLossUsd:'10',positions:1,dailyTrades:10},
+   snapshot:{walletAddress:wallet,network:'solana-mainnet',balancesComplete:true,observedAt:time,day:'2026-10-18',availableUsdcUnits:'10000000',allocatedUsdcUnits:'0',lossTodayUsdcUnits:'0',openPositions:0,tradesToday:0}});
+  journal.beginSigning('held');journal.recordBroadcastIntent('held',f.record);
+  // Seed a persisted hold to isolate recovery from preparation/signing. The
+  // receipt itself is cryptographically verified; no receipt brand is forged.
+  const db=new DatabaseSync(path);
+  try{db.prepare('INSERT INTO perps_entry_conversion_holds(reservation,conversion_id,asset,input_units,draft_json,state,created,updated) VALUES(?,?,?,?,?,?,?,?)')
+   .run('held','conversion','BTC','10000000','{}',holdState,time,time);}finally{db.close();}
+  const proof=await readPerpsBroadcastReceipt(f.record,f.request,{now:()=>time,requireFinalized:true});
+  assert.equal(proof.state,'FAILED');
+  assert.throws(()=>journal.reconcileBroadcast('held',proof),/ENTRY_COLLATERAL_RECOVERY_REQUIRED/);
+  const before=journal.read('held');
+  for(let pass=0;pass<2;pass++){
+   const recovered=await reconcilePendingPerps(journal,wallet,{readReceipt:async()=>proof});
+   assert.equal(recovered.unresolved,1);assert.equal(recovered.failed,0);assert.equal(recovered.confirmed,0);
+   assert.deepEqual(journal.read('held'),before);
+  }
+  assert.equal(before.state,'UNCERTAIN');
+  assert.equal(journal.riskState(wallet).pendingMarginUsdcUnits,'10000000');
+  assert.throws(()=>journal.cancelUnsigned('held'),/RECONCILIATION_REQUIRED/);
+ }
+});
+
 test('a failed attempt landing after midnight retains its new-day trade slot but releases collateral',async t=>{
  const dir=mkdtempSync(join(tmpdir(),'jamd-midnight-receipt-'));
  let now=Date.parse('2026-10-17T23:59:59Z');

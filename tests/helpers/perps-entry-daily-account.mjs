@@ -16,7 +16,7 @@ export function entryDailyAccountFixture(f,{journal,swapJournal,inputHigh='1.01'
   if(method==='getMultipleAccounts')return {context:{slot:200},value:params[0].map(key=>f.after.get(key)??f.before.get(key)??null)};
   if(method==='getSlot')return 200;if(method==='getBlocks')return [1];if(method==='getFirstAvailableBlock')return 0;
   if(method==='getBlockTime')return now/1000-(params[0]===200?5:172800);
-  if(method==='getSignaturesForAddress')return historyVisible&&params[0]===f.walletAddress?[{signature:f.identity.signature,slot:f.transaction.slot,blockTime:f.transaction.blockTime,err:null,confirmationStatus:'finalized'}]:[];
+  if(method==='getSignaturesForAddress')return historyVisible&&params[0]===f.walletAddress?[{signature:f.identity.signature,slot:f.transaction.slot,blockTime:f.transaction.blockTime,err:f.status?.err??null,confirmationStatus:'finalized'}]:[];
   return f.request(method,params);
  };
  const common={now:()=>now,monotonicNow:()=>0,fetchImpl};
