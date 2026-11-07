@@ -39,5 +39,10 @@ indicative metrics, existing full close and pending partial/TP/SL functionality.
 No VPS commands, schema/policy/balance writes, restarts, live-wallet actions or
 backend execution changes are required. Web/source 1.38.23; no new APK claimed.
 
-Partial delivery awaiting staged/public verification. Do not report the whole
-user request complete or say partial closes / post-open TP are implemented.
+Partial delivery published and verified: source 37e2e06c9c2ff91820c9b633e7025ab34d7b6b0a,
+deployment dpl_DEMHAmd3Tw1h8tbNZsda1rQhTkLo. Staged READY assets matched the
+committed build before promotion; public www assets (wallet panel, metrics,
+bot management panel, CSS and Discover) matched afterward. Public status
+reports web 1.38.23 and actual APK 1.38.17. No live financial action performed.
+Do not report the whole user request complete or say partial closes / post-open
+TP are implemented.
