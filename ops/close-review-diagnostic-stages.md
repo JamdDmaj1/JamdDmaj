@@ -1,5 +1,9 @@
 # Full close review — diagnostic-only local change
 
+Historical investigation below. Superseded by the completed, installed fix in
+close-conservation-fix-20261107.md. Original rejection is no longer the current
+release status; real user confirmation/settlement remains unclaimed.
+
 Reported production code controls-unavailable is not a diagnosed root cause.
 The HTTP adapter previously folded known close builder/simulation/account/price
 failures into its generic fallback. Add exact allowlisted public codes for

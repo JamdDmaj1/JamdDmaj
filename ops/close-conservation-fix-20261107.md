@@ -52,4 +52,27 @@ failure; never restore old DBs or use previous empty-journal installers.
 
 Discover HTML/JS/CSS/tour reviewed. Internal correctness fix: no new capability,
 market, price plan or UI feature to advertise; web version/APK unchanged.
-Installation not yet performed. Do not claim successful real user close.
+## Installed and verified
+
+Source 52d0b2734135445dc9743947fda467ea722f2a60 installed using the reviewed
+open-position-preserving operator. Preflight succeeded. Graceful binary-only
+update succeeded; all services healthy and all seven logical financial state
+fingerprints unchanged. No pending actions or unpaid fee assessments at install;
+all automation remained paused. Existing OPEN position preserved; no financial
+send, policy change, schema migration or DB restoration performed.
+
+Installed worker SHA256
+158fa791910425f0ad2e8f64e19c9eada4b06c5eb33bfafd2833391aa9fce561;
+web SHA256
+270050d9b4c3ff38a670de275326f2065b5cb67f290e6fd58ceaeaa1ea27dffe.
+After restart the isolated read-only diagnostic again completed real-position
+FULL_CLOSE_SIMULATED_WALLET_ONLY with readyForSigning=false, submitted=false.
+These checks used the corrected financial source matching the installed build.
+Diagnostic sampling may batch read calls; production RPC pacing is unchanged,
+so exact-bank mismatch may still require a fresh user review. No relaxation or
+automatic send retry was introduced. Recent logs show only the graceful stop /
+start and expected SQLite experimental warnings, not a runtime failure.
+
+Goal implementation/installation verified without executing a user trade.
+Actual authenticated user confirmation/settlement has NOT been performed or
+claimed. User still controls whether to close. Web/APK unchanged.
