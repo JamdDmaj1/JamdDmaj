@@ -30,7 +30,9 @@ try{for(const viewport of [{width:1440,height:900},{width:390,height:844}]){
   }});
   // Client's public API is prepare(wallet,draft).
   await entry.prepare({asset:'SOL',side:'LONG',margin:'10',leverage:'3',referencePrice:'100'});
-  const entryConfirm=buttons().find(n=>n.textContent==='Confirm manual bot order'),entrySection=entryConfirm.closest('section');
+  const entryConfirm=buttons().find(n=>n.textContent==='Confirm opening');
+  if(!entryConfirm)throw Error('Opening review did not render');
+  const entrySection=entryConfirm.closest('section');
   const approvals=entrySection.querySelectorAll('input[type=checkbox]'),entryBlocked=entryConfirm.disabled;
   approvals[0].checked=true;approvals[0].onchange();const entryEnabled=!entryConfirm.disabled;
   const combined=entrySection.textContent.includes('10.02 USDC');await entryConfirm.onclick();entry.dispose();

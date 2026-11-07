@@ -24,20 +24,20 @@ test('return panel requires fresh consent, retains identity after response loss 
  await recover.onclick();assert.equal(queries,1);
 });
 
-test('verified never-broadcast return permits only a new unchecked review, including after reload',async t=>{
+for(const terminal of ['ABORTED','FAILED'])test('verified '+terminal+' return permits only a new unchecked review, including after reload',async t=>{
  const nodes=[],doc={defaultView:{Event},dispatchEvent(){},addEventListener(){},removeEventListener(){},createElement(tag){
   const n={tag,children:[],hidden:false,textContent:'',append(...values){this.children.push(...values);},setAttribute(){}};nodes.push(n);return n;
  }};
  const wallet='11111111111111111111111111111112',id='11111111-1111-4111-8111-111111111111';selectWalletAccount(doc,{source:'watch',address:wallet});
  let preparations=0,confirms=0;
  const client={prepareRecovery:async()=>{preparations++;return {walletAddress:wallet,expiresAt:Date.now()+9000,asset:'BTC',amountUnits:'9970000',minimumUsdcUnits:'9920150',networkFeeLamports:'5400',rentLockedLamports:'0'};},
-  confirmRecovery:async()=>{confirms++;},recoverRecovery:async()=>({state:'ABORTED',requiresNewReview:true,originalRiskReleased:false})};
+  confirmRecovery:async()=>{confirms++;},recoverRecovery:async()=>({state:terminal,requiresNewReview:true,originalRiskReleased:false})};
  const panel=setupBotManualRecoveryPanel(doc.createElement('main'),{doc,language:'en',client});t.after(()=>panel.dispose());
  panel.setOperation({wallet,id,state:'RESERVED',recoveryState:'SIGNING'});
  const prepare=nodes.find(n=>n.textContent==='Review return to USDC'),confirm=nodes.find(n=>n.textContent==='Confirm return'),recover=nodes.find(n=>n.textContent==='Check return'),consent=nodes.find(n=>n.type==='checkbox');
  assert.equal(prepare.hidden,true);await recover.onclick();assert.equal(prepare.hidden,false);assert.equal(confirms,0);
- assert.ok(nodes.some(n=>n.textContent.includes('This attempt was not submitted. You can request a fresh review; reserve remains held.')));
- panel.setOperation({wallet,id,state:'RESERVED',recoveryState:'ABORTED'});assert.equal(prepare.hidden,false);
+ assert.ok(nodes.some(n=>n.textContent.includes(terminal==='ABORTED'?'This attempt was not submitted. You can request a fresh review; reserve remains held.':'Request a fresh review and approve it separately.')));
+ panel.setOperation({wallet,id,state:'RESERVED',recoveryState:terminal,recoveryRequiresNewReview:true});assert.equal(prepare.hidden,false);
  await prepare.onclick();assert.equal(preparations,1);assert.equal(consent.checked,false);assert.equal(confirm.disabled,true);
  await confirm.onclick();assert.equal(confirms,0);
 });

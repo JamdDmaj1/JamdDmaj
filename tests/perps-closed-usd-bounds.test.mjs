@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createClosedPerpsUsdBoundsReader} from '../lib/perps-closed-usd-bounds.js';
+import {createClosedPerpsUsdBoundsReader,createHistoricalClosedPerpsUsdBoundsReader} from '../lib/perps-closed-usd-bounds.js';
 const clock=Date.parse('2026-10-20T20:06:00Z'),day='2026-10-20',minute=Date.parse(day+'T20:00:00Z')/1000;
 const symbols={USDCUSD:'USDC',XBTUSD:'BTC',ETHUSD:'ETH',SOLUSD:'SOL'};
-function fixture(mode='ok'){
+function fixture(mode='ok',historical=false){
  const calls=[];let elapsed=0;
  const fetchImpl=async(url,options)=>{
   const u=new URL(url),asset=symbols[u.searchParams.get('pair')],interval=Number(u.searchParams.get('interval')),start=Number(u.searchParams.get('since'));
@@ -26,8 +26,32 @@ function fixture(mode='ok'){
   if(mode==='content-type')response.headers.set('content-type','text/html');
   return response;
  };
- return {calls,read:createClosedPerpsUsdBoundsReader({fetchImpl,now:()=>clock,monotonicNow:()=>elapsed})};
+ return {calls,read:(historical?createHistoricalClosedPerpsUsdBoundsReader:createClosedPerpsUsdBoundsReader)({fetchImpl,now:()=>clock,monotonicNow:()=>elapsed})};
 }
+
+test('explicit historical audit keeps actual wall-clock freshness and transaction-day closed bounds',async()=>{
+ const previous='2026-10-19',time=Date.parse(previous+'T23:12:20Z')/1000,requests=[{asset:'USDC',blockTime:time}];
+ const f=fixture('ok',true),result=await f.read({requests,day:previous});
+ const bar=result.get('USDC:'+Math.floor(time/60)*60);
+ assert.equal(new Date(bar.start*1000).toISOString().slice(0,10),previous);
+ assert.equal(bar.timeframeSeconds,300);assert.equal(bar.lowE8,'99000000');assert.equal(bar.highE8,'101000000');
+ assert.deepEqual(f.calls,[{asset:'USDC',interval:5}]);
+ await assert.rejects(()=>fixture().read({requests,day:previous}));
+ for(const mode of ['open-only','zero-trade','expired'])await assert.rejects(()=>fixture(mode,true).read({requests,day:previous}));
+ for(const invalid of ['2026-10-21','2026-02-30','2026-1-1'])await assert.rejects(()=>f.read({requests:[],day:invalid}));
+ await assert.rejects(()=>f.read({requests,day}));
+});
+
+test('historical audit cannot survive a wall-clock day rollover or backwards clock',async()=>{
+ const previous='2026-10-19',time=Date.parse(previous+'T23:12:20Z')/1000;
+ for(const moved of [Date.parse('2026-10-21T00:00:00Z'),clock-1]){
+  let current=clock;
+  const read=createHistoricalClosedPerpsUsdBoundsReader({now:()=>current,monotonicNow:()=>0,fetchImpl:async()=>{
+   current=moved;return Response.json({error:[],result:{'USDC/USD':[[Math.floor(time/300)*300,'1','1.01','0.99','1','1','1',1],[Math.floor(clock/300000)*300,'1','1.01','0.99','1','1','1',1]],last:clock/1000}});
+  }});
+  await assert.rejects(()=>read({requests:[{asset:'USDC',blockTime:time}],day:previous}));
+ }
+});
 test('closed direct USD bars bind each fixed market and preserve decimal USDC bounds without a peg',async()=>{
  const f=fixture(),requests=['USDC','BTC','ETH','SOL'].map(asset=>({asset,blockTime:minute+20}));
  const result=await f.read({requests,day});assert.equal(f.calls.length,4);

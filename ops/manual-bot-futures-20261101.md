@@ -1462,3 +1462,326 @@ confirms the known 409 boundary rather than claiming a fresh failed-return
 attempt is functional. No test process remains live. Preparing a local source
 checkpoint excludes .vercel/project.json and the two pre-existing diagnostic
 scripts; this is not a promotion, deployment or completion of the active goal.
+
+### Private accounted-failure evidence for a future fresh review (local, 2026-11-06)
+
+Starting from source checkpoint 47e07c1, added a private read-only cost/history
+precondition for the still-unfinished fresh approval after an on-chain rejected
+return. It requires genuine newly read finalized-failure proofs for every FAILED
+attempt in the immutable original chain, no omissions/duplicates, matching owner,
+wallet, original signed conversion hash, fixed amount and pending parent/hold.
+Each failure must still match a fresh complete journal-bound account and its
+correct transaction-day network fees. The whole ancestor/source/parent/hold
+snapshot and all underlying leases are rechecked on use, so minting a new wrapper
+cannot refresh stale evidence or hide changed records.
+
+This evidence explicitly retains readyForSigning=false, readyForRetry=false and
+originalRiskReleased=false, and requires a fresh explicit approval. It is not a
+custody grant, review, attempt insertion, send or risk release, and cannot be
+passed to the client's confirmation method as if it were an approved review.
+The existing reconciliation accounting checks were factored without changing
+their behavior. The HTTP preparation boundary remains intentionally blocked;
+consumer integration, one-use confirmation/claim authorization and historical
+successful-conversion accounting are not claimed finished.
+
+Six BTC/ETH/SOL same-day/prior-day native cases passed with positive evidence,
+cloned/missing/duplicate facts, a changed owner or previous attempt, cloned or
+unvalued accounts, changed durable rows and stale leases. Three opt-in browser/
+native cases and twenty client/API/identity/panel regressions also passed. All
+financial transports remained mocked and generated custody wallets unfunded.
+No production/session/environment change, deployment or real fund movement was
+performed. This internal backend-only precondition does not justify changing
+Discover availability content; the full objective remains active.
+
+### One-use accounted-failure claim consumer (local, 2026-11-06)
+
+Connected the private cost evidence to the low-level recovery intent and atomic
+execution-journal claim. A FAILED marker or copied previous-failure metadata is
+still insufficient: every chain containing FAILED rows requires genuine owned,
+fresh complete-account evidence. The claim validates the exact predecessor and
+canonical next identity, consumes that evidence once under the execution lock,
+and requires the callback's genuine unsigned swap claim for that owner/wallet.
+Missing/cloned evidence, null/original IDs, false explicit approval and reuse
+are refused before another authorized claim/signature can be obtained.
+
+The only allowed change to the consumed evidence's snapshot is its exact new
+child claim. Parent, hold, original conversion, ancestors, verified failed
+transactions, current-day costs and original leases remain bound. After append,
+the private audit is revalidated without pretending its historical full-chain
+snapshot is unchanged; it checks the unchanged prefix, the sole appended child,
+genuine transaction provenance, fee accounting and the original deadlines.
+Changed ancestors invalidate both audit and signing intent before custody use.
+
+Failure references are derived from native facts, frozen in planned identities,
+checked against actual signed ancestors, and compared with all verified failure
+facts when evidence is minted. They are identity/audit metadata, not standalone
+signing authority. Prepared recovery reads can now raise their slot floor;
+both intent and locked claim reject a simulation older than any failed attempt.
+The original 50-bps bound, fixed converted amount and risk reserve are unchanged.
+
+All three BTC/ETH/SOL component cases passed: prove costs -> new-bank preparation
+-> one protected claim -> one genuine unfunded custody signature -> explicit
+never-broadcast abort -> encrypted archive/restore retaining both attempts. Old
+simulations, changed ancestry, missing/copy-only capability and repeated use are
+negative cases. No replacement financial send occurs in these tests. Six prior
+failed-return cases passed; runtime/archive tests finished 39 total, 36 passed
+and 3 Linux-only skips. The client/API/identity subset passed 17 checks, and the
+extended pure identity suite passed five. The final null/original-ID guards also
+passed the BTC component test. Local web build prepared 31 assets and whitespace
+checks passed. No observed test process remains live.
+
+The public review producer/confirmation orchestration is NOT connected yet.
+It must freshly audit all FAILED ancestors (including after an ABORTED child),
+prepare at the verified slot floor, bind the private evidence to a separately
+approved review and carry it through confirmation. Successful return/UTC cost
+accounting, ancestor receipt audits, full-current-source CI and public release
+verification remain open. Nothing was deployed, no real funds were moved and
+no bot was enabled. Discover was reviewed and remains unchanged because these
+unpublished server primitives are not newly available public functionality.
+
+### Fresh failed-return review orchestration (local, 2026-11-07)
+
+The review producer now freshly audits every FAILED ancestor, obtains complete
+current costs, raises the preparation slot floor, rejects previously signed
+messages and binds the private one-use evidence to the review's expiry and
+separate explicit confirmation. A verified failed return may expose a new
+unchecked review in the panel, including after reload; UNKNOWN remains query-only.
+This supersedes the previous paragraph's disconnected-producer status, not its
+remaining historical-accounting and publication limitations.
+
+All three BTC/ETH/SOL native client/API retry cases passed: finalized rejection,
+new review, false-approval rejection, one separately approved replacement, lost
+replacement acknowledgement, status-only reconciliation, complete current costs,
+release of the original reserve and encrypted restore retaining both attempts.
+No duplicate send or opening fee was observed. Five panel tests passed, including
+FAILED/ABORTED reload behavior and the non-eligible rejection remaining query-only.
+These use generated unfunded custody and mocked financial transport, not real
+orders. Browser integration and full-current-source CI are checked separately.
+Historical successful-conversion accounting and full release verification remain
+unfinished. No production update, funds movement or bot activation occurred.
+Discover's four source files were reviewed for this internal unpublished change;
+no availability or version content change is appropriate yet.
+
+The three opt-in Edge browser integration cases also passed (BTC/ETH/SOL),
+using the real browser client and API bridge against the native unfunded fixture.
+This is client/API integration evidence, not a deployed-page or production-fill
+test. Full current-source CI was started and remains pending; do not substitute
+the earlier 1436-test checkpoint result for this run or restart a quiet process.
+
+### Historical cost-data boundary (local, 2026-11-07)
+
+Inspection confirmed that completion still requires the initial conversion in
+today's account, while the ordinary closed-USD reader intentionally rejects a
+different transaction day. Added an explicitly separate historical closed-bound
+reader, preserving the ordinary reader's same-day contract. Historical requests
+retain the real current wall clock and ten-second lease, reject future/invalid
+dates and mixed-day transactions, and require actual retained closed bars for the
+transaction day. No clock is rewound, no missing data becomes zero, and current
+or open bars cannot stand in for historical prices.
+
+Five focused tests passed, including the unchanged same-day contract, prior-day
+five-minute bounds, missing/zero-trade data, stale leases, midnight rollover and
+backwards wall-clock rejection. This is a read-only market-data prerequisite,
+not yet historical conversion/failed-opening cost evidence or permission to
+release a reserve. The already-running full CI predates this helper change;
+its result must not be represented as verification of this newer source.
+No deployment or financial transport occurred. Discover content remains
+unchanged for this unpublished accounting-only increment.
+
+### Historical conversion and network-cost capabilities (local, 2026-11-07)
+
+Added separately branded historical conversion USD valuation and historical SOL
+network-fee valuation, using genuine verified journal/transaction facts and the
+actual current clock. They preserve the original transaction day, record the
+observation day, reject current/future-day misuse, and expire on their original
+ten-second lease, backwards clock movement or observation-day rollover. Neither
+historical capability can pass its ordinary daily-account validator (nor vice
+versa), preventing yesterday's expenses from being silently charged today.
+The conservative conversion loss and fee-floor formulas are shared unchanged;
+network fees remain separate, priced from closed historical SOL/USD buckets.
+Clones, duplicate facts, missing bars and fabricated transactions fail closed.
+
+The BTC/ETH/SOL conversion-binding cases and daily-account regressions passed:
+15 tests, zero failures. The earlier bounds plus conversion-binding subset also
+passed all eight checks. The pending full CI has now terminated successfully:
+1444 tests, 1424 passed, 20 skipped, zero failures. That run began before the
+historical readers were edited and is therefore a pre-historical-reader baseline,
+not full-current-source evidence. No CI process remains live from that run.
+Completion orchestration still needs a private historical-cost join and its
+consumer tests before prior-day reserve release is supported. Nothing was
+published, signed with a funded wallet or sent to a financial network. Discover
+remains unchanged for this unpublished internal accounting work.
+
+After these reader changes, the local web build prepared 31 assets and whitespace
+checks passed. Three native client/API ordinary-return cases (BTC/ETH/SOL) passed
+against the updated default readers. The BTC binding case additionally confirms
+that changing the durable source invalidates historical conversion valuation.
+All started processes from this increment are terminal. Full-current-source CI
+and the historical completion consumer remain outstanding, not silently waived.
+
+### Prior-day initial conversion joined to today's return (local, 2026-11-07)
+
+Connected a private read-only historical-cost join to recovery completion when
+the initial conversion or failed opening is absent from today's complete account.
+It reconstructs the original finalized conversion through its native constructor,
+joins genuine transaction/journal facts, independently values old conversion loss
+and SOL fees, and binds the exact parent/hold/source/return/attempt-chain snapshot.
+Historical costs stay in their original day; the current complete daily account
+and actual received USDC remain mandatory. A copied audit, another owner/account,
+changed durable source, missing historical fee bars, stale lease, backwards clock
+or day rollover cannot release risk. Evidence alone never mutates the reservation.
+
+Six native client/API cases passed: ordinary and prior-day initial-conversion
+returns for BTC/ETH/SOL. Prior-day cases retain the full 10020000-unit reserve
+until the real completion consumer verifies costs, then release it exactly once,
+keep today's network fees at 5400 lamports (rather than double-counting the old
+5400), retain zero opening fee and preserve encrypted archive/restore. Financial
+transports are mocked and generated custody wallets unfunded. The server/API/
+panel subset passed 37 total, 34 passed and three Linux-only skips. Local web
+build prepared 31 assets. Browser checks are running separately.
+
+This supersedes the earlier disconnected historical-completion-consumer status
+for a prior-day initial conversion with a return finalized today. It does NOT
+claim verification of a prior-day failed opening, a return itself finalized on
+a prior day, or all failed-return ancestor receipts. Those cases, current full
+CI and production release remain open. No deployment, real trade or bot
+activation occurred. Discover's four files need no availability/content update
+for this unpublished internal recovery change.
+
+The three opt-in Edge browser/client/API prior-day cases reached terminal PASS
+as well. These use the isolated native fixture and API bridge, not a production
+fill or the user's funded wallet/session. A new full-current-source CI process
+is now live; poll its existing handle rather than restarting on quiet output.
+
+### Return finalized before today's accounting day (local, 2026-11-07)
+
+Extended the private historical join for an already-finalized return discovered
+on a later day. Its exact native return receipt and genuine journal-bound history
+are reread; old recovery loss has a separately branded historical valuation, and
+both initial and return network fees are independently valued in their own day.
+The completion consumer cannot substitute a plain historical summary, today's
+bars, missing same-day history or a copied audit for that evidence. The original
+signature, received USDC, conversion identity, slots and chronological order must
+match, with the current complete account covering the return slot. No additional
+financial transport is performed by recovery.
+
+The existing full-CI handle remains live but predates these latest return-day
+changes. Do not call its eventual result full-current-source verification.
+Focused native and opt-in browser old-finality tests are running separately;
+the initial BTC prior-day and old-finality cases passed before expanding their
+negative valuation/capability tests. A local web build prepared 31 assets.
+Prior-day failed-opening coverage and failed-return ancestor receipt audits
+still need verification. No production release or real funds movement occurred.
+Discover remains unchanged because this is unpublished internal recovery work.
+
+The expanded native set terminated PASS: nine cases across BTC/ETH/SOL (ordinary,
+prior-day initial conversion and prior-day return finality). The three opt-in
+Edge browser/client/API old-finality cases also terminated PASS. They assert
+historical return valuation is not accepted by the daily validator; copied or
+duplicate facts, missing old fee bars, changed durable records and expired
+leases cannot release the original reserve. Prior-day return tests retain zero
+fees/loss entries in today's account while separately proving both old network
+fees and historical conversion/return costs, then complete once and restore the
+encrypted archive. Sixteen API/panel/bounds regressions passed and whitespace
+checks are clean. All these focused processes are terminal; the pre-change full
+CI handle is still live, without reported failures in its latest output.
+
+### Failed opening and failed-return historical ancestry (local, 2026-11-07)
+
+The previous full CI is terminal: 1449 total, 1429 passed, 20 skipped, no failures.
+It predates old-return-finality and failed-opening-prior-day additions, so remains
+a baseline rather than current-source release evidence. Six native failed-opening
+cases (same-day/prior-day for BTC/ETH/SOL) and three opt-in browser prior-day
+failed-opening cases passed. They retain genuine signed opening/return identities,
+prove old fees separately, complete CLOSED with slots 180/200 exactly once and
+preserve zero opening fee plus encrypted restore. Twelve identity/API regressions
+passed. No real financial transport or production change occurred.
+
+The historical join now also reconstructs every FAILED return ancestor through
+the native constructor and exact finalized rejection proof, verifies each next
+attempt's signature/hash/slot/day reference against those native facts, and
+includes old failed-return network fees in the historical group. It revalidates
+the private failure leases and full chain before consuming completion evidence.
+A failed marker or copied reference alone cannot stand in for a failed receipt.
+The only newly exported failure accessor returns the verified immutable accounting
+transaction from a genuine private failure proof; it grants no signing authority.
+
+An initial BTC failed-return/replacement/next-day completion case passed. Expanded
+BTC/ETH/SOL native and browser cases are now running, including unavailable old
+failure receipts and changed predecessor-slot references; these must retain the
+original reserve and cannot resend. Current full CI and coordinated production
+release remain outstanding. Discover remains unchanged for unpublished internal
+recovery work.
+
+The expanded failed-return ancestry set has terminated PASS: three native plus
+three opt-in Edge browser/client/API BTC/ETH/SOL cases. Each proves all 1620
+micro-USDC of old network costs (initial conversion, rejected return, completed
+replacement), while today's network fees remain zero. Missing the rejected
+ancestor's native transaction or changing its recorded slot reference refuses
+historical completion and retains all 10020000 units of original reserve. A
+subsequent intact query completes once, without a third financial transport,
+without opening fees, and preserves both attempts in encrypted archive/restore.
+All focused process handles from this increment are terminal. Preparing a new
+full-source verification run next; no publication or financial action occurred.
+
+### Release inventory and compiled-screen check (local, 2026-11-07)
+
+The new full-suite process is live against the frozen financial-source candidate;
+do not rebuild or change runtime files under that run. Production was rechecked
+read-only: no active automation accounts, pending/open entries, pending closes or
+pending swaps. The execution journal's nine tables are all empty, integrity is
+ok, no foreign-key errors, exact source schema remains
+505c96362bd65d613ca90ddd17f846c3bfca04d5f0ee69c732b9f3ebf05d91b9.
+The installed worker hash remains 17ab1fd592dadd7bc5ca7110da644dbbea3b31f9ed1ecc4226c2cc497258bda5;
+public status remains web 1.38.19 / Android feed 1.38.17. No restart, migration,
+custody access, configuration mutation or financial request was performed.
+
+The compiled DOM check initially failed because its diagnostic script searched
+for the obsolete 'Confirm manual bot order' label; actual source uses 'Confirm
+opening'. Corrected that script selector, adding an explicit missing-review
+assertion, without changing financial runtime source. It now passes desktop
+1440x900 and mobile 390x844: close consent, a single unchecked entry consent,
+10.02-USDC fixture total, one mocked confirmation and pending-state rendering.
+All non-loopback browser requests were blocked. This is isolated compiled-screen
+evidence, not the user's real browser/session or a production order.
+
+Release gates still include terminal current-suite success, the exact empty-only
+schema upgrade with private rollback copies and verified recovery proof, a
+coordinated paused worker/web/HTTPS update, candidate main/Discover verification,
+then verified publication. The old installer must not be reused blindly: its
+backup directory/flag already exist and the financial journal must never be
+replaced with a stale snapshot. No public availability claim was changed.
+
+### Publication connection requires team consent (2026-11-07)
+
+Read the deployments/CI guidance and verified the existing local link targets
+project jamd-dmaj (prj_MDNgTRQMQhZHy0Np4HuKiqTKbsjd) in team
+team_JORXYGzaQKli6kcSkgcGRU33. The authenticated Vercel connection refused the
+read-only inspection of the known current deployment with 403, explicitly
+requiring team access consent. Requested the connector's one-use team consent
+link for the user; no team/project target was changed, no credential was read
+or printed, and no alternate account was used to bypass that refusal.
+Publication must wait for that approval, then retry the same deployment read
+through the same connection. The full financial-source CI handle remains live;
+this first access blocker does not justify calling the goal blocked or complete.
+No production migration, restart, deployment, trade or activation occurred.
+
+### Verified local checkpoint; publication awaiting team consent (2026-11-07)
+
+The final frozen financial-source CI reached terminal success: 1458 tests,
+1438 passed, 20 skipped, zero failures. Its native conversion/recovery file
+completed all 93 cases. No test process remains live. The compiled worker
+candidate still hashes to d5e4825e56bc8623f3fca65c9510e06d988f07d9281d3d8f7ead5e3e1c3ec469;
+the historical join and native simulation test file match the hashes captured
+while that suite was running. The compiled desktop/mobile diagnostic passes
+separately after its selector-only correction.
+
+The same known-deployment Vercel inspection still returns 403 forbidden for
+the intended team, unchanged across consecutive goal continuations. The
+connector's requested team consent remains necessary; no alternate scope or
+account is used to bypass it. Local verification and a source checkpoint do not
+prove publication. Keep the full objective unfinished until authorized staged
+publication, coordinated paused-server upgrade and public verification succeed.
+Preserve the pre-existing .vercel link and two untracked diagnostic scripts;
+exclude them from the source checkpoint. No real order, signature with funded
+custody, transfer, bot activation or production modification occurred.

@@ -13,14 +13,15 @@ import {reconcilePendingPerps} from '../lib/perps-pending-recovery.js';
 import {readServerPerpsTradeTransaction} from '../lib/perps-server-trade-transaction.js';
 import {bindRecoverablePerpsEntryCollateral,readRecoverablePerpsEntryCollateral} from '../lib/perps-entry-collateral-recovery-binding.js';
 import {preparePerpsEntryCollateralRecovery,readPreparedPerpsEntryCollateralRecovery} from '../lib/perps-entry-collateral-recovery-preparation.js';
-import {recordPerpsEntryCollateralRecoveryIntent} from '../lib/perps-entry-collateral-recovery-intent.js';
+import {recordPerpsEntryCollateralRecoveryIntent,readPerpsEntryCollateralRecoveryIntent} from '../lib/perps-entry-collateral-recovery-intent.js';
 import {submitPerpsEntryCollateralRecovery} from '../lib/perps-entry-collateral-recovery-submit.js';
 import {readRecordedPerpsEntryRecoveryReceipt,reconcileRecordedPerpsEntryRecovery} from '../lib/perps-entry-collateral-recovery-receipt.js';
-import {readFailedPerpsEntryRecovery,requireFailedPerpsEntryRecovery,reconcileAccountedFailedPerpsEntryRecovery} from '../lib/perps-entry-recovery-failure.js';
+import {readFailedPerpsEntryRecovery,requireFailedPerpsEntryRecovery,reconcileAccountedFailedPerpsEntryRecovery,proveAccountedEntryRecoveryFailures,requireAccountedEntryRecoveryFailures,claimWithAccountedEntryRecoveryFailures} from '../lib/perps-entry-recovery-failure.js';
 import {readJournalledPerpsEntryRecovery,requireVerifiedPerpsEntryRecoveryHistory} from '../lib/perps-entry-recovery-history.js';
-import {createPerpsEntryRecoveryUsdValuationReader,requirePerpsEntryRecoveryUsdValuation} from '../lib/perps-entry-recovery-usd-valuation.js';
+import {createPerpsEntryRecoveryUsdValuationReader,requirePerpsEntryRecoveryUsdValuation,createHistoricalPerpsEntryRecoveryUsdValuationReader,requireHistoricalPerpsEntryRecoveryUsdValuation} from '../lib/perps-entry-recovery-usd-valuation.js';
 import {createPerpsNetworkFeeValuationReader} from '../lib/perps-network-fee-valuation.js';
 import {proveAccountedPerpsEntryRecovery,requireAccountedPerpsEntryRecovery} from '../lib/perps-entry-recovery-completion.js';
+import {readHistoricalPerpsEntryRecoveryCosts,requireHistoricalPerpsEntryRecoveryCosts} from '../lib/perps-entry-recovery-historical-costs.js';
 import {requireAvailablePerpsEntryCollateralForOpening,readBoundPerpsEntryCollateral} from '../lib/perps-entry-conversion-binding.js';
 import {unsignedRecoveryAccountFixture} from './helpers/perps-unsigned-recovery-account.mjs';
 import {proveAccountedFailedEntryConversion} from '../lib/perps-entry-conversion-failure-completion.js';
@@ -132,7 +133,7 @@ test('entry lifecycle refuses changed external authorization and never turns a r
  engine.invalidate();assert.throws(()=>engine.authorize(review,true));
 });
 
-for(const asset of ['BTC','ETH','SOL'])for(const mode of ['success','limits','backup','hold','controls','account','service','api','timeout','unsent','sign-fail','simulation-fail','recovery','opening','opening-timeout','opening-failed','opening-return','opening-return-retry','opening-return-failed','opening-return-failed-prior','opening-sign-fail','first-failed','first-failed-prior'])test('reserved bot entry conversion one-use custody: '+asset+' '+mode,async t=>{
+for(const asset of ['BTC','ETH','SOL'])for(const mode of ['success','limits','backup','hold','controls','account','service','api','timeout','unsent','sign-fail','simulation-fail','recovery','opening','opening-timeout','opening-failed','opening-failed-prior','opening-return','opening-return-prior','opening-return-old-finality','opening-return-retry','opening-return-failed','opening-return-failed-prior','opening-return-failed-claim','opening-return-failed-retry','opening-return-failed-retry-prior','opening-sign-fail','first-failed','first-failed-prior'])test('reserved bot entry conversion one-use custody: '+asset+' '+mode,async t=>{
  const root=mkdtempSync(join(tmpdir(),'jamd-entry-custody-'));chmodSync(root,0o700);
  const ownerAccountHash='f'.repeat(64),directory=join(root,'wallets'),keyDirectory=join(root,'keys'),keyFile=join(keyDirectory,'master.key');
  for(const path of [directory,keyDirectory])mkdirSync(path,{mode:0o700});
@@ -208,7 +209,7 @@ for(const asset of ['BTC','ETH','SOL'])for(const mode of ['success','limits','ba
  const readAccount=()=>readServerPerpsDailyAccount({walletAddress},{request:accountRequest,...common,journal:executionJournal});
  const limits={capitalUsd:'20',dailyLossUsd:'20',positions:1,dailyTrades:1};let policy={walletAddress,limits};
  let claim,sends=0;
- if(['service','api','timeout','unsent','sign-fail','simulation-fail','opening','opening-timeout','opening-failed','opening-return','opening-return-retry','opening-return-failed','opening-return-failed-prior','opening-sign-fail','first-failed','first-failed-prior'].includes(mode)){
+ if(['service','api','timeout','unsent','sign-fail','simulation-fail','opening','opening-timeout','opening-failed','opening-failed-prior','opening-return','opening-return-prior','opening-return-old-finality','opening-return-retry','opening-return-failed','opening-return-failed-prior','opening-return-failed-claim','opening-return-failed-retry','opening-return-failed-retry-prior','opening-sign-fail','first-failed','first-failed-prior'].includes(mode)){
   const policyStore=openManualPerpsPolicyStore(join(root,'manual-policy.sqlite'),{...common,initialize:true});
   let actualFeeJournal;
   try{
@@ -361,6 +362,7 @@ for(const asset of ['BTC','ETH','SOL'])for(const mode of ['success','limits','ba
     const hold=executionJournal.entryConversionHold(review.id),first=journal.read(hold.conversion_id),stored=JSON.parse(first.review);
     const finalized=await conversionReceiptFixture({entry:true,asset,fixtureSignedEntryWire:first.signed,fixtureWalletAddress:walletAddress,entryMinimumUnits:stored.minimumCollateralUnits});
     runtimeNow+=120000;
+    if(mode==='opening-return-prior')runtimeNow=Date.parse(new Date(runtimeNow).toISOString().slice(0,10)+'T00:00:00Z')+86400000+120000;
     const recoveryRequest=async(method,params)=>method==='getMultipleAccounts'?
      {context:{slot:130},value:params[0].map(key=>finalized.before.get(key))}:finalized.request(method,params);
     const bound=await recoverHeldPerpsEntryCollateral({executionJournal,journal,reservationId:review.id,ownerAccountHash},{request:recoveryRequest,now:common.now,monotonicNow:()=>0});
@@ -371,17 +373,21 @@ for(const asset of ['BTC','ETH','SOL'])for(const mode of ['success','limits','ba
     if(mode==='opening'||mode.startsWith('opening-return')){
      let unsentReturn=await conversionFixture({asset,walletAddress,amountUnits:unsignedRecovery.amountUnits,nativeSolInput:false,closeWrappedAccount:false,strictWire:false,nowMs:runtimeNow});
      const unsentPreparation=await preparePerpsEntryCollateralRecovery(unsignedRecovery,{request:unsentReturn.request,now:common.now,monotonicNow:()=>0});
-     let accounting,recoveryServiceSends=0,refuseRecovery=false,interruptReturn=mode==='opening-return-retry';
+     let accounting,recoveryQuoteBank=null,recoveryServiceSends=0,refuseRecovery=false,interruptReturn=mode==='opening-return-retry';
      const recoveryVault={...vault,signBotSwap:grant=>{const signed=vault.signBotSwap(grant);if(interruptReturn){interruptReturn=false;refuseRecovery=true;}return signed;}};
      const recoveryService=createBotManualPerpsService({...deps,
       vault:recoveryVault,
+      fetchImpl:(...args)=>accounting?accounting.fetchImpl(...args):deps.fetchImpl(...args),
       readFinalizedAccount:()=>readServerPerpsDailyAccount(who,accounting),
       rpcRequest:async(method,params)=>{
-       if(accounting)return accounting.request(method,params);
+       if(accounting){
+        if(recoveryQuoteBank&&!['getTransaction','getSignatureStatuses'].includes(method))return recoveryQuoteBank.request(method,method==='simulateTransaction'?[params[0],{...params[1],sigVerify:false}]:params);
+        return accounting.request(method,params);
+       }
        if(['getTransaction','getSignatureStatuses'].includes(method))return finalized.request(method,params);
        if(method==='simulateTransaction')return refuseRecovery?{context:{slot:params[1].minContextSlot},value:{err:'BlockhashNotFound'}}:unsentReturn.request(method,[params[0],{...params[1],sigVerify:false}]);
        return unsentReturn.request(method,params);
-      },sendRequest:async()=>{const pending=journal.pending(walletAddress)[0];assert.equal(pending.state,'UNKNOWN');recoveryServiceSends++;return pending.signature;}});
+      },sendRequest:async()=>{const pending=journal.pending(walletAddress)[0];assert.equal(pending.state,'UNKNOWN');recoveryServiceSends++;if(mode.startsWith('opening-return-failed-retry')&&recoveryServiceSends===2)throw Error('MOCK_REPLACEMENT_ACK_LOST');return pending.signature;}});
      if(mode.startsWith('opening-return')){
       await assert.rejects(recoveryService.prepareRecovery({...who,ownerAccountHash:'a'.repeat(64),id:review.id}));
       const recoveryClient=await boundaryClient(recoveryService);let recoveryReview=await recoveryClient.prepareRecovery(walletAddress,review.id),abortedRow=null;
@@ -407,6 +413,7 @@ for(const asset of ['BTC','ETH','SOL'])for(const mode of ['success','limits','ba
       await assert.rejects(recoveryClient.confirmRecovery(recoveryReview,true));assert.equal(recoveryServiceSends,1);
       const returned=await conversionReceiptFixture({asset,fixtureSignedCloseWire:journal.read(pending.id).signed,fixtureWalletAddress:walletAddress,closeMinimumUnits:recoveryReview.minimumUsdcUnits,
        amountUnits:unsignedRecovery.amountUnits,nativeSolInput:false,closeWrappedAccount:false,nowMs:runtimeNow,finalizedSlot:200,blockhash:unsentReturn.wire.blockhash});
+      if(mode==='opening-return-old-finality')runtimeNow+=86400000;
       if(mode.startsWith('opening-return-failed')){
        const priorReturnDay=mode==='opening-return-failed-prior';
        const error={InstructionError:[3,'InvalidArgument']};returned.status.err=error;returned.transaction.meta.err=error;returned.transaction.meta.innerInstructions=null;
@@ -452,8 +459,105 @@ for(const asset of ['BTC','ETH','SOL'])for(const mode of ['success','limits','ba
        assert.equal(journal.read(pending.id).state,'FAILED');assert.equal(journal.pending(walletAddress).length,0);
        assert.equal(executionJournal.read(review.id).state,'RESERVED');assert.equal(executionJournal.entryConversionHold(review.id).state,'FINALIZED');
        assert.equal(executionJournal.riskState(walletAddress).pendingMarginUsdcUnits,'10020000');
+       assert.throws(()=>requireFailedPerpsEntryRecovery(proof));
+       const freshFailure=await readFailedPerpsEntryRecovery(input,options),currentAccount=await readServerPerpsDailyAccount(who,accounting);
+       const auditArgs={journal,executionJournal,account:currentAccount,ownerAccountHash};
+       const evidence=proveAccountedEntryRecoveryFailures([freshFailure],auditArgs);
+       assert.equal(requireAccountedEntryRecoveryFailures(evidence,auditArgs),evidence);
+       assert.equal(evidence.readyForSigning,false);assert.equal(evidence.readyForRetry,false);assert.equal(evidence.originalRiskReleased,false);
+       assert.equal(evidence.requiresFreshExplicitApproval,true);assert.equal(evidence.previousRecoveryId,pending.id);
+       assert.deepEqual(evidence.failedSignatures,[pending.signature]);assert.equal(evidence.day,currentAccount.day);
+       assert.throws(()=>requireAccountedEntryRecoveryFailures({...evidence}));
+       assert.throws(()=>requireAccountedEntryRecoveryFailures(evidence,{...auditArgs,previousRecoveryId:'f'.repeat(64)}));
+       assert.throws(()=>proveAccountedEntryRecoveryFailures([{...freshFailure}],auditArgs));
+       assert.throws(()=>proveAccountedEntryRecoveryFailures([],auditArgs));
+       assert.throws(()=>proveAccountedEntryRecoveryFailures([freshFailure,freshFailure],auditArgs));
+       assert.throws(()=>proveAccountedEntryRecoveryFailures([freshFailure],{...auditArgs,ownerAccountHash:'a'.repeat(64)}));
+       assert.throws(()=>proveAccountedEntryRecoveryFailures([freshFailure],{...auditArgs,account:{...currentAccount}}));
+       assert.throws(()=>proveAccountedEntryRecoveryFailures([freshFailure],{...auditArgs,account:unvalued}));
+       const failedRow=journal.read(pending.id),changedFailure=new DatabaseSync(join(root,'swaps.sqlite'));
+       try{
+        changedFailure.prepare('UPDATE bot_wallet_swaps SET updated=? WHERE id=?').run(failedRow.updated+1,pending.id);
+        assert.throws(()=>requireAccountedEntryRecoveryFailures(evidence));
+       }finally{changedFailure.prepare('UPDATE bot_wallet_swaps SET updated=? WHERE id=?').run(failedRow.updated,pending.id);changedFailure.close();}
+       age=10001;assert.throws(()=>requireAccountedEntryRecoveryFailures(evidence));age=0;
+       await assert.rejects(recoveryClient.confirmRecovery(evidence,true));assert.equal(recoveryServiceSends,1);
+       if(mode==='opening-return-failed-claim'){
+        const bank=await conversionFixture({asset,walletAddress,amountUnits:unsignedRecovery.amountUnits,nativeSolInput:false,closeWrappedAccount:false,strictWire:false,
+         nowMs:accounting.now(),blockhash:bs58.encode(Buffer.alloc(32,12)),ownerLamports:BigInt(returned.after.get(walletAddress).lamports)});
+        const preparedAgain=await preparePerpsEntryCollateralRecovery(unsignedRecovery,{request:bank.request,now:accounting.now,monotonicNow:()=>age,minimumSlot:evidence.minimumSlot});
+        assert.equal(preparedAgain.observedSlot>=evidence.minimumSlot,true);
+        const claimOptions={journal,executionJournal,ownerAccountHash,controlRevision:controls.read(who).revision,explicitApproval:true,previousRecoveryId:pending.id};
+        assert.throws(()=>claimWithAccountedEntryRecoveryFailures(evidence,{...auditArgs,previousRecoveryId:pending.id,newAttemptId:null},()=>assert.fail('No null-ID claim')));
+        assert.throws(()=>claimWithAccountedEntryRecoveryFailures(evidence,{...auditArgs,previousRecoveryId:pending.id,newAttemptId:pending.id},()=>assert.fail('No original-ID claim')));
+        assert.throws(()=>recordPerpsEntryCollateralRecoveryIntent(preparedAgain,claimOptions));
+        assert.throws(()=>executionJournal.claimEntryRecoverySwap(preparedAgain,{swapJournal:journal,ownerAccountHash,review:{previousRecoveryId:pending.id,previousFailure:evidence.previousFailure}}));
+        assert.throws(()=>executionJournal.claimEntryRecoverySwap(preparedAgain,{swapJournal:journal,ownerAccountHash,review:{previousRecoveryId:pending.id,previousFailure:evidence.previousFailure},failureEvidence:{...evidence}}));
+        assert.throws(()=>recordPerpsEntryCollateralRecoveryIntent(preparedAgain,{...claimOptions,failureEvidence:{...evidence}}));
+        assert.throws(()=>recordPerpsEntryCollateralRecoveryIntent(preparedAgain,{...claimOptions,failureEvidence:evidence,explicitApproval:false}));
+        assert.equal(unsentPreparation.observedSlot<evidence.minimumSlot,true);
+        assert.throws(()=>recordPerpsEntryCollateralRecoveryIntent(unsentPreparation,{...claimOptions,failureEvidence:evidence}));
+        assert.equal(journal.pending(walletAddress).length,0);
+        const intent=recordPerpsEntryCollateralRecoveryIntent(preparedAgain,{...claimOptions,failureEvidence:evidence});
+        const privateIntent=readPerpsEntryCollateralRecoveryIntent(intent);
+        assert.equal(requireAccountedEntryRecoveryFailures(evidence),evidence);
+        assert.equal(journal.read(pending.id).state,'FAILED');assert.notEqual(intent.id,pending.id);
+        const originalFailed=journal.read(pending.id),changedAncestor=new DatabaseSync(join(root,'swaps.sqlite'));
+        try{
+         changedAncestor.prepare('UPDATE bot_wallet_swaps SET updated=? WHERE id=?').run(originalFailed.updated+1,pending.id);
+         assert.throws(()=>requireAccountedEntryRecoveryFailures(evidence));assert.throws(()=>readPerpsEntryCollateralRecoveryIntent(intent));
+        }finally{changedAncestor.prepare('UPDATE bot_wallet_swaps SET updated=? WHERE id=?').run(originalFailed.updated,pending.id);changedAncestor.close();}
+        assert.throws(()=>claimWithAccountedEntryRecoveryFailures(evidence,{...auditArgs,previousRecoveryId:pending.id,newAttemptId:'e'.repeat(64)},()=>assert.fail('No repeated claim')));
+        const signing=authorizeBotEntryCollateralRecoveryCustody({intent,ownerAccountHash,controls,backupRegistry,explicitApproval:true,assertCurrent:()=>{}});
+        const signed=vault.signBotSwap(signing.grant);journal.signed(privateIntent.claim,signed);
+        assert.throws(()=>vault.signBotSwap(signing.grant));assert.equal(readPerpsEntryCollateralRecoveryIntent(intent,{signed:true}).prepared,preparedAgain);
+        journal.recoverNeverBroadcast(intent.id,ownerAccountHash);
+        assert.equal(journal.read(intent.id).state,'ABORTED');assert.equal(journal.read(pending.id).state,'FAILED');
+        assert.equal(executionJournal.riskState(walletAddress).pendingMarginUsdcUnits,'10020000');assert.equal(recoveryServiceSends,1);
+        await verifyCompletedArchive(review.id);return;
+       }
        assert.equal((await recoveryClient.recoverRecovery(walletAddress,review.id)).state,'FAILED');
+       recoveryQuoteBank=await conversionFixture({asset,walletAddress,amountUnits:unsignedRecovery.amountUnits,nativeSolInput:false,closeWrappedAccount:false,strictWire:false,
+        nowMs:runtimeNow,blockhash:unsentReturn.wire.blockhash,ownerLamports:BigInt(returned.after.get(walletAddress).lamports)});
        await assert.rejects(recoveryClient.prepareRecovery(walletAddress,review.id),/bot-manual-recovery-review-required/);assert.equal(recoveryServiceSends,1);
+       if(mode.startsWith('opening-return-failed-retry')){
+        const failedSnapshot=journal.read(pending.id);
+        recoveryQuoteBank=await conversionFixture({asset,walletAddress,amountUnits:unsignedRecovery.amountUnits,nativeSolInput:false,closeWrappedAccount:false,strictWire:false,
+         nowMs:runtimeNow,blockhash:bs58.encode(Buffer.alloc(32,13)),ownerLamports:BigInt(returned.after.get(walletAddress).lamports)});
+        const freshReview=await recoveryClient.prepareRecovery(walletAddress,review.id);assert.notEqual(freshReview.id,recoveryReview.id);assert.equal(freshReview.maxSlippageBps,50);
+        await assert.rejects(recoveryClient.confirmRecovery(freshReview,false));assert.equal(recoveryServiceSends,1);
+        const replacement=await recoveryClient.confirmRecovery(freshReview,true);assert.equal(replacement.state,'UNKNOWN');assert.equal(replacement.acknowledged,false);assert.equal(recoveryServiceSends,2);
+        assert.notEqual(replacement.id,pending.id);assert.notEqual(replacement.signature,pending.signature);assert.deepEqual(journal.read(pending.id),failedSnapshot);
+        await assert.rejects(recoveryClient.confirmRecovery(freshReview,true));assert.equal(recoveryServiceSends,2);
+        const completedReturn=await conversionReceiptFixture({asset,fixtureSignedCloseWire:journal.read(replacement.id).signed,fixtureWalletAddress:walletAddress,
+         closeMinimumUnits:freshReview.minimumUsdcUnits,amountUnits:unsignedRecovery.amountUnits,nativeSolInput:false,closeWrappedAccount:false,nowMs:runtimeNow,finalizedSlot:220,
+         blockhash:recoveryQuoteBank.wire.blockhash,ownerLamports:BigInt(returned.after.get(walletAddress).lamports)});
+        const priorRetry=mode==='opening-return-failed-retry-prior';if(priorRetry)runtimeNow+=86400000;
+        accounting=unsignedRecoveryAccountFixture(finalized,completedReturn,{journal:executionJournal,swapJournal:journal,now:runtimeNow,priorReturns:[returned]});
+        if(priorRetry){
+         await reconcileRecordedPerpsEntryRecovery({journal,executionJournal,id:replacement.id,ownerAccountHash},{request:accounting.request,now:accounting.now,monotonicNow:()=>0});
+         const account=await readServerPerpsDailyAccount(who,accounting),input={journal:executionJournal,swapJournal:journal,reservationId:review.id,signature:replacement.signature,ownerAccountHash,account};
+         const options={request:accounting.request,fetchImpl:accounting.fetchImpl,now:accounting.now,monotonicNow:()=>0};
+         const costs=await readHistoricalPerpsEntryRecoveryCosts(input,options);assert.equal(costs.historicalNetworkFeeUsdUnits,'1620');
+         await assert.rejects(()=>readHistoricalPerpsEntryRecoveryCosts(input,{...options,request:async(method,params)=>
+          method==='getTransaction'&&params[0]===pending.signature?null:accounting.request(method,params)}));
+         const current=journal.read(replacement.id),raw=new DatabaseSync(join(root,'swaps.sqlite'));
+         try{
+          const changed=JSON.parse(current.review);changed.previousFailure.slot++;
+          raw.prepare('UPDATE bot_wallet_swaps SET review=? WHERE id=?').run(JSON.stringify(changed),replacement.id);
+          assert.throws(()=>requireHistoricalPerpsEntryRecoveryCosts(costs,input));
+          await assert.rejects(()=>readHistoricalPerpsEntryRecoveryCosts(input,options));
+         }finally{raw.prepare('UPDATE bot_wallet_swaps SET review=? WHERE id=?').run(current.review,replacement.id);raw.close();}
+         assert.equal(executionJournal.riskState(walletAddress).pendingMarginUsdcUnits,'10020000');assert.equal(recoveryServiceSends,2);
+        }
+        const completed=await recoveryClient.recoverRecovery(walletAddress,review.id);
+        assert.equal(completed.state,'CANCELLED');assert.equal(completed.originalRiskReleased,true);
+        assert.deepEqual(await recoveryClient.recoverRecovery(walletAddress,review.id),completed);assert.equal(recoveryServiceSends,2);
+        assert.equal(executionJournal.riskState(walletAddress).pendingMarginUsdcUnits,'0');assert.deepEqual(journal.read(pending.id),failedSnapshot);
+        const finalAccount=await readServerPerpsDailyAccount(who,accounting);
+        assert.equal(finalAccount.failedTransactions,priorRetry?0:1);assert.equal(finalAccount.walletNetworkFeesLamports,priorRetry?'0':'16200');assert.equal(finalAccount.entryRecoveries.length,priorRetry?0:1);
+        assert.equal(actualFeeJournal.read(review.id),null);await verifyCompletedArchive(review.id);return;
+       }
        if(recoveryClient.getTrace){
         const trace=recoveryClient.getTrace();
         assert.deepEqual(trace.map(row=>[row.action,row.status]),[
@@ -467,10 +571,56 @@ for(const asset of ['BTC','ETH','SOL'])for(const mode of ['success','limits','ba
        assert.equal(actualFeeJournal.read(review.id),null);await verifyCompletedArchive(review.id);return;
       }
       accounting=unsignedRecoveryAccountFixture(finalized,returned,{journal:executionJournal,swapJournal:journal,now:runtimeNow});
+      if(['opening-return-prior','opening-return-old-finality'].includes(mode)){
+       const oldReturn=mode==='opening-return-old-finality';
+       await reconcileRecordedPerpsEntryRecovery({journal,executionJournal,id:pending.id,ownerAccountHash},{request:accounting.request,now:accounting.now,monotonicNow:()=>0});
+       const account=await readServerPerpsDailyAccount(who,accounting),auditInput={journal:executionJournal,swapJournal:journal,reservationId:review.id,signature:pending.signature,ownerAccountHash,account};
+       assert.equal(account.entryConversions.length,0);assert.equal(account.walletNetworkFeesLamports,oldReturn?'0':'5400');
+       assert.equal(account.entryRecoveries.length,oldReturn?0:1);
+       assert.throws(()=>proveAccountedPerpsEntryRecovery({journal:executionJournal,swapJournal:journal,reservationId:review.id,signature:pending.signature,account}));
+       let auditAge=0,auditNow=accounting.now();
+       const auditOptions={request:accounting.request,fetchImpl:accounting.fetchImpl,now:()=>auditNow,monotonicNow:()=>auditAge};
+       const costs=await readHistoricalPerpsEntryRecoveryCosts(auditInput,auditOptions);
+       assert.equal(costs.initialDay,new Date(finalized.transaction.blockTime*1000).toISOString().slice(0,10));assert.notEqual(costs.initialDay,costs.accountingDay);
+       assert.equal(costs.historicalNetworkFeeUsdUnits,oldReturn?'1080':'540');assert.equal(costs.originalRiskReleased,false);
+       assert.equal(costs.recoverySlot,200);assert.equal(costs.receivedUsdcUnits,String(returned.received));
+       assert.equal(BigInt(costs.historicalRecoveryLossUsdUnits)>0n,oldReturn);
+       if(oldReturn){
+        const day=new Date(returned.transaction.blockTime*1000).toISOString().slice(0,10);
+        const tx=await readServerPerpsTradeTransaction({walletAddress,signature:pending.signature,day},{request:accounting.request,now:accounting.now,monotonicNow:()=>0,requireTradeEvent:false});
+        const fact=await readJournalledPerpsEntryRecovery(tx,{journal:executionJournal,swapJournal:journal,request:accounting.request,now:accounting.now,monotonicNow:()=>0});
+        const input={recoveries:[fact],day},options={fetchImpl:accounting.fetchImpl,now:()=>auditNow,monotonicNow:()=>auditAge};
+        const readValue=createHistoricalPerpsEntryRecoveryUsdValuationReader(options),value=await readValue(input);
+        assert.equal(value.recoveryLossUsdUnits,costs.historicalRecoveryLossUsdUnits);assert.equal(value.networkFeesIncluded,false);
+        assert.equal(requireHistoricalPerpsEntryRecoveryUsdValuation(value,input),value);
+        assert.throws(()=>requirePerpsEntryRecoveryUsdValuation(value,input));assert.throws(()=>requireHistoricalPerpsEntryRecoveryUsdValuation({...value},input));
+        await assert.rejects(()=>createPerpsEntryRecoveryUsdValuationReader(options)(input));
+        await assert.rejects(()=>readValue({recoveries:[{...fact}],day}));await assert.rejects(()=>readValue({recoveries:[fact,fact],day}));
+        auditAge=10001;assert.throws(()=>requireHistoricalPerpsEntryRecoveryUsdValuation(value,input));auditAge=0;
+       }
+       assert.equal(requireHistoricalPerpsEntryRecoveryCosts(costs,auditInput),costs);
+       assert.throws(()=>requireHistoricalPerpsEntryRecoveryCosts({...costs},auditInput));
+       assert.throws(()=>requireHistoricalPerpsEntryRecoveryCosts(costs,{...auditInput,account:{...account}}));
+       assert.throws(()=>proveAccountedPerpsEntryRecovery({journal:executionJournal,swapJournal:journal,reservationId:review.id,signature:pending.signature,account,historicalCosts:{...costs}}));
+       const completion=proveAccountedPerpsEntryRecovery({journal:executionJournal,swapJournal:journal,reservationId:review.id,signature:pending.signature,account,historicalCosts:costs});
+       assert.equal(requireAccountedPerpsEntryRecovery(completion),completion);assert.equal(completion.lossTodayUsdcUnits,account.lossTodayUsdcUnits);
+       await assert.rejects(()=>readHistoricalPerpsEntryRecoveryCosts({...auditInput,ownerAccountHash:'a'.repeat(64)},auditOptions));
+       await assert.rejects(()=>readHistoricalPerpsEntryRecoveryCosts(auditInput,{...auditOptions,fetchImpl:async(url,options)=>new URL(url).hostname==='api.exchange.coinbase.com'?Response.json([]):accounting.fetchImpl(url,options)}));
+       const savedSource=journal.read(first.id),rawAudit=new DatabaseSync(join(root,'swaps.sqlite'));
+       try{
+        rawAudit.prepare('UPDATE bot_wallet_swaps SET updated=? WHERE id=?').run(savedSource.updated+1,first.id);
+        assert.throws(()=>requireHistoricalPerpsEntryRecoveryCosts(costs,auditInput));assert.throws(()=>requireAccountedPerpsEntryRecovery(completion));
+       }finally{rawAudit.prepare('UPDATE bot_wallet_swaps SET updated=? WHERE id=?').run(savedSource.updated,first.id);rawAudit.close();}
+       auditAge=10001;assert.throws(()=>requireHistoricalPerpsEntryRecoveryCosts(costs,auditInput));assert.throws(()=>requireAccountedPerpsEntryRecovery(completion));auditAge=0;
+       auditNow--;assert.throws(()=>requireHistoricalPerpsEntryRecoveryCosts(costs,auditInput));auditNow++;
+       auditNow+=86400000;assert.throws(()=>requireHistoricalPerpsEntryRecoveryCosts(costs,auditInput));auditNow-=86400000;
+       assert.equal(executionJournal.riskState(walletAddress).pendingMarginUsdcUnits,'10020000');assert.equal(recoveryServiceSends,1);
+      }
       const completed=await recoveryClient.recoverRecovery(walletAddress,review.id);assert.equal(completed.state,'CANCELLED');assert.equal(completed.originalRiskReleased,true);
       assert.deepEqual(await recoveryClient.recoverRecovery(walletAddress,review.id),completed);assert.equal(recoveryServiceSends,1);
       const account=await readServerPerpsDailyAccount(who,accounting);assert.equal(account.tradesToday,0);assert.equal(account.failedTransactions,0);
-      assert.equal(account.walletNetworkFeesLamports,'10800');assert.equal(account.entryRecoveries.length,1);
+      assert.equal(account.walletNetworkFeesLamports,mode==='opening-return-old-finality'?'0':mode==='opening-return-prior'?'5400':'10800');
+      assert.equal(account.entryRecoveries.length,mode==='opening-return-old-finality'?0:1);
       assert.equal(executionJournal.riskState(walletAddress).executedToday,0);assert.equal(executionJournal.riskState(walletAddress).pendingMarginUsdcUnits,'0');
       assert.equal(actualFeeJournal.read(review.id),null);await verifyCompletedArchive(review.id);return;
      }
@@ -548,7 +698,7 @@ for(const asset of ['BTC','ETH','SOL'])for(const mode of ['success','limits','ba
     try{assert.equal(feeDb.prepare('SELECT COUNT(*) AS n FROM perps_platform_fee_consents').get().n,1);assert.equal(feeDb.prepare('SELECT COUNT(*) AS n FROM perps_platform_fee_assessments').get().n,0);}finally{feeDb.close();}
     const recovered=await createBotManualPerpsService(openingDeps).recover({...who,id:review.id});assert.equal(recovered.state,'UNCERTAIN');assert.equal(openingSends,1);
     const complete=opening.completeFixtureKeeperSignature(openingSigned),record=executionJournal.read(review.id);
-    let finality='processed';const receiptCalls=[],openingError=mode==='opening-failed'?{InstructionError:[2,'InvalidArgument']}:null;
+    let finality='processed';const receiptCalls=[],openingError=mode.startsWith('opening-failed')?{InstructionError:[2,'InvalidArgument']}:null,openingBlockTime=runtimeNow/1000;
     const receiptRequest=async(method,params)=>{
      receiptCalls.push(method);
      if(method==='getGenesisHash')return '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
@@ -557,7 +707,7 @@ for(const asset of ['BTC','ETH','SOL'])for(const mode of ['success','limits','ba
      }
      if(method==='getTransaction'){
       assert.equal(params[0],record.signature);assert.equal(params[1].commitment,'finalized');
-      return {slot:180,blockTime:runtimeNow/1000,transaction:[complete,'base64'],meta:openingError?{err:openingError,fee:5400,innerInstructions:[]}:structuredClone(opening.fixtureTradeMeta)};
+      return {slot:180,blockTime:openingBlockTime,transaction:[complete,'base64'],meta:openingError?{err:openingError,fee:5400,innerInstructions:[]}:structuredClone(opening.fixtureTradeMeta)};
      }
      throw Error('WRITE_OR_UNEXPECTED_RECEIPT_RPC');
     };
@@ -736,6 +886,28 @@ for(const asset of ['BTC','ETH','SOL'])for(const mode of ['success','limits','ba
      const failedReceipt=await readServerPerpsTradeTransaction({walletAddress,signature:record.signature,day:new Date(runtimeNow).toISOString().slice(0,10)},
       {request:receiptRequest,now:common.now,requireTradeEvent:false});
      assert.throws(()=>actualFeeJournal.assessFinalizedOpen(review.id,failedReceipt));
+     if(mode==='opening-failed-prior'){
+      runtimeNow+=86400000;
+      const openingTransaction=await receiptRequest('getTransaction',[record.signature,{commitment:'finalized'}]);
+      const oldOpening={transaction:openingTransaction,identity:{signature:record.signature},status:{err:openingError},request:receiptRequest};
+      const oldAccounting=unsignedRecoveryAccountFixture(finalized,returned,{journal:executionJournal,swapJournal:journal,now:runtimeNow,priorReturns:[oldOpening]});
+      const account=await readServerPerpsDailyAccount(who,oldAccounting);
+      assert.equal(account.transactions.length,0);assert.equal(account.entryConversions.length,0);assert.equal(account.entryRecoveries.length,0);
+      assert.equal(account.lossTodayUsdcUnits,'0');assert.equal(account.walletNetworkFeesLamports,'0');
+      assert.throws(()=>proveAccountedPerpsEntryRecovery({...completionInput,account}));
+      const input={...completionInput,ownerAccountHash,account},options={request:oldAccounting.request,fetchImpl:oldAccounting.fetchImpl,now:oldAccounting.now,monotonicNow:()=>0};
+      const costs=await readHistoricalPerpsEntryRecoveryCosts(input,options);
+      assert.equal(costs.failedOpeningSlot,180);assert.equal(costs.recoverySlot,200);assert.equal(costs.historicalNetworkFeeUsdUnits,'1620');
+      assert.equal(costs.failedOpeningDay,costs.initialDay);assert.equal(costs.recoveryDay,costs.initialDay);assert.notEqual(costs.accountingDay,costs.initialDay);
+      assert.equal(executionJournal.riskState(walletAddress).pendingMarginUsdcUnits,'10020000');
+      const service=createBotManualPerpsService({...openingDeps,rpcRequest:oldAccounting.request,fetchImpl:oldAccounting.fetchImpl,
+       readFinalizedAccount:()=>readServerPerpsDailyAccount(who,oldAccounting)}),client=await boundaryClient(service);
+      const completed=await client.recoverRecovery(walletAddress,review.id);assert.equal(completed.state,'CLOSED');assert.equal(completed.originalRiskReleased,true);
+      assert.deepEqual(await client.recoverRecovery(walletAddress,review.id),completed);
+      assert.equal(executionJournal.read(review.id).confirmed_slot,180);assert.equal(executionJournal.read(review.id).closed_slot,200);
+      assert.equal(executionJournal.riskState(walletAddress).pendingMarginUsdcUnits,'0');assert.equal(actualFeeJournal.read(review.id),null);
+      assert.equal(openingSends,1);assert.equal(recoverySends,1);assert.equal(sends,1);await verifyCompletedArchive(review.id);return;
+     }
      valuationAge=0;
      const releaseAccount=await readServerPerpsDailyAccount(who,{...accountingOptions,readNetworkFees:networkReader});
      const releaseProof=proveAccountedPerpsEntryRecovery({...completionInput,account:releaseAccount});

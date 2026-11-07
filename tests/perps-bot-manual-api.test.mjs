@@ -37,7 +37,7 @@ test('collateral recovery actions bind the authenticated owner and reject client
   const body={action,walletAddress:wallet,id:'original-order',...(action==='botManualRecoveryConfirm'?{explicitApproval:true}:{})};
   assert.notEqual((await f.request({...body,walletAddress:other})).status,200);
   assert.equal((await f.request(body)).status,200);assert.equal(f.calls.at(-1).args.ownerAccountHash,owner);
-  for(const change of [{amountUnits:'1'},{maxSlippageBps:500},{serializedTxBase64:'untrusted'},{ownerAccountHash:owner}])assert.equal((await f.request({...body,...change})).status,400);
+  for(const change of [{amountUnits:'1'},{maxSlippageBps:500},{serializedTxBase64:'untrusted'},{ownerAccountHash:owner},{failureEvidence:{stage:'ACCOUNTED_ENTRY_RECOVERY_FAILURES_FOR_REVIEW'}},{previousFailure:{signature:'untrusted'}}])assert.equal((await f.request({...body,...change})).status,400);
  }
  assert.equal(f.calls.length,3);
 });

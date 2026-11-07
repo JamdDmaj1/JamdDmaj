@@ -1,6 +1,7 @@
 // Pure identity/audit-chain tests; these rows are not native execution proofs.
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
 import {readEntryRecoveryAttempts,planEntryRecoveryAttempt} from '../lib/perps-entry-recovery-attempts.js';
 const context={walletAddress:'11111111111111111111111111111112',reservationId:'original',conversionSignature:'original-signature'};
 function fixture(){
@@ -47,4 +48,17 @@ test('attempt chain has a finite audit bound and never invents automatic retries
  }
  assert.equal(readEntryRecoveryAttempts(f.read,context).rows.length,32);
  assert.throws(()=>planEntryRecoveryAttempt(f.read,context,{previousRecoveryId}));
+});
+
+test('a failure reference plans only an immutable identity and must match its signed ancestor',()=>{
+ const f=fixture(),first=planEntryRecoveryAttempt(f.read,context),root=f.append(first,'FAILED');
+ root.signature='pure-fixture-signature';root.signed=Buffer.from('pure-fixture-not-a-financial-wire').toString('base64');
+ const reference={signature:root.signature,wireHash:createHash('sha256').update(Buffer.from(root.signed,'base64')).digest('hex'),slot:200,day:'2026-10-20'};
+ for(const change of [{signature:'other'},{wireHash:'f'.repeat(64)},{slot:-1},{day:'2026-02-31'}]){
+  assert.throws(()=>planEntryRecoveryAttempt(f.read,context,{previousRecoveryId:first.id,failureReference:{...reference,...change}}));
+ }
+ const plan=planEntryRecoveryAttempt(f.read,context,{previousRecoveryId:first.id,failureReference:reference});
+ reference.slot=201;assert.equal(plan.previousFailure.slot,200);assert.equal(f.rows.size,1);
+ f.append(plan,'SIGNING');const chain=readEntryRecoveryAttempts(f.read,context);
+ assert.equal(chain.current.id,plan.id);assert.equal(chain.canReview,false);assert.equal(chain.rows[0].state,'FAILED');
 });

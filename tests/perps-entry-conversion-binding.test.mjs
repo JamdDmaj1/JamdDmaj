@@ -23,8 +23,9 @@ import {entryServiceReviewHarness} from './helpers/perps-entry-service-review.mj
 import {readServerPerpsTradeTransaction} from '../lib/perps-server-trade-transaction.js';
 import {readJournalledPerpsEntryConversion,requireVerifiedPerpsEntryConversionHistory} from '../lib/perps-entry-conversion-history.js';
 import {entryDailyAccountFixture} from './helpers/perps-entry-daily-account.mjs';
-import {createPerpsEntryConversionUsdValuationReader,requirePerpsEntryConversionUsdValuation} from '../lib/perps-entry-conversion-usd-valuation.js';
+import {createPerpsEntryConversionUsdValuationReader,requirePerpsEntryConversionUsdValuation,createHistoricalPerpsEntryConversionUsdValuationReader,requireHistoricalPerpsEntryConversionUsdValuation} from '../lib/perps-entry-conversion-usd-valuation.js';
 import {readServerPerpsDailyAccount,requireFreshServerPerpsDailyAccount,createServerPerpsCustodyRiskReader} from '../lib/perps-server-daily-account.js';
+import {createHistoricalPerpsNetworkFeeValuationReader,requireHistoricalPerpsNetworkFeeValuation,requirePerpsNetworkFeeValuation} from '../lib/perps-network-fee-valuation.js';
 
 for(const asset of ['BTC','ETH','SOL'])test('entry collateral binds exact signed intent and opening debit: '+asset,async t=>{
  const root=mkdtempSync(join(tmpdir(),'jamd-entry-binding-'));chmodSync(root,0o700);
@@ -162,6 +163,42 @@ for(const asset of ['BTC','ETH','SOL'])test('entry collateral binds exact signed
  const overnightFixture=entryDailyAccountFixture(f,{journal:risk,swapJournal:journal});overnightFixture.setNow(tomorrow);overnightFixture.setHistoryVisible(false);
  const overnightBound=await recoverRecordedPerpsEntryCollateral({journal,id,ownerAccountHash},{...recoveryOptions,now:()=>tomorrow});
  assert.equal(overnightBound.executionDay,transaction.day);
+ // Historical valuation uses the real next-day clock, genuine recorded facts
+ // and bars from the conversion day. Its private capability is not a daily one.
+ let auditNow=tomorrow,auditAge=0;
+ const auditOptions={now:()=>auditNow,monotonicNow:()=>auditAge,fetchImpl:async url=>{
+  const u=new URL(url),input=u.searchParams.get('pair')==='USDCUSD',pair=input?'USDC/USD':asset+'/USD',interval=Number(u.searchParams.get('interval'))*60;
+  const start=Number(u.searchParams.get('since')),last=Math.floor(auditNow/1000/interval)*interval,mid=input?'1':'100';
+  return Response.json({error:[],result:{[pair]:[start,last].map(time=>[time,mid,input?'1.01':'101',input?'0.99':'99',mid,mid,'1',1]),last}});
+ }};
+ const readHistorical=createHistoricalPerpsEntryConversionUsdValuationReader(auditOptions),historical=await readHistorical(valuationInput);
+ assert.equal(historical.stage,'VALUED_HISTORICAL_JOURNALED_ENTRY_CONVERSION_RISK');assert.equal(historical.day,transaction.day);
+ assert.equal(historical.observedDay,new Date(tomorrow).toISOString().slice(0,10));assert.equal(historical.entryConversionLossUsdUnits,'229700');
+ assert.equal(requireHistoricalPerpsEntryConversionUsdValuation(historical,valuationInput),historical);
+ assert.throws(()=>requireHistoricalPerpsEntryConversionUsdValuation({...historical},valuationInput));
+ assert.throws(()=>requirePerpsEntryConversionUsdValuation(historical,valuationInput));
+ assert.throws(()=>requireHistoricalPerpsEntryConversionUsdValuation(valuation,valuationInput));
+ await assert.rejects(()=>createPerpsEntryConversionUsdValuationReader(auditOptions)(valuationInput));
+ await assert.rejects(()=>readHistorical({...valuationInput,conversions:[{...history}]}));
+ await assert.rejects(()=>readHistorical({...valuationInput,conversions:[history,history]}));
+ auditAge=10001;assert.throws(()=>requireHistoricalPerpsEntryConversionUsdValuation(historical,valuationInput));auditAge=0;
+ auditNow=tomorrow-1;assert.throws(()=>requireHistoricalPerpsEntryConversionUsdValuation(historical,valuationInput));auditNow=tomorrow;
+ auditNow=Date.parse(historical.observedDay+'T00:00:00Z')+86400000;assert.throws(()=>requireHistoricalPerpsEntryConversionUsdValuation(historical,valuationInput));auditNow=tomorrow;
+ const minute=Math.floor(transaction.blockTime/60)*60,feeInput={transactions:[transaction],day:transaction.day};
+ const feeOptions={now:()=>auditNow,monotonicNow:()=>auditAge,fetchImpl:async url=>{
+  assert.equal(new URL(url).origin,'https://api.exchange.coinbase.com');
+  return Response.json([[minute,99,100,99.5,99.5,1]]);
+ }};
+ const readOldFees=createHistoricalPerpsNetworkFeeValuationReader(feeOptions),oldFees=await readOldFees(feeInput);
+ assert.equal(oldFees.stage,'HISTORICAL_NETWORK_FEES_USD_RISK_VALUATION');assert.equal(oldFees.day,transaction.day);
+ assert.equal(oldFees.networkFeeUsdUnits,'540');assert.equal(oldFees.walletNetworkFeesLamports,'5400');
+ assert.equal(requireHistoricalPerpsNetworkFeeValuation(oldFees,feeInput),oldFees);
+ assert.throws(()=>requireHistoricalPerpsNetworkFeeValuation({...oldFees},feeInput));assert.throws(()=>requirePerpsNetworkFeeValuation(oldFees,feeInput));
+ await assert.rejects(()=>readOldFees({...feeInput,transactions:[{...transaction}]}));await assert.rejects(()=>readOldFees({...feeInput,transactions:[transaction,transaction]}));
+ await assert.rejects(()=>createHistoricalPerpsNetworkFeeValuationReader({...feeOptions,fetchImpl:async()=>Response.json([])})(feeInput));
+ auditAge=10001;assert.throws(()=>requireHistoricalPerpsNetworkFeeValuation(oldFees,feeInput));auditAge=0;
+ auditNow=tomorrow-1;assert.throws(()=>requireHistoricalPerpsNetworkFeeValuation(oldFees,feeInput));auditNow=tomorrow;
+ auditNow=Date.parse(oldFees.observedDay+'T00:00:00Z')+86400000;assert.throws(()=>requireHistoricalPerpsNetworkFeeValuation(oldFees,feeInput));auditNow=tomorrow;
  const overnightRisk=openPerpsExecutionJournal(riskPath,{now:()=>tomorrow});
  try{
   const overnightReader=createServerPerpsCustodyRiskReader({...overnightFixture.options,journal:overnightRisk,
@@ -274,6 +311,7 @@ for(const asset of ['BTC','ETH','SOL'])test('entry collateral binds exact signed
  }}));
  assert.deepEqual(await recoverHeld(),bound);
  assert.throws(()=>requireVerifiedPerpsEntryConversionHistory(history));
+ assert.throws(()=>requireHistoricalPerpsEntryConversionUsdValuation(historical,valuationInput));
  assert.throws(()=>requireFreshServerPerpsDailyAccount(daily,{walletAddress:f.walletAddress,journal:risk}));
  const refreshedHistory=await readJournalledPerpsEntryConversion(transaction,historyOptions);
  assert.notEqual(refreshedHistory,history);
