@@ -8,6 +8,7 @@ const assets = [
   "index.html",
   "wallet-web.html",
   "wallet-web.css",
+  "wallet-trading-panel.css",
   "fee-recipient-setup.html",
   "fee-recipient-setup.css",
   "private-simulator.html",
