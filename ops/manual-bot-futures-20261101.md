@@ -1815,3 +1815,166 @@ project link when present, retaining its prior fallback. It still exports only
 committed allowlisted public-source files to a fresh constrained build directory,
 never ops, user secrets or pre-existing untracked diagnostics. No deployment,
 migration, restart, bot activation or financial transport has occurred yet.
+
+### Staged production candidate, not promoted (2026-11-07)
+
+Exported 463 committed allowlisted public-source files from 6f4d037 to a fresh
+candidate directory. Confirmed exact project/team link, excluded ops and both
+pre-existing untracked diagnostic scripts, and verified source correspondence
+(index differs only by Git-normalized CRLF/LF; historical runtime bytes match).
+Used the existing cached CLI 64.7.0, without installing/upgrading it or reading
+authentication secrets. Its explicit non-interactive project inspection confirmed
+jamd-dmaj-s-projects/jamd-dmaj and prj_MDNgTRQMQhZHy0Np4HuKiqTKbsjd.
+
+Staged with --prod --skip-domain, explicit project/scope and source metadata:
+deployment dpl_FGeZon9Ls4tux9hw2BjJGLypjFTZ,
+https://jamd-dmaj-5280suup3-jamd-dmaj-s-projects.vercel.app.
+Authenticated MCP inspection reached READY, target production. This is a staged
+production build, NOT promotion to www. Public /api/status still reports 1.38.19.
+No worker restart, database upgrade, real order or automation activation occurred.
+
+Protected candidate HTTP verification uses existing CLI authentication; Deployment
+Protection remains enabled. /api/status returns web 1.38.20, configured=true and
+unchanged APK feed 1.38.17. Main HTML contains the new version; Discover HTML/JS
+contain the separate-stage consent and no-automatic-repeat disclosures. The
+Futures module is JavaScript (not an HTML fallback) and contains the protected
+conversion stage and opening confirmation. The first raw text check expected a
+literal middle dot, while esbuild encodes it as \\xB7; verified the actual emitted
+label and ASCII stage markers rather than changing correct runtime code.
+CLI curl forwards --non-interactive incorrectly in this installed version; the
+initial syntax-only request failed before HTTP, then succeeded with explicit
+scope and deployment under the already verified link. No protection setting or
+environment variable was changed. Coordinated paused-server upgrade and final
+promotion/public verification remain outstanding.
+
+### Actual Linux private-copy upgrade rehearsal (2026-11-07)
+
+Rechecked all three production units remain active. Verified the service uses
+DynamicUser=jamddmaj-perps-controls, private 0700 state directories and 0600
+registry files. The operator cannot run as root while pretending to satisfy the
+service-owned recovery checks. Used a transient systemd service with the same
+DynamicUser and StateDirectory configuration, preserving every ownership/mode
+check rather than relaxing them or reading custody keys.
+
+Built and uploaded a distinct rehearsal-only bundle (SHA256
+8961884f28e4fcc4c80a50cc453b6980262a6e06be4d45c61e73f7231c91870e)
+at /opt/jamddmaj-perps/checks/manual-13820-rehearsal-6f4d037.mjs. It copies the
+existing empty journal and paused controls via SQLite backup into fresh private
+service-owned files, runs the exact gated upgrade with genuine existing backup
+registry evidence, and rechecks live source schema/control rows unchanged.
+The transient service terminated successfully in 403ms: exact source 505c9636...
+to target f098dd3a..., one covered account, liveStoresChanged=false,
+custodyKeysRead=false, tradingEnabled=false, readyForSigning=false. Private
+rehearsal copies are retained under the service state directory, not published.
+
+Prepared a separate apply-only operator source which refuses unless all three
+production units are inactive, paths/ownership are private, the exact observed
+source schema and every financial table remain empty, and genuine backup proof
+includes both fee and swap scopes. It uses the shared worker lease and the
+reviewed atomic upgrade/rollback-copy implementation; it cannot sign, send,
+activate automation, stop services or install code. Actual application has NOT
+run. At this rehearsal checkpoint, no production service had been stopped or
+restarted and no live schema had changed.
+
+### Controlled apply refused; previous services restored (2026-11-07)
+
+Uploaded distinct candidate worker (d5e4825e...) and apply bundle
+01b711337f599d245499276489dc8a09a5d7d243c309867de17a92d8cbc370e8.
+The root coordinator created private copies at
+/opt/jamddmaj-perps/backups/manual-13820-6f4d037, drained/stopped all three units,
+then the DynamicUser apply operator refused before calling the upgrade library.
+The coordinator recognized the unchanged legacy schema and restored the previous
+services, without restoring a stale database. All three are active and health
+reports tradingEnabled=false. Installed worker hash remains 17ab1fd5...; no live
+schema, custody key, owner setting or financial record was changed.
+
+A separate transient probe identified the guard failure: systemctl is-active
+cannot access the system bus inside this sandbox (Transport endpoint is not
+connected). RuntimeDirectoryPreserve=yes also introduces a private compatibility
+symlink, whereas production uses Preserve=no. Do not relax either the sandbox
+or private-path checks. The apply source now reports safe phase/code diagnostics.
+
+The shared-runtime diagnostic must not be repeated while production is active:
+a subsequent transient unit was refused with RUNTIME_DIRECTORY/File exists, and
+the worker reported one automatic restart at 15:52:03 UTC. The services recovered
+with the original code and no financial activity, but both runtime paths must be
+inspected before further maintenance. /run/private/jamddmaj-perps-runtime has a
+worker.lock; never remove it merely because it was observed during a failed
+operator run. Its ownership/live-process identity must be resolved first.
+
+Next use trusted root-coordinator stopped-service admission, passed as fresh
+root-owned read-only evidence, and the production RuntimeDirectory configuration.
+Do not broaden system-bus permissions or accept caller-provided booleans as a
+replacement for admission. Preserve the first rollback directory and uploaded
+artifacts, rather than blindly rerunning/overwriting the one-shot installer.
+Public candidate remains unpromoted. No real trade, transfer or bot activation
+was performed.
+
+### Successful revision-two server upgrade (2026-11-07)
+
+Resolved runtime locks read-only: the normal /run/jamddmaj-perps-runtime lock
+belongs to the live main process; the /run/private counterpart belongs to a dead
+process. Neither was deleted. Replaced the impossible in-sandbox system-bus
+query with fresh fixed-path root-owned read-only admission. The root creator
+checks every unit inactive/MainPID=0 before exclusive file creation; the service
+verifies root ownership, canonical path, no links, exact code/schema/unit binding,
+immutable metadata and a 60-second lifetime on every backup-proof recheck. The
+production Preserve=no runtime-directory configuration is retained. No broader
+system-bus or filesystem permissions were granted.
+
+Three record-validation tests passed. Actual Linux negative checks proved the
+root creator refuses while live, and the sandboxed apply refuses without root
+admission, without restarting the live worker. Bundles verified after upload:
+apply b460f77be91cd8dc7fe0e0a1a1c240487eb8fdd62380f865b1ff9a9e96b40857;
+admission c463cba70fac351e555bf56e68e394c7bc0e78f6b12cbbb0aa9051984c05b8f1.
+
+Revision-two coordinator succeeded. The exact empty source 505c9636... upgraded
+atomically to f098dd3a... in 385ms with genuine scoped recovery proof. Controls
+were unchanged, custodyKeysRead=false, tradingEnabled=false. Root rollback
+copies remain at /opt/jamddmaj-perps/backups/manual-13820-6f4d037-r2; native
+SQLite rollback copies remain under private runtime/jamd-journal-upgrade-BUQdCJ.
+Installed worker SHA256 is d5e4825e56bc8623f3fca65c9510e06d988f07d9281d3d8f7ead5e3e1c3ec469.
+
+Post-check found the separate web service still compiled against the old schema.
+The original aggregate systemctl is-active command incorrectly accepted a mix
+of active/activating services. Did not roll back the new financial database.
+Built the web-service entrypoint from the same verified financial source, backed
+up its previous bundle privately, installed SHA256
+e1421ef4b6215cfcdfb57110a68968744d6d55a47d38b1f65d7dd7609e646bb6, and
+restarted only that failed component. It now serves controls-only health with
+executionAvailable=false as configured. Corrected the local one-shot installer
+source to include both bundles, both health ports and individual active-state
+assertions. The already-run remote revision-two script and backups are preserved;
+do not rerun a source-schema upgrade against the now-upgraded journal.
+
+Independent post-repair checks: all three units active, worker/web NRestarts=0,
+zero active automation/pending/open entries/closes/swaps, one unchanged manual
+policy. Public trusted HTTPS health returns 200, tradingEnabled=false; missing
+authorization on botManualStatus returns 401. No real signature/send/trade or
+bot activation was performed. The migration explicitly requests fresh recovery
+verification; verify that gate after upgrade before declaring the full objective
+complete. Staged 1.38.20 is still unpromoted; no public-web completion claim yet.
+
+### Post-upgrade verification and web promotion (2026-11-07)
+
+The dedicated verifier ran under the existing DynamicUser without any
+RuntimeDirectory declaration, signer import, custody-key read or activation.
+It verified the exact current controls/journal schema and integrity, rechecked
+the genuine existing registry proofs including fee and swap scopes, and then
+created a fresh WAL-consistent five-store financial snapshot and inspected its
+restore in isolated private temporary databases. Both inspections succeeded;
+temporary children were removed by the existing guarded recovery helper. This
+does not assert creation of a new encrypted custody archive. All accounts remain
+disabled and paused. No existing backup attestation was fabricated or rewritten.
+
+Promoted the tested staged production deployment
+dpl_FGeZon9Ls4tux9hw2BjJGLypjFTZ (6f4d037 web / d6ac9de financial source).
+Public www.jamddmaj.com now returns webVersion 1.38.20, matching main HTML,
+Discover and the actual manual panel JavaScript with Confirm opening. APK feed
+is deliberately unchanged at 1.38.17; no new Android APK is claimed published.
+All three server units independently report active; worker and controls-only
+web health remain healthy with tradingEnabled=false. The deployment error scan
+for the checked ten-minute interval returned zero records. Native full-suite
+results remain 1438 passes / 20 skips / zero failures; maintenance tests 3/3.
+The real-money fill path has not been exercised and no financial operation,
+automatic bot activation or relaxation of the 50-bps limit was performed.
