@@ -97,6 +97,22 @@ test('shows no total when futures cannot be read, and says so', async (t) => {
   assert.ok(!texts.some((text) => text.includes('14,54')))
 })
 
+test('counts an address linked twice only once', async (t) => {
+  const f = fixture({
+    portfolios: {[native]: 10, [bot]: 5},
+    accounts: [
+      {address: native, source: 'native', name: 'JamdDmaj'},
+      {address: native, source: 'external', name: 'Phantom'},
+      {address: bot, source: 'watch', name: 'Solo consulta'},
+    ],
+  })
+  t.after(f.dispose)
+  await settle(() => flatten(f.host).some((text) => text.includes('25,00')), 'deduplicated total')
+  const texts = flatten(f.host)
+  assert.equal(texts.filter((text) => text.includes('JamdDmaj ·')).length, 1)
+  assert.ok(!texts.some((text) => text.includes('Phantom')))
+})
+
 test('marks the total partial when a wallet does not respond', async (t) => {
   const f = fixture({
     portfolios: {[bot]: 10},
