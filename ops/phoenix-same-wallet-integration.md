@@ -2,6 +2,39 @@
 
 Status: development only. Not connected to production signing or execution.
 
+## Split collateral checkpoint
+
+`phoenix-collateral.js` now obtains the native withdrawal routes independently
+of a token catalog, active market or price quote. Expired trading evidence cannot
+by itself prevent preparation of a fresh collateral payout. It verifies mainnet,
+global configuration, canonical vault, mints and bounded arena headers, then
+prepares one full flat-child withdrawal or an exact confirmed-amount unwrap.
+A child already in the withdrawal queue produces a WAIT state with no second
+transaction. An unwrap requires a later finalized-payout binding before signing;
+its unsigned amount parameter is not evidence of such a payout.
+
+`phoenix-collateral-simulation.js` compiles the exact one-wallet-signer legacy
+wire with bounded compute fees and simulates it without replacing its blockhash.
+It checks token amounts, flat position/policy conservation, rent, SOL fees and
+temporary-delegate revocation. A queued result remains uncredited. Simulation
+is NOT finality, durable settlement authorization or proof of queued completion.
+
+The real-program local VM rehearsal now uses these production preparation/wire/
+simulation modules for both LONG and SHORT withdrawal and USDC conversion, not
+the former ad-hoc SDK harness pieces. Both lifecycle rehearsals passed with
+zero final child collateral/canonical balance and no network submission. An
+initial real-program failure exposed Ember's configured mint/account ordering;
+the implementation was corrected to match the resolved SDK builder and native
+execution. A parity regression test covers that ordering.
+
+All 68 focused Phoenix tests pass, including seven new collateral tests. Native
+queued effects currently have synthetic test coverage; the normal immediate
+payout path has actual-program VM coverage. Durable collateral attempts,
+finalized receipt/queue reconciliation and their scoped custody authorization
+still need composition with the existing workflow ledger before enabling the
+HTTP/UI flow. No production or Discover changes were made for this internal
+checkpoint; available-market advertising remains unchanged.
+
 ## Durable execution checkpoint (not runtime-enabled)
 
 - `phoenix-execution-journal.js` stores owner-bound workflows and exact native

@@ -19,6 +19,8 @@ import {readPhoenixNativeMarket} from '../lib/phoenix-native-market.js';
 import {buildPhoenixOrderWire} from '../lib/phoenix-order-wire.js';
 import {simulatePhoenixOrder} from '../lib/phoenix-order-simulation.js';
 import {buildPhoenixIsolatedSetup} from '../lib/phoenix-isolated-setup.js';
+import {readPhoenixCollateralContext,preparePhoenixCollateral} from '../lib/phoenix-collateral.js';
+import {buildPhoenixCollateralWire,simulatePhoenixCollateral} from '../lib/phoenix-collateral-simulation.js';
 
 const WALLET='11111111111111111111111111111112',RPC='https://solana-rpc.publicnode.com';
 const TOKEN='TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',ATA='ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL';
@@ -178,15 +180,20 @@ try{
  async function settleLocal(label){
   const before=await deps.readAccount({walletAddress:WALLET,subaccountIndices:[1]}),amount=BigInt(before.subaccounts[1].quoteCollateralUnits);
   assert.ok(amount>0n);
-  const withdrawal=await client.ixs.buildWithdrawIxs({...common,amount});
+  const context=await readPhoenixCollateralContext({walletAddress:WALLET,minimumSlot:before.observedSlot,commitment:'confirmed'},{request:rpc,now,monotonicNow});
+  const withdrawal=await preparePhoenixCollateral({context,account:before,subaccountIndex:1},{request:rpc});
   // Request the native payout independently. Never roll back a queued native
   // request by trying to unwrap canonical tokens that have not arrived yet.
-  phases.push(await executeLocal(label+'_WITHDRAW_REQUEST',localWire([withdrawal.named.createPhoenixAta,withdrawal.named.withdrawFunds],initialized.blockhash)));
+  const payoutWire=buildPhoenixCollateralWire(withdrawal,{blockhash:initialized.blockhash,lastValidBlockHeight:10000});
+  await simulatePhoenixCollateral(payoutWire,{request:rpc});
+  phases.push(await executeLocal(label+'_WITHDRAW_REQUEST',payoutWire.serializedTxBase64));
   const received=await deps.readAccount({walletAddress:WALLET,subaccountIndices:[1]});
   if(received.subaccounts[1].withdrawalQueued)throw Error('LOCAL_WITHDRAWAL_QUEUED_CLOSE_ALREADY_COMPLETE');
   assert.equal(BigInt(received.canonical.amountUnits),amount);assert.equal(received.subaccounts[1].quoteCollateralUnits,'0');
-  const revoke={programAddress:TOKEN,accounts:[{address:walletAccounts.canonicalAta,role:1},{address:WALLET,role:2}],data:new Uint8Array([5])};
-  phases.push(await executeLocal(label+'_UNWRAP',localWire([withdrawal.named.approveToken,withdrawal.named.createUsdcAta,withdrawal.named.emberWithdraw,revoke],initialized.blockhash)));
+  const unwrap=await preparePhoenixCollateral({context,account:received,subaccountIndex:1,phase:'UNWRAP',amountUnits:amount.toString()},{request:rpc});
+  const unwrapWire=buildPhoenixCollateralWire(unwrap,{blockhash:initialized.blockhash,lastValidBlockHeight:10000});
+  await simulatePhoenixCollateral(unwrapWire,{request:rpc});
+  phases.push(await executeLocal(label+'_UNWRAP',unwrapWire.serializedTxBase64));
   const after=await deps.readAccount({walletAddress:WALLET,subaccountIndices:[1]});
   assert.equal(BigInt(after.usdc.amountUnits),BigInt(before.usdc.amountUnits)+amount);
   assert.equal(after.canonical.amountUnits,'0');assert.equal(after.canonical.delegate,null);
