@@ -1,0 +1,19 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {IDBFactory} from 'fake-indexeddb';
+import {createHyperliquidTestnetJournal} from '../lib/hyperliquid-journal.js';
+import {createHyperliquidValidationSession} from '../lib/hyperliquid-validation-session.js';
+import {decodeHyperliquidAccount,decodeHyperliquidMarkets} from '../lib/hyperliquid-public.js';
+const now=1800000000000,user='0x'+'11'.repeat(20);
+test('testnet coordinator performs explicit configure → open → query → close → query with durable holds and actual SDK',async()=>{
+ let configured=false,position=null,lastOrder=null,counter=0;const sent=[];
+ const journal=createHyperliquidTestnetJournal({indexedDB:new IDBFactory(),locks:{request:async(_name,_options,fn)=>fn({})}});
+ const client={network:'testnet',markets:async()=>decodeHyperliquidMarkets([{universe:[{name:'DOGE',szDecimals:0,maxLeverage:20}]},[{markPx:'0.12'}]],{network:'testnet',observedAt:now}),account:async()=>decodeHyperliquidAccount({marginSummary:{accountValue:'100',totalMarginUsed:position?'10':'0'},withdrawable:position?'90':'100',assetPositions:position?[{position:{coin:'DOGE',szi:position,entryPx:'0.12',marginUsed:'10',unrealizedPnl:'0',returnOnEquity:'0',leverage:{type:'isolated',value:3}}}]:[]},[],user,{network:'testnet',observedAt:now}),activeAsset:async()=>({network:'testnet',user,symbol:'DOGE',observedAt:now,marginType:configured?'isolated':'cross',leverage:3}),orderStatus:async()=>({status:'order',order:{status:'filled',order:{cloid:lastOrder.c,coin:'DOGE',side:lastOrder.b?'B':'A',origSz:lastOrder.s,sz:'0',oid:counter}}}),fills:async()=>[{oid:counter,tid:counter,coin:'DOGE',side:lastOrder.b?'B':'A',time:now,sz:lastOrder.s}]};
+ const provider={on(){},removeListener(){},async request({method,params}){if(method==='eth_accounts')return [user];assert.equal(method,'eth_signTypedData_v4');const data=JSON.parse(params[1]);assert.equal(data.message.source,'b');return '0x'+'11'.repeat(64)+'1b';}};
+ const session=createHyperliquidValidationSession({provider,user,journal,client,now:()=>now,random:()=>new Uint8Array(16).fill(++counter),request:async(url,options)=>{assert.equal(url,'https://api.hyperliquid-testnet.xyz/exchange');const payload=JSON.parse(options.body);sent.push(payload);if(payload.action.type==='updateLeverage'){assert.equal(payload.action.isCross,false);configured=true;return {ok:true,json:async()=>({status:'ok',response:{type:'default'}})};}assert.equal(payload.action.type,'order');lastOrder=payload.action.orders[0];position=lastOrder.r?null:lastOrder.b?lastOrder.s:'-'+lastOrder.s;return {ok:true,json:async()=>({status:'ok',response:{type:'order',data:{statuses:[{filled:{totalSz:lastOrder.s,avgPx:'0.12',oid:counter}}]}}})};}});
+ await assert.rejects(()=>session.prepare({symbol:'DOGE',side:'LONG',margin:'10',leverage:3}),/configure-isolated-first/);
+ const config=await session.prepare({symbol:'DOGE',leverage:3,configure:true});await session.confirm(config,true);assert.equal((await journal.get(user)).phase,'CHECK_REQUIRED');assert.equal((await session.recover()).stage,'CONFIGURED');assert.equal(await journal.get(user),null);
+ const open=await session.prepare({symbol:'DOGE',side:'LONG',margin:'10',leverage:3});await session.confirm(open,true);assert.equal((await journal.get(user)).phase,'CHECK_REQUIRED');await assert.rejects(()=>session.confirm(open,true),/pending/);assert.equal((await session.recover()).stage,'FILLED');assert.ok(position);
+ const close=await session.prepare({symbol:'DOGE',close:true});assert.equal(close.order.r,true);assert.equal(close.order.b,false);await session.confirm(close,true);const result=await session.recover();assert.equal(result.stage,'FILLED');assert.equal(result.positionRemains,false);assert.equal(position,null);assert.equal(await journal.get(user),null);assert.equal(sent.length,3);assert.equal(new Set(sent.map(p=>p.nonce)).size,3);
+ session.dispose();await journal.dispose();
+});

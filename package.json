@@ -26,6 +26,7 @@
     "@capacitor/browser": "^8.0.0",
     "@capacitor/core": "8.4.3",
     "@capacitor/ios": "8.4.3",
+    "@nktkas/hyperliquid": "0.33.3",
     "@noble/curves": "2.4.0",
     "@scure/bip39": "2.4.0",
     "@solana-program/system": "^0.12.2",
