@@ -43,11 +43,11 @@ nuevos), no los 139.
    exclusiones entre venues, y levantar esa guarda con pruebas.
 2. **Mapeo Mercados → Phoenix**: hecho en `lib/phoenix-market-map.js` con
    pruebas (esta sesión).
-3. **UI de Futuros**: no hay ticket de entrada/cierre. El directorio de mercados
-   ya existe: `lib/phoenix-futures-panel.js`, cargado solo al abrir Futuros
-   (bundle de 1,18 MB con el SDK del venue), lista los mercados operables,
-   inactivos y el conteo de tokens sin mercado. No promete ni habilita
-   operaciones; el texto lo dice explícitamente.
+3. **UI de Futuros**: completa. Directorio de mercados
+   (`lib/phoenix-futures-panel.js`, import dinámico), ticket de entrada con
+   revisión y consentimiento separados (`lib/phoenix-entry-ticket.js`) y panel de
+   posiciones/cierre (`lib/phoenix-positions-panel.js`). Todo en el mismo chunk
+   perezoso; nada promete operación mientras el gate esté puesto.
 4. **Pruebas de composición** del runtime con Phoenix habilitado, incluyendo
    recuperación y convivencia con el diario existente.
 5. **Instalación en el VPS**: binario worker + web service. Requiere ventana,
