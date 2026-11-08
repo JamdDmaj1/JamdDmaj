@@ -13,12 +13,17 @@ una ventana. Toca dinero real y el servidor financiero.
    - Web service: `dc4d88e7…1152` (coincide con el documentado).
    - `ExecStart` efectivo: `--controls --custody-setup --bot-swaps
      --platform-fees --bot-manual` — **sin `--phoenix`**.
-   - **Dependencia crítica:** el commit HEAD de la rama **no incluye
-     `vault.signPhoenixOrder`** (solo existe en el árbol de trabajo de la sesión
-     paralela: 4 métodos en HEAD frente a 5 en el working tree). El servicio
-     Phoenix exige ese método al construirse, así que instalar un worker
-     construido desde HEAD con `--phoenix` **fallaría al arrancar**. Hay que
-     commitear primero ese trabajo y verificar de nuevo.
+   - **Corrección (2026-11-08, ronda 8):** HEAD **sí** incluye
+     `vault.signPhoenixOrder`, `signPhoenixFee`, `signPhoenixParent` y
+     `signPhoenixCollateral`, que es lo que exige `createPhoenixManualService`.
+     Lo único que falta en HEAD es `signPhoenixChildSetup` (flujo de onboarding
+     del hijo, aún sin commitear); no bloquea entrada ni cierre manual.
+   - **Artefacto construido y verificado desde `9ec83f4`:**
+     `bot-manual-worker-candidate.mjs`, 3,66 MB,
+     SHA256 `652843c360ec25a68ed988e96a842ddbedeeb99f3c016aff7f53a90f6c77bdc4`.
+     Incluye `--phoenix`, `createPhoenixManualService` y `PHOENIX_ENTRY_GATED`.
+     Arrancado en un directorio vacío falla cerrado con
+     `PERPS_RUNTIME_UNAVAILABLE` (los imports resuelven). **No instalado.**
 
 1. `PHOENIX_ENTRY_GATE` decidido: si se deja puesto, Phoenix solo permite cierre.
    Para abrir entradas hay que quitarlo en `lib/phoenix-manual-service.js` **en el
