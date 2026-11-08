@@ -58,4 +58,17 @@ reviewed and unchanged because responsive product layout is unchanged. Finance
 CSS cache version bumped. Build copies the four pure UI imports needed by the
 existing raw public trading-panel module as well as bundling them in assets UI.
 APK stays unchanged. Previous handoff ZIP is an older dated snapshot.
-Staged/public comparison and publication evidence will be appended.
+## Publication evidence
+
+Published web 1.38.27 from source commit
+`dcc05f89d85b97b5f937e6a3ae2ccb1f299c5cbd`.
+Deployment `dpl_9b1KCBNX7H41DJKAyv3xaThhxsbv`:
+https://jamd-dmaj-h620lj9i8-jamd-dmaj-s-projects.vercel.app
+Built READY without domain assignment, compared all 14 listed assets with the
+local tested build, then promoted the same deployment without rebuilding.
+All 14 assets subsequently matched at https://www.jamddmaj.com.
+
+Final build and 24 targeted tests passed. Wallet design/open share, closed share
+and manual close mock browser checks passed at desktop/mobile sizes. No financial
+network calls were used. Bounded deployment error-log query returned no entries;
+this is not proof of live trading execution. No VPS rollout/restart or APK update.
