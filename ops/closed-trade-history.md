@@ -1,5 +1,9 @@
 # Closed manual trade history — implementation candidate
 
+Follow-up: 1.38.26 adds conditional USDC cash performance/percentages and local
+configurable PNG sharing. See `history-share-13826.md`. Total net USD/SOL-inclusive
+PnL remains unavailable; the original null netPnl field is not reinterpreted.
+
 Published with web 1.38.25 and the entry-freshness server release. See
 `entry-freshness-fix-20261107.md` for deployment evidence and limitations.
 

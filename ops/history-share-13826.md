@@ -1,4 +1,4 @@
-# Closed trade results and local PNG sharing — candidate 1.38.26
+# Closed trade results and local PNG sharing — published 1.38.26
 
 User requested colored percentages and a configurable share image. This adds
 read-only cash performance plus a responsive trade journal and browser canvas
@@ -57,4 +57,36 @@ Binary rollout must use current exact 1.38.25 hashes and the existing pure
 financial-state fingerprint guards. New candidate/backups use distinct names.
 Refuse live pending actions or active automation; no automatic pause, release
 of holds, migration, database restore or financial test is authorized.
-Publication evidence will be appended after verification.
+## Publication evidence
+
+Source 73c6f2e8a82232862d88c853b66f8cbf7acd1011.
+Focused performance, privacy, client/API and panel tests: 23 passed, zero failed.
+Native close/update-guard suite: 89 passed, one optional browser case skipped,
+zero failed. Real compiled browser/canvas tests passed at 1280 and 390 pixels:
+gain/loss colors, hidden-by-default cash/margin/date, toggle changes, 1200x675
+PNG download, 1080x1080 format, mocked native share/cancel, unsupported-share
+download fallback, and delayed encoder refusal after wallet change. Previous
+manual close/entry desktop/mobile UI check also passed. QA images are synthetic.
+
+Read-only-source isolated real-history validation confirmed one recorded
+COMPLETED item qualifies for cash performance; no values/private addresses
+were logged. This is not an independent total-net-PnL audit.
+
+VPS binary-only preflight/install succeeded; all services healthy; all seven
+logical financial database fingerprints unchanged. Policies unchanged; zero
+financial sends/signatures, no automatic activation, no schema migration.
+Worker SHA256 7f681c890f8306a69f399bf09ba0a480a38b8556c1db29e5bb036d68dd57b4d5;
+web SHA256 dc4d88e75f0b846ca743c0d1d1a4a95035ab9cb8483a50f1e65b3a6e47b71152.
+The web-service binary is unchanged; the worker adds read-only projection.
+
+Vercel production deployment dpl_723MmsQGyUEbmcoF7qWuwiw99aoF, READY, framework
+Other, remote build approx. 18 seconds. Staged URL:
+https://jamd-dmaj-dt5s8cd5f-jamd-dmaj-s-projects.vercel.app
+Nine artifacts matched tested local outputs before promoting that SAME build.
+Canonical public domain subsequently matched all nine artifacts (main HTML,
+Discover HTML/JS/CSS/tour CSS, Finance CSS, assets bundle and two bot UI bundles).
+An initial immediate post-promotion Discover comparison was temporarily stale;
+its version then resolved to 1.38.26 and the full canonical comparison passed.
+Bounded post-deploy Vercel error-log query found no matching errors, not proof
+of exercising every authenticated live account path. No real social post or
+financial operation was used to verify this release. APK remains unchanged.
