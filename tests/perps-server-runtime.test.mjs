@@ -64,6 +64,14 @@ test('an older executor cannot start while silently ignoring a Phoenix financial
  assert.equal(f.calls.length,0);assert.equal(existsSync(join(f.directory,'worker.lock')),false);
 });
 
+test('Phoenix only opens with an explicit boolean opt-in and a prior ledger',t=>{
+ const f=fixture(t);
+ assert.throws(()=>openServerPerpsRuntime({...f.options,phoenixEnabled:true}));
+ assert.throws(()=>openServerPerpsRuntime({...f.options,phoenixEnabled:'yes'}));
+ assert.equal(existsSync(join(f.directory,'phoenix.sqlite')),false);
+ assert.equal(f.calls.length,0);
+});
+
 test('fee-enabled runtime requires existing private stores and never manufactures them at startup',async t=>{
  const f=fixture(t);assert.throws(()=>openServerPerpsRuntime({...f.options,platformFeesEnabled:true}));
  assert.equal(existsSync(join(f.directory,'fees.sqlite')),false);assert.equal(existsSync(join(f.directory,'payments.sqlite')),false);

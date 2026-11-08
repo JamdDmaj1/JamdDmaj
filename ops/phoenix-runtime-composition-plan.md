@@ -1,6 +1,23 @@
 # Composición del runtime Phoenix — plan exacto
 
-Fecha: 2026-11-08. Estado: **no implementado**. Nada de esto toca producción.
+Fecha: 2026-11-08. Estado: **implementado detrás de `--phoenix`, apagado por
+defecto**. No instalado y no activado en el VPS.
+
+## Implementado (commit de esta ronda)
+
+- `lib/perps-server-runtime.js`: bandera `phoenixEnabled` que exige
+  `platformFeesEnabled && botSwapsEnabled && botManualEnabled && mode==='execute'`;
+  el diario `phoenix.sqlite` debe existir **antes** de arrancar (el runtime no lo
+  crea) y se cierra en `release()`.
+- Composición de `createPhoenixManualService` con el diario de riesgo, swaps,
+  backups, cliente del venue, claves de exchange, RPC de lectura y un
+  `sendRequest` que solo acepta `sendTransaction` con la ejecución en marcha.
+- `assertUncontended` real: bloquea si hay entradas, cierres, cancelaciones,
+  pagos de fee, swaps o flujos Phoenix pendientes para la misma billetera.
+- `scripts/perps-server-worker.mjs`: acepta `--phoenix` y lo pasa al runtime.
+- Pruebas: `phoenixEnabled` sin prerrequisitos y con valor no booleano falla; el
+  ledger existente sin bandera sigue fallando; 28 pruebas del runtime, 25
+  pasadas, 3 omitidas (solo Linux), 0 fallos.
 
 ## Lo que ya está listo
 
