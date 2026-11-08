@@ -5,6 +5,21 @@ una ventana. Toca dinero real y el servidor financiero.
 
 ## Requisitos previos
 
+0. **Preflight observado 2026-11-08 (solo lectura):**
+   - Servicios `jamddmaj-perps-worker`, `-web` y `-https`: **active**.
+   - `phoenix.sqlite`: **no existe** (correcto, hay que crearlo).
+   - Worker instalado: `7f681c89…57b4d5` (distinto del `420f69a0…` del release
+     documentado, así que los binarios se actualizaron después).
+   - Web service: `dc4d88e7…1152` (coincide con el documentado).
+   - `ExecStart` efectivo: `--controls --custody-setup --bot-swaps
+     --platform-fees --bot-manual` — **sin `--phoenix`**.
+   - **Dependencia crítica:** el commit HEAD de la rama **no incluye
+     `vault.signPhoenixOrder`** (solo existe en el árbol de trabajo de la sesión
+     paralela: 4 métodos en HEAD frente a 5 en el working tree). El servicio
+     Phoenix exige ese método al construirse, así que instalar un worker
+     construido desde HEAD con `--phoenix` **fallaría al arrancar**. Hay que
+     commitear primero ese trabajo y verificar de nuevo.
+
 1. `PHOENIX_ENTRY_GATE` decidido: si se deja puesto, Phoenix solo permite cierre.
    Para abrir entradas hay que quitarlo en `lib/phoenix-manual-service.js` **en el
    mismo release** que las pruebas de entrada.

@@ -83,6 +83,17 @@ test('reviews and confirms an opening only with explicit consent', async (t) => 
   assert.deepEqual(calls.at(-1), ['confirm', true])
 })
 
+test('explains an unavailable venue instead of showing a raw code', async (t) => {
+  const client = {
+    prepareEntry: async () => { const error = new Error('phoenix-unavailable'); error.code = 'phoenix-unavailable'; throw error },
+    confirmEntry: async () => { throw new Error('unused') },
+  }
+  const f = fixture(client)
+  t.after(f.dispose)
+  findBy(f.parent, (n) => n.tag === 'button' && n.textContent === 'Revisar entrada').onclick()
+  await settle(() => flatten(f.parent).some((text) => text.includes('todavía no está habilitado en el servidor')), 'unavailable message')
+})
+
 test('shows the release gate instead of pretending the market is open', async (t) => {
   const client = {
     prepareEntry: async () => { const error = new Error('phoenix-entry-gated'); error.code = 'phoenix-entry-gated'; throw error },
