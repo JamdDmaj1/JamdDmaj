@@ -2,6 +2,60 @@
 
 Status: development only. Not connected to production signing or execution.
 
+## Finalized collateral and scoped-vault lifecycle checkpoint
+
+- `phoenix-collateral-receipt.js` verifies the exact wallet signature, finalized
+  status/transaction bytes, native token balances, rent/SOL fees and the actual
+  SPL transfer from the derived Phoenix/Ember vault to the wallet's correct ATA.
+  A successful withdrawal without canonical credit is AWAITING_PAYOUT, not money
+  received. Missing/confirmed-only responses stay unresolved and are not retried.
+- Conversion evidence is bound to one verified canonical payout for the same
+  wallet, child and amount. Read-only restart reconstruction carries the original
+  withdrawal wire and rechecks its finalized payout before accepting conversion.
+  Existing canonical balance or a mutable archive cannot substitute another
+  position's payout. A conversion cannot precede its source payout's slot.
+- The private ledger now persists WITHDRAW/UNWRAP attempts through the same wallet
+  exclusion as orders. Workflows progress SETTLING → CANONICAL_READY → COMPLETE
+  only on sealed finalized receipts. Accepted but unpaid requests remain held in
+  PAYOUT_PENDING. COMPLETE releases the child for reuse; unsigned cancellation,
+  failed conversion and unknown signatures cannot manufacture that state.
+- A separate Phoenix collateral signing profile checks the exact simulated wire,
+  paused owner controls, current durable phase, conflict checks and restored
+  custody backup scopes. Its narrow vault method stores signed bytes before
+  returning them and cannot be reused as an order or generic token-transfer grant.
+- The real-program local VM rehearsal now runs both LONG and SHORT through the
+  actual encrypted test vault, restored encrypted backup proof, order and payout
+  signing capabilities, durable journal and exact native receipt verification.
+  It closes/reopens SQLite between payout steps, verifies no remaining holds after
+  credited USDC, and reuses the same isolated child for the second lifecycle.
+
+The VM now creates a fresh encrypted temporary TEST identity rather than using
+the fixed zero-signed wallet for every phase. Wallet-only transactions receive
+real signatures from that isolated test vault; provider onboarding signatures
+remain zero and signature checking remains local-only. No user keys, operator
+production credentials, funded user balances or network submissions are used.
+The harness's RPC finality responses represent its local VM, NOT mainnet finality.
+The temporary test directory and its new keys are removed after the rehearsal.
+
+Validation: 139 selected tests completed: 135 passed, 4 platform-specific skips,
+zero failures. This includes all 75 Phoenix tests and the existing server runtime,
+backup/recovery, custody, signing and recovery-CLI regression files used at the
+previous checkpoint. The actual-program VM emitted
+`durableWorkflowRestartVerified: true`, `scopedVaultAndBackupVerified: true`,
+`localPayoutReceiptsVerified: true`, `networkSubmissions: 0` and
+`readyForTrading: false`. A final focused receipt rerun also passed after adding
+the source-payout slot check.
+
+Still pending before availability: production parent/onboarding authorization and
+setup simulation; queued payout completion evidence; native platform-fee payment;
+complete managed-account inventory; cross-venue runtime composition; bounded
+approval across setup/finality with the original 0.5% protection; authenticated
+API/client/UI, combined positions/equity/history/sharing and browser verification.
+The existing executor still refuses to ignore an uncomposed Phoenix ledger.
+These development schemas have not been installed on production or migrated from
+any real Phoenix database. Discover was reviewed: no new tradability claims or
+public changes are appropriate until the remaining flow is actually available.
+
 ## Split collateral checkpoint
 
 `phoenix-collateral.js` now obtains the native withdrawal routes independently

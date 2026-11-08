@@ -65,6 +65,22 @@ def metadata(meta):
             "fee": meta.fee(), "innerInstructions": groups}
 
 
+def token_balances(keys, accounts):
+    rows = []
+    for index, account in enumerate(accounts):
+        if account is None or str(account.owner) != "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" or len(account.data) != 165:
+            continue
+        data = bytes(account.data)
+        mint = Pubkey.from_bytes(data[:32])
+        mint_account = svm.get_account(mint)
+        if mint_account is None or len(mint_account.data) != 82:
+            raise ValueError("Missing local token mint")
+        rows.append({"accountIndex": index, "mint": str(mint), "owner": str(Pubkey.from_bytes(data[32:64])),
+                     "programId": str(account.owner), "uiTokenAmount": {
+                         "amount": str(int.from_bytes(data[64:72], "little")), "decimals": mint_account.data[44]}})
+    return rows
+
+
 def run(command):
     kind = command["kind"]
     if kind == "initialize":
@@ -99,6 +115,8 @@ def run(command):
                           for a in command["addresses"]]}
     if kind in ("simulate", "execute-local"):
         tx = VersionedTransaction.from_bytes(base64.b64decode(command["wireBase64"], validate=True))
+        keys = list(tx.message.account_keys)
+        before = [svm.get_account(key) for key in keys]
         result = svm.simulate_transaction(tx) if kind == "simulate" else svm.send_transaction(tx)
         if isinstance(result, FailedTransactionMetadata):
             return {"context": {"slot": svm.get_clock().slot}, "value": {
@@ -107,7 +125,13 @@ def run(command):
         post = dict(result.post_accounts()) if kind == "simulate" else {}
         accounts = [encode_account(post.get(Pubkey.from_string(a)) or svm.get_account(Pubkey.from_string(a)))
                     for a in command.get("addresses", [])]
-        return {"context": {"slot": svm.get_clock().slot}, "value": {**metadata(meta), "accounts": accounts}}
+        extra = {}
+        if kind == "execute-local":
+            after = [svm.get_account(key) for key in keys]
+            extra = {"preBalances": [a.lamports if a else 0 for a in before],
+                     "postBalances": [a.lamports if a else 0 for a in after],
+                     "preTokenBalances": token_balances(keys, before), "postTokenBalances": token_balances(keys, after)}
+        return {"context": {"slot": svm.get_clock().slot}, "value": {**metadata(meta), "accounts": accounts, **extra}}
     if kind == "set-fictitious-account":
         value = command["account"]
         svm.set_account(Pubkey.from_string(command["address"]), Account(
@@ -116,6 +140,9 @@ def run(command):
         return {"localOnly": True}
     if kind == "rent":
         return svm.minimum_balance_for_rent_exemption(command["bytes"])
+    if kind == "advance-local-blockhash":
+        svm.expire_blockhash()
+        return {"blockhash": str(svm.latest_blockhash()), "localOnly": True}
     raise ValueError("Unsupported local VM command")
 
 
