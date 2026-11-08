@@ -43,8 +43,11 @@ nuevos), no los 139.
    exclusiones entre venues, y levantar esa guarda con pruebas.
 2. **Mapeo Mercados → Phoenix**: hecho en `lib/phoenix-market-map.js` con
    pruebas (esta sesión).
-3. **UI de Futuros**: no hay panel que liste los mercados Phoenix, ni ticket de
-   entrada/cierre; el cliente existe pero no está montado.
+3. **UI de Futuros**: no hay ticket de entrada/cierre. El directorio de mercados
+   ya existe: `lib/phoenix-futures-panel.js`, cargado solo al abrir Futuros
+   (bundle de 1,18 MB con el SDK del venue), lista los mercados operables,
+   inactivos y el conteo de tokens sin mercado. No promete ni habilita
+   operaciones; el texto lo dice explícitamente.
 4. **Pruebas de composición** del runtime con Phoenix habilitado, incluyendo
    recuperación y convivencia con el diario existente.
 5. **Instalación en el VPS**: binario worker + web service. Requiere ventana,
@@ -55,6 +58,10 @@ nuevos), no los 139.
 - `lib/phoenix-market-map.js`: mapeo puro Mercados→Phoenix (operables,
   inactivos, no soportados, sin duplicados) y `isFuturesOperable`.
 - `tests/phoenix-market-map.test.mjs`: 3 pruebas, 0 fallos.
+- `lib/phoenix-futures-panel.js` + `tests/phoenix-futures-panel.test.mjs`:
+  directorio de mercados en Futuros (2 pruebas), montado con import dinámico
+  desde `lib/terminal-layout.js`; `scripts/build-web.mjs` lo empaqueta aparte.
+- Regresión de UI financiera: 133 pruebas, 130 pasadas, 3 omitidas, 0 fallos.
 
 ## Siguiente paso
 

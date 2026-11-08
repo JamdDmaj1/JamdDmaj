@@ -115,6 +115,11 @@ await build({
   }}]
 });
 await cp(resolve(root, "lib", "terminal-layout.js"), resolve(output, "lib", "terminal-layout.js"));
+await build({
+  absWorkingDir: root, entryPoints: [resolve(root, "lib", "phoenix-futures-panel.js")],
+  outfile: resolve(output, "lib", "phoenix-futures-panel.js"), bundle: true,
+  format: "esm", platform: "browser", target: ["es2020"], legalComments: "none"
+});
 for(const name of ['hyperliquid-public','hyperliquid-panel'])await cp(resolve(root,'lib',name+'.js'),resolve(output,'lib',name+'.js'));
 await build({absWorkingDir:root,entryPoints:[resolve(root,'hyperliquid-testnet-ui.js')],outfile:resolve(output,'hyperliquid-testnet-ui.js'),bundle:true,format:'esm',platform:'browser',target:['es2022'],legalComments:'none'});
 await build({absWorkingDir:root,entryPoints:[resolve(root,'lib/market-signal-alerts.js')],outfile:resolve(output,'lib/market-signal-alerts.js'),bundle:true,format:'esm',platform:'browser',target:['es2020'],legalComments:'none'});
