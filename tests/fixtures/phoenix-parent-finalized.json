@@ -1,0 +1,167 @@
+{
+  "source": {
+    "rpc": "https://solana-rpc.publicnode.com",
+    "method": "getTransaction",
+    "encoding": "base64",
+    "commitment": "finalized",
+    "capturedReadOnly": true,
+    "sponsoredFixtureOnly": true
+  },
+  "signature": "5jZRaiBWonhs439VGeC8QWKYBFaoikooCrFtxZrbREEaUxBH6H8sADq3orAXTNuhGEfzc5xHD4QUBPtnTRq4MYdq",
+  "transaction": {
+    "blockTime": 1794128887,
+    "meta": {
+      "computeUnitsConsumed": 34056,
+      "costUnits": 37926,
+      "err": null,
+      "fee": 10000,
+      "innerInstructions": [
+        {
+          "index": 0,
+          "instructions": [
+            {
+              "accounts": [
+                0,
+                4
+              ],
+              "data": "3Bxs4NPe3oJdApGw",
+              "programIdIndex": 6,
+              "stackHeight": 2
+            },
+            {
+              "accounts": [
+                4
+              ],
+              "data": "9krTDga8ReLHS6Kq",
+              "programIdIndex": 6,
+              "stackHeight": 2
+            },
+            {
+              "accounts": [
+                4
+              ],
+              "data": "SYXsQsTzjUafR9M7EGHkFu8pCkKm3BsNpCoue5fcReESnE4D",
+              "programIdIndex": 6,
+              "stackHeight": 2
+            },
+            {
+              "accounts": [
+                10
+              ],
+              "data": "4ScKjFNztkAxgvw8ZcP9tV8cHWwZ",
+              "programIdIndex": 9,
+              "stackHeight": 2
+            },
+            {
+              "accounts": [
+                10
+              ],
+              "data": "41LXTc6LrSeMbx9qb78yXaswhhUdgWTV1wTBsN12ww5H59zFDFV8HuatfmjBwojw5bK1z6Q5vFQVCcwopNJ31Gq35CbWQjjLJgahf4cRR2YGRZGL1QmwYYjanLRZXgom946ikMcKtGsv5r4Xz5eQQsLSqjCEMtj",
+              "programIdIndex": 9,
+              "stackHeight": 2
+            }
+          ]
+        },
+        {
+          "index": 1,
+          "instructions": [
+            {
+              "accounts": [
+                10
+              ],
+              "data": "4ScKjFNztkAxgvw8ZcP9tV8cHWV5",
+              "programIdIndex": 9,
+              "stackHeight": 2
+            },
+            {
+              "accounts": [
+                10
+              ],
+              "data": "2NKTQuZ7sCmvhJNMst7isYbP1WzRdXXruxuB7AY8SsWJ98gnejjM3tm8ns9e5zYQsDnRyR5FMna9jrDgireqtLUz6YLzwdgw1gsyXPXF9ePPHKk3B9Rs31ywPzFX5k4MhvUZsGCAAerm8kJmVd3z9ZR",
+              "programIdIndex": 9,
+              "stackHeight": 2
+            }
+          ]
+        }
+      ],
+      "loadedAddresses": {
+        "readonly": [],
+        "writable": []
+      },
+      "logMessages": [
+        "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+        "Program log: Phoenix Eternal: RegisterTrader",
+        "Program 11111111111111111111111111111111 invoke [2]",
+        "Program 11111111111111111111111111111111 success",
+        "Program 11111111111111111111111111111111 invoke [2]",
+        "Program 11111111111111111111111111111111 success",
+        "Program 11111111111111111111111111111111 invoke [2]",
+        "Program 11111111111111111111111111111111 success",
+        "Program log: Trader registered successfully with 32 max positions",
+        "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+        "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 600 of 380694 compute units",
+        "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+        "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+        "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 446 of 379088 compute units",
+        "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+        "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 21679 of 400000 compute units",
+        "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+        "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+        "Program log: Phoenix Eternal Admin: SetTraderCapability",
+        "Program log: Capability toggle applied: PlaceLimitOrder -> enabled",
+        "Program log: Capability toggle applied: PlaceMarketOrder -> enabled",
+        "Program log: Capability toggle applied: RiskReducingTrade -> enabled",
+        "Program log: Capability toggle applied: RiskIncreasingTrade -> enabled",
+        "Program log: Capability toggle applied: DepositCollateral -> enabled",
+        "Program log: Capability toggle applied: WithdrawCollateral -> enabled",
+        "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+        "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 600 of 368317 compute units",
+        "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+        "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+        "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 446 of 366711 compute units",
+        "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+        "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 12377 of 378321 compute units",
+        "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success"
+      ],
+      "postBalances": [
+        196374679,
+        890880,
+        3214350720,
+        2060160,
+        8371840,
+        3339463680,
+        1,
+        18708480,
+        0,
+        1241441,
+        0
+      ],
+      "postTokenBalances": [],
+      "preBalances": [
+        204756519,
+        890880,
+        3214350720,
+        2060160,
+        0,
+        3339463680,
+        1,
+        18708480,
+        0,
+        1241441,
+        0
+      ],
+      "preTokenBalances": [],
+      "rewards": [],
+      "status": {
+        "Ok": null
+      }
+    },
+    "slot": 466859020,
+    "transaction": [
+      "AuzE7/emxcpUqjdg++n3uQUhkhWaGSUUPYeY9qSw1nn2+pQZypZ6hjP31DRS/FnbltJ6Jv7yjKP+Bn6VL1unOgR2E6H0qJyOPg90kIdYr+IZwwrFbZqwUTQgYw8q7qeL3dApduRG5cXUtGwWqLr5z+5iTpzIcafZ2Ul/sX783yINAgEFC5Wp/jPjHo/dIzj8BWoI8w6OcXQ0iFWTDym/vUabY6Rnz/MMgVbEO8zrk+T9XWEfNfUZvB9wV/AW/X6mkp6HQi4VyKqSPeNhD5lhLzv3uGRMNwyQ8bvtiQhmF/6lLlCOE1FCXlM4mvKYVgCDLrXZ2wWbY1ZFgehmjqbWfzZ69Sl3tFlLvUqvzhDNraBday+y1z5XeP+yeg6jBrJLXp663SrwxDko6CGt/I6eRhSaHnNb6D4x9h/IaQ+F1u5OIr60WgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHa8vXDPSbJtV/5j5N3rcL8YSAp/JIw1ZJajhpFpOR8pGna8SS3dXmkLWmJxQX25Kv64R+Ncd5pJhL86EbLLvus5w1vtWjkPr/JZKkBVsO+lWOwgXBnyraU68g+/ds36G6FcmwLK1vPr2Zot8G4Np+wHJmF/MFn8LQpm/HX0ewqUfs2oVj+vfU7qiZ+hTUbSEGbJHa4N4uM5gv669jjHR7wIJBwkKBwAIBAYSS/PgpwEFMyAgAAAAAAAAAAAACQgJCgcBAwQFAhjPqhEVNSNYlwYAAAAAAQEBAwECAQQBBQE=",
+      "base64"
+    ],
+    "transactionIndex": 171,
+    "version": "legacy"
+  }
+}

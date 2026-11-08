@@ -321,6 +321,51 @@ Do not extend the Jupiter signing allowlist to accept these instructions.
 
 ## Public documentation review
 
+### Parent receipt/finality checkpoint — 2026-11-08 (internal only)
+
+The parent receipt reader now checks finalized status, the exact approved message
+and wallet signature, a valid signature from the pinned Phoenix onboarder, native
+parent PDA, canonical register/onboard instructions, slot/block-time, full SOL
+balance conservation, the separately approved rent/fee cap, empty token effects
+and native System transfer/allocate/assign CPI evidence for the 1520-byte parent.
+Missing/confirmed-only data remains UNKNOWN and never authorizes a resend.
+Failed transaction accounting uses the network fee only, no rented account credit.
+
+The database has an internal FINALIZED transition accepted only from the receipt
+reader's private proof, with complete provider-signed bytes archived and checked
+on restart. A provider response or copied transaction-facts object is not a proof.
+This remains unconnected to production dispatch, activation and public UI.
+
+Evidence scope is important: a bounded read-only public RPC capture found real
+two-signature 32-position legacy parent registrations, but the matching captured
+sample uses a sponsor payer DIFFERENT from its trader authority. It is explicitly
+marked sponsoredFixtureOnly. It proves the pinned provider signature and native
+creation effects, NOT owned same-wallet consent. The capture script defaults to
+same-wallet filtering; --allow-sponsored-fixture is explicit and is only a fixture
+option, not an execution-policy override. No send endpoint was called.
+
+Transaction-facts verification is deliberately unbranded and can inspect that
+public sponsored sample. The actual reconciliation entry point first checks the
+strict SAME-WALLET durable setup profile; it rejects the sponsored sample. Tests
+also prove those facts, even relabelled FINALIZED, cannot release an owned pending
+setup after SQLite restart. Synthetic same-wallet records exercise pending reads
+with fresh throwaway wallet signatures, not a forged Phoenix co-signature.
+There is not yet a positive owned same-wallet parent finality/release fixture.
+Do not claim that broader boundary verified or use the public sponsored sample
+as permission to spend from another wallet.
+
+Validation: 180 selected tests, 179 passed, one platform-specific skip, zero
+failures; focused receipt rerun passed five tests after tightening token/loaded
+address metadata checks. The five-lifecycle local program rehearsal still passes
+with zero network submissions; its provider setup signature remains zero and
+does not prove real provider dispatch. No user keys, funded tests or live schemas
+were used. Remaining gates include provider-bound setup dispatch/recovery, child
+setup authorization/simulation, complete inventory/runtime exclusions and UI.
+
+Discover reviewed: discover.html/discover.js continue to describe only the
+publicly supported BTC/ETH/SOL markets. discover.css and discover-tour.css need no
+change for these internal receipt components. No publication/version change.
+
 ### Durable parent authorization checkpoint — 2026-11-08 (internal only)
 
 The private Phoenix database now records parent setup independently of trading
