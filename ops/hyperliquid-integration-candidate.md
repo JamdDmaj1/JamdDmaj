@@ -69,6 +69,32 @@ Discover HTML, JS, CSS and tour CSS reviewed: no public edits appropriate until
 availability changes. Production Discover correctly still says BTC/ETH/SOL for
 the shipped Jupiter execution connection. Do not announce this candidate on X.
 
+## Preview evidence and next required action
+
+Source `970ddea4c65478992e985eb0242ad9a92a9741aa` deployed ONLY as Preview,
+READY deployment `dpl_6x2oobcH1MNdS6C8L273KXvz9hjo`:
+https://jamd-dmaj-dbqnh8ayj-jamd-dmaj-s-projects.vercel.app/hyperliquid-testnet.html
+No promote call, custom domain assignment, VPS restart or production release.
+Authenticated comparison verified all nine preview assets: testnet HTML/bundle,
+public client/panel, terminal and Discover HTML/JS/CSS/tour. Only the exact
+Vercel-injected opt-in preview Toolbar trailing tag is removed for HTML byte
+comparison; application code/body differences are not ignored.
+Canonical public terminal separately matched the previous production source
+`dcc05f89d85b97b5f937e6a3ae2ccb1f299c5cbd`. Production stays 1.38.27.
+
+Final targeted run: 26 tests passed (10 Hyperliquid + 16 existing display/state
+regressions). Compiled browser testnet configure/open/reconcile/close/reload
+recovery passed at 1280/390 px, as did the read-only catalog/account panel.
+Actual browser public catalog read returned 179 active native markets. Preview
+bounded error-log query returned no entries; not evidence of real order success.
+
+Remaining external verification requires the user to connect an EVM wallet and
+an existing funded TESTNET account, then explicitly approve each test action.
+No actual testnet account/signature/fill has been verified. Never ask the user
+to deposit real funds merely to complete this test. If no testnet funds/session
+are available, keep production signing disabled and report that dependency.
+Mainnet fees/caps/depth and account funding remain separate later gates.
+
 ## Sources checked
 
 - https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api
