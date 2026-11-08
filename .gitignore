@@ -1,4 +1,5 @@
 node_modules/
+.phoenix-svm-venv/
 .android-signing/
 *.jks
 *.keystore

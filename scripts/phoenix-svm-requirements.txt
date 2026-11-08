@@ -1,0 +1,4 @@
+# Isolated development rehearsal only; never imported by the trading service.
+solders==0.29.0
+jsonalias==0.1.1
+typing-extensions==4.16.0

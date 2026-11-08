@@ -5,10 +5,12 @@ import {createPhoenixClient} from '@ellipsis-labs/rise';
 import {createPhoenixPublicClient} from '../lib/phoenix-public-client.js';
 import {preparePhoenixOrderReview,buildPhoenixReviewedInstructions} from '../lib/phoenix-order-review.js';
 import {decodePhoenixMarketQuote} from '../lib/phoenix-market-quote.js';
+import {buildPhoenixOrderWire} from '../lib/phoenix-order-wire.js';
+import {readPhoenixNativeMarket} from '../lib/phoenix-native-market.js';
 const underlying=globalThis.fetch,reads=[];
 globalThis.fetch=async(input,init)=>{const req=input instanceof Request?input:null,url=new URL(req?.url??String(input)),method=init?.method??req?.method??'GET';
  if(url.origin==='https://perp-api.phoenix.trade'){if(method!=='GET')throw Error('NO_MUTATING_PHOENIX_API');}
- else if(url.origin==='https://solana-rpc.publicnode.com'){const body=typeof init?.body==='string'?JSON.parse(init.body):req?await req.clone().json():null;if(method!=='POST'||!['getAccountInfo','getMultipleAccounts','getSlot','getGenesisHash','getMinimumBalanceForRentExemption','getLatestBlockhash'].includes(body?.method))throw Error('NO_SIGN_OR_SEND_RPC');reads.push(body.method);}
+ else if(url.origin==='https://solana-rpc.publicnode.com'){const body=typeof init?.body==='string'?JSON.parse(init.body):req?await req.clone().json():null;if(method!=='POST'||!['getAccountInfo','getMultipleAccounts','getSlot','getGenesisHash','getMinimumBalanceForRentExemption','getLatestBlockhash','getFeeForMessage'].includes(body?.method))throw Error('NO_SIGN_OR_SEND_RPC');reads.push(body.method);}
  else throw Error('UNEXPECTED_ORIGIN');return underlying(input,{...init,signal:AbortSignal.timeout(12000)});
 };
 const client=createPhoenixClient({apiUrl:'https://perp-api.phoenix.trade',rpcUrl:'https://solana-rpc.publicnode.com',ws:false,exchangeMetadata:{stream:false}});
@@ -37,8 +39,24 @@ try{
  }else{
  const review=await preparePhoenixOrderReview({walletAddress:'11111111111111111111111111111112',symbol:'DOGE',side:'LONG',marginUsdcUnits:'10000000',leverageTenths:30,clientOrderId:'12345',isolatedSubaccountIndex:1},{publicClient:createPhoenixPublicClient(),readSlot});
  const {plan}=review;
- const checked=await buildPhoenixReviewedInstructions(review,{client,exchangeKeys:await client.api.exchange().getKeys()});
+ const exchangeKeys=await client.api.exchange().getKeys();
+ const checked=await buildPhoenixReviewedInstructions(review,{client,exchangeKeys});
  assert.equal(checked.readyForSigning,false);assert.equal(checked.instructions.length,4);
- console.log(JSON.stringify({stage:checked.stage,unsignedInstructions:checked.instructions.length,fullSizeMinimum:plan.packet.minBaseLotsToFill===plan.packet.numBaseLots,maxSlippageBps:plan.maxSlippageBps,readMethods:[...new Set(reads)],signed:false,submitted:false,livePriceQuote:true,quoteAgeMs:Date.now()-review.quote.timestamp}));
+ let wireEvidence={};
+ if(process.argv.includes('--wire')||process.argv.includes('--native')){
+  const rpc=async(method,params)=>{const response=await fetch('https://solana-rpc.publicnode.com',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params})});const reply=await response.json();if(reply.error)throw Error('PUBLIC_RPC_FAILED');return reply.result;};
+  if(process.argv.includes('--native')){
+   const native=await readPhoenixNativeMarket(plan,{exchangeKeys,request:rpc});
+   wireEvidence={nativeMarketVerified:true,nativeRunningState:native.runningState,nativeReadyForSigning:native.readyForSigning};
+  }
+  if(process.argv.includes('--wire')){
+  const latest=await rpc('getLatestBlockhash',[{commitment:'confirmed'}]);
+  const wire=await buildPhoenixOrderWire(review,{client,exchangeKeys,...latest.value});
+  const fee=await rpc('getFeeForMessage',[wire.messageBase64,{commitment:'confirmed'}]);
+  assert.ok(Number.isSafeInteger(fee.value)&&fee.value>0);
+  wireEvidence={...wireEvidence,wireBytes:Buffer.from(wire.serializedTxBase64,'base64').length,quotedNetworkFeeLamports:fee.value,wireReadyForSigning:wire.readyForSigning};
+  }
+ }
+ console.log(JSON.stringify({stage:checked.stage,unsignedInstructions:checked.instructions.length,fullSizeMinimum:plan.packet.minBaseLotsToFill===plan.packet.numBaseLots,maxSlippageBps:plan.maxSlippageBps,readMethods:[...new Set(reads)],signed:false,submitted:false,livePriceQuote:true,quoteAgeMs:Date.now()-review.quote.timestamp,...wireEvidence}));
  }
 }finally{client.dispose();globalThis.fetch=underlying;}
