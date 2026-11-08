@@ -74,6 +74,13 @@ JS
 ## Rollback
 
 - Volver al binario anterior (hash registrado) y arrancar sin `--phoenix`.
+- **Obligatorio:** `jamddmaj-perps-web` y `jamddmaj-perps-https` declaran
+  `Requires=jamddmaj-perps-worker`; cualquier parada o reinicio del worker las
+  tumba y **no vuelven solas**. Tras cada reinicio del worker hay que
+  arrancarlas y comprobar el puerto 443:
+  `systemctl start jamddmaj-perps-web jamddmaj-perps-https && ss -ltnp | grep :443`.
+  Si se olvida, el navegador muestra `Failed to fetch` en Futuros (incidente
+  real del 2026-11-08).
 - El ledger `phoenix.sqlite` **no se borra**: si queda un workflow pendiente, se
   reconcilia, nunca se descarta por conveniencia.
 - No restaurar bases antiguas para "deshacer" un binario.
