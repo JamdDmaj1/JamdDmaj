@@ -13,6 +13,7 @@ una ventana. Toca dinero real y el servidor financiero.
    - Web service: `dc4d88e7…1152` (coincide con el documentado).
    - `ExecStart` efectivo: `--controls --custody-setup --bot-swaps
      --platform-fees --bot-manual` — **sin `--phoenix`**.
+   - **Estado financiero observado (2026-11-08, ronda 9):** reservas `CANCELLED 4 · CLOSED 2 · OPEN 1`; cierres `CANCELLED 1 · COMPLETED 2`; **cero** operaciones en `SIGNING`/`UNCERTAIN`/`UNKNOWN`/`RESERVED`. La ventana de reinicio está limpia: no hay envío incierto que se pueda orfanar. Hay una posición abierta, que un reinicio no altera.
    - **Corrección (2026-11-08, ronda 8):** HEAD **sí** incluye
      `vault.signPhoenixOrder`, `signPhoenixFee`, `signPhoenixParent` y
      `signPhoenixCollateral`, que es lo que exige `createPhoenixManualService`.
