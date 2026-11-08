@@ -31,6 +31,9 @@ import {authorizePhoenixOrderSigning} from '../lib/phoenix-order-signing.js';
 import {authorizePhoenixCollateralSigning} from '../lib/phoenix-collateral-signing.js';
 import {quotePerpsPlatformFee} from '../lib/perps-platform-fee.js';
 import {openPhoenixVmCustody} from '../tests/helpers/phoenix-vm-custody.mjs';
+import {createPhoenixManualService} from '../lib/phoenix-manual-service.js';
+import {createPerpsAutomationApi} from '../lib/perps-automation-api.js';
+import {createPhoenixManualClient} from '../lib/phoenix-manual-client.js';
 
 const journalDirectory=mkdtempSync(join(tmpdir(),'jamd-phoenix-vm-'));chmodSync(journalDirectory,0o700);
 const custody=await openPhoenixVmCustody(journalDirectory);
@@ -154,10 +157,13 @@ try{
  const fixedNow=Date.now(),catalog=decodePhoenixCatalog(rawMarkets,{observedAt:fixedNow});
  const quote=decodePhoenixMarketQuote({symbol:'DOGE',timestamp_ms:fixedNow,mark_price:price,oracle_price:price},{symbol:'DOGE',now:fixedNow});
  const now=()=>fixedNow,monotonicNow=()=>0;
+ journal.close();journal=openPhoenixExecutionJournal(journalPath,{allowNonPosixForTests:process.platform==='win32',now});
+ let deferSignature=null;
  const rpc=async(method,params)=>{
   if(method==='getGenesisHash')return GENESIS;
   if(method==='getSlot')return initialized.slot;
-  if(method==='getSignatureStatuses')return {context:{slot:initialized.slot},value:params[0].map(signature=>localReceipts.has(signature)?{slot:localReceipts.get(signature).slot,err:null,confirmationStatus:'finalized'}:null)};
+  if(method==='getLatestBlockhash')return {context:{slot:initialized.slot},value:{blockhash:initialized.blockhash,lastValidBlockHeight:10000}};
+  if(method==='getSignatureStatuses')return {context:{slot:initialized.slot},value:params[0].map(signature=>{if(signature===deferSignature){deferSignature=null;return null;}return localReceipts.has(signature)?{slot:localReceipts.get(signature).slot,err:null,confirmationStatus:'finalized'}:null;})};
   if(method==='getTransaction')return localReceipts.get(params[0])??null;
   if(method==='getMultipleAccounts')return vm('read',{addresses:params[0],dataSlice:params[1]?.dataSlice});
   if(method==='getFeeForMessage'){
@@ -225,7 +231,7 @@ try{
   assert.equal(journal.recordFinalizedCollateral(payoutId,ownerAccountHash,payout).state,'CANONICAL_READY');
   // Reopen the actual SQLite ledger between payout phases. Only the external
   // local-chain receipt map survives; no ephemeral pre-signing grant is reused.
-  journal.close();journal=openPhoenixExecutionJournal(journalPath,{allowNonPosixForTests:process.platform==='win32'});
+  journal.close();journal=openPhoenixExecutionJournal(journalPath,{allowNonPosixForTests:process.platform==='win32',now});
   payout=await reconcilePhoenixCollateral(await journal.recoveryEvidence(payoutId,ownerAccountHash),{request:rpc});
   const received=await deps.readAccount({walletAddress:WALLET,subaccountIndices:[1]});
   if(received.subaccounts[1].withdrawalQueued)throw Error('LOCAL_WITHDRAWAL_QUEUED_CLOSE_ALREADY_COMPLETE');
@@ -260,8 +266,43 @@ try{
  const shortClosing=await simulatePhoenixOrder({wire:shortCloseWire,native:shortCloseNative,account:shortClose.account},{request:rpc,now,monotonicNow});
  await executeOrder('SHORT_CLOSE',shortCloseWire,shortClosing);
  final=await settleLocal('SHORT');
- journal.close();journal=openPhoenixExecutionJournal(journalPath,{allowNonPosixForTests:process.platform==='win32'});assert.equal(journal.heldWorkflows(WALLET).length,0);
- console.log(JSON.stringify({stage:'PHOENIX_LOCAL_VM_LONG_SHORT_SETTLED',networkSubmissions:0,testWalletSignaturesOnly:true,userKeysUsed:false,localPayoutReceiptsVerified:true,durableWorkflowRestartVerified:true,scopedVaultAndBackupVerified:true,
+ journal.close();journal=openPhoenixExecutionJournal(journalPath,{allowNonPosixForTests:process.platform==='win32',now});assert.equal(journal.heldWorkflows(WALLET).length,0);
+ // Third lifecycle closes through the actual authenticated service/API instead
+ // of the harness's direct order/settlement coordination. The transport remains
+ // strictly local VM execution, including a lost response and process restart.
+ initialized.blockhash=(await vm('advance-local-blockhash')).blockhash;workflowId='c'.repeat(64);
+ const serviceEntry=await preparePhoenixOrderReview({...intent,clientOrderId:'12349'},deps);
+ const serviceNative=await readPhoenixNativeMarket(serviceEntry.plan,{exchangeKeys:keys,request:rpc,now,monotonicNow});
+ const serviceWire=await buildPhoenixOrderWire(serviceEntry,{client,exchangeKeys:keys,blockhash:initialized.blockhash,lastValidBlockHeight:10000,now});
+ const serviceSimulation=await simulatePhoenixOrder({wire:serviceWire,native:serviceNative,account:final},{request:rpc,now,monotonicNow});
+ await executeOrder('SERVICE_OPEN_FIXTURE',serviceWire,serviceSimulation);
+ let sent=0,loseResponse=true;const seenServiceWires=new Set();
+ const makeApi=()=>{
+  const service=createPhoenixManualService({controls:custody.controls,vault:custody.vault,journal,riskJournal:custody.riskJournal,swapJournal:custody.swapJournal,
+   backupRegistry:custody.backupRegistry,publicClient:deps.publicClient,client,readExchangeKeys:async()=>keys,rpcRequest:rpc,now,monotonicNow,
+   assertUncontended(){},isRunning:()=>true,sendRequest:async(method,params)=>{
+    assert.equal(method,'sendTransaction');assert.equal(params[1].maxRetries,0);assert.ok(!seenServiceWires.has(params[0]));seenServiceWires.add(params[0]);
+    phases.push(await executeLocal('SERVICE_CLOSE_STEP_'+(++sent),params[0]));
+    const signature=bs58.encode(Buffer.from(params[0],'base64').subarray(1,65));
+    if(loseResponse){loseResponse=false;deferSignature=signature;throw Error('LOCAL_LOST_RESPONSE');}return signature;
+   }});
+  return createPerpsAutomationApi({controls:custody.controls,authenticate:async()=>ownerAccountHash,rateLimit:async()=>true,botPhoenix:service});
+ };
+ let api=makeApi();
+ const makeWebClient=()=>createPhoenixManualClient({fetchImpl:(url,options)=>api(new Request(url,options)),readSessionToken:()=>'f'.repeat(64),now});
+ let webClient=makeWebClient();
+ const apiReview=await webClient.prepareClose(WALLET,workflowId);assert.equal(apiReview.maxSlippageBps,50);assert.equal(sent,0);
+ let apiResult=await webClient.confirmClose(apiReview,true);assert.equal(apiResult.attemptState,'UNKNOWN');assert.equal(sent,1);
+ await assert.rejects(()=>webClient.confirmClose(apiReview,true));
+ journal.close();journal=openPhoenixExecutionJournal(journalPath,{allowNonPosixForTests:process.platform==='win32',now});api=makeApi();
+ webClient=makeWebClient();
+ for(let i=0;i<3&&apiResult.state!=='COMPLETE';i++)apiResult=await webClient.recoverClose(WALLET,workflowId);
+ assert.equal(apiResult.state,'COMPLETE');assert.equal(apiResult.walletCredited,true);assert.equal(sent,3);
+ const history=await webClient.history(WALLET);assert.equal(history.items.length,3);assert.ok(history.items.every(i=>i.netPnlUsdcUnits===null));
+ const positions=await webClient.positions(WALLET);assert.equal(positions.items.length,0);
+ assert.equal(JSON.stringify(history).includes(ownerAccountHash),false);assert.equal(JSON.stringify(history).includes('serializedTxBase64'),false);
+ final=await deps.readAccount({walletAddress:WALLET,subaccountIndices:[1]});assert.equal(final.canonical.amountUnits,'0');
+ console.log(JSON.stringify({stage:'PHOENIX_LOCAL_VM_LONG_SHORT_SETTLED',networkSubmissions:0,testWalletSignaturesOnly:true,userKeysUsed:false,localPayoutReceiptsVerified:true,durableWorkflowRestartVerified:true,scopedVaultAndBackupVerified:true,authenticatedCloseApiRestartVerified:true,existingSessionClientVerified:true,
   programs:loaded.map(p=>({address:p.address,sha256:p.sha256})),phases,
   openingProtocolFeeUnits:simulation.protocolFeeUnits,closingProtocolFeeUnits:closing.protocolFeeUnits,
   finalQuoteCollateralUnits:final.subaccounts[1].quoteCollateralUnits,finalCanonicalUnits:final.canonical.amountUnits,

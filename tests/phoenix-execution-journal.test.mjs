@@ -84,6 +84,11 @@ test('only exact sealed finalized fill advances position; finalized attempt does
  const close=await phoenixSimulationFixture({wallet:f.wallet,close:true});
  const closeSimulation=await simulatePhoenixOrder(close.args,close.simulationOptions);
  const closeClaim=reopened.prepareOrder({id:other,workflowId,ownerAccountHash:owner,controlRevision:'revision-2',wire:close.wire,simulation:closeSimulation,request:close.request});
+ assert.throws(()=>reopened.recordCloseConsent({id:other,ownerAccountHash:owner,maximumLamports:'30000',expiresAt:f.now()+300000}));
+ assert.throws(()=>reopened.recordCloseConsent({id:other,ownerAccountHash:other,maximumLamports:'30000',expiresAt:f.now()+300000,explicitApproval:true}));
+ const consent=reopened.recordCloseConsent({id:other,ownerAccountHash:owner,maximumLamports:'30000',expiresAt:f.now()+300000,explicitApproval:true});
+ assert.equal(consent.workflow,workflowId);assert.equal(reopened.closeConsent(workflowId,owner).maximum_lamports,'30000');
+ assert.throws(()=>reopened.recordCloseConsent({id:other,ownerAccountHash:owner,maximumLamports:'30000',expiresAt:f.now()+300000,explicitApproval:true}));
  const closeSigned=f.signWire(close.wire);reopened.persistSigned(closeClaim,closeSigned);reopened.markBroadcast(other,owner);
  const closeProof=await reopened.recoveryEvidence(other,owner),closePlan=close.review.plan,closeQuote=BigInt(closePlan.baseLots)*123456n;
  const closeResult=await reconcilePhoenixOrder(closeProof,{request:async method=>{

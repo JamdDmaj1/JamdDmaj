@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import bs58 from 'bs58';
 import {buildPlaceMarketOrderIx,OrderFlags} from '@ellipsis-labs/rise';
-import {decodePhoenixCatalog,planPhoenixOrder,phoenixUsd,PHOENIX_IDENTITIES,requirePhoenixUnsignedPlan} from '../lib/phoenix-market-plan.js';
+import {decodePhoenixCatalog,planPhoenixOrder,phoenixUsd,PHOENIX_IDENTITIES,requirePhoenixUnsignedPlan,clampPhoenixClosePlan} from '../lib/phoenix-market-plan.js';
 import {buildPhoenixUnsignedInstructions} from '../lib/phoenix-unsigned-instructions.js';
 import {createPhoenixPublicClient} from '../lib/phoenix-public-client.js';
 const now=1800000000000,key=n=>bs58.encode(Uint8Array.from({length:32},(_,i)=>i===31?n:0)),wallet=key(12);
@@ -20,6 +20,23 @@ test('official SDK packet retains exact tighter 0.5% ticks, FOK size, isolated a
 });
 test('full close is reduce-only FOK and has no deposit or notional-growth instructions',()=>{
  const p=plan({closeBaseLots:'240',side:'SHORT'});assert.equal(p.packet.orderFlags,OrderFlags.ReduceOnly);assert.equal(p.marginUsdcUnits,'0');assert.equal(p.packet.numQuoteLots,null);assert.equal(p.packet.numBaseLots,240n);assert.equal(p.packet.minBaseLotsToFill,240n);
+});
+
+test('refreshed full close keeps the stricter of the original and current 0.5% bounds',()=>{
+ for(const side of ['LONG','SHORT']){
+  const original=plan({closeBaseLots:'240',side});
+  for(const referencePrice of ['0.12','0.13']){
+   const current=plan({closeBaseLots:'240',side,referencePrice}),clamped=clampPhoenixClosePlan(current,original);
+   assert.equal(requirePhoenixUnsignedPlan(clamped),clamped);
+   assert.ok(side==='LONG'?clamped.packet.priceInTicks<=original.packet.priceInTicks&&clamped.packet.priceInTicks<=current.packet.priceInTicks:
+    clamped.packet.priceInTicks>=original.packet.priceInTicks&&clamped.packet.priceInTicks>=current.packet.priceInTicks);
+   assert.equal(clamped.packet.orderFlags,OrderFlags.ReduceOnly);assert.equal(clamped.packet.numBaseLots,240n);
+  }
+  assert.throws(()=>clampPhoenixClosePlan(plan({closeBaseLots:'241',side}),original),/CLOSE_CHANGED/);
+  const raised=decodePhoenixCatalog([{...row,takerFee:0.001}],{observedAt:now});
+  assert.throws(()=>clampPhoenixClosePlan(plan({catalog:raised,closeBaseLots:'240',side}),original),/CLOSE_CHANGED/);
+  assert.throws(()=>clampPhoenixClosePlan({...original},original),/UNVERIFIED_PLAN/);
+ }
 });
 test('negative native lot decimals represent 100-token lots, never a 100x symbol substitution',()=>{
  const c=decodePhoenixCatalog([{...row,symbol:'PUMP',tickSize:10,baseLotsDecimals:-2}],{observedAt:now});

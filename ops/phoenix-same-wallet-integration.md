@@ -2,6 +2,53 @@
 
 Status: development only. Not connected to production signing or execution.
 
+## Authenticated close-service/client checkpoint
+
+`phoenix-manual-service.js` now composes the existing scoped vault, native account
+and simulation proofs, durable attempts, receipt reconciliation and split payout
+behind owner-bound status/positions/history and close-review/confirm/recover
+operations. It has no default sender. The existing `/v1/automation` adapter accepts
+strict Phoenix action fields only when an explicit service is injected; default
+production composition still returns `phoenix-unavailable`.
+
+The browser-safe `phoenix-manual-client.js` uses the existing JamdDmaj bearer
+session and selected public wallet, not a new exchange login. Its close review is
+one-use and bound to the same wallet/session. Unknown responses never authorize a
+retry. The client rejects a broader tolerance, forged/expired reviews and a falsely
+credited pending state. It is not yet mounted into the terminal's rendered UI.
+
+A durable close consent binds the exact close message, owner/control revision,
+five-minute payout deadline and explicit total network/rent cap. Subsequent payout
+steps require that consent and stay within the remaining cap. Confirmation refreshes
+native data while clamping the price to the stricter of the new 0.5% bound and the
+original approved absolute bound. It cannot change the position quantity/side or
+raise the approved protocol taker-fee rate. Failed/no-fill attempts require another
+review; repeated polling cannot silently resend them. Status/history never sign.
+
+The actual-program VM now includes a THIRD lifecycle through the real session
+client → authenticated API → service → vault/journal → VM response path. It loses
+the first close transport reply, returns UNKNOWN, closes/reopens SQLite and creates
+a fresh service/client, then completes withdrawal and USDC conversion using the
+stored bounded consent. Exactly three close/payout sends occur in the LOCAL VM;
+the original close is not sent twice. The completed history and empty positions
+return through the same client. Output includes `authenticatedCloseApiRestartVerified:
+true`, `existingSessionClientVerified: true` and `networkSubmissions: 0`.
+
+Validation: 175 selected tests, 171 passed, 4 platform-specific skips, zero failures;
+all 82 focused Phoenix tests are included, as are the existing automation API,
+control client, custody/backup/runtime regression files from earlier checkpoints.
+A final focused client rerun passed after tightening key/nested-wallet validation.
+This is not the full repository suite or rendered-browser verification.
+
+Entry is explicitly unavailable until onboarding/setup, fee assessment/collection
+and shared runtime exclusions are complete. The development history intentionally
+does not invent a net PnL while platform-fee accounting is uncomposed. Remaining
+recovery cases include queued withdrawal completion, interrupted never-broadcast
+signed attempts, expired consent renewal and zero-collateral close settlement.
+Combined equity/performance/sharing and terminal rendering remain pending.
+No VPS/Vercel changes or public-market enablement occurred. Discover content,
+navigation and styles were reviewed; no new availability claims are appropriate.
+
 ## Finalized collateral and scoped-vault lifecycle checkpoint
 
 - `phoenix-collateral-receipt.js` verifies the exact wallet signature, finalized

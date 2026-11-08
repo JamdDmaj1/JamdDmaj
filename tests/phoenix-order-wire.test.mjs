@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {getTransactionDecoder,getCompiledTransactionMessageDecoder} from '@solana/kit';
-import {preparePhoenixOrderReview,preparePhoenixCloseReview} from '../lib/phoenix-order-review.js';
+import {preparePhoenixOrderReview,preparePhoenixCloseReview,refreshPhoenixCloseReview} from '../lib/phoenix-order-review.js';
+import {decodePhoenixMarketQuote} from '../lib/phoenix-market-quote.js';
 import {buildPhoenixOrderWire,requirePhoenixUnsignedWire} from '../lib/phoenix-order-wire.js';
 import {phoenixOrderFixture} from './helpers/phoenix-order-fixture.mjs';
 import {phoenixTestKey,phoenixTraderBytes,phoenixRpcAccount} from './helpers/phoenix-chain-account-fixture.mjs';
@@ -26,6 +27,18 @@ test('wallet close uses opposite side and exact chain size, ignoring caller-supp
   const message=getCompiledTransactionMessageDecoder().decode(Buffer.from(wire.messageBase64,'base64'));
   assert.equal(message.instructions.length,3);
  }
+});
+
+test('server can refresh an expired close snapshot only with the same position and original tighter absolute bound',async()=>{
+ const f=await phoenixOrderFixture(),previous=await preparePhoenixCloseReview(f.intent,f.deps);f.advance(6000);
+ f.deps.publicClient.quote=async()=>decodePhoenixMarketQuote({symbol:'DOGE',timestamp_ms:f.now(),mark_price:0.13,oracle_price:0.13},{symbol:'DOGE',now:f.now()});
+ const refreshed=await refreshPhoenixCloseReview(previous,f.deps);
+ assert.ok(refreshed.expiresAt>f.now());assert.equal(refreshed.plan.baseLots,previous.plan.baseLots);
+ assert.equal(refreshed.plan.packet.priceInTicks,previous.plan.packet.priceInTicks);
+ assert.equal(refreshed.plan.referencePrice,'0.13');assert.equal(refreshed.plan.priceLimitUsd,previous.plan.priceLimitUsd);
+ await assert.rejects(()=>refreshPhoenixCloseReview({...previous},f.deps),/UNVERIFIED/);
+ f.map.set(f.a.trader,phoenixRpcAccount(f.map.get(f.a.trader).owner,phoenixTraderBytes({address:f.a.trader,baseLots:-241n})));
+ await assert.rejects(()=>refreshPhoenixCloseReview(previous,f.deps),/CLOSE_CHANGED/);
 });
 test('close requires a live native position and refuses a foreign position authority',async()=>{
  const f=await phoenixOrderFixture({baseLots:0n,virtualQuoteLots:0n});await assert.rejects(()=>preparePhoenixCloseReview(f.intent,f.deps),/CLOSE_POSITION/);
