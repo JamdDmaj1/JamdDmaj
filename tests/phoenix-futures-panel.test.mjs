@@ -21,6 +21,12 @@ function flatten(node, out = []) {
   return out
 }
 
+function byClass(node, className, out = []) {
+  if (node?.className === className) out.push(node)
+  for (const child of node?.children || []) byClass(child, className, out)
+  return out
+}
+
 async function settle(check, label) {
   for (let attempt = 0; attempt < 200; attempt += 1) {
     if (check()) return
@@ -61,6 +67,5 @@ test('never invents markets when Phoenix cannot be read', async (t) => {
   const f = fixture(client)
   t.after(f.dispose)
   await settle(() => flatten(f.parent).some((text) => text.includes('No se pudo consultar Phoenix')), 'error status')
-  const texts = flatten(f.parent)
-  assert.ok(!texts.some((text) => text.includes('hasta ')))
+  assert.equal(byClass(f.parent, 'phoenix-market-row').length, 0)
 })
