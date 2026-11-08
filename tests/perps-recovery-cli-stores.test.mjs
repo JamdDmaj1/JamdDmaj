@@ -5,8 +5,10 @@ const base=['archive','--directory','wallets','--key-file','key','--controls','c
 test('recovery archive keeps legacy mode and supports complete fees and swaps',()=>{
  assert.deepEqual(parseRecoveryArchiveStores(base),{});
  assert.deepEqual(parseRecoveryArchiveStores([...base,'--swaps','swaps.sqlite']),{swapsPath:'swaps.sqlite'});
+ assert.deepEqual(parseRecoveryArchiveStores([...base,'--phoenix','phoenix.sqlite']),{phoenixPath:'phoenix.sqlite'});
+ assert.deepEqual(parseRecoveryArchiveStores([...base,'--fees','fees.sqlite','--payments','payments.sqlite','--swaps','swaps.sqlite','--phoenix','phoenix.sqlite']),{feesPath:'fees.sqlite',paymentsPath:'payments.sqlite',swapsPath:'swaps.sqlite',phoenixPath:'phoenix.sqlite'});
  assert.deepEqual(parseRecoveryArchiveStores([...base,'--fees','fees.sqlite','--payments','payments.sqlite','--swaps','swaps.sqlite']),{feesPath:'fees.sqlite',paymentsPath:'payments.sqlite',swapsPath:'swaps.sqlite'});
 });
 test('recovery archive rejects partial fees, duplicates, aliases and unknown flags',()=>{
- for(const tail of [['--fees','fees.sqlite'],['--payments','payments.sqlite'],['--swaps'],['--unknown','unknown.sqlite'],['--swaps','controls.sqlite'],['--swaps','backup.age'],['--swaps','s.sqlite','--swaps','s2.sqlite'],['--fees','f.sqlite','--payments','./f.sqlite']])assert.throws(()=>parseRecoveryArchiveStores([...base,...tail]));
+ for(const tail of [['--fees','fees.sqlite'],['--payments','payments.sqlite'],['--swaps'],['--unknown','unknown.sqlite'],['--swaps','controls.sqlite'],['--swaps','backup.age'],['--swaps','s.sqlite','--swaps','s2.sqlite'],['--fees','f.sqlite','--payments','./f.sqlite'],['--phoenix','controls.sqlite'],['--phoenix','p.sqlite','--swaps','p.sqlite'],['--phoenix','p.sqlite','--phoenix','p2.sqlite']])assert.throws(()=>parseRecoveryArchiveStores([...base,...tail]));
 });

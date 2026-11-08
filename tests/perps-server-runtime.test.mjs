@@ -24,6 +24,7 @@ import {setupPerpsControlPanel} from '../lib/perps-control-panel.js';
 import {validateAutomationSettings} from '../lib/automation-panel.js';
 import {openBotSwapJournal} from '../lib/perps-bot-swap-journal.js';
 import {openManualPerpsPolicyStore} from '../lib/perps-manual-policy-store.js';
+import {openPhoenixExecutionJournal} from '../lib/phoenix-execution-journal.js';
 const allowNonPosixForTests=process.platform==='win32',ownerAccountHash='c'.repeat(64);
 function fixture(t,{active=false}={}){
  const directory=mkdtempSync(join(tmpdir(),'jamd-runtime-unfunded-'));chmodSync(directory,0o700);
@@ -54,6 +55,13 @@ test('bot swap runtime refuses missing stores and opens only an explicitly initi
  assert.throws(()=>openServerPerpsRuntime({...f.options,botSwapsEnabled:true}));assert.equal(existsSync(path),false);
  const store=openBotSwapJournal(path,{initialize:true,explicitOperatorApproval:true,allowNonPosixForTests});store.close();
  const runtime=openServerPerpsRuntime({...f.options,botSwapsEnabled:true});try{assert.equal(runtime.capabilities().tradingEnabled,false);assert.equal(f.calls.length,0);}finally{await runtime.close();}
+});
+
+test('an older executor cannot start while silently ignoring a Phoenix financial ledger',t=>{
+ const f=fixture(t),path=join(f.directory,'phoenix.sqlite');
+ openPhoenixExecutionJournal(path,{initialize:true,explicitOperatorApproval:true,allowNonPosixForTests}).close();
+ assert.throws(()=>openServerPerpsRuntime(f.options));
+ assert.equal(f.calls.length,0);assert.equal(existsSync(join(f.directory,'worker.lock')),false);
 });
 
 test('fee-enabled runtime requires existing private stores and never manufactures them at startup',async t=>{

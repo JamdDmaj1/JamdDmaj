@@ -12,8 +12,8 @@ const TOKEN='TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
 function discriminator(b,name){createHash('sha256').update('account:'+name).digest().copy(b,0,0,8);return b;}
 const put=(b,address,offset)=>b.set(bs58.decode(address),offset);
 
-export async function phoenixNativeMarketFixture(){
- const f=await phoenixOrderFixture(),k=f.exchangeKeys;
+export async function phoenixNativeMarketFixture(options={}){
+ const f=await phoenixOrderFixture(options),k=f.exchangeKeys;
  const [spline]=await getProgramDerivedAddress({programAddress:ID.program,seeds:['spline',bs58.decode(f.row.marketPubkey)]});
  f.row.splinePubkey=spline;
  const catalog=decodePhoenixCatalog([f.row],{observedAt:f.now()});f.deps.publicClient.catalog=async()=>catalog;

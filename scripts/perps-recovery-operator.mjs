@@ -17,7 +17,7 @@ try{
   const ciphertext=readPrivateRecoveryFile(args[4],24*1024*1024+65536);
   if(createHash('sha256').update(ciphertext).digest('hex')!==args[8])throw Error();
   result=await restorePerpsCustodyRecoveryArchive({ciphertext,operatorDirectory:args[2],destinationDirectory:args[6],explicitOperatorApproval:true});
- }else if([15,17,19,21].includes(args.length)&&args[0]==='archive'&&['--directory','--key-file','--controls','--journal','--recipient-file','--registry','--output'].every((key,index)=>args[1+index*2]===key)){
+ }else if([15,17,19,21,23].includes(args.length)&&args[0]==='archive'&&['--directory','--key-file','--controls','--journal','--recipient-file','--registry','--output'].every((key,index)=>args[1+index*2]===key)){
   const stores=parseRecoveryArchiveStores(args);
   if(new Set([4,6,8,10,12,14].map(index=>resolve(args[index]))).size!==6)throw Error();
   if(!args[12].endsWith('.sqlite')||!args[14].endsWith('.age'))throw Error();

@@ -9,12 +9,12 @@ import {phoenixRpcAccount,phoenixTokenBytes,phoenixTraderBytes} from './phoenix-
 import {phoenixEventBatches} from './phoenix-event-batches.mjs';
 const TOKEN='TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
 const SYSTEM='11111111111111111111111111111111';
-export async function phoenixSimulationFixture({close=false,side='LONG',canonicalExists=false,closedCollateral=10010000n}={}){
- const f=await phoenixNativeMarketFixture(),map=new Map([...f.nativeMap,...f.map]);
+export async function phoenixSimulationFixture({close=false,side='LONG',canonicalExists=false,closedCollateral=10010000n,wallet}={}){
+ const f=await phoenixNativeMarketFixture({wallet}),map=new Map([...f.nativeMap,...f.map]);
  const parent=map.get(f.parent),parentBytes=Buffer.from(parent.data[0],'base64');parentBytes.writeUInt32LE(1,116);parent.data=[parentBytes.toString('base64'),'base64'];
  const beforeCash=close?3000000n:20000000n;
  map.set(f.a.usdcAta,phoenixRpcAccount(TOKEN,phoenixTokenBytes(ID.usdc,f.wallet,beforeCash)));
- map.set(f.a.trader,phoenixRpcAccount(ID.program,phoenixTraderBytes({address:f.a.trader,
+ map.set(f.a.trader,phoenixRpcAccount(ID.program,phoenixTraderBytes({address:f.a.trader,wallet:f.wallet,
   baseLots:close?-240n:0n,virtualQuoteLots:close?30000000n:0n,collateral:close?10000000n:0n})));
  if(canonicalExists)map.set(f.a.canonicalAta,phoenixRpcAccount(TOKEN,phoenixTokenBytes(ID.canonicalUsdc,f.wallet,0n)));
  let wire,review,postOverride=null,eventOverride=null,simulationError=null,slot=1000,fee=5600;
@@ -34,7 +34,7 @@ export async function phoenixSimulationFixture({close=false,side='LONG',canonica
    const post=[phoenixRpcAccount(SYSTEM,Buffer.alloc(0),Number(100000000n-BigInt(fee)-rent)),
     phoenixRpcAccount(TOKEN,phoenixTokenBytes(ID.usdc,f.wallet,beforeCash-BigInt(plan.marginUsdcUnits))),
     close&&!canonicalExists?null:phoenixRpcAccount(TOKEN,phoenixTokenBytes(ID.canonicalUsdc,f.wallet,0n)),
-    phoenixRpcAccount(ID.program,phoenixTraderBytes({address:f.a.trader,baseLots:close?0n:side==='LONG'?lots:-lots,
+    phoenixRpcAccount(ID.program,phoenixTraderBytes({address:f.a.trader,wallet:f.wallet,baseLots:close?0n:side==='LONG'?lots:-lots,
      virtualQuoteLots:close?0n:side==='LONG'?-quote:quote,collateral:close?closedCollateral:10000000n-protocolFee}))];
    postOverride?.(post);
    let innerInstructions=phoenixEventBatches({wire,plan,traderAddress:f.a.trader,slot,timestamp:Math.floor(f.now()/1000),quote,fee:protocolFee,

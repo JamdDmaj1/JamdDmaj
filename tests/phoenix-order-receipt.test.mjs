@@ -4,7 +4,7 @@ import {generateKeyPairSync,sign} from 'node:crypto';
 import bs58 from 'bs58';
 import {preparePhoenixOrderReview,preparePhoenixCloseReview} from '../lib/phoenix-order-review.js';
 import {buildPhoenixOrderWire} from '../lib/phoenix-order-wire.js';
-import {capturePhoenixSignedOrder,reconcilePhoenixOrder} from '../lib/phoenix-order-receipt.js';
+import {capturePhoenixSignedOrder,reconcilePhoenixOrder,archivePhoenixSignedOrder,restorePhoenixSignedOrder,requirePhoenixFinalizedOrder} from '../lib/phoenix-order-receipt.js';
 import {phoenixOrderFixture} from './helpers/phoenix-order-fixture.mjs';
 import {phoenixEventBatches} from './helpers/phoenix-event-batches.mjs';
 
@@ -87,4 +87,26 @@ test('accepted transaction with zero fill is not a position and cannot collect a
  const result=await reconcilePhoenixOrder(f.proof,{request:f.request});
  assert.equal(result.state,'NO_FILL');assert.equal(result.platformFeeDueUnits,'0');
  assert.equal(result.requiresCollateralReconciliation,true);assert.equal(result.walletCredited,false);
+});
+
+test('archived exact wire reconstructs read-only reconciliation after expiry, not signing authority',async()=>{
+ for(const close of [false,true]){
+  const f=await fixture({close}),archive=JSON.parse(JSON.stringify(archivePhoenixSignedOrder(f.proof)));
+  f.advance(60000);const restored=await restorePhoenixSignedOrder(archive);
+  assert.equal(restored.signature,f.proof.signature);assert.equal(restored.readyForTrading,false);
+  assert.equal(restored.restoredForReadOnlyReconciliation,true);
+  const result=await reconcilePhoenixOrder(restored,{request:f.request});
+  assert.equal(requirePhoenixFinalizedOrder(result,{signature:f.proof.signature}),result);
+  assert.throws(()=>requirePhoenixFinalizedOrder({...result}),/UNVERIFIED/);
+  assert.throws(()=>requirePhoenixFinalizedOrder(result,{signature:'another'}),/UNVERIFIED/);
+ }
+});
+
+test('archive cannot substitute wallet, child, direction, amount, expiry, flags or signature',async()=>{
+ const f=await fixture(),archive=archivePhoenixSignedOrder(f.proof);
+ for(const change of [{walletAddress:bs58.encode(new Uint8Array(32).fill(2))},{isolatedSubaccountIndex:2},{side:'SHORT'},
+  {baseLots:'999'},{marginUsdcUnits:'1'},{marginUsdcUnits:'11000000'},{priceInTicks:'1'},{clientOrderId:'2'},{lastValidSlot:'2000'},
+  {close:true},{serializedTxBase64:Buffer.from(f.wire.serializedTxBase64,'base64').toString('base64')}]){
+  await assert.rejects(()=>restorePhoenixSignedOrder({...archive,...change}));
+ }
 });

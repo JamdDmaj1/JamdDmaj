@@ -2,6 +2,57 @@
 
 Status: development only. Not connected to production signing or execution.
 
+## Durable execution checkpoint (not runtime-enabled)
+
+- `phoenix-execution-journal.js` stores owner-bound workflows and exact native
+  order attempts in a private SQLite ledger with FULL synchronization, strict
+  schema/inventory checks and one unresolved attempt per wallet. It preserves
+  signed bytes before returning them, commits UNKNOWN before a network attempt,
+  and keeps position/collateral workflows held after an order finalizes.
+- Signed evidence can be archived and reconstructed after a process restart.
+  Reconstruction checks the wallet signature, exact native order packet, child
+  PDA and funding amount, and is usable only for read-only reconciliation. It
+  cannot become a pre-signing review or custody grant.
+- An owner can cancel a never-signed preparation after restart. This releases
+  only that unsigned opening reservation (or leaves the original position open
+  for a cancelled close). SIGNED/UNKNOWN attempts cannot use that path. Unknown
+  transactions are never automatically sent again. A changed opening policy
+  revision does not prevent preparing a close under the current authorization.
+- A separate one-use Phoenix signing capability checks the exact simulated wire,
+  durable claim, paused owner controls, conflict checks, existing pending Jupiter
+  and swap work, fee terms and restored backup scopes. The vault's new narrow
+  `signPhoenixOrder` method persists the signed attempt before returning it.
+  Jupiter's existing three-signature envelope policy was not widened.
+- Encrypted runtime snapshots and paused restores support a `phoenix` database
+  kind. The registry attests this scope only when it was actually included and
+  restored. Backup CLI supports `--phoenix /private/path/phoenix.sqlite` alongside
+  the existing fees/payments/swaps paths. An older executor refuses to start if
+  it encounters a Phoenix ledger it cannot reconcile; it must not forget it.
+- Unit tests use temporary unfunded custody identities, fabricated local bank
+  fixtures and no broadcast transport. The real-program LiteSVM rehearsal from
+  the previous checkpoint still uses zero signatures and fictitious balances.
+
+These are server components, NOT an enabled HTTP action. Setup/onboarding,
+collateral withdrawal/unwrap, fee collection, complete managed-account inventory,
+shared cross-venue runtime exclusions and the existing-screen routing still need
+composition and full-flow verification. There is deliberately no generic method
+to release a funded workflow before verified settlement, and no publication yet.
+Discover was reviewed: these internal-only changes do not justify advertising new
+tradable markets or changing the public feature descriptions.
+
+Verification at this checkpoint: 125 selected tests completed, 121 passed and
+4 platform-specific tests were skipped; zero failures. This includes all 61
+Phoenix tests plus the existing backup registry, runtime recovery, custody vault,
+manual signing, recovery CLI argument and composed server runtime tests. Command:
+
+```
+node --test tests/phoenix-*.test.mjs tests/perps-backup-registry.test.mjs tests/perps-runtime-recovery.test.mjs tests/perps-custody-vault.test.mjs tests/perps-bot-manual-signing.test.mjs tests/perps-recovery-cli-stores.test.mjs tests/perps-server-runtime.test.mjs
+```
+
+This is a selected regression suite, not the full repository suite or browser
+verification. The next broken/unimplemented boundary remains runtime composition:
+no authenticated HTTP/UI action reaches this new ledger and signer yet.
+
 ## Latest checkpoint: native-program rehearsal and receipt verification
 
 The foundation below now has additional implementation and evidence:
@@ -25,7 +76,8 @@ The foundation below now has additional implementation and evidence:
   It remains usable after the short review expires. Missing/confirmed-only replies
   remain unresolved with no resend. Failure/no-fill incurs no platform fee; a
   successful no-fill opening can still hold deposited collateral. This receipt
-  module is process-local evidence, NOT restart recovery or a custody grant.
+  module by itself is NOT a durable journal or a custody grant. The durable
+  checkpoint above adds reconstruction from private stored evidence.
 - 54 focused Phoenix tests pass. A read-only mainnet check also compiled a
   986-byte unsigned order and obtained its 5,600-lamport fee quote. These numbers
   are snapshots, not fixed fees for all account setup or transactions.
@@ -55,10 +107,12 @@ Initial parent/child/ATA creation has real rent costs (roughly 0.012 SOL in one
 snapshot). Never assume the user's wallet has enough SOL, silently swap funds,
 promise rent recovery, or sponsor creation without authorization.
 
-This is NOT a browser/API/custody integration or availability claim. Production
+This is NOT a browser/API integration or availability claim. Production
 and Discover remain unchanged. The next implementation boundary is a durable
 workflow journal with exact one-use signing permissions, backup/restart recovery
 and cross-venue exclusions, followed by the existing UI and full-flow verification.
+The durable checkpoint above implements the ledger and narrow order-signing
+components; it does not yet compose the complete runtime workflow.
 
 ## Approved product direction
 

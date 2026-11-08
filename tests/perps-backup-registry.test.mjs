@@ -14,6 +14,14 @@ import {createPerpsAutomationApi} from '../lib/perps-automation-api.js';
 import {createPerpsControlClient} from '../lib/perps-control-client.js';
 import {setupPerpsControlPanel} from '../lib/perps-control-panel.js';
 import {validateAutomationSettings} from '../lib/automation-panel.js';
+import {openPhoenixExecutionJournal} from '../lib/phoenix-execution-journal.js';
+import {simulatePhoenixOrder} from '../lib/phoenix-order-simulation.js';
+import {phoenixSimulationFixture} from './helpers/phoenix-simulation-fixture.mjs';
+import {openBotSwapJournal} from '../lib/perps-bot-swap-journal.js';
+import {openPerpsPlatformFeeJournal} from '../lib/perps-platform-fee-journal.js';
+import {openPerpsPlatformFeePaymentJournal} from '../lib/perps-platform-fee-payment-journal.js';
+import {authorizePhoenixOrderSigning} from '../lib/phoenix-order-signing.js';
+import {quotePerpsPlatformFee} from '../lib/perps-platform-fee.js';
 import {initializePerpsOperatorRecovery,createPerpsCustodyRecoveryArchive,restorePerpsCustodyRecoveryArchive,readPerpsCustodyRecoveryChallenge} from '../lib/perps-custody-recovery.js';
 const allowNonPosixForTests=process.platform==='win32',ownerAccountHash='a'.repeat(64);
 async function fixture(t){
@@ -31,7 +39,7 @@ async function fixture(t){
  let count=0;
  async function archive(){const value=await createPerpsCustodyRecoveryArchive(request);await registry.registerArchive(value,{explicitOperatorApproval:true});return value;}
  async function restore(value){return restorePerpsCustodyRecoveryArchive({ciphertext:value.ciphertext,operatorDirectory,destinationDirectory:join(root,'restored-'+(++count)),explicitOperatorApproval:true,...common});}
- return {root,directory,keyFile,journalPath,operator,clock,common,vault,identity,registry,registryPath,controlsPath,open,request,archive,restore,controls};
+ return {root,directory,keyFile,journalPath,journal,operator,clock,common,vault,identity,registry,registryPath,controlsPath,open,request,archive,restore,controls};
 }
 test('only a complete encrypted archive restored with the matching operator identity can prove custody backup',async t=>{
  const f=await fixture(t),archive=await f.archive();assert.throws(()=>f.registry.readVerified(f.identity));
@@ -43,6 +51,59 @@ test('only a complete encrypted archive restored with the matching operator iden
  const proof=f.registry.readVerified(f.identity);assert.equal(requireVerifiedPerpsCustodyBackup(proof,f.identity),proof);assert.throws(()=>requireVerifiedPerpsCustodyBackup({...proof},f.identity));
  assert.throws(()=>requireVerifiedPerpsCustodyBackup(proof,{...f.identity,ownerAccountHash:'b'.repeat(64)}));
  assert.equal(openPerpsCustodyVault({...restored,...f.common}).describe(f.identity).exclusive,false);assert.equal(f.controls.read(f.identity).enabled,false);
+});
+
+test('Phoenix backup scope requires the actual held ledger and preserves it through a paused restore',async t=>{
+ const f=await fixture(t),old=await f.archive(),oldRestored=await f.restore(old);
+ f.registry.acceptRestoreProof({proofFile:oldRestored.proofFile,explicitOperatorApproval:true});
+ assert.equal(f.registry.readVerified(f.identity).phoenixStateIncluded,false);
+ const path=join(f.root,'phoenix.sqlite'),phoenix=openPhoenixExecutionJournal(path,{...f.common,initialize:true,explicitOperatorApproval:true});
+ try{
+ const native=await phoenixSimulationFixture({wallet:f.identity.walletAddress});
+ const simulation=await simulatePhoenixOrder(native.args,native.simulationOptions);
+ phoenix.prepareOrder({id:'b'.repeat(64),workflowId:'c'.repeat(64),ownerAccountHash,
+  controlRevision:'current-revision',wire:native.wire,simulation,request:native.request});
+ f.request.runtimePaths.phoenixPath=path;
+ const archive=await f.archive(),restored=await f.restore(archive);
+ f.registry.acceptRestoreProof({proofFile:restored.proofFile,explicitOperatorApproval:true});
+ const proof=f.registry.readVerified(f.identity);assert.equal(proof.phoenixStateIncluded,true);
+ const recovered=openPhoenixExecutionJournal(join(restored.runtimeDirectory,'phoenix.sqlite'),f.common);
+ try{assert.equal(recovered.pending(f.identity.walletAddress)[0].state,'PREPARED');assert.equal(recovered.heldWorkflows(f.identity.walletAddress)[0].state,'HELD');}finally{recovered.close();}
+ assert.equal(restored.tradingEnabled,false);assert.equal(restored.requiresPausedReconciliation,true);
+ const db=new DatabaseSync(f.registryPath);db.prepare('DELETE FROM perps_backup_phoenix_scope WHERE archive=?').run(archive.sha256);db.close();
+ assert.throws(()=>requireVerifiedPerpsCustodyBackup(proof,f.identity));
+ }finally{phoenix.close();}
+});
+
+test('Phoenix custody signs exactly once only with real restored backup scopes and durable exact-wire claim',async t=>{
+ const f=await fixture(t),paths={feesPath:join(f.root,'fees.sqlite'),paymentsPath:join(f.root,'payments.sqlite'),swapsPath:join(f.root,'swaps.sqlite'),phoenixPath:join(f.root,'phoenix.sqlite')};
+ const fees=openPerpsPlatformFeeJournal(paths.feesPath,{entryJournal:f.journal,controls:f.controls,...f.common});
+ const payments=openPerpsPlatformFeePaymentJournal(paths.paymentsPath,f.common),swaps=openBotSwapJournal(paths.swapsPath,{...f.common,initialize:true,explicitOperatorApproval:true});
+ const phoenix=openPhoenixExecutionJournal(paths.phoenixPath,{...f.common,initialize:true,explicitOperatorApproval:true});
+ try{
+  for(const path of Object.values(paths))chmodSync(path,0o600);
+  const native=await phoenixSimulationFixture({wallet:f.identity.walletAddress}),simulation=await simulatePhoenixOrder(native.args,native.simulationOptions);
+  const revision=f.controls.read(f.identity).revision;
+  const claim=phoenix.prepareOrder({id:'b'.repeat(64),workflowId:'c'.repeat(64),ownerAccountHash,
+   controlRevision:revision,wire:native.wire,simulation,request:native.request});
+  let conflict=false;
+  const args={ownerAccountHash,journal:phoenix,claim,wire:native.wire,simulation,request:native.request,controls:f.controls,
+   backupRegistry:f.registry,riskJournal:f.journal,swapJournal:swaps,explicitApproval:true,
+   platformFeeTerms:quotePerpsPlatformFee('10000000'),assertUncontended(){if(conflict)throw Error('WALLET_BUSY');}};
+  assert.throws(()=>authorizePhoenixOrderSigning(args));
+  Object.assign(f.request.runtimePaths,paths);const archive=await f.archive(),restored=await f.restore(archive);
+  f.registry.acceptRestoreProof({proofFile:restored.proofFile,explicitOperatorApproval:true});
+  for(const change of [{explicitApproval:false},{ownerAccountHash:'e'.repeat(64)},{claim:{...claim}},
+   {platformFeeTerms:{...args.platformFeeTerms,feeUnits:'0'}},{wire:{...native.wire}},{simulation:{...simulation}}])assert.throws(()=>authorizePhoenixOrderSigning({...args,...change}));
+  conflict=true;assert.throws(()=>authorizePhoenixOrderSigning(args),/WALLET_BUSY/);conflict=false;
+  const grant=authorizePhoenixOrderSigning(args);assert.throws(()=>authorizePhoenixOrderSigning(args));
+  assert.throws(()=>f.vault.signPhoenixOrder({...grant}));
+  const signed=f.vault.signPhoenixOrder(grant);
+  assert.equal(signed.requiresMarkBroadcast,true);assert.equal(phoenix.readAttempt(signed.id,ownerAccountHash).state,'SIGNED');
+  assert.equal(phoenix.readAttempt(signed.id,ownerAccountHash).signed,signed.serializedTxBase64);
+  assert.throws(()=>f.vault.signPhoenixOrder(grant));
+  assert.equal(native.calls.some(c=>c.method==='sendTransaction'),false);
+ }finally{phoenix.close();swaps.close();payments.close();fees.close();}
 });
 
 test('authenticated recovery status projects a real operator proof without exposing it or authorizing funds',async t=>{
