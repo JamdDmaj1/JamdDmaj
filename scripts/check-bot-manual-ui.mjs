@@ -26,7 +26,7 @@ try{for(const viewport of [{width:1440,height:900},{width:390,height:844}]){
   if(input.value!=='100.000000')throw Error('Fresh automatic reference missing');
   const disabledBeforeConsent=confirm.disabled,consent=host.querySelector('input[type=checkbox]');consent.checked=true;consent.onchange();const enabledAfterConsent=!confirm.disabled;
   await confirm.onclick();await new Promise(resolve=>setTimeout(resolve,0));
-  const history=host.querySelector('.bot-closed-history');if(!history.textContent.includes('9.98 USDC')||!history.textContent.includes('accounting pending')||!history.textContent.includes('Proceeds are not profit.'))throw Error('Verified closed history amounts or status missing');
+  const history=host.querySelector('.bot-closed-history');if(!history.textContent.includes('9.980000 USDC')||!history.textContent.toLowerCase().includes('accounting pending')||!history.textContent.includes('Proceeds are not profit.'))throw Error('Verified closed history amounts or status missing');
   if(history.querySelector('a').href!=='https://solscan.io/tx/'+'2'.repeat(88))throw Error('History explorer link changed');
   const text=host.textContent;panel.dispose();host.replaceChildren();
   const entry=setupBotManualPerpsPanel(host,{doc:document,language:'en',client:{

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {createBotManualPerpsClient} from '../lib/bot-manual-perps-client.js';
 import {quotePerpsPlatformFee} from '../lib/perps-platform-fee.js';
 import {perpsNavigationDraft} from '../lib/perps-navigation.js';
+import {performanceFromTotals} from '../lib/closed-trade-performance.js';
 const wallet='11111111111111111111111111111112',at=Date.now(),draft=perpsNavigationDraft({asset:'BTC',side:'LONG',margin:'10',leverage:'3',referencePrice:'100'});
 const review=()=>({stage:'BOT_MANUAL_REVIEW',id:'11111111-1111-4111-8111-111111111111',walletAddress:wallet,draft,expiresAt:at+10000,submitted:false,
  marginUsdcUnits:'10000000',networkFeeLamports:'5000',rentLockedLamports:'1000000',fee:quotePerpsPlatformFee('10000000')});
@@ -12,8 +13,8 @@ test('closed history reads once without trading and refuses fabricated PnL or un
  let rows=[item],calls=0;
  const client=createBotManualPerpsClient({now:()=>at,readSessionToken:()=>'a'.repeat(64),fetchImpl:async(_url,options)=>{calls++;assert.deepEqual(JSON.parse(options.body),{action:'botManualHistory',walletAddress:wallet});return Response.json({ok:true,botManual:{stage:'BOT_MANUAL_CLOSED_HISTORY',walletAddress:wallet,items:rows,hasMore:false}});}});
  assert.equal((await client.history(wallet)).items[0].receivedUsdcUnits,'9980000');
- for(const mutation of [{state:'UNCERTAIN'},{netPnlUsdcUnits:'0'},{closedAt:at+99999},{firstLegSignature:'javascript:bad'},{receivedUsdcUnits:'-1'}]){rows=[{...item,...mutation}];await assert.rejects(client.history(wallet));}
- assert.equal(calls,6);
+ for(const mutation of [{state:'UNCERTAIN'},{netPnlUsdcUnits:'0'},{closedAt:at+99999},{firstLegSignature:'javascript:bad'},{receivedUsdcUnits:'-1'},{performance:{version:1,basisUsdcUnits:'10000000',openingPlatformFeeUsdcUnits:'20000',resultUsdcUnits:'9980000',returnBps:'9980',excludesSolNetworkCosts:true}}]){rows=[{...item,...mutation}];await assert.rejects(client.history(wallet));}
+ assert.equal(calls,7);rows=[{...item,performance:performanceFromTotals('10000000','20000',item.receivedUsdcUnits)}];assert.equal((await client.history(wallet)).items[0].performance.resultUsdcUnits,'-40000');
 });
 const recoveryReview=()=>({stage:'BOT_MANUAL_ENTRY_RECOVERY_REVIEW',id:review().id,reservationId:review().id,walletAddress:wallet,
  asset:'BTC',amountUnits:'9970000',minimumUsdcUnits:'9920150',maxSlippageBps:50,networkFeeLamports:'5400',rentLockedLamports:'0',
