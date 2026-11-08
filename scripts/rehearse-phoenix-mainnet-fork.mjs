@@ -39,6 +39,7 @@ import {preparePhoenixPlatformFeePayment} from '../lib/perps-platform-fee-paymen
 import {planPhoenixPlatformFeeTransfer} from '../lib/perps-platform-fee-transfer.js';
 import {authorizePhoenixFeeSigning,revalidatePhoenixFeeDispatch} from '../lib/phoenix-platform-fee-signing.js';
 import {preparePhoenixParentOnboarding,simulatePhoenixParentOnboarding} from '../lib/phoenix-parent-onboarding.js';
+import {buildPhoenixChildSetupWire,simulatePhoenixChildSetup} from '../lib/phoenix-child-setup-simulation.js';
 
 const journalDirectory=mkdtempSync(join(tmpdir(),'jamd-phoenix-vm-'));chmodSync(journalDirectory,0o700);
 const custody=await openPhoenixVmCustody(journalDirectory);
@@ -203,7 +204,9 @@ try{
  phases.push(await executeLocal('REGISTER_PARENT',parentPreparation.serializedTxBase64));
  const beforeSetup=await deps.readAccount({walletAddress:WALLET,subaccountIndices:[1]});
  const setup=await buildPhoenixIsolatedSetup({plan:review.plan,native,account:beforeSetup},{request:rpc,now});
- phases.push(await executeLocal('REGISTER_CHILD',localWire(setup.instructions,initialized.blockhash)));
+ const setupWire=buildPhoenixChildSetupWire(setup,{blockhash:initialized.blockhash,lastValidBlockHeight:10000});
+ const setupSimulation=await simulatePhoenixChildSetup(setupWire,{request:rpc});assert.equal(setupSimulation.networkFeeLamports,'5300');
+ phases.push(await executeLocal('REGISTER_CHILD',setupWire.serializedTxBase64));
  // Replaying permissionless sync must not undo the protected settlement policy.
  phases.push(await executeLocal('SYNC_REPLAY',localWire([sync],initialized.blockhash)));
  const account=await deps.readAccount({walletAddress:WALLET,subaccountIndices:[1]});
@@ -367,7 +370,7 @@ try{
  for(let i=0;i<3&&attention.state!=='COMPLETE';i++)attention=await webClient.recoverClose(WALLET,attentionReview.workflowId);
  assert.equal(attention.state,'COMPLETE');assert.equal(sent,13);
  final=await deps.readAccount({walletAddress:WALLET,subaccountIndices:[1]});assert.equal(final.canonical.amountUnits,'0');
- console.log(JSON.stringify({stage:'PHOENIX_LOCAL_VM_LONG_SHORT_SETTLED',networkSubmissions:0,testWalletSignaturesOnly:true,userKeysUsed:false,localPayoutReceiptsVerified:true,durableWorkflowRestartVerified:true,scopedVaultAndBackupVerified:true,authenticatedCloseApiRestartVerified:true,existingSessionClientVerified:true,nativeFeePaidOnceAfterRestartVerified:true,authenticatedEntryApiRestartVerified:true,feePreparationFailureKeepsEntryVerified:true,parentProfileAndSimulationVerified:true,
+ console.log(JSON.stringify({stage:'PHOENIX_LOCAL_VM_LONG_SHORT_SETTLED',networkSubmissions:0,testWalletSignaturesOnly:true,userKeysUsed:false,localPayoutReceiptsVerified:true,durableWorkflowRestartVerified:true,scopedVaultAndBackupVerified:true,authenticatedCloseApiRestartVerified:true,existingSessionClientVerified:true,nativeFeePaidOnceAfterRestartVerified:true,authenticatedEntryApiRestartVerified:true,feePreparationFailureKeepsEntryVerified:true,parentProfileAndSimulationVerified:true,childSetupWireAndEffectsVerified:true,
   programs:loaded.map(p=>({address:p.address,sha256:p.sha256})),phases,
   openingProtocolFeeUnits:simulation.protocolFeeUnits,closingProtocolFeeUnits:closing.protocolFeeUnits,
   finalQuoteCollateralUnits:final.subaccounts[1].quoteCollateralUnits,finalCanonicalUnits:final.canonical.amountUnits,

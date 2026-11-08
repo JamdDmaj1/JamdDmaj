@@ -321,6 +321,53 @@ Do not extend the Jupiter signing allowlist to accept these instructions.
 
 ## Public documentation review
 
+### Child setup wire/simulation checkpoint — 2026-11-08 (internal only)
+
+The isolated child setup now has a canonical one-wallet-signer legacy wire with
+bounded compute/priority fees and a separately sealed same-wire simulation proof.
+The only native instructions come from the independently constructed setup: parent
+settlement-policy protection when required, child register/sync and final child
+policy protection. A fully protected existing account needs no transaction and
+cannot incur duplicate rent through this builder. Setup is entry-only; it refuses
+to serve as an implicit repair step for closing or to modify an exposed/funded
+child. An unprotected unmanaged parent is rejected as well.
+
+Simulation reads a current mainnet bank for payer, both token ATAs, parent and
+child, checks it against the sealed account evidence, prices the exact message
+and (only when creating) the native 280-byte child rent. It preserves all token
+data/lamports, parent semantic state apart from the authorized sweep preference,
+parent rent, flat child ownership/preferences and wallet SOL conservation. A new
+child must be empty, one-position capacity, match inherited capability/preference
+flags and have exactly the expected account size/rent. Existing flat repairs
+retain every other decoded field and cannot allocate rent. Token-account JSON
+ordering/rentEpoch metadata is not confused with a token data or lamport change.
+No deposit, order, signature, provider submission or generic signer is present.
+
+The five-lifecycle actual-program LiteSVM rehearsal now prepares/simulates the
+child using this exact wire before LOCAL execution, and then checks a replayed
+permissionless sync still preserves protected policy. It reports
+childSetupWireAndEffectsVerified:true and networkSubmissions:0. Local child setup
+is still zero-signed at this checkpoint, NOT a scoped custody/finality proof.
+Subsequent order/fee/payout lifecycles keep their existing real temporary-vault
+test signatures. No user funds or user keys are used.
+
+Tests cover create/repair with protected/unprotected parents, cloned proofs,
+changed payer snapshot, USDC or SOL movement, parent collateral changes, foreign
+child authority, wrong rent/fee, simulated failure, expiry and budget bounds.
+Selected regression: 188 tests, 187 passed, one platform-specific skip, no failures;
+the final focused child file passed five tests after adding the metadata-ordering
+case. This is not full repository or rendered-browser verification.
+
+Next required boundaries remain durable CHILD consent/attempt persistence,
+one-use scoped vault signing, exact finalized setup receipts and restart recovery,
+then the production preparation factories and runtime/UI composition. Parent
+same-wallet finality evidence limitations and the other release gates remain as
+documented below. No new public market is enabled and no deployment occurred.
+
+Discover reviewed: discover.html/discover.js keep the accurate public BTC/ETH/SOL
+scope. discover.css/discover-tour.css do not need changes for unsigned internal
+setup verification that is not mounted into the terminal.
+
 ### Parent dispatch/service/session checkpoint — 2026-11-08 (internal only)
 
 Parent setup now has a separately injected owner-bound service and strict

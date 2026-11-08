@@ -37,3 +37,11 @@ test('setup refuses missing parent, foreign delegate and unaccounted parent coll
  const d=await phoenixSimulationFixture();await assert.rejects(()=>buildPhoenixIsolatedSetup({...args(d,d.account),account:{...d.account}},options(d)));
  const e=await phoenixSimulationFixture();await assert.rejects(()=>buildPhoenixIsolatedSetup({...args(e,e.account),native:{...e.native}},options(e)));
 });
+
+test('setup never repairs a funded/exposed child or serves as an implicit prerequisite for closing',async()=>{
+ for(const mutate of [b=>b.writeBigInt64LE(1n,88),b=>{b.writeBigUInt64LE(1n,224);b.writeBigUInt64LE(7n,240);b.writeBigInt64LE(1n,248);}]){
+  const f=await phoenixSimulationFixture();edit(f,f.a.trader,mutate);
+  await assert.rejects(()=>fresh(f).then(account=>buildPhoenixIsolatedSetup(args(f,account),options(f))),/AUTHORITY/);
+ }
+ const closing=await phoenixSimulationFixture({close:true});await assert.rejects(()=>buildPhoenixIsolatedSetup(args(closing,closing.account),options(closing)),/ENTRY_ONLY/);
+});
