@@ -321,6 +321,55 @@ Do not extend the Jupiter signing allowlist to accept these instructions.
 
 ## Public documentation review
 
+### Parent registration profile checkpoint — 2026-11-08 (internal only)
+
+The documented no-referral builder path was checked against the current official
+SDK docs and unsigned public builder output for a fresh, unfunded test address.
+It uses build-register-ixs followed by a locally compiled, fee-payer-signed
+transaction and send-register-ixs, where the provider adds its onboarding signature
+and submits. The latter endpoint has NOT been called during this work.
+Source: https://docs.phoenix.trade/sdk/register
+
+phoenix-parent-onboarding.js independently reconstructs exactly two native
+instructions for the default parent (0/0), maximum 32 positions: register and
+delegated onboarding. Wallet payer, parent PDA, native exchange arenas, program,
+log/global accounts and current pinned production onboarder/permission identity
+are checked. Arbitrary builder instructions, additional signers, substituted
+permissions and modified parameters are rejected, not copied into a transaction.
+The canonical two-signer legacy wire has no deposit, trade or token transfer.
+
+Read-only simulation verifies the exact wire, two-signature network fee, actual
+1520-byte account rent, empty parent state, wallet position authority, native
+capability flags 62, unchanged token accounts and unchanged onboarder SOL. The
+permission identity remains fixed while its remaining signer-action count must
+decrease by exactly one. Despite the SDK field name allowedSignerActions, actual
+native execution proves it is a consumed quota here, not a static bitmask. The
+entire permission data must otherwise remain identical. Quota exhaustion fails.
+This corrects assumptions exposed by the actual native-program rehearsal, rather
+than weakening checks to accept arbitrary post-state.
+
+phoenix-parent-signature.js validates only the exact wallet partial signature
+against the sealed preparation/simulation, retaining a zero provider signature.
+It grants no custody access and cannot broadcast. Modified messages re-signed
+by the same wallet, altered provider-signature slots and cloned proofs fail.
+Tests use fresh throwaway keys only, never a user key or live transaction.
+
+The five-lifecycle actual-program LiteSVM rehearsal now prepares and simulates
+the parent through this module before its existing zero-signed LOCAL registration.
+Output includes parentProfileAndSimulationVerified:true and networkSubmissions:0.
+Root provider signatures remain zero in RAM; no live co-signature/finality claim
+is made. Durable setup authorization/journal, scoped vault grant, provider-bound
+dispatch/reconciliation and wallet-only child setup simulation still need wiring.
+The public UI/runtime remain disabled for Phoenix while these gates are pending.
+Validation: 151 selected tests passed, zero failed/skipped (all Phoenix tests,
+existing automation API, platform fee and custody vault). The final focused
+five-test registration/signature file also passed after adding partial-signature
+and expired-proof cases. Full repository/browser verification remains pending.
+
+Discover reviewed: discover.html/discover.js correctly retain publicly supported
+BTC/ETH/SOL only; discover.css/discover-tour.css need no changes for this internal
+unsigned profile. No release/version or available-market claim was changed.
+
 ### Entry service/session checkpoint — 2026-11-08 (internal only)
 
 The native service now implements entry review, explicit confirmation and

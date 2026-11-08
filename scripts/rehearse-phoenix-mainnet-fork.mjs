@@ -10,13 +10,13 @@ import {resolve,join,dirname,basename} from 'node:path';
 import {tmpdir} from 'node:os';
 import {mkdtempSync,chmodSync,rmSync} from 'node:fs';
 import bs58 from 'bs58';
-import {createPhoenixClient,MarginType,decodePerpAssetMap,ticksToUsdWithMarketParams,buildUpdateTraderPreferenceBitsIx,TraderPreferenceToggleTarget} from '@ellipsis-labs/rise';
+import {createPhoenixClient,MarginType,decodePerpAssetMap,ticksToUsdWithMarketParams,buildUpdateTraderPreferenceBitsIx,TraderPreferenceToggleTarget,decodePermission} from '@ellipsis-labs/rise';
 import {createTransactionMessage,setTransactionMessageFeePayer,setTransactionMessageLifetimeUsingBlockhash,
  appendTransactionMessageInstructions,compileTransaction,getBase64EncodedWireTransaction,getCompiledTransactionMessageDecoder} from '@solana/kit';
 import {decodePhoenixCatalog,PHOENIX_IDENTITIES as ID} from '../lib/phoenix-market-plan.js';
 import {decodePhoenixMarketQuote} from '../lib/phoenix-market-quote.js';
 import {derivePhoenixWalletAccounts} from '../lib/phoenix-instruction-bindings.js';
-import {readPhoenixChainAccount} from '../lib/phoenix-chain-account.js';
+import {readPhoenixChainAccount,decodePhoenixRpcTrader} from '../lib/phoenix-chain-account.js';
 import {preparePhoenixOrderReview,preparePhoenixCloseReview} from '../lib/phoenix-order-review.js';
 import {readPhoenixNativeMarket} from '../lib/phoenix-native-market.js';
 import {buildPhoenixOrderWire} from '../lib/phoenix-order-wire.js';
@@ -38,6 +38,7 @@ import {assessPhoenixPlatformFee} from '../lib/phoenix-platform-fee-assessment.j
 import {preparePhoenixPlatformFeePayment} from '../lib/perps-platform-fee-payment.js';
 import {planPhoenixPlatformFeeTransfer} from '../lib/perps-platform-fee-transfer.js';
 import {authorizePhoenixFeeSigning,revalidatePhoenixFeeDispatch} from '../lib/phoenix-platform-fee-signing.js';
+import {preparePhoenixParentOnboarding,simulatePhoenixParentOnboarding} from '../lib/phoenix-parent-onboarding.js';
 
 const journalDirectory=mkdtempSync(join(tmpdir(),'jamd-phoenix-vm-'));chmodSync(journalDirectory,0o700);
 const custody=await openPhoenixVmCustody(journalDirectory);
@@ -152,7 +153,6 @@ try{
  const initialized=await vm('initialize',{programs:loaded,accounts:addresses.map((address,i)=>({address,
   account:source.value[i]&&{...source.value[i],rentEpoch:0}})),walletAddress:WALLET});
  const phases=[];
- if(registration.includeRegisterTrader)phases.push(await executeLocal('REGISTER_PARENT',localWire(parentIxs,initialized.blockhash)));
  const walletAccounts=await derivePhoenixWalletAccounts(WALLET,1),token=Buffer.alloc(165);
  token.set(bs58.decode(ID.usdc),0);token.set(bs58.decode(WALLET),32);token.writeBigUInt64LE(20000000n,64);token[108]=1;
  await vm('set-fictitious-account',{address:walletAccounts.usdcAta,account:{owner:TOKEN,lamports:await vm('rent',{bytes:165}),data:[token.toString('base64'),'base64']}});
@@ -172,6 +172,7 @@ try{
   if(method==='getSignatureStatuses')return {context:{slot:initialized.slot},value:params[0].map(signature=>{if(signature===deferSignature){deferSignature=null;return null;}return localReceipts.has(signature)?{slot:localReceipts.get(signature).slot,err:null,confirmationStatus:'finalized'}:null;})};
   if(method==='getTransaction')return localReceipts.get(params[0])??null;
   if(method==='getMultipleAccounts')return vm('read',{addresses:params[0],dataSlice:params[1]?.dataSlice});
+  if(method==='getMinimumBalanceForRentExemption')return vm('rent',{bytes:params[0]});
   if(method==='getFeeForMessage'){
    const m=getCompiledTransactionMessageDecoder().decode(Buffer.from(params[0],'base64'));
    let limit=Math.min(m.instructions.length*200000,1400000),price=0n;
@@ -180,7 +181,13 @@ try{
    }
    return {context:{slot:initialized.slot},value:m.header.numSignerAccounts*5000+Number((BigInt(limit)*price+999999n)/1000000n)};
   }
-  if(method==='simulateTransaction')return vm('simulate',{wireBase64:params[0],addresses:params[1].accounts.addresses});
+  if(method==='simulateTransaction'){
+   const result=await vm('simulate',{wireBase64:params[0],addresses:params[1].accounts.addresses});
+   if(process.argv.includes('--diagnostic')&&Buffer.from(params[0],'base64')[0]===2){
+    const post=result.value.accounts;console.error(JSON.stringify({parentSimulation:decodePhoenixRpcTrader(post[3],{address:params[1].accounts.addresses[3],walletAddress:WALLET,index:0}),
+     rootRent:post[3].lamports,expectedRent:await vm('rent',{bytes:1520}),permissionAfter:decodePermission(Buffer.from(post[2].data[0],'base64'))},(_,v)=>typeof v==='bigint'?v.toString():v));
+   }return result;
+  }
   throw Error('NO_NETWORK_OR_UNEXPECTED_VM_METHOD_'+method);
  };
  const deps={publicClient:{catalog:async()=>catalog,quote:async()=>quote},readSlot:async()=>initialized.slot,now,
@@ -188,6 +195,12 @@ try{
  const intent={walletAddress:WALLET,symbol:'DOGE',side:'LONG',marginUsdcUnits:'10000000',leverageTenths:30,clientOrderId:'12345',isolatedSubaccountIndex:1};
  const review=await preparePhoenixOrderReview(intent,deps);
  const native=await readPhoenixNativeMarket(review.plan,{exchangeKeys:keys,request:rpc,now,monotonicNow});
+ const beforeParent=await deps.readAccount({walletAddress:WALLET,subaccountIndices:[1]});
+ const parentPreparation=await preparePhoenixParentOnboarding({plan:review.plan,native,account:beforeParent,built:registration,
+  blockhash:initialized.blockhash,lastValidBlockHeight:10000},{request:rpc,now});
+ const parentSimulation=await simulatePhoenixParentOnboarding(parentPreparation);assert.equal(parentSimulation.networkFeeLamports,'10000');
+ // Still zero-signed provider setup in RAM only. No production signing grant.
+ phases.push(await executeLocal('REGISTER_PARENT',parentPreparation.serializedTxBase64));
  const beforeSetup=await deps.readAccount({walletAddress:WALLET,subaccountIndices:[1]});
  const setup=await buildPhoenixIsolatedSetup({plan:review.plan,native,account:beforeSetup},{request:rpc,now});
  phases.push(await executeLocal('REGISTER_CHILD',localWire(setup.instructions,initialized.blockhash)));
@@ -354,7 +367,7 @@ try{
  for(let i=0;i<3&&attention.state!=='COMPLETE';i++)attention=await webClient.recoverClose(WALLET,attentionReview.workflowId);
  assert.equal(attention.state,'COMPLETE');assert.equal(sent,13);
  final=await deps.readAccount({walletAddress:WALLET,subaccountIndices:[1]});assert.equal(final.canonical.amountUnits,'0');
- console.log(JSON.stringify({stage:'PHOENIX_LOCAL_VM_LONG_SHORT_SETTLED',networkSubmissions:0,testWalletSignaturesOnly:true,userKeysUsed:false,localPayoutReceiptsVerified:true,durableWorkflowRestartVerified:true,scopedVaultAndBackupVerified:true,authenticatedCloseApiRestartVerified:true,existingSessionClientVerified:true,nativeFeePaidOnceAfterRestartVerified:true,authenticatedEntryApiRestartVerified:true,feePreparationFailureKeepsEntryVerified:true,
+ console.log(JSON.stringify({stage:'PHOENIX_LOCAL_VM_LONG_SHORT_SETTLED',networkSubmissions:0,testWalletSignaturesOnly:true,userKeysUsed:false,localPayoutReceiptsVerified:true,durableWorkflowRestartVerified:true,scopedVaultAndBackupVerified:true,authenticatedCloseApiRestartVerified:true,existingSessionClientVerified:true,nativeFeePaidOnceAfterRestartVerified:true,authenticatedEntryApiRestartVerified:true,feePreparationFailureKeepsEntryVerified:true,parentProfileAndSimulationVerified:true,
   programs:loaded.map(p=>({address:p.address,sha256:p.sha256})),phases,
   openingProtocolFeeUnits:simulation.protocolFeeUnits,closingProtocolFeeUnits:closing.protocolFeeUnits,
   finalQuoteCollateralUnits:final.subaccounts[1].quoteCollateralUnits,finalCanonicalUnits:final.canonical.amountUnits,
