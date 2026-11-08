@@ -131,7 +131,8 @@ def run(command):
             extra = {"preBalances": [a.lamports if a else 0 for a in before],
                      "postBalances": [a.lamports if a else 0 for a in after],
                      "preTokenBalances": token_balances(keys, before), "postTokenBalances": token_balances(keys, after)}
-        return {"context": {"slot": svm.get_clock().slot}, "value": {**metadata(meta), "accounts": accounts, **extra}}
+        return {"context": {"slot": svm.get_clock().slot}, "blockTime": svm.get_clock().unix_timestamp,
+                "value": {**metadata(meta), "accounts": accounts, **extra}}
     if kind == "set-fictitious-account":
         value = command["account"]
         svm.set_account(Pubkey.from_string(command["address"]), Account(

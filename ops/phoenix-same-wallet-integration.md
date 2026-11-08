@@ -321,6 +321,44 @@ Do not extend the Jupiter signing allowlist to accept these instructions.
 
 ## Public documentation review
 
+### Native fee checkpoint — 2026-11-08 (internal only)
+
+The Phoenix execution ledger now binds commercial fee consent to the original
+unsigned opening attempt, wallet, owner, control revision, terms version, expiry
+and cumulative SOL budget. Only a verified finalized opening fill can produce a
+namespaced assessment. The fixed commission is 20 basis points of contributed
+margin, not leveraged exposure. Failed/no-fill openings cannot assess a charge.
+
+Payment uses a separately sealed native review and one-use scoped vault grant.
+It reuses only the exact fixed-recipient USDC wire/effect verifier; Jupiter's
+custody grant and payment journal explicitly reject the native review stage.
+SIGNED and UNKNOWN payment records survive process interruption. Only matching
+finalized signed bytes and actual token/SOL effects mark PAID. Failed payments
+consume their network fee from the approved total budget; they are not an
+automatic retry authorization. A paid assessment cannot be charged again.
+
+Local rehearsal additionally loads the published Memo program and executes the
+exact signed fee transfer in LiteSVM after a genuine native fill. Recipient ATA
+and wallet balances are fictitious RAM state. It loses the payment response,
+reopens the private SQLite ledger, verifies finality and continues the existing
+long/short close/withdraw/unwrap and authenticated service/client scenarios.
+No network submissions or user keys are used. This is NOT a live trading test.
+
+Evidence: journal tests cover absent/retroactive consent, brand forgery,
+cross-venue rejection, concurrency exclusion, lost response/restart, paid-once
+and failed-payment budget exhaustion. The native fee grant is also exercised
+through the real encrypted temporary test vault in the local VM rehearsal.
+
+Still pending: entry service/API/browser composition, root setup/co-signer
+authorization, queued payout completion, expired-consent recovery, interrupted
+signing recovery, cross-venue runtime exclusion and full user-interface checks.
+Fee debt/status and realized result projections are not yet connected to the
+native service history. Runtime activation and deployment remain disabled.
+
+Discover review: discover.html, discover.js, discover.css and discover-tour.css
+remain unchanged: this checkpoint is internal and does not make more markets
+available on the public web. No public availability or release claim is made.
+
 Reviewed the impact on discover.html, discover.js, discover.css and
 discover-tour.css: no public changes are appropriate at this checkpoint because
 Phoenix trading is not available. Do not advertise the catalog as tradable.

@@ -11,6 +11,10 @@ import {simulatePhoenixOrder} from '../lib/phoenix-order-simulation.js';
 import {reconcilePhoenixOrder} from '../lib/phoenix-order-receipt.js';
 import {phoenixSimulationFixture} from './helpers/phoenix-simulation-fixture.mjs';
 import {phoenixEventBatches} from './helpers/phoenix-event-batches.mjs';
+import {assessPhoenixPlatformFee,requirePhoenixPlatformFeeAssessment} from '../lib/phoenix-platform-fee-assessment.js';
+import {PERPS_PLATFORM_FEE} from '../lib/perps-platform-fee.js';
+import {preparePhoenixPlatformFeePayment} from '../lib/perps-platform-fee-payment.js';
+import {planPhoenixPlatformFeeTransfer,planPerpsPlatformFeeTransfer} from '../lib/perps-platform-fee-transfer.js';
 const owner='a'.repeat(64),id='b'.repeat(64),workflowId='c'.repeat(64),other='d'.repeat(64);
 const opts={initialize:true,explicitOperatorApproval:true,allowNonPosixForTests:process.platform==='win32'};
 
@@ -25,6 +29,84 @@ async function fixture(t){
  return {...f,root,path,open,journal,prepare,signedBase64:signed.toString('base64'),simulation,
   signWire(wire){const b=Buffer.from(wire.serializedTxBase64,'base64');sign(null,b.subarray(65),keys.privateKey).copy(b,1);return b.toString('base64');}};
 }
+
+async function finalizedFeeOpening(t,{consent=true}={}){
+ const f=await fixture(t),claim=f.prepare();
+ const args={id,ownerAccountHash:owner,termsVersion:PERPS_PLATFORM_FEE.version,maximumLamports:'5000',expiresAt:f.now()+300000,explicitApproval:true};
+ if(consent)f.journal.recordFeeConsent(args);
+ f.journal.persistSigned(claim,f.signedBase64);f.journal.markBroadcast(id,owner);
+ const proof=await f.journal.recoveryEvidence(id,owner),plan=f.review.plan,quote=BigInt(plan.baseLots)*123456n,fee=(quote*350n+999999n)/1000000n;
+ const result=await reconcilePhoenixOrder(proof,{request:async method=>{
+  if(method==='getGenesisHash')return '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
+  if(method==='getSignatureStatuses')return {context:{slot:1001},value:[{slot:1001,confirmationStatus:'finalized',err:null}]};
+  if(method==='getTransaction')return {slot:1001,transaction:[f.signedBase64,'base64'],meta:{err:null,fee:5600,
+   innerInstructions:phoenixEventBatches({wire:f.wire,plan,traderAddress:f.a.trader,slot:1001,timestamp:Math.floor(f.now()/1000),quote,fee,
+    postBase:BigInt(plan.baseLots),postVirtual:-quote,postCollateral:10000000n-fee})}};
+  throw Error('NO_SEND_ALLOWED');
+ }});f.journal.recordFinalized(id,owner,result);return {...f,consentArgs:args};
+}
+
+test('Phoenix fee needs prior consent and a finalized fill; its assessment cannot become a Jupiter transfer',async t=>{
+ const held=await fixture(t);held.prepare();held.journal.recordFeeConsent({id,ownerAccountHash:owner,termsVersion:PERPS_PLATFORM_FEE.version,
+  maximumLamports:'5000',expiresAt:held.now()+300000,explicitApproval:true});
+ assert.throws(()=>assessPhoenixPlatformFee({journal:held.journal,workflowId,ownerAccountHash:owner}));
+ const absent=await finalizedFeeOpening(t,{consent:false});
+ assert.throws(()=>assessPhoenixPlatformFee({journal:absent.journal,workflowId,ownerAccountHash:owner}));
+ assert.throws(()=>absent.journal.recordFeeConsent(absent.consentArgs));
+ const f=await finalizedFeeOpening(t),assessment=assessPhoenixPlatformFee({journal:f.journal,workflowId,ownerAccountHash:owner});
+ assert.equal(assessment.fee,'20000');assert.equal(assessment.margin,'10000000');
+ assert.throws(()=>requirePhoenixPlatformFeeAssessment({...assessment}));
+ await assert.rejects(planPerpsPlatformFeeTransfer(assessment));
+ const plan=await planPhoenixPlatformFeeTransfer(assessment);assert.equal(plan.feeUnits,'20000');assert.equal(plan.recipient,PERPS_PLATFORM_FEE.recipient);
+ f.journal.close();const reopened=f.open({initialize:false,explicitOperatorApproval:false});
+ assert.deepEqual(assessPhoenixPlatformFee({journal:reopened,workflowId,ownerAccountHash:owner}),assessment);
+});
+
+for(const failed of [false,true])test(`Phoenix commission ${failed?'failed payment exhausts approved SOL budget':'paid once'} survives a lost response`,async t=>{
+ const f=await finalizedFeeOpening(t),assessment=assessPhoenixPlatformFee({journal:f.journal,workflowId,ownerAccountHash:owner});
+ const TOKEN='TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',mint=PERPS_PLATFORM_FEE.mint;
+ const account=(owner,data,lamports=2039280)=>({owner,executable:false,lamports,data:[data.toString('base64'),'base64']});
+ const payer=after=>account('11111111111111111111111111111111',Buffer.alloc(0),10000000-(after?5000:0));
+ const mintData=Buffer.alloc(82);mintData[44]=6;mintData[45]=1;
+ const token=(wallet,amount)=>{const b=Buffer.alloc(165);Buffer.from(bs58.decode(mint)).copy(b);Buffer.from(bs58.decode(wallet)).copy(b,32);b.writeBigUInt64LE(BigInt(amount),64);b[108]=1;return account(TOKEN,b);};
+ const source=after=>token(f.wallet,1000000-(after?20000:0)),dest=after=>token(PERPS_PLATFORM_FEE.recipient,after?20000:0);
+ let encoded,pending=true;
+ const request=async(method)=>{
+  if(method==='getGenesisHash')return '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
+  if(method==='getLatestBlockhash')return {context:{slot:1002},value:{blockhash:bs58.encode(Buffer.alloc(32,8)),lastValidBlockHeight:2000}};
+  if(method==='getMultipleAccounts')return {context:{slot:1002},value:[payer(false),account(TOKEN,mintData),source(false),dest(false)]};
+  if(method==='getFeeForMessage')return {context:{slot:1002},value:5000};
+  if(method==='getBlockHeight')return 1003;
+  if(method==='simulateTransaction')return {context:{slot:1002},value:{err:null,accounts:[payer(true),source(true),dest(true)]}};
+  if(method==='getSignatureStatuses')return {context:{slot:1003},value:[pending?null:{slot:1003,confirmationStatus:'finalized',err:failed?{InstructionError:[0,'Custom']}:null}]};
+  if(method==='getTransaction'){
+   const tokens=after=>[1,2].map(index=>({accountIndex:index,mint,owner:index===1?f.wallet:PERPS_PLATFORM_FEE.recipient,
+    uiTokenAmount:{decimals:6,amount:String(index===1?1000000-(after&&!failed?20000:0):after&&!failed?20000:0)}}));
+   return {slot:1003,blockTime:Math.floor(f.now()/1000),transaction:[encoded,'base64'],meta:{err:failed?{InstructionError:[0,'Custom']}:null,fee:5000,
+    preBalances:[10000000,2039280,2039280,1461600,1,1],postBalances:[9995000,2039280,2039280,1461600,1,1],preTokenBalances:tokens(false),postTokenBalances:tokens(true)}};
+  }
+  throw Error('NO_SEND_ALLOWED_'+method);
+ };
+ const review=await preparePhoenixPlatformFeePayment(assessment,{request,now:f.now});
+ assert.equal(review.feeUnits,'20000');assert.equal(review.stage,'PHOENIX_PLATFORM_FEE_PAYMENT_REVIEW');
+ const args={id:other,ownerAccountHash:owner,controlRevision:'revision-1',review};
+ assert.throws(()=>f.journal.prepareFee({...args,controlRevision:'different'}));
+ const claim=f.journal.prepareFee(args);
+ assert.throws(()=>f.journal.prepareFee({...args,id:'e'.repeat(64)}));
+ encoded=f.signWire({serializedTxBase64:Buffer.concat([Buffer.from([1]),Buffer.alloc(64),Buffer.from(review.messageBase64,'base64')]).toString('base64')});
+ f.journal.persistSigned(claim,encoded);await f.journal.revalidateFeeBeforeBroadcast(claim,{request});f.journal.markBroadcast(other,owner);
+ assert.equal((await f.journal.feeReceipt(other,owner,{request,now:f.now})).state,'UNKNOWN');
+ f.journal.close();const reopened=f.open({initialize:false,explicitOperatorApproval:false});pending=false;
+ const receipt=await reopened.feeReceipt(other,owner,{request,now:f.now});assert.equal(receipt.state,failed?'FAILED':'PAID');
+ assert.throws(()=>reopened.recordFinalizedFee(other,owner,{...receipt}));
+ reopened.recordFinalizedFee(other,owner,receipt);assert.equal(reopened.readWorkflow(workflowId,owner).state,'OPEN');
+ if(failed){
+  const unpaid=assessPhoenixPlatformFee({journal:reopened,workflowId,ownerAccountHash:owner});assert.equal(unpaid.fee,'20000');
+  const retry=await preparePhoenixPlatformFeePayment(unpaid,{request,now:f.now});
+  assert.throws(()=>reopened.prepareFee({...args,id:'f'.repeat(64),review:retry}));
+ }else assert.throws(()=>assessPhoenixPlatformFee({journal:reopened,workflowId,ownerAccountHash:owner}));
+ reopened.close();assert.equal(f.open({initialize:false,explicitOperatorApproval:false}).pending(f.wallet).length,0);
+});
 
 test('durable preparation requires sealed same-wire simulation and excludes another pending wallet attempt',async t=>{
  const f=await fixture(t);assert.equal(requirePhoenixExecutionJournal(f.journal),f.journal);

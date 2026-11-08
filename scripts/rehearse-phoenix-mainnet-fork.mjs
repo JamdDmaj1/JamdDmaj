@@ -34,6 +34,10 @@ import {openPhoenixVmCustody} from '../tests/helpers/phoenix-vm-custody.mjs';
 import {createPhoenixManualService} from '../lib/phoenix-manual-service.js';
 import {createPerpsAutomationApi} from '../lib/perps-automation-api.js';
 import {createPhoenixManualClient} from '../lib/phoenix-manual-client.js';
+import {assessPhoenixPlatformFee} from '../lib/phoenix-platform-fee-assessment.js';
+import {preparePhoenixPlatformFeePayment} from '../lib/perps-platform-fee-payment.js';
+import {planPhoenixPlatformFeeTransfer} from '../lib/perps-platform-fee-transfer.js';
+import {authorizePhoenixFeeSigning,revalidatePhoenixFeeDispatch} from '../lib/phoenix-platform-fee-signing.js';
 
 const journalDirectory=mkdtempSync(join(tmpdir(),'jamd-phoenix-vm-'));chmodSync(journalDirectory,0o700);
 const custody=await openPhoenixVmCustody(journalDirectory);
@@ -105,7 +109,7 @@ const materialize=ix=>({programAddress:ix.programId,accounts:ix.keys.map(a=>({ad
 async function executeLocal(phase,wireBase64){
  const result=await vm('execute-local',{wireBase64});
  if(result.value.err!==null)throw Error('LOCAL_'+phase+': '+result.value.err+' '+result.value.logs.slice(-8).join(' | '));
- const raw=Buffer.from(wireBase64,'base64');if(raw[0]===1)localReceipts.set(bs58.encode(raw.subarray(1,65)),{slot:result.context.slot,transaction:[wireBase64,'base64'],meta:result.value});
+ const raw=Buffer.from(wireBase64,'base64');if(raw[0]===1)localReceipts.set(bs58.encode(raw.subarray(1,65)),{slot:result.context.slot,blockTime:result.blockTime,transaction:[wireBase64,'base64'],meta:result.value});
  return {phase,units:result.value.unitsConsumed,fee:result.value.fee};
 }
 try{
@@ -124,7 +128,7 @@ try{
   toggles:[{target:TraderPreferenceToggleTarget.CollateralSweep,set:false}]});
  const deposit=await client.ixs.buildDepositIxs({...common,amount:10000000n});
  const market=rawMarkets.find(m=>m.symbol==='DOGE');assert.ok(market);
- const programs=[ID.program,ID.ember,TOKEN,ATA],programAccounts=await networkAccounts(programs),loaded=[];
+ const programs=[ID.program,ID.ember,TOKEN,ATA,'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr'],programAccounts=await networkAccounts(programs),loaded=[];
  for(let i=0;i<programs.length;i++){
   const account=programAccounts.value[i],bytes=Buffer.from(account.data[0],'base64');let elf;
   if(bytes.subarray(0,4).equals(Buffer.from([127,69,76,70])))elf=bytes;
@@ -162,6 +166,7 @@ try{
  const rpc=async(method,params)=>{
   if(method==='getGenesisHash')return GENESIS;
   if(method==='getSlot')return initialized.slot;
+  if(method==='getBlockHeight')return 1000;
   if(method==='getLatestBlockhash')return {context:{slot:initialized.slot},value:{blockhash:initialized.blockhash,lastValidBlockHeight:10000}};
   if(method==='getSignatureStatuses')return {context:{slot:initialized.slot},value:params[0].map(signature=>{if(signature===deferSignature){deferSignature=null;return null;}return localReceipts.has(signature)?{slot:localReceipts.get(signature).slot,err:null,confirmationStatus:'finalized'}:null;})};
   if(method==='getTransaction')return localReceipts.get(params[0])??null;
@@ -197,6 +202,8 @@ try{
  const simulation=await simulatePhoenixOrder({wire,native,account},{request:rpc,now,monotonicNow});
  async function executeOrder(label,wire,simulation){
   const id=attemptId(label),claim=journal.prepareOrder({id,workflowId,ownerAccountHash,controlRevision:revision,wire,simulation,request:rpc});
+  if(label==='OPEN')journal.recordFeeConsent({id,ownerAccountHash,termsVersion:quotePerpsPlatformFee('10000000').version,
+   maximumLamports:'5000',expiresAt:now()+300000,explicitApproval:true});
   const grant=authorizePhoenixOrderSigning({ownerAccountHash,journal,claim,wire,simulation,request:rpc,
    controls:custody.controls,backupRegistry:custody.backupRegistry,riskJournal:custody.riskJournal,swapJournal:custody.swapJournal,
    explicitApproval:true,platformFeeTerms:wire.close?undefined:quotePerpsPlatformFee('10000000'),assertUncontended(){}});
@@ -206,6 +213,24 @@ try{
   journal.recordFinalized(id,ownerAccountHash,receipt);
  }
  await executeOrder('OPEN',wire,simulation);
+ // Fictitious recipient ATA in RAM only. Neither recipient nor test wallet
+ // has been funded or mutated on the network.
+ const assessment=assessPhoenixPlatformFee({journal,workflowId,ownerAccountHash}),feePlan=await planPhoenixPlatformFeeTransfer(assessment);
+ const recipientToken=Buffer.alloc(165);recipientToken.set(bs58.decode(ID.usdc));recipientToken.set(bs58.decode(feePlan.recipient),32);recipientToken[108]=1;
+ await vm('set-fictitious-account',{address:feePlan.instruction.accounts[2].address,account:{owner:TOKEN,lamports:await vm('rent',{bytes:165}),data:[recipientToken.toString('base64'),'base64']}});
+ const feeReview=await preparePhoenixPlatformFeePayment(assessment,{request:rpc,now,monotonicNow}),feeId=attemptId('OPEN_FEE');
+ assert.equal(feeReview.feeUnits,'20000');
+ const feeClaim=journal.prepareFee({id:feeId,ownerAccountHash,controlRevision:revision,review:feeReview});
+ const feeGrant=authorizePhoenixFeeSigning({ownerAccountHash,journal,claim:feeClaim,review:feeReview,controls:custody.controls,
+  backupRegistry:custody.backupRegistry,riskJournal:custody.riskJournal,swapJournal:custody.swapJournal,assertUncontended(){},now});
+ const feeSigned=custody.vault.signPhoenixFee(feeGrant);assert.throws(()=>custody.vault.signPhoenixFee(feeGrant));
+ await journal.revalidateFeeBeforeBroadcast(feeClaim,{request:rpc});revalidatePhoenixFeeDispatch(feeGrant);journal.markBroadcast(feeId,ownerAccountHash);
+ phases.push(await executeLocal('OPEN_FEE',feeSigned.serializedTxBase64));deferSignature=feeSigned.signature;
+ assert.equal((await journal.feeReceipt(feeId,ownerAccountHash,{request:rpc,now})).state,'UNKNOWN');
+ journal.close();journal=openPhoenixExecutionJournal(journalPath,{allowNonPosixForTests:process.platform==='win32',now});
+ const feeReceipt=await journal.feeReceipt(feeId,ownerAccountHash,{request:rpc,now});assert.equal(feeReceipt.state,'PAID');
+ journal.recordFinalizedFee(feeId,ownerAccountHash,feeReceipt);assert.equal(journal.readWorkflow(workflowId,ownerAccountHash).state,'OPEN');
+ assert.throws(()=>assessPhoenixPlatformFee({journal,workflowId,ownerAccountHash}));
  const closeReview=await preparePhoenixCloseReview({...intent,clientOrderId:'12346'},deps);
  const closeNative=await readPhoenixNativeMarket(closeReview.plan,{exchangeKeys:keys,request:rpc,now,monotonicNow});
  const closeWire=await buildPhoenixOrderWire(closeReview,{client,exchangeKeys:keys,blockhash:initialized.blockhash,lastValidBlockHeight:10000,now});
@@ -302,7 +327,7 @@ try{
  const positions=await webClient.positions(WALLET);assert.equal(positions.items.length,0);
  assert.equal(JSON.stringify(history).includes(ownerAccountHash),false);assert.equal(JSON.stringify(history).includes('serializedTxBase64'),false);
  final=await deps.readAccount({walletAddress:WALLET,subaccountIndices:[1]});assert.equal(final.canonical.amountUnits,'0');
- console.log(JSON.stringify({stage:'PHOENIX_LOCAL_VM_LONG_SHORT_SETTLED',networkSubmissions:0,testWalletSignaturesOnly:true,userKeysUsed:false,localPayoutReceiptsVerified:true,durableWorkflowRestartVerified:true,scopedVaultAndBackupVerified:true,authenticatedCloseApiRestartVerified:true,existingSessionClientVerified:true,
+ console.log(JSON.stringify({stage:'PHOENIX_LOCAL_VM_LONG_SHORT_SETTLED',networkSubmissions:0,testWalletSignaturesOnly:true,userKeysUsed:false,localPayoutReceiptsVerified:true,durableWorkflowRestartVerified:true,scopedVaultAndBackupVerified:true,authenticatedCloseApiRestartVerified:true,existingSessionClientVerified:true,nativeFeePaidOnceAfterRestartVerified:true,
   programs:loaded.map(p=>({address:p.address,sha256:p.sha256})),phases,
   openingProtocolFeeUnits:simulation.protocolFeeUnits,closingProtocolFeeUnits:closing.protocolFeeUnits,
   finalQuoteCollateralUnits:final.subaccounts[1].quoteCollateralUnits,finalCanonicalUnits:final.canonical.amountUnits,
