@@ -321,6 +321,55 @@ Do not extend the Jupiter signing allowlist to accept these instructions.
 
 ## Public documentation review
 
+### Parent dispatch/service/session checkpoint — 2026-11-08 (internal only)
+
+Parent setup now has a separately injected owner-bound service and strict
+phoenixParentStatus/Prepare/Confirm/Recover actions on the existing authenticated
+automation API. The browser-safe client uses the current bearer session and
+wallet; it cannot supply a parent address, owner identity, payer, transaction or
+builder instruction. Reviews explicitly authorize setup only, never a trade or
+bot activation. The public 15-second cost review is refreshed into current sealed
+native preparation at confirmation, retaining the original parent and total SOL
+cap. Only that exact newly prepared message receives the durable setup consent.
+
+The dispatch function accepts the consumed scoped parent grant, original journal
+and original read-only RPC dependency, not an arbitrary signed transaction. It
+rechecks mainnet/blockheight, repeats exact-message setup simulation, revalidates
+controls/backup/consent, commits UNKNOWN and then invokes the explicitly injected
+provider sender once with fixed same-wallet payer/authority, parent 0/0 and 32
+positions. Missing sender configuration cannot dispatch. Timeout, HTTP failure
+or mismatched provider ACK remains UNKNOWN, not failed/registered or retryable.
+Even a matching ACK is NOT finality. Two simultaneous dispatch calls cannot each
+invoke the provider because the pending-state transition is atomic.
+
+Recovery is read-only except persisting a sealed finalized receipt: it neither
+signs nor resends PREPARED/SIGNED/UNKNOWN attempts. A retained SIGNED attempt
+reports operator review needed, not automatic retry permission. Existing root
+finality evidence limitations from the preceding checkpoint still apply.
+
+Evidence: an actual client → authenticated API → setup service → scoped encrypted
+test vault/private journal path refreshes native proof, obtains one partial test
+wallet signature, invokes a STUB provider transport and returns UNKNOWN despite
+a matching ACK. It reopens SQLite, creates a new API/client/service, reads the
+pending result without another signature/send and exposes sanitized status.
+Separate scoped tests inject lost replies and wrong ACKs, race two dispatches,
+then perform restart/recovery and locked six-store restore validation; exactly
+one stub send occurs. No real provider send endpoint, user key or balance was
+used. Client tests reject scope/cost/expiry changes, cross-type review use,
+session change, cloned/replayed consent and falsely registered pending ACKs.
+
+Selected regression: 183 tests, 182 passed, one platform-specific skip, zero
+failed. This is not the full repository suite or rendered UI verification.
+The standalone native preparation factory, actual production transport wiring,
+positive owned-parent finality boundary, child setup, remaining recovery cases,
+managed inventory/shared runtime exclusions and terminal rendering remain gates.
+No production service was injected, no runtime flag enabled and no deployment
+performed. Default HTTP composition still reports phoenix-unavailable.
+
+Discover reviewed: discover.html and discover.js still correctly describe the
+public BTC/ETH/SOL futures scope. discover.css/discover-tour.css require no change
+for internal setup-service/client support that is not mounted in the terminal.
+
 ### Parent receipt/finality checkpoint — 2026-11-08 (internal only)
 
 The parent receipt reader now checks finalized status, the exact approved message

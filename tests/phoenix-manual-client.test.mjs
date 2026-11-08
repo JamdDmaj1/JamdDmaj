@@ -4,6 +4,27 @@ import bs58 from 'bs58';
 import {quotePerpsPlatformFee} from '../lib/perps-platform-fee.js';
 import {createPhoenixManualClient} from '../lib/phoenix-manual-client.js';
 const wallet='11111111111111111111111111111112',workflowId='b'.repeat(64),reviewId='c'.repeat(64),signature=bs58.encode(new Uint8Array(64).fill(7));
+test('parent client rejects changed setup scope, session, replay and a falsely confirmed provider ACK',async()=>{
+ let clock=1800000000000,token='a'.repeat(64),patch={};const calls=[];
+ const review={stage:'PHOENIX_PARENT_REVIEW',venue:'phoenix',walletAddress:wallet,id:reviewId,parentAddress:'11111111111111111111111111111113',
+  maxPositions:32,networkFeeLamports:'10000',rentLockedLamports:'8371840',maximumLamports:'8381840',expiresAt:clock+15000,
+  authorizationDurationMs:300000,requiresProtocolCosignature:true,authorizesTrading:false,submitted:false};
+ const operation={stage:'PHOENIX_PARENT_OPERATION',venue:'phoenix',walletAddress:wallet,id:reviewId,parentAddress:review.parentAddress,state:'UNKNOWN',signature,
+  registered:false,requiresPolling:true,requiresOperatorReview:false,requiresNewReview:false,mayRetry:false,providerAcknowledged:true};
+ const client=createPhoenixManualClient({now:()=>clock,readSessionToken:()=>token,fetchImpl:async(url,options)=>{const body=JSON.parse(options.body);calls.push(body);
+  return Response.json({ok:true,phoenix:{...(body.action==='phoenixParentPrepare'?review:operation),...patch}});
+ }});
+ for(const change of [{authorizesTrading:true},{maxPositions:128},{requiresProtocolCosignature:false},{maximumLamports:'8381841'},
+  {networkFeeLamports:'10001'},{expiresAt:clock+300000},{submitted:true}]){patch=change;await assert.rejects(()=>client.prepareParent(wallet,'DOGE'),/review-required/);}
+ patch={};const r=await client.prepareParent(wallet,'DOGE');
+ await assert.rejects(()=>client.confirmParent({...r},true),/review-required/);await assert.rejects(()=>client.confirmParent(r,false),/review-required/);
+ await assert.rejects(()=>client.confirmEntry(r,true),/review-required/);await assert.rejects(()=>client.confirmClose(r,true),/review-required/);
+ token='d'.repeat(64);await assert.rejects(()=>client.confirmParent(r,true),/review-required/);token='a'.repeat(64);
+ assert.equal((await client.confirmParent(r,true)).registered,false);await assert.rejects(()=>client.confirmParent(r,true),/review-required/);
+ patch={registered:true};await assert.rejects(()=>client.recoverParent(wallet,reviewId),/status-unverified/);
+ patch={};const expired=await client.prepareParent(wallet,'DOGE');clock+=15001;await assert.rejects(()=>client.confirmParent(expired,true),/review-required/);
+ assert.equal(calls.filter(c=>c.action==='phoenixParentConfirm').length,1);assert.equal(calls.some(c=>Object.hasOwn(c,'serializedTxBase64')),false);
+});
 
 test('entry review binds original intent, commission recipient, session and one-use confirmation',async()=>{
  const now=1800000000000,terms=quotePerpsPlatformFee('10000000'),draft={symbol:'DOGE',side:'SHORT',marginUsdcUnits:'10000000',leverageTenths:30};

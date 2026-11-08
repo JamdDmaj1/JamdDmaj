@@ -17,6 +17,10 @@ import {openPhoenixVmCustody} from './helpers/phoenix-vm-custody.mjs';
 import {openPhoenixExecutionJournal,requirePhoenixParentClaim} from '../lib/phoenix-execution-journal.js';
 import {authorizePhoenixParentSigning,revalidatePhoenixParentDispatch} from '../lib/phoenix-parent-signing.js';
 import {withLockedPerpsRuntimeRecoverySnapshot,readPerpsRuntimeRecoverySnapshot,inspectPerpsRuntimeRecoveryDatabases} from '../lib/perps-runtime-recovery.js';
+import {dispatchPhoenixParent,recoverPhoenixParent} from '../lib/phoenix-parent-dispatch.js';
+import {createPhoenixParentService} from '../lib/phoenix-parent-service.js';
+import {createPerpsAutomationApi} from '../lib/perps-automation-api.js';
+import {createPhoenixManualClient} from '../lib/phoenix-manual-client.js';
 const ONBOARDER='EzkM8YbCkBLaCqX2cdxtMyxfTLpKui3mWQWnhe5w2P4Z',PERMISSION='6UCimUpRW2CGh3ESJm3S59c4WcCaVLYcpPPbbrfX2nzr';
 const AUTHORITY='8wTcJdg4Xw3wnvmBu7Sokn3c2UnnHUhuB5g9sfeCMidR',SYSTEM='11111111111111111111111111111111';
 async function fixture(configuration={}){
@@ -30,6 +34,8 @@ async function fixture(configuration={}){
  const built={traderPda:f.parent,traderOnboarder:ONBOARDER,txFeePayer:f.wallet,maxPositions:32,includeRegisterTrader:true,instructions:instructions.map(ix=>({programId:ix.programAddress,data:[...ix.data],keys:ix.accounts.map(a=>({pubkey:a.address,isSigner:!!(a.role&2),isWritable:!!(a.role&1)}))}))};
  let preparation,patchPost=null,fee=10000;
  const request=async(method,params)=>{
+  if(method==='getBlockHeight')return 1000;
+  if(method==='getSignatureStatuses')return {context:{slot:1000},value:[null]};
   if(method==='getFeeForMessage'){assert.equal(params[0],preparation.messageBase64);return {context:{slot:1000},value:fee};}
   if(method==='getMinimumBalanceForRentExemption'){assert.equal(params[0],1520);return rent;}
   if(method==='simulateTransaction'){
@@ -65,7 +71,35 @@ test('builder changes, extra signer, permission substitution, account spoof and 
  const g=await fixture(),a=g.map.get(PERMISSION),b=Buffer.from(a.data[0],'base64');b.writeBigUInt64LE(17n,80);a.data[0]=b.toString('base64');await assert.rejects(()=>g.prepare(),/PERMISSION/);
 });
 function fake(){return bs58.encode(Buffer.alloc(32,9));}
-test('scoped parent signing persists before returning, excludes orders and survives restart without resending',async t=>{
+test('parent review uses the existing authenticated session, refreshes native proof and never equates an ACK with registration',async t=>{
+ const root=mkdtempSync(join(tmpdir(),'jamd-parent-service-'));chmodSync(root,0o700);const custody=await openPhoenixVmCustody(root);
+ let journal;t.after(()=>{journal?.close();custody.close();rmSync(root,{recursive:true,force:true});});custody.journal.close();
+ const f=await fixture({wallet:custody.identity.walletAddress}),path=join(root,'phoenix.sqlite');
+ const open=()=>openPhoenixExecutionJournal(path,{allowNonPosixForTests:process.platform==='win32',now:f.now});journal=open();
+ let sends=0,signatures=0,preparations=0;
+ const makeService=()=>createPhoenixParentService({controls:custody.controls,vault:{describe:custody.vault.describe,signPhoenixParent:grant=>{signatures++;return custody.vault.signPhoenixParent(grant);}},
+  journal,riskJournal:custody.riskJournal,swapJournal:custody.swapJournal,backupRegistry:custody.backupRegistry,request:f.options.request,
+  now:f.now,isRunning:()=>true,assertUncontended(){},prepareNative:async args=>{
+   assert.equal(args.walletAddress,f.wallet);assert.equal(args.ownerAccountHash,custody.ownerAccountHash);assert.equal(args.symbol,'DOGE');preparations++;
+   const preparation=await f.prepare(),simulation=await simulatePhoenixParentOnboarding(preparation);return {preparation,simulation};
+  },sendRegisterIxs:async body=>{sends++;const row=journal.pendingParent(f.wallet)[0];assert.equal(row.state,'UNKNOWN');assert.equal(row.signed,body.transaction);
+   return {signature:row.signature,traderPda:f.parent,txFeePayer:f.wallet,traderOnboarder:JSON.parse(row.preparation).onboarder,maxPositions:32,includeRegisterTrader:true};}});
+ const makeApi=()=>createPerpsAutomationApi({controls:custody.controls,authenticate:async()=>custody.ownerAccountHash,rateLimit:async()=>true,phoenixParents:makeService()});
+ let api=makeApi();const call=async(action,fields={})=>api(new Request('https://executor.invalid/v1/automation',{method:'POST',headers:{Authorization:'Bearer '+'a'.repeat(64),'Content-Type':'application/json'},body:JSON.stringify({action,walletAddress:f.wallet,...fields})}));
+ const client=()=>createPhoenixManualClient({fetchImpl:(url,options)=>api(new Request(url,options)),readSessionToken:()=>'a'.repeat(64),now:f.now});let web=client();
+ assert.equal((await call('phoenixParentPrepare',{symbol:'DOGE',ownerAccountHash:'b'.repeat(64)})).status,400);
+ const review=await web.prepareParent(f.wallet,'DOGE');
+ assert.equal(review.authorizesTrading,false);assert.equal(review.maximumLamports,'8381840');assert.equal(sends,0);assert.equal(signatures,0);
+ assert.equal((await call('phoenixParentConfirm',{id:review.id,explicitApproval:false})).status,409);assert.equal(signatures,0);
+ const result=await web.confirmParent(review,true);
+ assert.equal(result.state,'UNKNOWN');assert.equal(result.providerAcknowledged,true);assert.equal(result.registered,false);
+ assert.equal(preparations,2);assert.equal(sends,1);assert.equal(signatures,1);assert.equal((await call('phoenixParentConfirm',{id:review.id,explicitApproval:true})).status,409);
+ journal.close();journal=open();api=makeApi();web=client();const recovered=await web.recoverParent(f.wallet,review.id);
+ assert.equal(recovered.state,'UNKNOWN');assert.equal(sends,1);assert.equal(signatures,1);
+ const status=await web.parentStatus(f.wallet);assert.equal(status.available,false);assert.equal(status.operations.length,1);
+ assert.equal(JSON.stringify(status).includes('serializedTxBase64'),false);assert.equal(JSON.stringify(status).includes(custody.ownerAccountHash),false);
+});
+for(const providerMode of ['lost','wrong-ack'])test(`scoped parent signing and ${providerMode} survive restart without a duplicate send`,async t=>{
  const root=mkdtempSync(join(tmpdir(),'jamd-parent-ledger-'));chmodSync(root,0o700);const custody=await openPhoenixVmCustody(root);
  let journal; t.after(()=>{journal?.close();custody.close();rmSync(root,{recursive:true,force:true});});
  custody.journal.close();const f=await fixture({wallet:custody.identity.walletAddress}),path=join(root,'phoenix.sqlite');
@@ -85,11 +119,26 @@ test('scoped parent signing persists before returning, excludes orders and survi
  const signed=custody.vault.signPhoenixParent(grant);assert.equal(journal.readParentAttempt(id,ownerAccountHash).state,'SIGNED');
  assert.equal(Buffer.from(signed.serializedTxBase64,'base64').subarray(65,129).every(n=>n===0),true);
  assert.throws(()=>custody.vault.signPhoenixParent(grant));assert.throws(()=>journal.recoverUnsignedParent(id,ownerAccountHash));
- revalidatePhoenixParentDispatch(grant);journal.markParentBroadcast(id,ownerAccountHash);assert.throws(()=>journal.markParentBroadcast(id,ownerAccountHash));
+ revalidatePhoenixParentDispatch(grant);let sends=0;
+ await assert.rejects(()=>dispatchPhoenixParent(grant,{journal,request:async()=>null,sendRegisterIxs:async()=>{sends++;}}));assert.equal(sends,0);
+ const sendRegisterIxs=async body=>{
+  sends++;assert.equal(journal.readParentAttempt(id,ownerAccountHash).state,'UNKNOWN');assert.equal(body.transaction,signed.serializedTxBase64);
+  assert.equal(body.traderAuthority,f.wallet);assert.equal(body.txFeePayer,f.wallet);assert.equal(body.traderPdaIndex,0);assert.equal(body.traderSubaccountIndex,0);
+  if(providerMode==='lost')throw Error('LOCAL_LOST_PROVIDER_REPLY');return {signature:'incorrect',traderPda:f.parent};
+ };
+ const attempts=await Promise.allSettled([1,2].map(()=>dispatchPhoenixParent(grant,{journal,request:f.options.request,sendRegisterIxs})));
+ assert.equal(attempts.filter(r=>r.status==='fulfilled').length,1);const result=attempts.find(r=>r.status==='fulfilled').value;
+ assert.equal(result.registered,false);assert.equal(result.providerAcknowledged,false);assert.equal(result.mayRetry,false);assert.equal(sends,1);
+ await assert.rejects(()=>dispatchPhoenixParent(grant,{journal,request:f.options.request,sendRegisterIxs:async()=>{sends++;}}));assert.equal(sends,1);
+ assert.throws(()=>journal.markParentBroadcast(id,ownerAccountHash));
  journal.close();f.advance(600000);journal=open();const restored=journal.readParentAttempt(id,ownerAccountHash);
  assert.equal(restored.state,'UNKNOWN');assert.equal(restored.signed,signed.serializedTxBase64);assert.equal(journal.pending(f.wallet)[0].kind,'PARENT');
  assert.equal(journal.readParentAttempt(id,'a'.repeat(64)),null);assert.throws(()=>journal.recoverUnsignedParent(id,ownerAccountHash));
  assert.throws(()=>authorizePhoenixParentSigning({...signArgs,journal}));
+ const readonly=async(method)=>{if(method==='getGenesisHash')return '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
+  if(method==='getSignatureStatuses')return {context:{slot:1000},value:[null]};throw Error('NO_SEND_ALLOWED');};
+ const recovered=await recoverPhoenixParent({journal,id,ownerAccountHash,walletAddress:f.wallet,request:readonly,now:f.now});assert.equal(recovered.state,'UNKNOWN');assert.equal(recovered.registered,false);assert.equal(sends,1);
+ await assert.rejects(()=>recoverPhoenixParent({journal,id,ownerAccountHash,walletAddress:fake(),request:readonly,now:f.now}));
  await withLockedPerpsRuntimeRecoverySnapshot({controlsPath:join(root,'controls.sqlite'),journalPath:join(root,'journal.sqlite'),feesPath:join(root,'fees.sqlite'),
   paymentsPath:join(root,'payments.sqlite'),swapsPath:join(root,'swaps.sqlite'),phoenixPath:path,temporaryDirectory:root,allowNonPosixForTests:process.platform==='win32'},async handle=>{
    const files=inspectPerpsRuntimeRecoveryDatabases(readPerpsRuntimeRecoverySnapshot(handle),{temporaryDirectory:root,identities:[custody.identity],restorePaused:true,now:f.now,allowNonPosixForTests:process.platform==='win32'});
