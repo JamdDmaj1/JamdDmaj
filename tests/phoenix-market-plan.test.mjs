@@ -2,13 +2,32 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import bs58 from 'bs58';
 import {buildPlaceMarketOrderIx,OrderFlags} from '@ellipsis-labs/rise';
-import {decodePhoenixCatalog,planPhoenixOrder,phoenixUsd,PHOENIX_IDENTITIES,requirePhoenixUnsignedPlan,clampPhoenixClosePlan} from '../lib/phoenix-market-plan.js';
+import {decodePhoenixCatalog,planPhoenixOrder,phoenixUsd,PHOENIX_IDENTITIES,requirePhoenixUnsignedPlan,clampPhoenixClosePlan,clampPhoenixEntryPlan} from '../lib/phoenix-market-plan.js';
 import {buildPhoenixUnsignedInstructions} from '../lib/phoenix-unsigned-instructions.js';
 import {createPhoenixPublicClient} from '../lib/phoenix-public-client.js';
 const now=1800000000000,key=n=>bs58.encode(Uint8Array.from({length:32},(_,i)=>i===31?n:0)),wallet=key(12);
 const row={symbol:'DOGE',assetId:7,marketStatus:'active',metadata:{assetClass:'crypto'},marketPubkey:key(20),splinePubkey:key(21),tickSize:1,baseLotsDecimals:0,takerFee:0.00035,leverageTiers:[{maxLeverage:10,maxSizeBaseLots:1000000}]};
 const catalog=decodePhoenixCatalog([row],{observedAt:now});
 const plan=(overrides={})=>planPhoenixOrder({catalog,walletAddress:wallet,symbol:'DOGE',side:'LONG',marginUsdcUnits:'10000000',leverageTenths:30,referencePrice:'0.123456',observedSlot:1000,clientOrderId:'12345',isolatedSubaccountIndex:1,now,...overrides});
+
+test('entry refresh keeps original FOK size, collateral, exposure cap and stricter absolute ticks',()=>{
+ for(const side of ['LONG','SHORT']){
+  const original=plan({side});
+  for(const referencePrice of ['0.12','0.13']){
+   const fresh=plan({side,referencePrice,observedSlot:1001}),p=clampPhoenixEntryPlan(fresh,original);
+   assert.equal(p.baseLots,original.baseLots);assert.equal(p.packet.numBaseLots,original.packet.numBaseLots);
+   assert.equal(p.packet.minBaseLotsToFill,original.packet.minBaseLotsToFill);assert.equal(p.packet.numQuoteLots,original.packet.numQuoteLots);
+   assert.equal(p.maxNotionalUsdcUnits,original.maxNotionalUsdcUnits);assert.equal(p.marginUsdcUnits,original.marginUsdcUnits);
+   assert.equal(p.packet.lastValidSlot,1031n);
+   assert.ok(side==='LONG'?p.packet.priceInTicks<=original.packet.priceInTicks:p.packet.priceInTicks>=original.packet.priceInTicks);
+  }
+ }
+ const original=plan();
+ for(const changed of [{side:'SHORT'},{marginUsdcUnits:'11000000'},{leverageTenths:40},{isolatedSubaccountIndex:2},{closeBaseLots:'240'}])
+  assert.throws(()=>clampPhoenixEntryPlan(plan(changed),original));
+ assert.throws(()=>clampPhoenixEntryPlan({...original},original));
+ const higher=decodePhoenixCatalog([{...row,takerFee:0.0004}],{observedAt:now});assert.throws(()=>clampPhoenixEntryPlan(plan({catalog:higher}),original));
+});
 test('crypto catalog uses native asset identity; inactive assets are not executable and DTO never grants signing',()=>{
  assert.equal(catalog.readyForSigning,false);assert.equal(catalog.markets[0].assetId,7);assert.equal(catalog.markets[0].symbol,'DOGE');assert.throws(()=>decodePhoenixCatalog([row,row]),/MARKET/);
  assert.throws(()=>plan({symbol:'kDOGE'}),/INTENT/);assert.throws(()=>plan({catalog:{...catalog}}),/EXPIRED/);assert.throws(()=>plan({now:now+16000}),/EXPIRED/);

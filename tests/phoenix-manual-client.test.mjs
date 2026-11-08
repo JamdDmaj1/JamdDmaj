@@ -1,8 +1,32 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import bs58 from 'bs58';
+import {quotePerpsPlatformFee} from '../lib/perps-platform-fee.js';
 import {createPhoenixManualClient} from '../lib/phoenix-manual-client.js';
 const wallet='11111111111111111111111111111112',workflowId='b'.repeat(64),reviewId='c'.repeat(64),signature=bs58.encode(new Uint8Array(64).fill(7));
+
+test('entry review binds original intent, commission recipient, session and one-use confirmation',async()=>{
+ const now=1800000000000,terms=quotePerpsPlatformFee('10000000'),draft={symbol:'DOGE',side:'SHORT',marginUsdcUnits:'10000000',leverageTenths:30};
+ const review={...draft,stage:'PHOENIX_MANUAL_ENTRY_REVIEW',venue:'phoenix',walletAddress:wallet,id:reviewId,workflowId,expiresAt:now+15000,submitted:false,
+  maxSlippageBps:50,withdrawalMayQueue:true,platformFeeUsdcUnits:terms.feeUnits,platformFeeTermsVersion:terms.version,platformFeeRecipient:terms.recipient,
+  maximumFeeNetworkLamports:'10000',maximumNetworkAndRentLamports:'15600',protocolFeeUsdcUnits:'10420',authorizationDurationMs:300000,
+  baseLots:'240',referencePrice:'0.13',priceLimitUsd:'0.12935',maximumProtocolTakerFeeMicro:350};
+ const result={stage:'PHOENIX_MANUAL_OPERATION',venue:'phoenix',walletAddress:wallet,workflowId,state:'OPEN',attemptId:reviewId,attemptState:'FINALIZED',phase:'FEE',signature,
+  submitted:true,walletCredited:false,readyForRetry:false,requiresPolling:false,requiresQueueReconciliation:false};
+ let patch={},token='a'.repeat(64);const calls=[];
+ const client=createPhoenixManualClient({now:()=>now,readSessionToken:()=>token,fetchImpl:async(url,options)=>{
+  const body=JSON.parse(options.body);calls.push(body);return Response.json({ok:true,phoenix:body.action==='phoenixEntryPrepare'?{...review,...patch}:result});
+ }});
+ for(const change of [{side:'LONG'},{marginUsdcUnits:'11000000'},{leverageTenths:40},{maxSlippageBps:500},{platformFeeUsdcUnits:'20001'},
+  {platformFeeRecipient:wallet},{maximumFeeNetworkLamports:'10001'},{expiresAt:now+300000}]){
+  patch=change;await assert.rejects(()=>client.prepareEntry(wallet,draft),/review-required/);
+ }
+ patch={};const r=await client.prepareEntry(wallet,draft);
+ await assert.rejects(()=>client.confirmEntry({...r},true),/review-required/);await assert.rejects(()=>client.confirmClose(r,true),/review-required/);
+ await assert.rejects(()=>client.confirmEntry(r,false),/review-required/);token='d'.repeat(64);await assert.rejects(()=>client.confirmEntry(r,true),/review-required/);
+ token='a'.repeat(64);assert.equal((await client.confirmEntry(r,true)).state,'OPEN');await assert.rejects(()=>client.confirmEntry(r,true),/review-required/);
+ assert.deepEqual(calls.at(-1),{action:'phoenixEntryConfirm',walletAddress:wallet,id:reviewId,explicitApproval:true});
+});
 function fixture(){
  let clock=1800000000000,token='a'.repeat(64),tamper=null;const sent=[];
  const review={stage:'PHOENIX_MANUAL_CLOSE_REVIEW',venue:'phoenix',walletAddress:wallet,workflowId,id:reviewId,symbol:'DOGE',expiresAt:clock+15000,

@@ -321,6 +321,53 @@ Do not extend the Jupiter signing allowlist to accept these instructions.
 
 ## Public documentation review
 
+### Entry service/session checkpoint — 2026-11-08 (internal only)
+
+The native service now implements entry review, explicit confirmation and
+signature-based recovery through the existing authenticated automation API and
+same-session client. The browser supplies symbol, side, margin and leverage,
+never a raw packet, account index, wallet owner identity or reference price.
+The server selects an existing policy-compliant flat child that is not held by
+another workflow. Missing setup reports ONBOARDING_REQUIRED: it does not invent
+registration approval, pay rent or request a second wallet behind the scenes.
+
+Confirmation refreshes native evidence while retaining original full FOK size,
+margin, notional cap and the stricter absolute tick bound. Native/API risk tiers
+and protocol fee cap are rechecked. SOL budget includes the separate bounded
+fee-payment authorization; sufficient USDC includes the original 20bps charge.
+After signing, UNKNOWN is durable before the sole network dispatch. Entry and
+fee finality are reconciled separately. A later fee-preparation failure must
+return the known opening operation with attention required, not a failed-entry
+error that could encourage another opening.
+
+The local native-program rehearsal now has five complete lifecycles. The fourth
+starts at prepareEntry/confirmEntry through the real client/API/service, loses
+the send response, reopens SQLite and verifies the opening and one commission
+without a duplicate send, then fully closes and settles. The fifth injects a
+fee-preparation error after a finalized opening, verifies OPEN is still returned,
+recovers only the commission and closes. All sends terminate in LiteSVM RAM.
+Published program state is only read; no user keys or live orders are used.
+
+Browser negative tests reject changed side/margin/leverage, wrong recipient or
+commission, widened tolerance, oversized approval window, session change,
+cloned review, missing approval and repeat confirmation. Planner tests cover
+retained full size, spend cap and strict tick bounds under quote movement.
+Selected regression: 146 tests passed, zero failed/skipped (all Phoenix tests,
+automation API, platform fee and custody vault). The native rehearsal reports
+authenticatedEntryApiRestartVerified and feePreparationFailureKeepsEntryVerified
+with networkSubmissions:0 and readyForTrading:false.
+
+The public terminal is NOT wired to these entry methods, runtime activation is
+still disabled and status intentionally reports entry release gates pending.
+Initial parent/co-signer setup, full inventory/shared reservations, queued
+payouts, interrupted/expired authorization recovery and rendered UI verification
+remain required before enabling markets. This does not prove universal token
+support or production latency under the short native evidence TTL.
+
+Discover reviewed again: discover.html/discover.js still accurately describe
+BTC/ETH/SOL as the publicly supported futures markets. discover.css and
+discover-tour.css need no change for these internal service/client additions.
+
 ### Native fee checkpoint — 2026-11-08 (internal only)
 
 The Phoenix execution ledger now binds commercial fee consent to the original

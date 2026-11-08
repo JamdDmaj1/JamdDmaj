@@ -162,12 +162,13 @@ try{
  const quote=decodePhoenixMarketQuote({symbol:'DOGE',timestamp_ms:fixedNow,mark_price:price,oracle_price:price},{symbol:'DOGE',now:fixedNow});
  const now=()=>fixedNow,monotonicNow=()=>0;
  journal.close();journal=openPhoenixExecutionJournal(journalPath,{allowNonPosixForTests:process.platform==='win32',now});
- let deferSignature=null;
+ let deferSignature=null,failNextFeeBlockhash=false;
  const rpc=async(method,params)=>{
   if(method==='getGenesisHash')return GENESIS;
   if(method==='getSlot')return initialized.slot;
   if(method==='getBlockHeight')return 1000;
-  if(method==='getLatestBlockhash')return {context:{slot:initialized.slot},value:{blockhash:initialized.blockhash,lastValidBlockHeight:10000}};
+  if(method==='getLatestBlockhash'){if(failNextFeeBlockhash){failNextFeeBlockhash=false;throw Error('LOCAL_FEE_PREPARATION_UNAVAILABLE');}
+   return {context:{slot:initialized.slot},value:{blockhash:initialized.blockhash,lastValidBlockHeight:10000}};}
   if(method==='getSignatureStatuses')return {context:{slot:initialized.slot},value:params[0].map(signature=>{if(signature===deferSignature){deferSignature=null;return null;}return localReceipts.has(signature)?{slot:localReceipts.get(signature).slot,err:null,confirmationStatus:'finalized'}:null;})};
   if(method==='getTransaction')return localReceipts.get(params[0])??null;
   if(method==='getMultipleAccounts')return vm('read',{addresses:params[0],dataSlice:params[1]?.dataSlice});
@@ -301,13 +302,14 @@ try{
  const serviceWire=await buildPhoenixOrderWire(serviceEntry,{client,exchangeKeys:keys,blockhash:initialized.blockhash,lastValidBlockHeight:10000,now});
  const serviceSimulation=await simulatePhoenixOrder({wire:serviceWire,native:serviceNative,account:final},{request:rpc,now,monotonicNow});
  await executeOrder('SERVICE_OPEN_FIXTURE',serviceWire,serviceSimulation);
- let sent=0,loseResponse=true;const seenServiceWires=new Set();
+ let sent=0,loseResponse=true,breakFeeAfterSend=false;const seenServiceWires=new Set();
  const makeApi=()=>{
   const service=createPhoenixManualService({controls:custody.controls,vault:custody.vault,journal,riskJournal:custody.riskJournal,swapJournal:custody.swapJournal,
    backupRegistry:custody.backupRegistry,publicClient:deps.publicClient,client,readExchangeKeys:async()=>keys,rpcRequest:rpc,now,monotonicNow,
    assertUncontended(){},isRunning:()=>true,sendRequest:async(method,params)=>{
     assert.equal(method,'sendTransaction');assert.equal(params[1].maxRetries,0);assert.ok(!seenServiceWires.has(params[0]));seenServiceWires.add(params[0]);
     phases.push(await executeLocal('SERVICE_CLOSE_STEP_'+(++sent),params[0]));
+    if(breakFeeAfterSend){breakFeeAfterSend=false;failNextFeeBlockhash=true;}
     const signature=bs58.encode(Buffer.from(params[0],'base64').subarray(1,65));
     if(loseResponse){loseResponse=false;deferSignature=signature;throw Error('LOCAL_LOST_RESPONSE');}return signature;
    }});
@@ -326,8 +328,33 @@ try{
  const history=await webClient.history(WALLET);assert.equal(history.items.length,3);assert.ok(history.items.every(i=>i.netPnlUsdcUnits===null));
  const positions=await webClient.positions(WALLET);assert.equal(positions.items.length,0);
  assert.equal(JSON.stringify(history).includes(ownerAccountHash),false);assert.equal(JSON.stringify(history).includes('serializedTxBase64'),false);
+ // Fourth lifecycle starts at the same-session entry client/API/service, not
+ // the harness coordinator. Root/child setup is the earlier local fixture.
+ initialized.blockhash=(await vm('advance-local-blockhash')).blockhash;loseResponse=true;
+ const entryReview=await webClient.prepareEntry(WALLET,{symbol:'DOGE',side:'SHORT',marginUsdcUnits:'10000000',leverageTenths:30});
+ assert.equal(entryReview.maxSlippageBps,50);assert.equal(entryReview.platformFeeUsdcUnits,'20000');assert.equal(sent,3);
+ let entryResult=await webClient.confirmEntry(entryReview,true);assert.equal(entryResult.attemptState,'UNKNOWN');assert.equal(sent,4);
+ await assert.rejects(()=>webClient.confirmEntry(entryReview,true));
+ journal.close();journal=openPhoenixExecutionJournal(journalPath,{allowNonPosixForTests:process.platform==='win32',now});api=makeApi();webClient=makeWebClient();
+ entryResult=await webClient.recoverEntry(WALLET,entryReview.workflowId);assert.equal(entryResult.state,'OPEN');assert.equal(sent,5);
+ assert.equal(entryResult.phase,'FEE');assert.equal(entryResult.attemptState,'FINALIZED');
+ await webClient.recoverEntry(WALLET,entryReview.workflowId);assert.equal(sent,5);
+ const fourthClose=await webClient.prepareClose(WALLET,entryReview.workflowId);
+ let fourthResult=await webClient.confirmClose(fourthClose,true);
+ for(let i=0;i<3&&fourthResult.state!=='COMPLETE';i++)fourthResult=await webClient.recoverClose(WALLET,entryReview.workflowId);
+ assert.equal(fourthResult.state,'COMPLETE');assert.equal(sent,8);
+ assert.equal((await webClient.positions(WALLET)).items.length,0);assert.equal((await webClient.history(WALLET)).items.length,4);
+ // An entry is not reported failed if its following fee preparation fails.
+ initialized.blockhash=(await vm('advance-local-blockhash')).blockhash;
+ const attentionReview=await webClient.prepareEntry(WALLET,{symbol:'DOGE',side:'LONG',marginUsdcUnits:'10000000',leverageTenths:30});
+ breakFeeAfterSend=true;
+ let attention=await webClient.confirmEntry(attentionReview,true);assert.equal(attention.state,'OPEN');assert.equal(attention.entryNeedsAttention,true);assert.equal(sent,9);
+ attention=await webClient.recoverEntry(WALLET,attentionReview.workflowId);assert.equal(attention.state,'OPEN');assert.equal(attention.phase,'FEE');assert.equal(sent,10);
+ const attentionClose=await webClient.prepareClose(WALLET,attentionReview.workflowId);attention=await webClient.confirmClose(attentionClose,true);
+ for(let i=0;i<3&&attention.state!=='COMPLETE';i++)attention=await webClient.recoverClose(WALLET,attentionReview.workflowId);
+ assert.equal(attention.state,'COMPLETE');assert.equal(sent,13);
  final=await deps.readAccount({walletAddress:WALLET,subaccountIndices:[1]});assert.equal(final.canonical.amountUnits,'0');
- console.log(JSON.stringify({stage:'PHOENIX_LOCAL_VM_LONG_SHORT_SETTLED',networkSubmissions:0,testWalletSignaturesOnly:true,userKeysUsed:false,localPayoutReceiptsVerified:true,durableWorkflowRestartVerified:true,scopedVaultAndBackupVerified:true,authenticatedCloseApiRestartVerified:true,existingSessionClientVerified:true,nativeFeePaidOnceAfterRestartVerified:true,
+ console.log(JSON.stringify({stage:'PHOENIX_LOCAL_VM_LONG_SHORT_SETTLED',networkSubmissions:0,testWalletSignaturesOnly:true,userKeysUsed:false,localPayoutReceiptsVerified:true,durableWorkflowRestartVerified:true,scopedVaultAndBackupVerified:true,authenticatedCloseApiRestartVerified:true,existingSessionClientVerified:true,nativeFeePaidOnceAfterRestartVerified:true,authenticatedEntryApiRestartVerified:true,feePreparationFailureKeepsEntryVerified:true,
   programs:loaded.map(p=>({address:p.address,sha256:p.sha256})),phases,
   openingProtocolFeeUnits:simulation.protocolFeeUnits,closingProtocolFeeUnits:closing.protocolFeeUnits,
   finalQuoteCollateralUnits:final.subaccounts[1].quoteCollateralUnits,finalCanonicalUnits:final.canonical.amountUnits,
