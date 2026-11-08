@@ -321,6 +321,55 @@ Do not extend the Jupiter signing allowlist to accept these instructions.
 
 ## Public documentation review
 
+### Durable parent authorization checkpoint — 2026-11-08 (internal only)
+
+The private Phoenix database now records parent setup independently of trading
+workflows. Explicit approval binds the exact simulated message, owner, wallet,
+control revision, maximum SOL cost and deadline. Root attempts progress PREPARED
+→ SIGNED → UNKNOWN; only unsigned PREPARED attempts can be cancelled. There is
+deliberately no FINALIZED/release transition until the provider co-signature and
+native receipt verifier are implemented. A timeout cannot mark setup complete.
+
+A separate one-use parent capability and signPhoenixParent vault method sign
+only the wallet slot of the exact two-signer setup wire. The provider slot stays
+zero. Signed bytes and the deterministic wallet transaction signature are stored
+before returning from the vault. Current paused controls, sealed native evidence,
+durable approval and all restored backup scopes are rechecked before and after
+signing, and again before dispatch eligibility. No generic signing method or
+existing Jupiter/order/withdrawal grant was broadened.
+
+The setup table has one pending attempt per wallet; order, payout and fee
+preparation reject an outstanding setup. Conversely root preparation checks the
+shared pending view inside BEGIN IMMEDIATE, excluding concurrent order/setup
+writers across database connections. Restart inventory validates signed bytes,
+wallet signature, message hash, fixed native registration/onboarding data and
+account identities, owner scope, cost/deadline and cross-table pending conflicts.
+Schema hashing includes the new setup table/index in canonical order, and the
+existing locked six-store recovery snapshot/paused restore validates pending
+root records instead of silently dropping them. No live schema was migrated.
+
+Evidence: the scoped-vault test uses a fresh encrypted temporary wallet and real
+restored backup proof. It checks missing approval, insufficient cap, cloned
+proofs, changed control revision, duplicate and cross-connection reservation,
+order exclusion, persist-before-return, one-use signing, UNKNOWN before dispatch,
+closed/reopened SQLite after expiry, refusal to cancel/re-sign and a locked
+six-store snapshot/paused restore containing the unresolved setup. No sender is
+called. Selected regression: 175 tests, 174 passed, one platform-specific skip,
+zero failed; final focused registration/signing rerun also passed six tests.
+The unchanged five-lifecycle native VM rehearsal still passes with zero network
+submissions. Its parent execution remains zero-signed local-only, NOT proof of a
+real provider co-signature or finalized parent receipt.
+
+Remaining onboarding gates: actual provider-bound dispatch/reconciliation,
+finalized co-signature and rent/state proof, wallet-only child setup simulation
+and durable consent spanning setup and the original protected entry. Runtime,
+rendered UI, full inventory/shared venue reservations, queued settlement and
+other recovery gates remain pending; Phoenix is not publicly enabled.
+
+Discover reviewed: discover.html/discover.js correctly retain the currently
+available BTC/ETH/SOL descriptions. discover.css and discover-tour.css need no
+change for this internal custody/journal checkpoint. No public version bump.
+
 ### Parent registration profile checkpoint — 2026-11-08 (internal only)
 
 The documented no-referral builder path was checked against the current official

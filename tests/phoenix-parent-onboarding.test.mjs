@@ -10,6 +10,13 @@ import {readPhoenixNativeMarket} from '../lib/phoenix-native-market.js';
 import {phoenixSimulationFixture} from './helpers/phoenix-simulation-fixture.mjs';
 import {phoenixRpcAccount,phoenixTraderBytes} from './helpers/phoenix-chain-account-fixture.mjs';
 import {capturePhoenixParentSignature,requirePhoenixParentSignature} from '../lib/phoenix-parent-signature.js';
+import {mkdtempSync,chmodSync,rmSync} from 'node:fs';
+import {join} from 'node:path';
+import {tmpdir} from 'node:os';
+import {openPhoenixVmCustody} from './helpers/phoenix-vm-custody.mjs';
+import {openPhoenixExecutionJournal,requirePhoenixParentClaim} from '../lib/phoenix-execution-journal.js';
+import {authorizePhoenixParentSigning,revalidatePhoenixParentDispatch} from '../lib/phoenix-parent-signing.js';
+import {withLockedPerpsRuntimeRecoverySnapshot,readPerpsRuntimeRecoverySnapshot,inspectPerpsRuntimeRecoveryDatabases} from '../lib/perps-runtime-recovery.js';
 const ONBOARDER='EzkM8YbCkBLaCqX2cdxtMyxfTLpKui3mWQWnhe5w2P4Z',PERMISSION='6UCimUpRW2CGh3ESJm3S59c4WcCaVLYcpPPbbrfX2nzr';
 const AUTHORITY='8wTcJdg4Xw3wnvmBu7Sokn3c2UnnHUhuB5g9sfeCMidR',SYSTEM='11111111111111111111111111111111';
 async function fixture(configuration={}){
@@ -58,6 +65,38 @@ test('builder changes, extra signer, permission substitution, account spoof and 
  const g=await fixture(),a=g.map.get(PERMISSION),b=Buffer.from(a.data[0],'base64');b.writeBigUInt64LE(17n,80);a.data[0]=b.toString('base64');await assert.rejects(()=>g.prepare(),/PERMISSION/);
 });
 function fake(){return bs58.encode(Buffer.alloc(32,9));}
+test('scoped parent signing persists before returning, excludes orders and survives restart without resending',async t=>{
+ const root=mkdtempSync(join(tmpdir(),'jamd-parent-ledger-'));chmodSync(root,0o700);const custody=await openPhoenixVmCustody(root);
+ let journal; t.after(()=>{journal?.close();custody.close();rmSync(root,{recursive:true,force:true});});
+ custody.journal.close();const f=await fixture({wallet:custody.identity.walletAddress}),path=join(root,'phoenix.sqlite');
+ const open=()=>openPhoenixExecutionJournal(path,{allowNonPosixForTests:process.platform==='win32',now:f.now});journal=open();
+ const preparation=await f.prepare(),simulation=await simulatePhoenixParentOnboarding(preparation),id='f'.repeat(64),ownerAccountHash=custody.ownerAccountHash;
+ const args={id,ownerAccountHash,controlRevision:custody.revision,preparation,simulation,request:f.options.request,maximumLamports:simulation.maximumLamports,expiresAt:f.now()+300000,explicitApproval:true};
+ assert.throws(()=>journal.prepareParent({...args,explicitApproval:false}));assert.throws(()=>journal.prepareParent({...args,maximumLamports:'10000'}));
+ const claim=journal.prepareParent(args);assert.equal(requirePhoenixParentClaim(claim,journal).state,'PREPARED');assert.throws(()=>requirePhoenixParentClaim({...claim},journal));
+ const second=open();try{assert.equal(second.pendingParent(f.wallet).length,1);assert.throws(()=>requirePhoenixParentClaim(claim,second));assert.throws(()=>second.prepareParent({...args,id:'e'.repeat(64)}));}finally{second.close();}
+ assert.throws(()=>journal.prepareParent({...args,id:'e'.repeat(64)}));
+ assert.throws(()=>journal.prepareOrder({id:'d'.repeat(64),workflowId:'c'.repeat(64),ownerAccountHash,controlRevision:custody.revision,wire:f.wire}));
+ const signArgs={ownerAccountHash,journal,claim,preparation,simulation,request:f.options.request,controls:custody.controls,backupRegistry:custody.backupRegistry,
+  riskJournal:custody.riskJournal,swapJournal:custody.swapJournal,assertUncontended(){},now:f.now};
+ assert.throws(()=>authorizePhoenixParentSigning({...signArgs,simulation:{...simulation}}));
+ assert.throws(()=>authorizePhoenixParentSigning({...signArgs,controls:{read:who=>({...custody.controls.read(who),revision:'not-approved'})}}));
+ const grant=authorizePhoenixParentSigning(signArgs);assert.throws(()=>revalidatePhoenixParentDispatch(grant));
+ const signed=custody.vault.signPhoenixParent(grant);assert.equal(journal.readParentAttempt(id,ownerAccountHash).state,'SIGNED');
+ assert.equal(Buffer.from(signed.serializedTxBase64,'base64').subarray(65,129).every(n=>n===0),true);
+ assert.throws(()=>custody.vault.signPhoenixParent(grant));assert.throws(()=>journal.recoverUnsignedParent(id,ownerAccountHash));
+ revalidatePhoenixParentDispatch(grant);journal.markParentBroadcast(id,ownerAccountHash);assert.throws(()=>journal.markParentBroadcast(id,ownerAccountHash));
+ journal.close();f.advance(600000);journal=open();const restored=journal.readParentAttempt(id,ownerAccountHash);
+ assert.equal(restored.state,'UNKNOWN');assert.equal(restored.signed,signed.serializedTxBase64);assert.equal(journal.pending(f.wallet)[0].kind,'PARENT');
+ assert.equal(journal.readParentAttempt(id,'a'.repeat(64)),null);assert.throws(()=>journal.recoverUnsignedParent(id,ownerAccountHash));
+ assert.throws(()=>authorizePhoenixParentSigning({...signArgs,journal}));
+ await withLockedPerpsRuntimeRecoverySnapshot({controlsPath:join(root,'controls.sqlite'),journalPath:join(root,'journal.sqlite'),feesPath:join(root,'fees.sqlite'),
+  paymentsPath:join(root,'payments.sqlite'),swapsPath:join(root,'swaps.sqlite'),phoenixPath:path,temporaryDirectory:root,allowNonPosixForTests:process.platform==='win32'},async handle=>{
+   const files=inspectPerpsRuntimeRecoveryDatabases(readPerpsRuntimeRecoverySnapshot(handle),{temporaryDirectory:root,identities:[custody.identity],restorePaused:true,now:f.now,allowNonPosixForTests:process.platform==='win32'});
+   assert.equal(files.filter(f=>f.kind==='phoenix').length,1);assert.equal(files.length,6);
+  });
+ assert.equal(journal.readParentAttempt(id,ownerAccountHash).state,'UNKNOWN');
+});
 test('partial signature binds both approved message and simulation while retaining the empty provider signature',async()=>{
  const keys=generateKeyPairSync('ed25519'),wallet=bs58.encode(keys.publicKey.export({format:'der',type:'spki'}).subarray(-32));
  const f=await fixture({wallet}),p=await f.prepare(),simulation=await simulatePhoenixParentOnboarding(p);
