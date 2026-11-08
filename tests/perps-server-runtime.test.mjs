@@ -106,6 +106,31 @@ test('manual-enabled runtime composes swap/recovery dependencies but cannot sign
  }finally{await runtime.close();}
 });
 
+test('phoenix-enabled runtime composes the venue and answers its status without signing or sending',async t=>{
+ const f=fixture(t),risk=openPerpsExecutionJournal(f.journalPath);
+ openPerpsPlatformFeeJournal(join(f.directory,'fees.sqlite'),{entryJournal:risk}).close();risk.close();
+ openPerpsPlatformFeePaymentJournal(join(f.directory,'payments.sqlite')).close();
+ openBotSwapJournal(join(f.directory,'swaps.sqlite'),{initialize:true,explicitOperatorApproval:true,allowNonPosixForTests}).close();
+ openManualPerpsPolicyStore(join(f.directory,'manual-policy.sqlite'),{initialize:true,allowNonPosixForTests}).close();
+ openPhoenixExecutionJournal(join(f.directory,'phoenix.sqlite'),{initialize:true,explicitOperatorApproval:true,allowNonPosixForTests}).close();
+ const calls=[],runtime=openServerPerpsRuntime({...f.options,rpcUrl:'https://api.mainnet-beta.solana.com',mode:'execute',explicitExecutionApproval:true,feedToken:'unfunded-fixture-feed-token',
+  platformFeesEnabled:true,botSwapsEnabled:true,botManualEnabled:true,phoenixEnabled:true,fetchImpl:async url=>{
+   calls.push(url);assert.equal(url,'https://www.jamddmaj.com/api/perps-identity');
+   return Response.json({ok:true,accountHash:ownerAccountHash,verifiedAt:Date.now()});
+  }});
+ try{
+  assert.equal(calls.length,0);
+  const request=body=>runtime.handleControlRequest(new Request('https://157.230.54.133/v1/automation',{method:'POST',headers:{Authorization:'Bearer '+'e'.repeat(64),'Content-Type':'application/json',Origin:'https://www.jamddmaj.com'},body:JSON.stringify({...body,walletAddress:f.identity.walletAddress})}));
+  const status=await request({action:'phoenixStatus'});
+  assert.equal(status.status,200);
+  const body=await status.json();
+  assert.equal(body.phoenix.stage,'PHOENIX_MANUAL_STATUS');
+  assert.equal(body.phoenix.entryAvailable,false);
+  assert.equal(body.phoenix.venue,'phoenix');
+  assert.equal(calls.length,1);
+ }finally{await runtime.close();}
+});
+
 test('composed authenticated runtime carries native exclusive balance through client to panel without financial transports',async t=>{
  const f=fixture(t),calls=[],runtime=openServerPerpsRuntime({...f.options,fetchImpl:async(url,options)=>{
   calls.push(url);
