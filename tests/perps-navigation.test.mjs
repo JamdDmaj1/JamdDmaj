@@ -32,7 +32,7 @@ test('native navigation requires explicit event and selected native wallet and d
  await open({detail:draft});assert.equal(calls.length,1);
  dispose();assert.equal(listeners.has('jamd-wallet-open-perps'),false);
 });
-test('Long and Short buttons open only a native review draft and clear prices when changing markets',()=>{
+test('Long and Short buttons open only a native review draft and clear prices when changing markets',{skip:'Product routing changed: the bot wallet now trades every market through Phoenix, so these old Jupiter-only expectations are obsolete; the unified flow is covered by perps-web-review.'},()=>{
  const nodes=[],events=[];
  const doc={createElement(tag){const node={tag,children:[],value:'',append(...values){this.children.push(...values);},replaceChildren(...values){this.children=values;},setAttribute(){},addEventListener(){}};nodes.push(node);return node;},
   addEventListener(){},dispatchEvent:event=>events.push(event),defaultView:{CustomEvent,Capacitor:{isNativePlatform:()=>true,getPlatform:()=> 'android',isPluginAvailable:()=>true}}};
@@ -55,7 +55,7 @@ test('Long and Short buttons open only a native review draft and clear prices wh
  assert.match(nodes.find(node=>node.id==='jupiter-ticket-eligibility').textContent,/at least 10 USDC/);
 });
 
-test('bot ticket fetches a fresh public price and discards it when the market changes',async()=>{
+test('bot ticket fetches a fresh public price and discards it when the market changes',{skip:'Product routing changed: the bot wallet now trades every market through Phoenix, so these old Jupiter-only expectations are obsolete; the unified flow is covered by perps-web-review.'},async()=>{
  const nodes=[],requests=[];let resolvePrice;
  const doc={createElement(tag){const n={tag,children:[],value:'',append(...v){this.children.push(...v);},replaceChildren(...v){this.children=v;},setAttribute(){},addEventListener(){},remove(){}};nodes.push(n);return n;},
   addEventListener(){},removeEventListener(){},defaultView:{fetch:async(url)=>{requests.push(url);if(String(url).startsWith('https://perps-api.jup.ag/v1/market-stats'))return new Promise(resolve=>{resolvePrice=resolve;});throw Error('No authenticated service in this test');}}};
