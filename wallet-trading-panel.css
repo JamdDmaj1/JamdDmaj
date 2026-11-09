@@ -35,3 +35,23 @@
 .wallet-trading-state .wt-metric.wt-equity{grid-column:1/-1;padding:23px 24px;background:linear-gradient(115deg,#113448,#0b1c2c);border-color:#397b8b}.wallet-trading-state .wt-equity>span{color:#82e6eb;font-weight:700}.wallet-trading-state .wt-equity strong{font-size:42px;letter-spacing:-.04em;overflow-wrap:anywhere}.wallet-trading-state .wt-equity strong small{font-size:13px;letter-spacing:0}.wallet-trading-state .wt-positive strong{color:#5ce6b0}.wallet-trading-state .wt-negative strong{color:#ff8da6}.wt-equity-note{font-size:11px;line-height:1.6;color:#97aec4;margin:12px 0 15px}.wallet-trading-state .wt-position-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;grid-column:1/-1;margin-top:16px}.wallet-trading-state .wt-position-actions>.wt-manage{margin:0;min-width:210px;width:auto;flex:1;max-width:310px}.wt-position-actions>.wt-share{min-height:44px;flex:1;max-width:250px}.bch-share-options label{min-height:34px}
 @media(max-width:600px){.wallet-trading-state .wt-equity strong{font-size:35px}.wallet-trading-state .wt-metric.wt-equity{padding:20px 16px}.wallet-trading-state .wt-position-actions{gap:10px}.wallet-trading-state .wt-position-actions>.wt-manage,.wt-position-actions>.wt-share{width:100%;max-width:none;min-width:0;flex-basis:100%}.bch-share-options label{min-height:40px}}
 .wt-share:disabled{opacity:.5;cursor:default}.wt-share:focus-visible{outline:2px solid #6ee8ef;outline-offset:4px}
+/* Compact closed-trade history: summary strip + one row per trade. */
+.bch-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:14px 0}
+.bch-stat{background:#0d1828;border:1px solid #23364d;border-radius:12px;padding:10px 12px;min-width:0}
+.bch-stat-label{display:block;color:#8ea3bf;font-size:11px;letter-spacing:.4px;text-transform:uppercase}
+.bch-stat-value{display:block;font-size:18px;margin-top:4px;font-variant-numeric:tabular-nums}
+.bch-stat-value.positive{color:#4de0a8}
+.bch-stat-value.negative{color:#ff6e84}
+.bch-row{border:1px solid #22344a;border-radius:14px;background:#0d1626;margin-bottom:8px;overflow:hidden}
+.bch-row-main{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;align-items:center;gap:12px;padding:12px 14px}
+.bch-row-name{display:flex;align-items:center;gap:8px;min-width:0}
+.bch-row-name strong{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bch-row-date{color:#8ea3bf;font-size:12px;white-space:nowrap}
+.bch-row-figures{display:flex;align-items:baseline;gap:8px;white-space:nowrap}
+.bch-row-result{font-size:17px;font-variant-numeric:tabular-nums}
+.bch-row.bch-positive .bch-row-result{color:#4de0a8}
+.bch-row.bch-negative .bch-row-result{color:#ff6e84}
+.bch-row .bch-details{border-top:1px solid #1c2c40;padding:0 14px}
+.bch-row .bch-details>summary{cursor:pointer;padding:9px 0;color:#9fb3cc;font-size:12px}
+.bch-more{width:100%;margin-top:6px;background:#101f33;border:1px dashed #2b4360;color:#9fb3cc;border-radius:12px;padding:10px;cursor:pointer}
+@media(max-width:600px){.bch-row-main{grid-template-columns:minmax(0,1fr) auto;row-gap:6px}.bch-row-date{grid-column:1/-1;order:3}.bch-state{grid-column:2;justify-self:end}.bch-summary{grid-template-columns:1fr 1fr}}
