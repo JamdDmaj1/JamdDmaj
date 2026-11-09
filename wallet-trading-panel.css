@@ -74,3 +74,7 @@
 /* Market list inside the futures ticket: scrollable, compact. */
 .futures-market-choices{display:grid;gap:4px;max-height:240px;overflow:auto;margin-top:6px}
 .futures-market-choices button{text-align:left;padding:7px 10px;font-size:13px}
+/* The journal stays folded so it never pushes the trading card down. */
+.bch-body>summary{cursor:pointer;padding:6px 0;color:#9fb3cc;font-size:13px;list-style:none}
+.bch-body>summary::-webkit-details-marker{display:none}
+.bch-body[open]>summary{margin-bottom:8px}
