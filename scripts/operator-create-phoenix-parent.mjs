@@ -48,14 +48,19 @@ const phoenixClient = createPhoenixClient({phoenixEnv: 'prod', apiUrl: 'https://
 const phoenixPublicClient = createPhoenixPublicClient({now})
 
 const assertUncontended = (who) => {
-  if (journal.pending(who.walletAddress).length || journal.pendingPositionCloses(who.walletAddress).length ||
-      journal.pendingExitCancellations(who.walletAddress).length || journal.pendingPlatformFeePayments(who.walletAddress).length ||
-      swapJournal.pending(who.walletAddress).length || phoenixJournal.pending(who.walletAddress).length) {
-    throw Error('UNCONTENDED_FAILED')
+  const counts = {
+    journal: journal.pending(who.walletAddress).length,
+    closes: journal.pendingPositionCloses(who.walletAddress).length,
+    exits: journal.pendingExitCancellations(who.walletAddress).length,
+    fees: journal.pendingPlatformFeePayments(who.walletAddress).length,
+    swaps: swapJournal.pending(who.walletAddress).length,
+    // The parent attempt we are creating is itself 'pending'; exclude it.
+    phoenix: phoenixJournal.pending(who.walletAddress).filter((row) => row.phase !== 'PARENT').length,
   }
+  if (Object.values(counts).some((n) => n > 0)) throw Error('UNCONTENDED_FAILED ' + JSON.stringify(counts))
 }
 
-const prepareNative = async ({walletAddress: wallet, symbol: market}) => {
+const prepareNativeOnce = async ({walletAddress: wallet, symbol: market}) => {
   const review = await preparePhoenixOrderReview({walletAddress: wallet, symbol: market, side: 'LONG', marginUsdcUnits: '10000000', leverageTenths: 30,
     isolatedSubaccountIndex: 1, clientOrderId: String(Math.floor(Date.now() / 1000))},
     {publicClient: phoenixPublicClient, readSlot: () => rpcRequest('getSlot', [{commitment: 'confirmed'}]), now})
@@ -67,6 +72,12 @@ const prepareNative = async ({walletAddress: wallet, symbol: market}) => {
     blockhash: latest.value.blockhash, lastValidBlockHeight: latest.value.lastValidBlockHeight}, {request: rpcRequest, now})
   const simulation = await simulatePhoenixParentOnboarding(preparation)
   return {preparation, simulation}
+}
+
+// The chain moves between the reads and the simulation; one retry is cheaper
+// than failing a correct transaction on a raced slot.
+const prepareNative = async (input) => {
+  try { return await prepareNativeOnce(input) } catch { return prepareNativeOnce(input) }
 }
 
 const service = createPhoenixParentService({
