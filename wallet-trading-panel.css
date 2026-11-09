@@ -169,3 +169,5 @@ dialog.trade-share-dialog.share-out::backdrop{animation:share-backdrop-out .17s 
 .trade-suggestion button{padding:6px 12px;border-radius:9px;border:1px solid #2fbf8f;background:#2fbf8f;color:#04150f;font-weight:700;cursor:pointer}
 /* Quick sizing and suggestion controls. */
 .ticket-max{margin:6px 0 10px;padding:6px 12px;border-radius:9px;border:1px solid #2b4257;background:#132234;color:#e8f1fa;cursor:pointer;font-size:12px}
+.trade-suggestion-details{flex-basis:100%;display:grid;gap:4px;margin-top:6px;padding-top:6px;border-top:1px solid #1b2b3c}
+.trade-suggestion-details small{color:#9ab2ca;font-size:11px;font-family:ui-monospace,monospace}
