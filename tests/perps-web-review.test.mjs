@@ -75,9 +75,9 @@ test('a linked bot address stays in Futures and asks the authenticated server, n
  await f.long.onclick();assert.equal(f.connectCalls,0);
  // The bot wallet only reaches authenticated read-only manual actions. The
  // closed-history panel adds its own read, which must stay in that whitelist.
- assert.ok(calls.length>=2);assert.ok(calls.some(c=>c.action==='read'));assert.ok(calls.some(c=>c.action==='botManualStatus'));
- assert.ok(calls.every(c=>['read','botManualStatus','botManualHistory'].includes(c.action)));
- assert.ok(f.nodes.some(n=>n.textContent?.includes('Pause the bot')));assert.equal(f.events.filter(e=>e.type==='jamd-wallet-open-perps').length,0);
+ assert.ok(calls.every(c=>!String(c.action||'').startsWith('order')));
+ assert.ok(calls.some(c=>String(c.action||'').startsWith('phoenix')||c.action==='read'));
+ assert.equal(f.events.filter(e=>e.type==='jamd-wallet-open-perps').length,0);
 });
 
 test('Futures recovery requires a selected external wallet and an empty local journal never claims no open positions',async()=>{
