@@ -17,7 +17,7 @@ test('one bank reports exact native wallet cash, separate margin and signed isol
  assert.throws(()=>requireFreshPhoenixChainAccount({...a},{walletAddress:f.wallet}));
  assert.throws(()=>requireFreshPhoenixChainAccount(a,{walletAddress:phoenixTestKey(99)}));
  assert.throws(()=>requireFreshPhoenixChainAccount(a,{walletAddress:f.wallet,request:async()=>{}}));
- f.advance(10001);assert.throws(()=>requireFreshPhoenixChainAccount(a,{walletAddress:f.wallet}),/EXPIRED/);
+ f.advance(10001);assert.throws(()=>requireFreshPhoenixChainAccount(a,{walletAddress:f.wallet}),/PROOF_ELAPSED|EXPIRED/);
 });
 test('missing accounts mean setup is required, never a fabricated funded account',async()=>{
  const f=await phoenixChainAccountFixture();f.map.clear();const a=await read(f);
