@@ -171,3 +171,9 @@ dialog.trade-share-dialog.share-out::backdrop{animation:share-backdrop-out .17s 
 .ticket-max{margin:6px 0 10px;padding:6px 12px;border-radius:9px;border:1px solid #2b4257;background:#132234;color:#e8f1fa;cursor:pointer;font-size:12px}
 .trade-suggestion-details{flex-basis:100%;display:grid;gap:4px;margin-top:6px;padding-top:6px;border-top:1px solid #1b2b3c}
 .trade-suggestion-details small{color:#9ab2ca;font-size:11px;font-family:ui-monospace,monospace}
+.trade-suggestion-details{flex-basis:100%;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:6px 18px;margin-top:10px;padding:12px 14px;border:1px solid #1b2b3c;border-radius:12px;background:#0a1423}
+.suggestion-row{display:flex;justify-content:space-between;align-items:baseline;gap:12px;font-size:12px;border-bottom:1px dashed #16232f;padding-bottom:4px}
+.suggestion-row span{color:#8ea5bd}
+.suggestion-row strong{color:#fff;font-family:ui-monospace,monospace}
+.trade-suggestion .suggestion-ghost{padding:6px 12px;border-radius:9px;border:1px solid #2b4257;background:#132234;color:#cfe1f5;cursor:pointer;font-size:12px}
+.trade-suggestion .suggestion-apply{padding:8px 14px;border-radius:10px;border:1px solid #2fbf8f;background:#2fbf8f;color:#04150f;font-weight:700;cursor:pointer}
