@@ -186,3 +186,9 @@ dialog.trade-share-dialog.share-out::backdrop{animation:share-backdrop-out .17s 
 .market-bubble.up{background:#123a2e;border-color:#2fbf8f}
 .market-bubble.down{background:#3a1620;border-color:#ff7d91}
 .market-bubble.flat{opacity:.85}
+/* Round, gently floating bubbles. */
+@keyframes bubble-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.market-bubbles .market-bubble{border-radius:50%!important;aspect-ratio:1/1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;box-shadow:0 6px 18px #0006;animation:bubble-float 5s ease-in-out infinite}
+.market-bubbles .market-bubble:hover{animation-play-state:paused;transform:scale(1.08)}
+.market-bubbles .market-bubble strong{font-size:12px;line-height:1}
+.market-bubbles .market-bubble small{font-size:10px;line-height:1}
