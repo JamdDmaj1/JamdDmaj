@@ -157,3 +157,8 @@ dialog.trade-share-dialog .actions button:first-child{animation:share-pulse 2.4s
 .depth-qty{opacity:.78}
 .finance-orderbook h3{margin:8px 0 4px;font-size:10px;letter-spacing:.04em;text-transform:uppercase}
 .finance-orderbook .depth-mid{margin:6px 0;padding:6px 8px;font-size:11px;text-align:center}
+/* Exit animation for every dialog. */
+@keyframes share-out{to{opacity:0;transform:scale(.97) translateY(8px)}}
+@keyframes share-backdrop-out{from{opacity:1}to{opacity:0}}
+dialog.trade-share-dialog.share-out[open]{animation:share-out .17s ease-in forwards}
+dialog.trade-share-dialog.share-out::backdrop{animation:share-backdrop-out .17s ease-in forwards}
