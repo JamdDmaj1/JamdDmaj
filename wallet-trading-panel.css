@@ -56,8 +56,8 @@
 .bch-more{width:100%;margin-top:6px;background:#101f33;border:1px dashed #2b4360;color:#9fb3cc;border-radius:12px;padding:10px;cursor:pointer}
 @media(max-width:600px){.bch-row-main{grid-template-columns:minmax(0,1fr) auto;row-gap:6px}.bch-row-date{grid-column:1/-1;order:3}.bch-state{grid-column:2;justify-self:end}.bch-summary{grid-template-columns:1fr 1fr}}
 /* Phoenix searchable market picker */
-.phoenix-market-results{display:grid;gap:6px;margin:8px 0}
-.phoenix-market-option{text-align:left;padding:10px 12px;border-radius:10px;background:#0d1828;border:1px solid #23364d;color:#dbe7f6;cursor:pointer;font-weight:600}
+.phoenix-market-results{display:grid;gap:4px;margin:6px 0 2px;max-height:220px;overflow:auto}
+.phoenix-market-option{text-align:left;padding:7px 10px;border-radius:8px;background:#0d1828;border:1px solid #23364d;color:#dbe7f6;cursor:pointer;font-weight:600;font-size:13px}
 .phoenix-market-option:hover,.phoenix-market-option:focus-visible{background:#14263c;border-color:#3d6f7d}
 /* Phoenix-only futures layout: no Jupiter ticket, so one column. */
 .finance-futures-workspace-solo{grid-template-columns:minmax(0,1fr)!important}
