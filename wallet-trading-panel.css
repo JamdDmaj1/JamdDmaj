@@ -162,3 +162,8 @@ dialog.trade-share-dialog .actions button:first-child{animation:share-pulse 2.4s
 @keyframes share-backdrop-out{from{opacity:1}to{opacity:0}}
 dialog.trade-share-dialog.share-out[open]{animation:share-out .17s ease-in forwards}
 dialog.trade-share-dialog.share-out::backdrop{animation:share-backdrop-out .17s ease-in forwards}
+/* Bot suggestion above the ticket fields. */
+.trade-suggestion{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 12px;margin:8px 0;border:1px solid #1d2c3d;border-radius:12px;background:#0b1622}
+.trade-suggestion strong{color:#7ef0cf}
+.trade-suggestion span{font-size:12px;color:#9ab2ca}
+.trade-suggestion button{padding:6px 12px;border-radius:9px;border:1px solid #2fbf8f;background:#2fbf8f;color:#04150f;font-weight:700;cursor:pointer}
