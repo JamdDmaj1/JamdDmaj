@@ -3,7 +3,7 @@ import {pnl,indicators} from './lib/private-simulator.js?v=5';
 import {SimulatorAccount} from './lib/simulator-account.js?v=5';
 import './manual-order-review-ui.js';
 import {setupFunding} from './funding-ui.js';
-import {setupTerminalLayout} from './lib/terminal-layout.js?v=20261110m';
+import {setupTerminalLayout} from './lib/terminal-layout.js?v=20261110n';
 import {setupAssetsWallets} from './assets-wallet-ui.js';
 import {setupAccountSession} from './lib/account-session-client.js';
 const accountSession=setupAccountSession();
@@ -13,29 +13,29 @@ let account=new SimulatorAccount();
 const connectionPanel=document.createElement('section');
 connectionPanel.className='card';
 const connectionTitle=document.createElement('h2');
-connectionTitle.textContent=language==='es'?'Conexión privada con Bitget':'Private Bitget connection';
+connectionTitle.textContent=language==='es'?'Conexion privada con Bitget':'Private Bitget connection';
 const connectionButton=document.createElement('button');
 connectionButton.type='button';
-connectionButton.textContent=language==='es'?'Comprobar conexión (solo lectura)':'Check connection (read only)';
+connectionButton.textContent=language==='es'?'Comprobar conexion (solo lectura)':'Check connection (read only)';
 const connectionResult=document.createElement('p');
 connectionResult.setAttribute('role','status');
 connectionResult.style.whiteSpace='pre-line';
-connectionResult.textContent=language==='es'?'Esta comprobación no activa operaciones. Los botones Long y Short siguen siendo de simulación.':'This check does not enable trading. Long and Short buttons remain simulated.';
+connectionResult.textContent=language==='es'?'Esta comprobacion no activa operaciones. Los botones Long y Short siguen siendo de simulacion.':'This check does not enable trading. Long and Short buttons remain simulated.';
 connectionPanel.append(connectionTitle,connectionButton,connectionResult);
 document.querySelector('.stats').before(connectionPanel);
 const connectionReasons={
  heartbeat_missing_or_stale:['El servidor no ha enviado un estado reciente.','No recent server heartbeat.'],
- exchange_connection_unconfirmed:['La conexión con Bitget no está confirmada.','Bitget connection is not confirmed.'],
+ exchange_connection_unconfirmed:['La conexion con Bitget no esta confirmada.','Bitget connection is not confirmed.'],
  executor_not_live:['El conector no informa modo real.','The connector does not report live mode.'],
- manual_only_unconfirmed:['El servidor aún no informa el modo solo manual a la app.','The server does not yet report manual-only mode to the app.'],
- manual_protocol_unconfirmed:['Falta confirmar el protocolo de órdenes manuales.','Manual order protocol is not confirmed.'],
- exit_safety_block:['Hay un bloqueo de protección de cierres.','An exit safety block is active.'],
- pending_manual_intent:['Existe una solicitud manual pendiente; no se ha enviado ni eliminado en esta comprobación.','A manual intent is pending; this check has not submitted or deleted it.'],
- entries_paused_or_unknown:['Las entradas están pausadas o su estado no está confirmado.','Entries are paused or their status is unconfirmed.']
+ manual_only_unconfirmed:['El servidor aun no informa el modo solo manual a la app.','The server does not yet report manual-only mode to the app.'],
+ manual_protocol_unconfirmed:['Falta confirmar el protocolo de ordenes manuales.','Manual order protocol is not confirmed.'],
+ exit_safety_block:['Hay un bloqueo de proteccion de cierres.','An exit safety block is active.'],
+ pending_manual_intent:['Existe una solicitud manual pendiente; no se ha enviado ni eliminado en esta comprobacion.','A manual intent is pending; this check has not submitted or deleted it.'],
+ entries_paused_or_unknown:['Las entradas estan pausadas o su estado no esta confirmado.','Entries are paused or their status is unconfirmed.']
 };
 connectionButton.onclick=async()=>{
  connectionButton.disabled=true;
- connectionResult.textContent=language==='es'?'Comprobando…':'Checking…';
+ connectionResult.textContent=language==='es'?'Comprobando...':'Checking...';
  try{
   const device=localStorage.getItem('jamdV2DeviceId')||'';
   if(!/^[a-zA-Z0-9_-]{16,100}$/.test(device))throw new Error('owner');
@@ -44,22 +44,22 @@ connectionButton.onclick=async()=>{
   if(!response.ok)throw new Error('unavailable');
   const data=await response.json();
   if(data.readiness?.readOnly!==true||!Array.isArray(data.readiness.blockers))throw new Error('unavailable');
-  const messages=data.readiness.blockers.map(code=>connectionReasons[code]?.[language==='es'?0:1]||(language==='es'?'Comprobación adicional pendiente.':'Additional check required.'));
+  const messages=data.readiness.blockers.map(code=>connectionReasons[code]?.[language==='es'?0:1]||(language==='es'?'Comprobacion adicional pendiente.':'Additional check required.'));
   if(data.account && data.readiness.freshHeartbeat){
-   const format=value=>typeof value==='number'&&Number.isFinite(value)?value.toLocaleString(language,{maximumFractionDigits:4})+' USDT':'—';
-   messages.unshift((language==='es'?'Último saldo informado por Bitget — patrimonio: ':'Last balance reported by Bitget — equity: ')+format(data.account.equity)+(language==='es'?' · disponible: ':' · available: ')+format(data.account.available));
+   const format=value=>typeof value==='number'&&Number.isFinite(value)?value.toLocaleString(language,{maximumFractionDigits:4})+' USDT':'-';
+   messages.unshift((language==='es'?'Ultimo saldo informado por Bitget - patrimonio: ':'Last balance reported by Bitget - equity: ')+format(data.account.equity)+(language==='es'?' - disponible: ':' - available: ')+format(data.account.available));
    messages.push((language==='es'?'Fecha del saldo: ':'Balance timestamp: ')+String(data.account.updatedAt));
   }else messages.unshift(language==='es'?'Saldo real no disponible o desactualizado; no se sustituye por saldo ficticio.':'Real balance unavailable or stale; no simulated balance is substituted.');
   if(Array.isArray(data.positions)&&data.readiness.freshHeartbeat){
-   messages.push(language==='es'?'Posiciones informadas (máximo 8; la lista puede estar incompleta):':'Reported positions (maximum 8; list may be incomplete):');
+   messages.push(language==='es'?'Posiciones informadas (maximo 8; la lista puede estar incompleta):':'Reported positions (maximum 8; list may be incomplete):');
    for(const position of data.positions){
-    messages.push([position.symbol,position.holdSide,position.total].filter(value=>value!==undefined&&value!==null).map(String).join(' · '));
+    messages.push([position.symbol,position.holdSide,position.total].filter(value=>value!==undefined&&value!==null).map(String).join(' - '));
    }
    if(!data.positions.length)messages.push(language==='es'?'El conector no informa posiciones abiertas.':'No open positions reported by the connector.');
   }
-  messages.push(language==='es'?'No se envió ninguna orden. Sigue pendiente la validación completa antes de operar.':'No order was sent. End-to-end validation is still required before trading.');
+  messages.push(language==='es'?'No se envio ninguna orden. Sigue pendiente la validacion completa antes de operar.':'No order was sent. End-to-end validation is still required before trading.');
   connectionResult.textContent=messages.join('\n');
- }catch(error){connectionResult.textContent=error.message==='owner'?(language==='es'?'Abre la app desde el dispositivo autorizado del propietario. No introduzcas claves aquí.':'Open the app from the authorized owner device. Do not enter keys here.'):(language==='es'?'No se pudo comprobar la conexión. No se envió ninguna orden.':'Connection check unavailable. No order was sent.');}
+ }catch(error){connectionResult.textContent=error.message==='owner'?(language==='es'?'Abre la app desde el dispositivo autorizado del propietario. No introduzcas claves aqui.':'Open the app from the authorized owner device. Do not enter keys here.'):(language==='es'?'No se pudo comprobar la conexion. No se envio ninguna orden.':'Connection check unavailable. No order was sent.');}
  finally{connectionButton.disabled=false;}
 };
 const canonical={btc:['bitcoin','Bitcoin','BTC'],bitcoin:['bitcoin','Bitcoin','BTC'],eth:['ethereum','Ethereum','ETH'],ethereum:['ethereum','Ethereum','ETH'],sol:['solana','Solana','SOL'],solana:['solana','Solana','SOL'],zec:['zcash','Zcash','ZEC'],zcash:['zcash','Zcash','ZEC']};
@@ -68,7 +68,7 @@ async function referencePrice(id){const d=await catalogPrices([id]),v=Number(d[i
 
 let initialQuotePending=true;let symbol='builtin:BTC'; const markets=new Map();
 const $=id=>document.getElementById(id), money=n=>n.toLocaleString(language,{style:'currency',currency:'USD'}), quote=n=>n.toLocaleString(language,{maximumSignificantDigits:8});
-let price=60000,position=null,paused=false,asset='Bitcoin · BTC',ticks=[],clock=0,view=70,offset=0,mouse=null,drag=null,searchVersion=0;
+let price=60000,position=null,paused=false,asset='Bitcoin - BTC',ticks=[],clock=0,view=70,offset=0,mouse=null,drag=null,searchVersion=0;
 function seed(initial){price=initial;ticks=[];clock=0;let v=initial;for(let i=0;i<600;i++){v*=1+(Math.random()-.5)*.001;ticks.push({t:clock++,v});}const scale=initial/v;ticks.forEach(t=>t.v*=scale);view=70;offset=0;}
 function bars(){
  const size=Number($('timeframe').value),market=markets.get(symbol);
@@ -90,39 +90,39 @@ function draw(){const all=bars(),data=indicators(all.map(b=>b.close));offset=Mat
  rows.forEach((b,i)=>{const x=(i+.5)*step;c.strokeStyle=c.fillStyle=b.close>=b.open?'#40d6a0':'#ff657f';c.beginPath();c.moveTo(x,y(b.high));c.lineTo(x,y(b.low));c.stroke();c.fillRect(x-step*.3,Math.min(y(b.open),y(b.close)),Math.max(1,step*.6),Math.max(1,Math.abs(y(b.close)-y(b.open))));});
  function line(key,color){c.strokeStyle=color;c.beginPath();let begun=false;values.forEach((v,i)=>{if(v[key]===null)return;const x=(i+.5)*step;begun?c.lineTo(x,y(v[key])):c.moveTo(x,y(v[key]));begun=true;});c.stroke();}
  if($('sma').checked)line('sma','#f5bd57');if($('ema').checked)line('ema','#68adff');if($('bb').checked){line('upper','#b79cf8');line('lower','#b79cf8');}
- for(const [v,label,color] of [[price,'Último','#9badc5'],[position?.entry,'Entrada','#68adff'],[position?account.liquidation(position):null,'Liq.','#ff657f']])if(v&&v>=low&&v<=high){c.setLineDash([4,4]);c.strokeStyle=color;c.beginPath();c.moveTo(0,y(v));c.lineTo(right,y(v));c.stroke();c.setLineDash([]);c.fillStyle=color;c.fillText(label,right+8,y(v)-9);}
- if(mouse){const i=Math.max(0,Math.min(rows.length-1,Math.floor(mouse.x/step))),b=rows[i];c.strokeStyle='#768ca9';c.beginPath();c.moveTo((i+.5)*step,0);c.lineTo((i+.5)*step,h);c.stroke();$('crosshair').textContent=`Vela ${new Date(b.t*Number($('timeframe').value)*1000).toLocaleString()} · O ${quote(b.open)} H ${quote(b.high)} L ${quote(b.low)} C ${quote(b.close)}`;}
- const r=$('rsiChart'),rc=r.getContext('2d');r.hidden=!$('rsi').checked;rc.clearRect(0,0,w,90);rc.font='12px system-ui';rc.fillStyle='#b79cf8';rc.fillText('RSI14 '+(values.at(-1)?.rsi?.toFixed(1)??'—'),right+8,20);for(const n of [30,70]){rc.strokeStyle='#35445c';rc.beginPath();rc.moveTo(0,85-n*.8);rc.lineTo(right,85-n*.8);rc.stroke();}rc.strokeStyle='#b79cf8';rc.beginPath();let begun=false;values.forEach((v,i)=>{if(v.rsi===null)return;const x=(i+.5)*step,yy=85-v.rsi*.8;begun?rc.lineTo(x,yy):rc.moveTo(x,yy);begun=true;});rc.stroke();
+ for(const [v,label,color] of [[price,'Ultimo','#9badc5'],[position?.entry,'Entrada','#68adff'],[position?account.liquidation(position):null,'Liq.','#ff657f']])if(v&&v>=low&&v<=high){c.setLineDash([4,4]);c.strokeStyle=color;c.beginPath();c.moveTo(0,y(v));c.lineTo(right,y(v));c.stroke();c.setLineDash([]);c.fillStyle=color;c.fillText(label,right+8,y(v)-9);}
+ if(mouse){const i=Math.max(0,Math.min(rows.length-1,Math.floor(mouse.x/step))),b=rows[i];c.strokeStyle='#768ca9';c.beginPath();c.moveTo((i+.5)*step,0);c.lineTo((i+.5)*step,h);c.stroke();$('crosshair').textContent=`Vela ${new Date(b.t*Number($('timeframe').value)*1000).toLocaleString()} - O ${quote(b.open)} H ${quote(b.high)} L ${quote(b.low)} C ${quote(b.close)}`;}
+ const r=$('rsiChart'),rc=r.getContext('2d');r.hidden=!$('rsi').checked;rc.clearRect(0,0,w,90);rc.font='12px system-ui';rc.fillStyle='#b79cf8';rc.fillText('RSI14 '+(values.at(-1)?.rsi?.toFixed(1)??'-'),right+8,20);for(const n of [30,70]){rc.strokeStyle='#35445c';rc.beginPath();rc.moveTo(0,85-n*.8);rc.lineTo(right,85-n*.8);rc.stroke();}rc.strokeStyle='#b79cf8';rc.beginPath();let begun=false;values.forEach((v,i)=>{if(v.rsi===null)return;const x=(i+.5)*step,yy=85-v.rsi*.8;begun?rc.lineTo(x,yy):rc.moveTo(x,yy);begun=true;});rc.stroke();
 }
 function args(side){return {side,margin:Number($('margin').value),leverage:Number($('leverage').value),mode:$('mode').value,price,symbol,name:asset,type:$('orderType').value,limit:Number($('limitPrice').value),stop:$('stop').value===''?null:Number($('stop').value),take:$('take').value===''?null:Number($('take').value)};}
-function record(rows){for(const r of rows.filter(Boolean)){const li=document.createElement('li');li.className=r.result>=0?'positive':'negative';li.textContent=`${r.name||asset} · ${r.side} ${r.mode} ${r.leverage}× · ${r.reason} · ${money(r.result)}`;$('history').prepend(li);}}
+function record(rows){for(const r of rows.filter(Boolean)){const li=document.createElement('li');li.className=r.result>=0?'positive':'negative';li.textContent=`${r.name||asset} - ${r.side} ${r.mode} ${r.leverage} - ${r.reason} - ${money(r.result)}`;$('history').prepend(li);}}
 function render(){
  position=account.positions.find(p=>p.symbol===symbol)||null;
  const result=account.profit();
- const current=markets.get(symbol);$('chartStatus').textContent=current.historyLoading?(language==='es'?'Cargando historial público…':'Loading public history…'):(current.historyStatus|| (current.live?(language==='es'?'Recopilando muestras reales. Los indicadores necesitan más velas.':'Collecting real samples. Indicators need more candles.'):(language==='es'?'Escenario manual ficticio':'Synthetic manual scenario')));$('up').disabled=$('down').disabled=$('pause').disabled=!!current.live;
- $('identity').textContent=current.live?`${current.identity} · ${current.live.coin?'CoinGecko · USD reference':'DEX Screener'} · ${language==='es'?'consultado':'fetched'} ${new Date(current.updated).toLocaleTimeString(language)} · ${current.error||Date.now()-current.updated>45000?(language==='es'?'ATRASADO / órdenes bloqueadas':'STALE / orders blocked'):(language==='es'?'precio público · consulta cada 15 s':'public quote · 15 s polling')} · ${language==='es'?'velas de muestras recibidas, no historial completo':'sampled candles, not full history'}`:current.identity+' · '+tr('movimientos sintéticos');
- $('balance').textContent=money(account.available());$('equity').textContent=money(account.equity());$('quote').textContent=initialQuotePending?'—':quote(price)+' USD';
- $('profit').textContent=account.positions.length?money(result):'—';$('profit').className=result>0?'positive':result<0?'negative':'neutral';$('assetName').textContent=asset;
+ const current=markets.get(symbol);$('chartStatus').textContent=current.historyLoading?(language==='es'?'Cargando historial publico...':'Loading public history...'):(current.historyStatus|| (current.live?(language==='es'?'Recopilando muestras reales. Los indicadores necesitan mas velas.':'Collecting real samples. Indicators need more candles.'):(language==='es'?'Escenario manual ficticio':'Synthetic manual scenario')));$('up').disabled=$('down').disabled=$('pause').disabled=!!current.live;
+ $('identity').textContent=current.live?`${current.identity} - ${current.live.coin?'CoinGecko - USD reference':'DEX Screener'} - ${language==='es'?'consultado':'fetched'} ${new Date(current.updated).toLocaleTimeString(language)} - ${current.error||Date.now()-current.updated>45000?(language==='es'?'ATRASADO / ordenes bloqueadas':'STALE / orders blocked'):(language==='es'?'precio publico - consulta cada 15 s':'public quote - 15 s polling')} - ${language==='es'?'velas de muestras recibidas, no historial completo':'sampled candles, not full history'}`:current.identity+' - '+tr('movimientos sinteticos');
+ $('balance').textContent=money(account.available());$('equity').textContent=money(account.equity());$('quote').textContent=initialQuotePending?'-':quote(price)+' USD';
+ $('profit').textContent=account.positions.length?money(result):'-';$('profit').className=result>0?'positive':result<0?'negative':'neutral';$('assetName').textContent=asset;
  $('mode').disabled=!!(account.positions.length||account.orders.length);
  $('long').disabled=!fresh();$('short').disabled=!fresh();$('close').disabled=!account.positions.length;
  $('position').replaceChildren();
  for(const p of account.positions){
   const div=document.createElement('div'),text=document.createElement('p'),button=document.createElement('button'),liq=account.liquidation(p),profit=pnl(p,account.price(p));
   text.className=profit>0?'positive':profit<0?'negative':'neutral';
-  text.textContent=`#${p.id} ${p.name} · ${p.side.toUpperCase()} · ${p.mode} · ${p.leverage}×\nMargen: ${money(p.margin)} · tamaño: ${money(p.margin*p.leverage)}\nEntrada: ${quote(p.entry)} USD\nP/L: ${money(profit)}\nLiquidación ${p.mode==='cross'?'compartida':'estimada'}: ${liq?quote(liq)+' USD':'sin umbral positivo en este modelo'}`;
-  button.textContent='Cerrar '+p.side.toUpperCase();button.onclick=()=>{if(!fresh()){$('error').textContent=language==='es'?'Cotización atrasada; cierre bloqueado.':'Stale quote; close blocked.';return;}record([account.close(p.id)]);record(account.tick());render();};
+  text.textContent=`#${p.id} ${p.name} - ${p.side.toUpperCase()} - ${p.mode} - ${p.leverage}\nMargen: ${money(p.margin)} - tamano: ${money(p.margin*p.leverage)}\nEntrada: ${quote(p.entry)} USD\nP/L: ${money(profit)}\nLiquidacion ${p.mode==='cross'?'compartida':'estimada'}: ${liq?quote(liq)+' USD':'sin umbral positivo en este modelo'}`;
+  button.textContent='Cerrar '+p.side.toUpperCase();button.onclick=()=>{if(!fresh()){$('error').textContent=language==='es'?'Cotizacion atrasada; cierre bloqueado.':'Stale quote; close blocked.';return;}record([account.close(p.id)]);record(account.tick());render();};
   div.append(text,button);$('position').append(div);
  }
  if(!account.positions.length)$('position').textContent='Sin posiciones abiertas.';
  const near=account.positions.some(p=>{const l=account.liquidation(p);return l&&Math.abs(account.price(p)-l)/account.price(p)<.02;});
- $('risk').textContent=((position?.mode||$('mode').value)==='cross'?'Cross: saldo y P/L compartidos entre ambas posiciones. ':'Isolated: cada posición arriesga solo su margen; el saldo libre no la rescata. ')+(near?'⚠ Liquidación a menos del 2%. ':'')+(account.positions.length>=2?'Cobertura activa: revisa el P/L neto. Cerrar una pierna elimina su protección.':'');
+ $('risk').textContent=((position?.mode||$('mode').value)==='cross'?'Cross: saldo y P/L compartidos entre ambas posiciones. ':'Isolated: cada posicion arriesga solo su margen; el saldo libre no la rescata. ')+(near?' Liquidacion a menos del 2%. ':'')+(account.positions.length>=2?'Cobertura activa: revisa el P/L neto. Cerrar una pierna elimina su proteccion.':'');
  const margin=Number($('margin').value),lev=Number($('leverage').value);
- $('preview').textContent=Number.isFinite(margin*lev)&&margin>0&&lev>=1?`Tamaño: ${money(margin*lev)} · margen: ${money(margin)}`:'';
- $('leverageRange').value=$('leverage').value;$('leverageValue').textContent=$('leverage').value+'×';
+ $('preview').textContent=Number.isFinite(margin*lev)&&margin>0&&lev>=1?`Tamano: ${money(margin*lev)} - margen: ${money(margin)}`:'';
+ $('leverageRange').value=$('leverage').value;$('leverageValue').textContent=$('leverage').value+'';
  $('marginValue').textContent=money(margin);
  const available=account.available();$('marginRange').value=available?Math.min(100,margin/available*100):0;
  $('pending').replaceChildren();
- for(const o of account.orders){const row=document.createElement('p'),button=document.createElement('button');row.textContent=`#${o.id} ${o.name} · ${o.side} Limit ${quote(o.limit)} USD · margen ${money(o.margin)} `;button.textContent='Cancelar';button.onclick=()=>{account.cancel(o.id);render();};row.append(button);$('pending').append(row);}
+ for(const o of account.orders){const row=document.createElement('p'),button=document.createElement('button');row.textContent=`#${o.id} ${o.name} - ${o.side} Limit ${quote(o.limit)} USD - margen ${money(o.margin)} `;button.textContent='Cancelar';button.onclick=()=>{account.cancel(o.id);render();};row.append(button);$('pending').append(row);}
  $('limitLabel').hidden=$('limitPrice').hidden=$('orderType').value!=='limit';
  draw();localize();
 }
@@ -132,12 +132,12 @@ function select(name,identity,initial,live=null){
  const key=identity||'manual:'+name;
  if(!markets.has(key))markets.set(key,{name:String(name).slice(0,100),identity,price:initial,charts:{},live,updated:live?Date.now():0,samples:live?[{time:Date.now(),price:initial}]:[]});
  initialQuotePending=false;symbol=key;const market=markets.get(key);asset=market.name;price=market.price;account.mark(symbol,price);
- $('identity').textContent=market.identity+' · movimientos sintéticos';offset=0;
+ $('identity').textContent=market.identity+' - movimientos sinteticos';offset=0;
  $('stop').value='';$('take').value='';$('limitPrice').value=price;$('results').replaceChildren();$('searchStatus').textContent='';
  render();
 }
-for(const side of ['long','short'])$(side).onclick=()=>{try{if(!fresh())throw new Error(language==='es'?'Cotización atrasada: espera la actualización.':'Stale quote: wait for an update.');account.submit(args(side));record(account.tick());$('error').textContent='';render();}catch(e){$('error').textContent=tr(e.message);}};
-$('close').onclick=()=>{if(!fresh()){$('error').textContent=language==='es'?'Cotización atrasada; cierre bloqueado.':'Stale quote; close blocked.';return;}record(account.closeAll());render();};$('up').onclick=()=>move(1.005);$('down').onclick=()=>move(.995);$('pause').onclick=()=>{paused=!paused;$('pause').textContent=tr(paused?'Reanudar precio':'Pausar precio');};
+for(const side of ['long','short'])$(side).onclick=()=>{try{if(!fresh())throw new Error(language==='es'?'Cotizacion atrasada: espera la actualizacion.':'Stale quote: wait for an update.');account.submit(args(side));record(account.tick());$('error').textContent='';render();}catch(e){$('error').textContent=tr(e.message);}};
+$('close').onclick=()=>{if(!fresh()){$('error').textContent=language==='es'?'Cotizacion atrasada; cierre bloqueado.':'Stale quote; close blocked.';return;}record(account.closeAll());render();};$('up').onclick=()=>move(1.005);$('down').onclick=()=>move(.995);$('pause').onclick=()=>{paused=!paused;$('pause').textContent=tr(paused?'Reanudar precio':'Pausar precio');};
 $('leverageRange').oninput=()=>{$('leverage').value=$('leverageRange').value;render();};
 $('marginRange').oninput=()=>{$('margin').value=(account.available()*Number($('marginRange').value)/100).toFixed(2);render();};
 for(const id of ['orderType','limitPrice','mode','margin','leverage','stop','take','sma','ema','bb','rsi'])$(id).oninput=render;
@@ -151,7 +151,7 @@ async function searchCatalog(){
  clearTimeout(suggestionTimer);searchAbort?.abort();const controller=new AbortController();searchAbort=controller;
  const q=$('search').value.trim(),version=++searchVersion;$('results').replaceChildren();
  if(!q){$('searchStatus').textContent='';return;}
- $('searchStatus').textContent=language==='es'?'Buscando monedas…':'Searching coins…';
+ $('searchStatus').textContent=language==='es'?'Buscando monedas...':'Searching coins...';
  try{
  let coins=searchCache.get(q.toLowerCase());
  if(!coins){const response=await fetch(terminalApiRoot+'/api/markets-catalog',{signal:controller.signal});if(!response.ok)throw new Error('search');const data=await response.json();coins=(Array.isArray(data.coins)?data.coins:[]).filter(c=>(c.symbol+' '+c.name+' '+c.id).toLowerCase().includes(q.toLowerCase()));searchCache.set(q.toLowerCase(),coins);}
@@ -160,31 +160,31 @@ async function searchCatalog(){
  const score=c=>String(c.symbol).toLowerCase()===q.toLowerCase()||String(c.name).toLowerCase()===q.toLowerCase()?0:1;
  const unique=[...new Map(coins.filter(c=>c.id&&c.name&&c.symbol).map(c=>[c.id,c])).values()];
  const results=(known?unique.filter(c=>c.id===known[0]):unique.sort((a,b)=>score(a)-score(b)||(a.market_cap_rank||1e9)-(b.market_cap_rank||1e9))).slice(0,searchLimit);
- $('searchStatus').textContent=results.length?(language==='es'?'Selecciona la moneda por nombre e ID. Precios de referencia; catálogo CoinGecko.':'Select by name and ID. Reference prices from the CoinGecko catalog.'):(language==='es'?'No figura en este catálogo. No se sustituirá por otro token del mismo símbolo.':'Not in this catalog. No substitution with a same-symbol token.');
+ $('searchStatus').textContent=results.length?(language==='es'?'Selecciona la moneda por nombre e ID. Precios de referencia; catalogo CoinGecko.':'Select by name and ID. Reference prices from the CoinGecko catalog.'):(language==='es'?'No figura en este catalogo. No se sustituira por otro token del mismo simbolo.':'Not in this catalog. No substitution with a same-symbol token.');
  const buttons=new Map();
- for(const coin of results){const button=document.createElement('button');button.type='button';const label=coin.name+' ('+coin.symbol.toUpperCase()+') · ID: '+coin.id;button.textContent=label+' · …';button.onclick=async()=>{
+ for(const coin of results){const button=document.createElement('button');button.type='button';const label=coin.name+' ('+coin.symbol.toUpperCase()+') - ID: '+coin.id;button.textContent=label+' - ...';button.onclick=async()=>{
   const selectionVersion=++searchVersion;searchAbort?.abort();clearTimeout(suggestionTimer);button.disabled=true;
-  try{const value=await referencePrice(coin.id);if(selectionVersion!==searchVersion)return;select(coin.name+' · '+coin.symbol.toUpperCase(),'coin:'+coin.id,value,{coin:coin.id});refreshQuotes();loadHistory(coin.id);}
-  catch{if(selectionVersion===searchVersion)$('searchStatus').textContent=language==='es'?'Precio no disponible. Intenta de nuevo; no se usará un precio inventado.':'Price unavailable. Retry; no invented price will be used.';}finally{button.disabled=false;}
+  try{const value=await referencePrice(coin.id);if(selectionVersion!==searchVersion)return;select(coin.name+' - '+coin.symbol.toUpperCase(),'coin:'+coin.id,value,{coin:coin.id});refreshQuotes();loadHistory(coin.id);}
+  catch{if(selectionVersion===searchVersion)$('searchStatus').textContent=language==='es'?'Precio no disponible. Intenta de nuevo; no se usara un precio inventado.':'Price unavailable. Retry; no invented price will be used.';}finally{button.disabled=false;}
  };$('results').append(button);buttons.set(coin.id,{button,label});}
- if(unique.length>results.length&&!known){const more=document.createElement('button');more.type='button';more.textContent=language==='es'?'Ver más resultados':'Show more results';more.onclick=()=>{searchLimit+=30;searchCatalog();};$('results').append(more);}
+ if(unique.length>results.length&&!known){const more=document.createElement('button');more.type='button';more.textContent=language==='es'?'Ver mas resultados':'Show more results';more.onclick=()=>{searchLimit+=30;searchCatalog();};$('results').append(more);}
  if(!results.length)return;
- try{const prices=await catalogPrices(results.map(c=>c.id),controller.signal);if(version!==searchVersion)return;for(const [id,{button,label}] of buttons){const value=Number(prices[id]?.usd);button.textContent=label+' · '+(Number.isFinite(value)&&value>0?quote(value)+' USD':(language==='es'?'precio no disponible':'price unavailable'));}}
- catch{if(version===searchVersion)for(const {button,label} of buttons.values())button.textContent=label+' · '+(language==='es'?'consultar precio al seleccionar':'fetch price on selection');}
- }catch(error){if(version===searchVersion&&error.name!=='AbortError')$('searchStatus').textContent=language==='es'?'El catálogo no respondió. Espera un momento y vuelve a buscar.':'Catalog unavailable. Wait a moment and retry.';}
+ try{const prices=await catalogPrices(results.map(c=>c.id),controller.signal);if(version!==searchVersion)return;for(const [id,{button,label}] of buttons){const value=Number(prices[id]?.usd);button.textContent=label+' - '+(Number.isFinite(value)&&value>0?quote(value)+' USD':(language==='es'?'precio no disponible':'price unavailable'));}}
+ catch{if(version===searchVersion)for(const {button,label} of buttons.values())button.textContent=label+' - '+(language==='es'?'consultar precio al seleccionar':'fetch price on selection');}
+ }catch(error){if(version===searchVersion&&error.name!=='AbortError')$('searchStatus').textContent=language==='es'?'El catalogo no respondio. Espera un momento y vuelve a buscar.':'Catalog unavailable. Wait a moment and retry.';}
 }
 $('searchForm').onsubmit=e=>{e.preventDefault();searchCatalog();};
 $('search').oninput=()=>{searchLimit=30;clearTimeout(suggestionTimer);searchAbort?.abort();++searchVersion;$('results').replaceChildren();if(!$('search').value.trim()){$('searchStatus').textContent='';return;}suggestionTimer=setTimeout(searchCatalog,400);};
 $('search').onkeydown=e=>{if(e.key==='ArrowDown'){$('results').querySelector('button')?.focus();e.preventDefault();}if(e.key==='Escape'){clearTimeout(suggestionTimer);searchAbort?.abort();++searchVersion;$('results').replaceChildren();$('searchStatus').textContent='';}};
-$('reset').onclick=()=>{if(!confirm(language==='es'?'¿Borrar esta sesión ficticia?':'Clear this simulated session?'))return;account=new SimulatorAccount();position=null;$('history').replaceChildren();render();};
-markets.set(symbol,{name:asset,identity:'BTC',price,charts:{}});account.mark(symbol,price);seed(price);const incoming=new URLSearchParams(location.hash.slice(1));if(incoming.get('symbol')){$('tokenName').value=(incoming.get('name')||incoming.get('symbol')).slice(0,80);$('tokenIdentity').value=[incoming.get('chain'),incoming.get('address')].filter(Boolean).join(' · ').slice(0,200);$('tokenPrice').value=incoming.get('price')||'';if(Number(incoming.get('price'))>0)$('useToken').click();else{$('tokenStatus').textContent='Introduce un precio ficticio para este token.';document.querySelector('details').open=true;}}
+$('reset').onclick=()=>{if(!confirm(language==='es'?'?Borrar esta sesion ficticia?':'Clear this simulated session?'))return;account=new SimulatorAccount();position=null;$('history').replaceChildren();render();};
+markets.set(symbol,{name:asset,identity:'BTC',price,charts:{}});account.mark(symbol,price);seed(price);const incoming=new URLSearchParams(location.hash.slice(1));if(incoming.get('symbol')){$('tokenName').value=(incoming.get('name')||incoming.get('symbol')).slice(0,80);$('tokenIdentity').value=[incoming.get('chain'),incoming.get('address')].filter(Boolean).join(' - ').slice(0,200);$('tokenPrice').value=incoming.get('price')||'';if(Number(incoming.get('price'))>0)$('useToken').click();else{$('tokenStatus').textContent='Introduce un precio ficticio para este token.';document.querySelector('details').open=true;}}
 async function loadHistory(id){
  const key='coin:'+id,m=markets.get(key);if(!m||m.historyLoading||m.history?.length)return;
- m.historyLoading=true;$('chartStatus').textContent=language==='es'?'Cargando historial público…':'Loading public history…';
+ m.historyLoading=true;$('chartStatus').textContent=language==='es'?'Cargando historial publico...':'Loading public history...';
  try{const response=await fetch('https://api.coingecko.com/api/v3/coins/'+encodeURIComponent(id)+'/market_chart?vs_currency=usd&days=30',{signal:AbortSignal.timeout(15000)});
  if(!response.ok)throw new Error('history');const data=await response.json();
  m.history=(data.prices||[]).filter(v=>Array.isArray(v)&&Number.isFinite(v[0])&&Number.isFinite(v[1])&&v[1]>0).map(v=>({time:v[0],price:v[1]}));
- if(!m.history.length)throw new Error('empty');m.historyStatus=language==='es'?'Historial público de 30 días: velas de muestras, no OHLC completo.':'30-day public history: sampled candles, not complete OHLC.';
+ if(!m.history.length)throw new Error('empty');m.historyStatus=language==='es'?'Historial publico de 30 dias: velas de muestras, no OHLC completo.':'30-day public history: sampled candles, not complete OHLC.';
  if(symbol===key){$('timeframe').value='14400';offset=0;}
  }catch{m.historyStatus=language==='es'?'Historial no disponible. Solo se muestran muestras recibidas; no se inventan velas.':'History unavailable. Showing received samples only; no invented candles.';}
  finally{m.historyLoading=false;render();}
@@ -207,4 +207,4 @@ setInterval(()=>{if(!paused&&!initialQuotePending){for(const [key,m] of markets)
 for(const id of ['searchStatus','tokenStatus'])new MutationObserver(()=>{const el=$(id),text=tr(el.textContent);if(text!==el.textContent)el.textContent=text;}).observe($(id),{childList:true,characterData:true,subtree:true});
 setupFunding(language,connectionButton);
 accountSession.ready.then(()=>{setupTerminalLayout(language);setupAssetsWallets(language);});
-if(initialQuotePending){$('identity').textContent=language==='es'?'Consultando Bitcoin real…':'Fetching Bitcoin reference price…';referencePrice('bitcoin').then(value=>{if(!initialQuotePending)return;select('Bitcoin · BTC','coin:bitcoin',value,{coin:'bitcoin'});loadHistory('bitcoin');}).catch(()=>{$('error').textContent=language==='es'?'No se pudo consultar BTC. Busca Bitcoin para reintentar. No se muestra un precio ficticio.':'BTC unavailable. Search Bitcoin to retry. No simulated quote is displayed.';});}
+if(initialQuotePending){$('identity').textContent=language==='es'?'Consultando Bitcoin real...':'Fetching Bitcoin reference price...';referencePrice('bitcoin').then(value=>{if(!initialQuotePending)return;select('Bitcoin - BTC','coin:bitcoin',value,{coin:'bitcoin'});loadHistory('bitcoin');}).catch(()=>{$('error').textContent=language==='es'?'No se pudo consultar BTC. Busca Bitcoin para reintentar. No se muestra un precio ficticio.':'BTC unavailable. Search Bitcoin to retry. No simulated quote is displayed.';});}
