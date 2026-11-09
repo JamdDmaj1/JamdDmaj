@@ -115,6 +115,8 @@ await build({
   }}]
 });
 await cp(resolve(root, "lib", "terminal-layout.js"), resolve(output, "lib", "terminal-layout.js"));
+// The futures page imports this raw module, so it must exist next to the layout.
+await build({absWorkingDir:root,entryPoints:[resolve(root,'lib/futures-history-card.js')],outfile:resolve(output,'lib/futures-history-card.js'),bundle:true,format:'esm',platform:'browser',target:['es2020'],legalComments:'none'});
 await build({
   absWorkingDir: root, entryPoints: [resolve(root, "lib", "phoenix-futures-panel.js")],
   outfile: resolve(output, "lib", "phoenix-futures-panel.js"), bundle: true,
