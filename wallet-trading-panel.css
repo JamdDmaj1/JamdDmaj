@@ -67,3 +67,7 @@
 #phoenix-entry-search,#phoenix-entry-side,#phoenix-entry-margin,#phoenix-entry-leverage{max-width:420px}
 #phoenix-entry-search{margin-bottom:2px}
 .phoenix-markets-inline{padding:4px 0 0}
+/* Solo mode: plain block flow, so no grid row leaves dead space. */
+.finance-futures-workspace-solo{display:block!important}
+.finance-futures-workspace-solo>*{width:100%!important;margin-bottom:12px}
+.phoenix-markets-inline .card,.phoenix-markets-inline details{margin-bottom:10px}
