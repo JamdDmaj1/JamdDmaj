@@ -40,11 +40,13 @@ import {planPhoenixPlatformFeeTransfer} from '../lib/perps-platform-fee-transfer
 import {authorizePhoenixFeeSigning,revalidatePhoenixFeeDispatch} from '../lib/phoenix-platform-fee-signing.js';
 import {preparePhoenixParentOnboarding,simulatePhoenixParentOnboarding} from '../lib/phoenix-parent-onboarding.js';
 import {buildPhoenixChildSetupWire,simulatePhoenixChildSetup} from '../lib/phoenix-child-setup-simulation.js';
+import {authorizePhoenixChildSetupSigning,inspectPhoenixChildSetupDispatch} from '../lib/phoenix-child-setup-signing.js';
 
 const journalDirectory=mkdtempSync(join(tmpdir(),'jamd-phoenix-vm-'));chmodSync(journalDirectory,0o700);
 const custody=await openPhoenixVmCustody(journalDirectory);
 const {ownerAccountHash,revision}=custody,WALLET=custody.identity.walletAddress,RPC='https://solana-rpc.publicnode.com';
 const localReceipts=new Map();
+let childReceiptFixture=null;
 const journalPath=join(journalDirectory,'phoenix.sqlite');
 let journal=custody.journal;
 let workflowId='a'.repeat(64);
@@ -206,7 +208,38 @@ try{
  const setup=await buildPhoenixIsolatedSetup({plan:review.plan,native,account:beforeSetup},{request:rpc,now});
  const setupWire=buildPhoenixChildSetupWire(setup,{blockhash:initialized.blockhash,lastValidBlockHeight:10000});
  const setupSimulation=await simulatePhoenixChildSetup(setupWire,{request:rpc});assert.equal(setupSimulation.networkFeeLamports,'5300');
- phases.push(await executeLocal('REGISTER_CHILD',setupWire.serializedTxBase64));
+ const setupId=attemptId('CHILD_SETUP'),setupClaim=journal.prepareChildSetup({id:setupId,ownerAccountHash,controlRevision:revision,wire:setupWire,simulation:setupSimulation,request:rpc,
+  maximumLamports:setupSimulation.maximumLamports,expiresAt:now()+300000,explicitApproval:true});
+ const setupGrant=authorizePhoenixChildSetupSigning({ownerAccountHash,journal,claim:setupClaim,wire:setupWire,simulation:setupSimulation,request:rpc,controls:custody.controls,
+  backupRegistry:custody.backupRegistry,riskJournal:custody.riskJournal,swapJournal:custody.swapJournal,assertUncontended(){},now});
+ const setupSigned=custody.vault.signPhoenixChildSetup(setupGrant);assert.throws(()=>custody.vault.signPhoenixChildSetup(setupGrant));
+ inspectPhoenixChildSetupDispatch(setupGrant,{journal,request:rpc});journal.markChildSetupBroadcast(setupId,ownerAccountHash);
+ phases.push(await executeLocal('REGISTER_CHILD',setupSigned.serializedTxBase64));deferSignature=setupSigned.signature;
+ if(process.argv.includes('--capture-child-receipt-fixture'))childReceiptFixture={source:{kind:'LOCAL_LITESVM_NATIVE_PROGRAM_EXECUTION',networkSubmissions:0,userKeysUsed:false,balancesAreFictitious:true,
+  programHashes:loaded.map(p=>({address:p.address,sha256:p.sha256}))},row:journal.readChildSetup(setupId,ownerAccountHash),transaction:localReceipts.get(setupSigned.signature),
+  accounts:await rpc('getMultipleAccounts',[[setup.parentAddress,setup.traderAddress],{commitment:'finalized'}])};
+ assert.equal((await journal.childSetupReceipt(setupId,ownerAccountHash,{request:rpc,now})).state,'UNKNOWN');
+ journal.close();journal=openPhoenixExecutionJournal(journalPath,{allowNonPosixForTests:process.platform==='win32',now});
+ const setupReceipt=await journal.childSetupReceipt(setupId,ownerAccountHash,{request:rpc,now});assert.equal(setupReceipt.state,'READY');
+ assert.throws(()=>journal.recordFinalizedChildSetup(setupId,ownerAccountHash,{...setupReceipt}));journal.recordFinalizedChildSetup(setupId,ownerAccountHash,setupReceipt);
+ journal.close();journal=openPhoenixExecutionJournal(journalPath,{allowNonPosixForTests:process.platform==='win32',now});assert.equal(journal.pending(WALLET).length,0);
+ // LOCAL-only fixture: unset the empty child's policy, then exercise the
+ // scoped repair path. A repair must neither create an account nor charge rent.
+ const unprotect=buildUpdateTraderPreferenceBitsIx({traderWallet:WALLET,traderAccount:setup.traderAddress,
+  toggles:[{target:TraderPreferenceToggleTarget.CollateralSweep,set:true}]});
+ phases.push(await executeLocal('LOCAL_FIXTURE_UNPROTECT_CHILD',localWire([unprotect],initialized.blockhash)));
+ const repairAccount=await deps.readAccount({walletAddress:WALLET,subaccountIndices:[1]});
+ const repairSetup=await buildPhoenixIsolatedSetup({plan:review.plan,native,account:repairAccount},{request:rpc,now});assert.equal(repairSetup.createsAccount,false);
+ const repairWire=buildPhoenixChildSetupWire(repairSetup,{blockhash:initialized.blockhash,lastValidBlockHeight:10000}),repairSimulation=await simulatePhoenixChildSetup(repairWire,{request:rpc});
+ assert.equal(repairSimulation.rentLockedLamports,'0');
+ const repairId=attemptId('CHILD_REPAIR'),repairClaim=journal.prepareChildSetup({id:repairId,ownerAccountHash,controlRevision:revision,wire:repairWire,simulation:repairSimulation,request:rpc,
+  maximumLamports:repairSimulation.maximumLamports,expiresAt:now()+300000,explicitApproval:true});
+ const repairGrant=authorizePhoenixChildSetupSigning({ownerAccountHash,journal,claim:repairClaim,wire:repairWire,simulation:repairSimulation,request:rpc,controls:custody.controls,
+  backupRegistry:custody.backupRegistry,riskJournal:custody.riskJournal,swapJournal:custody.swapJournal,assertUncontended(){},now});
+ const repairSigned=custody.vault.signPhoenixChildSetup(repairGrant);inspectPhoenixChildSetupDispatch(repairGrant,{journal,request:rpc});journal.markChildSetupBroadcast(repairId,ownerAccountHash);
+ phases.push(await executeLocal('REPAIR_CHILD',repairSigned.serializedTxBase64));
+ const repairReceipt=await journal.childSetupReceipt(repairId,ownerAccountHash,{request:rpc,now});assert.equal(repairReceipt.state,'READY');assert.equal(repairReceipt.rentLockedLamports,'0');
+ journal.recordFinalizedChildSetup(repairId,ownerAccountHash,repairReceipt);
  // Replaying permissionless sync must not undo the protected settlement policy.
  phases.push(await executeLocal('SYNC_REPLAY',localWire([sync],initialized.blockhash)));
  const account=await deps.readAccount({walletAddress:WALLET,subaccountIndices:[1]});
@@ -370,11 +403,11 @@ try{
  for(let i=0;i<3&&attention.state!=='COMPLETE';i++)attention=await webClient.recoverClose(WALLET,attentionReview.workflowId);
  assert.equal(attention.state,'COMPLETE');assert.equal(sent,13);
  final=await deps.readAccount({walletAddress:WALLET,subaccountIndices:[1]});assert.equal(final.canonical.amountUnits,'0');
- console.log(JSON.stringify({stage:'PHOENIX_LOCAL_VM_LONG_SHORT_SETTLED',networkSubmissions:0,testWalletSignaturesOnly:true,userKeysUsed:false,localPayoutReceiptsVerified:true,durableWorkflowRestartVerified:true,scopedVaultAndBackupVerified:true,authenticatedCloseApiRestartVerified:true,existingSessionClientVerified:true,nativeFeePaidOnceAfterRestartVerified:true,authenticatedEntryApiRestartVerified:true,feePreparationFailureKeepsEntryVerified:true,parentProfileAndSimulationVerified:true,childSetupWireAndEffectsVerified:true,
+ console.log(JSON.stringify({stage:'PHOENIX_LOCAL_VM_LONG_SHORT_SETTLED',networkSubmissions:0,testWalletSignaturesOnly:true,userKeysUsed:false,localPayoutReceiptsVerified:true,durableWorkflowRestartVerified:true,scopedVaultAndBackupVerified:true,authenticatedCloseApiRestartVerified:true,existingSessionClientVerified:true,nativeFeePaidOnceAfterRestartVerified:true,authenticatedEntryApiRestartVerified:true,feePreparationFailureKeepsEntryVerified:true,parentProfileAndSimulationVerified:true,childSetupWireAndEffectsVerified:true,scopedChildSetupAndRestartFinalityVerified:true,scopedChildSetupRepairVerified:true,
   programs:loaded.map(p=>({address:p.address,sha256:p.sha256})),phases,
   openingProtocolFeeUnits:simulation.protocolFeeUnits,closingProtocolFeeUnits:closing.protocolFeeUnits,
   finalQuoteCollateralUnits:final.subaccounts[1].quoteCollateralUnits,finalCanonicalUnits:final.canonical.amountUnits,
-  localUsdcUnits:final.usdc.amountUnits,readyForTrading:false}));
+  localUsdcUnits:final.usdc.amountUnits,readyForTrading:false,...(childReceiptFixture?{childReceiptFixture}:{})}));
 }finally{
  journal.close();
  custody.close();
