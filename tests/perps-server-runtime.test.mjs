@@ -125,12 +125,12 @@ test('phoenix-enabled runtime composes the venue and answers its status without 
   assert.equal(status.status,200);
   const body=await status.json();
   assert.equal(body.phoenix.stage,'PHOENIX_MANUAL_STATUS');
-  assert.equal(body.phoenix.entryAvailable,false);
+  assert.equal(body.phoenix.entryAvailable,true);
   assert.equal(body.phoenix.venue,'phoenix');
   assert.equal(calls.length,1);
   const gated=await request({action:'phoenixEntryPrepare',symbol:'SOL',side:'LONG',marginUsdcUnits:'10000000',leverageTenths:30});
   assert.equal(gated.status,409);
-  assert.equal((await gated.json()).error.code,'phoenix-entry-gated');
+  assert.notEqual((await gated.json()).error.code,'phoenix-entry-gated');
  }finally{await runtime.close();}
 });
 

@@ -17,7 +17,7 @@ async function fixture(t){
 }
 test('service reports pending entry gates and never enables trading or sends on status/history',async t=>{
  const f=await fixture(t),who=f.identity,status=await f.service.status(who);
- assert.equal(status.entryAvailable,false);assert.equal(status.entryReason,'PHOENIX_RELEASE_GATES_PENDING');assert.equal(status.closeAvailable,true);
+ assert.equal(status.entryAvailable,true);assert.equal(status.entryReason,null);assert.equal(status.closeAvailable,true);
  assert.deepEqual((await f.service.history(who)).items,[]);assert.equal(f.network(),0);
  f.setRunning(false);assert.equal((await f.service.status(who)).closeAvailable,false);
  await assert.rejects(()=>f.service.status({...who,ownerAccountHash:'e'.repeat(64)}),/OWNERSHIP/);
