@@ -80,3 +80,5 @@
 .bch-body[open]>summary{margin-bottom:8px}
 /* Shareable summary from a venue position. */
 .trade-share-dialog .share-text{font:13px ui-monospace,monospace;line-height:1.5;word-break:break-word;background:#0a1423;border:1px solid #1d2c3d;border-radius:10px;padding:10px}
+.phoenix-skip-notice{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;color:#9ab2ca;margin:8px 0}.phoenix-skip-notice button{padding:4px 10px}
+.phoenix-confirm dialog{max-width:420px}
