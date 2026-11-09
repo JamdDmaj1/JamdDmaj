@@ -177,3 +177,12 @@ dialog.trade-share-dialog.share-out::backdrop{animation:share-backdrop-out .17s 
 .suggestion-row strong{color:#fff;font-family:ui-monospace,monospace}
 .trade-suggestion .suggestion-ghost{padding:6px 12px;border-radius:9px;border:1px solid #2b4257;background:#132234;color:#cfe1f5;cursor:pointer;font-size:12px}
 .trade-suggestion .suggestion-apply{padding:8px 14px;border-radius:10px;border:1px solid #2fbf8f;background:#2fbf8f;color:#04150f;font-weight:700;cursor:pointer}
+/* Bubble market view. */
+.market-bubbles{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;padding:14px 0}
+.market-bubble{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border-radius:50%;border:1px solid #2b4257;background:#132234;color:#e8f1fa;cursor:pointer;font-size:11px;line-height:1.1;transition:transform .12s ease-out}
+.market-bubble:hover{transform:scale(1.06)}
+.market-bubble strong{font-size:12px}
+.market-bubble small{opacity:.85}
+.market-bubble.up{background:#123a2e;border-color:#2fbf8f}
+.market-bubble.down{background:#3a1620;border-color:#ff7d91}
+.market-bubble.flat{opacity:.85}
