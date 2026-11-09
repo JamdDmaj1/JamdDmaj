@@ -28,6 +28,17 @@ nsenter -t "$(systemctl show -p MainPID --value jamddmaj-perps-worker)" -m -- \
 
 Without `--execute` it only runs the preflight and exits: use that first.
 
+## What the run needs from this host
+
+- `JAMDDMAJ_PERPS_CONTROLS_DIRECTORY` (currently
+  `/var/lib/private/jamddmaj-perps-controls`): the control database does not live
+  in the runtime directory, so pass it when running by hand.
+- The recovery schema table in `lib/perps-runtime-recovery.js` must know the
+  `swaps` and `phoenix` databases; without their hashes the snapshot refuses.
+- A cancelled close must not keep an execution row. If an abandoned unsigned
+  attempt is still stored, remove it after copying the journal. The strict
+  validator stays strict on purpose.
+
 ## Expected output
 
 ```
