@@ -82,3 +82,15 @@
 .trade-share-dialog .share-text{font:13px ui-monospace,monospace;line-height:1.5;word-break:break-word;background:#0a1423;border:1px solid #1d2c3d;border-radius:10px;padding:10px}
 .phoenix-skip-notice{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;color:#9ab2ca;margin:8px 0}.phoenix-skip-notice button{padding:4px 10px}
 .phoenix-confirm dialog{max-width:420px}
+/* Confirmation dialogs: visible entrance and readable figures. */
+@keyframes phoenix-in{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+dialog.trade-share-dialog.phoenix-confirm{max-width:460px;width:calc(100% - 32px);border:1px solid #24384c;border-radius:16px;background:#0b1622;color:#e8f1fa;padding:18px;box-shadow:0 24px 60px #000a}
+dialog.trade-share-dialog.phoenix-confirm[open]{animation:phoenix-in .2s ease-out}
+dialog.trade-share-dialog.phoenix-confirm::backdrop{background:#02060bcc;backdrop-filter:blur(2px)}
+.phoenix-confirm h3{margin:0 0 12px;font-size:16px}
+.phoenix-confirm p{margin:0 0 8px;font:13px/1.4 ui-monospace,monospace;color:#b9cbe0;display:flex;justify-content:space-between;gap:16px;border-bottom:1px dashed #1b2b3c;padding-bottom:7px}
+.phoenix-confirm p strong{color:#fff;font-weight:600}
+.phoenix-confirm .wt-position-actions{margin-top:14px;display:flex;gap:10px;justify-content:flex-end}
+.phoenix-confirm .wt-position-actions button{padding:10px 16px;border-radius:10px;border:1px solid #2b4257;background:#132234;color:#e8f1fa;cursor:pointer}
+.phoenix-confirm .wt-position-actions button:first-child{background:#2fbf8f;border-color:#2fbf8f;color:#04150f;font-weight:700}
+.phoenix-confirm .negative{color:#ff7d91;border:0;display:block}
