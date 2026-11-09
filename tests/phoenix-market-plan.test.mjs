@@ -35,7 +35,7 @@ test('crypto catalog uses native asset identity; inactive assets are not executa
 });
 test('official SDK packet retains exact tighter 0.5% ticks, FOK size, isolated account and bounded quote spend',()=>{
  for(const side of ['LONG','SHORT']){const p=plan({side}),ref=phoenixUsd(p.referencePrice),px=phoenixUsd(p.priceLimitUsd);assert.equal(p.readyForSigning,false);assert.equal(p.packet.minBaseLotsToFill,p.packet.numBaseLots);assert.notEqual(p.packet.priceInTicks,null);assert.equal(p.packet.cancelExisting,false);assert.equal(p.packet.lastValidSlot,1030n);assert.equal(p.packet.numQuoteLots,BigInt(p.maxNotionalUsdcUnits));assert.ok(side==='LONG'?px*10000n<=ref*10050n:px*10000n>=ref*9950n);}
- assert.throws(()=>plan({isolatedSubaccountIndex:0}),/INTENT/);assert.throws(()=>plan({marginUsdcUnits:'9999999'}),/MARGIN/);assert.throws(()=>plan({leverageTenths:110}),/SIZE_TIER/);assert.throws(()=>requirePhoenixUnsignedPlan({...plan()}),/UNVERIFIED_PLAN/);
+ assert.throws(()=>plan({isolatedSubaccountIndex:0}),/INTENT/);assert.throws(()=>plan({marginUsdcUnits:'999999'}),/MARGIN/);assert.throws(()=>plan({leverageTenths:110}),/SIZE_TIER/);assert.throws(()=>requirePhoenixUnsignedPlan({...plan()}),/UNVERIFIED_PLAN/);
 });
 test('full close is reduce-only FOK and has no deposit or notional-growth instructions',()=>{
  const p=plan({closeBaseLots:'240',side:'SHORT'});assert.equal(p.packet.orderFlags,OrderFlags.ReduceOnly);assert.equal(p.marginUsdcUnits,'0');assert.equal(p.packet.numQuoteLots,null);assert.equal(p.packet.numBaseLots,240n);assert.equal(p.packet.minBaseLotsToFill,240n);

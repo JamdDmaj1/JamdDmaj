@@ -133,3 +133,4 @@ dialog.trade-share-dialog .actions button:hover{filter:brightness(1.12);transfor
 dialog.trade-share-dialog .actions button{transition:filter .15s ease-out,transform .15s ease-out}
 dialog.trade-share-dialog .actions button:first-child{animation:share-pulse 2.4s ease-in-out infinite}
 @media(prefers-reduced-motion:reduce){dialog.trade-share-dialog[open],dialog.trade-share-dialog::backdrop,dialog.trade-share-dialog canvas,dialog.trade-share-dialog .bch-header h3,dialog.trade-share-dialog .actions button{animation:none!important}}
+.phoenix-confirm .phoenix-error{font:13px/1.5 ui-monospace,monospace;color:#ffb3bf;background:#1a0f14;border:1px solid #43222c;border-radius:10px;padding:10px;word-break:break-word;margin:6px 0 4px}
