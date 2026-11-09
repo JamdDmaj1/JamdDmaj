@@ -65,15 +65,6 @@
                                             "value":  "frame-ancestors \u0027none\u0027; base-uri \u0027self\u0027; object-src \u0027none\u0027; upgrade-insecure-requests"
                                         }
                                     ]
-                    },
-                    {
-                        "source":  "/(.*).html",
-                        "headers":  [
-                                        {
-                                            "key":  "Cache-Control",
-                                            "value":  "no-store, must-revalidate"
-                                        }
-                                    ]
                     }
                 ]
 }
