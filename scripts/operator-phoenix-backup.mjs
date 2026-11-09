@@ -6,7 +6,7 @@
 //
 // Usage:
 //   node scripts/operator-phoenix-backup.mjs <runtimeDir> <operatorDir> [--execute]
-import {existsSync, mkdtempSync, rmSync} from 'node:fs'
+import {existsSync, mkdirSync, mkdtempSync, rmSync} from 'node:fs'
 import {join, resolve} from 'node:path'
 import {tmpdir} from 'node:os'
 import {
@@ -25,8 +25,11 @@ const runtime = resolve(runtimeArg)
 const operator = resolve(operatorArg)
 const execute = mode === '--execute'
 
+// The worker keeps its control state outside the runtime directory (see
+// JAMDDMAJ_PERPS_CONTROLS_DIRECTORY), so read that layout instead of guessing.
+const controlsDirectory = process.env.JAMDDMAJ_PERPS_CONTROLS_DIRECTORY || runtime
 const files = {
-  controlsPath: join(runtime, 'controls.sqlite'),
+  controlsPath: join(controlsDirectory, 'controls.sqlite'),
   journalPath: join(runtime, 'journal.sqlite'),
   feesPath: join(runtime, 'fees.sqlite'),
   paymentsPath: join(runtime, 'payments.sqlite'),
@@ -61,13 +64,18 @@ if (!execute) {
 const keys = await initializePerpsOperatorRecovery({directory: operator})
 report('OPERATOR_KEYS_READY', {created: keys.created, recipient: keys.recipient})
 
+// The snapshot helper refuses a temporary parent that is not an existing private
+// directory, so create it first with the right mode.
+const temporaryDirectory = join(runtime, 'tmp-backup')
+mkdirSync(temporaryDirectory, {recursive: true, mode: 0o700})
+
 const archive = await createPerpsCustodyRecoveryArchive({
   directory: vaultDirectory,
   keyFile,
   recipient: keys.recipient,
   explicitOperatorApproval: true,
   requireRestoreProof: true,
-  runtimePaths: {...files, temporaryDirectory: join(runtime, 'tmp-backup')},
+  runtimePaths: {...files, temporaryDirectory},
 })
 report('ARCHIVE_CREATED', {
   archiveSha256: archive.sha256,
@@ -91,7 +99,7 @@ try {
 
   const registry = openPerpsBackupRegistry(registryPath, {allowNonPosixForTests: false})
   try {
-    const registered = await registry.registerArchive(Buffer.from(archive.ciphertext), {explicitOperatorApproval: true})
+    const registered = await registry.registerArchive(archive, {explicitOperatorApproval: true})
     report('ARCHIVE_REGISTERED', {stage: registered.stage, archiveSha256: registered.archiveSha256})
     const accepted = registry.acceptRestoreProof({
       proofFile: restored.proofFile,
