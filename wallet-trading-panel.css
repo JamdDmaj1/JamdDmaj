@@ -71,3 +71,6 @@
 .finance-futures-workspace-solo{display:block!important}
 .finance-futures-workspace-solo>*{width:100%!important;margin-bottom:12px}
 .phoenix-markets-inline .card,.phoenix-markets-inline details{margin-bottom:10px}
+/* Market list inside the futures ticket: scrollable, compact. */
+.futures-market-choices{display:grid;gap:4px;max-height:240px;overflow:auto;margin-top:6px}
+.futures-market-choices button{text-align:left;padding:7px 10px;font-size:13px}
