@@ -59,3 +59,5 @@
 .phoenix-market-results{display:grid;gap:6px;margin:8px 0}
 .phoenix-market-option{text-align:left;padding:10px 12px;border-radius:10px;background:#0d1828;border:1px solid #23364d;color:#dbe7f6;cursor:pointer;font-weight:600}
 .phoenix-market-option:hover,.phoenix-market-option:focus-visible{background:#14263c;border-color:#3d6f7d}
+/* Phoenix-only futures layout: no Jupiter ticket, so one column. */
+.finance-futures-workspace-solo{grid-template-columns:minmax(0,1fr)!important}
