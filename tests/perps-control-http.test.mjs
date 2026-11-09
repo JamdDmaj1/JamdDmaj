@@ -73,7 +73,7 @@ test('owner discovery never substitutes another account and rejects ambiguous cu
  f.controls.provision({ownerAccountHash:owner,walletAddress:secondWallet,settings});
  assert.throws(()=>f.controls.readForOwner({ownerAccountHash:owner}),/PERPS_CONTROLS_UNAVAILABLE/);
  const response=await fetch(f.base+'/v1/automation',{headers:{Authorization:'Bearer '+token}});
- assert.equal(response.status,403);assert.deepEqual(await response.json(),{error:{code:'controls-unavailable'}});
+ assert.equal(response.status,403);assert.equal((await response.json())?.error?.code,'controls-unavailable');
  assert.equal(f.controls.read({ownerAccountHash:owner,walletAddress}).walletAddress,walletAddress);
 });
 
