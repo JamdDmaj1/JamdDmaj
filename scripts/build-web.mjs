@@ -151,6 +151,13 @@ await build({
   outfile: resolve(output, "lib", "perps-control-client.js"), bundle: true,
   format: "esm", platform: "browser", target: ["es2020"], legalComments: "none"
 });
+ // The trading panel is copied raw, so every module it imports must exist here.
+await build({
+ absWorkingDir: root,
+ entryPoints: [resolve(root, 'lib', 'phoenix-manual-client.js')],
+ outfile: resolve(output, 'lib', 'phoenix-manual-client.js'),
+ bundle: true, format: 'esm', platform: 'browser', target: ['es2020'], legalComments: 'none',
+});
 await cp(resolve(root, "lib", "finance-polish.js"), resolve(output, "lib", "finance-polish.js"));
 await cp(resolve(root, "lib", "markets-catalog.js"), resolve(output, "lib", "markets-catalog.js"));
 await cp(resolve(root, "lib", "swap-quote-ui.js"), resolve(output, "lib", "swap-quote-ui.js"));
