@@ -39,7 +39,7 @@ const onChain = status?.value?.[0] ?? null
 report('CHAIN', {present: onChain !== null, slot: onChain?.slot ?? null})
 if (onChain !== null) { report('REFUSED', {reason: 'signature exists on chain; reconcile instead of cancelling'}); process.exit(1) }
 
-db.exec("VACUUM INTO '" + join(runtime, 'phoenix-before-unsent-repair.sqlite') + "'")
+db.exec("VACUUM INTO '" + join(runtime, 'phoenix-before-repair-' + Date.now() + '.sqlite') + "'")
 const now = Date.now()
 db.exec('BEGIN IMMEDIATE')
 try {
