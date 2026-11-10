@@ -3,7 +3,7 @@ import {pnl,indicators} from './lib/private-simulator.js?v=5';
 import {SimulatorAccount} from './lib/simulator-account.js?v=5';
 import './manual-order-review-ui.js';
 import {setupFunding} from './funding-ui.js';
-import {setupTerminalLayout} from './lib/terminal-layout.js?v=20261114j';
+import {setupTerminalLayout} from './lib/terminal-layout.js?v=20261114k';
 import {setupAssetsWallets} from './assets-wallet-ui.js';
 import {setupAccountSession} from './lib/account-session-client.js';
 const accountSession=setupAccountSession();
