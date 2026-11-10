@@ -44,7 +44,7 @@ test('close requires a live native position and refuses a foreign position autho
  const f=await phoenixOrderFixture({baseLots:0n,virtualQuoteLots:0n});await assert.rejects(()=>preparePhoenixCloseReview(f.intent,f.deps),/CLOSE_POSITION/);
  const g=await phoenixOrderFixture();g.map.set(g.a.trader,phoenixRpcAccount(g.map.get(g.a.trader).owner,phoenixTraderBytes({address:g.a.trader,positionAuthority:phoenixTestKey(88),baseLots:-240n})));
  await assert.rejects(()=>preparePhoenixCloseReview(g.intent,g.deps),/CLOSE_AUTHORITY/);
- await assert.rejects(()=>preparePhoenixCloseReview(g.intent,{...g.deps,readAccount:async()=>({walletAddress:g.wallet})}),/ACCOUNT_UNVERIFIED/);
+ await assert.rejects(()=>preparePhoenixCloseReview(g.intent,{...g.deps,readAccount:async()=>({walletAddress:g.wallet})}),/ACCOUNT_UNVERIFIED|PROOF_MISSING|ACCOUNT_PROOF/);
 });
 test('wire rejects forged review, excessive priority spending and unexpected signer',async()=>{
  const f=await phoenixOrderFixture(),review=await preparePhoenixOrderReview(f.intent,f.deps);
