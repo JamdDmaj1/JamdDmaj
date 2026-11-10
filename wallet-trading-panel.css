@@ -197,3 +197,5 @@ dialog.trade-share-dialog.share-out::backdrop{animation:share-backdrop-out .17s 
 .market-bubbles.free .market-bubble{position:absolute;left:0;top:0;animation:none!important;transition:transform .15s ease-out}
 .market-bubbles.free .market-bubble:hover{transform:scale(1.08);z-index:5}
 @media(max-width:720px){.market-bubbles.free{height:420px}}
+.market-bubbles.free .market-bubble{transition:none;will-change:transform;touch-action:none;cursor:grab}
+.market-bubbles.free .market-bubble:active{cursor:grabbing}
