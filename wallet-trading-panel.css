@@ -208,3 +208,6 @@ dialog.trade-share-dialog.share-out::backdrop{animation:share-backdrop-out .17s 
  .venue-close .pos{color:#50e2bd;font-family:ui-monospace,monospace}
  .venue-close .neg{color:#ff7d91;font-family:ui-monospace,monospace}
  .venue-close small{color:#8ea5bd}
+.venue-close .venue-share{padding:4px 10px;border-radius:8px;border:1px solid #2b4257;background:#132234;color:#e8f1fa;font-size:11px;cursor:pointer}
+.venue-close .venue-share:hover{border-color:#2fbf8f;color:#7ef0cf}
+.venue-close{grid-template-columns:90px 120px 1fr auto auto!important}
