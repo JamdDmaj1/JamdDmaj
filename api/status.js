@@ -68,7 +68,9 @@ export function publicExecutorPauseReason(executor = {}) {
 }
 
 async function resolveLatestRelease() {
-  const envVersion = cleanVersion(process.env.JAMDDMAJ_LATEST_VERSION || "");
+  const envRaw = cleanVersion(process.env.JAMDDMAJ_LATEST_VERSION || "");
+  // The published version must never fall behind the one shipped in the code.
+  const envVersion = envRaw && compareVersions(envRaw, FALLBACK_VERSION) >= 0 ? envRaw : FALLBACK_VERSION;
   const envApkUrl = String(process.env.JAMDDMAJ_APK_URL || "").trim();
   let best = {
     latestVersion: envVersion || FALLBACK_VERSION,
