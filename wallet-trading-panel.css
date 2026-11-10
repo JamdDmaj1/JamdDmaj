@@ -202,3 +202,9 @@ dialog.trade-share-dialog.share-out::backdrop{animation:share-backdrop-out .17s 
 /* The floating field spans the section and has no framing box. */
 .market-bubbles.free{position:relative;display:block;height:min(72vh,720px);min-height:480px;overflow:hidden;border:0;border-radius:0;background:transparent}
 @media(max-width:720px){.market-bubbles.free{height:min(62vh,520px);min-height:380px}}
+.venue-closes{display:grid;gap:6px;margin:8px 0}
+ .venue-close{display:grid;grid-template-columns:90px 120px 1fr auto;gap:12px;align-items:center;padding:8px 12px;border:1px solid #1d2c3d;border-radius:10px;background:#0b1622;font-size:12px}
+ .venue-close>strong:first-child{color:#fff}
+ .venue-close .pos{color:#50e2bd;font-family:ui-monospace,monospace}
+ .venue-close .neg{color:#ff7d91;font-family:ui-monospace,monospace}
+ .venue-close small{color:#8ea5bd}
