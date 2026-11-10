@@ -1,4 +1,5 @@
 import {corsHeaders, jsonResponse} from '../lib/server.js';
+export const config = { runtime: 'edge' };
 
 // Market cap, volume and 24h change per coin, cached for two minutes.
 let cache = { at: 0, body: null };
