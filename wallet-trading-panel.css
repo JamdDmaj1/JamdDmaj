@@ -199,3 +199,6 @@ dialog.trade-share-dialog.share-out::backdrop{animation:share-backdrop-out .17s 
 @media(max-width:720px){.market-bubbles.free{height:420px}}
 .market-bubbles.free .market-bubble{transition:none;will-change:transform;touch-action:none;cursor:grab}
 .market-bubbles.free .market-bubble:active{cursor:grabbing}
+/* The floating field spans the section and has no framing box. */
+.market-bubbles.free{position:relative;display:block;height:min(72vh,720px);min-height:480px;overflow:hidden;border:0;border-radius:0;background:transparent}
+@media(max-width:720px){.market-bubbles.free{height:min(62vh,520px);min-height:380px}}
