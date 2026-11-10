@@ -192,3 +192,8 @@ dialog.trade-share-dialog.share-out::backdrop{animation:share-backdrop-out .17s 
 .market-bubbles .market-bubble:hover{animation-play-state:paused;transform:scale(1.08)}
 .market-bubbles .market-bubble strong{font-size:12px;line-height:1}
 .market-bubbles .market-bubble small{font-size:10px;line-height:1}
+/* Free floating field. */
+.market-bubbles.free{position:relative;display:block;height:540px;overflow:hidden;border:1px solid #16232f;border-radius:14px;background:radial-gradient(circle at 50% 30%,#0d1a28,#080e19 72%)}
+.market-bubbles.free .market-bubble{position:absolute;left:0;top:0;animation:none!important;transition:transform .15s ease-out}
+.market-bubbles.free .market-bubble:hover{transform:scale(1.08);z-index:5}
+@media(max-width:720px){.market-bubbles.free{height:420px}}
