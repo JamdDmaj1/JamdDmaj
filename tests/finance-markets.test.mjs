@@ -27,7 +27,7 @@ test('market loads automatically and trade passes asset without sending a transa
   let selected,requested;
   const view=setupFinanceMarkets(createElement('main'),'es',{createElement},a=>selected=a,async url=>{requested=url;return Response.json({bitcoin:{usd:10}})});
   await new Promise(resolve=>setTimeout(resolve,5));
-  assert.match(requested,/\/api\/token-prices\?ids=/);
+  assert.match(requested,/\/api\/(token-prices\?ids=|market-overview)/);
   const trade=all.find(n=>n.tag==='button'&&n.attrs['aria-label']==='Operar BTC');trade.onclick();
   assert.equal(selected.symbol,'BTC');
   assert.ok(all.some(n=>n.textContent==='No disponible'));
