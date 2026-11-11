@@ -286,6 +286,98 @@ function card(item) {
   article.append(top, scores, meta, liquidity, checks);
   if (factors.children.length) article.append(factors);
   article.append(scams, trade, links);
+  const auditBox = document.createElement('div');
+  auditBox.className = 'sniper-audit';
+  const auditButton = document.createElement('button');
+  auditButton.type = 'button';
+  auditButton.className = 'sniper-audit-btn';
+  auditButton.textContent = 'Auditoria profunda: web, X y cadena';
+  const auditBody = document.createElement('div');
+  auditBody.className = 'sniper-audit-body';
+  auditBody.hidden = true;
+  let auditCache = null;
+
+  const levelIcon = level => level === 'critical' ? '✕' : level === 'high' ? '✕' : level === 'medium' ? '!' : '·';
+
+  const renderAudit = data => {
+    auditBody.replaceChildren();
+    const block = (title, lines, flags) => {
+      const section = document.createElement('section');
+      section.className = 'sniper-audit-section';
+      const heading = document.createElement('strong');
+      heading.textContent = title;
+      section.append(heading);
+      for (const line of lines) {
+        const row = document.createElement('div');
+        row.className = 'sniper-audit-row';
+        row.innerHTML = line;
+        section.append(row);
+      }
+      for (const flag of flags || []) {
+        const row = document.createElement('div');
+        row.className = 'sniper-audit-flag ' + flag.level;
+        row.textContent = levelIcon(flag.level) + ' ' + flag.text;
+        section.append(row);
+      }
+      return section;
+    };
+    const site = data.website || {};
+    const x = data.x || {};
+    const chain = data.chain || {};
+    auditBody.append(block('Web', [
+      'URL: ' + (site.url ? '<a href="' + site.url + '" target="_blank" rel="noopener noreferrer">' + (site.domain || site.url) + '</a>' : 'no publica web'),
+      'Estado: ' + (site.ok ? 'responde' : 'no responde') + (site.title ? ' · ' + site.title.slice(0, 60) : ''),
+      'Enlaza X del token: ' + (site.hasXLink ? 'si' : 'no')
+    ], site.flags));
+    auditBody.append(block('Cuenta de X', [
+      'Cuenta: ' + (x.handle ? '<a href="https://x.com/' + x.handle + '" target="_blank" rel="noopener noreferrer">@' + x.handle + '</a>' : 'no publicada'),
+      'Antiguedad: ' + (Number.isFinite(x.joinedDays) ? x.joinedDays + ' dias' : '—') + ' · Seguidores: ' + (Number.isFinite(x.followers) ? x.followers.toLocaleString('en-US') : '—'),
+      'Tweets: ' + (Number.isFinite(x.tweets) ? x.tweets : '—') + ' · Verificada: ' + (x.verified ? 'si' : 'no')
+    ], x.flags));
+    auditBody.append(block('Cadena (muestra reciente)', [
+      'Transacciones analizadas: ' + (chain.sampled ?? 0),
+      'Compras: ' + (chain.buys ?? 0) + ' · Ventas: ' + (chain.sells ?? 0),
+      'Carteras distintas: ' + (chain.uniqueTraders ?? 0) + ' · SOL comprado: ' + (chain.solVolume ?? 0),
+      'Quemas detectadas: ' + (chain.burns ?? 0) + (chain.burnAmount ? ' · cantidad ' + chain.burnAmount : '')
+    ], chain.flags));
+    if (data.penaltyScore) {
+      const summary = document.createElement('div');
+      summary.className = 'sniper-audit-summary';
+      summary.textContent = 'Penalizacion adicional estimada: ' + data.penaltyScore + '/100';
+      auditBody.append(summary);
+    }
+  };
+
+  auditButton.addEventListener('click', async () => {
+    auditBody.hidden = false;
+    if (auditCache) { renderAudit(auditCache); return; }
+    auditButton.disabled = true;
+    auditButton.textContent = 'Analizando web, X y cadena...';
+    try {
+      const response = await fetch(base + '/api/sniper-audit?x=' + Date.now(), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ mint: item.mint, poolAddress: item.poolAddress, symbol: item.symbol, socials: item.socials || [], websites: item.websites || [] })
+      });
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      auditCache = await response.json();
+      renderAudit(auditCache);
+      auditButton.textContent = 'Actualizar auditoria';
+    } catch (error) {
+      auditBody.replaceChildren();
+      const row = document.createElement('div');
+      row.className = 'sniper-audit-flag high';
+      row.textContent = 'No se pudo auditar: ' + (error?.message || error);
+      auditBody.append(row);
+      auditButton.textContent = 'Reintentar auditoria';
+    } finally {
+      auditButton.disabled = false;
+    }
+  });
+
+  auditBox.append(auditButton, auditBody);
+  article.append(auditBox);
+
   return article;
 }
 
