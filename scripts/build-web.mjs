@@ -44,6 +44,7 @@ const assets = [
 ];
 
 await mkdir(output, { recursive: true });
+
 await emptyDirectory(output);
 
 for (const asset of assets) {
@@ -191,6 +192,16 @@ await cp(resolve(root, "lib", "wallet-standard-registry.js"), resolve(output, "l
 await cp(resolve(root, "lib", "fair-launch-boost.js"), resolve(output, "lib", "fair-launch-boost.js"));
 await cp(resolve(root, "lib", "fair-launch-locales.js"), resolve(output, "lib", "fair-launch-locales.js"));
 
+// Sniper trading bundle: Phantom signing needs the Solana transaction classes.
+await build({
+  entryPoints: [resolve(root, "sniper-trade.js")],
+  bundle: true,
+  format: "iife",
+  platform: "browser",
+  target: ["es2020"],
+  outfile: resolve(output, "sniper-trade.js"),
+  legalComments: "none"
+});
 console.log(`Prepared ${assets.length} web assets in www.`);
 
 async function emptyDirectory(directory) {

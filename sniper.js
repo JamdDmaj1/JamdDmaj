@@ -143,6 +143,123 @@ function card(item) {
     scams.append(ok);
   }
 
+  const trade = document.createElement('div');
+  trade.className = 'sniper-trade';
+  const quick = document.createElement('div');
+  quick.className = 'sniper-quick';
+  const amounts = [0.05, 0.1, 0.25, 0.5];
+  const quoteLine = document.createElement('div');
+  quoteLine.className = 'sniper-quote';
+  quoteLine.textContent = 'Elige un importe para ver el precio en vivo.';
+  const statusLine = document.createElement('div');
+  statusLine.className = 'sniper-trade-status';
+  const buyButton = document.createElement('button');
+  buyButton.type = 'button';
+  buyButton.className = 'sniper-buy';
+  buyButton.textContent = 'Comprar';
+  const sellButton = document.createElement('button');
+  sellButton.type = 'button';
+  sellButton.className = 'sniper-sell';
+  sellButton.textContent = 'Vender todo';
+
+  let solAmount = 0.1;
+  let latestQuote = null;
+  let quoteAt = 0;
+  let quoteToken = 0;
+
+  const trade$ = () => globalThis.JamdSniperTrade;
+  const setQuoteLine = text => { quoteLine.textContent = text; };
+  const setStatus = text => { statusLine.textContent = text; };
+
+  const refreshQuote = async (force) => {
+    const api = trade$();
+    if (!api || !api.provider()) { setQuoteLine('Phantom no está disponible en este navegador.'); return; }
+    const token = ++quoteToken;
+    try {
+      const data = await api.quote({ mint: item.mint, solAmount, slippageBps: 120 });
+      if (token !== quoteToken) return;
+      latestQuote = data;
+      quoteAt = Date.now();
+      const out = Number(data.outAmount || 0);
+      const decimals = Number.isInteger(item.decimals) ? item.decimals : 6;
+      const tokens = out / Math.pow(10, decimals);
+      setQuoteLine(solAmount + ' SOL ≈ ' + tokens.toLocaleString('en-US', { maximumFractionDigits: 2 }) + ' ' + (item.symbol || '') + ' · impacto ' + (Number(data.priceImpactPct) * 100).toFixed(2) + '%' + (data.routes?.length ? ' · ' + data.routes.join('/') : ''));
+    } catch (error) {
+      if (token === quoteToken) setQuoteLine('Sin ruta ahora mismo: ' + (error?.message || error));
+    }
+  };
+
+  const preset = value => {
+    solAmount = value;
+    for (const button of quick.querySelectorAll('button')) button.classList.toggle('active', Number(button.dataset.amount) === value);
+    setStatus('');
+    void refreshQuote(false);
+  };
+  for (const amount of amounts) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.amount = String(amount);
+    button.textContent = amount + ' SOL';
+    button.addEventListener('click', () => preset(amount));
+    quick.append(button);
+  }
+  const custom = document.createElement('input');
+  custom.type = 'number';
+  custom.step = '0.01';
+  custom.min = '0.005';
+  custom.placeholder = 'otro';
+  custom.className = 'sniper-amount';
+  custom.addEventListener('change', () => { const value = Number(custom.value); if (value > 0) preset(value); });
+  quick.append(custom);
+
+  buyButton.addEventListener('click', async () => {
+    const api = trade$();
+    if (!api) { setStatus('Recarga la página para cargar el módulo de compra.'); return; }
+    try {
+      if (!api.provider()) { setStatus('Phantom no está instalado. Instálalo o abre esta página dentro de Phantom.'); return; }
+      buyButton.disabled = true;
+      if (!api.key()) { setStatus('Conectando Phantom…'); await api.connect(); }
+      if (!latestQuote || Date.now() - quoteAt > 4000) { setStatus('Actualizando precio…'); await refreshQuote(true); }
+      setStatus('Firmando en Phantom…');
+      const result = await api.buy({ mint: item.mint, solAmount, slippageBps: 120 });
+      setStatus('Compra enviada: ' + result.signature.slice(0, 10) + '…');
+      const link = document.createElement('a');
+      link.href = 'https://solscan.io/tx/' + result.signature;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = 'ver en Solscan';
+      statusLine.append(' ', link);
+    } catch (error) {
+      const code = String(error?.message || error);
+      setStatus(code === 'phantom-missing' ? 'Phantom no está disponible aquí.' : 'No se pudo comprar: ' + code);
+    } finally {
+      buyButton.disabled = false;
+    }
+  });
+
+  sellButton.addEventListener('click', async () => {
+    const api = trade$();
+    if (!api) { setStatus('Recarga la página para cargar el módulo de venta.'); return; }
+    try {
+      if (!api.provider()) { setStatus('Phantom no está disponible aquí.'); return; }
+      sellButton.disabled = true;
+      if (!api.key()) { setStatus('Conectando Phantom…'); await api.connect(); }
+      setStatus('Leyendo tu saldo…');
+      const result = await api.sellAll({ mint: item.mint, slippageBps: 150 });
+      setStatus('Venta enviada: ' + result.signature.slice(0, 10) + '…');
+    } catch (error) {
+      const code = String(error?.message || error);
+      setStatus(code === 'no-balance' ? 'No tienes este token en la wallet conectada.' : 'No se pudo vender: ' + code);
+    } finally {
+      sellButton.disabled = false;
+    }
+  });
+
+  const warning = document.createElement('small');
+  warning.className = 'sniper-warning';
+  warning.textContent = 'Operacion real con tu wallet. Revisa el impacto de precio antes de firmar; el mercado puede moverse.';
+  trade.append(quick, quoteLine, statusLine, buyButton, sellButton, warning);
+
   const links = document.createElement('div');
   links.className = 'sniper-links';
   for (const social of item.socials || []) {
@@ -168,7 +285,7 @@ function card(item) {
 
   article.append(top, scores, meta, liquidity, checks);
   if (factors.children.length) article.append(factors);
-  article.append(scams, links);
+  article.append(scams, trade, links);
   return article;
 }
 

@@ -123,6 +123,7 @@ function auditToken(report, pool, votes, dexPair) {
   const verdict = safety <= 30 ? 'ALTO RIESGO' : safety <= 55 ? 'MEDIO' : safety <= 75 ? 'PRUDENCIA' : 'MEJOR PERFIL';
   return {
     score: safety, verdict, checks, top10, insiders, lpLockedPct, liquidity, holders, ageMinutes,
+    decimals: num(report?.token?.decimals) ?? 6,
     creatorPct: creatorPct === null ? null : Number(creatorPct.toFixed(2)),
     liquidityRisk, liquidityLabel,
     growth: { score: growth, label: growthLabel, factors },
