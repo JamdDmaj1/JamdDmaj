@@ -2,7 +2,7 @@ const $ = id => document.getElementById(id);
 const base = globalThis.Capacitor?.isNativePlatform?.() ? 'https://www.jamddmaj.com' : '';
 const state = { items: [], data: {}, updatedAt: null, loading: false, usd: 5, solPrice: null, solPriceAt: 0, tab: 'new' };
 const favorites = new Map();
-try { for (const entry of JSON.parse(localStorage.getItem('jamd-sniper-favs') || '[]')) if (entry?.mint) favorites.set(entry.mint, entry); } catch {}
+try { for (const entry of JSON.parse(localStorage.getItem('jamd-sniper-favs') || '[]')) if (entry?.mint && Number(entry.savedAt) > 0) favorites.set(entry.mint, entry); } catch {}
 const saveFavorites = () => { try { localStorage.setItem('jamd-sniper-favs', JSON.stringify([...favorites.values()])); } catch {} };
 const history = [];
 try { history.push(...JSON.parse(localStorage.getItem('jamd-sniper-history') || '[]')); } catch {}
@@ -297,7 +297,7 @@ function card(item) {
   star.addEventListener('click', event => {
     event.stopPropagation();
     if (favorites.has(item.mint)) favorites.delete(item.mint);
-    else favorites.set(item.mint, item);
+    else favorites.set(item.mint, { ...item, savedAt: Date.now() });
     saveFavorites();
     star.textContent = favorites.has(item.mint) ? '★' : '☆';
     star.classList.toggle('active', favorites.has(item.mint));
@@ -530,7 +530,7 @@ function card(item) {
   chart.textContent = 'Grafico';
   links.append(search, chart);
 
-  article.append(top, cats, scores, liquidity, checks);
+  article.append(top, cats, actions, scores, liquidity, checks);
   if (factors.children.length) article.append(factors);
   article.append(contract, meta, scams, tradePanel(item), chartBox, trades, auditPanel(item), links);
   return article;

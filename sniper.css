@@ -152,3 +152,7 @@
 
 .sniper-cats{display:flex;flex-wrap:wrap;gap:5px;margin:2px 0 6px}
 .sniper-cats span{font-size:10px;padding:2px 8px;border-radius:999px;background:#0f1f2a;border:1px solid #22384c;color:#9cc9ff}
+
+.sniper-actions{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 2px}
+.sniper-remove{padding:4px 9px;border-radius:999px;border:1px solid #5a2430;background:#241418;color:#ffb3c0;font-size:10px;cursor:pointer}
+.sniper-clear-favs{padding:6px 12px;border-radius:9px;border:1px solid #5a2430;background:#241418;color:#ffb3c0;font-size:11px;cursor:pointer}
