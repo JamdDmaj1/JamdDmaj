@@ -134,9 +134,12 @@ export default async function handler(request) {
   }
   if (!evidence.length) evidence.push({ type: 'info', text: 'Sin causa visible en los datos publicos: el movimiento no viene acompanado de volumen, compras grandes ni marketing.' });
 
+  const rugLikely = (move5 !== null && move5 <= -60 && (sells1 >= buys1 || sells5 >= buys5)) || (liquidity !== null && liquidity < 600 && move5 !== null && move5 <= -40);
+  if (rugLikely) evidence.unshift({ type: 'bad', text: 'Patron de rug pull: caida vertical con ventas dominantes y liquidez minima' });
   const positives = evidence.filter(item => item.type === 'good').length;
   const negatives = evidence.filter(item => item.type === 'bad').length;
-  const summary = positives > negatives
+  const summary = rugLikely ? 'Posible rug pull: la liquidez y el precio se han roto'
+    : positives > negatives
     ? 'Movimiento con compras y actividad por encima de lo normal'
     : negatives > positives
       ? 'Movimiento con presion vendedora o deterioro'
@@ -145,6 +148,7 @@ export default async function handler(request) {
   const value = {
     observedAt: Date.now(),
     symbol,
+    rugLikely,
     summary,
     evidence: evidence.slice(0, 8),
     changes: { m5: move5, h1: move1, h6: move6, h24: move24 },

@@ -1149,10 +1149,38 @@ if (usdInput) {
     return dock;
   };
 
+  const markRugged = (mint, detail) => {
+    const card = document.querySelector('[data-mint="' + mint + '"]');
+    if (!card || card.classList.contains('rugged')) return;
+    card.classList.add('rugged');
+    const banner = document.createElement('div');
+    banner.className = 'sniper-rug-banner';
+    banner.textContent = 'RUG PULL DETECTADO: ' + detail;
+    card.prepend(banner);
+    const badgeNode = card.querySelector('.sniper-badge');
+    if (badgeNode) { badgeNode.textContent = 'RUG'; badgeNode.className = 'sniper-badge alto'; }
+  };
   const evaluate = (mint, symbol, info) => {
-    const meta = { mint };
     if (!info) return;
+    const meta = { mint };
     const previous = snap.get(mint) || null;
+    const drop5 = Number(info.change5m);
+    const beforeLiq = Number(previous?.liquidityUsd);
+    const nowLiq = Number(info.liquidityUsd);
+    const drainPct = Number.isFinite(beforeLiq) && beforeLiq > 0 && Number.isFinite(nowLiq) ? ((nowLiq - beforeLiq) / beforeLiq) * 100 : null;
+    const sellers = Number(info.sells5m) || 0;
+    const buyers = Number(info.buys5m) || 0;
+    const rugged = (drainPct !== null && drainPct <= -45) || (Number.isFinite(drop5) && drop5 <= -60 && sellers >= buyers);
+    if (rugged && previous) {
+      const detail = [];
+      if (drainPct !== null) detail.push('liquidez ' + drainPct.toFixed(0) + '%');
+      if (Number.isFinite(drop5)) detail.push('precio ' + drop5.toFixed(0) + '% en 5 min');
+      if (sellers || buyers) detail.push(sellers + ' ventas / ' + buyers + ' compras');
+      push('rug', symbol, 'RUG PULL: ' + detail.join(' · '), meta);
+      markRugged(mint, detail.join(' · '));
+    }
+    if (!info) return;
+    
     if (previous) {
       const beforeLiquidity = Number(previous.liquidityUsd);
       const nowLiquidity = Number(info.liquidityUsd);
