@@ -93,7 +93,21 @@ export default async function handler(request) {
   }
 }
 
-async function sendSignalMirror(token, primaryChatId, signalChannelId, text) {
+export async function sendSignalMirror(token, primaryChatId, signalChannelId, text) {
+  const list = String(process.env.TELEGRAM_SIGNAL_TARGETS || "").split(",").map(value => value.trim()).filter(Boolean);
+  if (list.length) {
+    const results = [];
+    for (const entry of list) {
+      const [chat, thread] = entry.split(":");
+      try {
+        await sendTelegram(token, chat, text, thread ? Number(thread) : null);
+        results.push({ chat, thread: thread || null, sent: true });
+      } catch (error) {
+        results.push({ chat, thread: thread || null, sent: false, error: String(error?.message || error).slice(0, 120) });
+      }
+    }
+    return { mirrorConfigured: true, mirrorSent: results.some(item => item.sent), targets: results };
+  }
   const targetChat = String(process.env.TELEGRAM_SIGNAL_CHAT_ID || signalChannelId || "").trim();
   const targetThread = Number(process.env.TELEGRAM_SIGNAL_THREAD_ID || 0) || null;
   if (!targetChat || (targetChat === primaryChatId && !targetThread)) {
