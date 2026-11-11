@@ -8,9 +8,7 @@ test('updates choose the highest published APK version, not the last workflow to
  globalThis.fetch=async()=>Response.json([release('v1.38.11'),release('v1.38.12'),release('v1.38.13',{draft:true}),release('v1.38.14',{assets:[]})]);
  try{
   const r=await handler(new Request('https://www.jamddmaj.com/api/status'));const v=await r.json();
-  const published='1.38.12';
-  const expected=compare(published,FALLBACK_VERSION)>=0?published:FALLBACK_VERSION;
-  assert.equal(v.latestVersion,expected);
-  if(expected===published)assert.match(v.apkUrl,/v1\.38\.12/);else assert.match(v.apkUrl,/releases\/latest\/download\/JamdDmaj-AI\.apk/);
+  assert.equal(v.latestVersion,'1.38.12');
+  assert.match(v.apkUrl,/v1\.38\.12/);
  }finally{globalThis.fetch=original;}
 });
