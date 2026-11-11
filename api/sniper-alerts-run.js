@@ -95,7 +95,7 @@ async function sendTelegramTo(chat, text) {
     const response = await fetch('https://api.telegram.org/bot' + token + '/sendMessage', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ chat_id: chat, text, disable_web_page_preview: true }),
+      body: JSON.stringify({ chat_id: chat, text, disable_web_page_preview: true, ...(process.env.TELEGRAM_SNIPER_THREAD ? { message_thread_id: Number(process.env.TELEGRAM_SNIPER_THREAD) } : {}) }),
       signal: AbortSignal.timeout(8000)
     });
     return response.ok;
