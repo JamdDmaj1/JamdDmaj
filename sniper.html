@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sniper · JamdDmaj</title>
+<meta name="description" content="Analisis automatico de tokens nuevos en Solana: emision, congelacion, liquidez bloqueada, concentracion de holders y liquidez real.">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="app-polish.css">
+<link rel="stylesheet" href="sniper.css">
+</head>
+<body class="sniper-body">
+<main class="sniper-shell">
+  <header class="sniper-header">
+    <div>
+      <span class="sniper-kicker">JamdDmaj · Sniper</span>
+      <h1>Tokens nuevos bajo lupa</h1>
+      <p class="sniper-lead">Analisis automatico de datos publicos: emision y congelacion de la autoridad, liquidez bloqueada, concentracion de holders, liquidez real y senales de riesgo del mercado.</p>
+    </div>
+    <a class="sniper-back" href="/">Volver</a>
+  </header>
+
+  <section class="sniper-controls" aria-label="Filtros">
+    <button id="sniperRefresh" type="button">Analizar ahora</button>
+    <label>Minimo de seguridad
+      <select id="sniperMin">
+        <option value="0">Todos</option>
+        <option value="55" selected>Medio o mejor</option>
+        <option value="75">Mejor perfil</option>
+      </select>
+    </label>
+    <label class="sniper-check"><input id="sniperHideHigh" type="checkbox" checked> Ocultar alto riesgo</label>
+    <input id="sniperSearch" type="search" placeholder="Buscar simbolo" autocomplete="off">
+    <span id="sniperUpdated" class="sniper-updated"></span>
+  </section>
+
+  <p id="sniperStatus" class="sniper-status" role="status" aria-live="polite">Cargando tokens nuevos...</p>
+  <section id="sniperGrid" class="sniper-grid" aria-live="polite"></section>
+
+  <footer class="sniper-footer">
+    <p><strong>Aviso:</strong> esta herramienta no garantiza que un token sea seguro ni rentable. La verificacion de cuentas de X requiere una API externa de pago; aqui solo se muestran los enlaces publicados por el token para que puedas revisarlos tu mismo.</p>
+    <p>Fuentes: GeckoTerminal (pools nuevos), RugCheck (autoridades, holders, LP) y DexScreener (redes).</p>
+  </footer>
+</main>
+<script src="sniper.js"></script>
+</body>
+</html>
