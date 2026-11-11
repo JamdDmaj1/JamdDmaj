@@ -565,6 +565,63 @@ if (usdInput) {
     } catch {}
   };
 
+  const SOCIAL_KEY = 'jamd-sniper-social';
+  let socialSnap = {};
+  try { socialSnap = JSON.parse(localStorage.getItem(SOCIAL_KEY) || '{}'); } catch {}
+  const saveSocial = () => { try { localStorage.setItem(SOCIAL_KEY, JSON.stringify(socialSnap)); } catch {} };
+
+  const pollSocial = async () => {
+    const items = [...watch.values()].filter(entry => entry.mint).slice(0, 8);
+    if (!items.length) return;
+    try {
+      const response = await fetch(base + '/api/sniper-social?x=' + Date.now(), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ items: items.map(entry => ({ mint: entry.mint, symbol: entry.symbol, handle: entry.handle || null })) })
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      for (const entry of items) {
+        const info = data.items?.[entry.mint];
+        if (!info) continue;
+        const previous = socialSnap[entry.mint] || null;
+        const symbol = entry.symbol || entry.mint.slice(0, 4);
+        if (previous) {
+          const profile = info.x || {};
+          const beforeProfile = previous.x || {};
+          if (beforeProfile.exists && !profile.exists) push('bad', symbol, 'La cuenta de X @' + (entry.handle || '') + ' desaparecio o fue suspendida');
+          if (profile.exists && Number.isFinite(profile.followers) && Number.isFinite(beforeProfile.followers) && beforeProfile.followers > 0) {
+            const delta = (profile.followers - beforeProfile.followers) / beforeProfile.followers;
+            if (delta >= 0.05) push('good', symbol, 'Seguidores en X +' + (delta * 100).toFixed(1) + '% (' + profile.followers + ')');
+            else if (delta <= -0.05) push('bad', symbol, 'Seguidores en X ' + (delta * 100).toFixed(1) + '% (' + profile.followers + ')');
+          }
+          if (Number.isFinite(profile.tweets) && Number.isFinite(beforeProfile.tweets)) {
+            const posted = profile.tweets - beforeProfile.tweets;
+            if (posted >= 2) push('info', symbol, 'La cuenta de X publico ' + posted + ' mensajes nuevos');
+          }
+          const down = Number(info.votes?.down) || 0;
+          const beforeDown = Number(previous.votes?.down) || 0;
+          if (down - beforeDown >= 3) push('bad', symbol, 'Votos negativos en la comunidad +' + (down - beforeDown) + ' (total ' + down + ')');
+          const up = Number(info.votes?.up) || 0;
+          const beforeUp = Number(previous.votes?.up) || 0;
+          if (up - beforeUp >= 3) push('good', symbol, 'Votos positivos en la comunidad +' + (up - beforeUp) + ' (total ' + up + ')');
+          const scam = Number(info.search?.scam) || 0;
+          const beforeScam = Number(previous.search?.scam) || 0;
+          if (scam >= 3 && scam - beforeScam >= 2) push('bad', symbol, scam + ' resultados publicos lo llaman scam (antes ' + beforeScam + ')');
+          else if (scam >= 5 && beforeScam < 5) push('bad', symbol, 'Ya hay ' + scam + ' resultados que lo llaman scam');
+        }
+        socialSnap[entry.mint] = info;
+      }
+      saveSocial();
+    } catch {}
+  };
+
+  let socialTimer = null;
+  const scheduleSocial = () => {
+    clearInterval(socialTimer);
+    socialTimer = setInterval(() => { void pollSocial(); }, 90000);
+  };
+
   const schedule = () => {
     clearInterval(timer);
     const interval = document.hidden ? 25000 : 8000;
@@ -583,7 +640,7 @@ if (usdInput) {
     control.addEventListener('click', event => {
       event.stopPropagation();
       if (watch.has(item.mint)) watch.delete(item.mint);
-      else watch.set(item.mint, { mint: item.mint, symbol: item.symbol, pool: item.poolAddress });
+      else watch.set(item.mint, { mint: item.mint, symbol: item.symbol, pool: item.poolAddress, handle: (item.socials || []).find(social => /twitter|x/i.test(String(social.type || '')))?.handle || null });
       persist();
       sync();
       ensureDock();
@@ -598,7 +655,9 @@ if (usdInput) {
   globalThis.SniperRadar = { button };
   ensureDock();
   schedule();
+  scheduleSocial();
   void poll();
+  void pollSocial();
 })();
 
 $('sniperRefresh').addEventListener('click', load);

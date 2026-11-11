@@ -114,3 +114,5 @@
 .radar-follow{padding:4px 9px;border-radius:999px;border:1px solid #2b4257;background:#132234;color:#cfe1f5;font-size:10px;cursor:pointer}
 .radar-follow.active{border-color:#2fbf8f;color:#7ef0cf}
 @media(max-width:640px){.radar-dock{right:8px;left:8px;width:auto;max-height:38vh}}
+.radar-alert.info{border-color:#4c8fd6}
+.radar-alert.info span{color:#9cc9ff}
