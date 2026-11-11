@@ -88,14 +88,15 @@ function destinations() {
   return [String(process.env.TELEGRAM_CHAT_ID || '').trim()].filter(Boolean);
 }
 
-async function sendTelegramTo(chat, text) {
+async function sendTelegramTo(target, text) {
+  const [chat, thread] = String(target).split(':');
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token || !chat) return false;
   try {
     const response = await fetch('https://api.telegram.org/bot' + token + '/sendMessage', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ chat_id: chat, text, disable_web_page_preview: true, ...(process.env.TELEGRAM_SNIPER_THREAD ? { message_thread_id: Number(process.env.TELEGRAM_SNIPER_THREAD) } : {}) }),
+      body: JSON.stringify({ chat_id: chat, text, disable_web_page_preview: true, ...(thread ? { message_thread_id: Number(thread) } : {}) }),
       signal: AbortSignal.timeout(8000)
     });
     return response.ok;
