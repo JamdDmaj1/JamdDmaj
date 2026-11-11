@@ -82,9 +82,14 @@ async function scamMentions(symbol) {
   return { total: items.length, scam };
 }
 
-async function sendTelegram(text) {
+function destinations() {
+  const configured = String(process.env.TELEGRAM_SNIPER_CHATS || '').split(',').map(value => value.trim()).filter(Boolean);
+  if (configured.length) return configured;
+  return [String(process.env.TELEGRAM_CHAT_ID || '').trim()].filter(Boolean);
+}
+
+async function sendTelegramTo(chat, text) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
-  const chat = process.env.TELEGRAM_CHAT_ID;
   if (!token || !chat) return false;
   try {
     const response = await fetch('https://api.telegram.org/bot' + token + '/sendMessage', {
@@ -97,6 +102,13 @@ async function sendTelegram(text) {
   } catch { return false; }
 }
 
+async function sendTelegram(text) {
+  const targets = destinations();
+  const results = [];
+  for (const chat of targets) results.push({ chat, sent: await sendTelegramTo(chat, text) });
+  return { any: results.some(item => item.sent), results };
+}
+
 export default async function handler(request) {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(request) });
   const secret = String(process.env.SNIPER_ALERTS_TOKEN || process.env.JAMDDMAJ_CRON_SECRET || '');
@@ -106,8 +118,8 @@ export default async function handler(request) {
     return jsonResponse(request, { error: { message: 'Forbidden' } }, 403);
   }
   if (url.searchParams.get('test') === '1') {
-    const sent = await sendTelegram('Prueba de alertas de JamdDmaj Sniper. Si recibes esto, la vigilancia en la nube funciona.');
-    return jsonResponse(request, { test: true, telegram: sent });
+    const delivery = await sendTelegram('Prueba de alertas de JamdDmaj Sniper. Si recibes esto, la vigilancia en la nube funciona.');
+    return jsonResponse(request, { test: true, telegram: delivery.any, chats: delivery.results });
   }
 
   const devices = await listDevices();
@@ -207,9 +219,9 @@ export default async function handler(request) {
   const delivered = [];
   for (const alert of alerts) {
     const prefix = alert.kind === 'rug' ? '🚨 ' : alert.kind === 'pump' ? '📈 ' : alert.kind === 'listing' ? '🔔 ' : alert.kind === 'boost' ? '📣 ' : alert.kind === 'x' ? '💬 ' : '⚠️ ';
-    const sent = await sendTelegram(prefix + alert.text + '\nhttps://www.jamddmaj.com/sniper.html');
-    delivered.push({ ...alert, telegram: sent });
-    await logAlert({ ...alert, at: Date.now(), telegram: sent });
+    const delivery = await sendTelegram(prefix + alert.text + '\nhttps://www.jamddmaj.com/sniper.html');
+    delivered.push({ ...alert, telegram: delivery.any, chats: delivery.results });
+    await logAlert({ ...alert, at: Date.now(), telegram: delivery.any, chats: delivery.results });
   }
 
   return jsonResponse(request, { observedAt: Date.now(), watched: mints.length, devices: devices.length, alerts: delivered });
