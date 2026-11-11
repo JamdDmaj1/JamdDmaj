@@ -194,6 +194,15 @@ await cp(resolve(root, "lib", "fair-launch-locales.js"), resolve(output, "lib", 
 
 // Sniper trading bundle: Phantom signing needs the Solana transaction classes.
 await build({
+  entryPoints: [resolve(root, "sniper-share.js")],
+  bundle: true,
+  format: "iife",
+  platform: "browser",
+  target: ["es2020"],
+  outfile: resolve(output, "sniper-share.js"),
+  legalComments: "none"
+});
+await build({
   entryPoints: [resolve(root, "sniper-trade.js")],
   bundle: true,
   format: "iife",

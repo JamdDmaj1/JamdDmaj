@@ -140,3 +140,12 @@
 .sniper-tab.active{border-color:#2fbf8f;color:#7ef0cf;background:#0f1f2a}
 .sniper-star{width:26px;height:26px;border-radius:999px;border:1px solid #2b4257;background:#132234;color:#8ea5bd;cursor:pointer;font-size:14px;line-height:1}
 .sniper-star.active{color:#ffd166;border-color:#8a6a2a}
+
+.sniper-share-btn{padding:8px 12px;border-radius:9px;border:1px solid #2b4257;background:#132234;color:#cfe1f5;font-size:11px;cursor:pointer;margin-top:6px;align-self:flex-start}
+.sniper-share-btn:hover{border-color:#2fbf8f;color:#7ef0cf}
+.sniper-history-row{display:grid;grid-template-columns:70px 90px 90px 1fr 1fr 1fr auto auto;gap:8px;align-items:center;border:1px solid #1b2b3c;border-radius:10px;background:#0a1423;padding:8px 10px;font-size:11px;color:#9ab2ca}
+.sniper-history-row b.buy{color:#7ef0cf}
+.sniper-history-row b.sell{color:#ffb3c0}
+.sniper-history-row strong{color:#e8f1fa}
+.sniper-history-row small{color:#6f89a4}
+@media(max-width:720px){.sniper-history-row{grid-template-columns:64px 1fr 1fr auto;grid-auto-rows:auto}.sniper-history-row span:nth-child(4),.sniper-history-row span:nth-child(5){display:none}}

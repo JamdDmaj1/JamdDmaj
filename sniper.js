@@ -4,6 +4,10 @@ const state = { items: [], data: {}, updatedAt: null, loading: false, usd: 5, so
 const favorites = new Map();
 try { for (const entry of JSON.parse(localStorage.getItem('jamd-sniper-favs') || '[]')) if (entry?.mint) favorites.set(entry.mint, entry); } catch {}
 const saveFavorites = () => { try { localStorage.setItem('jamd-sniper-favs', JSON.stringify([...favorites.values()])); } catch {} };
+const history = [];
+try { history.push(...JSON.parse(localStorage.getItem('jamd-sniper-history') || '[]')); } catch {}
+const saveHistory = () => { try { localStorage.setItem('jamd-sniper-history', JSON.stringify(history.slice(0, 300))); } catch {} };
+const recordTrade = entry => { history.unshift({ ...entry, at: entry.at || Date.now() }); saveHistory(); if (globalThis.paintTabs) globalThis.paintTabs(); };
 try { const saved = Number(JSON.parse(localStorage.getItem('jamd-sniper-usd') || 'null')); if (saved > 0) state.usd = saved; } catch {}
 
 const marks = { ok: '✓', high: '✕', critical: '✕', medium: '!', low: '·' };
@@ -68,6 +72,8 @@ function tradePanel(item, setStatusHook) {
   let solAmount = 0.1;
   let quoteAt = 0;
   let quoteToken = 0;
+  const decimalsOf = () => Number.isInteger(item.decimals) ? item.decimals : 6;
+  const logTrade = (side, extra) => recordTrade({ mint: item.mint, symbol: item.symbol, side, venue: item.venue, priceUsd: item.priceUsd, mcap: item.marketCapUsd, tokens: extra.tokens || 0, usd: extra.usd || 0, sol: extra.sol || 0, tx: extra.tx || '' });
 
   const setStatus = text => { statusLine.textContent = text; if (setStatusHook) setStatusHook(text); };
   const report = signature => {
@@ -120,6 +126,7 @@ function tradePanel(item, setStatusHook) {
       const sol = state.usd / price;
       setStatus('Cotizando ' + state.usd + ' USD (' + sol.toFixed(4) + ' SOL)...');
       const result = await api().buy({ mint: item.mint, solAmount: sol, slippageBps: 150 });
+      logTrade('buy', { tokens: Number(result.outAmount) / Math.pow(10, decimalsOf()), usd: state.usd, sol, tx: result.signature });
       report(result.signature);
     } catch (error) {
       const text = String(error?.message || error);
@@ -139,6 +146,7 @@ function tradePanel(item, setStatusHook) {
       if (!quoteAt || Date.now() - quoteAt > 4000) await refreshQuote();
       setStatus('Firmando en Phantom...');
       const result = await api().buy({ mint: item.mint, solAmount, slippageBps: 120 });
+      logTrade('buy', { tokens: Number(result.outAmount) / Math.pow(10, decimalsOf()), usd: solAmount * (state.solPrice || 0), sol: solAmount, tx: result.signature });
       report(result.signature);
     } catch (error) {
       setStatus('No se pudo comprar: ' + (error?.message || error));
@@ -155,6 +163,7 @@ function tradePanel(item, setStatusHook) {
       if (!api().key()) { setStatus('Conectando Phantom...'); await api().connect(); }
       setStatus('Leyendo tu saldo...');
       const result = await api().sellAll({ mint: item.mint, slippageBps: 150 });
+      logTrade('sell', { tokens: Number(result.rawAmount) / Math.pow(10, decimalsOf()), usd: (Number(result.outAmount) / 1e9) * (state.solPrice || 0), sol: Number(result.outAmount) / 1e9, tx: result.signature });
       report(result.signature);
     } catch (error) {
       const text = String(error?.message || error);
@@ -519,6 +528,8 @@ const TABS = [
   { id: 'safe', label: 'Confiables' },
   { id: 'risk', label: 'Alto riesgo' },
   { id: 'fav', label: 'Favoritos' },
+  { id: 'mine', label: 'Mis tokens' },
+  { id: 'hist', label: 'Historial' },
   { id: 'volume', label: 'Mayor volumen' },
   { id: 'marketcap', label: 'Mayor market cap' }
 ];
@@ -535,6 +546,109 @@ function paintTabs() {
     button.addEventListener('click', () => { void load(tab.id); });
     host.append(button);
   }
+}
+
+const fmtPrice = value => { const number = Number(value); if (!Number.isFinite(number) || number <= 0) return '—'; return number >= 1 ? number.toFixed(4) : number.toPrecision(4); };
+const fmtDate = value => new Date(value).toLocaleString();
+const fmtHold = ms => { if (!Number.isFinite(ms) || ms <= 0) return '—'; const minutes = Math.round(ms / 60000); if (minutes < 60) return minutes + ' min'; const hours = Math.floor(minutes / 60); if (hours < 24) return hours + 'h ' + (minutes % 60) + 'm'; return Math.floor(hours / 24) + 'd ' + (hours % 24) + 'h'; };
+
+function shareTrade(data) {
+  if (!globalThis.JamdShare) { alert('El modulo de compartir todavia no esta cargado.'); return; }
+  const basis = Math.max(0.01, Number(data.basis) || 0.01);
+  const result = Number(data.pnlUsd) || 0;
+  const details = [
+    'Precio: $' + fmtPrice(data.priceUsd),
+    'Market cap: ' + (Number.isFinite(Number(data.mcap)) ? money(Number(data.mcap)) + ' USD' : 'sin dato'),
+    'Fecha: ' + fmtDate(data.at),
+    'Tiempo de hold: ' + fmtHold(data.holdMs)
+  ];
+  globalThis.JamdShare.open({ doc: document, language: 'es', sourceButton: data.button || undefined, isCurrent: () => true, onClose: () => {}, item: { kind: 'SNIPER_TRADE', asset: String(data.symbol || '').toUpperCase(), closedAt: Number(data.at) || Date.now(), performance: { resultUsdcUnits: String(Math.round(result * 1e6)), returnBps: String(Math.round((result / basis) * 10000)), basisUsdcUnits: String(Math.round(basis * 1e6)) }, receivedUsdcUnits: String(Math.round(result * 1e6)), state: 'COMPLETED', details } });
+}
+
+function holdingsList() {
+  const map = new Map();
+  for (const trade of [...history].reverse()) {
+    const tokens = Number(trade.tokens) || 0;
+    if (!map.has(trade.mint)) map.set(trade.mint, { mint: trade.mint, symbol: trade.symbol, tokens: 0, invested: 0, entry: null, firstAt: trade.at, lastPrice: trade.priceUsd, lastMcap: trade.mcap });
+    const row = map.get(trade.mint);
+    if (trade.side === 'buy') {
+      row.tokens += tokens; row.invested += Number(trade.usd) || 0;
+      if (!row.entry && trade.priceUsd) row.entry = Number(trade.priceUsd);
+      row.firstAt = Math.min(row.firstAt || trade.at, trade.at);
+      if (trade.priceUsd) row.lastPrice = trade.priceUsd;
+      if (trade.mcap) row.lastMcap = trade.mcap;
+    } else {
+      row.tokens = Math.max(0, row.tokens - tokens);
+      row.invested = Math.max(0, row.tokens * (row.entry || 0));
+    }
+    if (trade.symbol) row.symbol = trade.symbol;
+  }
+  return [...map.values()].filter(row => row.tokens > 0.0000001);
+}
+
+async function renderHoldings() {
+  const grid = document.getElementById('sniperGrid');
+  const status = document.getElementById('sniperStatus');
+  const rows = holdingsList();
+  grid.replaceChildren();
+  if (!rows.length) { status.textContent = 'Aun no tienes tokens comprados desde Sniper.'; return; }
+  status.textContent = 'Leyendo precios en vivo de ' + rows.length + ' token(es)...';
+  let live = {};
+  try {
+    const response = await fetch(base + '/api/sniper-watch?x=' + Date.now(), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ mints: rows.map(row => row.mint) }) });
+    if (response.ok) live = (await response.json()).items || {};
+  } catch {}
+  for (const row of rows) {
+    const info = live[row.mint] || {};
+    const price = Number(info.priceUsd) || row.lastPrice;
+    const value = price && row.tokens ? price * row.tokens : row.invested;
+    const pnl = value - row.invested;
+    const pct = row.invested > 0 ? (pnl / row.invested) * 100 : 0;
+    const article = document.createElement('article');
+    article.className = 'sniper-card';
+    const top = document.createElement('div'); top.className = 'sniper-card-top';
+    const symbol = document.createElement('span'); symbol.className = 'sniper-symbol'; symbol.textContent = row.symbol || row.mint.slice(0, 6);
+    const badges = document.createElement('div'); badges.className = 'sniper-badges';
+    badges.append(badge((pnl >= 0 ? '+' : '') + pct.toFixed(2) + '%', pnl >= 0 ? 'mejor' : 'alto'));
+    top.append(symbol, badges);
+    const meta = document.createElement('div'); meta.className = 'sniper-metabar';
+    const metaItem = (name, valueText) => { const span = document.createElement('span'); span.innerHTML = name + ' <b>' + valueText + '</b>'; meta.append(span); };
+    metaItem('Invertido', row.invested.toFixed(2) + ' USD');
+    metaItem('Valor', value.toFixed(2) + ' USD');
+    metaItem('Entrada', fmtPrice(row.entry) + ' USD');
+    metaItem('Precio', fmtPrice(price) + ' USD');
+    metaItem('MCap', Number.isFinite(Number(row.lastMcap)) ? money(Number(row.lastMcap)) + ' USD' : 'sin dato');
+    metaItem('Hold', fmtHold(Date.now() - (row.firstAt || Date.now())));
+    const share = document.createElement('button'); share.type = 'button'; share.className = 'sniper-share-btn'; share.textContent = 'Compartir imagen';
+    share.addEventListener('click', () => shareTrade({ symbol: row.symbol, priceUsd: price, mcap: row.lastMcap, at: Date.now(), holdMs: Date.now() - (row.firstAt || Date.now()), pnlUsd: pnl, basis: row.invested, button: share }));
+    article.append(top, meta, share);
+    grid.append(article);
+  }
+  status.textContent = rows.length + ' token(s) en cartera segun tus operaciones.';
+}
+
+function renderHistory() {
+  const grid = document.getElementById('sniperGrid');
+  const status = document.getElementById('sniperStatus');
+  grid.replaceChildren();
+  if (!history.length) { status.textContent = 'Tu historial de Sniper esta vacio.'; return; }
+  for (const trade of history.slice(0, 60)) {
+    const row = document.createElement('div'); row.className = 'sniper-history-row';
+    const side = document.createElement('b'); side.className = trade.side; side.textContent = trade.side === 'buy' ? 'COMPRA' : 'VENTA';
+    const symbol = document.createElement('strong'); symbol.textContent = trade.symbol || '—';
+    const amount = document.createElement('span'); amount.textContent = (Number(trade.usd) ? Number(trade.usd).toFixed(2) : '—') + ' USD';
+    const price = document.createElement('span'); price.textContent = 'Precio ' + fmtPrice(trade.priceUsd) + ' USD';
+    const mcap = document.createElement('span'); mcap.textContent = 'MCap ' + (Number.isFinite(Number(trade.mcap)) ? money(Number(trade.mcap)) : 'sin dato');
+    const date = document.createElement('small'); date.textContent = fmtDate(trade.at);
+    const hold = document.createElement('small');
+    const first = [...history].reverse().find(entry => entry.mint === trade.mint && entry.side === 'buy');
+    hold.textContent = trade.side === 'sell' && first ? 'Hold ' + fmtHold(trade.at - first.at) : '';
+    const share = document.createElement('button'); share.type = 'button'; share.className = 'sniper-share-btn'; share.textContent = 'Compartir';
+    share.addEventListener('click', () => shareTrade({ symbol: trade.symbol, priceUsd: trade.priceUsd, mcap: trade.mcap, at: trade.at, holdMs: trade.side === 'sell' && first ? trade.at - first.at : Date.now() - trade.at, pnlUsd: trade.side === 'sell' ? (Number(trade.usd) || 0) - (Number(trade.invested) || Number(trade.usd) || 0) : 0, basis: Number(trade.invested) || Number(trade.usd) || 1, button: share }));
+    row.append(side, symbol, amount, price, mcap, date, hold, share);
+    grid.append(row);
+  }
+  status.textContent = history.length + ' operacion(es) registradas.';
 }
 
 function render() {
