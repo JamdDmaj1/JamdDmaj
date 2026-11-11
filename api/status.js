@@ -95,7 +95,8 @@ async function resolveLatestRelease() {
     for(const release of releases){
     if(release.draft||release.prerelease||!Array.isArray(release.assets)||!release.assets.some(asset=>asset.name==='JamdDmaj-AI.apk'))continue;
     const githubVersion = cleanVersion(release?.tag_name || release?.name || "");
-    if (githubVersion) {
+    const currentPublished = best.source === "github-release" ? best.latestVersion : "0";
+    if (githubVersion && compareVersions(githubVersion, currentPublished) > 0) {
       const apkAsset = Array.isArray(release.assets)
         ? release.assets.find((asset) => /JamdDmaj-AI\.apk$/i.test(String(asset.name || "")))
         : null;
