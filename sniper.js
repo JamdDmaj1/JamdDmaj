@@ -276,6 +276,7 @@ function card(item) {
   const badges = document.createElement('div');
   badges.className = 'sniper-badges';
   badges.append(badge(item.verdict, verdictClass(item.verdict)), badge('Potencial ' + (item.growth?.label || '—'), growthClass(item.growth?.label)));
+  if (globalThis.SniperRadar) badges.append(globalThis.SniperRadar.button(item));
   top.append(symbol, badges);
 
   const scores = document.createElement('div');
@@ -432,6 +433,174 @@ if (usdInput) {
     render();
   });
 }
+// ---- Radar en vivo: vigila tokens y avisa de cambios buenos y malos ----
+(() => {
+  const WATCH_KEY = 'jamd-sniper-watch';
+  const SNAP_KEY = 'jamd-sniper-snap';
+  const watch = new Map();
+  const snap = new Map();
+  const alerts = [];
+  let timer = null;
+  let dock = null;
+  let listEl = null;
+  let countEl = null;
+
+  try {
+    for (const entry of JSON.parse(localStorage.getItem(WATCH_KEY) || '[]')) if (entry?.mint) watch.set(entry.mint, entry);
+    for (const [mint, value] of Object.entries(JSON.parse(localStorage.getItem(SNAP_KEY) || '{}'))) snap.set(mint, value);
+  } catch {}
+
+  const persist = () => {
+    try { localStorage.setItem(WATCH_KEY, JSON.stringify([...watch.values()])); } catch {}
+    try { localStorage.setItem(SNAP_KEY, JSON.stringify(Object.fromEntries(snap))); } catch {}
+  };
+
+  const stamp = () => new Date().toLocaleTimeString();
+
+  const push = (kind, symbol, text) => {
+    alerts.unshift({ kind, symbol, text, at: stamp() });
+    if (alerts.length > 40) alerts.pop();
+    renderList();
+    try {
+      if (globalThis.Notification && Notification.permission === 'granted') {
+        new Notification(symbol + ' · Radar', { body: text });
+      }
+    } catch {}
+  };
+
+  const renderList = () => {
+    if (!listEl) return;
+    listEl.replaceChildren();
+    if (!alerts.length) {
+      const empty = document.createElement('div');
+      empty.className = 'radar-empty';
+      empty.textContent = watch.size ? 'Sin cambios desde que empezaste a vigilar.' : 'Pulsa "Vigilar" en un token para seguirlo en vivo.';
+      listEl.append(empty);
+      return;
+    }
+    for (const alert of alerts.slice(0, 20)) {
+      const row = document.createElement('div');
+      row.className = 'radar-alert ' + alert.kind;
+      const title = document.createElement('b');
+      title.textContent = alert.symbol + ' · ' + alert.at;
+      const text = document.createElement('span');
+      text.textContent = alert.text;
+      row.append(title, text);
+      listEl.append(row);
+    }
+  };
+
+  const ensureDock = () => {
+    if (dock) return dock;
+    dock = document.createElement('aside');
+    dock.className = 'radar-dock';
+    const head = document.createElement('header');
+    const title = document.createElement('strong');
+    title.textContent = 'Radar en vivo';
+    countEl = document.createElement('span');
+    countEl.className = 'radar-count';
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.textContent = '—';
+    toggle.className = 'radar-toggle';
+    toggle.addEventListener('click', () => { dock.classList.toggle('collapsed'); toggle.textContent = dock.classList.contains('collapsed') ? '+' : '—'; });
+    head.append(title, countEl, toggle);
+    listEl = document.createElement('div');
+    listEl.className = 'radar-list';
+    const foot = document.createElement('footer');
+    const enable = document.createElement('button');
+    enable.type = 'button';
+    enable.textContent = 'Activar notificaciones';
+    enable.addEventListener('click', async () => {
+      try {
+        const permission = await Notification.requestPermission();
+        enable.textContent = permission === 'granted' ? 'Notificaciones activas' : 'Permiso denegado';
+        enable.disabled = true;
+      } catch { enable.textContent = 'No disponible'; enable.disabled = true; }
+    });
+    foot.append(enable);
+    dock.append(head, listEl, foot);
+    document.body.append(dock);
+    renderList();
+    return dock;
+  };
+
+  const evaluate = (mint, symbol, info) => {
+    if (!info) return;
+    const previous = snap.get(mint) || null;
+    if (previous) {
+      const beforeLiquidity = Number(previous.liquidityUsd);
+      const nowLiquidity = Number(info.liquidityUsd);
+      if (Number.isFinite(beforeLiquidity) && beforeLiquidity > 0 && Number.isFinite(nowLiquidity)) {
+        const change = (nowLiquidity - beforeLiquidity) / beforeLiquidity;
+        if (change <= -0.2) push('bad', symbol, 'Liquidez retirada: ' + (change * 100).toFixed(1) + '% (' + Math.round(nowLiquidity) + ' USD)');
+        else if (change <= -0.08) push('warn', symbol, 'Liquidez bajando: ' + (change * 100).toFixed(1) + '%');
+        else if (change >= 0.2) push('good', symbol, 'Liquidez añadida: +' + (change * 100).toFixed(1) + '% (' + Math.round(nowLiquidity) + ' USD)');
+      }
+      const sells = Number(info.sells5m);
+      const buys = Number(info.buys5m);
+      if (Number.isFinite(sells) && Number.isFinite(buys) && sells >= 5 && sells >= buys * 3) push('bad', symbol, 'Presion vendedora: ' + sells + ' ventas / ' + buys + ' compras en 5 min');
+      else if (Number.isFinite(sells) && Number.isFinite(buys) && buys >= 8 && buys >= sells * 2.5) push('good', symbol, 'Compras fuertes: ' + buys + ' compras / ' + sells + ' ventas en 5 min');
+      const move = Number(info.change5m);
+      if (Number.isFinite(move) && move <= -20) push('bad', symbol, 'Caida rapida: ' + move.toFixed(1) + '% en 5 min');
+      else if (Number.isFinite(move) && move >= 25) push('good', symbol, 'Subida fuerte: +' + move.toFixed(1) + '% en 5 min');
+    }
+    snap.set(mint, { liquidityUsd: info.liquidityUsd, at: Date.now() });
+    persist();
+  };
+
+  const poll = async () => {
+    if (!watch.size) { if (countEl) countEl.textContent = ''; return; }
+    if (countEl) countEl.textContent = watch.size + ' en seguimiento';
+    const mints = [...watch.keys()];
+    try {
+      const response = await fetch(base + '/api/sniper-watch?x=' + Date.now(), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ mints })
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      for (const mint of mints) evaluate(mint, watch.get(mint)?.symbol || mint.slice(0, 4), data.items?.[mint]);
+    } catch {}
+  };
+
+  const schedule = () => {
+    clearInterval(timer);
+    const interval = document.hidden ? 25000 : 8000;
+    timer = setInterval(poll, interval);
+  };
+
+  const button = item => {
+    const control = document.createElement('button');
+    control.type = 'button';
+    control.className = 'radar-follow';
+    const sync = () => {
+      const active = watch.has(item.mint);
+      control.textContent = active ? 'Vigilando' : 'Vigilar';
+      control.classList.toggle('active', active);
+    };
+    control.addEventListener('click', event => {
+      event.stopPropagation();
+      if (watch.has(item.mint)) watch.delete(item.mint);
+      else watch.set(item.mint, { mint: item.mint, symbol: item.symbol, pool: item.poolAddress });
+      persist();
+      sync();
+      ensureDock();
+      renderList();
+      void poll();
+    });
+    sync();
+    return control;
+  };
+
+  document.addEventListener('visibilitychange', schedule);
+  globalThis.SniperRadar = { button };
+  ensureDock();
+  schedule();
+  void poll();
+})();
+
 $('sniperRefresh').addEventListener('click', load);
 $('sniperMin').addEventListener('change', render);
 $('sniperHideHigh').addEventListener('change', render);
