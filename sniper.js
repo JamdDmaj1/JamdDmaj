@@ -294,6 +294,7 @@ function card(item) {
   const metaItem = (name, value) => { const span = document.createElement('span'); span.innerHTML = name + ' <b>' + value + '</b>'; meta.append(span); };
   metaItem('Vida', age(item.ageMinutes));
   metaItem('Liquidez', money(item.liquidity) + ' USD');
+  metaItem('Market cap', money(item.marketCapUsd) + ' USD');
   metaItem('Holders', Number.isFinite(item.holders) ? String(item.holders) : '—');
   metaItem('LP bloqueado', Number.isFinite(item.lpLockedPct) ? Math.round(item.lpLockedPct) + '%' : '—');
   metaItem('Creador', Number.isFinite(item.creatorPct) ? item.creatorPct + '%' : '—');
@@ -353,6 +354,117 @@ function card(item) {
     scams.append(clean);
   }
 
+  const contract = document.createElement('div');
+  contract.className = 'sniper-contract';
+  const contractLabel = document.createElement('span');
+  contractLabel.textContent = 'Contrato';
+  const contractCode = document.createElement('code');
+  contractCode.textContent = item.mint;
+  const copyButton = document.createElement('button');
+  copyButton.type = 'button';
+  copyButton.className = 'sniper-copy';
+  copyButton.textContent = 'Copiar';
+  copyButton.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(item.mint); copyButton.textContent = 'Copiado'; }
+    catch { copyButton.textContent = 'No disponible'; }
+    setTimeout(() => { copyButton.textContent = 'Copiar'; }, 1600);
+  });
+  const solscan = document.createElement('a');
+  solscan.href = 'https://solscan.io/token/' + item.mint;
+  solscan.target = '_blank';
+  solscan.rel = 'noopener noreferrer';
+  solscan.textContent = 'Solscan';
+  contract.append(contractLabel, contractCode, copyButton, solscan);
+
+  const chartBox = document.createElement('details');
+  chartBox.className = 'sniper-chart';
+  const chartSummary = document.createElement('summary');
+  chartSummary.textContent = 'Grafico en vivo';
+  const chartFrameBox = document.createElement('div');
+  chartFrameBox.className = 'sniper-chart-frame';
+  chartBox.append(chartSummary, chartFrameBox);
+  let chartLoaded = false;
+  chartBox.addEventListener('toggle', () => {
+    if (!chartBox.open || chartLoaded) return;
+    chartLoaded = true;
+    const frame = document.createElement('iframe');
+    frame.loading = 'lazy';
+    frame.title = 'Grafico ' + (item.symbol || '');
+    frame.src = 'https://www.geckoterminal.com/solana/pools/' + encodeURIComponent(item.poolAddress || '') + '?embed=1&info=0&swaps=0&light_chart=1';
+    frame.setAttribute('allowfullscreen', 'true');
+    chartFrameBox.append(frame);
+  });
+
+  const trades = document.createElement('details');
+  trades.className = 'sniper-trades';
+  const tradesSummary = document.createElement('summary');
+  tradesSummary.textContent = 'Quien compra y vende (en vivo)';
+  const tradesBody = document.createElement('div');
+  tradesBody.className = 'sniper-trades-body';
+  trades.append(tradesSummary, tradesBody);
+  let tradesTimer = null;
+  let tradesLoaded = false;
+
+  const short = value => String(value || '').slice(0, 4) + '...' + String(value || '').slice(-4);
+  const when = value => { if (!value) return ''; const date = new Date(value); return date.toLocaleTimeString(); };
+
+  const paintTrades = data => {
+    tradesBody.replaceChildren();
+    const head = document.createElement('div');
+    head.className = 'sniper-trades-head';
+    head.textContent = (data?.venue ? data.venue + ' · ' : '') + 'ultimas ' + (data?.items?.length || 0) + ' operaciones';
+    tradesBody.append(head);
+    if (!data?.items?.length) {
+      const empty = document.createElement('div');
+      empty.className = 'sniper-trades-empty';
+      empty.textContent = 'Sin operaciones recientes detectadas.';
+      tradesBody.append(empty);
+      return;
+    }
+    for (const trade of data.items) {
+      const row = document.createElement('div');
+      row.className = 'sniper-trade-row ' + trade.side;
+      const side = document.createElement('b');
+      side.textContent = trade.side === 'buy' ? 'COMPRA' : 'VENTA';
+      const amount = document.createElement('span');
+      amount.textContent = (Number.isFinite(trade.usd) ? trade.usd.toFixed(2) + ' USD' : (Number.isFinite(trade.sol) ? trade.sol.toFixed(3) + ' SOL' : '—'));
+      const wallet = document.createElement('a');
+      wallet.href = 'https://solscan.io/account/' + trade.wallet;
+      wallet.target = '_blank';
+      wallet.rel = 'noopener noreferrer';
+      wallet.textContent = short(trade.wallet);
+      const time = document.createElement('small');
+      time.textContent = when(trade.at);
+      const link = document.createElement('a');
+      link.href = 'https://solscan.io/tx/' + trade.tx;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = 'tx';
+      row.append(side, amount, wallet, time, link);
+      tradesBody.append(row);
+    }
+  };
+
+  const loadTrades = async () => {
+    try {
+      const response = await fetch(base + '/api/sniper-trades?pool=' + encodeURIComponent(item.poolAddress || '') + '&mint=' + encodeURIComponent(item.mint) + '&x=' + Date.now(), { cache: 'no-store' });
+      if (!response.ok) return;
+      const data = await response.json();
+      paintTrades({ ...data, venue: item.venue });
+    } catch {}
+  };
+
+  trades.addEventListener('toggle', () => {
+    if (trades.open) {
+      if (!tradesLoaded) { tradesLoaded = true; tradesBody.textContent = 'Leyendo operaciones...'; void loadTrades(); }
+      clearInterval(tradesTimer);
+      tradesTimer = setInterval(loadTrades, 6000);
+    } else {
+      clearInterval(tradesTimer);
+      tradesTimer = null;
+    }
+  });
+
   const links = document.createElement('div');
   links.className = 'sniper-links';
   for (const social of item.socials || []) {
@@ -376,9 +488,9 @@ function card(item) {
   chart.textContent = 'Grafico';
   links.append(search, chart);
 
-  article.append(top, scores, meta, liquidity, checks);
+  article.append(top, scores, liquidity, checks);
   if (factors.children.length) article.append(factors);
-  article.append(scams, tradePanel(item), auditPanel(item), links);
+  article.append(contract, meta, scams, tradePanel(item), chartBox, trades, auditPanel(item), links);
   return article;
 }
 

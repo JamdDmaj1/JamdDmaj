@@ -178,7 +178,10 @@ export default async function handler(request) {
     }, votes, null);
     const pair = Array.isArray(dex?.pairs) ? dex.pairs[0] : null;
     const socials = Array.isArray(pair?.info?.socials) ? pair.info.socials.filter(item => item && item.handle).slice(0, 4).map(item => ({ type: String(item.type || ''), handle: String(item.handle) })) : [];
-    return { ...seed, ...audit, socials, hasSocials: socials.length > 0 };
+    const marketCapUsd = num(pair?.marketCap) ?? num(pair?.fdv) ?? seed.fdvUsd ?? null;
+    const venue = String(pair?.dexId || report?.markets?.[0]?.marketType || '');
+    const pairAddress = String(pair?.pairAddress || seed.poolAddress || '');
+    return { ...seed, ...audit, marketCapUsd, venue, pairAddress, socials, hasSocials: socials.length > 0 };
   }));
   const sorted = items.sort((a, b) => b.score - a.score);
   const body = { observedAt: now, items: sorted, disclaimer: 'Analisis automatico de datos publicos. No garantiza que un token sea seguro ni rentable.' };
