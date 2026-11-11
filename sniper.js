@@ -101,6 +101,16 @@ function tradePanel(item, setStatusHook) {
     }
   };
 
+  const customSol = document.createElement('input');
+  customSol.type = 'number';
+  customSol.min = '0.005';
+  customSol.step = '0.01';
+  customSol.placeholder = 'SOL';
+  customSol.className = 'sniper-sol-input';
+  customSol.addEventListener('change', () => {
+    const value = Number(customSol.value);
+    if (value > 0) { solAmount = value; void refreshQuote(); }
+  });
   for (const amount of [0.05, 0.1, 0.25, 0.5]) {
     const button = document.createElement('button');
     button.type = 'button';

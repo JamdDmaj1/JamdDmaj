@@ -6,6 +6,17 @@ const SOL = 'So11111111111111111111111111111111111111112';
 const LAMPORTS = 1_000_000_000;
 const RPC_URL = 'https://api.mainnet-beta.solana.com';
 let cachedConnection = null;
+const decodeWire = value => {
+  const text = String(value || '');
+  if (/[^1-9A-HJ-NP-Za-km-z]/.test(text)) {
+    const binary = atob(text);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);
+    return bytes;
+  }
+  return bs58.decode(text);
+};
+
 const connection = () => {
   if (!cachedConnection) cachedConnection = new Connection(RPC_URL, 'confirmed');
   return cachedConnection;
@@ -65,7 +76,7 @@ async function quoteToken({ mint, rawAmount, slippageBps = 150 }) {
 async function send(quoteResponse) {
   const owner = key() || await connect();
   const data = await call('swap', { quoteResponse, userPublicKey: owner });
-  const transaction = VersionedTransaction.deserialize(bs58.decode(data.swapTransaction));
+  const transaction = VersionedTransaction.deserialize(decodeWire(data.swapTransaction));
   const wallet = provider();
   if (!wallet) throw new Error('phantom-missing');
   if (typeof wallet.signAndSendTransaction === 'function') {
