@@ -371,6 +371,95 @@ function whyPanel(item) {
   return box;
 }
 
+function closeDetail() {
+  const overlay = document.getElementById('sniperDetail');
+  if (!overlay) return;
+  overlay.hidden = true;
+  overlay.replaceChildren();
+  document.body.classList.remove('sniper-locked');
+}
+
+function openDetail(item) {
+  const overlay = document.getElementById('sniperDetail');
+  if (!overlay) return;
+  overlay.replaceChildren();
+  overlay.hidden = false;
+  document.body.classList.add('sniper-locked');
+
+  const sheet = document.createElement('div');
+  sheet.className = 'sniper-sheet';
+  const head = document.createElement('header');
+  head.className = 'sniper-sheet-head';
+  const title = document.createElement('div');
+  const name = document.createElement('strong');
+  name.textContent = item.symbol || 'Token';
+  const subtitle = document.createElement('small');
+  subtitle.textContent = (item.categories || []).join(' · ') || 'Sin categoria';
+  title.append(name, subtitle);
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'sniper-sheet-close';
+  close.textContent = 'Cerrar';
+  close.addEventListener('click', closeDetail);
+  head.append(title, close);
+
+  const stats = document.createElement('div');
+  stats.className = 'sniper-sheet-stats';
+  const stat = (label, value) => {
+    const card = document.createElement('div');
+    const key = document.createElement('span');
+    key.textContent = label;
+    const val = document.createElement('b');
+    val.textContent = value;
+    card.append(key, val);
+    stats.append(card);
+  };
+  stat('Seguridad', String(item.score) + '/100');
+  stat('Potencial', String(item.growth?.score ?? '—') + '/100');
+  stat('Market cap', money(item.marketCapUsd) + ' USD');
+  stat('Liquidez', money(item.liquidity) + ' USD');
+  stat('LP bloqueado', Number.isFinite(item.lpLockedPct) ? Math.round(item.lpLockedPct) + '%' : 'sin dato');
+  stat('Holders', Number.isFinite(item.holders) ? String(item.holders) : 'sin dato');
+  stat('Mercados', (item.pairsCount || 1) + ' - ' + ((item.venues || []).join('/') || 'n/d'));
+  stat('Vida', age(item.ageMinutes));
+
+  const contract = document.createElement('div');
+  contract.className = 'sniper-contract';
+  const contractLabel = document.createElement('span');
+  contractLabel.textContent = 'Contrato';
+  const code = document.createElement('code');
+  code.textContent = item.mint;
+  const copy = document.createElement('button');
+  copy.type = 'button';
+  copy.className = 'sniper-copy';
+  copy.textContent = 'Copiar';
+  copy.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(item.mint); copy.textContent = 'Copiado'; } catch { copy.textContent = 'No disponible'; }
+    setTimeout(() => { copy.textContent = 'Copiar'; }, 1600);
+  });
+  const scan = document.createElement('a');
+  scan.href = 'https://solscan.io/token/' + item.mint;
+  scan.target = '_blank';
+  scan.rel = 'noopener noreferrer';
+  scan.textContent = 'Solscan';
+  contract.append(contractLabel, code, copy, scan);
+
+  const chartBox = document.createElement('div');
+  chartBox.className = 'sniper-sheet-chart';
+  const frame = document.createElement('iframe');
+  frame.loading = 'lazy';
+  frame.title = 'Grafico ' + (item.symbol || '');
+  frame.src = 'https://www.geckoterminal.com/solana/pools/' + encodeURIComponent(item.poolAddress || '') + '?embed=1&info=0&swaps=0&light_chart=1';
+  frame.setAttribute('allowfullscreen', 'true');
+  chartBox.append(frame);
+
+  const why = whyPanel(item);
+
+  sheet.append(head, stats, contract, chartBox, tradePanel(item), why, auditPanel(item));
+  overlay.append(sheet);
+  why.open = true;
+  overlay.onclick = event => { if (event.target === overlay) closeDetail(); };
+}
 function card(item) {
   const article = document.createElement('article');
   article.className = 'sniper-card';
@@ -401,6 +490,12 @@ function card(item) {
   });
   const actions = document.createElement('div');
   actions.className = 'sniper-actions';
+  const view = document.createElement('button');
+  view.type = 'button';
+  view.className = 'sniper-view';
+  view.textContent = 'Ver token';
+  view.addEventListener('click', event => { event.stopPropagation(); openDetail(item); });
+  actions.append(view);
   actions.append(star);
   if (state.tab === 'fav') {
     const remove = document.createElement('button');
