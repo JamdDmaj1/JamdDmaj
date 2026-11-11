@@ -142,7 +142,7 @@ test("validated Telegram signals can mirror to one separate destination without 
   const environment = readFileSync(new URL("../.env.example", import.meta.url), "utf8");
   assert.match(telegram, /TELEGRAM_SIGNAL_CHANNEL_ID/);
   assert.match(telegram, /sendSignalMirror\(botToken, chatId, signalChannelId, text\)/);
-  assert.match(telegram, /signalChannelId === primaryChatId/);
+  assert.match(telegram, /targetChat === primaryChatId/);
   assert.match(telegram, /mirrorSent: true/);
   assert.doesNotMatch(executor, /TELEGRAM_SIGNAL_CHANNEL_ID/);
   assert.match(environment, /TELEGRAM_SIGNAL_CHANNEL_ID=your-signal-channel-id-or-username/);

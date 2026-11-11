@@ -3,7 +3,7 @@ import { getProServerState } from "../lib/pro-signals.js";
 
 export const config = { runtime: "edge" };
 
-export const FALLBACK_VERSION = "1.61.0";
+export const FALLBACK_VERSION = "1.61.1";
 const FALLBACK_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
 const GITHUB_LATEST_RELEASE_URL = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases?per_page=10";
 
@@ -29,7 +29,7 @@ export default async function handler(request) {
     ),
     googleAccount: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.JAMDDMAJ_ACCOUNT_SECRET),
     version: FALLBACK_VERSION,
-    webVersion: "1.61.0",
+    webVersion: "1.61.1",
     latestVersion: release.latestVersion,
     apkUrl: release.apkUrl,
     releaseUrl: release.releaseUrl,
@@ -95,7 +95,7 @@ async function resolveLatestRelease() {
     for(const release of releases){
     if(release.draft||release.prerelease||!Array.isArray(release.assets)||!release.assets.some(asset=>asset.name==='JamdDmaj-AI.apk'))continue;
     const githubVersion = cleanVersion(release?.tag_name || release?.name || "");
-    if (githubVersion && compareVersions(githubVersion, best.latestVersion) >= 0) {
+    if (githubVersion) {
       const apkAsset = Array.isArray(release.assets)
         ? release.assets.find((asset) => /JamdDmaj-AI\.apk$/i.test(String(asset.name || "")))
         : null;
