@@ -54,11 +54,16 @@ async function sendTelegram(text) {
 
 export default async function handler(request) {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(request) });
-  const secret = String(process.env.JAMDDMAJ_CRON_SECRET || '');
+  const secret = String(process.env.SNIPER_ALERTS_TOKEN || process.env.JAMDDMAJ_CRON_SECRET || '');
   const provided = request.headers.get('x-jamd-cron') || (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
   const url = new URL(request.url);
   if (!secret || (provided !== secret && url.searchParams.get('secret') !== secret)) {
     return jsonResponse(request, { error: { message: 'Forbidden' } }, 403);
+  }
+
+  if (url.searchParams.get('test') === '1') {
+    const sent = await sendTelegram('Prueba de alertas de JamdDmaj Sniper. Si recibes esto, la vigilancia en la nube funciona.');
+    return jsonResponse(request, { test: true, telegram: sent });
   }
 
   const devices = await listDevices();
