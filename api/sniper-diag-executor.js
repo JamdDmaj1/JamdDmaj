@@ -32,6 +32,7 @@ export default async function handler(request) {
     config: { livePaused: config.livePaused, minScore: config.minScore, maxOpen: config.maxOpen, maxMarginUsd: config.maxMarginUsd, updatedAt: config.updatedAt },
     executor: parse(executorRaw),
     serverStatus: parse(statusRaw),
-    openCount: Array.isArray(open) ? open.length : null
+    openCount: Array.isArray(open) ? open.length : null,
+    openItems: Array.isArray(open) ? open.slice(0, 5).map(item => ({ pair: item?.pair || item?.symbol, side: item?.side, openedAt: item?.openedAt, marginUsd: item?.marginUsd, orderId: item?.orderId, mode: item?.mode })) : null
   });
 }
