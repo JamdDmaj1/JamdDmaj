@@ -149,3 +149,6 @@
 .sniper-history-row strong{color:#e8f1fa}
 .sniper-history-row small{color:#6f89a4}
 @media(max-width:720px){.sniper-history-row{grid-template-columns:64px 1fr 1fr auto;grid-auto-rows:auto}.sniper-history-row span:nth-child(4),.sniper-history-row span:nth-child(5){display:none}}
+
+.sniper-cats{display:flex;flex-wrap:wrap;gap:5px;margin:2px 0 6px}
+.sniper-cats span{font-size:10px;padding:2px 8px;border-radius:999px;background:#0f1f2a;border:1px solid #22384c;color:#9cc9ff}

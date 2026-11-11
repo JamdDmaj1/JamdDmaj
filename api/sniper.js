@@ -134,6 +134,52 @@ function auditToken(report, pool, votes, dexPair) {
   };
 }
 
+const boostCache = { at: 0, map: new Map() };
+
+async function loadBoosts() {
+  if (boostCache.map.size && Date.now() - boostCache.at < 120000) return boostCache.map;
+  const map = new Map();
+  for (const url of ['https://api.dexscreener.com/token-boosts/latest/v1', 'https://api.dexscreener.com/token-boosts/top/v1']) {
+    const feed = await readJson(url, 7000);
+    for (const row of Array.isArray(feed) ? feed : []) {
+      if (String(row?.chainId || '') !== 'solana') continue;
+      const address = String(row?.tokenAddress || '');
+      if (!address) continue;
+      const amount = num(row?.amount) || 0;
+      const total = num(row?.totalAmount) || amount;
+      const current = map.get(address);
+      if (!current || total > current.total) map.set(address, { amount, total, description: String(row?.description || '').slice(0, 120) });
+    }
+  }
+  boostCache.map = map;
+  boostCache.at = Date.now();
+  return map;
+}
+
+const CATEGORY_RULES = [
+  ['AI', /\b(ai|gpt|agent|neural|bot|llm|deepseek)\b/i],
+  ['Animal', /(dog|cat|pepe|frog|moon|bear|bull|bird|monkey|puppy|kitty)/i],
+  ['Politica', /(trump|biden|maga|vote|president|senate)/i],
+  ['Celebridad', /(elon|musk|kanye|taylor|ronaldo|messi)/i],
+  ['DeFi', /(swap|finance|defi|dex|lend|yield|stake)/i],
+  ['Juego', /(game|play|quest|arcade)/i],
+  ['NFT', /(nft|art|pfp|punk)/i],
+  ['Acciones', /(tsla|spx|nasdaq|stock|etf|aapl)/i],
+  ['Comunidad', /(dao|community|social|meme)/i]
+];
+
+function categoriesFor(seed, boost) {
+  const text = String(seed.symbol || '') + ' ' + String(seed.poolName || '');
+  const tags = [];
+  for (const [tag, pattern] of CATEGORY_RULES) if (pattern.test(text)) tags.push(tag);
+  if (/pump/i.test(String(seed.venue || '')) || /pump/i.test(text)) tags.push('pump.fun');
+  else if (/meteora/i.test(String(seed.venue || ''))) tags.push('Meteora');
+  else if (/raydium/i.test(String(seed.venue || ''))) tags.push('Raydium');
+  if (boost) tags.push('Marketing');
+  if (!tags.length) tags.push('Memecoin');
+  return [...new Set(tags)].slice(0, 4);
+}
+
 const TAB_TTL = 90000;
 const tabCache = new Map();
 const tabCooldown = new Map();
@@ -219,6 +265,7 @@ export default async function handler(request) {
   else if (tab === 'volume') seeds.sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0));
   seeds = seeds.slice(0, TAB_LIMIT);
 
+  const boosts = await loadBoosts();
   const items = await Promise.all(seeds.map(async seed => {
     const [report, votes, dex] = await Promise.all([
       readJson('https://api.rugcheck.xyz/v1/tokens/' + seed.mint + '/report'),
@@ -239,7 +286,11 @@ export default async function handler(request) {
     const marketCapUsd = num(pair?.marketCap) ?? num(pair?.fdv) ?? seed.marketCapUsd ?? seed.fdvUsd ?? null;
     const venue = String(pair?.dexId || report?.markets?.[0]?.marketType || '');
     const pairAddress = String(pair?.pairAddress || seed.poolAddress || '');
-    return { ...seed, ...audit, marketCapUsd, venue, pairAddress, socials, websites, hasSocials: socials.length > 0 };
+    const pairs = Array.isArray(dex?.pairs) ? dex.pairs : [];
+    const venues = [...new Set(pairs.map(pair => String(pair?.dexId || '')).filter(Boolean))];
+    const boost = boosts.get(seed.mint) || null;
+    const categories = categoriesFor({ ...seed, venue }, boost);
+    return { ...seed, ...audit, marketCapUsd, venue, pairAddress, socials, websites, hasSocials: socials.length > 0, venues, pairsCount: pairs.length, boost, categories };
   }));
 
   const sorted = items.sort((a, b) => b.score - a.score);

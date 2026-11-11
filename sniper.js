@@ -288,6 +288,7 @@ function card(item) {
   const badges = document.createElement('div');
   badges.className = 'sniper-badges';
   badges.append(badge(item.verdict, verdictClass(item.verdict)), badge('Potencial ' + (item.growth?.label || '—'), growthClass(item.growth?.label)));
+  if (item.boost) badges.append(badge('BOOST ' + (Number(item.boost.total) || Number(item.boost.amount) || 0) + ' USD', 'mejor'));
   const star = document.createElement('button');
   star.type = 'button';
   star.className = 'sniper-star' + (favorites.has(item.mint) ? ' active' : '');
@@ -307,6 +308,14 @@ function card(item) {
   if (globalThis.SniperRadar) badges.append(globalThis.SniperRadar.button(item));
   top.append(symbol, badges);
 
+  const cats = document.createElement('div');
+  cats.className = 'sniper-cats';
+  for (const category of item.categories || []) {
+    const chip = document.createElement('span');
+    chip.textContent = category;
+    cats.append(chip);
+  }
+
   const scores = document.createElement('div');
   scores.className = 'sniper-scores';
   const safety = document.createElement('div');
@@ -323,6 +332,7 @@ function card(item) {
   metaItem('Vida', age(item.ageMinutes));
   metaItem('Liquidez', money(item.liquidity) + ' USD');
   metaItem('Market cap', money(item.marketCapUsd) + ' USD');
+  metaItem('Mercados', (item.pairsCount || 1) + ' - ' + ((item.venues || []).join('/') || 'n/d'));
   metaItem('Holders', Number.isFinite(item.holders) ? String(item.holders) : '—');
   metaItem('LP bloqueado', Number.isFinite(item.lpLockedPct) ? Math.round(item.lpLockedPct) + '%' : '—');
   metaItem('Creador', Number.isFinite(item.creatorPct) ? item.creatorPct + '%' : '—');
@@ -516,7 +526,7 @@ function card(item) {
   chart.textContent = 'Grafico';
   links.append(search, chart);
 
-  article.append(top, scores, liquidity, checks);
+  article.append(top, cats, scores, liquidity, checks);
   if (factors.children.length) article.append(factors);
   article.append(contract, meta, scams, tradePanel(item), chartBox, trades, auditPanel(item), links);
   return article;
@@ -853,7 +863,17 @@ if (usdInput) {
       if (Number.isFinite(move) && move <= -20) push('bad', symbol, 'Caida rapida: ' + move.toFixed(1) + '% en 5 min');
       else if (Number.isFinite(move) && move >= 25) push('good', symbol, 'Subida fuerte: +' + move.toFixed(1) + '% en 5 min');
     }
-    snap.set(mint, { liquidityUsd: info.liquidityUsd, at: Date.now() });
+    const beforeVenues = Array.isArray(previous?.venues) ? previous.venues.length : 0;
+    const nowVenues = Array.isArray(info.venues) ? info.venues.length : 0;
+    if (previous) {
+      if (nowVenues > beforeVenues) push('info', symbol, 'Nuevo listado: ' + nowVenues + ' mercado(s) - ' + (info.venues || []).join(', '));
+      else if (nowVenues < beforeVenues) push('bad', symbol, 'Perdio un listado: ahora ' + nowVenues + ' mercado(s)');
+      const beforeBoost = Number(previous.boostTotal) || 0;
+      const nowBoost = Number(info.boostTotal) || 0;
+      if (nowBoost > beforeBoost) push('good', symbol, 'Marketing: boost activo por ' + nowBoost + ' USD');
+      else if (!nowBoost && beforeBoost > 0) push('warn', symbol, 'El boost de marketing termino');
+    }
+    snap.set(mint, { liquidityUsd: info.liquidityUsd, venues: info.venues || [], boostTotal: Number(info.boostTotal) || 0, at: Date.now() });
     persist();
   };
 
