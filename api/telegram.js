@@ -114,7 +114,7 @@ async function claimOnce(key, ttlSeconds) {
   return result?.[0]?.result === "OK";
 }
 
-async function sendTelegram(token, chatId, text) {
+async function sendTelegram(token, chatId, text, threadId = null) {
   const response = await fetch(`${TELEGRAM_API}/bot${token}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
