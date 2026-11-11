@@ -1,5 +1,5 @@
 import {corsHeaders, jsonResponse} from '../lib/server.js';
-import {listDevices, readWatchlist, readSnapshot, writeSnapshot, recentlyNotified, markNotified} from '../lib/sniper-alerts-store.js';
+import {listDevices, readWatchlist, readSnapshot, writeSnapshot, recentlyNotified, markNotified, logAlert} from '../lib/sniper-alerts-store.js';
 export const config = { runtime: 'edge' };
 
 // Server side watcher: compares each watched token with its last snapshot and notifies.
@@ -209,6 +209,7 @@ export default async function handler(request) {
     const prefix = alert.kind === 'rug' ? '🚨 ' : alert.kind === 'pump' ? '📈 ' : alert.kind === 'listing' ? '🔔 ' : alert.kind === 'boost' ? '📣 ' : alert.kind === 'x' ? '💬 ' : '⚠️ ';
     const sent = await sendTelegram(prefix + alert.text + '\nhttps://www.jamddmaj.com/sniper.html');
     delivered.push({ ...alert, telegram: sent });
+    await logAlert({ ...alert, at: Date.now(), telegram: sent });
   }
 
   return jsonResponse(request, { observedAt: Date.now(), watched: mints.length, devices: devices.length, alerts: delivered });
