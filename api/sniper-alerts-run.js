@@ -149,7 +149,12 @@ export default async function handler(request) {
       const sells = Number(info.sells5m) || 0;
       const buys = Number(info.buys5m) || 0;
 
-      if (((drain !== null && drain <= -45) || (Number.isFinite(drop5) && drop5 <= -60 && sells >= buys)) && !(await recentlyNotified(mint, 'rug'))) {
+      const samePool = !previous.pool || !entry.pool || previous.pool === entry.pool;
+      const seriousPool = beforeLiquidity >= 3000;
+      const priceConfirmed = (Number.isFinite(drop5) && drop5 <= -15) || (Number.isFinite(Number(info.change1h)) && Number(info.change1h) <= -25);
+      const drained = samePool && seriousPool && drain !== null && drain <= -45 && priceConfirmed;
+      const crashed = Number.isFinite(drop5) && drop5 <= -60 && sells > buys && nowLiquidity < beforeLiquidity * 0.4;
+      if ((drained || crashed) && !(await recentlyNotified(mint, 'rug'))) {
         const detail = [];
         if (drain !== null) detail.push('liquidez ' + drain.toFixed(0) + '%');
         if (Number.isFinite(drop5)) detail.push('precio ' + drop5.toFixed(0) + '% 5m');
@@ -188,7 +193,7 @@ export default async function handler(request) {
           await markNotified(mint, 'x', 1800);
         }
       }
-      await writeSnapshot(mint, { ...(previous || {}), priceUsd: info.priceUsd, liquidityUsd: info.liquidityUsd, pairs: info.pairs, boost: Number(boosts.get(mint)) || 0, socialAt: Date.now(), x: profile || previous?.x || null });
+      await writeSnapshot(mint, { ...(previous || {}), priceUsd: info.priceUsd, pool: entry.pool || previous?.pool || '', liquidityUsd: info.liquidityUsd, pairs: info.pairs, boost: Number(boosts.get(mint)) || 0, socialAt: Date.now(), x: profile || previous?.x || null });
       continue;
     }
 
@@ -199,13 +204,14 @@ export default async function handler(request) {
         alerts.push({ mint, symbol, kind: 'scam', text: 'ACUSACIONES ' + symbol + ': ' + mentions.scam + ' resultados publicos lo llaman scam' });
         await markNotified(mint, 'scam', 3600);
       }
-      await writeSnapshot(mint, { ...(previous || {}), priceUsd: info.priceUsd, liquidityUsd: info.liquidityUsd, pairs: info.pairs, boost: Number(boosts.get(mint)) || 0, scamAt: Date.now(), scam: mentions?.scam || previous?.scam || 0 });
+      await writeSnapshot(mint, { ...(previous || {}), priceUsd: info.priceUsd, pool: entry.pool || previous?.pool || '', liquidityUsd: info.liquidityUsd, pairs: info.pairs, boost: Number(boosts.get(mint)) || 0, scamAt: Date.now(), scam: mentions?.scam || previous?.scam || 0 });
       continue;
     }
 
     await writeSnapshot(mint, {
       ...(previous || {}),
       priceUsd: info.priceUsd,
+      pool: entry.pool || previous?.pool || '',
       liquidityUsd: info.liquidityUsd,
       pairs: info.pairs,
       boost: Number(boosts.get(mint)) || 0,
