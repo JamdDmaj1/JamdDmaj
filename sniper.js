@@ -1075,7 +1075,7 @@ if (usdInput) {
   })();
   const syncCloud = async () => {
     try {
-      const items = [...watch.values()].map(entry => ({ mint: entry.mint, symbol: entry.symbol || '', pool: entry.pool || '' }));
+      const items = [...watch.values()].map(entry => ({ mint: entry.mint, symbol: entry.symbol || '', pool: entry.pool || '', handle: entry.handle || '' }));
       const response = await fetch(base + '/api/sniper-alerts?x=' + Date.now(), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },

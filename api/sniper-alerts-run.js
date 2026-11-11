@@ -4,37 +4,82 @@ export const config = { runtime: 'edge' };
 
 // Server side watcher: compares each watched token with its last snapshot and notifies.
 const DEX = 'https://api.dexscreener.com/latest/dex/tokens/';
+const SOCIAL_INTERVAL = 10 * 60 * 1000;
+const SCAM_INTERVAL = 30 * 60 * 1000;
 
 const num = value => { const parsed = Number(value); return Number.isFinite(parsed) ? parsed : null; };
+
+async function readJson(url, timeout = 8000) {
+  try {
+    const response = await fetch(url, { headers: { accept: 'application/json', 'user-agent': 'Mozilla/5.0 (compatible; JamdDmajWatcher/1.0)' }, signal: AbortSignal.timeout(timeout) });
+    return await response.json().catch(() => null);
+  } catch { return null; }
+}
 
 async function fetchPairs(mints) {
   const map = new Map();
   for (let index = 0; index < mints.length; index += 25) {
     const chunk = mints.slice(index, index + 25);
-    try {
-      const response = await fetch(DEX + chunk.join(','), { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(9000) });
-      const data = await response.json().catch(() => null);
-      for (const pair of Array.isArray(data?.pairs) ? data.pairs : []) {
-        const mint = String(pair?.baseToken?.address || '');
-        if (!chunk.includes(mint)) continue;
-        const current = map.get(mint);
-        const liquidity = num(pair?.liquidity?.usd) || 0;
-        if (!current || liquidity > (num(current.liquidityUsd) || 0)) {
-          map.set(mint, {
-            priceUsd: num(pair?.priceUsd),
-            liquidityUsd: liquidity,
-            fdvUsd: num(pair?.fdv),
-            marketCapUsd: num(pair?.marketCap),
-            change5m: num(pair?.priceChange?.m5),
-            change1h: num(pair?.priceChange?.h1),
-            buys5m: num(pair?.txns?.m5?.buys),
-            sells5m: num(pair?.txns?.m5?.sells)
-          });
-        }
+    const data = await readJson(DEX + chunk.join(','), 9000);
+    for (const pair of Array.isArray(data?.pairs) ? data.pairs : []) {
+      const mint = String(pair?.baseToken?.address || '');
+      if (!chunk.includes(mint)) continue;
+      const current = map.get(mint) || { pairs: 0, venues: new Set() };
+      current.pairs += 1;
+      if (pair?.dexId) current.venues.add(String(pair.dexId));
+      const liquidity = num(pair?.liquidity?.usd) || 0;
+      if (!current.liquidityUsd || liquidity > current.liquidityUsd) {
+        current.priceUsd = num(pair?.priceUsd);
+        current.liquidityUsd = liquidity;
+        current.fdvUsd = num(pair?.fdv);
+        current.marketCapUsd = num(pair?.marketCap);
+        current.change5m = num(pair?.priceChange?.m5);
+        current.change1h = num(pair?.priceChange?.h1);
+        current.buys5m = num(pair?.txns?.m5?.buys);
+        current.sells5m = num(pair?.txns?.m5?.sells);
       }
-    } catch {}
+      map.set(mint, current);
+    }
+  }
+  for (const [mint, value] of map) value.venues = [...value.venues];
+  return map;
+}
+
+async function boostMap() {
+  const map = new Map();
+  for (const url of ['https://api.dexscreener.com/token-boosts/latest/v1', 'https://api.dexscreener.com/token-boosts/top/v1']) {
+    const feed = await readJson(url, 7000);
+    for (const row of Array.isArray(feed) ? feed : []) {
+      if (String(row?.chainId || '') !== 'solana') continue;
+      const address = String(row?.tokenAddress || '');
+      const total = num(row?.totalAmount) || num(row?.amount) || 0;
+      if (address && total > (map.get(address) || 0)) map.set(address, total);
+    }
   }
   return map;
+}
+
+async function xProfile(handle) {
+  const clean = String(handle || '').replace(/^@/, '').trim();
+  if (!clean) return null;
+  const data = await readJson('https://api.fxtwitter.com/' + encodeURIComponent(clean), 7000);
+  const user = data?.user;
+  if (!user) return { exists: false };
+  return { exists: true, tweets: num(user.tweets), followers: num(user.followers) };
+}
+
+async function scamMentions(symbol) {
+  const query = encodeURIComponent('"' + String(symbol || '').replace(/"/g, '') + '" scam OR rug');
+  const response = await fetch('https://www.bing.com/search?q=' + query + '&format=rss', { headers: { 'user-agent': 'Mozilla/5.0 (compatible; JamdDmajWatcher/1.0)' }, signal: AbortSignal.timeout(8000) }).catch(() => null);
+  if (!response || !response.ok) return null;
+  const text = await response.text().catch(() => '');
+  const items = [...text.matchAll(/<item>([\s\S]*?)<\/item>/g)].map(match => match[1]);
+  let scam = 0;
+  for (const item of items) {
+    const title = (item.match(/<title>([\s\S]*?)<\/title>/) || [])[1] || '';
+    if (/scam|rug|fraud|estafa|honeypot/i.test(title)) scam++;
+  }
+  return { total: items.length, scam };
 }
 
 async function sendTelegram(text) {
@@ -60,7 +105,6 @@ export default async function handler(request) {
   if (!secret || (provided !== secret && url.searchParams.get('secret') !== secret)) {
     return jsonResponse(request, { error: { message: 'Forbidden' } }, 403);
   }
-
   if (url.searchParams.get('test') === '1') {
     const sent = await sendTelegram('Prueba de alertas de JamdDmaj Sniper. Si recibes esto, la vigilancia en la nube funciona.');
     return jsonResponse(request, { test: true, telegram: sent });
@@ -75,14 +119,16 @@ export default async function handler(request) {
   const mints = [...watchByMint.keys()].slice(0, 75);
   if (!mints.length) return jsonResponse(request, { observedAt: Date.now(), watched: 0, alerts: [] });
 
-  const pairs = await fetchPairs(mints);
+  const [pairs, boosts] = await Promise.all([fetchPairs(mints), boostMap()]);
   const alerts = [];
+
   for (const mint of mints) {
     const info = pairs.get(mint);
     if (!info) continue;
     const entry = watchByMint.get(mint) || {};
     const symbol = entry.symbol || mint.slice(0, 4);
     const previous = await readSnapshot(mint);
+
     if (previous) {
       const beforeLiquidity = Number(previous.liquidityUsd) || 0;
       const nowLiquidity = Number(info.liquidityUsd) || 0;
@@ -90,26 +136,78 @@ export default async function handler(request) {
       const drop5 = Number(info.change5m);
       const sells = Number(info.sells5m) || 0;
       const buys = Number(info.buys5m) || 0;
-      const rugged = (drain !== null && drain <= -45) || (Number.isFinite(drop5) && drop5 <= -60 && sells >= buys);
-      const pumped = Number.isFinite(drop5) && drop5 >= 40;
-      if (rugged && !(await recentlyNotified(mint, 'rug'))) {
+
+      if (((drain !== null && drain <= -45) || (Number.isFinite(drop5) && drop5 <= -60 && sells >= buys)) && !(await recentlyNotified(mint, 'rug'))) {
         const detail = [];
         if (drain !== null) detail.push('liquidez ' + drain.toFixed(0) + '%');
         if (Number.isFinite(drop5)) detail.push('precio ' + drop5.toFixed(0) + '% 5m');
         if (sells || buys) detail.push(sells + ' ventas / ' + buys + ' compras');
         alerts.push({ mint, symbol, kind: 'rug', text: 'RUG ' + symbol + ': ' + detail.join(' · ') });
         await markNotified(mint, 'rug', 1200);
-      } else if (pumped && !(await recentlyNotified(mint, 'pump'))) {
+      } else if (Number.isFinite(drop5) && drop5 >= 40 && !(await recentlyNotified(mint, 'pump'))) {
         alerts.push({ mint, symbol, kind: 'pump', text: 'SUBIDA ' + symbol + ': +' + drop5.toFixed(0) + '% en 5 min · liquidez ' + Math.round(nowLiquidity) + ' USD' });
         await markNotified(mint, 'pump', 1800);
       }
+
+      const beforePairs = Number(previous.pairs) || 0;
+      if (info.pairs > beforePairs && beforePairs > 0 && !(await recentlyNotified(mint, 'listing'))) {
+        alerts.push({ mint, symbol, kind: 'listing', text: 'NUEVO LISTADO ' + symbol + ': ' + info.pairs + ' mercado(s) - ' + info.venues.join(', ') });
+        await markNotified(mint, 'listing', 3600);
+      }
+
+      const beforeBoost = Number(previous.boost) || 0;
+      const nowBoost = Number(boosts.get(mint)) || 0;
+      if (nowBoost > beforeBoost && !(await recentlyNotified(mint, 'boost'))) {
+        alerts.push({ mint, symbol, kind: 'boost', text: 'MARKETING ' + symbol + ': boost activo por ' + nowBoost + ' USD' });
+        await markNotified(mint, 'boost', 7200);
+      }
     }
-    await writeSnapshot(mint, { priceUsd: info.priceUsd, liquidityUsd: info.liquidityUsd, at: Date.now() });
+
+    // Social checks are slower on purpose: at most every ten minutes per token.
+    const lastSocial = Number(previous?.socialAt) || 0;
+    if (Date.now() - lastSocial > SOCIAL_INTERVAL && entry.handle && !(await recentlyNotified(mint, 'x'))) {
+      const profile = await xProfile(entry.handle);
+      if (profile) {
+        if (previous?.x?.exists && !profile.exists) {
+          alerts.push({ mint, symbol, kind: 'x', text: 'X SUSPENDIDA ' + symbol + ': la cuenta @' + entry.handle + ' desaparecio' });
+          await markNotified(mint, 'x', 7200);
+        } else if (profile.exists && Number.isFinite(profile.tweets) && Number.isFinite(previous?.x?.tweets) && profile.tweets > previous.x.tweets) {
+          alerts.push({ mint, symbol, kind: 'x', text: 'PUBLICACION ' + symbol + ': el dev publico ' + (profile.tweets - previous.x.tweets) + ' mensaje(s) en X (@' + entry.handle + ')' });
+          await markNotified(mint, 'x', 1800);
+        }
+      }
+      await writeSnapshot(mint, { ...(previous || {}), priceUsd: info.priceUsd, liquidityUsd: info.liquidityUsd, pairs: info.pairs, boost: Number(boosts.get(mint)) || 0, socialAt: Date.now(), x: profile || previous?.x || null });
+      continue;
+    }
+
+    const lastScam = Number(previous?.scamAt) || 0;
+    if (Date.now() - lastScam > SCAM_INTERVAL && symbol && !(await recentlyNotified(mint, 'scam'))) {
+      const mentions = await scamMentions(symbol);
+      if (mentions && mentions.scam >= 3 && (!previous?.scam || mentions.scam > previous.scam)) {
+        alerts.push({ mint, symbol, kind: 'scam', text: 'ACUSACIONES ' + symbol + ': ' + mentions.scam + ' resultados publicos lo llaman scam' });
+        await markNotified(mint, 'scam', 3600);
+      }
+      await writeSnapshot(mint, { ...(previous || {}), priceUsd: info.priceUsd, liquidityUsd: info.liquidityUsd, pairs: info.pairs, boost: Number(boosts.get(mint)) || 0, scamAt: Date.now(), scam: mentions?.scam || previous?.scam || 0 });
+      continue;
+    }
+
+    await writeSnapshot(mint, {
+      ...(previous || {}),
+      priceUsd: info.priceUsd,
+      liquidityUsd: info.liquidityUsd,
+      pairs: info.pairs,
+      boost: Number(boosts.get(mint)) || 0,
+      socialAt: lastSocial,
+      scamAt: lastScam,
+      x: previous?.x || null,
+      scam: previous?.scam || 0
+    });
   }
 
   const delivered = [];
   for (const alert of alerts) {
-    const sent = await sendTelegram((alert.kind === 'rug' ? '🚨 ' : '📈 ') + alert.text + '\nhttps://www.jamddmaj.com/sniper.html');
+    const prefix = alert.kind === 'rug' ? '🚨 ' : alert.kind === 'pump' ? '📈 ' : alert.kind === 'listing' ? '🔔 ' : alert.kind === 'boost' ? '📣 ' : alert.kind === 'x' ? '💬 ' : '⚠️ ';
+    const sent = await sendTelegram(prefix + alert.text + '\nhttps://www.jamddmaj.com/sniper.html');
     delivered.push({ ...alert, telegram: sent });
   }
 

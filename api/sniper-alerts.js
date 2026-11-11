@@ -21,7 +21,7 @@ export default async function handler(request) {
   if (!validDevice(device)) return jsonResponse(request, { error: { message: 'Invalid device' } }, 400);
   const entries = (Array.isArray(body?.items) ? body.items : [])
     .filter(item => validMint(item?.mint))
-    .map(item => ({ mint: String(item.mint), symbol: String(item.symbol || '').slice(0, 20), pool: String(item.pool || '').slice(0, 44) }))
+    .map(item => ({ mint: String(item.mint), symbol: String(item.symbol || '').slice(0, 20), pool: String(item.pool || '').slice(0, 44), handle: String(item.handle || '').replace(/^@/, '').slice(0, 20) }))
     .slice(0, 40);
   try {
     await saveWatchlist(device, entries);
