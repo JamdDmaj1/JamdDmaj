@@ -276,6 +276,60 @@ function auditPanel(item) {
   return box;
 }
 
+function whyPanel(item) {
+  const box = document.createElement('details');
+  box.className = 'sniper-why';
+  const head = document.createElement('summary');
+  head.textContent = '¿Por qué se movió?';
+  const body = document.createElement('div');
+  body.className = 'sniper-why-body';
+  box.append(head, body);
+  let loaded = false;
+  const paint = data => {
+    body.replaceChildren();
+    const title = document.createElement('div');
+    title.className = 'sniper-why-title';
+    title.textContent = data.summary || 'Sin resumen';
+    body.append(title);
+    const stats = document.createElement('div');
+    stats.className = 'sniper-why-stats';
+    const change = value => value === null || value === undefined ? '—' : (value > 0 ? '+' : '') + Number(value).toFixed(1) + '%';
+    stats.textContent = '5m ' + change(data.changes?.m5) + ' · 1h ' + change(data.changes?.h1) + ' · 24h ' + change(data.changes?.h24) + ' · Vol 1h ' + money(data.volumes?.h1) + ' USD';
+    body.append(stats);
+    const list = document.createElement('ul');
+    list.className = 'sniper-why-list';
+    for (const entry of data.evidence || []) {
+      const row = document.createElement('li');
+      row.className = entry.type || 'info';
+      const mark = document.createElement('span');
+      mark.className = 'mark';
+      mark.textContent = entry.type === 'good' ? '▲' : entry.type === 'bad' ? '▼' : entry.type === 'warn' ? '!' : '·';
+      const text = document.createElement('span');
+      text.textContent = entry.text;
+      row.append(mark, text);
+      list.append(row);
+    }
+    body.append(list);
+  };
+  const load = async () => {
+    if (loaded) return;
+    loaded = true;
+    body.textContent = 'Reuniendo pruebas: volumen, compras grandes, listados y marketing...';
+    try {
+      const response = await fetch(base + '/api/sniper-why?mint=' + encodeURIComponent(item.mint) + '&pool=' + encodeURIComponent(item.poolAddress || '') + '&symbol=' + encodeURIComponent(item.symbol || '') + '&x=' + Date.now(), { cache: 'no-store' });
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      paint(await response.json());
+    } catch (error) {
+      body.textContent = 'No se pudo analizar el movimiento: ' + (error?.message || error);
+      loaded = false;
+    }
+  };
+  box.addEventListener('toggle', () => { if (box.open) void load(); });
+  const bigMove = Math.abs(Number(item.change5m) || 0) >= 15 || Math.abs(Number(item.change1h) || 0) >= 30;
+  if (bigMove) box.setAttribute('data-auto', 'true');
+  return box;
+}
+
 function card(item) {
   const article = document.createElement('article');
   article.className = 'sniper-card';
