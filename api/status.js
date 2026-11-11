@@ -3,7 +3,7 @@ import { getProServerState } from "../lib/pro-signals.js";
 
 export const config = { runtime: "edge" };
 
-export const FALLBACK_VERSION = "1.57.1";
+export const FALLBACK_VERSION = "1.58.0";
 const FALLBACK_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
 const GITHUB_LATEST_RELEASE_URL = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases?per_page=10";
 
@@ -29,7 +29,7 @@ export default async function handler(request) {
     ),
     googleAccount: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.JAMDDMAJ_ACCOUNT_SECRET),
     version: FALLBACK_VERSION,
-    webVersion: "1.57.1",
+    webVersion: "1.58.0",
     latestVersion: release.latestVersion,
     apkUrl: release.apkUrl,
     releaseUrl: release.releaseUrl,

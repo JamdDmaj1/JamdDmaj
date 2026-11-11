@@ -95,7 +95,7 @@ export default async function handler(request) {
     solUsd,
     tokensUsd: Number(tokensUsd.toFixed(2)),
     totalUsd: Number(((solUsd || 0) + tokensUsd).toFixed(2)),
-    positions: positions.slice(0, 6).map(position => ({ ...position, value: Number(position.value.toFixed(2)) })),
+    positions: positions.slice(0, 12).map(position => ({ ...position, value: Number(position.value.toFixed(2)) })),
     tokenCount: holdings.size,
     pricedCount: priced
   };

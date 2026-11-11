@@ -810,50 +810,72 @@ function holdingsList() {
 async function renderHoldings() {
   const grid = document.getElementById('sniperGrid');
   const status = document.getElementById('sniperStatus');
-  const rows = holdingsList();
   grid.replaceChildren();
-  if (!rows.length) { status.textContent = 'Aun no tienes tokens comprados desde Sniper.'; return; }
-  status.textContent = 'Leyendo precios en vivo de ' + rows.length + ' token(es)...';
-  let live = {};
-  try {
-    const response = await fetch(base + '/api/sniper-watch?x=' + Date.now(), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ mints: rows.map(row => row.mint) }) });
-    if (response.ok) live = (await response.json()).items || {};
-  } catch {}
-  for (const row of rows) {
-    const info = live[row.mint] || {};
-    const price = Number(info.priceUsd) || row.lastPrice;
-    const value = price && row.tokens ? price * row.tokens : row.invested;
-    const pnl = value - row.invested;
-    const pct = row.invested > 0 ? (pnl / row.invested) * 100 : 0;
+  status.replaceChildren();
+  if (!walletState.owner) {
+    const resolved = resolveWallet();
+    if (resolved) { walletState.owner = resolved.owner; walletState.source = resolved.source; }
+  }
+  if (!walletState.owner) {
+    status.textContent = 'Conecta Phantom o indica una direccion en la barra de saldo para ver tus tokens reales.';
+    return;
+  }
+  if (!walletState.data) await refreshBalance();
+  const data = walletState.data;
+  const info = document.createElement('div');
+  info.className = 'sniper-wallet-line';
+  info.textContent = 'Wallet ' + (walletState.source || '') + ' ' + shortAddress(walletState.owner) + (data ? ' · ' + money(data.tokensUsd) + ' USD en tokens' : '');
+  status.append(info);
+  const positions = data?.positions || [];
+  if (!positions.length) {
+    const empty = document.createElement('p');
+    empty.className = 'sniper-empty';
+    empty.textContent = 'Esta wallet no tiene tokens con precio en este momento.';
+    grid.append(empty);
+    return;
+  }
+  for (const position of positions) {
+    const known = [...(state.items || []), ...Object.values(state.data || {}).flat()].find(entry => entry?.mint === position.mint);
     const article = document.createElement('article');
     article.className = 'sniper-card';
-    const top = document.createElement('div'); top.className = 'sniper-card-top';
-    const symbol = document.createElement('span'); symbol.className = 'sniper-symbol'; symbol.textContent = row.symbol || row.mint.slice(0, 6);
-    const badges = document.createElement('div'); badges.className = 'sniper-badges';
-    badges.append(badge((pnl >= 0 ? '+' : '') + pct.toFixed(2) + '%', pnl >= 0 ? 'mejor' : 'alto'));
+    const top = document.createElement('div');
+    top.className = 'sniper-card-top';
+    const symbol = document.createElement('span');
+    symbol.className = 'sniper-symbol';
+    symbol.textContent = known?.symbol || (position.mint.slice(0, 4) + '...' + position.mint.slice(-4));
+    const badges = document.createElement('div');
+    badges.className = 'sniper-badges';
+    if (known) badges.append(badge(known.verdict, verdictClass(known.verdict)));
     top.append(symbol, badges);
-    const meta = document.createElement('div'); meta.className = 'sniper-metabar';
+    const meta = document.createElement('div');
+    meta.className = 'sniper-metabar';
     const metaItem = (name, valueText) => { const span = document.createElement('span'); span.innerHTML = name + ' <b>' + valueText + '</b>'; meta.append(span); };
-    metaItem('Invertido', row.invested.toFixed(2) + ' USD');
-    metaItem('Valor', value.toFixed(2) + ' USD');
-    metaItem('Entrada', fmtPrice(row.entry) + ' USD');
-    metaItem('Precio', fmtPrice(price) + ' USD');
-    metaItem('MCap', Number.isFinite(Number(row.lastMcap)) ? money(Number(row.lastMcap)) + ' USD' : 'sin dato');
-    metaItem('Hold', fmtHold(Date.now() - (row.firstAt || Date.now())));
-    const share = document.createElement('button'); share.type = 'button'; share.className = 'sniper-share-btn'; share.textContent = 'Compartir imagen';
-    share.addEventListener('click', () => shareTrade({ symbol: row.symbol, priceUsd: price, mcap: row.lastMcap, at: Date.now(), holdMs: Date.now() - (row.firstAt || Date.now()), pnlUsd: pnl, basis: row.invested, button: share }));
-    article.append(top, meta, share);
+    metaItem('Cantidad', Number(position.amount).toLocaleString('en-US', { maximumFractionDigits: 4 }));
+    metaItem('Precio', fmtPrice(position.price) + ' USD');
+    metaItem('Valor', (Number(position.value) || 0).toFixed(2) + ' USD');
+    const share = data?.tokensUsd ? ((Number(position.value) || 0) / data.tokensUsd) * 100 : 0;
+    metaItem('Del total', share.toFixed(1) + '%');
+    if (known) metaItem('Market cap', money(known.marketCapUsd) + ' USD');
+    const actions = document.createElement('div');
+    actions.className = 'sniper-actions';
+    if (known) {
+      const view = document.createElement('button');
+      view.type = 'button';
+      view.className = 'sniper-view';
+      view.textContent = 'Ver token';
+      view.addEventListener('click', () => openDetail(known));
+      actions.append(view);
+    }
+    const copy = document.createElement('button');
+    copy.type = 'button';
+    copy.className = 'sniper-copy';
+    copy.textContent = 'Copiar contrato';
+    copy.addEventListener('click', async () => { try { await navigator.clipboard.writeText(position.mint); copy.textContent = 'Copiado'; } catch { copy.textContent = 'No disponible'; } setTimeout(() => { copy.textContent = 'Copiar contrato'; }, 1600); });
+    actions.append(copy);
+    article.append(top, meta, actions);
     grid.append(article);
   }
-  status.replaceChildren();
-  const clearMine = document.createElement('button');
-  clearMine.type = 'button';
-  clearMine.className = 'sniper-clear-favs';
-  clearMine.textContent = 'Vaciar historial (' + history.length + ')';
-  clearMine.addEventListener('click', () => { history.length = 0; saveHistory(); paintTabs(); void load('mine'); });
-  status.append(clearMine, document.createTextNode(' ' + rows.length + ' token(s) en cartera.'));
 }
-
 function renderHistory() {
   const grid = document.getElementById('sniperGrid');
   const status = document.getElementById('sniperStatus');
@@ -1325,7 +1347,34 @@ $('sniperMin').addEventListener('change', render);
 $('sniperHideHigh').addEventListener('change', render);
 $('sniperSearch').addEventListener('input', render);
 // Barra de saldo: SOL disponible y valor en tokens, con ojo para ocultarlo.
-const walletState = { data: null, timer: null, hidden: false };
+const walletState = { data: null, timer: null, hidden: false, owner: null, source: null };
+const shortAddress = value => value ? value.slice(0, 4) + '...' + value.slice(-4) : '';
+const looksLikeAddress = value => /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(String(value || ''));
+function storedWallet() {
+  try {
+    const direct = localStorage.getItem('jamd-sniper-wallet');
+    if (looksLikeAddress(direct)) return { owner: direct, source: 'Manual' };
+    const raw = localStorage.getItem('jamd-wallet-trading-state');
+    const parsed = raw ? JSON.parse(raw) : null;
+    const candidate = parsed?.account?.address || parsed?.account?.publicKey || parsed?.snapshot?.address || parsed?.address;
+    if (looksLikeAddress(candidate)) return { owner: candidate, source: 'JamdDmaj' };
+  } catch {}
+  return null;
+}
+function resolveWallet() {
+  const phantomKey = globalThis.JamdSniperTrade?.key?.();
+  if (looksLikeAddress(phantomKey)) return { owner: phantomKey, source: 'Phantom' };
+  return storedWallet();
+}
+function setWallet(owner, source, remember = true) {
+  walletState.owner = owner || null;
+  walletState.source = source || null;
+  walletState.data = null;
+  if (remember && owner) { try { localStorage.setItem('jamd-sniper-wallet', owner); } catch {} }
+  paintBalance();
+  if (owner) void refreshBalance();
+}
+
 try { walletState.hidden = localStorage.getItem('jamd-sniper-hide') === '1'; } catch {}
 const mask = text => walletState.hidden ? '••••' : text;
 function paintBalance() {
@@ -1335,6 +1384,10 @@ function paintBalance() {
   const tokensSub = document.getElementById('balanceTokensSub');
   const eye = document.getElementById('balanceEye');
   const connectButton = document.getElementById('balanceConnect');
+  const sourceEl = document.getElementById('balanceSource');
+  const addressEl = document.getElementById('balanceAddress');
+  if (sourceEl) sourceEl.textContent = walletState.source || 'Sin wallet';
+  if (addressEl) addressEl.textContent = walletState.owner ? shortAddress(walletState.owner) : '';
   if (!solEl) return;
   const data = walletState.data;
   if (eye) { eye.textContent = walletState.hidden ? 'Mostrar' : 'Ocultar'; eye.setAttribute('aria-pressed', String(walletState.hidden)); }
@@ -1354,8 +1407,8 @@ function paintBalance() {
   if (tokensSub) tokensSub.textContent = walletState.hidden ? '' : (data.pricedCount || 0) + ' de ' + (data.tokenCount || 0) + ' tokens con precio';
 }
 async function refreshBalance() {
-  const wallet = globalThis.JamdSniperTrade;
-  const owner = wallet?.key?.();
+  if (!walletState.owner) { const resolved = resolveWallet(); if (resolved) { walletState.owner = resolved.owner; walletState.source = resolved.source; } }
+  const owner = walletState.owner;
   if (!owner) { walletState.data = null; paintBalance(); return; }
   try {
     const response = await fetch(base + '/api/sniper-wallet?x=' + Date.now(), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ owner }) });
@@ -1369,12 +1422,23 @@ if (eyeButton) eyeButton.addEventListener('click', () => {
   try { localStorage.setItem('jamd-sniper-hide', walletState.hidden ? '1' : '0'); } catch {}
   paintBalance();
 });
+const changeBalance = document.getElementById('balanceChange');
+if (changeBalance) changeBalance.addEventListener('click', () => {
+  const value = prompt('Direccion de wallet Solana para consultar (solo lectura):', walletState.owner || '');
+  if (!value) return;
+  const clean = value.trim();
+  if (!looksLikeAddress(clean)) { alert('Esa direccion no parece valida.'); return; }
+  const phantomKey = globalThis.JamdSniperTrade?.key?.();
+  setWallet(clean, clean === phantomKey ? 'Phantom' : 'Manual');
+});
 const connectBalance = document.getElementById('balanceConnect');
 if (connectBalance) connectBalance.addEventListener('click', async () => {
   const wallet = globalThis.JamdSniperTrade;
   if (!wallet || !wallet.provider()) { alert('Phantom no esta disponible en este navegador. Instalalo o abre la pagina dentro de Phantom.'); return; }
   try { await wallet.connect(); await refreshBalance(); } catch (error) { alert('No se pudo conectar: ' + (error?.message || error)); }
 });
+const initialWallet = resolveWallet();
+if (initialWallet) { walletState.owner = initialWallet.owner; walletState.source = initialWallet.source; }
 paintBalance();
 setTimeout(() => { void refreshBalance(); }, 600);
 setInterval(() => { if (!document.hidden) void refreshBalance(); }, 20000);
