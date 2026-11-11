@@ -178,3 +178,7 @@
 .balance-eye,.balance-connect{align-self:center;padding:11px 16px;border-radius:12px;border:1px solid #2b4257;background:#132234;color:#cfe1f5;font-size:12px;cursor:pointer}
 .balance-connect{border-color:#2fbf8f;color:#7ef0cf}
 @media(max-width:640px){.balance-value{font-size:21px}.balance-card{min-width:130px;padding:10px 12px}}
+
+.sniper-info{width:15px;height:15px;border-radius:999px;border:1px solid #2b4257;background:#132234;color:#9cc9ff;font-size:9px;line-height:1;padding:0;margin-left:5px;cursor:help;vertical-align:middle}
+.sniper-info:hover{border-color:#4c8fd6}
+.sniper-tip{position:fixed;z-index:80;background:#0d1b2a;border:1px solid #2b4257;border-radius:10px;padding:8px 10px;color:#cfe1f5;font-size:11px;line-height:1.45;box-shadow:0 10px 24px #0008}

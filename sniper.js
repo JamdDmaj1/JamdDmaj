@@ -276,6 +276,47 @@ function auditPanel(item) {
   return box;
 }
 
+const TIPS = {
+  seguridad: 'Puntuacion de 0 a 100 con emision, congelacion, liquidez bloqueada, concentracion de holders, liquidez real y antiguedad. Mas alto significa menos riesgo; no garantiza que sea seguro.',
+  potencial: 'Estimacion de 0 a 100 con impulso de precio, rotacion volumen/liquidez, presion compradora y profundidad. Queda limitada por el riesgo. No es una prediccion.',
+  liquidez: 'Riesgo de que retiren la liquidez: porcentaje de LP bloqueado, porcentaje del creador, liquidez real y edad del pool. ALTO significa que el LP puede vaciarse.',
+  ath: 'Capitalizacion maxima historica: precio maximo del par por el suministro estimado. Se mide desde la creacion del par.',
+  categorias: 'Etiquetas estimadas con el nombre, el mercado y el marketing. No son categorias oficiales.',
+  boost: 'Promocion pagada detectada en DexScreener. No implica calidad ni seguridad.',
+  mercado: 'Numero de mercados donde cotiza el par y en cuales.'
+};
+let tipTimer = null;
+let tipNode = null;
+function hideTip() { if (tipTimer) { clearTimeout(tipTimer); tipTimer = null; } if (tipNode) { tipNode.remove(); tipNode = null; } }
+function showTip(anchor, text) {
+  hideTip();
+  const node = document.createElement('div');
+  node.className = 'sniper-tip';
+  node.textContent = text;
+  document.body.append(node);
+  const rect = anchor.getBoundingClientRect();
+  const width = Math.min(280, window.innerWidth - 24);
+  node.style.maxWidth = width + 'px';
+  const left = Math.min(Math.max(12, rect.left - width / 2 + rect.width / 2), window.innerWidth - width - 12);
+  node.style.left = left + 'px';
+  node.style.top = (rect.bottom + 8) + 'px';
+  tipNode = node;
+}
+function infoBadge(key) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'sniper-info';
+  button.textContent = '?';
+  button.setAttribute('aria-label', 'Mas informacion');
+  const text = TIPS[key] || '';
+  button.addEventListener('mouseenter', () => { if (tipTimer) clearTimeout(tipTimer); tipTimer = setTimeout(() => showTip(button, text), 3000); });
+  button.addEventListener('mouseleave', hideTip);
+  button.addEventListener('focus', () => { tipTimer = setTimeout(() => showTip(button, text), 800); });
+  button.addEventListener('blur', hideTip);
+  button.addEventListener('click', event => { event.stopPropagation(); if (tipNode && tipNode.textContent === text) hideTip(); else showTip(button, text); });
+  return button;
+}
+
 function whyPanel(item) {
   const box = document.createElement('details');
   box.className = 'sniper-why';
@@ -374,6 +415,7 @@ function card(item) {
 
   const cats = document.createElement('div');
   cats.className = 'sniper-cats';
+  cats.append(infoBadge('categorias'));
   for (const category of item.categories || []) {
     const chip = document.createElement('span');
     chip.textContent = category;
@@ -384,10 +426,14 @@ function card(item) {
   scores.className = 'sniper-scores';
   const safety = document.createElement('div');
   safety.className = 'sniper-score';
-  safety.append(Object.assign(document.createElement('strong'), { textContent: String(item.score) }), Object.assign(document.createElement('span'), { textContent: 'seguridad - 100 es mejor' }));
+  const safetyLabel = Object.assign(document.createElement('span'), { textContent: 'seguridad - 100 es mejor' });
+  safetyLabel.append(infoBadge('seguridad'));
+  safety.append(Object.assign(document.createElement('strong'), { textContent: String(item.score) }), safetyLabel);
   const growth = document.createElement('div');
   growth.className = 'sniper-score growth';
-  growth.append(Object.assign(document.createElement('strong'), { textContent: String(item.growth?.score ?? '—') }), Object.assign(document.createElement('span'), { textContent: 'potencial estimado' }));
+  const growthLabel = Object.assign(document.createElement('span'), { textContent: 'potencial estimado' });
+  growthLabel.append(infoBadge('potencial'));
+  growth.append(Object.assign(document.createElement('strong'), { textContent: String(item.growth?.score ?? '—') }), growthLabel);
   scores.append(safety, growth);
 
   const meta = document.createElement('div');
@@ -399,6 +445,7 @@ function card(item) {
   const athItem = document.createElement('span');
   athItem.setAttribute('data-ath', item.mint);
   athItem.innerHTML = 'ATH mcap <b>cargando...</b>';
+  athItem.append(infoBadge('ath'));
   meta.append(athItem);
   metaItem('Mercados', (item.pairsCount || 1) + ' - ' + ((item.venues || []).join('/') || 'n/d'));
   metaItem('Holders', Number.isFinite(item.holders) ? String(item.holders) : '—');
@@ -408,6 +455,7 @@ function card(item) {
   const liquidity = document.createElement('div');
   liquidity.className = 'sniper-liquidity';
   liquidity.append(badge('Retirada de liquidez: ' + item.liquidityLabel + ' (' + item.liquidityRisk + '/100)', liquidityClass(item.liquidityLabel)));
+  liquidity.append(infoBadge('liquidez'));
   if (item.liquidityLabel === 'ALTO') {
     const note = document.createElement('small');
     note.textContent = 'El LP puede vaciarse: revisa el bloqueo y quien controla la liquidez.';
