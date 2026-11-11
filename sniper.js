@@ -304,8 +304,18 @@ function card(item) {
     paintTabs();
     if (state.tab === 'fav') void load('fav');
   });
-  badges.append(star);
-  if (globalThis.SniperRadar) badges.append(globalThis.SniperRadar.button(item));
+  const actions = document.createElement('div');
+  actions.className = 'sniper-actions';
+  actions.append(star);
+  if (state.tab === 'fav') {
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'sniper-remove';
+    remove.textContent = 'Quitar de favoritos';
+    remove.addEventListener('click', () => { favorites.delete(item.mint); saveFavorites(); paintTabs(); void load('fav'); });
+    actions.append(remove);
+  }
+  if (globalThis.SniperRadar) actions.append(globalThis.SniperRadar.button(item));
   top.append(symbol, badges);
 
   const cats = document.createElement('div');
@@ -740,7 +750,15 @@ async function load(tab = state.tab) {
   paintTabs();
   if (tab === 'fav') {
     state.items = [...favorites.values()];
-    $('sniperStatus').textContent = state.items.length ? state.items.length + ' favorito(s).' : 'Aun no has guardado favoritos: pulsa la estrella en un token.';
+    const statusFav = $('sniperStatus');
+    statusFav.replaceChildren();
+    const clear = document.createElement('button');
+    clear.type = 'button';
+    clear.className = 'sniper-clear-favs';
+    clear.textContent = 'Vaciar favoritos (' + state.items.length + ')';
+    clear.addEventListener('click', () => { favorites.clear(); saveFavorites(); paintTabs(); void load('fav'); });
+    if (state.items.length) statusFav.append(clear);
+    else statusFav.textContent = 'Aun no has guardado favoritos: pulsa la estrella en un token.';
     render();
     return;
   }
