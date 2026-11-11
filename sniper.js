@@ -5,9 +5,9 @@ const favorites = new Map();
 try { for (const entry of JSON.parse(localStorage.getItem('jamd-sniper-favs') || '[]')) if (entry?.mint && Number(entry.savedAt) > 0) favorites.set(entry.mint, entry); } catch {}
 const saveFavorites = () => { try { localStorage.setItem('jamd-sniper-favs', JSON.stringify([...favorites.values()])); } catch {} };
 const history = [];
-try { history.push(...JSON.parse(localStorage.getItem('jamd-sniper-history') || '[]')); } catch {}
+try { const stored = JSON.parse(localStorage.getItem('jamd-sniper-history') || '[]'); for (const entry of Array.isArray(stored) ? stored : []) { if (entry && Number(entry.savedAt) > 0 && String(entry.tx || '').length >= 60) history.push(entry); } } catch {}
 const saveHistory = () => { try { localStorage.setItem('jamd-sniper-history', JSON.stringify(history.slice(0, 300))); } catch {} };
-const recordTrade = entry => { history.unshift({ ...entry, at: entry.at || Date.now() }); saveHistory(); if (globalThis.paintTabs) globalThis.paintTabs(); };
+const recordTrade = entry => { if (String(entry.tx || '').length < 60) return; history.unshift({ ...entry, at: entry.at || Date.now(), savedAt: Date.now() }); saveHistory(); if (globalThis.paintTabs) globalThis.paintTabs(); };
 try { const saved = Number(JSON.parse(localStorage.getItem('jamd-sniper-usd') || 'null')); if (saved > 0) state.usd = saved; } catch {}
 
 const marks = { ok: '✓', high: '✕', critical: '✕', medium: '!', low: '·' };
@@ -648,7 +648,13 @@ async function renderHoldings() {
     article.append(top, meta, share);
     grid.append(article);
   }
-  status.textContent = rows.length + ' token(s) en cartera segun tus operaciones.';
+  status.replaceChildren();
+  const clearMine = document.createElement('button');
+  clearMine.type = 'button';
+  clearMine.className = 'sniper-clear-favs';
+  clearMine.textContent = 'Vaciar historial (' + history.length + ')';
+  clearMine.addEventListener('click', () => { history.length = 0; saveHistory(); paintTabs(); void load('mine'); });
+  status.append(clearMine, document.createTextNode(' ' + rows.length + ' token(s) en cartera.'));
 }
 
 function renderHistory() {
@@ -669,10 +675,21 @@ function renderHistory() {
     hold.textContent = trade.side === 'sell' && first ? 'Hold ' + fmtHold(trade.at - first.at) : '';
     const share = document.createElement('button'); share.type = 'button'; share.className = 'sniper-share-btn'; share.textContent = 'Compartir';
     share.addEventListener('click', () => shareTrade({ symbol: trade.symbol, priceUsd: trade.priceUsd, mcap: trade.mcap, at: trade.at, holdMs: trade.side === 'sell' && first ? trade.at - first.at : Date.now() - trade.at, pnlUsd: trade.side === 'sell' ? (Number(trade.usd) || 0) - (Number(trade.invested) || Number(trade.usd) || 0) : 0, basis: Number(trade.invested) || Number(trade.usd) || 1, button: share }));
-    row.append(side, symbol, amount, price, mcap, date, hold, share);
+    const drop = document.createElement('button');
+    drop.type = 'button';
+    drop.className = 'sniper-remove';
+    drop.textContent = 'Quitar';
+    drop.addEventListener('click', () => { const position = history.indexOf(trade); if (position >= 0) history.splice(position, 1); saveHistory(); paintTabs(); void load('hist'); });
+    row.append(side, symbol, amount, price, mcap, date, hold, share, drop);
     grid.append(row);
   }
-  status.textContent = history.length + ' operacion(es) registradas.';
+  status.replaceChildren();
+  const clearHist = document.createElement('button');
+  clearHist.type = 'button';
+  clearHist.className = 'sniper-clear-favs';
+  clearHist.textContent = 'Vaciar historial (' + history.length + ')';
+  clearHist.addEventListener('click', () => { history.length = 0; saveHistory(); paintTabs(); void load('hist'); });
+  status.append(clearHist, document.createTextNode(' ' + history.length + ' operacion(es) registradas.'));
 }
 
 const athCache = (() => { try { return JSON.parse(localStorage.getItem('jamd-sniper-ath') || '{}'); } catch { return {}; } })();
