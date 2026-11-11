@@ -222,3 +222,9 @@ dialog.trade-share-dialog.share-out::backdrop{animation:share-backdrop-out .17s 
 .automation-config-fields input,.automation-config-fields select{padding:7px 9px;border-radius:9px;border:1px solid #26405a;background:#0f1c2b;color:#e8f1fa;font-size:12px}
 .automation-config button{margin-top:10px;padding:8px 14px;border-radius:10px;border:1px solid #2fbf8f;background:#2fbf8f;color:#04150f;font-weight:700;cursor:pointer}
 .automation-config-status{margin:8px 0 0;font-size:11px;color:#9ab2ca}
+
+.automation-paper{margin-top:16px;padding:12px;border:1px solid #16232f;border-radius:14px;background:#0a1423}
+.automation-paper h4{margin:0 0 8px;font-size:13px;color:#7ef0cf}
+.automation-paper button{padding:8px 14px;border-radius:10px;border:1px solid #2fbf8f;background:#2fbf8f;color:#04150f;font-weight:700;cursor:pointer}
+.automation-paper-list{margin:10px 0 0;padding-left:18px;font-size:12px;color:#b9cbdd}
+.automation-paper-list li{margin:4px 0}
