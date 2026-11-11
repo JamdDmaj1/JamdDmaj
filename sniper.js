@@ -27,34 +27,75 @@ function age(value) {
 
 const marks = { ok: '✓', high: '✕', critical: '✕', medium: '!' };
 
+function badge(text, kind) {
+  const span = document.createElement('span');
+  span.className = 'sniper-badge ' + kind;
+  span.textContent = text;
+  return span;
+}
+
+function growthClass(label) {
+  if (label === 'ALTO') return 'mejor';
+  if (label === 'MODERADO') return 'prudencia';
+  return 'medio';
+}
+
+function liquidityClass(label) {
+  if (label === 'ALTO') return 'alto';
+  if (label === 'MEDIO') return 'medio';
+  return 'mejor';
+}
+
 function card(item) {
   const article = document.createElement('article');
   article.className = 'sniper-card';
+
   const top = document.createElement('div');
   top.className = 'sniper-card-top';
   const symbol = document.createElement('span');
   symbol.className = 'sniper-symbol';
   symbol.textContent = item.symbol || '—';
-  const badge = document.createElement('span');
-  badge.className = 'sniper-badge ' + verdictClass(item.verdict);
-  badge.textContent = item.verdict;
-  top.append(symbol, badge);
+  const badges = document.createElement('div');
+  badges.className = 'sniper-badges';
+  badges.append(badge(item.verdict, verdictClass(item.verdict)), badge('Potencial ' + (item.growth?.label || '—'), growthClass(item.growth?.label)));
+  top.append(symbol, badges);
 
-  const score = document.createElement('div');
-  score.className = 'sniper-score';
-  const number = document.createElement('strong');
-  number.textContent = String(item.score);
-  const label = document.createElement('span');
-  label.textContent = 'seguridad estimada · 100 es mejor';
-  score.append(number, label);
+  const scores = document.createElement('div');
+  scores.className = 'sniper-scores';
+  const safetyBlock = document.createElement('div');
+  safetyBlock.className = 'sniper-score';
+  const safetyNumber = document.createElement('strong');
+  safetyNumber.textContent = String(item.score);
+  const safetyLabel = document.createElement('span');
+  safetyLabel.textContent = 'seguridad · 100 es mejor';
+  safetyBlock.append(safetyNumber, safetyLabel);
+  const growthBlock = document.createElement('div');
+  growthBlock.className = 'sniper-score growth';
+  const growthNumber = document.createElement('strong');
+  growthNumber.textContent = String(item.growth?.score ?? '—');
+  const growthLabel = document.createElement('span');
+  growthLabel.textContent = 'potencial estimado · no es una promesa';
+  growthBlock.append(growthNumber, growthLabel);
+  scores.append(safetyBlock, growthBlock);
 
   const meta = document.createElement('div');
   meta.className = 'sniper-metabar';
   const metaItem = (name, value) => { const span = document.createElement('span'); span.innerHTML = name + ' <b>' + value + '</b>'; meta.append(span); };
   metaItem('Vida', age(item.ageMinutes));
   metaItem('Liquidez', money(item.liquidity) + ' USD');
-  metaItem('FDV', item.fdvUsd ? money(item.fdvUsd) + ' USD' : '—');
   metaItem('Holders', Number.isFinite(item.holders) ? String(item.holders) : '—');
+  metaItem('LP bloqueado', Number.isFinite(item.lpLockedPct) ? Math.round(item.lpLockedPct) + '%' : '—');
+  metaItem('Creador', Number.isFinite(item.creatorPct) ? item.creatorPct + '%' : '—');
+
+  const liquidity = document.createElement('div');
+  liquidity.className = 'sniper-liquidity';
+  const liquidityBadge = badge('Retirada de liquidez: ' + item.liquidityLabel + ' (' + item.liquidityRisk + '/100)', liquidityClass(item.liquidityLabel));
+  liquidity.append(liquidityBadge);
+  if (item.liquidityLabel === 'ALTO') {
+    const note = document.createElement('small');
+    note.textContent = 'El LP puede vaciarse: revisa el bloqueo y quien controla la liquidez.';
+    liquidity.append(note);
+  }
 
   const checks = document.createElement('ul');
   checks.className = 'sniper-checks';
@@ -73,13 +114,33 @@ function card(item) {
     checks.append(li);
   }
 
-  const risks = document.createElement('div');
-  risks.className = 'sniper-risks';
-  for (const risk of item.risks || []) {
-    const chip = document.createElement('span');
-    chip.textContent = risk.name;
-    chip.title = risk.description || risk.name;
-    risks.append(chip);
+  const factors = document.createElement('ul');
+  factors.className = 'sniper-factors';
+  for (const factor of item.growth?.factors || []) {
+    const li = document.createElement('li');
+    li.className = factor.points >= 0 ? 'pos' : 'neg';
+    li.innerHTML = '<span>' + factor.label + '</span><b>' + (factor.points > 0 ? '+' : '') + factor.points + '</b><small>' + factor.value + '</small>';
+    factors.append(li);
+  }
+
+  const scams = document.createElement('div');
+  scams.className = 'sniper-scams';
+  if ((item.scamSignals || []).length) {
+    const title = document.createElement('strong');
+    title.textContent = 'Señales de scam o abuso';
+    scams.append(title);
+    for (const signal of item.scamSignals) {
+      const chip = document.createElement('span');
+      chip.className = 'signal';
+      chip.textContent = signal.text + ' · ' + signal.source;
+      chip.title = signal.detail || '';
+      scams.append(chip);
+    }
+  } else {
+    const ok = document.createElement('span');
+    ok.className = 'clean';
+    ok.textContent = 'Sin señales públicas de scam en el analizador ni en sus votos.';
+    scams.append(ok);
   }
 
   const links = document.createElement('div');
@@ -93,16 +154,21 @@ function card(item) {
     anchor.textContent = type.includes('twitter') || type.includes('x') ? 'X · @' + social.handle : social.type + ' · ' + social.handle;
     links.append(anchor);
   }
+  const search = document.createElement('a');
+  search.href = 'https://x.com/search?q=' + encodeURIComponent((item.symbol || '') + ' scam');
+  search.target = '_blank';
+  search.rel = 'noopener noreferrer';
+  search.textContent = 'Buscar "scam" en X';
   const chart = document.createElement('a');
   chart.href = 'https://www.geckoterminal.com/solana/pools/' + encodeURIComponent(item.poolAddress || '');
   chart.target = '_blank';
   chart.rel = 'noopener noreferrer';
-  chart.textContent = 'Grafico';
-  links.append(chart);
+  chart.textContent = 'Gráfico';
+  links.append(search, chart);
 
-  article.append(top, score, meta, checks);
-  if (risks.children.length) article.append(risks);
-  article.append(links);
+  article.append(top, scores, meta, liquidity, checks);
+  if (factors.children.length) article.append(factors);
+  article.append(scams, links);
   return article;
 }
 

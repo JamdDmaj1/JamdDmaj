@@ -42,3 +42,20 @@
 .sniper-empty{grid-column:1/-1;padding:20px;border:1px dashed #22384c;border-radius:14px;color:#8ea5bd;font-size:13px;text-align:center}
 .sniper-footer{margin-top:26px;color:#6f89a4;font-size:11px;line-height:1.6}
 @media(max-width:640px){.sniper-header h1{font-size:21px}.sniper-grid{grid-template-columns:1fr}.sniper-updated{margin-left:0;width:100%}}
+
+.sniper-badges{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
+.sniper-scores{display:flex;gap:18px;margin:10px 0 6px;flex-wrap:wrap}
+.sniper-scores .sniper-score{margin:0}
+.sniper-scores .growth strong{color:#9cc9ff}
+.sniper-liquidity{display:flex;flex-direction:column;gap:4px;margin:4px 0 8px}
+.sniper-liquidity small{color:#8ea5bd;font-size:11px}
+.sniper-factors{list-style:none;margin:8px 0;padding:8px 10px;border:1px dashed #1e3345;border-radius:10px;display:grid;gap:4px}
+.sniper-factors li{display:grid;grid-template-columns:1fr auto;gap:2px 10px;font-size:11px;color:#9ab2ca}
+.sniper-factors li b{font-family:ui-monospace,monospace}
+.sniper-factors li.pos b{color:#50e2bd}
+.sniper-factors li.neg b{color:#ff8fa2}
+.sniper-factors li small{grid-column:1/-1;color:#6f89a4}
+.sniper-scams{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin:8px 0}
+.sniper-scams strong{width:100%;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#ffb3c0}
+.sniper-scams .signal{font-size:10px;padding:3px 8px;border-radius:999px;background:#241418;color:#ffb3c0;border:1px solid #5a2430}
+.sniper-scams .clean{font-size:11px;color:#6f89a4}
