@@ -117,7 +117,7 @@ function tradePanel(item, setStatusHook) {
   instant.addEventListener('click', async () => {
     if (!api()) { setStatus('Recarga la pagina para cargar el modulo de compra.'); return; }
     try {
-      if (!api().provider()) { setStatus('Phantom no esta instalado. Instalalo o abre esta pagina dentro de Phantom.'); return; }
+      if (!api().provider()) { setStatus('Phantom no esta disponible aqui.'); offerPhantom(); return; }
       instant.disabled = true;
       instant.textContent = 'Comprando ' + state.usd + ' USD...';
       if (!api().key()) { setStatus('Conectando Phantom...'); await api().connect(); }
@@ -140,7 +140,7 @@ function tradePanel(item, setStatusHook) {
   buyButton.addEventListener('click', async () => {
     if (!api()) { setStatus('Recarga la pagina para cargar el modulo de compra.'); return; }
     try {
-      if (!api().provider()) { setStatus('Phantom no esta disponible aqui.'); return; }
+      if (!api().provider()) { setStatus('Phantom no esta disponible aqui.'); offerPhantom(); return; }
       buyButton.disabled = true;
       if (!api().key()) { setStatus('Conectando Phantom...'); await api().connect(); }
       if (!quoteAt || Date.now() - quoteAt > 4000) await refreshQuote();
@@ -158,7 +158,7 @@ function tradePanel(item, setStatusHook) {
   sellButton.addEventListener('click', async () => {
     if (!api()) { setStatus('Recarga la pagina para cargar el modulo de venta.'); return; }
     try {
-      if (!api().provider()) { setStatus('Phantom no esta disponible aqui.'); return; }
+      if (!api().provider()) { setStatus('Phantom no esta disponible aqui.'); offerPhantom(); return; }
       sellButton.disabled = true;
       if (!api().key()) { setStatus('Conectando Phantom...'); await api().connect(); }
       setStatus('Leyendo tu saldo...');

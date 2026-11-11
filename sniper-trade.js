@@ -1,9 +1,15 @@
-import {VersionedTransaction} from '@solana/web3.js';
+import {Connection, VersionedTransaction} from '@solana/web3.js';
 import bs58 from 'bs58';
 
 const base = globalThis.Capacitor?.isNativePlatform?.() ? 'https://www.jamddmaj.com' : '';
 const SOL = 'So11111111111111111111111111111111111111112';
 const LAMPORTS = 1_000_000_000;
+const RPC_URL = 'https://api.mainnet-beta.solana.com';
+let cachedConnection = null;
+const connection = () => {
+  if (!cachedConnection) cachedConnection = new Connection(RPC_URL, 'confirmed');
+  return cachedConnection;
+};
 
 async function call(action, payload) {
   const response = await fetch(base + '/api/sniper-swap', {
@@ -62,8 +68,20 @@ async function send(quoteResponse) {
   const transaction = VersionedTransaction.deserialize(bs58.decode(data.swapTransaction));
   const wallet = provider();
   if (!wallet) throw new Error('phantom-missing');
-  const sent = await wallet.signAndSendTransaction(transaction, { skipPreflight: true, maxRetries: 2 });
-  return String(sent?.signature || '');
+  if (typeof wallet.signAndSendTransaction === 'function') {
+    try {
+      const sent = await wallet.signAndSendTransaction(transaction, { skipPreflight: true, maxRetries: 2 });
+      if (sent?.signature) return String(sent.signature);
+    } catch (error) {
+      // Fall through to the manual path below.
+    }
+  }
+  if (typeof wallet.signTransaction === 'function') {
+    const signed = await wallet.signTransaction(transaction);
+    const signature = await connection().sendRawTransaction(signed.serialize(), { skipPreflight: true, maxRetries: 2, encoding: 'base64' });
+    return String(signature || '');
+  }
+  throw new Error('wallet-cannot-sign');
 }
 
 async function buy({ mint, solAmount, slippageBps = 120 }) {
