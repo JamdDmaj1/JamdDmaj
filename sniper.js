@@ -1042,13 +1042,23 @@ if (usdInput) {
 
   const stamp = () => new Date().toLocaleTimeString();
 
-  const push = (kind, symbol, text) => {
-    alerts.unshift({ kind, symbol, text, at: stamp() });
+  const recentAlerts = new Map();
+  const push = (kind, symbol, text, meta = {}) => {
+    const key = kind + '|' + symbol + '|' + text;
+    const last = recentAlerts.get(key) || 0;
+    if (Date.now() - last < 20 * 60 * 1000) return;
+    recentAlerts.set(key, Date.now());
+    alerts.unshift({ kind, symbol, text, at: stamp(), mint: meta.mint || null });
     if (alerts.length > 40) alerts.pop();
     renderList();
     try {
       if (globalThis.Notification && Notification.permission === 'granted') {
-        new Notification(symbol + ' · Radar', { body: text });
+        const notification = new Notification(symbol + ' · Radar', { body: text });
+        notification.onclick = () => {
+          try { globalThis.focus(); } catch {}
+          if (meta.mint && globalThis.SniperRadar?.open) globalThis.SniperRadar.open(meta.mint);
+          notification.close();
+        };
       }
     } catch {}
   };
@@ -1111,6 +1121,7 @@ if (usdInput) {
   };
 
   const evaluate = (mint, symbol, info) => {
+    const meta = { mint };
     if (!info) return;
     const previous = snap.get(mint) || null;
     if (previous) {
@@ -1118,27 +1129,27 @@ if (usdInput) {
       const nowLiquidity = Number(info.liquidityUsd);
       if (Number.isFinite(beforeLiquidity) && beforeLiquidity > 0 && Number.isFinite(nowLiquidity)) {
         const change = (nowLiquidity - beforeLiquidity) / beforeLiquidity;
-        if (change <= -0.2) push('bad', symbol, 'Liquidez retirada: ' + (change * 100).toFixed(1) + '% (' + Math.round(nowLiquidity) + ' USD)');
-        else if (change <= -0.08) push('warn', symbol, 'Liquidez bajando: ' + (change * 100).toFixed(1) + '%');
+        if (change <= -0.2) push('bad', symbol, 'Liquidez retirada: ' + (change * 100).toFixed(1) + '% (' + Math.round(nowLiquidity) + ' USD)', meta);
+        else if (change <= -0.08) push('warn', symbol, 'Liquidez bajando: ' + (change * 100).toFixed(1) + '%', meta);
         else if (change >= 0.2) push('good', symbol, 'Liquidez añadida: +' + (change * 100).toFixed(1) + '% (' + Math.round(nowLiquidity) + ' USD)');
       }
       const sells = Number(info.sells5m);
       const buys = Number(info.buys5m);
-      if (Number.isFinite(sells) && Number.isFinite(buys) && sells >= 5 && sells >= buys * 3) push('bad', symbol, 'Presion vendedora: ' + sells + ' ventas / ' + buys + ' compras en 5 min');
-      else if (Number.isFinite(sells) && Number.isFinite(buys) && buys >= 8 && buys >= sells * 2.5) push('good', symbol, 'Compras fuertes: ' + buys + ' compras / ' + sells + ' ventas en 5 min');
+      if (Number.isFinite(sells) && Number.isFinite(buys) && sells >= 12 && sells >= buys * 4) push('bad', symbol, 'Presion vendedora fuerte: ' + sells + ' ventas / ' + buys + ' compras en 5 min', { mint });
+      else if (Number.isFinite(sells) && Number.isFinite(buys) && buys >= 8 && buys >= sells * 2.5) push('good', symbol, 'Compras fuertes: ' + buys + ' compras / ' + sells + ' ventas en 5 min', meta);
       const move = Number(info.change5m);
-      if (Number.isFinite(move) && move <= -20) push('bad', symbol, 'Caida rapida: ' + move.toFixed(1) + '% en 5 min');
-      else if (Number.isFinite(move) && move >= 25) push('good', symbol, 'Subida fuerte: +' + move.toFixed(1) + '% en 5 min');
+      if (Number.isFinite(move) && move <= -20) push('bad', symbol, 'Caida rapida: ' + move.toFixed(1) + '% en 5 min', meta);
+      else if (Number.isFinite(move) && move >= 25) push('good', symbol, 'Subida fuerte: +' + move.toFixed(1) + '% en 5 min', meta);
     }
     const beforeVenues = Array.isArray(previous?.venues) ? previous.venues.length : 0;
     const nowVenues = Array.isArray(info.venues) ? info.venues.length : 0;
     if (previous) {
-      if (nowVenues > beforeVenues) push('info', symbol, 'Nuevo listado: ' + nowVenues + ' mercado(s) - ' + (info.venues || []).join(', '));
-      else if (nowVenues < beforeVenues) push('bad', symbol, 'Perdio un listado: ahora ' + nowVenues + ' mercado(s)');
+      if (nowVenues > beforeVenues) push('info', symbol, 'Nuevo listado: ' + nowVenues + ' mercado(s) - ' + (info.venues || []).join(', '), meta);
+      else if (nowVenues < beforeVenues) push('bad', symbol, 'Perdio un listado: ahora ' + nowVenues + ' mercado(s)', meta);
       const beforeBoost = Number(previous.boostTotal) || 0;
       const nowBoost = Number(info.boostTotal) || 0;
-      if (nowBoost > beforeBoost) push('good', symbol, 'Marketing: boost activo por ' + nowBoost + ' USD');
-      else if (!nowBoost && beforeBoost > 0) push('warn', symbol, 'El boost de marketing termino');
+      if (nowBoost > beforeBoost) push('good', symbol, 'Marketing: boost activo por ' + nowBoost + ' USD', meta);
+      else if (!nowBoost && beforeBoost > 0) push('warn', symbol, 'El boost de marketing termino', meta);
     }
     snap.set(mint, { liquidityUsd: info.liquidityUsd, venues: info.venues || [], boostTotal: Number(info.boostTotal) || 0, at: Date.now() });
     persist();
@@ -1184,26 +1195,26 @@ if (usdInput) {
         if (previous) {
           const profile = info.x || {};
           const beforeProfile = previous.x || {};
-          if (beforeProfile.exists && !profile.exists) push('bad', symbol, 'La cuenta de X @' + (entry.handle || '') + ' desaparecio o fue suspendida');
+          if (beforeProfile.exists && !profile.exists) push('bad', symbol, 'La cuenta de X @' + (entry.handle || '') + ' desaparecio o fue suspendida', { mint: entry.mint });
           if (profile.exists && Number.isFinite(profile.followers) && Number.isFinite(beforeProfile.followers) && beforeProfile.followers > 0) {
             const delta = (profile.followers - beforeProfile.followers) / beforeProfile.followers;
-            if (delta >= 0.05) push('good', symbol, 'Seguidores en X +' + (delta * 100).toFixed(1) + '% (' + profile.followers + ')');
-            else if (delta <= -0.05) push('bad', symbol, 'Seguidores en X ' + (delta * 100).toFixed(1) + '% (' + profile.followers + ')');
+            if (delta >= 0.05) push('good', symbol, 'Seguidores en X +' + (delta * 100).toFixed(1) + '% (' + profile.followers + ')', { mint: entry.mint });
+            else if (delta <= -0.05) push('bad', symbol, 'Seguidores en X ' + (delta * 100).toFixed(1) + '% (' + profile.followers + ')', { mint: entry.mint });
           }
           if (Number.isFinite(profile.tweets) && Number.isFinite(beforeProfile.tweets)) {
             const posted = profile.tweets - beforeProfile.tweets;
-            if (posted >= 2) push('info', symbol, 'La cuenta de X publico ' + posted + ' mensajes nuevos');
+            if (posted >= 2) push('info', symbol, 'El dev publico ' + posted + ' mensaje(s) nuevo(s) en X', { mint: entry.mint });
           }
           const down = Number(info.votes?.down) || 0;
           const beforeDown = Number(previous.votes?.down) || 0;
-          if (down - beforeDown >= 3) push('bad', symbol, 'Votos negativos en la comunidad +' + (down - beforeDown) + ' (total ' + down + ')');
+          if (down - beforeDown >= 3) push('bad', symbol, 'Votos negativos en la comunidad +' + (down - beforeDown) + ' (total ' + down + ')', { mint: entry.mint });
           const up = Number(info.votes?.up) || 0;
           const beforeUp = Number(previous.votes?.up) || 0;
-          if (up - beforeUp >= 3) push('good', symbol, 'Votos positivos en la comunidad +' + (up - beforeUp) + ' (total ' + up + ')');
+          if (up - beforeUp >= 3) push('good', symbol, 'Votos positivos en la comunidad +' + (up - beforeUp) + ' (total ' + up + ')', { mint: entry.mint });
           const scam = Number(info.search?.scam) || 0;
           const beforeScam = Number(previous.search?.scam) || 0;
-          if (scam >= 3 && scam - beforeScam >= 2) push('bad', symbol, scam + ' resultados publicos lo llaman scam (antes ' + beforeScam + ')');
-          else if (scam >= 5 && beforeScam < 5) push('bad', symbol, 'Ya hay ' + scam + ' resultados que lo llaman scam');
+          if (scam >= 3 && scam - beforeScam >= 2) push('bad', symbol, scam + ' resultados publicos lo llaman scam (antes ' + beforeScam + ')', { mint: entry.mint });
+          else if (scam >= 5 && beforeScam < 5) push('bad', symbol, 'Ya hay ' + scam + ' resultados que lo llaman scam', { mint: entry.mint });
         }
         socialSnap[entry.mint] = info;
       }
@@ -1211,6 +1222,44 @@ if (usdInput) {
     } catch {}
   };
 
+  const whaleTrack = (() => { try { return JSON.parse(localStorage.getItem('jamd-sniper-whales') || '{}'); } catch { return {}; } })();
+  const saveWhales = () => { try { localStorage.setItem('jamd-sniper-whales', JSON.stringify(whaleTrack)); } catch {} };
+  const pollWhales = async () => {
+    const entries = [...watch.values()].slice(0, 6);
+    for (const entry of entries) {
+      if (!entry?.mint || !entry?.pool) continue;
+      try {
+        const response = await fetch(base + '/api/sniper-trades?pool=' + encodeURIComponent(entry.pool) + '&mint=' + encodeURIComponent(entry.mint) + '&x=' + Date.now(), { cache: 'no-store' });
+        if (!response.ok) continue;
+        const data = await response.json();
+        const trades = Array.isArray(data.items) ? data.items : [];
+        if (!trades.length) continue;
+        const stored = whaleTrack[entry.mint];
+        const lastAt = Number(stored?.at) || 0;
+        const fresh = trades.filter(trade => { const time = Date.parse(trade.at || '') || 0; return time > lastAt; });
+        const newest = Date.parse(trades[0].at || '') || 0;
+        whaleTrack[entry.mint] = { at: newest || Date.now() };
+        saveWhales();
+        let biggest = null;
+        for (const trade of fresh) {
+          const usd = Number(trade.usd) || 0;
+          if (!biggest || usd > (Number(biggest.usd) || 0)) biggest = trade;
+        }
+        if (!biggest) continue;
+        const usd = Number(biggest.usd) || 0;
+        if (usd < 250) continue;
+        const wallet = String(biggest.wallet || '').slice(0, 4) + '...' + String(biggest.wallet || '').slice(-4);
+        if (biggest.side === 'buy') push('good', entry.symbol || '', 'Ballena compro ' + usd.toFixed(0) + ' USD (' + wallet + ')', { mint: entry.mint });
+        else push('bad', entry.symbol || '', 'Ballena vendio ' + usd.toFixed(0) + ' USD (' + wallet + ')', { mint: entry.mint });
+      } catch {}
+    }
+  };
+  let whaleTimer = null;
+  const scheduleWhales = () => { clearInterval(whaleTimer); whaleTimer = setInterval(() => { void pollWhales(); }, 45000); };
+  const open = mint => {
+    const item = [...(state.items || []), ...Object.values(state.data || {}).flat()].find(entry => entry?.mint === mint);
+    if (item && globalThis.openDetail) globalThis.openDetail(item);
+  };
   let socialTimer = null;
   const scheduleSocial = () => {
     clearInterval(socialTimer);
@@ -1256,7 +1305,7 @@ if (usdInput) {
   };
 
   document.addEventListener('visibilitychange', schedule);
-  globalThis.SniperRadar = { button, add, push, pollNow: poll, has: mint => watch.has(mint) };
+  globalThis.SniperRadar = { button, add, push, pollNow: poll, open, has: mint => watch.has(mint) };
   ensureDock();
   schedule();
   scheduleSocial();

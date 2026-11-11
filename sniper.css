@@ -197,3 +197,6 @@
 .sniper-sheet-chart iframe{width:100%;height:460px;border:0;border-radius:12px;background:#070b12;display:block;margin:6px 0 10px}
 .sniper-view{padding:4px 10px;border-radius:999px;border:1px solid #2fbf8f;background:#0f1f2a;color:#7ef0cf;font-size:10px;cursor:pointer}
 @media(max-width:640px){.sniper-sheet-chart iframe{height:320px}.sniper-sheet-head strong{font-size:20px}}
+
+.radar-alert.clickable{cursor:pointer}
+.radar-alert.clickable:hover{background:#10202f}
