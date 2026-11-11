@@ -166,10 +166,11 @@ export default async function handler(request) {
         await markNotified(mint, 'pump', 1800);
       }
 
-      const beforePairs = Number(previous.pairs) || 0;
-      if (info.pairs > beforePairs && beforePairs > 0 && !(await recentlyNotified(mint, 'listing'))) {
-        alerts.push({ mint, symbol, kind: 'listing', text: 'NUEVO LISTADO ' + symbol + ': ' + info.pairs + ' mercado(s) - ' + info.venues.join(', ') });
-        await markNotified(mint, 'listing', 3600);
+      const beforeVenues = Array.isArray(previous.venues) ? previous.venues : [];
+      const freshVenues = Array.isArray(info.venues) ? info.venues.filter(venue => !beforeVenues.includes(venue)) : [];
+      if (beforeVenues.length && freshVenues.length && freshVenues.length <= 3 && !(await recentlyNotified(mint, 'listing'))) {
+        alerts.push({ mint, symbol, kind: 'listing', text: 'NUEVO MERCADO ' + symbol + ': ' + freshVenues.join(', ') + ' (ahora ' + info.venues.length + ' en total)' });
+        await markNotified(mint, 'listing', 7200);
       }
 
       const beforeBoost = Number(previous.boost) || 0;
@@ -193,7 +194,7 @@ export default async function handler(request) {
           await markNotified(mint, 'x', 1800);
         }
       }
-      await writeSnapshot(mint, { ...(previous || {}), priceUsd: info.priceUsd, pool: entry.pool || previous?.pool || '', liquidityUsd: info.liquidityUsd, pairs: info.pairs, boost: Number(boosts.get(mint)) || 0, socialAt: Date.now(), x: profile || previous?.x || null });
+      await writeSnapshot(mint, { ...(previous || {}), priceUsd: info.priceUsd, pool: entry.pool || previous?.pool || '', liquidityUsd: info.liquidityUsd, pairs: info.pairs, venues: info.venues, boost: Number(boosts.get(mint)) || 0, socialAt: Date.now(), x: profile || previous?.x || null });
       continue;
     }
 
@@ -204,7 +205,7 @@ export default async function handler(request) {
         alerts.push({ mint, symbol, kind: 'scam', text: 'ACUSACIONES ' + symbol + ': ' + mentions.scam + ' resultados publicos lo llaman scam' });
         await markNotified(mint, 'scam', 3600);
       }
-      await writeSnapshot(mint, { ...(previous || {}), priceUsd: info.priceUsd, pool: entry.pool || previous?.pool || '', liquidityUsd: info.liquidityUsd, pairs: info.pairs, boost: Number(boosts.get(mint)) || 0, scamAt: Date.now(), scam: mentions?.scam || previous?.scam || 0 });
+      await writeSnapshot(mint, { ...(previous || {}), priceUsd: info.priceUsd, pool: entry.pool || previous?.pool || '', liquidityUsd: info.liquidityUsd, pairs: info.pairs, venues: info.venues, boost: Number(boosts.get(mint)) || 0, scamAt: Date.now(), scam: mentions?.scam || previous?.scam || 0 });
       continue;
     }
 
@@ -214,6 +215,7 @@ export default async function handler(request) {
       pool: entry.pool || previous?.pool || '',
       liquidityUsd: info.liquidityUsd,
       pairs: info.pairs,
+      venues: info.venues,
       boost: Number(boosts.get(mint)) || 0,
       socialAt: lastSocial,
       scamAt: lastScam,
