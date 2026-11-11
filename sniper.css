@@ -211,3 +211,5 @@
 .sniper-rug-banner{margin:-2px 0 10px;padding:8px 10px;border-radius:10px;background:#3a1620;border:1px solid #ff7d91;color:#ffb3c0;font-size:11px;font-weight:700;letter-spacing:.02em}
 .radar-alert.rug{border-color:#ff7d91}
 .radar-alert.rug span{color:#ffb3c0}
+
+.radar-cloud{display:block;margin-top:6px;font-size:10px;color:#6f89a4;text-align:center}

@@ -1064,6 +1064,27 @@ if (usdInput) {
     for (const [mint, value] of Object.entries(JSON.parse(localStorage.getItem(SNAP_KEY) || '{}'))) snap.set(mint, value);
   } catch {}
 
+  const deviceId = (() => {
+    try {
+      const stored = localStorage.getItem('jamd-sniper-device');
+      if (stored && /^[A-Za-z0-9_-]{16,64}$/.test(stored)) return stored;
+      const generated = 'dev' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36);
+      localStorage.setItem('jamd-sniper-device', generated);
+      return generated;
+    } catch { return 'dev' + Date.now().toString(36); }
+  })();
+  const syncCloud = async () => {
+    try {
+      const items = [...watch.values()].map(entry => ({ mint: entry.mint, symbol: entry.symbol || '', pool: entry.pool || '' }));
+      const response = await fetch(base + '/api/sniper-alerts?x=' + Date.now(), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ device: deviceId, items })
+      });
+      const cloudEl = document.querySelector('.radar-cloud');
+      if (cloudEl) cloudEl.textContent = response.ok ? 'Nube: ' + items.length + ' en vigilancia' : 'Nube: sin conexion';
+    } catch {}
+  };
   const persist = () => {
     try { localStorage.setItem(WATCH_KEY, JSON.stringify([...watch.values()])); } catch {}
     try { localStorage.setItem(SNAP_KEY, JSON.stringify(Object.fromEntries(snap))); } catch {}
@@ -1142,7 +1163,11 @@ if (usdInput) {
         enable.disabled = true;
       } catch { enable.textContent = 'No disponible'; enable.disabled = true; }
     });
-    foot.append(enable);
+    const cloud = document.createElement('span');
+    cloud.className = 'radar-cloud';
+    cloud.textContent = 'Nube: —';
+    foot.append(enable, cloud);
+    void syncCloud();
     dock.append(head, listEl, foot);
     document.body.append(dock);
     renderList();
@@ -1333,6 +1358,7 @@ if (usdInput) {
     if (!item?.mint || watch.has(item.mint)) return false;
     watch.set(item.mint, { mint: item.mint, symbol: item.symbol, pool: item.poolAddress, handle: (item.socials || []).find(social => /twitter|x/i.test(String(social.type || '')))?.handle || null });
     persist();
+    void syncCloud();
     ensureDock();
     renderList();
     return true;
