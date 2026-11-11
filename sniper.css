@@ -134,3 +134,9 @@
 .sniper-trade-row a{color:#9cc9ff;text-decoration:none}
 .sniper-trade-row small{color:#6f89a4}
 @media(max-width:640px){.sniper-chart-frame iframe{height:300px}.sniper-trade-row{grid-template-columns:58px 74px 1fr auto}}
+
+.sniper-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 4px}
+.sniper-tab{padding:8px 14px;border-radius:999px;border:1px solid #22384c;background:#0b1421;color:#9ab2ca;font-size:12px;cursor:pointer}
+.sniper-tab.active{border-color:#2fbf8f;color:#7ef0cf;background:#0f1f2a}
+.sniper-star{width:26px;height:26px;border-radius:999px;border:1px solid #2b4257;background:#132234;color:#8ea5bd;cursor:pointer;font-size:14px;line-height:1}
+.sniper-star.active{color:#ffd166;border-color:#8a6a2a}

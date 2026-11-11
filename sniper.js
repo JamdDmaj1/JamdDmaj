@@ -1,6 +1,9 @@
 const $ = id => document.getElementById(id);
 const base = globalThis.Capacitor?.isNativePlatform?.() ? 'https://www.jamddmaj.com' : '';
-const state = { items: [], updatedAt: null, loading: false, usd: 5, solPrice: null, solPriceAt: 0 };
+const state = { items: [], data: {}, updatedAt: null, loading: false, usd: 5, solPrice: null, solPriceAt: 0, tab: 'new' };
+const favorites = new Map();
+try { for (const entry of JSON.parse(localStorage.getItem('jamd-sniper-favs') || '[]')) if (entry?.mint) favorites.set(entry.mint, entry); } catch {}
+const saveFavorites = () => { try { localStorage.setItem('jamd-sniper-favs', JSON.stringify([...favorites.values()])); } catch {} };
 try { const saved = Number(JSON.parse(localStorage.getItem('jamd-sniper-usd') || 'null')); if (saved > 0) state.usd = saved; } catch {}
 
 const marks = { ok: '✓', high: '✕', critical: '✕', medium: '!', low: '·' };
@@ -276,6 +279,22 @@ function card(item) {
   const badges = document.createElement('div');
   badges.className = 'sniper-badges';
   badges.append(badge(item.verdict, verdictClass(item.verdict)), badge('Potencial ' + (item.growth?.label || '—'), growthClass(item.growth?.label)));
+  const star = document.createElement('button');
+  star.type = 'button';
+  star.className = 'sniper-star' + (favorites.has(item.mint) ? ' active' : '');
+  star.textContent = favorites.has(item.mint) ? '★' : '☆';
+  star.title = 'Guardar en favoritos';
+  star.addEventListener('click', event => {
+    event.stopPropagation();
+    if (favorites.has(item.mint)) favorites.delete(item.mint);
+    else favorites.set(item.mint, item);
+    saveFavorites();
+    star.textContent = favorites.has(item.mint) ? '★' : '☆';
+    star.classList.toggle('active', favorites.has(item.mint));
+    paintTabs();
+    if (state.tab === 'fav') void load('fav');
+  });
+  badges.append(star);
   if (globalThis.SniperRadar) badges.append(globalThis.SniperRadar.button(item));
   top.append(symbol, badges);
 
@@ -494,6 +513,30 @@ function card(item) {
   return article;
 }
 
+const TABS = [
+  { id: 'new', label: 'Nuevos' },
+  { id: 'trending', label: 'Trending' },
+  { id: 'safe', label: 'Confiables' },
+  { id: 'risk', label: 'Alto riesgo' },
+  { id: 'fav', label: 'Favoritos' },
+  { id: 'volume', label: 'Mayor volumen' },
+  { id: 'marketcap', label: 'Mayor market cap' }
+];
+
+function paintTabs() {
+  const host = $('sniperTabs');
+  if (!host) return;
+  host.replaceChildren();
+  for (const tab of TABS) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'sniper-tab' + (state.tab === tab.id ? ' active' : '');
+    button.textContent = tab.label + (tab.id === 'fav' && favorites.size ? ' (' + favorites.size + ')' : '');
+    button.addEventListener('click', () => { void load(tab.id); });
+    host.append(button);
+  }
+}
+
 function render() {
   const grid = $('sniperGrid');
   const status = $('sniperStatus');
@@ -513,18 +556,35 @@ function render() {
   status.textContent = items.length + ' token(es) analizados de ' + state.items.length + '.';
 }
 
-async function load() {
+async function load(tab = state.tab) {
+  state.tab = tab;
+  paintTabs();
+  if (tab === 'fav') {
+    state.items = [...favorites.values()];
+    $('sniperStatus').textContent = state.items.length ? state.items.length + ' favorito(s).' : 'Aun no has guardado favoritos: pulsa la estrella en un token.';
+    render();
+    return;
+  }
+  const source = tab === 'safe' || tab === 'risk' ? 'trending' : tab;
   if (state.loading) return;
   state.loading = true;
-  $('sniperStatus').textContent = 'Analizando tokens nuevos y revisando seguridad...';
   $('sniperRefresh').disabled = true;
+  if (!state.data[source]) $('sniperStatus').textContent = 'Analizando tokens...';
   try {
-    const response = await fetch(base + '/api/sniper?x=' + Date.now(), { cache: 'no-store' });
-    if (!response.ok) throw new Error('HTTP ' + response.status);
-    const data = await response.json();
-    state.items = Array.isArray(data.items) ? data.items : [];
-    state.updatedAt = data.observedAt || Date.now();
-    $('sniperUpdated').textContent = 'Actualizado ' + new Date(state.updatedAt).toLocaleTimeString();
+    if (!state.data[source]) {
+      const response = await fetch(base + '/api/sniper?tab=' + source + '&x=' + Date.now(), { cache: 'no-store' });
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      const data = await response.json();
+      state.data[source] = Array.isArray(data.items) ? data.items : [];
+      if (data.error) state.data[source] = [];
+      state.updatedAt = data.observedAt || Date.now();
+      $('sniperUpdated').textContent = 'Actualizado ' + new Date(state.updatedAt).toLocaleTimeString();
+    }
+    let items = state.data[source] || [];
+    if (tab === 'safe') items = items.filter(item => item.score >= 75);
+    if (tab === 'risk') items = items.filter(item => item.score <= 30);
+    state.items = items;
+    if (!items.length) $('sniperStatus').textContent = tab === 'safe' ? 'Ningun token alcanza 75 de seguridad ahora mismo.' : tab === 'risk' ? 'Ningun token con riesgo alto en esta muestra.' : 'Sin resultados ahora mismo.';
     render();
   } catch (error) {
     $('sniperStatus').textContent = 'No se pudo analizar ahora: ' + (error?.message || error);
@@ -533,6 +593,8 @@ async function load() {
     $('sniperRefresh').disabled = false;
   }
 }
+
+function refreshTab() { state.data = {}; void load(state.tab); }
 
 const usdInput = $('sniperUsd');
 if (usdInput) {
@@ -772,8 +834,8 @@ if (usdInput) {
   void pollSocial();
 })();
 
-$('sniperRefresh').addEventListener('click', load);
+$('sniperRefresh').addEventListener('click', refreshTab);
 $('sniperMin').addEventListener('change', render);
 $('sniperHideHigh').addEventListener('change', render);
 $('sniperSearch').addEventListener('input', render);
-load();
+load('new');

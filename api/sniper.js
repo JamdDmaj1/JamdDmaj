@@ -134,34 +134,91 @@ function auditToken(report, pool, votes, dexPair) {
   };
 }
 
+const TAB_TTL = 180000;
+const tabCache = new Map();
+const tabCooldown = new Map();
+const TAB_LIMIT = 8;
+
+const SOURCES = {
+  new: [
+    'https://api.geckoterminal.com/api/v2/networks/solana/new_pools?page=1'
+  ],
+  trending: [
+    'https://api.geckoterminal.com/api/v2/networks/solana/trending_pools?page=1'
+  ],
+  volume: [
+    'https://api.geckoterminal.com/api/v2/networks/solana/pools?page=1&sort=h24_volume_usd_desc',
+    'https://api.geckoterminal.com/api/v2/networks/solana/pools?page=2&sort=h24_volume_usd_desc'
+  ],
+  marketcap: [
+    'https://api.geckoterminal.com/api/v2/networks/solana/pools?page=1&sort=h24_volume_usd_desc',
+    'https://api.geckoterminal.com/api/v2/networks/solana/pools?page=2&sort=h24_volume_usd_desc'
+  ]
+};
+
+async function loadPools(tab) {
+  const urls = SOURCES[tab] || SOURCES.new;
+  const pools = [];
+  for (const url of urls) {
+    const feed = await readJson(url);
+    for (const row of feed?.data || []) pools.push(row);
+  }
+  return pools;
+}
+
+function poolSeed(pool) {
+  const mint = String(pool?.relationships?.base_token?.data?.id || '').split('_').pop();
+  if (!mint) return null;
+  const attributes = pool?.attributes || {};
+  return {
+    mint,
+    symbol: poolSymbol(attributes.name),
+    poolName: String(attributes.name || ''),
+    poolAddress: String(attributes.address || ''),
+    createdAt: attributes.pool_created_at || null,
+    liquidityUsd: num(attributes.reserve_in_usd),
+    fdvUsd: num(attributes.fdv_usd),
+    marketCapUsd: num(attributes.market_cap_usd) ?? num(attributes.fdv_usd),
+    volume24h: num(attributes.volume_usd?.h24),
+    volume1h: num(attributes.volume_usd?.h1),
+    priceUsd: num(attributes.base_token_price_usd),
+    change5m: num(attributes.price_change_percentage?.m5),
+    change1h: num(attributes.price_change_percentage?.h1),
+    change24h: num(attributes.price_change_percentage?.h24),
+    transactions: attributes.transactions || null
+  };
+}
+
 export default async function handler(request) {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(request) });
   if (request.method !== 'GET') return jsonResponse(request, { error: { message: 'Method not allowed' } }, 405);
+  const url = new URL(request.url);
+  const tab = ['new', 'trending', 'volume', 'marketcap'].includes(String(url.searchParams.get('tab'))) ? String(url.searchParams.get('tab')) : 'new';
   const now = Date.now();
-  if (cache.body && now - cache.at < 90000) return jsonResponse(request, cache.body);
+  const cached = tabCache.get(tab);
+  if (cached && now - cached.at < TAB_TTL) return jsonResponse(request, { ...cached.body, cached: true });
+  const cooldown = tabCooldown.get(tab) || 0;
+  if (cooldown > now && cached) return jsonResponse(request, { ...cached.body, cached: true, cooling: true });
 
-  const pools = [];
-  for (const page of [1, 2]) {
-    const feed = await readJson('https://api.geckoterminal.com/api/v2/networks/solana/new_pools?page=' + page);
-    for (const row of feed?.data || []) pools.push(row);
+  let pools = [];
+  try { pools = await loadPools(tab); } catch { pools = []; }
+  if (!pools.length) {
+    tabCooldown.set(tab, now + 120000);
+    if (cached) return jsonResponse(request, { ...cached.body, cached: true, cooling: true });
+    return jsonResponse(request, { observedAt: now, tab, items: [], error: 'feed-unavailable' });
   }
+
   const byMint = new Map();
   for (const pool of pools) {
-    const mint = String(pool?.relationships?.base_token?.data?.id || '').split('_').pop();
-    if (!mint || byMint.has(mint)) continue;
-    const symbol = poolSymbol(pool.attributes?.name);
-    byMint.set(mint, {
-      mint, symbol, poolName: String(pool.attributes?.name || ''), poolAddress: String(pool.attributes?.address || ''),
-      createdAt: pool.attributes?.pool_created_at || null,
-      liquidityUsd: num(pool.attributes?.reserve_in_usd), fdvUsd: num(pool.attributes?.fdv_usd),
-      priceUsd: num(pool.attributes?.base_token_price_usd),
-      change5m: num(pool.attributes?.price_change_percentage?.m5),
-      change1h: num(pool.attributes?.price_change_percentage?.h1),
-      volume1h: num(pool.attributes?.volume_usd?.h1),
-      transactions: pool.attributes?.transactions || null
-    });
+    const seed = poolSeed(pool);
+    if (!seed || byMint.has(seed.mint)) continue;
+    byMint.set(seed.mint, seed);
   }
-  const seeds = [...byMint.values()].slice(0, MAX_TOKENS);
+  let seeds = [...byMint.values()];
+  if (tab === 'marketcap') seeds.sort((a, b) => (b.marketCapUsd || 0) - (a.marketCapUsd || 0));
+  else if (tab === 'volume') seeds.sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0));
+  seeds = seeds.slice(0, TAB_LIMIT);
+
   const items = await Promise.all(seeds.map(async seed => {
     const [report, votes, dex] = await Promise.all([
       readJson('https://api.rugcheck.xyz/v1/tokens/' + seed.mint + '/report'),
@@ -178,13 +235,15 @@ export default async function handler(request) {
     }, votes, null);
     const pair = Array.isArray(dex?.pairs) ? dex.pairs[0] : null;
     const socials = Array.isArray(pair?.info?.socials) ? pair.info.socials.filter(item => item && item.handle).slice(0, 4).map(item => ({ type: String(item.type || ''), handle: String(item.handle) })) : [];
-    const marketCapUsd = num(pair?.marketCap) ?? num(pair?.fdv) ?? seed.fdvUsd ?? null;
+    const websites = Array.isArray(pair?.info?.websites) ? pair.info.websites.filter(item => item && item.url).slice(0, 2).map(item => String(item.url)) : [];
+    const marketCapUsd = num(pair?.marketCap) ?? num(pair?.fdv) ?? seed.marketCapUsd ?? seed.fdvUsd ?? null;
     const venue = String(pair?.dexId || report?.markets?.[0]?.marketType || '');
     const pairAddress = String(pair?.pairAddress || seed.poolAddress || '');
-    return { ...seed, ...audit, marketCapUsd, venue, pairAddress, socials, hasSocials: socials.length > 0 };
+    return { ...seed, ...audit, marketCapUsd, venue, pairAddress, socials, websites, hasSocials: socials.length > 0 };
   }));
+
   const sorted = items.sort((a, b) => b.score - a.score);
-  const body = { observedAt: now, items: sorted, disclaimer: 'Analisis automatico de datos publicos. No garantiza que un token sea seguro ni rentable.' };
-  cache = { at: now, body };
+  const body = { observedAt: now, tab, items: sorted, disclaimer: 'Analisis automatico de datos publicos. No garantiza que un token sea seguro ni rentable.' };
+  tabCache.set(tab, { at: now, body });
   return jsonResponse(request, body);
 }
