@@ -169,3 +169,12 @@
 .sniper-why-list li.bad .mark{color:#ff8fa2}
 .sniper-why-list li.warn .mark{color:#ffc47d}
 .sniper-why-list li.info .mark{color:#9cc9ff}
+
+.sniper-balance{display:flex;flex-wrap:wrap;gap:10px;align-items:stretch;margin:16px 0 8px}
+.balance-card{flex:1;min-width:160px;border:1px solid #16232f;border-radius:14px;background:linear-gradient(180deg,#0b1624,#0a1119);padding:12px 16px;display:flex;flex-direction:column;gap:2px}
+.balance-label{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#6f89a4}
+.balance-value{font-size:27px;line-height:1.1;color:#e8f1fa}
+.balance-sub{font-size:10px;color:#8ea5bd}
+.balance-eye,.balance-connect{align-self:center;padding:11px 16px;border-radius:12px;border:1px solid #2b4257;background:#132234;color:#cfe1f5;font-size:12px;cursor:pointer}
+.balance-connect{border-color:#2fbf8f;color:#7ef0cf}
+@media(max-width:640px){.balance-value{font-size:21px}.balance-card{min-width:130px;padding:10px 12px}}

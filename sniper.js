@@ -1125,6 +1125,60 @@ $('sniperRefresh').addEventListener('click', refreshTab);
 $('sniperMin').addEventListener('change', render);
 $('sniperHideHigh').addEventListener('change', render);
 $('sniperSearch').addEventListener('input', render);
+// Barra de saldo: SOL disponible y valor en tokens, con ojo para ocultarlo.
+const walletState = { data: null, timer: null, hidden: false };
+try { walletState.hidden = localStorage.getItem('jamd-sniper-hide') === '1'; } catch {}
+const mask = text => walletState.hidden ? '••••' : text;
+function paintBalance() {
+  const solEl = document.getElementById('balanceSol');
+  const solSub = document.getElementById('balanceSolSub');
+  const tokensEl = document.getElementById('balanceTokens');
+  const tokensSub = document.getElementById('balanceTokensSub');
+  const eye = document.getElementById('balanceEye');
+  const connectButton = document.getElementById('balanceConnect');
+  if (!solEl) return;
+  const data = walletState.data;
+  if (eye) { eye.textContent = walletState.hidden ? 'Mostrar' : 'Ocultar'; eye.setAttribute('aria-pressed', String(walletState.hidden)); }
+  const wallet = globalThis.JamdSniperTrade;
+  const connected = Boolean(wallet?.key?.());
+  if (connectButton) connectButton.hidden = connected;
+  if (!data) {
+    solEl.textContent = '—';
+    if (solSub) solSub.textContent = connected ? 'Leyendo saldo...' : 'Conecta tu wallet para verlo';
+    tokensEl.textContent = '—';
+    if (tokensSub) tokensSub.textContent = '';
+    return;
+  }
+  solEl.textContent = mask((Number(data.solUsd) || 0).toFixed(2) + ' USD');
+  if (solSub) solSub.textContent = mask((Number(data.solBalance) || 0).toFixed(4) + ' SOL');
+  tokensEl.textContent = mask((Number(data.tokensUsd) || 0).toFixed(2) + ' USD');
+  if (tokensSub) tokensSub.textContent = walletState.hidden ? '' : (data.pricedCount || 0) + ' de ' + (data.tokenCount || 0) + ' tokens con precio';
+}
+async function refreshBalance() {
+  const wallet = globalThis.JamdSniperTrade;
+  const owner = wallet?.key?.();
+  if (!owner) { walletState.data = null; paintBalance(); return; }
+  try {
+    const response = await fetch(base + '/api/sniper-wallet?x=' + Date.now(), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ owner }) });
+    if (response.ok) walletState.data = await response.json();
+  } catch {}
+  paintBalance();
+}
+const eyeButton = document.getElementById('balanceEye');
+if (eyeButton) eyeButton.addEventListener('click', () => {
+  walletState.hidden = !walletState.hidden;
+  try { localStorage.setItem('jamd-sniper-hide', walletState.hidden ? '1' : '0'); } catch {}
+  paintBalance();
+});
+const connectBalance = document.getElementById('balanceConnect');
+if (connectBalance) connectBalance.addEventListener('click', async () => {
+  const wallet = globalThis.JamdSniperTrade;
+  if (!wallet || !wallet.provider()) { alert('Phantom no esta disponible en este navegador. Instalalo o abre la pagina dentro de Phantom.'); return; }
+  try { await wallet.connect(); await refreshBalance(); } catch (error) { alert('No se pudo conectar: ' + (error?.message || error)); }
+});
+paintBalance();
+setTimeout(() => { void refreshBalance(); }, 600);
+setInterval(() => { if (!document.hidden) void refreshBalance(); }, 20000);
 load('new');
 
 // La informacion se refresca sola: la pestana activa cada 45 segundos y el radar cada pocos segundos.

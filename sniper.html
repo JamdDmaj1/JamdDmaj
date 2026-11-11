@@ -20,6 +20,21 @@
     <a class="sniper-back" href="/">Volver</a>
   </header>
 
+  <section class="sniper-balance" id="sniperBalance" aria-label="Tu saldo">
+    <div class="balance-card">
+      <span class="balance-label">Disponible</span>
+      <strong class="balance-value" id="balanceSol">—</strong>
+      <small class="balance-sub" id="balanceSolSub"></small>
+    </div>
+    <div class="balance-card">
+      <span class="balance-label">En tokens</span>
+      <strong class="balance-value" id="balanceTokens">—</strong>
+      <small class="balance-sub" id="balanceTokensSub"></small>
+    </div>
+    <button class="balance-eye" id="balanceEye" type="button" aria-pressed="false">Mostrar</button>
+    <button class="balance-connect" id="balanceConnect" type="button">Conectar wallet</button>
+  </section>
+
   <section class="sniper-controls" aria-label="Filtros">
     <button id="sniperRefresh" type="button">Analizar ahora</button>
     <label>Minimo de seguridad
