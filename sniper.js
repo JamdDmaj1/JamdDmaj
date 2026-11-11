@@ -332,6 +332,10 @@ function card(item) {
   metaItem('Vida', age(item.ageMinutes));
   metaItem('Liquidez', money(item.liquidity) + ' USD');
   metaItem('Market cap', money(item.marketCapUsd) + ' USD');
+  const athItem = document.createElement('span');
+  athItem.setAttribute('data-ath', item.mint);
+  athItem.innerHTML = 'ATH mcap <b>cargando...</b>';
+  meta.append(athItem);
   metaItem('Mercados', (item.pairsCount || 1) + ' - ' + ((item.venues || []).join('/') || 'n/d'));
   metaItem('Holders', Number.isFinite(item.holders) ? String(item.holders) : '—');
   metaItem('LP bloqueado', Number.isFinite(item.lpLockedPct) ? Math.round(item.lpLockedPct) + '%' : '—');
@@ -659,6 +663,37 @@ function renderHistory() {
     grid.append(row);
   }
   status.textContent = history.length + ' operacion(es) registradas.';
+}
+
+const athCache = (() => { try { return JSON.parse(localStorage.getItem('jamd-sniper-ath') || '{}'); } catch { return {}; } })();
+const saveAthCache = () => { try { localStorage.setItem('jamd-sniper-ath', JSON.stringify(athCache)); } catch {} };
+const applyAth = (mint, value) => {
+  const element = document.querySelector('[data-ath="' + mint + '"]');
+  if (!element) return;
+  if (!value || !value.available) { element.innerHTML = 'ATH mcap <b>sin dato</b>'; return; }
+  const fromAth = Number(value.fromAthPct);
+  element.innerHTML = 'ATH mcap <b>' + (value.athMarketCap ? money(value.athMarketCap) + ' USD' : 'sin dato') + '</b>' + (Number.isFinite(fromAth) ? ' · ' + fromAth.toFixed(1) + '% del ATH' : '');
+};
+let athQueueRunning = false;
+async function loadAth(items) {
+  if (athQueueRunning) return;
+  athQueueRunning = true;
+  try {
+    for (const item of items.slice(0, 10)) {
+      if (!item.poolAddress) continue;
+      const cached = athCache[item.poolAddress];
+      if (cached && Date.now() - cached.at < 21600000) { applyAth(item.mint, cached.value); continue; }
+      try {
+        const response = await fetch(base + '/api/sniper-ath?pool=' + encodeURIComponent(item.poolAddress) + '&mcap=' + encodeURIComponent(item.marketCapUsd || '') + '&price=' + encodeURIComponent(item.priceUsd || ''));
+        if (!response.ok) { await new Promise(resolve => setTimeout(resolve, 1200)); continue; }
+        const value = await response.json();
+        athCache[item.poolAddress] = { at: Date.now(), value };
+        saveAthCache();
+        if (value.available) applyAth(item.mint, value);
+      } catch {}
+      await new Promise(resolve => setTimeout(resolve, 1500));
+    }
+  } finally { athQueueRunning = false; }
 }
 
 function render() {
