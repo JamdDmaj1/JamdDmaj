@@ -134,7 +134,7 @@ function auditToken(report, pool, votes, dexPair) {
   };
 }
 
-const TAB_TTL = 180000;
+const TAB_TTL = 90000;
 const tabCache = new Map();
 const tabCooldown = new Map();
 const TAB_LIMIT = 8;

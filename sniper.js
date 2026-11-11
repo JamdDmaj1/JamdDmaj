@@ -670,6 +670,26 @@ function render() {
   status.textContent = items.length + ' token(es) analizados de ' + state.items.length + '.';
 }
 
+function autoFollow(items, source) {
+  if (!globalThis.SniperRadar || state.tab === 'fav' || state.tab === 'mine' || state.tab === 'hist') return;
+  let added = 0;
+  for (const item of items.slice(0, 12)) if (globalThis.SniperRadar.add(item)) added++;
+  if (added) globalThis.SniperRadar.pollNow();
+}
+
+function detectNew(items, source) {
+  try {
+    const key = 'jamd-sniper-seen-' + source;
+    const seen = new Set(JSON.parse(localStorage.getItem(key) || '[]'));
+    const firstRun = seen.size === 0;
+    for (const item of items) {
+      if (seen.has(item.mint)) continue;
+      if (!firstRun && globalThis.SniperRadar) globalThis.SniperRadar.push('info', item.symbol || '', 'Token nuevo en la lista: ' + (item.symbol || item.mint.slice(0, 6)));
+    }
+    localStorage.setItem(key, JSON.stringify(items.map(item => item.mint).slice(0, 200)));
+  } catch {}
+}
+
 async function load(tab = state.tab) {
   state.tab = tab;
   paintTabs();
@@ -916,6 +936,15 @@ if (usdInput) {
     timer = setInterval(poll, interval);
   };
 
+  const add = item => {
+    if (!item?.mint || watch.has(item.mint)) return false;
+    watch.set(item.mint, { mint: item.mint, symbol: item.symbol, pool: item.poolAddress, handle: (item.socials || []).find(social => /twitter|x/i.test(String(social.type || '')))?.handle || null });
+    persist();
+    ensureDock();
+    renderList();
+    return true;
+  };
+
   const button = item => {
     const control = document.createElement('button');
     control.type = 'button';
@@ -940,7 +969,7 @@ if (usdInput) {
   };
 
   document.addEventListener('visibilitychange', schedule);
-  globalThis.SniperRadar = { button };
+  globalThis.SniperRadar = { button, add, push, pollNow: poll, has: mint => watch.has(mint) };
   ensureDock();
   schedule();
   scheduleSocial();
@@ -953,3 +982,13 @@ $('sniperMin').addEventListener('change', render);
 $('sniperHideHigh').addEventListener('change', render);
 $('sniperSearch').addEventListener('input', render);
 load('new');
+
+// La informacion se refresca sola: la pestana activa cada 45 segundos y el radar cada pocos segundos.
+setInterval(() => {
+  if (document.hidden) return;
+  const source = state.tab === 'safe' || state.tab === 'risk' ? 'trending' : state.tab;
+  if (source === 'mine' || source === 'hist' || source === 'fav') { void load(state.tab); return; }
+  delete state.data[source];
+  void load(state.tab);
+  if (globalThis.SniperRadar) globalThis.SniperRadar.pollNow();
+}, 45000);
