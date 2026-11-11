@@ -894,7 +894,7 @@ const saveAthCache = () => { try { localStorage.setItem('jamd-sniper-ath', JSON.
 const applyAth = (mint, value) => {
   const element = document.querySelector('[data-ath="' + mint + '"]');
   if (!element) return;
-  if (!value || !value.available) { element.innerHTML = 'ATH mcap <b>sin dato</b>'; return; }
+  if (!value || !value.available) { element.innerHTML = 'ATH mcap <b>sin dato</b> <span class="sniper-ath-retry">reintentar</span>'; return; }
   const fromAth = Number(value.fromAthPct);
   element.innerHTML = 'ATH mcap <b>' + (value.athMarketCap ? money(value.athMarketCap) + ' USD' : 'sin dato') + '</b>' + (Number.isFinite(fromAth) ? ' · ' + fromAth.toFixed(1) + '% del ATH' : '');
 };
@@ -902,24 +902,31 @@ let athQueueRunning = false;
 async function loadAth(items) {
   if (athQueueRunning) return;
   athQueueRunning = true;
+  const retry = [];
   try {
     for (const item of items.slice(0, 10)) {
       if (!item.poolAddress) continue;
       const cached = athCache[item.poolAddress];
-      if (cached && Date.now() - cached.at < 21600000) { applyAth(item.mint, cached.value); continue; }
+      if (cached && cached.value && cached.value.available && Date.now() - cached.at < 21600000) { applyAth(item.mint, cached.value); continue; }
+      if (cached && !cached.value?.available && Date.now() - cached.at < 600000) { applyAth(item.mint, null); retry.push(item); continue; }
       try {
         const response = await fetch(base + '/api/sniper-ath?pool=' + encodeURIComponent(item.poolAddress) + '&mcap=' + encodeURIComponent(item.marketCapUsd || '') + '&price=' + encodeURIComponent(item.priceUsd || ''));
-        if (!response.ok) { await new Promise(resolve => setTimeout(resolve, 1200)); continue; }
+        if (!response.ok) { applyAth(item.mint, null); retry.push(item); await new Promise(resolve => setTimeout(resolve, 1200)); continue; }
         const value = await response.json();
         athCache[item.poolAddress] = { at: Date.now(), value };
         saveAthCache();
-        if (value.available) applyAth(item.mint, value);
-      } catch {}
+        if (value && value.available) applyAth(item.mint, value);
+        else { applyAth(item.mint, null); retry.push(item); }
+      } catch { applyAth(item.mint, null); retry.push(item); }
       await new Promise(resolve => setTimeout(resolve, 1500));
     }
   } finally { athQueueRunning = false; }
+  if (retry.length) {
+    clearTimeout(athRetryTimer);
+    athRetryTimer = setTimeout(() => { void loadAth(retry); }, 60000);
+  }
 }
-
+let athRetryTimer = null;
 function render() {
   const grid = $('sniperGrid');
   const status = $('sniperStatus');
