@@ -80,6 +80,9 @@ export default async function handler(request) {
     if (result.linked) result.webTrial = await issueTrialSession(await hashIdentifier(`google:${identity.sub}`));
     return jsonResponse(request, result,200,result.webTrial?.token&&sameOriginBrowser(request)?{'Set-Cookie':sessionCookie(result.webTrial.token,604800)}:{});
   } catch (error) {
+    try {
+      await redisRequest('pipeline', [['SET', 'jamd:account:last-error', JSON.stringify({ message: String(error?.message || 'unknown').slice(0, 200), status: Number(error?.status) || 401, at: Date.now() }), 'EX', 3600]]);
+    } catch {}
     return jsonResponse(request, {
       error: { message: error?.message || "Google sign-in could not be completed." }
     }, Number(error?.status) || 401);
