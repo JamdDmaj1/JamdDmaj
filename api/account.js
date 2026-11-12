@@ -77,7 +77,7 @@ export default async function handler(request) {
     }
 
     const result = await linkGoogleProfile(input, identity, accountSecret);
-    if (result.linked) result.webTrial = await issueTrialSession(await trialHash(`google:${identity.sub}`));
+    if (result.linked) result.webTrial = await issueTrialSession(await hashIdentifier(`google:${identity.sub}`));
     return jsonResponse(request, result,200,result.webTrial?.token&&sameOriginBrowser(request)?{'Set-Cookie':sessionCookie(result.webTrial.token,604800)}:{});
   } catch (error) {
     return jsonResponse(request, {
