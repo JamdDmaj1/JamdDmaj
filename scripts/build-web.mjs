@@ -132,12 +132,6 @@ await cp(resolve(root, "lib", "terminal-layout.js"), resolve(output, "lib", "ter
     logLevel: "silent"
   });
 
-  // Copy every lib module so every browser import resolves on the deployed site.
-  const libNames = await readdir(resolve(root, "lib"));
-  for (const name of libNames) {
-    if (!name.endsWith(".js")) continue;
-    await cp(resolve(root, "lib", name), resolve(output, "lib", name));
-  }
 // The futures page imports this raw module, so it must exist next to the layout.
 await build({absWorkingDir:root,entryPoints:[resolve(root,'lib/futures-history-card.js')],outfile:resolve(output,'lib/futures-history-card.js'),bundle:true,format:'esm',platform:'browser',target:['es2020'],legalComments:'none'});
 await build({

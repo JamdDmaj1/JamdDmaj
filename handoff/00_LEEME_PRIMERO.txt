@@ -1,0 +1,75 @@
+TRASPASO DE JAMD DMAJ — 7 DE NOVIEMBRE DE 2026
+================================================
+
+Este paquete es PRIVADO. Contiene código de ejecución financiera y notas
+operativas. No lo publiques ni lo subas íntegro a un repositorio público sin
+una revisión independiente. No contiene las bases de datos operativas, wallets,
+semillas, llaves privadas, sesiones, secretos de proveedores ni archivos .env
+reales. La configuración pública de cliente que ya forma parte de la web
+(por ejemplo identificadores de Firebase) no es una credencial de servidor.
+
+QUÉ ENTREGAR A LA OTRA IA
+
+1. Dale la carpeta PROYECTO o el ZIP completo.
+2. Pégale el texto de 01_MENSAJE_PARA_LA_OTRA_IA.txt.
+3. Pídele que lea 02_ESTADO_Y_GUIA_TECNICA.txt y después AGENTS.md.
+4. Si trabaja en tu computadora, abre PROYECTO como raíz del workspace.
+   Si trabaja en la nube, carga el ZIP mediante un espacio privado.
+5. Para Vercel, DigitalOcean, GitHub u otros proveedores, autoriza sus conexiones
+   tú mismo por los canales seguros de esa herramienta. No pegues llaves ni
+   contraseñas en la conversación. El paquete NO otorga permiso para operar.
+
+QUÉ HAY AQUÍ
+
+PROYECTO/                      Código confirmado en Git de la versión actual.
+01_MENSAJE_PARA_LA_OTRA_IA.txt   Instrucción lista para copiar y pegar.
+02_ESTADO_Y_GUIA_TECNICA.txt     Estado, arquitectura, pruebas y pendientes.
+03_INVENTARIO.json              Archivos exportados y hashes de integridad.
+04_REVISION_DE_SECRETOS.json    Exclusiones y resultado del escaneo automático.
+05_VARIABLES_SIN_VALORES.env.example
+                               Nombres de configuración, SIN valores reales.
+DIAGNOSTICOS_OPCIONALES/        Algunas herramientas locales no publicadas.
+
+El ZIP NO incluye .git ni el historial completo: así no se transfieren secretos
+históricos inadvertidamente. El snapshot incluye Android, iOS, on-chain,
+servidor, web, pruebas y documentación que estaban confirmados en Git. No
+incluye node_modules ni las compilaciones generadas; se regeneran con npm.
+La revisión automática no equivale a una auditoría de seguridad independiente.
+
+RAÍCES: ESTA DIFERENCIA ES IMPORTANTE
+
+Raíz original:
+ C:\Users\JamdDmaj\Desktop\jamddmaj
+Su subcarpeta www NO es la raíz. Esa copia está en una revisión anterior.
+
+Copia desde la que se publicaron los últimos cambios:
+ C:\Users\JamdDmaj\Desktop\jamddmaj-trading-release\.perps-build\bot-manual-release
+Rama: codex/bot-wallet-manual-futures
+HEAD al preparar este traspaso: 466154a
+
+ATENCIÓN: la copia de trabajo está DENTRO de una carpeta llamada .perps-build.
+No ejecutes una limpieza recursiva de esa carpeta o de sus padres: borrarías
+el proyecto activo. Trabaja preferentemente en la carpeta PROYECTO entregada
+o cópiala a una ubicación nueva y estable, sin sobrescribir la original.
+
+El remoto GitHub es https://github.com/JamdDmaj1/JamdDmaj.git, pero no se ha
+verificado que todos los commits locales estén publicados allí. Clonar el
+remoto por sí solo puede darte una versión antigua. Este snapshot procede
+de la copia actual, no de una descarga del remoto.
+
+ESTADO RÁPIDO
+
+Web publicada: 1.38.25, https://www.jamddmaj.com
+Página pública de producto: https://www.jamddmaj.com/discover.html
+APK publicado conocido: 1.38.17; NO confundirlo con los números de Gradle.
+Último cambio: corregir la caducidad anticipada de revisión de aperturas
+manuales y publicar el historial de operaciones cerradas.
+
+No se abrió una operación real para verificar ese último cambio. La evidencia
+es: pruebas completas con transportes simulados, simulación real sin envío,
+reproducción aislada detenida antes de firmar, publicación comprobada y
+registros financieros preservados. No prometas que se ha probado una nueva
+apertura real en la cuenta del usuario: esa prueba posterior no está confirmada.
+
+No hay una tarea financiera autorizada por este traspaso. Pregunta al usuario
+qué quiere continuar después de leer y verificar el estado actual.

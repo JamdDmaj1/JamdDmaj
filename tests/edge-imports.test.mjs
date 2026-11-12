@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 const NODE_ROUTES = new Set(['perps-review.js','perps-signing-review.js']);
 const NODE_READ_ROUTES = new Set(['wallet-trading-state.js']);
 const NODE_OPERATOR_ROUTES = new Set(['fee-recipient-setup.js']);
-const NODE_PUSH_ROUTES = new Set(['push-dispatch.js','push-subscriptions.js']);
+const NODE_PUSH_ROUTES = new Set(['push-dispatch.js','push-subscriptions.js','push-sniper.js']);
 
 test("every Edge API bundles without Node built-ins or transaction SDKs", async () => {
   const files = (await readdir(new URL("../api/", import.meta.url))).filter(name => name.endsWith(".js") && !NODE_ROUTES.has(name) && !NODE_READ_ROUTES.has(name) && !NODE_OPERATOR_ROUTES.has(name) && !NODE_PUSH_ROUTES.has(name));

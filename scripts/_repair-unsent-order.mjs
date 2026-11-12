@@ -43,7 +43,7 @@ db.exec("VACUUM INTO '" + join(runtime, 'phoenix-before-repair-' + Date.now() + 
 const now = Date.now()
 db.exec('BEGIN IMMEDIATE')
 try {
-  db.prepare("UPDATE phoenix_order_attempts SET state='CANCELLED',updated=? WHERE id=?").run(now, attemptId)
+  db.prepare("UPDATE phoenix_order_attempts SET state='CANCELLED',signature=NULL,signed=NULL,archive=NULL,updated=? WHERE id=?").run(now, attemptId)
   db.prepare("UPDATE phoenix_workflows SET state='ABORTED',updated=? WHERE id=?").run(now, row.workflow)
   db.exec('COMMIT')
 } catch (error) {

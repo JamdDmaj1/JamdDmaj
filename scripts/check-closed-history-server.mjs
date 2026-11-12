@@ -1,0 +1,12 @@
+// Aggregate read-only deployment gate. Never reads keys or customer rows.
+import {spawnSync} from 'node:child_process';
+const source=`import {DatabaseSync} from 'node:sqlite';
+const db=new DatabaseSync('/var/lib/private/jamddmaj-perps-runtime/journal.sqlite',{readOnly:true});
+try{const rows=db.prepare('SELECT c.state,e.state execution,COUNT(*) count FROM perps_position_closes c LEFT JOIN perps_position_close_executions e ON e.close_id=c.id GROUP BY c.state,e.state').all();console.log(JSON.stringify({stage:'HISTORY_READ_ONLY_STATE',rows}));
+console.log(JSON.stringify({stage:'ENTRY_READ_ONLY_STATE',states:db.prepare('SELECT state,COUNT(*) count FROM perps_reservations GROUP BY state').all(),columns:db.prepare('PRAGMA table_info(perps_reservations)').all().map(r=>r.name)}));
+const fees=new DatabaseSync('/var/lib/private/jamddmaj-perps-runtime/fees.sqlite',{readOnly:true});try{console.log(JSON.stringify({stage:'LATEST_ENTRY_METADATA',entries:db.prepare('SELECT reservation,state,created,updated,signature FROM perps_reservations ORDER BY created DESC LIMIT 4').all().map(r=>({state:r.state,created:r.created,updated:r.updated,signed:!!r.signature,feeConsent:!!fees.prepare('SELECT 1 FROM perps_platform_fee_consents WHERE reservation=?').get(r.reservation)}))}));}finally{fees.close();}
+console.log(JSON.stringify({stage:'ENTRY_BARRIERS',feeLocks:db.prepare('SELECT state,COUNT(*) count FROM perps_platform_fee_locks GROUP BY state').all(),entryHolds:db.prepare('SELECT state,COUNT(*) count FROM perps_entry_conversion_holds GROUP BY state').all(),schema:db.prepare("SELECT name,sql FROM sqlite_master WHERE type IN ('trigger','index') AND tbl_name='perps_reservations'").all()}));
+const backup=new DatabaseSync('/var/lib/private/jamddmaj-perps-runtime/backup.sqlite',{readOnly:true});try{console.log(JSON.stringify({stage:'CURRENT_BACKUP_SCOPE',rows:backup.prepare('SELECT EXISTS(SELECT 1 FROM perps_backup_swap_scope s WHERE s.archive=v.archive AND s.included=1) swaps,EXISTS(SELECT 1 FROM perps_backup_fee_scope f WHERE f.archive=v.archive AND f.included=1) fees FROM perps_verified_backups v').all()}));}finally{backup.close();}
+}finally{db.close();}`;
+const result=spawnSync('ssh',['-o','BatchMode=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=10','-i','C:/Users/JamdDmaj/.ssh/jamddmaj_vps_codex_20261018','root@157.230.54.133','node --input-type=module'],{input:source,encoding:'utf8',timeout:20000});
+process.stdout.write(result.stdout||'');process.stderr.write(result.stderr||'');process.exitCode=result.status??1;
