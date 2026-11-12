@@ -5,7 +5,7 @@ export const config = { maxDuration: 30 };
 
 // Sends the Sniper alerts that already went to Telegram to every device that
 // enabled Sniper notifications. Requires the Sniper alert token.
-export default async function handler(request) {
+async function handler(request) {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(request) });
   if (request.method !== 'POST') return jsonResponse(request, { error: { message: 'Method not allowed' } }, 405);
   const secret = String(process.env.SNIPER_ALERTS_TOKEN || '');
@@ -56,3 +56,5 @@ function hashCode(value) {
   for (let index = 0; index < value.length; index++) { hash = ((hash << 5) - hash + value.charCodeAt(index)) | 0; }
   return hash;
 }
+
+export default { fetch: handler };
