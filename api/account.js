@@ -100,6 +100,24 @@ export async function linkGoogleProfile(input, identity, accountSecret, storage 
     if (existing?.wrappedRecovery) {
       recoveryCode = await unwrapRecoveryCode(existing.wrappedRecovery, accountSecret);
       linked = true;
+    } else if (!suppliedCode && !existing) {
+      // Cuenta nueva sin codigo local: se genera uno para que el inicio de sesion
+      // nunca quede bloqueado y el perfil pueda recuperarse.
+      const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      const bytes = crypto.getRandomValues(new Uint8Array(20));
+      recoveryCode = Array.from(bytes, value => alphabet[value % alphabet.length]).join('');
+      const record = {
+        provider: 'google',
+        subHash: accountHash,
+        email: identity.email,
+        name: identity.name,
+        picture: identity.picture,
+        wrappedRecovery: await wrapRecoveryCode(recoveryCode, accountSecret),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      await storage('pipeline', [['SET', key, JSON.stringify(record), 'NX']]);
+      linked = true;
     } else if (suppliedCode) {
       recoveryCode = suppliedCode;
       const record = {
