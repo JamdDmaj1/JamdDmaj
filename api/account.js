@@ -77,7 +77,19 @@ export default async function handler(request) {
     }
 
     const result = await linkGoogleProfile(input, identity, accountSecret);
-    if (result.linked) result.webTrial = await issueTrialSession(await trialHash(`google:${identity.sub}`));
+    if (result.linked) {
+      const email = String(identity.email || '').trim().toLowerCase();
+      let account = await trialHash(`google:${identity.sub}`);
+      if (email) {
+        const emailHash = await hashIdentifier(`google-email:${email}`);
+        const aliasKey = `jamd:account:email:${emailHash}`;
+        const stored = await redisRequest('pipeline', [['GET', aliasKey]]);
+        const existingAlias = stored?.[0]?.result;
+        if (/^[a-f0-9]{64}$/.test(existingAlias || '')) account = existingAlias;
+        else await redisRequest('pipeline', [['SET', aliasKey, account, 'EX', 63072000]]);
+      }
+      result.webTrial = await issueTrialSession(account);
+    }
     return jsonResponse(request, result,200,result.webTrial?.token&&sameOriginBrowser(request)?{'Set-Cookie':sessionCookie(result.webTrial.token,604800)}:{});
   } catch (error) {
     try {
