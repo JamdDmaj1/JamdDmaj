@@ -1,9 +1,9 @@
-import {language,tr,localize} from './lib/simulator-i18n.js?v=10';
-import {pnl,indicators} from './lib/private-simulator.js?v=5';
-import {SimulatorAccount} from './lib/simulator-account.js?v=5';
+import {language,tr,localize} from './lib/simulator-i18n.js';
+import {pnl,indicators} from './lib/private-simulator.js';
+import {SimulatorAccount} from './lib/simulator-account.js';
 import './manual-order-review-ui.js';
 import {setupFunding} from './funding-ui.js';
-import {setupTerminalLayout} from './lib/terminal-layout.js?v=20261122a';
+import {setupTerminalLayout} from './lib/terminal-layout.js';
 import {setupAssetsWallets} from './assets-wallet-ui.js';
 import {setupAccountSession} from './lib/account-session-client.js';
 const accountSession=setupAccountSession();

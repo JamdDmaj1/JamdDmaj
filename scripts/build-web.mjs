@@ -120,6 +120,18 @@ await build({
 });
 await cp(resolve(root, "lib", "terminal-layout.js"), resolve(output, "lib", "terminal-layout.js"));
 
+  // The simulator entry imports package code (bs58, capacitor) and must be bundled.
+  await build({
+    absWorkingDir: root,
+    entryPoints: [resolve(root, "private-simulator-ui.js")],
+    outfile: resolve(output, "private-simulator-ui.js"),
+    bundle: true,
+    format: "esm",
+    platform: "browser",
+    target: ["es2020"],
+    logLevel: "silent"
+  });
+
   // Copy every lib module so every browser import resolves on the deployed site.
   const libNames = await readdir(resolve(root, "lib"));
   for (const name of libNames) {
