@@ -1,4 +1,0 @@
-import {build} from 'esbuild';
-await build({entryPoints:['scripts/diagnose-entry-confirm-readonly.mjs'],bundle:true,platform:'node',format:'esm',outfile:'.perps-build/entry-confirm-readonly.mjs',banner:{js:'import {createRequire} from "node:module";const require=createRequire(import.meta.url);'}});
-await build({entryPoints:['scripts/diagnose-entry-authorization-isolated.mjs'],bundle:true,platform:'node',format:'esm',outfile:'.perps-build/entry-authorization-isolated.mjs',banner:{js:'import {createRequire} from "node:module";const require=createRequire(import.meta.url);'}});
-await build({entryPoints:['scripts/verify-recorded-history-readonly.mjs'],bundle:true,platform:'node',format:'esm',outfile:'.perps-build/history-verification-readonly.mjs',banner:{js:'import {createRequire} from "node:module";const require=createRequire(import.meta.url);'}});

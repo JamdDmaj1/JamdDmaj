@@ -17,3 +17,7 @@ ios/App/Pods/
 ios/App/DerivedData/
 .env*
 !.env.example
+
+.vercel/
+_*.mjs
+handoff/
