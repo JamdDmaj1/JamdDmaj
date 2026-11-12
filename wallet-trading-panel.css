@@ -228,3 +228,8 @@ dialog.trade-share-dialog.share-out::backdrop{animation:share-backdrop-out .17s 
 .automation-paper button{padding:8px 14px;border-radius:10px;border:1px solid #2fbf8f;background:#2fbf8f;color:#04150f;font-weight:700;cursor:pointer}
 .automation-paper-list{margin:10px 0 0;padding-left:18px;font-size:12px;color:#b9cbdd}
 .automation-paper-list li{margin:4px 0}
+
+.wallet-quick{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 16px}
+.wallet-quick-btn{padding:9px 14px;border-radius:11px;border:1px solid #26405a;background:#0f1c2b;color:#dbe9f7;font-size:12px;font-weight:650;cursor:pointer}
+.wallet-quick-btn.primary{border-color:#2fbf8f;background:#2fbf8f;color:#04150f;font-weight:800}
+.wallet-quick-btn:hover{border-color:#3f9fd8}
