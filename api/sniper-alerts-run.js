@@ -229,9 +229,14 @@ export default async function handler(request) {
   for (const alert of alerts) {
     const prefix = alert.kind === 'rug' ? '🚨 ' : alert.kind === 'pump' ? '📈 ' : alert.kind === 'listing' ? '🔔 ' : alert.kind === 'boost' ? '📣 ' : alert.kind === 'x' ? '💬 ' : '⚠️ ';
     const delivery = await sendTelegram(prefix + alert.text + '\nhttps://www.jamddmaj.com/sniper.html');
-    delivered.push({ ...alert, telegram: delivery.any, chats: delivery.results });
+    delivered.push({ ...alert, full: prefix + alert.text, telegram: delivery.any, chats: delivery.results });
     await logAlert({ ...alert, at: Date.now(), telegram: delivery.any, chats: delivery.results });
   }
 
+  if (delivered.length) {
+    try {
+      await fetch('https://www.jamddmaj.com/api/push-sniper', { method: 'POST', headers: { 'content-type': 'application/json', 'x-jamd-cron': secret }, body: JSON.stringify({ alerts: delivered.map(item => item.full || item.text) }), signal: AbortSignal.timeout(9000) });
+    } catch {}
+  }
   return jsonResponse(request, { observedAt: Date.now(), watched: mints.length, devices: devices.length, alerts: delivered });
 }
