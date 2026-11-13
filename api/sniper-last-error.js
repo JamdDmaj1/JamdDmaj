@@ -7,7 +7,7 @@ export default async function handler(request) {
   const provided = request.headers.get('x-jamd-cron') || '';
   if (!secret || provided !== secret) return jsonResponse(request, { error: { message: 'Forbidden' } }, 403);
   try {
-    const rows = await redisRequest('pipeline', [['GET', 'jamd:account:last-error'], ['GET', 'jamd:diag:controls']]);
+    const rows = await redisRequest('pipeline', [['GET', 'jamd:account:last-error'], ['GET', 'jamd:diag:controls'], ['GET', 'jamd:x:last']]);
     const raw = rows?.[0]?.result || null;
     const controls = rows?.[1]?.result || null;
     const xLast = rows?.[2]?.result || null;
