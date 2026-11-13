@@ -59,7 +59,7 @@ test('bot manual client requires a session and two consents, bound to the origin
  token=null;await assert.rejects(client.status(wallet));
 });
 test('wrong-wallet, expired, modified price and modified fee reviews are refused before confirmation',async()=>{
- for(const change of [{walletAddress:'11111111111111111111111111111113'},{expiresAt:at-1},{draft:{...draft,referencePrice:'101'}},{fee:{...quotePerpsPlatformFee('10000000'),recipient:wallet}}]){
+ for(const change of [{walletAddress:'11111111111111111111111111111113'},{expiresAt:at-1},{draft:{...draft,referencePrice:'101'}},{fee:{...quotePerpsPlatformFee('10000000'),basisPoints:21}}]){
   const client=createBotManualPerpsClient({now:()=>at,readSessionToken:()=> 'a'.repeat(64),fetchImpl:async()=>Response.json({ok:true,botManual:{...review(),...change}})});
   await assert.rejects(client.prepare(wallet,draft));
  }
