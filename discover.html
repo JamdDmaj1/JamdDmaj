@@ -1,6 +1,17 @@
 <!doctype html>
 <html lang="es">
 <head>
+<script id="discoverLegacyCleanup">
+// Enlaces antiguos con ?version= se limpian para servir siempre la canonica.
+(() => {
+  try {
+    const url = new URL(location.href);
+    let changed = false;
+    for (const key of ['version', 'v']) if (url.searchParams.has(key)) { url.searchParams.delete(key); changed = true; }
+    if (changed) history.replaceState(null, '', url.pathname + (url.search || '') + url.hash);
+  } catch {}
+})();
+</script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#090b16">
@@ -147,6 +158,6 @@
   </main>
 
   <footer><a class="brand compact" href="/"><img src="icon-192.png" width="36" height="36" alt=""><strong>JamdDmaj AI</strong></a><p data-i18n="footerRisk">La información es educativa. Los activos digitales y el trading implican riesgo de pérdida.</p><span>© <span id="year"></span> JamdDmaj</span></footer>
-  <script src="discover.js?v=1.66.6-discovery" defer></script>
+  <script src="discover.js?v=1.66.7-discovery" defer></script>
 </body>
 </html>
