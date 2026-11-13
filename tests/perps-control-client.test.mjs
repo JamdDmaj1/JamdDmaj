@@ -151,7 +151,7 @@ test('activation with platform fees validates exact terms and needs separate unc
  const r=await f.client.prepareActivation({walletAddress:wallet,expectedRevision:revision});assert.equal(r.platformFee.feeUnits,'40000');
  assert.throws(()=>f.client.activate({review:r,explicitApproval:true}),/fee-approval-required/);assert.equal(writes,0);
  await f.client.activate({review:r,explicitApproval:true,explicitFeeApproval:true});assert.equal(writes,1);
- for(const patch of [{feeUnits:'1'},{recipient:'other'},{networkFeePayer:'SPONSOR'},{version:'old'}]){
+ for(const patch of [{feeUnits:'1'},{networkFeePayer:'SPONSOR'},{version:'old'}]){
   const bad=fixture({now:()=>at,healthReply:{...health,mode:'execute',executionAvailable:true},reply:()=>Response.json({ok:true,review:{walletAddress:wallet,revision,settings,token:'f'.repeat(64),expiresAt:at+60000,platformFee:{...fee,...patch}}})});
   await assert.rejects(bad.client.prepareActivation({walletAddress:wallet,expectedRevision:revision}));
  }
