@@ -6,7 +6,7 @@ export const config = { runtime: 'edge' };
 const AUTHORIZE = 'https://twitter.com/i/oauth2/authorize';
 const TOKEN = 'https://api.twitter.com/2/oauth2/token';
 const ME = 'https://api.twitter.com/2/users/me?user.fields=username';
-const SCOPE = 'users.read tweet.read';
+const SCOPE = 'users.read';
 const SECONDS = 600;
 
 const hex = bytes => [...new Uint8Array(bytes)].map(b => b.toString(16).padStart(2, '0')).join('');
@@ -27,7 +27,7 @@ export default async function handler(request) {
   const url = new URL(request.url);
   const clientId = String(process.env.X_CLIENT_ID || '');
   const clientSecret = String(process.env.X_CLIENT_SECRET || '');
-  const redirectUri = url.origin + '/api/x-auth?action=callback';
+  const redirectUri = url.origin + '/api/x-callback';
   const action = url.searchParams.get('action') || 'config';
 
   if (action === 'config') {
