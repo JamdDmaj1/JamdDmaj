@@ -4982,6 +4982,8 @@
           <div class="account-provider-list" aria-label="Account providers">
             <button class="account-provider" id="googleSignInBtn" type="button">Google · checking</button>
             <span class="account-provider" id="tgAuthSlot">Telegram · checking</span>
+<button class="pill-btn" id="signOutBtn" type="button">Cerrar sesión</button>
+<button class="pill-btn" id="unlinkTgBtn" type="button">Desvincular Telegram</button>
           </div>
           <div class="backup-status" id="socialAccountStatus">Google account linking requires owner configuration.</div>
         </section>
@@ -5179,7 +5181,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.68.1";
+      const APP_VERSION = "1.68.2";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -14748,6 +14750,31 @@ async function refreshTelegramAuth() {
   }
 }
 void refreshTelegramAuth();
+async function signOutNow() {
+  const spanish = resolvedLanguage() === "es";
+  try {
+    const token = window.JamdTrial?.getToken?.() || sessionStorage.getItem("jamdWebTrialSession") || "";
+    await fetch("/api/account-session", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) }, body: JSON.stringify({ action: "forget" }) });
+  } catch {}
+  try { await window.JamdAccountSession?.clear?.(); } catch {}
+  try { sessionStorage.clear(); } catch {}
+  try { localStorage.removeItem(STORAGE.accountProfile); } catch {}
+  showToast(spanish ? "Sesión cerrada." : "Signed out.");
+  setTimeout(() => { location.href = "/index.html"; }, 400);
+}
+async function unlinkTelegram() {
+  const spanish = resolvedLanguage() === "es";
+  try {
+    const response = await fetch("/api/telegram-auth?action=unlink", { method: "POST", credentials: "same-origin", cache: "no-store" });
+    if (!response.ok) throw Error();
+    showToast(spanish ? "Telegram desvinculado." : "Telegram unlinked.");
+    setTimeout(() => { location.reload(); }, 500);
+  } catch {
+    showToast(spanish ? "No se pudo desvincular Telegram." : "Telegram could not be unlinked.");
+  }
+}
+document.getElementById("signOutBtn")?.addEventListener("click", signOutNow);
+document.getElementById("unlinkTgBtn")?.addEventListener("click", unlinkTelegram);
 const tgResult = new URLSearchParams(location.search).get("tg");
 if (tgResult) {
   const spanish = resolvedLanguage() === "es";
@@ -15152,7 +15179,7 @@ if (tgResult) {
     })();
   </script>
   <script type="module" src="fair-launch-ui.js?v=1.38.27"></script>
-  <script type="module" src="wallet-login-ui.js?v=1.68.1"></script>
+  <script type="module" src="wallet-login-ui.js?v=1.68.2"></script>
   <script type="module" src="web-trial-ui.js"></script>
   <script type="module" src="jamd-credit-ui.js"></script>
   <script type="module" src="first-visit-ui.js"></script>

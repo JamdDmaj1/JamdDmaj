@@ -27,6 +27,21 @@ export default async function handler(request) {
   const action = url.searchParams.get('action') || 'callback';
 
   if (action === 'config') return jsonResponse(request, { enabled: Boolean(botToken), bot: BOT, provider: 'telegram', purpose: 'backup' });
+  if (action === 'unlink') {
+    const token = cookieToken(request);
+    if (!token) return jsonResponse(request, { error: { message: 'LOGIN_REQUIRED' } }, 401);
+    let account = '';
+    try { account = await authenticateTrial(new Request(request.url, { headers: { Authorization: 'Bearer ' + token } })); } catch { return jsonResponse(request, { error: { message: 'LOGIN_REQUIRED' } }, 401); }
+    const rows = await redisRequest('pipeline', [['GET', 'jamd:account:tg-by-account:' + account]]);
+    const value = rows?.[0]?.result ? JSON.parse(rows[0].result) : null;
+    await redisRequest('pipeline', [['DEL', 'jamd:account:tg-by-account:' + account]]);
+    if (value?.handle) {
+      const all = await redisRequest('pipeline', [['GET', 'jamd:account:tg:' + account]]);
+      void all;
+    }
+    return jsonResponse(request, { ok: true });
+  }
+
   if (action === 'status') {
     const token = cookieToken(request);
     if (!token) return jsonResponse(request, { linked: false });
