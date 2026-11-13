@@ -4982,7 +4982,6 @@
           <div class="account-provider-list" aria-label="Account providers">
             <button class="account-provider" id="googleSignInBtn" type="button">Google · checking</button>
             <span class="account-provider" id="tgAuthSlot">Telegram · checking</span>
-            <span class="account-provider">Telegram · planned</span>
           </div>
           <div class="backup-status" id="socialAccountStatus">Google account linking requires owner configuration.</div>
         </section>
@@ -5180,7 +5179,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.68.0";
+      const APP_VERSION = "1.68.1";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -14729,6 +14728,9 @@ async function refreshTelegramAuth() {
   try {
     const config = await (await fetch("/api/telegram-auth?action=config", { cache: "no-store" })).json();
     if (config?.enabled !== true) { slot.textContent = spanish ? "Telegram · falta configurar" : "Telegram · setup required"; return; }
+    let linked = null;
+    try { linked = await (await fetch("/api/telegram-auth?action=status", { credentials: "same-origin", cache: "no-store" })).json(); } catch {}
+    if (linked?.linked) { slot.textContent = "Telegram · @" + linked.handle; slot.dataset.loaded = "linked"; return; }
     if (slot.dataset.loaded === "1") return;
     slot.textContent = "";
     const script = document.createElement("script");
@@ -15150,7 +15152,7 @@ if (tgResult) {
     })();
   </script>
   <script type="module" src="fair-launch-ui.js?v=1.38.27"></script>
-  <script type="module" src="wallet-login-ui.js?v=1.68.0"></script>
+  <script type="module" src="wallet-login-ui.js?v=1.68.1"></script>
   <script type="module" src="web-trial-ui.js"></script>
   <script type="module" src="jamd-credit-ui.js"></script>
   <script type="module" src="first-visit-ui.js"></script>
