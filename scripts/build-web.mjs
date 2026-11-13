@@ -19,6 +19,8 @@ const assets = [
   "sniper.css",
   "sniper.js",
   "discover.html",
+  "terms.html",
+  "privacy.html",
   "discover.css",
   "discover-refresh.css",
   "discover-tour.css",
