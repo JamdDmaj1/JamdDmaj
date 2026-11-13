@@ -9,6 +9,7 @@ const ME = 'https://api.twitter.com/2/users/me?user.fields=username';
 const SCOPE = 'users.read';
 const SECONDS = 600;
 
+const note = async (payload) => { try { await redisRequest('pipeline', [['SET', 'jamd:x:last', JSON.stringify({ ...payload, at: Date.now() }), 'EX', 3600]]); } catch {} };
 const hex = bytes => [...new Uint8Array(bytes)].map(b => b.toString(16).padStart(2, '0')).join('');
 const b64url = bytes => btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const redirect = (target, headers = {}) => new Response(null, { status: 302, headers: { Location: target, 'Cache-Control': 'no-store', ...headers } });
@@ -81,25 +82,25 @@ export default async function handler(request) {
     const state = url.searchParams.get('state') || '';
     const code = url.searchParams.get('code') || '';
     const denied = url.searchParams.get('error');
-    if (denied) return redirect(home('denied'));
+    if (denied) { await note({ step: 'denied', error: denied }); return redirect(home('denied')); }
     if (!/^[a-f0-9]{64}$/.test(state) || !code) return redirect(home('invalid-callback'));
     const key = 'jamd:x:state:' + await hashIdentifier(state);
     const stored = await redisRequest('pipeline', [['GETDEL', key]]);
     const record = stored?.[0]?.result ? JSON.parse(stored[0].result) : null;
-    if (!record?.verifier) return redirect(home('state-expired'));
+    if (!record?.verifier) { await note({ step: 'state-expired' }); return redirect(home('state-expired')); }
     let token;
     try {
       const basic = btoa(clientId + ':' + clientSecret);
       const body = new URLSearchParams({ code, grant_type: 'authorization_code', redirect_uri: redirectUri, code_verifier: record.verifier });
       const exchanged = await fetch(TOKEN, { method: 'POST', headers: { Authorization: 'Basic ' + basic, 'Content-Type': 'application/x-www-form-urlencoded' }, body });
-      if (!exchanged.ok) return redirect(home('token-denied'));
+      if (!exchanged.ok) { let detail = ''; try { detail = (await exchanged.text()).slice(0, 180); } catch {} await note({ step: 'token-denied', status: exchanged.status, detail }); return redirect(home('token-denied')); }
       token = (await exchanged.json())?.access_token;
       if (typeof token !== 'string' || !token) return redirect(home('token-denied'));
     } catch { return redirect(home('network')); }
     let profile;
     try {
       const me = await fetch(ME, { headers: { Authorization: 'Bearer ' + token } });
-      if (!me.ok) return redirect(home('profile-denied'));
+      if (!me.ok) { let detail = ''; try { detail = (await me.text()).slice(0, 180); } catch {} await note({ step: 'profile-denied', status: me.status, detail }); return redirect(home('profile-denied')); }
       profile = (await me.json())?.data;
       if (!profile?.id) return redirect(home('profile-denied'));
     } catch { return redirect(home('network')); }
@@ -110,11 +111,12 @@ export default async function handler(request) {
       const saved = await redisRequest('pipeline', [['SET', bindingKey, JSON.stringify({ account, handle: String(profile.username || '').slice(0, 15), linkedAt: Date.now() }), 'EX', 63072000]]);
       if (saved?.[0]?.error) return redirect(home('store-unavailable'));
       await redisRequest('pipeline', [['SET', 'jamd:account:x-by-account:' + account, JSON.stringify({ handle: String(profile.username || '').slice(0, 15), linkedAt: Date.now() }), 'EX', 63072000]]);
+      await note({ step: 'linked', handle: String(profile.username || '').slice(0, 15), who: account.slice(0, 8) });
       return redirect(home('linked'));
     }
     const found = await redisRequest('pipeline', [['GET', bindingKey]]);
     const binding = found?.[0]?.result ? JSON.parse(found[0].result) : null;
-    if (!/^[a-f0-9]{64}$/.test(binding?.account || '')) return redirect(home('not-linked'));
+    if (!/^[a-f0-9]{64}$/.test(binding?.account || '')) { await note({ step: 'not-linked', handle: String(profile.username || '').slice(0, 15) }); return redirect(home('not-linked')); }
     try {
       const session = await issueTrialSession(binding.account);
       return redirect(home('signed-in'), { 'Set-Cookie': sessionCookie(session.token, 604800) });
