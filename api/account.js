@@ -89,6 +89,16 @@ export default async function handler(request) {
         else await redisRequest('pipeline', [['SET', aliasKey, account, 'EX', 63072000]]);
       }
       result.webTrial = await issueTrialSession(account);
+      if (email && result.recoveryCode) {
+        const syncKey = `jamd:account:sync:${await hashIdentifier(`google-email:${email}`)}`;
+        const stored = await redisRequest('pipeline', [['GET', syncKey]]);
+        const wrapped = stored?.[0]?.result;
+        if (typeof wrapped === 'string' && wrapped) {
+          try { result.recoveryCode = await unwrapRecoveryCode(wrapped, accountSecret); } catch {}
+        } else {
+          await redisRequest('pipeline', [['SET', syncKey, await wrapRecoveryCode(result.recoveryCode, accountSecret), 'NX', 'EX', 63072000]]);
+        }
+      }
     }
     return jsonResponse(request, result,200,result.webTrial?.token&&sameOriginBrowser(request)?{'Set-Cookie':sessionCookie(result.webTrial.token,604800)}:{});
   } catch (error) {
