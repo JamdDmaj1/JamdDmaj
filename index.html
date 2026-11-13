@@ -4984,6 +4984,7 @@
             <span class="account-provider" id="tgAuthSlot">Telegram · checking</span>
 <button class="pill-btn" id="signOutBtn" type="button">Cerrar sesión</button>
 <button class="pill-btn" id="unlinkTgBtn" type="button">Desvincular Telegram</button>
+<button class="pill-btn" id="passkeyBtn" type="button">Activar passkey</button>
           </div>
           <div class="backup-status" id="socialAccountStatus">Google account linking requires owner configuration.</div>
         </section>
@@ -5181,7 +5182,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.68.2";
+      const APP_VERSION = "1.69.0";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -14775,6 +14776,67 @@ async function unlinkTelegram() {
 }
 document.getElementById("signOutBtn")?.addEventListener("click", signOutNow);
 document.getElementById("unlinkTgBtn")?.addEventListener("click", unlinkTelegram);
+const passkeyB64 = {
+  toBuf: value => { const padded = value.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((value.length + 3) % 4); const binary = atob(padded); const bytes = new Uint8Array(binary.length); for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i); return bytes; },
+  fromBuf: buffer => { const bytes = new Uint8Array(buffer); let binary = ""; for (const byte of bytes) binary += String.fromCharCode(byte); return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); }
+};
+async function refreshPasskeyState() {
+  const button = document.getElementById("passkeyBtn");
+  if (!button) return;
+  const spanish = resolvedLanguage() === "es";
+  try {
+    const status = await (await fetch("/api/passkey?action=status", { credentials: "same-origin", cache: "no-store" })).json();
+    button.textContent = status?.linked ? (spanish ? "Passkey activada · añadir otra" : "Passkey enabled · add another") : (spanish ? "Activar passkey" : "Enable passkey");
+  } catch {}
+}
+async function registerPasskey() {
+  const spanish = resolvedLanguage() === "es";
+  if (window.JamdTrial?.getToken?.() == null && !sessionStorage.getItem("jamdWebTrialSession")) {
+    // the cookie session still authorises registration on the server
+  }
+  try {
+    const options = await (await fetch("/api/passkey?action=register-options", { credentials: "same-origin", cache: "no-store" })).json();
+    if (!options?.challenge) throw Error(options?.error?.message || "options");
+    const publicKey = {
+      ...options,
+      challenge: passkeyB64.toBuf(options.challenge),
+      user: { ...options.user, id: passkeyB64.toBuf(options.user.id) },
+      excludeCredentials: (options.excludeCredentials || []).map(item => ({ ...item, id: passkeyB64.toBuf(item.id) }))
+    };
+    const credential = await navigator.credentials.create({ publicKey });
+    if (!credential) throw Error("cancelled");
+    const payload = { credential: { rawId: passkeyB64.fromBuf(credential.rawId), response: { clientDataJSON: passkeyB64.fromBuf(credential.response.clientDataJSON), attestationObject: passkeyB64.fromBuf(credential.response.attestationObject) } } };
+    const saved = await fetch("/api/passkey?action=register-verify", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    if (!saved.ok) throw Error();
+    showToast(spanish ? "Passkey activada en este dispositivo." : "Passkey enabled on this device.");
+    void refreshPasskeyState();
+  } catch (error) {
+    showToast(spanish ? "No se pudo activar la passkey." : "The passkey could not be enabled.");
+  }
+}
+async function loginWithPasskey() {
+  const spanish = resolvedLanguage() === "es";
+  try {
+    const options = await (await fetch("/api/passkey?action=login-options", { cache: "no-store" })).json();
+    if (!options?.challenge) throw Error();
+    const publicKey = { ...options, challenge: passkeyB64.toBuf(options.challenge), allowCredentials: (options.allowCredentials || []).map(item => ({ ...item, id: passkeyB64.toBuf(item.id) })) };
+    const credential = await navigator.credentials.get({ publicKey, mediation: "optional" });
+    if (!credential) throw Error("cancelled");
+    const payload = { credential: { rawId: passkeyB64.fromBuf(credential.rawId), response: { clientDataJSON: passkeyB64.fromBuf(credential.response.clientDataJSON), authenticatorData: passkeyB64.fromBuf(credential.response.authenticatorData), signature: passkeyB64.fromBuf(credential.response.signature) } } };
+    const result = await fetch("/api/passkey?action=login-verify", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const data = await result.json().catch(() => ({}));
+    if (!result.ok || !data?.token) throw Error();
+    sessionStorage.setItem("jamdWebTrialSession", data.token);
+    try { await window.JamdAccountSession?.save?.(data.token); } catch {}
+    showToast(spanish ? "Entraste con passkey." : "Signed in with passkey.");
+    setTimeout(() => location.reload(), 400);
+  } catch {
+    showToast(spanish ? "No se pudo entrar con passkey." : "Passkey sign-in failed.");
+  }
+}
+window.jamdPasskeyLogin = loginWithPasskey;
+document.getElementById("passkeyBtn")?.addEventListener("click", registerPasskey);
+void refreshPasskeyState();
 const tgResult = new URLSearchParams(location.search).get("tg");
 if (tgResult) {
   const spanish = resolvedLanguage() === "es";
@@ -15179,7 +15241,7 @@ if (tgResult) {
     })();
   </script>
   <script type="module" src="fair-launch-ui.js?v=1.38.27"></script>
-  <script type="module" src="wallet-login-ui.js?v=1.68.2"></script>
+  <script type="module" src="wallet-login-ui.js?v=1.69.0"></script>
   <script type="module" src="web-trial-ui.js"></script>
   <script type="module" src="jamd-credit-ui.js"></script>
   <script type="module" src="first-visit-ui.js"></script>
