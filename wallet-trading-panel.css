@@ -237,3 +237,5 @@ dialog.trade-share-dialog.share-out::backdrop{animation:share-backdrop-out .17s 
 .phoenix-protect{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-left:auto}
 .phoenix-protect input{width:76px;padding:8px 10px;border-radius:10px;border:1px solid rgba(180,200,230,.25);background:rgba(8,16,28,.85);color:inherit;font:inherit}
 .phoenix-protect button{padding:8px 12px;border-radius:10px;border:1px solid rgba(110,230,190,.45);background:rgba(16,52,44,.9);color:#7ee3c1;font:600 12px/1 inherit;cursor:pointer}
+
+.phoenix-protect-hint{flex-basis:100%;color:#9db4ca;font-size:12px;line-height:1.4}
