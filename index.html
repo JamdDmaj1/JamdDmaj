@@ -4981,7 +4981,7 @@
           </details>
           <div class="account-provider-list" aria-label="Account providers">
             <button class="account-provider" id="googleSignInBtn" type="button">Google · checking</button>
-            <span class="account-provider">X · planned</span>
+            <button class="account-provider" id="xAuthBtn" type="button">X · checking</button>
             <span class="account-provider">Telegram · planned</span>
           </div>
           <div class="backup-status" id="socialAccountStatus">Google account linking requires owner configuration.</div>
@@ -5180,7 +5180,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.65.6";
+      const APP_VERSION = "1.66.0";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -14721,6 +14721,48 @@ function openSettings(focusSection = "") {
       document.getElementById("appUpdateBannerDownload").addEventListener("click", openAppUpdateDownload);
       document.getElementById("appUpdateBannerLater").addEventListener("click", dismissMainUpdateBanner);
       document.getElementById("googleSignInBtn").addEventListener("click", startGoogleSignIn);
+async function refreshXAuth() {
+  const button = document.getElementById("xAuthBtn");
+  if (!button) return;
+  const spanish = resolvedLanguage() === "es";
+  try {
+    const config = await (await fetch("/api/x-auth?action=config", { cache: "no-store" })).json();
+    button.dataset.enabled = config?.enabled === true ? "1" : "";
+    button.textContent = config?.enabled === true
+      ? (spanish ? "X · vincular respaldo" : "X · link backup")
+      : (spanish ? "X · falta configurar" : "X · setup required");
+  } catch {
+    button.dataset.enabled = "";
+    button.textContent = spanish ? "X · no disponible" : "X · unavailable";
+  }
+}
+async function startXAuth() {
+  const button = document.getElementById("xAuthBtn");
+  const spanish = resolvedLanguage() === "es";
+  if (button?.dataset.enabled !== "1") {
+    showToast(spanish ? "El propietario debe configurar X_CLIENT_ID y X_CLIENT_SECRET." : "The owner must configure X_CLIENT_ID and X_CLIENT_SECRET.");
+    return;
+  }
+  const session = await window.JamdTrial?.sessionStatus?.().catch(() => "unavailable");
+  const mode = session === "valid" ? "link" : "login";
+  window.location.href = "/api/x-auth?action=start&mode=" + mode;
+}
+document.getElementById("xAuthBtn")?.addEventListener("click", startXAuth);
+void refreshXAuth();
+const xResult = new URLSearchParams(location.search).get("x");
+if (xResult) {
+  const spanish = resolvedLanguage() === "es";
+  const messages = {
+    linked: spanish ? "X vinculado como respaldo de tu cuenta." : "X linked as a backup for your account.",
+    "signed-in": spanish ? "Entraste con X. Tu progreso sigue igual." : "Signed in with X. Your progress is unchanged.",
+    "not-linked": spanish ? "Ese X no está vinculado. Inicia sesión con Google y vincúlalo primero." : "That X is not linked. Sign in with Google and link it first.",
+    "state-expired": spanish ? "La vinculación caducó. Inténtalo otra vez." : "The link expired. Try again.",
+    denied: spanish ? "Cancelaste el acceso en X." : "You cancelled the X authorization.",
+    "not-configured": spanish ? "El propietario debe configurar X." : "The owner must configure X."
+  };
+  showToast(messages[xResult] || (spanish ? "No se pudo completar con X." : "X could not be completed."));
+  history.replaceState({}, "", location.pathname + location.hash);
+}
       document.getElementById("settingsNav").addEventListener("click", (event) => {
         const button = event.target.closest("[data-settings-panel]");
         if (!button) return;
@@ -15112,7 +15154,7 @@ function openSettings(focusSection = "") {
     })();
   </script>
   <script type="module" src="fair-launch-ui.js?v=1.38.27"></script>
-  <script type="module" src="wallet-login-ui.js?v=1.65.6"></script>
+  <script type="module" src="wallet-login-ui.js?v=1.66.0"></script>
   <script type="module" src="web-trial-ui.js"></script>
   <script type="module" src="jamd-credit-ui.js"></script>
   <script type="module" src="first-visit-ui.js"></script>
