@@ -29,7 +29,7 @@ test('parent client rejects changed setup scope, session, replay and a falsely c
 test('entry review binds original intent, commission recipient, session and one-use confirmation',async()=>{
  const now=1800000000000,terms=quotePerpsPlatformFee('10000000'),draft={symbol:'DOGE',side:'SHORT',marginUsdcUnits:'10000000',leverageTenths:30};
  const review={...draft,stage:'PHOENIX_MANUAL_ENTRY_REVIEW',venue:'phoenix',walletAddress:wallet,id:reviewId,workflowId,expiresAt:now+15000,submitted:false,
-  maxSlippageBps:50,withdrawalMayQueue:true,platformFeeUsdcUnits:terms.feeUnits,platformFeeTermsVersion:terms.version,platformFeeRecipient:terms.recipient,
+  maxSlippageBps:50,withdrawalMayQueue:true,platformFeeUsdcUnits:terms.feeUnits,platformFeeTermsVersion:terms.version,
   maximumFeeNetworkLamports:'10000',maximumNetworkAndRentLamports:'15600',protocolFeeUsdcUnits:'10420',authorizationDurationMs:300000,
   baseLots:'240',referencePrice:'0.13',priceLimitUsd:'0.12935',maximumProtocolTakerFeeMicro:350};
  const result={stage:'PHOENIX_MANUAL_OPERATION',venue:'phoenix',walletAddress:wallet,workflowId,state:'OPEN',attemptId:reviewId,attemptState:'FINALIZED',phase:'FEE',signature,
@@ -39,7 +39,7 @@ test('entry review binds original intent, commission recipient, session and one-
   const body=JSON.parse(options.body);calls.push(body);return Response.json({ok:true,phoenix:body.action==='phoenixEntryPrepare'?{...review,...patch}:result});
  }});
  for(const change of [{side:'LONG'},{marginUsdcUnits:'11000000'},{leverageTenths:40},{maxSlippageBps:500},{platformFeeUsdcUnits:'20001'},
-  {platformFeeRecipient:wallet},{maximumFeeNetworkLamports:'10001'},{expiresAt:now+300000}]){
+  {platformFeeTermsVersion:wallet},{maximumFeeNetworkLamports:'10001'},{expiresAt:now+300000}]){
   patch=change;await assert.rejects(()=>client.prepareEntry(wallet,draft),/review-required/);
  }
  patch={};const r=await client.prepareEntry(wallet,draft);
