@@ -5180,7 +5180,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.66.3";
+      const APP_VERSION = "1.66.4";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -12065,6 +12065,7 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         localStorage.setItem(STORAGE.accountProfile, JSON.stringify(accountProfile));
         if (normalizeRecoveryCode(data.recoveryCode) !== normalizeRecoveryCode(currentCode)) {
           googleSyncRecoveryCode = normalizeRecoveryCode(data.recoveryCode);
+          try { localStorage.setItem(STORAGE.recoveryCode, normalizeRecoveryCode(data.recoveryCode)); } catch {}
           clearTimeout(cloudBackupTimer);
           updateSyncAccountUi();
           await initGoogleAccount();
