@@ -100,6 +100,7 @@ await cp(resolve(root, "lib", "wallet-portfolio-store.js"), resolve(output, "lib
 await cp(resolve(root, "lib", "wallet-trading-state.js"), resolve(output, "lib", "wallet-trading-state.js"));
 await cp(resolve(root, "lib", "wallet-trading-panel.js"), resolve(output, "lib", "wallet-trading-panel.js"));
   await cp(resolve(root, "lib", "close-price-memory.js"), resolve(output, "lib", "close-price-memory.js"));
+  await cp(resolve(root, "lib", "perps-platform-fee-quote.js"), resolve(output, "lib", "perps-platform-fee-quote.js"));
 await cp(resolve(root, "lib", "position-display-metrics.js"), resolve(output, "lib", "position-display-metrics.js"));
 for(const name of ['trading-equity-display','closed-trade-performance','trade-share-card','trade-share-dialog'])await cp(resolve(root,'lib',name+'.js'),resolve(output,'lib',name+'.js'));
 await build({
