@@ -5180,7 +5180,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.66.9";
+      const APP_VERSION = "1.67.0";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -14729,9 +14729,15 @@ async function refreshXAuth() {
   try {
     const config = await (await fetch("/api/x-auth?action=config", { cache: "no-store" })).json();
     button.dataset.enabled = config?.enabled === true ? "1" : "";
-    button.textContent = config?.enabled === true
-      ? (spanish ? "X · vincular respaldo" : "X · link backup")
-      : (spanish ? "X · falta configurar" : "X · setup required");
+    if (config?.enabled === true) {
+      let linked = null;
+      try { linked = await (await fetch("/api/x-auth?action=status", { credentials: "same-origin", cache: "no-store" })).json(); } catch {}
+      button.textContent = linked?.linked
+        ? "X · @" + linked.handle
+        : (spanish ? "X · vincular respaldo" : "X · link backup");
+    } else {
+      button.textContent = spanish ? "X · falta configurar" : "X · setup required";
+    }
   } catch {
     button.dataset.enabled = "";
     button.textContent = spanish ? "X · no disponible" : "X · unavailable";
@@ -14744,8 +14750,12 @@ async function startXAuth() {
     showToast(spanish ? "El propietario debe configurar X_CLIENT_ID y X_CLIENT_SECRET." : "The owner must configure X_CLIENT_ID and X_CLIENT_SECRET.");
     return;
   }
-  const session = await window.JamdTrial?.sessionStatus?.().catch(() => "unavailable");
-  const mode = session === "valid" ? "link" : "login";
+  let signedIn = false;
+  try {
+    const probe = await fetch("/api/whoami", { credentials: "same-origin", cache: "no-store" });
+    signedIn = probe.ok;
+  } catch {}
+  const mode = signedIn ? "link" : "login";
   window.location.href = "/api/x-auth?action=start&mode=" + mode;
 }
 document.getElementById("xAuthBtn")?.addEventListener("click", startXAuth);
@@ -15155,7 +15165,7 @@ if (xResult) {
     })();
   </script>
   <script type="module" src="fair-launch-ui.js?v=1.38.27"></script>
-  <script type="module" src="wallet-login-ui.js?v=1.66.9"></script>
+  <script type="module" src="wallet-login-ui.js?v=1.67.0"></script>
   <script type="module" src="web-trial-ui.js"></script>
   <script type="module" src="jamd-credit-ui.js"></script>
   <script type="module" src="first-visit-ui.js"></script>

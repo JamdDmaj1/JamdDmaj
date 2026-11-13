@@ -30,6 +30,17 @@ export default async function handler(request) {
   const redirectUri = url.origin + '/api/x-callback';
   const action = url.searchParams.get('action') || 'config';
 
+  if (action === 'status') {
+    const token = tokenFrom(request);
+    if (!token) return jsonResponse(request, { linked: false });
+    let account = '';
+    try { account = await authenticateTrial(new Request(request.url, { headers: { Authorization: 'Bearer ' + token } })); } catch { return jsonResponse(request, { linked: false }); }
+    if (!/^[a-f0-9]{64}$/.test(account)) return jsonResponse(request, { linked: false });
+    const rows = await redisRequest('pipeline', [['GET', 'jamd:account:x-by-account:' + account]]);
+    const value = rows?.[0]?.result ? JSON.parse(rows[0].result) : null;
+    return jsonResponse(request, { linked: Boolean(value?.handle), handle: value?.handle || null });
+  }
+
   if (action === 'config') {
     return jsonResponse(request, { enabled: Boolean(clientId && clientSecret), provider: 'x', purpose: 'backup' });
   }
@@ -98,6 +109,7 @@ export default async function handler(request) {
       if (!/^[a-f0-9]{64}$/.test(account)) return redirect(home('login-required'));
       const saved = await redisRequest('pipeline', [['SET', bindingKey, JSON.stringify({ account, handle: String(profile.username || '').slice(0, 15), linkedAt: Date.now() }), 'EX', 63072000]]);
       if (saved?.[0]?.error) return redirect(home('store-unavailable'));
+      await redisRequest('pipeline', [['SET', 'jamd:account:x-by-account:' + account, JSON.stringify({ handle: String(profile.username || '').slice(0, 15), linkedAt: Date.now() }), 'EX', 63072000]]);
       return redirect(home('linked'));
     }
     const found = await redisRequest('pipeline', [['GET', bindingKey]]);
