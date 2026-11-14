@@ -13,8 +13,10 @@ async function handler(request) {
   if (!secret || provided !== secret) return jsonResponse(request, { error: { message: 'Forbidden' } }, 403);
   let body;
   try { body = await request.json(); } catch { return jsonResponse(request, { error: { message: 'Invalid body' } }, 400); }
+  const trade = body?.mode === 'trade' ? { account: String(body?.account || ''), text: String(body?.body || '').trim().slice(0, 240) } : null;
   const alerts = Array.isArray(body?.alerts) ? body.alerts.filter(text => typeof text === 'string' && text.trim()).slice(0, 10) : [];
-  if (!alerts.length) return jsonResponse(request, { sent: 0 });
+  if (trade && (!/^[a-f0-9]{64}$/.test(trade.account) || !trade.text)) return jsonResponse(request, { error: { message: 'INPUT' } }, 400);
+  if (!alerts.length && !trade) return jsonResponse(request, { sent: 0 });
   let sender;
   try { sender = serverPushSender(); } catch { return jsonResponse(request, { ready: false, sent: 0 }); }
 
@@ -32,14 +34,15 @@ async function handler(request) {
     try {
       const rows = await redisRequest('pipeline', chunk);
       for (const row of rows || []) {
-        try { const record = JSON.parse(row?.result || 'null'); if (record && record.preferences?.sniper === true && record.expiresAt > now) records.push(record); } catch {}
+        try { const record = JSON.parse(row?.result || 'null'); if (record && record.expiresAt > now && (trade ? record.account === trade.account : record.preferences?.sniper === true)) records.push(record); } catch {}
       }
     } catch {}
   }
 
   let sent = 0;
+  const texts = trade ? [trade.text] : alerts;
   for (const record of records.slice(0, 100)) {
-    for (const text of alerts) {
+    for (const text of texts) {
       const bodyText = String(text).slice(0, 240);
       const eventId = 'snp' + String(Math.abs(hashCode(record.id + bodyText + now)) % 100000000).padStart(8, '0');
       try {
