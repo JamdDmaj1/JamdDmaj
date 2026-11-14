@@ -242,3 +242,5 @@ dialog.trade-share-dialog.share-out::backdrop{animation:share-backdrop-out .17s 
 
 .phoenix-close-percent{width:104px;accent-color:#51e5ad}
 .phoenix-close-percent-label{color:#9db4ca;font-size:12px;min-width:36px}
+
+.wallet-trading-state details>summary{cursor:pointer}
