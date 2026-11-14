@@ -1,6 +1,31 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script id="jamdNativeApiBase">
+// The Android shell serves the bundle from a local origin: API calls must go to
+// the public site explicitly, or wallet, market and Telegram features fail.
+(() => {
+  try {
+    const native = window.Capacitor?.isNativePlatform?.() === true;
+    const local = ['localhost','127.0.0.1'].includes(location.hostname);
+    if (!native && !local) return;
+    const base = 'https://www.jamddmaj.com';
+    const original = window.fetch.bind(window);
+    window.fetch = function (input, init) {
+      try {
+        const url = typeof input === 'string' ? input : input && input.url;
+        if (typeof url === 'string' && (url.startsWith('/api/') || url.startsWith('/v1/'))) {
+          const target = base + url;
+          input = typeof input === 'string' ? target : new Request(target, input);
+        }
+      } catch {}
+      return original(input, init);
+    };
+    window.JAMD_API_BASE = base;
+  } catch {}
+})();
+</script>
+
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="dark light">
@@ -5182,7 +5207,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.71.3";
+      const APP_VERSION = "1.71.4";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -14730,6 +14755,7 @@ async function refreshTelegramAuth() {
   const spanish = resolvedLanguage() === "es";
   try {
     const config = await (await fetch("/api/telegram-auth?action=config", { cache: "no-store" })).json();
+    if (window.Capacitor?.isNativePlatform?.() === true || ["localhost","127.0.0.1"].includes(location.hostname)) { slot.textContent = spanish ? "Telegram · solo en la web" : "Telegram · web only"; return; }
     if (config?.enabled !== true) { slot.textContent = spanish ? "Telegram · falta configurar" : "Telegram · setup required"; return; }
     let linked = null;
     try { linked = await (await fetch("/api/telegram-auth?action=status", { credentials: "same-origin", cache: "no-store" })).json(); } catch {}
@@ -15271,7 +15297,7 @@ if (tgResult) {
     })();
   </script>
   <script type="module" src="fair-launch-ui.js?v=1.38.27"></script>
-  <script type="module" src="wallet-login-ui.js?v=1.71.3"></script>
+  <script type="module" src="wallet-login-ui.js?v=1.71.4"></script>
   <script type="module" src="web-trial-ui.js"></script>
   <script type="module" src="jamd-credit-ui.js"></script>
   <script type="module" src="first-visit-ui.js"></script>
