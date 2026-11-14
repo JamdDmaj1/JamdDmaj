@@ -12,6 +12,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(NativeWalletPlugin.class);
         registerPlugin(AccountSessionPlugin.class);
         registerPlugin(MarketPushPlugin.class);
+        registerPlugin(UpdateInstallerPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
