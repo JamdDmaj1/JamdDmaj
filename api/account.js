@@ -77,7 +77,7 @@ export default async function handler(request) {
     }
 
     const result = await linkGoogleProfile(input, identity, accountSecret);
-    if (result.linked) {
+    { // verified identity: always issue a session, linked or not
       const email = String(identity.email || '').trim().toLowerCase();
       let account = await trialHash(`google:${identity.sub}`);
       if (email) {
