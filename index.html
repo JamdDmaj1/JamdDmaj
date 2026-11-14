@@ -5182,7 +5182,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.71.0";
+      const APP_VERSION = "1.71.1";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -14843,6 +14843,30 @@ async function loginWithPasskey() {
 window.jamdPasskeyLogin = loginWithPasskey;
 document.getElementById("passkeyBtn")?.addEventListener("click", registerPasskey);
 void refreshPasskeyState();
+async function ensureTradePush() {
+  try {
+    if (!window.isSecureContext || !("Notification" in window)) return;
+    const token = window.JamdTrial?.getToken?.() || sessionStorage.getItem("jamdWebTrialSession") || "";
+    if (!/^[a-f0-9]{64}$/.test(token)) return;
+    if (Notification.permission === "denied") return;
+    if (Notification.permission !== "granted") {
+      const granted = await Notification.requestPermission();
+      if (granted !== "granted") return;
+    }
+    const { registerWebPush } = await import("./lib/firebase-push-web.js");
+    const transport = await registerWebPush({ win: window, timeout: 15000 });
+    if (!transport?.target) return;
+    let deviceId = "";
+    try { deviceId = localStorage.getItem("jamdPushDevice") || ""; } catch {}
+    if (!/^[A-Za-z0-9_-]{16,100}$/.test(deviceId)) {
+      deviceId = ([1e7] + "-" + 1e3 + "-" + 4e3 + "-" + 8e3 + "-" + 1e11).replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
+      try { localStorage.setItem("jamdPushDevice", deviceId); } catch {}
+    }
+    await fetch("/api/push-subscriptions", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", Authorization: "Bearer " + token }, body: JSON.stringify({ deviceId, transport: transport.transport, target: transport.target, preferences: { alerts: [], signals: false } }) });
+  } catch {}
+}
+setTimeout(() => { if (window.JamdTrial?.getToken?.()) void ensureTradePush(); }, 3500);
+window.addEventListener("pointerdown", () => { setTimeout(() => { if (window.JamdTrial?.getToken?.()) void ensureTradePush(); }, 300); }, { once: true, passive: true });
 const tgResult = new URLSearchParams(location.search).get("tg");
 if (tgResult) {
   const spanish = resolvedLanguage() === "es";
@@ -15247,7 +15271,7 @@ if (tgResult) {
     })();
   </script>
   <script type="module" src="fair-launch-ui.js?v=1.38.27"></script>
-  <script type="module" src="wallet-login-ui.js?v=1.71.0"></script>
+  <script type="module" src="wallet-login-ui.js?v=1.71.1"></script>
   <script type="module" src="web-trial-ui.js"></script>
   <script type="module" src="jamd-credit-ui.js"></script>
   <script type="module" src="first-visit-ui.js"></script>

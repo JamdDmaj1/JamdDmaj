@@ -49,7 +49,7 @@ export default async function handler(request) {
     for (const value of [tp, sl]) if (value !== null && (!Number.isFinite(value) || value <= 0)) return jsonResponse(request, { error: { message: 'INPUT' } }, 400);
     if (tp === null && sl === null) return jsonResponse(request, { error: { message: 'INPUT' } }, 400);
     const next = rules.filter(rule => rule.workflowId !== workflowId);
-    next.push({ workflowId, walletAddress, tp, sl, symbol: String(body.symbol || '').slice(0, 20), side: body.side === 'SHORT' ? 'SHORT' : 'LONG', createdAt: Date.now() });
+    next.push({ workflowId, walletAddress, account, tp, sl, symbol: String(body.symbol || '').slice(0, 20), side: body.side === 'SHORT' ? 'SHORT' : 'LONG', createdAt: Date.now() });
     await redisRequest('pipeline', [['SET', key, JSON.stringify(next.slice(-25)), 'EX', 63072000]]);
     return jsonResponse(request, { ok: true, rules: next.slice(-25) });
   }
