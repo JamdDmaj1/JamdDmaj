@@ -244,3 +244,8 @@ dialog.trade-share-dialog.share-out::backdrop{animation:share-backdrop-out .17s 
 .phoenix-close-percent-label{color:#9db4ca;font-size:12px;min-width:36px}
 
 .wallet-trading-state details>summary{cursor:pointer}
+
+.wt-percent-dialog{width:min(440px,calc(100vw - 32px));padding:22px;border-radius:18px;border:1px solid #2a4054;background:#0b1522;color:#e6f1fb;box-shadow:0 24px 70px #000a}
+.wt-percent-dialog h3{margin:0 0 14px;font-size:16px}
+.wt-percent-dialog .wt-percent-range{width:100%;accent-color:#51e5ad;margin:10px 0 6px}
+.wt-percent-dialog .wt-percent-value{margin:0 0 14px;color:#9db4ca;font-size:13px}
