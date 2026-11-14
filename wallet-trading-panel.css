@@ -239,3 +239,6 @@ dialog.trade-share-dialog.share-out::backdrop{animation:share-backdrop-out .17s 
 .phoenix-protect button{padding:8px 12px;border-radius:10px;border:1px solid rgba(110,230,190,.45);background:rgba(16,52,44,.9);color:#7ee3c1;font:600 12px/1 inherit;cursor:pointer}
 
 .phoenix-protect-hint{flex-basis:100%;color:#9db4ca;font-size:12px;line-height:1.4}
+
+.phoenix-close-percent{width:104px;accent-color:#51e5ad}
+.phoenix-close-percent-label{color:#9db4ca;font-size:12px;min-width:36px}
