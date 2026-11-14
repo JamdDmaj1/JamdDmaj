@@ -8,6 +8,7 @@ import org.json.*;
 
 /** Checks confirmed token ownership and excludes unrelated wallet assets from writable accounts. */
 final class NativeSwapChainState {
+    static final String PYUSD = "2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo";
     private final NativeWalletRpc rpc;
     NativeSwapChainState() { this(null); }
     NativeSwapChainState(NativeWalletRpc.Transport fixture) { rpc=new NativeWalletRpc(WalletNetwork.SOLANA_MAINNET,fixture); }
@@ -65,7 +66,8 @@ final class NativeSwapChainState {
         if(!(NativeSwapSetup.SOL.equals(preparation.intent.inputMint)&&preparation.intent.wrapAndUnwrapSol) && source.compareTo(new BigInteger(preparation.intent.amount))<0)
             throw new IOException("Insufficient input token balance");
         if(sol.compareTo(setup.wrappedSol)<0) throw new IOException("Insufficient SOL to fund swap");
-        int inputDecimals=mint(values.get(preparation.intent.inputMint)),outputDecimals=mint(values.get(preparation.intent.outputMint));
+        int inputDecimals=mintPolicy(preparation.intent.inputMint,values.get(preparation.intent.inputMint));
+        int outputDecimals=mintPolicy(preparation.intent.outputMint,values.get(preparation.intent.outputMint));
         rpc.verifyNetwork();
         return new Result(sol,source,destination,lamports(values.get(route.source)),lamports(values.get(route.destination)),minimum,inputDecimals,outputDecimals);
     }
@@ -85,6 +87,29 @@ final class NativeSwapChainState {
         if(NativeSwapSetup.SOL.equals(mint)!=(token.nativeReserve!=null)) throw new IOException("Invalid wrapped SOL account");
         return token.amount;
     }
+    private int mintPolicy(String mint,JSONObject value) throws Exception {
+        if(!PYUSD.equals(mint)) return mint(value);
+        JSONObject response=(JSONObject)rpc.request("getAccountInfo",new JSONArray().put(mint).put(confirmed().put("encoding","jsonParsed")));
+        JSONObject account=response.getJSONObject("value");
+        if(account==null || !NativeJupiterRoute.TOKEN_2022.equals(account.get("owner")) || !Boolean.FALSE.equals(account.get("executable")))
+            throw new IOException("Invalid mint program");
+        JSONObject parsed=account.getJSONObject("data").getJSONObject("parsed"),info=parsed.getJSONObject("info");
+        if(!"mint".equals(parsed.get("type")) || !"initialized".equals(info.get("state")) && !Boolean.TRUE.equals(info.get("isInitialized")))
+            throw new IOException("Uninitialized or invalid mint");
+        JSONArray extensions=info.optJSONArray("extensions");
+        if(extensions!=null) for(int i=0;i<extensions.length();i++) {
+            JSONObject extension=extensions.getJSONObject(i); String name=extension.optString("extension","");
+            if("transferHook".equals(name)||"confidentialTransferMint".equals(name)||"nonTransferable".equals(name)
+                    ||"interestBearingConfig".equals(name)||"memoTransfer".equals(name)||"transferFeeConfig".equals(name)) {
+                if(!"transferFeeConfig".equals(name)) throw new IOException("Unsupported token extension");
+                JSONObject state=extension.optJSONObject("state");
+                if(state==null || !zeroFee(state.optJSONObject("olderTransferFee")) || !zeroFee(state.optJSONObject("newerTransferFee")))
+                    throw new IOException("Transfer fee is not zero");
+            }
+        }
+        return info.getInt("decimals");
+    }
+    private static boolean zeroFee(JSONObject fee){ if(fee==null) return true; Object bps=fee.opt("transferFeeBasisPoints"); return bps==null || (bps instanceof Number && ((Number)bps).intValue()==0); }
     static int mint(JSONObject value) throws Exception {
         if(value==null || !NativeJupiterRoute.TOKEN.equals(value.get("owner")) || !Boolean.FALSE.equals(value.get("executable")))
             throw new IOException("Invalid mint program");

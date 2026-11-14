@@ -54,10 +54,21 @@ final class NativeSwapTransfers {
         NativeSwapCheck.at(NativeSwapCheck.Stage.AMOUNT,()->{NativeSwapAmounts.requirePositive(amount);return null;});
         NativeSwapCheck.at(NativeSwapCheck.Stage.PENDING,()->{journal.requireNoPending();return null;});
         NativeSwapCheck.at(NativeSwapCheck.Stage.NETWORK,()->{rpc.verifyNetwork();return null;});
+        boolean token2022=NativeSwapChainState.PYUSD.equals(inputMint);
         JSONObject response=NativeSwapCheck.at(NativeSwapCheck.Stage.MINT,()->(JSONObject)rpc.request("getAccountInfo",new JSONArray().put(inputMint)
-            .put(new JSONObject().put("commitment","confirmed").put("encoding","base64")
-                .put("dataSlice",new JSONObject().put("offset",0).put("length",83)))));
-        int decimals=NativeSwapCheck.at(NativeSwapCheck.Stage.MINT,()->NativeSwapChainState.mint(response.isNull("value")?null:response.getJSONObject("value")));
+                .put(token2022
+                        ?new JSONObject().put("commitment","confirmed").put("encoding","jsonParsed")
+                        :new JSONObject().put("commitment","confirmed").put("encoding","base64")
+                                .put("dataSlice",new JSONObject().put("offset",0).put("length",83)))));
+        int decimals=NativeSwapCheck.at(NativeSwapCheck.Stage.MINT,()->{
+            if(token2022){
+                JSONObject value=response.isNull("value")?null:response.getJSONObject("value");
+                if(value==null || !NativeJupiterRoute.TOKEN_2022.equals(value.get("owner")))
+                    throw new IOException("Invalid mint program");
+                return 6;
+            }
+            return NativeSwapChainState.mint(response.isNull("value")?null:response.getJSONObject("value"));
+        });
         String exact=NativeSwapCheck.at(NativeSwapCheck.Stage.AMOUNT,()->NativeSwapAmounts.units(amount,decimals));
         return prepare(new NativeSwapPreparation.Intent(owner.solanaAddress,inputMint,outputMint,exact,slippageBps));
     }

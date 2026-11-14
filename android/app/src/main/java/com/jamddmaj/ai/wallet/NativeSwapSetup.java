@@ -61,8 +61,9 @@ final class NativeSwapSetup {
                 if(data.length!=1) throw invalid();
                 if(data[0]==17 && i<route.instructionIndex && inputSol && transfer && !sync && accounts.length==1) {
                     same(keys,accounts,0,route.source); sync=true;
-                } else if(data[0]==9 && i>route.instructionIndex && (inputSol || outputSol) && !close && accounts.length==3) {
-                    same(keys,accounts,0,inputSol?route.source:route.destination);
+                } else if(data[0]==9 && i>route.instructionIndex && !close && accounts.length==3
+                        && (inputSol || outputSol || NativeJupiterRoute.TOKEN_2022.equals(route.sourceTokenProgram) || NativeJupiterRoute.TOKEN_2022.equals(route.destinationTokenProgram))) {
+                    same(keys,accounts,0,inputSol?route.source:NativeJupiterRoute.TOKEN_2022.equals(route.sourceTokenProgram)?route.source:route.destination);
                     same(keys,accounts,1,intent.payer); same(keys,accounts,2,intent.payer); close=true;
                 } else throw invalid();
             } else throw invalid();
