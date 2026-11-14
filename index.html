@@ -5207,7 +5207,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.71.9";
+      const APP_VERSION = "1.72.0";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -13359,17 +13359,11 @@ function openSettings(focusSection = "") {
         ]));
       }
 
-      async function fetchCryptoComparePrices() {
-        const symbols = CRYPTO_ASSETS.map((asset) => asset.symbol).join(",");
-        const data = await fetchJsonWithTimeout(
-          `https://min-api.cryptocompare.com/data/pricemulti?fsyms=${encodeURIComponent(symbols)}&tsyms=USD`,
-          6500
-        );
-        return Object.fromEntries(CRYPTO_ASSETS.map((asset) => [
-          asset.symbol,
-          Number(data[asset.symbol]?.USD)
-        ]));
-      }
+async function fetchCryptoComparePrices() {
+  const ids = CRYPTO_ASSETS.map((asset) => asset.id).join(",");
+  const data = await fetchJsonWithTimeout(`/api/token-prices?ids=${encodeURIComponent(ids)}`, 8000);
+  return Object.fromEntries(CRYPTO_ASSETS.map((asset) => [asset.symbol, Number(data?.[asset.id]?.usd)]));
+}
 
       async function fetchBinancePrices() {
         const data = await fetchJsonWithTimeout(
@@ -13814,7 +13808,7 @@ function openSettings(focusSection = "") {
       async function fetchCryptoFallbackIndicators(asset) {
         const priceSources = await Promise.allSettled([
           fetchJsonWithTimeout(`https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(asset.id)}&vs_currencies=usd&include_24hr_change=true`, 6500),
-          fetchJsonWithTimeout(`https://min-api.cryptocompare.com/data/pricemultifull?fsyms=${encodeURIComponent(asset.symbol)}&tsyms=USD`, 6500)
+          fetchJsonWithTimeout(`/api/token-prices?ids=${encodeURIComponent(asset.id)}`, 6500)
         ]);
         let price = NaN;
         let change24h = NaN;
@@ -15297,7 +15291,7 @@ if (tgResult) {
     })();
   </script>
   <script type="module" src="fair-launch-ui.js?v=1.38.27"></script>
-  <script type="module" src="wallet-login-ui.js?v=1.71.9"></script>
+  <script type="module" src="wallet-login-ui.js?v=1.72.0"></script>
   <script type="module" src="web-trial-ui.js"></script>
   <script type="module" src="jamd-credit-ui.js"></script>
   <script type="module" src="first-visit-ui.js"></script>
