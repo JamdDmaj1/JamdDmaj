@@ -1,6 +1,8 @@
 import {corsHeaders, jsonResponse, redisRequest, hashIdentifier} from '../lib/server.js';
 import {authenticateTrial} from '../lib/web-trial-session.js';
 import {ACCOUNT_COOKIE} from '../lib/browser-account-session.js';
+import {getProServerState} from '../lib/pro-signals.js';
+const OWNER_ACCOUNT = '0d2f7571988ff6c71beeedc9ed2210f9a403e5433105f5f162cbb17b86a68810';
 export const config = { runtime: 'edge' };
 
 const cookieToken = request => {
