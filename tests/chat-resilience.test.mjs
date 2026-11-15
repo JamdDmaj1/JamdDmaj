@@ -17,6 +17,12 @@ test('a stalled tutor stream is aborted instead of typing forever',()=>{
  assert.match(html,/AI_STREAM_TIMEOUT/);
 });
 
+test('managed chat streams the provider instead of buffering the whole answer',()=>{
+ assert.match(chatApi,/const wantsStream = input.stream !== false;/);
+ assert.match(chatApi,/stream: wantsStream/);
+ assert.match(chatApi,/if \(wantsStream\)/);
+});
+
 test('managed chat retries transient provider failures once',()=>{
  assert.match(chatApi,/for \(let attempt = 0; attempt < 2; attempt \+= 1\)/);
  assert.match(chatApi,/\[429, 502, 503, 504\]/);

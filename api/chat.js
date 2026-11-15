@@ -80,7 +80,8 @@ export default async function handler(request) {
       : "openrouter/free";
     const userHash = await hashIdentifier(deviceId);
     stage = "provider";
-    const providerRequest = {
+    const wantsStream = input.stream !== false;
+ const providerRequest = {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
@@ -90,7 +91,7 @@ export default async function handler(request) {
       },
       body: JSON.stringify({
         model,
-        stream: false,
+        stream: wantsStream,
         max_tokens: clampNumber(input.max_tokens, 100, 1400, 800),
         temperature: clampNumber(input.temperature, 0, 1.2, 0.55),
         provider: { allow_fallbacks: true },
@@ -122,6 +123,12 @@ export default async function handler(request) {
         message = data.error?.message || message;
       } catch {}
       return jsonResponse(request, { error: { code: "trial-upstream" } }, upstream.status, headers);
+    }
+    if (wantsStream) {
+      if (!upstream.body) throw new Error("trial-empty-response");
+      reserved = false;
+      headers["Content-Type"] = "text/event-stream";
+      return new Response(upstream.body, { status: upstream.status, headers });
     }
     stage = "provider-response";
     const completed = await upstream.json();
