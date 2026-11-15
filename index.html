@@ -3979,6 +3979,14 @@
  .learn-path-ring{width:80px;height:80px}
  .learn-tracks{grid-template-columns:1fr}
 }
+.learn-shell{gap:16px}
+.learn-hero{padding:clamp(18px,3vw,28px)}
+.learn-hero h1{font-size:clamp(29px,3.6vw,44px);margin:10px 0 8px}
+.learn-hero p{font-size:14px}
+.learn-ring{width:112px;height:112px}
+.learn-path-ring{width:84px;height:84px}
+.learn-guide{display:none}
+.learn-section-head{margin-top:2px}
 </style>
 </head>
 <body>
@@ -5315,7 +5323,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.77.1";
+      const APP_VERSION = "1.77.2";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -15516,7 +15524,7 @@ if (tgResult) {
     })();
   </script>
   <script type="module" src="fair-launch-ui.js?v=1.38.27"></script>
-  <script type="module" src="wallet-login-ui.js?v=1.77.1"></script>
+  <script type="module" src="wallet-login-ui.js?v=1.77.2"></script>
   <script type="module" src="web-trial-ui.js"></script>
   <script type="module" src="jamd-credit-ui.js"></script>
   <script type="module" src="first-visit-ui.js"></script>
