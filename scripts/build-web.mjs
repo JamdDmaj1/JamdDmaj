@@ -181,6 +181,12 @@ await build({
 });
 await cp(resolve(root, "lib", "finance-polish.js"), resolve(output, "lib", "finance-polish.js"));
 await cp(resolve(root, "lib", "markets-catalog.js"), resolve(output, "lib", "markets-catalog.js"));
+await build({
+ absWorkingDir: root,
+ entryPoints: [resolve(root, 'lib', 'phoenix-public-client.js')],
+ outfile: resolve(output, 'lib', 'phoenix-public-client.js'),
+ bundle: true, format: 'esm', platform: 'browser', target: ['es2020'], legalComments: 'none',
+});
 await cp(resolve(root, "lib", "swap-quote-ui.js"), resolve(output, "lib", "swap-quote-ui.js"));
 for (const name of ['perps-manual-policy-panel','perps-web-order-panel','perps-web-close-panel','bot-manual-perps-panel','bot-manual-positions-panel']) {
   await build({
