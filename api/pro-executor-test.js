@@ -11,8 +11,11 @@ export default async function handler(request) {
     return jsonResponse(request, { error: { message: "Method not allowed." } }, 405);
   }
   const configuredSecret = String(process.env.JAMDDMAJ_CRON_SECRET || "").trim();
+  const feedToken = String(process.env.JAMDDMAJ_CLIENT_FEED_TOKEN || "").trim();
   const authorization = String(request.headers.get("authorization") || "");
-  if (!configuredSecret || authorization !== `Bearer ${configuredSecret}`) {
+  const cronAuthorized = Boolean(configuredSecret) && authorization === `Bearer ${configuredSecret}`;
+  const feedAuthorized = Boolean(feedToken) && authorization === `Bearer ${feedToken}`;
+  if (!cronAuthorized && !feedAuthorized) {
     return jsonResponse(request, { error: { message: "Unauthorized executor request." } }, 401);
   }
   try {
