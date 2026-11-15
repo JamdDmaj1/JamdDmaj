@@ -3930,7 +3930,7 @@
 .learn-track.active{border-color:var(--track-color,#5eead4);background:linear-gradient(160deg,rgba(94,234,212,.11),rgba(15,23,42,.78));box-shadow:0 14px 32px -22px var(--track-color,#5eead4)}
 .learn-track-icon{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;background:color-mix(in srgb,var(--track-color,#5eead4) 18%,transparent);color:#f2f8ff;font-weight:800;font-size:14px}
 .learn-track-copy{display:grid;gap:3px;min-width:0}
-.learn-track strong{font-size:14px;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.learn-track strong{font-size:14px;letter-spacing:-.01em;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .learn-track small{color:#9db0c4;font-size:11px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .learn-track-meta{grid-column:1/-1;display:flex;align-items:center;gap:10px}
 .learn-track-count{font-size:10px;font-weight:700;letter-spacing:.06em;color:#9db0c4;white-space:nowrap}
@@ -5324,7 +5324,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.77.3";
+      const APP_VERSION = "1.77.4";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -15525,7 +15525,7 @@ if (tgResult) {
     })();
   </script>
   <script type="module" src="fair-launch-ui.js?v=1.38.27"></script>
-  <script type="module" src="wallet-login-ui.js?v=1.77.3"></script>
+  <script type="module" src="wallet-login-ui.js?v=1.77.4"></script>
   <script type="module" src="web-trial-ui.js"></script>
   <script type="module" src="jamd-credit-ui.js"></script>
   <script type="module" src="first-visit-ui.js"></script>
