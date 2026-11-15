@@ -5324,7 +5324,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.79.8";
+      const APP_VERSION = "1.80.0";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -11162,6 +11162,7 @@ Other build features: multimodal chat, Learn, public Markets research/charts/new
             : "The app can supply free current-source lookup results for this request. Use only supplied evidence, cite supporting sources, and distinguish retrieval time from publication date. If no usable result is supplied, do not invent current facts or claim a successful search."
         }`;
         const practicalAnalysisInstruction = "For charts, markets, trading, screenshots, or technical analysis, you may provide educational analysis, likely scenarios, levels, invalidation points, and risk notes. Do not present it as guaranteed profit, do not claim to be a licensed advisor, and do not output moderation labels such as Safety Categories, Unauthorized Advice, or Needs Caution. If the user asks for a professional-style view, give a professional educational view with uncertainty and clear reasoning.";
+ const futuresSignalRules = `Futures suggestions: only with-market alignment is actionable; label counter-market ideas study-only. Levels: TP1 0.8x ATR, TP2 1.44x, TP3 2.16x, stop 1.2x ATR. If ADX >= 45, suggest a limit entry 0.2x ATR in the pullback and warn it may not fill. Require volume ratio >= 0.7. Signals expire after 12 hours; protection arms at TP1 and locks 50% of the TP1 distance. Never promise accuracy or profits; always state invalidation.`;
         const productKnowledge = `You are the assistant embedded inside JamdDmaj AI v${APP_VERSION}. You must accurately explain this app when asked, without pretending that unfinished capabilities already exist and without revealing or requesting secrets.
 JamdDmaj includes general multimodal chat; JamdDmaj Learn; live market information; chart screenshot analysis; JamdDmaj Pro Signals; Assets with supported real Solana wallet operations; guarded Futures and separate 24/7 automation controls; encrypted backup and explicit user-approved memory; and the Fair Launch Lab. Distinguish implemented operations from verified current account eligibility using the authoritative build facts below. In Markets, tapping a supported asset opens an in-app research view with public Bitget candlesticks, selectable timeframes, CoinGecko metrics, a transparent technical scenario, recent GDELT-indexed news and a token-specific question box. Technical direction is a probabilistic scenario, never a guaranteed forecast.
 Fair Launch Lab is JamdDmaj's guided anti-rug token design area. Its mandatory baseline is at least 85% locked for the creator and the first 2,000 eligible participants, at least a 24-month cliff, gradual release, at least 24 months of liquidity locking, maximum 1% initial allocation per wallet, fixed supply, revoked mint authority, disabled freeze authority, anti-Sybil eligibility, multisig plus timelock, independent audit and explicit approval before mainnet. A wallet address is not treated as one unique person.
@@ -11190,7 +11191,7 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         const memoryContext = buildLongTermMemoryContext(messages);
         const result = [{
           role: "system",
-          content: `${settings.systemPrompt}\n\n${personalities[settings.personality] || personalities.balanced}\n${languageInstruction}\n${currentContext}\n${productKnowledge}\n${practicalAnalysisInstruction}\n${lengthInstruction}\n${voiceInstruction}\n${learningInstruction}${verifiedContext}${memoryContext}`
+          content: `${settings.systemPrompt}\n\n${personalities[settings.personality] || personalities.balanced}\n${languageInstruction}\n${currentContext}\n${productKnowledge}\n${futuresSignalRules}\n${practicalAnalysisInstruction}\n${lengthInstruction}\n${voiceInstruction}\n${learningInstruction}${verifiedContext}${memoryContext}`
         }];
         result[0].content += "\n\n" + productGuideContext() + "\n\n" + productCapabilityFacts();
         const recentMessages = messages
@@ -15525,7 +15526,7 @@ if (tgResult) {
     })();
   </script>
   <script type="module" src="fair-launch-ui.js?v=1.38.27"></script>
-  <script type="module" src="wallet-login-ui.js?v=1.79.8"></script>
+  <script type="module" src="wallet-login-ui.js?v=1.80.0"></script>
   <script type="module" src="web-trial-ui.js"></script>
   <script type="module" src="jamd-credit-ui.js"></script>
   <script type="module" src="first-visit-ui.js"></script>
