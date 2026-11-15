@@ -1,7 +1,7 @@
 import {corsHeaders, jsonResponse, redisRequest, hashIdentifier} from '../lib/server.js';
 import {authenticateTrial} from '../lib/web-trial-session.js';
 import {ACCOUNT_COOKIE} from '../lib/browser-account-session.js';
-import {getProServerState} from '../lib/pro-signals.js';
+import {getProServerState, runProCycle} from '../lib/pro-signals.js';
 const OWNER_ACCOUNT = '0d2f7571988ff6c71beeedc9ed2210f9a403e5433105f5f162cbb17b86a68810';
 export const config = { runtime: 'edge' };
 
@@ -41,6 +41,13 @@ if (action === 'proState') {
   if (account !== OWNER_ACCOUNT) return jsonResponse(request, { error: { message: 'FORBIDDEN' } }, 403);
   const state = await getProServerState();
   return jsonResponse(request, { ok: true, stats: state.stats, config: state.config, open: state.open, history: state.history, paper: state.paper });
+}
+
+if (action === 'proRun') {
+  if (account !== OWNER_ACCOUNT) return jsonResponse(request, { error: { message: 'FORBIDDEN' } }, 403);
+  const cycle = await runProCycle({ force: true });
+  const state = await getProServerState();
+  return jsonResponse(request, { ok: true, cycle, stats: state.stats, open: state.open.slice(0, 10) });
 }
 
   const rows = await redisRequest('pipeline', [['GET', key]]);
