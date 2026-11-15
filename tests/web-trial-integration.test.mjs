@@ -50,11 +50,11 @@ test("managed chat enforces session, quota and replay protection and refunds pro
     if(fail === 'empty') return Response.json({choices:[{message:{content:''}}]});
     return fail ? Response.json({error:{message:"failure"}},{status:503}) : Response.json({choices:[{message:{content:"Hello"}}]});
   };
-  const request=(id,auth=true)=>new Request("https://www.jamddmaj.com/api/chat",{method:"POST",headers:{"x-jamddmaj-device":"device-1234567890123456",...(auth?{Authorization:`Bearer ${"b".repeat(64)}`}:{})},body:JSON.stringify({messages:[{role:"user",content:"hi"}],trialRequestId:id})});
+  const request=(id,auth=true)=>new Request("https://www.jamddmaj.com/api/chat",{method:"POST",headers:{"x-jamddmaj-device":"device-1234567890123456",...(auth?{Authorization:`Bearer ${"b".repeat(64)}`}:{})},body:JSON.stringify({messages:[{role:"user",content:"hi"}],trialRequestId:id,stream:false})});
   try {
     const id=crypto.randomUUID();
     assert.equal((await chat(request(id,false))).status,401);assert.equal(calls,0);
-    const success=await chat(request(id));assert.equal(success.status,200);assert.match(await success.text(),/data:.*Hello/);assert.equal(credits,19);
+    const success=await chat(request(id));assert.equal(success.status,200);assert.equal((await success.json()).choices[0].message.content,"Hello");assert.equal(credits,19);
     assert.equal((await chat(request(id))).status,403);assert.equal(calls,1);
     fail=true;assert.equal((await chat(request(crypto.randomUUID()))).status,503);assert.equal(credits,19);
     for(const mode of ['timeout','empty']) {
@@ -65,6 +65,6 @@ test("managed chat enforces session, quota and replay protection and refunds pro
       assert.equal(body.error.stage,mode==='timeout'?'provider':'provider-response');
       assert.equal(JSON.stringify(body).includes('sensitive'),false);assert.equal(credits,19);
     }
-    credits=0;assert.equal((await chat(request(crypto.randomUUID()))).status,403);assert.equal(calls,4);
+    credits=0;assert.equal((await chat(request(crypto.randomUUID()))).status,403);assert.equal(calls,5);
   } finally {globalThis.fetch=originalFetch; for(const key of Object.keys(process.env))if(!(key in env))delete process.env[key];Object.assign(process.env,env);}
 });
