@@ -37,6 +37,12 @@ export default async function handler(request) {
   try { body = await request.json(); } catch { return jsonResponse(request, { error: { message: 'INPUT' } }, 400); }
   const action = String(body.action || '');
 
+if (action === 'proState') {
+  if (account !== OWNER_ACCOUNT) return jsonResponse(request, { error: { message: 'FORBIDDEN' } }, 403);
+  const state = await getProServerState();
+  return jsonResponse(request, { ok: true, stats: state.stats, config: state.config, open: state.open, history: state.history, paper: state.paper });
+}
+
   const rows = await redisRequest('pipeline', [['GET', key]]);
   const current = rows?.[0]?.result ? JSON.parse(rows[0].result) : [];
   const rules = Array.isArray(current) ? current : [];
