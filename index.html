@@ -5324,7 +5324,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.81.3";
+      const APP_VERSION = "1.81.4";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -5340,87 +5340,42 @@
         normal: {
           en: {
             title: "What's new in JamdDmaj AI",
-            intro: "This update improves the normal app experience.",
+            intro: "Learn and chat reliability update.",
             button: "Got it",
             items: [
-              ["Public product showcase", "A new shareable, multilingual page explains JamdDmaj features, safety boundaries, availability and an accessible animated product tour."],
-              ["Signal channel mirroring", "Validated Pro signals can now publish to the private signals chat and a separate Telegram destination without copying executor or watchdog diagnostics."],
-              ["Interactive charts", "Asset charts now support drag, pinch and mouse-wheel zoom, plus SMA 20, SMA 50, EMA 12 and volume overlays."],
-              ["More resilient market data", "Wallet balances automatically retry a second public Solana RPC and DEX Screener grouped-token requests preserve every token address."],
-              ["Wallet balances and watch-only portfolios", "Markets now reads SOL, SPL and Token-2022 balances from public Solana data, estimates USD value and can inspect any public address without spending permission."],
-              ["More Solana wallet choices", "Installed Wallet Standard providers appear automatically, while mobile users can open JamdDmaj securely inside Phantom or Solflare. Private keys and recovery phrases are never imported."],
-              ["Phantom connection on mobile web", "When a mobile browser cannot detect a wallet, Connect now opens JamdDmaj inside Phantom's protected browser and supports Phantom's injected Solana provider."],
-              ["Web updates stay current", "In a browser, update controls now refresh JamdDmaj itself with a versioned, cache-busting URL instead of offering the Android APK."],
-              ["Phantom opens correctly on Android", "Connect now launches the installed official Phantom app directly instead of opening phantom.com in a browser. JamdDmaj returns through its encrypted app callback."],
-              ["Wallet visible in Markets", "Markets now keeps your wallet identity in view, showing its name, connection state and only an abbreviated public address. Tap it to open the same secure connection panel."],
-              ["Secure Phantom connection", "On Android, the Wallet button now opens Phantom's official encrypted approval and returns directly to JamdDmaj. No recovery phrase, private key or password is shared."],
-              ["Complete asset research", "Tap a supported market asset to open its chart, timeframe controls, live metrics, transparent technical scenario, recent news and token-specific questions."],
-              ["Bitget and DEX trends", "Markets now shows the most active Bitget USDT futures and DEX Screener's most actively boosted tokens with live metrics."],
-              ["Mobile Solana wallets", "Connect through Mobile Wallet Adapter or open JamdDmaj securely inside Phantom and Solflare."],
-              ["Guided Fair Launch", "Add brand and social links, review clear protections and connect the wallet only for the final Devnet test."],
-              ["Safer Devnet signing", "JamdDmaj simulates the transaction and lets the wallet sign before adding the temporary mint signer."],
-              ["JamdDmaj credits", "Plan useful directory, verification, analytics and education services in simulated JamdDmaj credits without fake volume or holders."],
-              ["Simpler Settings", "Clear tabs replace the long settings page and sensitive recovery codes stay masked."],
-              ["Automatic access", "Regular users no longer see or need an OpenRouter account connection."],
-              ["Cleaner mobile layout", "Header controls and live Markets use the phone screen more effectively."],
-              ["One profile everywhere", "Google-linked JamdDmaj Sync continues protecting chats, settings and Learn progress."]
+              ["Learn tutor resilience", "Learn streams replies as they arrive, uses a shorter tutor context, stops stalled streams and retries transient provider failures."],
+              ["Complete futures list", "Futures loads the Phoenix catalog and Bitget pairs together. Coins without a Phoenix market are clearly marked analysis only."],
+              ["Clearer position details", "Positions show the workflow margin and, when different, the real on-chain collateral."]
             ]
           },
           es: {
             title: "Novedades de JamdDmaj AI",
-            intro: "Esta actualizacion mejora la experiencia normal de la app.",
+            intro: "Actualizacion de fiabilidad de Learn y del chat.",
             button: "Entendido",
             items: [
-              ["Presentación pública del producto", "Una nueva página compartible y multilingüe explica funciones, límites de seguridad, disponibilidad y un recorrido animado accesible."],
-              ["Duplicado seguro de señales", "Las señales Pro validadas ahora pueden publicarse en el chat privado de señales y en un segundo destino de Telegram, sin copiar diagnósticos del ejecutor o watchdog."],
-              ["Gráficos interactivos", "Los gráficos de activos ahora permiten arrastrar, hacer zoom con dos dedos o la rueda y activar SMA 20, SMA 50, EMA 12 y volumen."],
-              ["Datos de mercado más resistentes", "El saldo de la wallet reintenta automáticamente con un segundo RPC público de Solana y las consultas agrupadas de DEX Screener conservan todas las direcciones."],
-              ["Saldos y wallets en solo observación", "Mercados ahora consulta saldos SOL, SPL y Token-2022 desde datos públicos de Solana, estima su valor en USD y permite ver cualquier dirección pública sin permiso para gastar."],
-              ["Más opciones de billeteras Solana", "Los proveedores instalados compatibles con Wallet Standard aparecen automáticamente; en móvil puedes abrir JamdDmaj dentro de Phantom o Solflare. Nunca se importan claves privadas ni frases de recuperación."],
-              ["Conexión Phantom en la web móvil", "Cuando el navegador móvil no detecta una wallet, Conectar ahora abre JamdDmaj dentro del navegador protegido de Phantom y admite su proveedor Solana integrado."],
-              ["La web se mantiene actualizada", "En el navegador, los controles de actualización ahora recargan JamdDmaj con una URL versionada y sin caché, en lugar de ofrecer el APK de Android."],
-              ["Phantom abre correctamente en Android", "Conectar ahora abre directamente la app oficial de Phantom instalada, sin enviar a phantom.com en el navegador. JamdDmaj recibe el regreso mediante su callback cifrado."],
-              ["Wallet visible en Mercados", "Mercados ahora mantiene visible la identidad de tu wallet: muestra su nombre, estado y solo una dirección pública abreviada. Tócala para abrir el mismo panel de conexión segura."],
-              ["Conexión segura con Phantom", "En Android, el botón Billetera ahora abre la aprobación oficial cifrada de Phantom y regresa directamente a JamdDmaj. No se comparte frase de recuperación, clave privada ni contraseña."],
-              ["Investigación completa del activo", "Toca un activo compatible para abrir su gráfico, temporalidades, métricas en vivo, escenario técnico transparente, noticias recientes y preguntas sobre el token."],
-              ["Tendencias de Bitget y DEX", "Mercados ahora muestra los futuros USDT con mayor actividad en Bitget y los tokens con más boosts activos en DEX Screener."],
-              ["Wallets Solana en móvil", "Conecta con Mobile Wallet Adapter o abre JamdDmaj de forma segura dentro de Phantom y Solflare."],
-              ["Token-2022 en Devnet", "Crea un mint de prueba con suministro fijo, sin congelación y con la autoridad de emisión revocada en una transacción Devnet aprobada por tu wallet."],
-              ["Fair Launch guiado", "Agrega marca y redes sociales, revisa protecciones claras y conecta la wallet solo para la prueba final en Devnet."],
-              ["Firma Devnet más segura", "JamdDmaj simula la transacción y deja que la wallet firme antes de agregar la firma temporal del mint."],
-              ["Créditos JamdDmaj", "Planifica servicios de directorio, verificación, analítica y educación en créditos JamdDmaj simulados, sin volumen ni holders falsos."],
-              ["Ajustes mas simples", "Las pestañas reemplazan la pagina larga y los codigos privados quedan ocultos."],
-              ["Acceso automatico", "Los usuarios normales ya no ven ni necesitan una cuenta de OpenRouter."],
-              ["Mejor espacio movil", "Los controles superiores y Mercados aprovechan mejor la pantalla."],
-              ["Un perfil en todas partes", "JamdDmaj Sync vinculado con Google protege chats, ajustes y progreso de Learn."]
+              ["Tutor de Learn mas resistente", "Learn muestra la respuesta mientras llega, usa un contexto de tutor mas corto, corta respuestas colgadas y reintenta fallos temporales del proveedor."],
+              ["Lista completa de futuros", "Futuros carga el catalogo de Phoenix y los pares de Bitget. Los tokens sin mercado Phoenix se marcan como solo analisis."],
+              ["Detalle de posiciones mas claro", "Las posiciones muestran el margen del workflow y, si es distinto, el colateral real en cadena."]
             ]
           }
         },
         pro: {
           en: {
-            title: "JamdDmaj Pro Signals update",
-            intro: "Hidden Pro mode now rejects weak trades more aggressively in hostile markets.",
-            button: "Enter Pro",
+            title: "What's new in JamdDmaj Pro",
+            intro: "Signal quality and execution updates.",
+            button: "Got it",
             items: [
-              ["Regime gate", "Extreme Fear and risk-off markets now force stricter scoring before Telegram or Bitget."],
-              ["Daily risk limits", "The executor receives max daily loss, max trades and consecutive-loss limits."],
-              ["Client demo paper", "Non-owner Pro users can start a local paper simulation without touching the server."],
-              ["Private code locked", "The 7-tap device code only works after owner authorization."],
-              ["Dominant direction", "The app and Telegram now show bullish, bearish or mixed market breadth, and whether each setup agrees with it."],
-              ["Chart analysis", "Each TradingView screenshot now requires image-specific evidence and retries with another vision model when the first reading is generic."]
+              ["ATR-based levels", "Pro signals use ATR-based TP and SL levels with protection armed at TP1."],
+              ["High-ADX pullbacks", "When ADX is 45 or higher, signals suggest a limit entry on a 0.2 ATR pullback instead of chasing the market."]
             ]
           },
           es: {
-            title: "Actualizacion de JamdDmaj Pro Signals",
-            intro: "El modo Pro oculto ahora filtra mejor antes de mandar senales.",
-            button: "Entrar al Pro",
+            title: "Novedades de JamdDmaj Pro",
+            intro: "Mejoras de calidad y ejecucion de senales.",
+            button: "Entendido",
             items: [
-              ["Filtro de regimen", "Miedo extremo y mercados risk-off endurecen el score antes de Telegram o Bitget."],
-              ["Paper trading por riesgo", "El tamaño de posicion usa un porcentaje configurable y la distancia de invalidacion."],
-              ["Eventos enlazados en Telegram", "Los TP, protecciones y cambios de tendencia ahora responden al mensaje original del trade cuando Telegram entrega un ID."],
-              ["Telegram sin duplicados", "El bloqueo del servidor evita calls y eventos repetidos entre ciclos."],
-              ["Direccion dominante", "La app y Telegram muestran si el mercado esta alcista, bajista o mixto y si cada setup va a favor o en contra."],
-              ["Analisis de graficos", "Cada captura de TradingView exige evidencia especifica y prueba otro modelo visual cuando la primera lectura resulta generica."]
+              ["Niveles basados en ATR", "Las senales Pro usan TP y SL basados en ATR, con proteccion armada en TP1."],
+              ["Retroceso con ADX alto", "Con ADX 45 o mas, la senal sugiere entrada limitada en retroceso de 0.2 ATR en vez de perseguir el precio."]
             ]
           }
         }
@@ -15534,7 +15489,7 @@ if (tgResult) {
     })();
   </script>
   <script type="module" src="fair-launch-ui.js?v=1.38.27"></script>
-  <script type="module" src="wallet-login-ui.js?v=1.81.3"></script>
+  <script type="module" src="wallet-login-ui.js?v=1.81.4"></script>
   <script type="module" src="web-trial-ui.js"></script>
   <script type="module" src="jamd-credit-ui.js"></script>
   <script type="module" src="first-visit-ui.js"></script>
