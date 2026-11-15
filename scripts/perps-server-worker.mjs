@@ -17,7 +17,7 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).hr
    boundary.server.on('error',()=>{process.exitCode=1;stop();});await once(boundary.server,'listening');
   }
   await runtime.run({once:process.argv.includes('--once')});
- }catch{console.error('PERPS_RUNTIME_UNAVAILABLE');process.exitCode=1;}
+ }catch(error){console.error('PERPS_RUNTIME_UNAVAILABLE',error?.message,String(error?.stack||'').split('\n').slice(0,4).join(' | '));process.exitCode=1;}
  finally{
   process.removeListener('SIGTERM',stop);process.removeListener('SIGINT',stop);
   try{await Promise.all([boundary?.close(),runtime?.close()]);}catch{console.error('PERPS_RUNTIME_SHUTDOWN_UNAVAILABLE');process.exitCode=1;}
