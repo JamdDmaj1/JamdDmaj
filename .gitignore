@@ -20,4 +20,6 @@ ios/App/DerivedData/
 
 .vercel/
 _*.mjs
+_*.txt
+.deploy-ledger.json
 handoff/

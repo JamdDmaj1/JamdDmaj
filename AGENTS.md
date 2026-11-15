@@ -18,3 +18,12 @@ If no Discover change is appropriate for an internal-only update, explicitly
 record that it was reviewed and why no content change was needed. Do not make
 meaningless edits just to change its timestamp. Preserve the JamdDmaj identity
 and incrementally improve mobile layout, clarity and usability when relevant.
+
+
+## Release discipline (Vercel budget)
+
+Read `DEPLOY-POLICY.md`. Batch every fix into one version, run
+`npm run release:prod -- --dry-run`, then release once with
+`npm run release:prod -- --confirm`. The gate enforces max 3 production
+deploys per UTC day. Do not deploy one fix at a time, and do not use preview
+deployments casually: all deployments count against the Vercel Hobby limit.

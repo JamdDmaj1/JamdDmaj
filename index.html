@@ -4628,7 +4628,7 @@
                 <input id="maxTradesPerDayInput" type="number" min="1" max="100" step="1" value="3">
               </label>
               <label><span id="bitgetMaxOpenLabel">Max open on Bitget</span>
-                <input id="bitgetMaxOpenInput" type="number" min="1" max="10" step="1" value="1">
+                <input id="bitgetMaxOpenInput" type="number" min="1" max="10" step="1" value="10">
               </label>
               <label><span id="bitgetOrdersPerRunLabel">Orders per cycle</span>
                 <input id="bitgetOrdersPerRunInput" type="number" min="1" max="10" step="1" value="1">
@@ -4637,7 +4637,7 @@
                 <input id="bitgetFixedMarginInput" type="number" min="0" max="1000" step="1" value="10">
               </label>
               <label><span id="bitgetMaxMarginLabel">Max Bitget margin (USD)</span>
-                <input id="bitgetMaxMarginInput" type="number" min="1" max="1000" step="1" value="35">
+                <input id="bitgetMaxMarginInput" type="number" min="1" max="1000" step="1" value="1000">
               </label>
               <label><span id="bitgetMinScoreLabel">Min Bitget score</span>
                 <input id="bitgetMinScoreInput" type="number" min="8" max="20" step="1" value="10">
@@ -8693,10 +8693,10 @@ function createLearnNotificationCard() {
               maxDailyLossPercent: Number(document.getElementById("maxDailyLossPercentInput")?.value) || 3,
               maxConsecutiveLosses: Number(document.getElementById("maxConsecutiveLossesInput")?.value) || 2,
               maxTradesPerDay: Number(document.getElementById("maxTradesPerDayInput")?.value) || 3,
-              maxLiveOpen: Number(document.getElementById("bitgetMaxOpenInput")?.value) || 1,
+              maxLiveOpen: Number(document.getElementById("bitgetMaxOpenInput")?.value) || 10,
               maxNewOrdersPerRun: Number(document.getElementById("bitgetOrdersPerRunInput")?.value) || 1,
               fixedMarginUsd: Number(document.getElementById("bitgetFixedMarginInput")?.value) || 0,
-              maxLiveMarginUsd: Number(document.getElementById("bitgetMaxMarginInput")?.value) || 35,
+              maxLiveMarginUsd: Number(document.getElementById("bitgetMaxMarginInput")?.value) || 1000,
               minLiveScore: Number(document.getElementById("bitgetMinScoreInput")?.value) || 10,
               strictRegimeMinScore: Number(document.getElementById("bitgetStrictScoreInput")?.value) || 10,
               minLiveLiquidityUsd: 0,
@@ -9058,7 +9058,7 @@ function createLearnNotificationCard() {
         }
         const fixedMargin = Math.max(1, Number(proServerState?.config?.fixedMarginUsd || document.getElementById("bitgetFixedMarginInput")?.value) || 5);
         const maxMargin = Math.max(1, Number(proServerState?.config?.maxLiveMarginUsd || document.getElementById("bitgetMaxMarginInput")?.value) || 5);
-        const margin = Math.min(fixedMargin, maxMargin, 25);
+        const margin = Math.min(fixedMargin, maxMargin);
         const leverage = Math.max(1, Math.min(10, Number(signal.leverage || proServerState?.config?.leverage) || 3));
         const summary = `${signal.pair} ${signal.side}\n${spanish ? "Margen" : "Margin"}: $${margin.toFixed(2)}\n${spanish ? "Apalancamiento" : "Leverage"}: ${leverage}x\n${spanish ? "Entrada" : "Entry"}: ${formatPrice(signal.entry)}\nTP1: ${formatPrice(signal.tp1)}\nSL: ${formatPrice(signal.sl)}\n\n${spanish ? "Esto puede abrir una orden REAL. El VPS volvera a validar precio, antiguedad, riesgo y disponibilidad." : "This can open a REAL order. The VPS will re-check price, freshness, risk and availability."}`;
         if (!confirm(`${tradeText("bitgetReview")}\n\n${summary}`)) return;
