@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {generateKeyPairSigner,getTransactionDecoder,getTransactionEncoder,partiallySignTransactionWithSigners,getBase58Decoder} from '@solana/kit';
-import {prepareTokenCreation,readTokenCreation,tokenCreatorJournal,tokenCreatorIdentity} from '../lib/token-creator.js';
+import {prepareTokenCreation,readTokenCreation,tokenCreatorJournal,tokenCreatorIdentity,TOKEN_CREATOR_RPCS} from '../lib/token-creator.js';
 test('identity uses exact integer base units',()=>{
  assert.equal(tokenCreatorIdentity({name:'JamdDmaj',symbol:'JAMD',supply:'100000000',decimals:6}).amount,100000000000000n);
  for(const supply of ['1e8','-1','0','18446744073709551615'])assert.throws(()=>tokenCreatorIdentity({name:'Test',symbol:'T',supply,decimals:6}));
@@ -77,4 +77,9 @@ test('mainnet creator uses intercepted RPC and disposable signatures only',async
    else{await assert.rejects(run());if(scenario==='uncertain-send')assert.ok(journal.read());else assert.equal(calls.includes('sendTransaction'),false);}
   }finally{globalThis.fetch=oldFetch;}
  });
+});
+
+test('mainnet token creator has a fallback RPC',()=>{
+ assert.ok(TOKEN_CREATOR_RPCS.length>=2);
+ for(const url of TOKEN_CREATOR_RPCS) assert.match(url,/^https:\/\//);
 });

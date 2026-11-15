@@ -1,8 +1,8 @@
 # JamdDmaj Fair Launch architecture
 
-## Current phase: Devnet on-chain prototype, not deployed
+## Current phase: Devnet program deployed, Mainnet gated
 
-Version 1.37.49 added the first Anchor implementation of the protected launch policy. Program-controlled vaults enforce the 85% allocation floor, 730-day cliff, gradual release and 730-day liquidity-position lock. A privacy-preserving Merkle adapter binds one hashed uniqueness commitment to one wallet, allocation and launch policy, with a hard capacity of 2,000 registrations. The public app can read and verify the resulting Token-2022 mint and policy accounts without connecting a wallet. Its reproducible sBPF build now passes, but the program remains undeployed until the owner provides a controlled program keypair and approves a Devnet-only deployment.
+Version 1.37.49 added the first Anchor implementation of the protected launch policy. Program-controlled vaults enforce the 85% allocation floor, 730-day cliff, gradual release and 730-day liquidity-position lock. A privacy-preserving Merkle adapter binds one hashed uniqueness commitment to one wallet, allocation and launch policy, with a hard capacity of 2,000 registrations. The public app can read and verify the resulting Token-2022 mint and policy accounts without connecting a wallet. Its reproducible sBPF build passes, and the program address `FzH2QN9NFFrpwsn8xqLT83BZ7ruqmMBiwY4CU6MkLVQ4` is executable on Solana Devnet (observed 2026-11-15). That observation is not independent verification of the source build. Mainnet deployment remains blocked by the evidence gate below and requires explicit owner approval.
 
 Version 1.37.48 makes the JamdDmaj launch policy mandatory in every normalized draft, including drafts restored from local storage. The creator uses a five-step flow, presents separate design, Devnet, audit and mainnet states, and shows a readable transaction summary before wallet approval. Those product controls complement, but do not replace, the new on-chain prototype or an independent audit.
 
