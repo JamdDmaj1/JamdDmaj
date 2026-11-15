@@ -80,7 +80,7 @@ export default async function handler(request) {
       : "openrouter/free";
     const userHash = await hashIdentifier(deviceId);
     stage = "provider";
-    const upstream = await fetch(OPENROUTER_URL, {
+    const providerRequest = {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
@@ -98,7 +98,13 @@ export default async function handler(request) {
         messages
       }),
       signal: AbortSignal.timeout(60000)
-    });
+    };
+    let upstream;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      upstream = await fetch(OPENROUTER_URL, providerRequest);
+      if (upstream.ok || ![429, 502, 503, 504].includes(upstream.status) || attempt === 1) break;
+      await new Promise((resolve) => setTimeout(resolve, 600));
+    }
 
     const headers = {
       ...corsHeaders(request),
