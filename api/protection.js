@@ -79,6 +79,17 @@ if (action === 'proRun') {
   return jsonResponse(request, { ok: true, messages });
  }
 
+ if (action === 'telegramInfo') {
+  if (account !== OWNER_ACCOUNT) return jsonResponse(request, { error: { message: 'FORBIDDEN' } }, 403);
+  const token = String(process.env.TELEGRAM_BOT_TOKEN || "").trim();
+  if (!token) return jsonResponse(request, { error: { message: "TELEGRAM_NOT_CONFIGURED" } }, 503);
+  const [me, hook] = await Promise.all([
+    fetch(`https://api.telegram.org/bot${token}/getMe`, { signal: AbortSignal.timeout(10000) }).then((r) => r.json()).catch(() => null),
+    fetch(`https://api.telegram.org/bot${token}/getWebhookInfo`, { signal: AbortSignal.timeout(10000) }).then((r) => r.json()).catch(() => null)
+  ]);
+  return jsonResponse(request, { ok: true, bot: me?.result || null, webhook: hook?.result || null });
+ }
+
   const rows = await redisRequest('pipeline', [['GET', key]]);
   const current = rows?.[0]?.result ? JSON.parse(rows[0].result) : [];
   const rules = Array.isArray(current) ? current : [];
