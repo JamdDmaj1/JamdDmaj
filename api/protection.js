@@ -79,6 +79,23 @@ if (action === 'proRun') {
   return jsonResponse(request, { ok: true, messages });
  }
 
+ if (action === 'telegramSendTest') {
+  if (account !== OWNER_ACCOUNT) return jsonResponse(request, { error: { message: 'FORBIDDEN' } }, 403);
+  const token = String(process.env.TELEGRAM_BOT_TOKEN || "").trim();
+  const chatId = String(process.env.TELEGRAM_CHAT_ID || "").trim();
+  const threadId = Number(body.threadId);
+  if (!token || !chatId) return jsonResponse(request, { error: { message: "TELEGRAM_NOT_CONFIGURED" } }, 503);
+  if (!Number.isSafeInteger(threadId) || threadId <= 0) return jsonResponse(request, { error: { message: 'INVALID_THREAD' } }, 400);
+  const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, message_thread_id: threadId, text: "Prueba Trade Results · ignorar", disable_web_page_preview: true }),
+    signal: AbortSignal.timeout(15000)
+  });
+  const data = await response.json().catch(() => ({}));
+  return jsonResponse(request, { ok: response.ok && data?.ok === true, telegram: data });
+ }
+
  if (action === 'telegramResultsThread') {
   if (account !== OWNER_ACCOUNT) return jsonResponse(request, { error: { message: 'FORBIDDEN' } }, 403);
   const threadId = Number(body.threadId);
