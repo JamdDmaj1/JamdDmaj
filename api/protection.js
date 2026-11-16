@@ -50,6 +50,26 @@ if (action === 'proRun') {
   return jsonResponse(request, { ok: true, cycle, stats: state.stats, open: state.open.slice(0, 10) });
 }
 
+ if (action === 'telegramSetup') {
+  if (account !== OWNER_ACCOUNT) return jsonResponse(request, { error: { message: 'FORBIDDEN' } }, 403);
+  const token = String(process.env.TELEGRAM_BOT_TOKEN || "").trim();
+  const secret = String(process.env.JAMDDMAJ_CRON_SECRET || "").trim();
+  if (!token || !secret) return jsonResponse(request, { error: { message: "TELEGRAM_NOT_CONFIGURED" } }, 503);
+  const response = await fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      url: "https://www.jamddmaj.com/api/telegram?webhook=1",
+      secret_token: secret,
+      allowed_updates: ["message", "channel_post", "edited_message"],
+      drop_pending_updates: false
+    }),
+    signal: AbortSignal.timeout(15000)
+  });
+  const data = await response.json().catch(() => ({}));
+  return jsonResponse(request, { ok: response.ok && data?.ok === true, telegram: data });
+ }
+
   const rows = await redisRequest('pipeline', [['GET', key]]);
   const current = rows?.[0]?.result ? JSON.parse(rows[0].result) : [];
   const rules = Array.isArray(current) ? current : [];

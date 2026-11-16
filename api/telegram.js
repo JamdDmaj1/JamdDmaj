@@ -17,6 +17,18 @@ export default async function handler(request) {
     return jsonResponse(request, { error: { message: "Metodo no permitido." } }, 405);
   }
 
+  const webhookSecret = String(process.env.JAMDDMAJ_CRON_SECRET || "").trim();
+  const webhookHeader = String(request.headers.get("x-telegram-bot-api-secret-token") || "").trim();
+  if (webhookSecret && webhookHeader === webhookSecret) {
+    try {
+      const update = await request.json();
+      await recordTelegramUpdate(update);
+      return jsonResponse(request, { ok: true });
+    } catch {
+      return jsonResponse(request, { ok: false }, 200);
+    }
+  }
+
   const botToken = String(process.env.TELEGRAM_BOT_TOKEN || "").trim();
   const chatId = String(process.env.TELEGRAM_CHAT_ID || "").trim();
   const signalChannelId = String(process.env.TELEGRAM_SIGNAL_CHANNEL_ID || "").trim();
@@ -91,6 +103,29 @@ export default async function handler(request) {
       error: { message: error?.message || "No se pudo enviar la alerta a Telegram." }
     }, Number(error?.status) || 500);
   }
+}
+
+const TELEGRAM_RESULTS_KEY = "jamd:telegram:group:results";
+const TELEGRAM_WINNER_PATTERN = /(TP1|TP2|TP3|\bWIN\b|GANAD|PROFIT|✅)/i;
+async function recordTelegramUpdate(update) {
+  const message = update?.message || update?.channel_post || update?.edited_message || null;
+  const chat = message?.chat || null;
+  const text = String(message?.text || message?.caption || "").trim().slice(0, 1200);
+  if (!chat || !text) return;
+  if (!["group", "supergroup", "channel"].includes(String(chat.type || ""))) return;
+  const row = {
+    chatId: String(chat.id),
+    chatTitle: String(chat.title || chat.username || "Telegram"),
+    messageId: Number(message.message_id) || null,
+    date: Number(message.date || 0) * 1000 || Date.now(),
+    text,
+    winner: TELEGRAM_WINNER_PATTERN.test(text),
+    sender: String(message.from?.username || message.from?.first_name || "").slice(0, 80)
+  };
+  await redisRequest("pipeline", [
+    ["LPUSH", TELEGRAM_RESULTS_KEY, JSON.stringify(row)],
+    ["LTRIM", TELEGRAM_RESULTS_KEY, 0, 199]
+  ]);
 }
 
 export async function sendSignalMirror(token, primaryChatId, signalChannelId, text) {

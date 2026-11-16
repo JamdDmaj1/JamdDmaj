@@ -5336,7 +5336,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.81.11";
+      const APP_VERSION = "1.81.12";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -8972,6 +8972,7 @@ function createLearnNotificationCard() {
         renderPaperTrading(state.paper || {}, state.config || {}, spanish);
         renderProServerHistory(state.history || []);
  renderTradeResults(state.history || [], spanish);
+ void loadTelegramTradeResults(spanish);
       }
 
       function numericTradeLevel(value) {
@@ -9649,7 +9650,7 @@ function createLearnNotificationCard() {
         });
       }
 
-      function renderTradeResults(history, spanish) {
+      function renderTradeResults(history, spanish, telegramMessages = []) {
   const list = document.getElementById("tradeResultsList");
   if (!list) return;
   const title = document.getElementById("tradeResultsTitle");
@@ -9659,7 +9660,33 @@ function createLearnNotificationCard() {
     ? "Ganadores publicados en el grupo de Telegram."
     : "Winning signals published to the Telegram group.";
   list.replaceChildren();
-  const winners = (Array.isArray(history) ? history : [])
+  if (Array.isArray(telegramMessages) && telegramMessages.length) {
+    const groupWinners = telegramMessages
+      .filter((message) => message && (message.winner || /(TP1|TP2|TP3|\bWIN\b|GANAD|PROFIT|✅)/i.test(String(message.text || ""))))
+      .slice(0, 12);
+    if (groupWinners.length) {
+      if (status) status.textContent = spanish
+        ? "Mensajes ganadores recibidos del grupo de Telegram."
+        : "Winning messages received from the Telegram group.";
+      for (const message of groupWinners) {
+        const row = document.createElement("div");
+        row.className = "pro-history-row trade-result-row";
+        const name = document.createElement("b");
+        name.textContent = String(message.chatTitle || "Telegram");
+        const detail = document.createElement("span");
+        detail.textContent = String(message.text || "").slice(0, 220);
+        const badge = document.createElement("span");
+        badge.className = "pro-status-pill win";
+        badge.textContent = "WIN";
+        const when = document.createElement("span");
+        when.textContent = new Date(Number(message.date) || Date.now()).toLocaleString([], { dateStyle: "short", timeStyle: "short" });
+        if (message.messageId) row.title = "Telegram message " + message.messageId;
+        row.append(name, detail, badge, when);
+        list.append(row);
+      }
+      return;
+    }
+  }  const winners = (Array.isArray(history) ? history : [])
     .filter((signal) => signal && signal.telegramSentAt && (
       (Array.isArray(signal.reached) && signal.reached.includes("TP1"))
       || ["WIN", "PARTIAL_WIN", "PROTECTED_WIN"].includes(String(signal.status || "").toUpperCase())
@@ -9699,6 +9726,13 @@ function createLearnNotificationCard() {
     list.append(row);
   }
 }
+async function loadTelegramTradeResults(spanish) {
+  try {
+    const data = await callProApi({ action: "telegramMessages" });
+    renderTradeResults(proServerState?.history || [], spanish, Array.isArray(data?.messages) ? data.messages : []);
+  } catch {}
+}
+
 function renderProServerHistory(history) {
         const list = document.getElementById("proHistoryList");
         list.replaceChildren();
@@ -15552,7 +15586,7 @@ if (tgResult) {
     })();
   </script>
   <script type="module" src="fair-launch-ui.js?v=1.38.27"></script>
-  <script type="module" src="wallet-login-ui.js?v=1.81.11"></script>
+  <script type="module" src="wallet-login-ui.js?v=1.81.12"></script>
   <script type="module" src="web-trial-ui.js"></script>
   <script type="module" src="jamd-credit-ui.js"></script>
   <script type="module" src="first-visit-ui.js"></script>

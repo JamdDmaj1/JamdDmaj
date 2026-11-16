@@ -83,6 +83,13 @@ export default async function handler(request) {
       const state = await getProServerState();
       return jsonResponse(request, { ok: true, executorTest, ...publicState(state) });
     }
+ if (input?.action === "telegramMessages") {
+  const rows = await redisRequest("pipeline", [["LRANGE", "jamd:telegram:group:results", 0, 49]]);
+  const messages = (Array.isArray(rows?.[0]?.result) ? rows[0].result : []).flatMap((value) => {
+    try { const item = JSON.parse(value); return item && item.text ? [item] : []; } catch { return []; }
+  });
+  return jsonResponse(request, { ok: true, messages });
+ }
     if (input?.action === "paperReset") {
       const paper = await resetPaperPortfolio();
       const state = await getProServerState();
