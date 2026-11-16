@@ -1367,7 +1367,10 @@
       color: var(--muted);
     }
 
-    .pro-health-list {
+    .trade-result-row { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto auto; }
+@media (max-width: 620px) { .trade-result-row { grid-template-columns: minmax(0, 1fr) auto; } .trade-result-row span:nth-last-child(2) { display: none; } }
+
+.pro-health-list {
       display: grid;
       gap: 8px;
     }
@@ -4727,6 +4730,15 @@
             </div>
             <div class="pro-history" id="paperPositionList"><span class="pro-history-empty">Paper positions will appear after new server calls.</span></div>
           </div>
+        <div class="trader-server" id="tradeResultsPanel">
+          <div class="trader-server-head">
+            <div class="trader-server-copy">
+              <strong id="tradeResultsTitle">Trade Results</strong>
+              <span id="tradeResultsStatus">Winning signals published to Telegram.</span>
+            </div>
+          </div>
+          <div class="pro-history" id="tradeResultsList"></div>
+        </div>
           <div class="trader-server is-hidden" id="backtestPanel">
             <div class="trader-server-head">
               <div class="trader-server-copy">
@@ -5324,7 +5336,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.81.10";
+      const APP_VERSION = "1.81.11";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -8959,6 +8971,7 @@ function createLearnNotificationCard() {
          document.getElementById("proStatWinRateLabel").textContent = spanish ? "Tasa decidida verificada" : "Verified decided win rate";
         renderPaperTrading(state.paper || {}, state.config || {}, spanish);
         renderProServerHistory(state.history || []);
+ renderTradeResults(state.history || [], spanish);
       }
 
       function numericTradeLevel(value) {
@@ -9636,7 +9649,57 @@ function createLearnNotificationCard() {
         });
       }
 
-      function renderProServerHistory(history) {
+      function renderTradeResults(history, spanish) {
+  const list = document.getElementById("tradeResultsList");
+  if (!list) return;
+  const title = document.getElementById("tradeResultsTitle");
+  const status = document.getElementById("tradeResultsStatus");
+  if (title) title.textContent = spanish ? "Resultados de trades" : "Trade Results";
+  if (status) status.textContent = spanish
+    ? "Ganadores publicados en el grupo de Telegram."
+    : "Winning signals published to the Telegram group.";
+  list.replaceChildren();
+  const winners = (Array.isArray(history) ? history : [])
+    .filter((signal) => signal && signal.telegramSentAt && (
+      (Array.isArray(signal.reached) && signal.reached.includes("TP1"))
+      || ["WIN", "PARTIAL_WIN", "PROTECTED_WIN"].includes(String(signal.status || "").toUpperCase())
+    ))
+    .sort((a, b) => Date.parse(b.closedAt || b.createdAt || 0) - Date.parse(a.closedAt || a.createdAt || 0))
+    .slice(0, 12);
+  if (!winners.length) {
+    const empty = document.createElement("span");
+    empty.className = "pro-history-empty";
+    empty.textContent = spanish
+      ? "Todavía no hay ganadores publicados en Telegram."
+      : "No Telegram winners have been published yet.";
+    list.append(empty);
+    return;
+  }
+  for (const signal of winners) {
+    const row = document.createElement("div");
+    row.className = "pro-history-row trade-result-row";
+    const name = document.createElement("b");
+    name.textContent = `${signal.symbol || signal.baseSymbol || signal.pair} ${signal.side || ""}`.trim();
+    const detail = document.createElement("span");
+    const entry = Number(signal.entry);
+    const close = Number(signal.closePrice || signal.tp1);
+    const direction = String(signal.side || "").toUpperCase() === "SHORT" ? -1 : 1;
+    const pnl = Number.isFinite(entry) && entry > 0 && Number.isFinite(close)
+      ? ((close / entry - 1) * 100 * direction)
+      : null;
+    const reached = Array.isArray(signal.reached) && signal.reached.length ? signal.reached.join(" · ") : String(signal.status || "WIN");
+    detail.textContent = `${reached}${pnl === null ? "" : ` · ${pnl >= 0 ? "+" : ""}${pnl.toFixed(2)}%`}`;
+    const badge = document.createElement("span");
+    badge.className = `pro-status-pill ${String(signal.status || "win").toLowerCase()}`;
+    badge.textContent = String(signal.status || "WIN");
+    const when = document.createElement("span");
+    when.textContent = new Date(signal.closedAt || signal.createdAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" });
+    if (signal.telegramMessageId) row.title = "Telegram message " + signal.telegramMessageId;
+    row.append(name, detail, badge, when);
+    list.append(row);
+  }
+}
+function renderProServerHistory(history) {
         const list = document.getElementById("proHistoryList");
         list.replaceChildren();
         if (!history.length) {
@@ -15489,7 +15552,7 @@ if (tgResult) {
     })();
   </script>
   <script type="module" src="fair-launch-ui.js?v=1.38.27"></script>
-  <script type="module" src="wallet-login-ui.js?v=1.81.10"></script>
+  <script type="module" src="wallet-login-ui.js?v=1.81.11"></script>
   <script type="module" src="web-trial-ui.js"></script>
   <script type="module" src="jamd-credit-ui.js"></script>
   <script type="module" src="first-visit-ui.js"></script>
