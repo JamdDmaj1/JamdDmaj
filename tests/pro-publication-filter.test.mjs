@@ -11,6 +11,11 @@ test('publication requires market cap, liquidity and strength',()=>{
  assert.match(source,/Tokenized commodity/);
 });
 
+test('known tokenized equities and commodities are classified',()=>{
+ assert.match(source,/"SKHY", "SKHYNIX"/);
+ assert.match(source,/"GOLD", "SILVER", "COPPER"/);
+});
+
 test('same underlying tokens share a duplicate identity',()=>{
  assert.equal(canonicalSignalAsset('SKHYNIXUSDT'),'SKHY');
  assert.equal(canonicalSignalAsset('SKHYUSDT'),'SKHY');
