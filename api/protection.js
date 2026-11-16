@@ -70,6 +70,15 @@ if (action === 'proRun') {
   return jsonResponse(request, { ok: response.ok && data?.ok === true, telegram: data });
  }
 
+ if (action === 'telegramMessages') {
+  if (account !== OWNER_ACCOUNT) return jsonResponse(request, { error: { message: 'FORBIDDEN' } }, 403);
+  const rows = await redisRequest("pipeline", [["LRANGE", "jamd:telegram:group:results", 0, 49]]);
+  const messages = (Array.isArray(rows?.[0]?.result) ? rows[0].result : []).flatMap((value) => {
+    try { const item = JSON.parse(value); return item && item.text ? [item] : []; } catch { return []; }
+  });
+  return jsonResponse(request, { ok: true, messages });
+ }
+
   const rows = await redisRequest('pipeline', [['GET', key]]);
   const current = rows?.[0]?.result ? JSON.parse(rows[0].result) : [];
   const rules = Array.isArray(current) ? current : [];
