@@ -79,6 +79,13 @@ if (action === 'proRun') {
   return jsonResponse(request, { ok: true, messages });
  }
 
+ if (action === 'telegramResultsThread') {
+  if (account !== OWNER_ACCOUNT) return jsonResponse(request, { error: { message: 'FORBIDDEN' } }, 403);
+  const threadId = Number(body.threadId);
+  if (!Number.isSafeInteger(threadId) || threadId <= 0) return jsonResponse(request, { error: { message: 'INVALID_THREAD' } }, 400);
+  await redisRequest("pipeline", [["SET", "jamd:telegram:resultsThread", String(threadId)]]);
+  return jsonResponse(request, { ok: true, threadId });
+ }
  if (action === 'telegramInfo') {
   if (account !== OWNER_ACCOUNT) return jsonResponse(request, { error: { message: 'FORBIDDEN' } }, 403);
   const token = String(process.env.TELEGRAM_BOT_TOKEN || "").trim();

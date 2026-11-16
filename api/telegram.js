@@ -120,7 +120,9 @@ async function recordTelegramUpdate(update) {
     date: Number(message.date || 0) * 1000 || Date.now(),
     text,
     winner: TELEGRAM_WINNER_PATTERN.test(text),
-    sender: String(message.from?.username || message.from?.first_name || "").slice(0, 80)
+    sender: String(message.from?.username || message.from?.first_name || "").slice(0, 80),
+    threadId: Number(message.message_thread_id) || null,
+    isTopic: message.is_topic_message === true
   };
   await redisRequest("pipeline", [
     ["LPUSH", TELEGRAM_RESULTS_KEY, JSON.stringify(row)],
