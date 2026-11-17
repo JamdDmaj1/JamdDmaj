@@ -79,10 +79,20 @@ if (action === 'proRun') {
   return jsonResponse(request, { ok: true, messages });
  }
 
+ if (action === 'telegramChat') {
+  if (account !== OWNER_ACCOUNT) return jsonResponse(request, { error: { message: 'FORBIDDEN' } }, 403);
+  const token = String(process.env.TELEGRAM_BOT_TOKEN || "").trim();
+  const chat = String(body.chat || "").trim();
+  if (!token || !chat) return jsonResponse(request, { error: { message: "TELEGRAM_NOT_CONFIGURED" } }, 503);
+  const response = await fetch(`https://api.telegram.org/bot${token}/getChat?chat_id=${encodeURIComponent(chat)}`, { signal: AbortSignal.timeout(10000) });
+  const data = await response.json().catch(() => ({}));
+  return jsonResponse(request, { ok: response.ok && data?.ok === true, telegram: data?.result || null });
+ }
+
  if (action === 'telegramSendTest') {
   if (account !== OWNER_ACCOUNT) return jsonResponse(request, { error: { message: 'FORBIDDEN' } }, 403);
   const token = String(process.env.TELEGRAM_BOT_TOKEN || "").trim();
-  const chatId = String(process.env.TELEGRAM_CHAT_ID || "").trim();
+  const chatId = String(body.chatId || process.env.TELEGRAM_CHAT_ID || "").trim();
   const threadId = Number(body.threadId);
   if (!token || !chatId) return jsonResponse(request, { error: { message: "TELEGRAM_NOT_CONFIGURED" } }, 503);
   if (!Number.isSafeInteger(threadId) || threadId <= 0) return jsonResponse(request, { error: { message: 'INVALID_THREAD' } }, 400);
