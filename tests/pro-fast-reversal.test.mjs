@@ -60,3 +60,49 @@ test("fast reversal builds an opposite paper/watch signal with levels", () => {
   assert.ok(signal.tp1 > signal.entry);
   assert.ok(signal.sl < signal.entry);
 });
+
+test("fast reversal of a study crypto becomes a Telegram alert", () => {
+  const signal = buildFastReversalSignal({
+    id: "WLD-SHORT-1",
+    baseSymbol: "WLD",
+    pair: "WLDUSDT",
+    side: "SHORT",
+    leverage: 10,
+    score: 12,
+    telegramEligible: false,
+    category: "Other liquid crypto",
+    setupType: "trend-continuation"
+  }, {
+    price: 0.2658,
+    atrPercent: 0.01,
+    adx: 25,
+    trend: "bullish alignment",
+    higherTrend: "bearish 4h alignment",
+    microTrend: "bullish 15m confirmation"
+  });
+  assert.equal(signal.telegramEligible, true);
+  assert.equal(signal.bitgetEligible, false);
+});
+
+test("fast reversal of a tokenized equity stays out of Telegram", () => {
+  const signal = buildFastReversalSignal({
+    id: "TSLA-SHORT-1",
+    baseSymbol: "TSLA",
+    pair: "TSLAUSDT",
+    side: "SHORT",
+    leverage: 10,
+    score: 13,
+    telegramEligible: false,
+    category: "Tokenized equity",
+    riskFlags: ["TOKENIZED_EQUITY"],
+    setupType: "trend-continuation"
+  }, {
+    price: 380,
+    atrPercent: 0.01,
+    adx: 25,
+    trend: "bullish alignment",
+    higherTrend: "bearish 4h alignment",
+    microTrend: "bullish 15m confirmation"
+  });
+  assert.equal(signal.telegramEligible, false);
+});
