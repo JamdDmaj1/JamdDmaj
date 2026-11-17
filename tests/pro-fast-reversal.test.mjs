@@ -30,6 +30,10 @@ test("fast reversal does not fire without opposite 15m structure", () => {
   assert.equal(isFastReversal("SHORT", { ...base, microTrend: "mixed 15m confirmation" }), false);
 });
 
+test("fast reversal falls back to 1h when 15m is unavailable", () => {
+  assert.equal(isFastReversal("SHORT", { ...base, microTrend: "15m unavailable" }), true);
+});
+
 test("fast reversal builds an opposite paper/watch signal with levels", () => {
   const parent = {
     id: "BTC-SHORT-1",
