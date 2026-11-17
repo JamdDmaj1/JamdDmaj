@@ -108,10 +108,11 @@ if (action === 'proRun') {
 
  if (action === 'telegramResultsThread') {
   if (account !== OWNER_ACCOUNT) return jsonResponse(request, { error: { message: 'FORBIDDEN' } }, 403);
+  const chatId = String(body.chatId || "").trim();
   const threadId = Number(body.threadId);
-  if (!Number.isSafeInteger(threadId) || threadId <= 0) return jsonResponse(request, { error: { message: 'INVALID_THREAD' } }, 400);
-  await redisRequest("pipeline", [["SET", "jamd:telegram:resultsThread", String(threadId)]]);
-  return jsonResponse(request, { ok: true, threadId });
+  if (!/^-?\d+$/.test(chatId) || !Number.isSafeInteger(threadId) || threadId <= 0) return jsonResponse(request, { error: { message: 'INVALID_THREAD' } }, 400);
+  await redisRequest("pipeline", [["SET", "jamd:telegram:resultsChat", chatId], ["SET", "jamd:telegram:resultsThread", String(threadId)]]);
+  return jsonResponse(request, { ok: true, chatId, threadId });
  }
  if (action === 'telegramInfo') {
   if (account !== OWNER_ACCOUNT) return jsonResponse(request, { error: { message: 'FORBIDDEN' } }, 403);
