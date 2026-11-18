@@ -5344,7 +5344,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.81.28";
+      const APP_VERSION = "1.81.29";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -11757,6 +11757,7 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         };
         const baseStyle = styles[settings.voiceStyle] || styles.natural;
         const language = await getNativeSpeechLanguage(nativeTts);
+  const nativeVoice = await getNativeVoiceIndex(nativeTts, language);
 
         updateVoiceStatus(
           "speaking",
@@ -11773,6 +11774,7 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
             rate: expressive.rate,
             pitch: expressive.pitch,
             volume: 1,
+      ...(nativeVoice >= 0 ? { voice: nativeVoice } : {}),
             category: "playback",
             queueStrategy: 0
           });
@@ -11797,7 +11799,21 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         } catch {
           return requested;
         }
-      }
+  }
+  async function getNativeVoiceIndex(nativeTts, language) {
+    try {
+      const result = await nativeTts.getSupportedVoices();
+      const voices = Array.isArray(result?.voices) ? result.voices : [];
+      if (!voices.length) return -1;
+      const best = pickBestVoice(voices, language);
+      if (!best) return -1;
+      const index = voices.findIndex((voice) => voice === best);
+      return index >= 0 ? index : -1;
+    } catch {
+      return -1;
+    }
+  }
+
 
       function splitSpeechChunks(value) {
         const sentences = String(value)
@@ -15631,7 +15647,7 @@ if (tgResult) {
     })();
   </script>
   <script type="module" src="fair-launch-ui.js?v=1.38.27"></script>
-  <script type="module" src="wallet-login-ui.js?v=1.81.28"></script>
+  <script type="module" src="wallet-login-ui.js?v=1.81.29"></script>
   <script type="module" src="web-trial-ui.js"></script>
   <script type="module" src="jamd-credit-ui.js"></script>
   <script type="module" src="first-visit-ui.js"></script>
