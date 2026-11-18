@@ -5,6 +5,11 @@ import {readFileSync} from 'node:fs';
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const chatApi=readFileSync(new URL('../api/chat.js',import.meta.url),'utf8');
 
+test('older turns are summarized for continuity',()=>{
+ assert.match(html,/buildConversationDigest/);
+ assert.match(html,/Earlier conversation digest/);
+});
+
 test('Learn uses a compact tutor prompt instead of the full product manual',()=>{
  assert.match(html,/const compactTutor = Boolean\(learningSession\);/);
  assert.match(html,/content: compactTutor/);
