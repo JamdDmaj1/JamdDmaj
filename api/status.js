@@ -3,9 +3,9 @@ import { getProServerState } from "../lib/pro-signals.js";
 
 export const config = { runtime: "edge" };
 
-export const FALLBACK_VERSION = "1.81.24";
+export const FALLBACK_VERSION = "1.81.25";
 const FALLBACK_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
-const GITHUB_LATEST_RELEASE_URL = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases?per_page=10";
+const GITHUB_LATEST_RELEASE_URL = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
 
 export default async function handler(request) {
   if (request.method === "OPTIONS") {
@@ -29,7 +29,7 @@ export default async function handler(request) {
     ),
     googleAccount: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.JAMDDMAJ_ACCOUNT_SECRET),
     version: FALLBACK_VERSION,
-    webVersion: "1.81.24",
+    webVersion: "1.81.25",
     latestVersion: release.latestVersion,
     apkUrl: release.apkUrl,
     releaseUrl: release.releaseUrl,
@@ -91,8 +91,9 @@ async function resolveLatestRelease() {
     });
     if (!response.ok) throw new Error("GitHub release " + response.status);
     const releases = await response.json();
-    if(!Array.isArray(releases))throw Error('Invalid release feed');
-    for(const release of releases){
+    const releaseList = Array.isArray(releases) ? releases : [releases];
+    if(!releaseList.length || typeof releaseList[0] !== 'object')throw Error('Invalid release feed');
+    for(const release of releaseList){
     if(release.draft||release.prerelease||!Array.isArray(release.assets)||!release.assets.some(asset=>asset.name==='JamdDmaj-AI.apk'))continue;
     const githubVersion = cleanVersion(release?.tag_name || release?.name || "");
     const currentPublished = best.source === "github-release" ? best.latestVersion : "0";
