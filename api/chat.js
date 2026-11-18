@@ -87,30 +87,33 @@ export default async function handler(request) {
     const userHash = await hashIdentifier(deviceId);
     stage = "provider";
     const wantsStream = input.stream !== false;
- const providerRequest = {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://www.jamddmaj.com/",
-        "X-OpenRouter-Title": "JamdDmaj AI"
-      },
-      body: JSON.stringify({
-        model,
-        stream: wantsStream,
-        max_tokens: clampNumber(input.max_tokens, 100, 1400, 800),
-        temperature: clampNumber(input.temperature, 0, 1.2, 0.55),
-        provider: { allow_fallbacks: true },
-        user: `jamd-${userHash}`,
-        messages
-      }),
-      signal: AbortSignal.timeout(60000)
+    const providerPayload = {
+      stream: wantsStream,
+      max_tokens: clampNumber(input.max_tokens, 100, 1400, 800),
+      temperature: clampNumber(input.temperature, 0, 1.2, 0.55),
+      provider: { allow_fallbacks: true },
+      user: `jamd-${userHash}`,
+      messages
     };
     let upstream;
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      upstream = await fetch(OPENROUTER_URL, providerRequest);
-      if (upstream.ok || ![429, 502, 503, 504].includes(upstream.status) || attempt === 1) break;
-      await new Promise((resolve) => setTimeout(resolve, 600));
+    for (const candidate of [...new Set([model, "openrouter/free"])]) {
+      const providerRequest = {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": "https://www.jamddmaj.com/",
+          "X-OpenRouter-Title": "JamdDmaj AI"
+        },
+        body: JSON.stringify({ ...providerPayload, model: candidate }),
+        signal: AbortSignal.timeout(60000)
+      };
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        upstream = await fetch(OPENROUTER_URL, providerRequest);
+        if (upstream.ok || ![400, 404, 429, 502, 503, 504].includes(upstream.status) || attempt === 1) break;
+        await new Promise((resolve) => setTimeout(resolve, 600));
+      }
+      if (upstream.ok || ![400, 404].includes(upstream.status)) break;
     }
 
     const headers = {

@@ -5102,7 +5102,14 @@
             <label class="check-row"><input id="rememberKeyInput" type="checkbox"> Remember this key on this device</label>
             <div class="field">
               <label for="chatModelInput">Chat and vision model</label>
-              <input id="chatModelInput" type="text" value="openrouter/free">
+              <input id="chatModelInput" type="text" value="openrouter/free" list="chatModelSuggestions">
+              <datalist id="chatModelSuggestions">
+                <option value="openrouter/free">Free router (recommended default)</option>
+                <option value="nvidia/nemotron-3-ultra-550b-a55b:free">Nemotron 3 Ultra 550B (free)</option>
+                <option value="particle-ai/particle-1:free">Particle-1 (free)</option>
+                <option value="inclusionai/ling-3.2-flash:free">Ling 3.2 Flash (free)</option>
+                <option value="google/gemma-4-31b-it:free">Gemma 4 31B (free)</option>
+              </datalist>
             </div>
             <div class="field">
               <label for="imageModelInput">Image generation model</label>
@@ -5337,7 +5344,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.81.25";
+      const APP_VERSION = "1.81.26";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -15592,7 +15599,7 @@ if (tgResult) {
     })();
   </script>
   <script type="module" src="fair-launch-ui.js?v=1.38.27"></script>
-  <script type="module" src="wallet-login-ui.js?v=1.81.25"></script>
+  <script type="module" src="wallet-login-ui.js?v=1.81.26"></script>
   <script type="module" src="web-trial-ui.js"></script>
   <script type="module" src="jamd-credit-ui.js"></script>
   <script type="module" src="first-visit-ui.js"></script>
