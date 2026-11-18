@@ -103,7 +103,9 @@ jobs:
 
       - name: Read app version
         id: app_version
-        run: echo "value=$(node -p \"require('./package.json').version\")" >> "$GITHUB_OUTPUT"
+        run: |
+          value=$(node -e 'console.log(require("./package.json").version)')
+          echo "value=$value" >> "$GITHUB_OUTPUT"
 
       - name: Publish signed APK release
         uses: softprops/action-gh-release@v2
