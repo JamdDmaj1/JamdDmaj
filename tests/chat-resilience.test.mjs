@@ -25,5 +25,6 @@ test('managed chat streams the provider instead of buffering the whole answer',(
 
 test('managed chat retries transient provider failures once',()=>{
  assert.match(chatApi,/for \(let attempt = 0; attempt < 2; attempt \+= 1\)/);
- assert.match(chatApi,/\[429, 502, 503, 504\]/);
+ assert.match(chatApi,/\[400, 404, 429, 502, 503, 504\]/);
+ assert.match(chatApi,/for \(const candidate of/);
 });
