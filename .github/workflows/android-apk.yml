@@ -6,9 +6,10 @@ on:
     branches:
       - main
       - codex/native-wallet-protection
+      - codex/bot-wallet-manual-futures
 
 permissions:
-  contents: read
+  contents: write
   actions: read
 
 jobs:
@@ -99,3 +100,17 @@ jobs:
             SHA256SUMS.txt
             signature.txt
           if-no-files-found: error
+
+      - name: Read app version
+        id: app_version
+        run: echo "value=$(node -p \"require('./package.json').version\")" >> "$GITHUB_OUTPUT"
+
+      - name: Publish signed APK release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.app_version.outputs.value }}
+          name: JamdDmaj AI v${{ steps.app_version.outputs.value }}
+          files: JamdDmaj-AI.apk
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
