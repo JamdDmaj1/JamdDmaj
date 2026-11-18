@@ -5344,7 +5344,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.81.27";
+      const APP_VERSION = "1.81.28";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -11692,7 +11692,8 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         const sessionId = ++speechSessionId;
         speechSynthesis.cancel();
         const clean = normalizeSpeechText(value).slice(0, 3500);
-        const selected = speechSynthesis.getVoices().find((voice) => voice.name === settings.voiceName);
+  const spokenLocale = settings.language === "auto" ? (navigator.language || "en-US") : settings.language;
+  const selected = speechSynthesis.getVoices().find((voice) => voice.name === settings.voiceName) || pickBestVoice(speechSynthesis.getVoices(), spokenLocale);
         const styles = {
           natural: { rate: 0.94, pitch: 1.02 },
           calm: { rate: 0.84, pitch: 0.96 },
@@ -11864,9 +11865,31 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         setTimeout(startVoiceListening, 100);
       }
 
+    function voiceQualityScore(voice, locale) {
+      const name = String(voice?.name || "");
+      const lang = String(voice?.lang || "").toLowerCase();
+      const target = String(locale || "").toLowerCase();
+      const base = target.split("-")[0];
+      let score = 0;
+      if (lang === target) score += 30;
+      else if (base && lang.startsWith(base + "-")) score += 15;
+      if (/natural|neural|enhanced|premium|wavenet|studio/i.test(name)) score += 20;
+      if (/google|microsoft/i.test(name)) score += 8;
+      if (voice?.localService) score += 3;
+      if (/compact|espeak|robot|novelty/i.test(name)) score -= 10;
+      return score;
+    }
+
+    function pickBestVoice(voices, locale) {
+      const candidates = (voices || []).filter((voice) => voice && voice.lang);
+      if (!candidates.length) return null;
+      return [...candidates].sort((a, b) => voiceQualityScore(b, locale) - voiceQualityScore(a, locale))[0] || null;
+    }
+
       function populateVoices() {
         if (!("speechSynthesis" in window)) return;
         const voices = speechSynthesis.getVoices();
+  voices.sort((a, b) => voiceQualityScore(b, resolvedLanguage()) - voiceQualityScore(a, resolvedLanguage()));
         const previous = settings.voiceName;
         els.voice.replaceChildren(new Option("System default", ""));
         voices.forEach((voice) => {
@@ -15608,7 +15631,7 @@ if (tgResult) {
     })();
   </script>
   <script type="module" src="fair-launch-ui.js?v=1.38.27"></script>
-  <script type="module" src="wallet-login-ui.js?v=1.81.27"></script>
+  <script type="module" src="wallet-login-ui.js?v=1.81.28"></script>
   <script type="module" src="web-trial-ui.js"></script>
   <script type="module" src="jamd-credit-ui.js"></script>
   <script type="module" src="first-visit-ui.js"></script>
