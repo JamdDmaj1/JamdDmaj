@@ -110,7 +110,7 @@ function render(){
   const div=document.createElement('div'),text=document.createElement('p'),button=document.createElement('button'),liq=account.liquidation(p),profit=pnl(p,account.price(p));
   text.className=profit>0?'positive':profit<0?'negative':'neutral';
   text.textContent=`#${p.id} ${p.name} - ${p.side.toUpperCase()} - ${p.mode} - ${p.leverage}\nMargen: ${money(p.margin)} - tamano: ${money(p.margin*p.leverage)}\nEntrada: ${quote(p.entry)} USD\nP/L: ${money(profit)}\nLiquidacion ${p.mode==='cross'?'compartida':'estimada'}: ${liq?quote(liq)+' USD':'sin umbral positivo en este modelo'}`;
-  button.textContent='Cerrar '+p.side.toUpperCase();button.onclick=()=>{if(!fresh()){$('error').textContent=language==='es'?'Cotizacion atrasada; cierre bloqueado.':'Stale quote; close blocked.';return;}record([account.close(p.id)]);record(account.tick());render();};
+  button.textContent='Cerrar '+p.side.toUpperCase();button.onclick=async()=>{await refreshQuotes().catch(()=>{});if(!freshMarket(p.symbol)){$('error').textContent=language==='es'?'La cotizacion de esta posicion esta atrasada; no se puede cerrar con un precio viejo.':'This position quote is stale; it cannot be closed at an old price.';return;}record([account.close(p.id)]);record(account.tick());render();};
   div.append(text,button);$('position').append(div);
  }
  if(!account.positions.length)$('position').textContent='Sin posiciones abiertas.';
@@ -189,6 +189,7 @@ async function loadHistory(id){
  }catch{m.historyStatus=language==='es'?'Historial no disponible. Solo se muestran muestras recibidas; no se inventan velas.':'History unavailable. Showing received samples only; no invented candles.';}
  finally{m.historyLoading=false;render();}
 }
+function freshMarket(key){const m=markets.get(key);return !m||!m.live||(!m.error&&Date.now()-m.updated<=45000);}
 function fresh(){if(initialQuotePending)return false;return [...markets.entries()].filter(([key])=>key===symbol||account.positions.some(p=>p.symbol===key)||account.orders.some(o=>o.symbol===key)).every(([,m])=>!m.live||(!m.error&&Date.now()-m.updated<=45000));}
 async function refreshQuotes(){
  await Promise.all([...markets.entries()].filter(([key,m])=>m.live&&(key===symbol||account.positions.some(p=>p.symbol===key)||account.orders.some(o=>o.symbol===key))).map(async([key,m])=>{
