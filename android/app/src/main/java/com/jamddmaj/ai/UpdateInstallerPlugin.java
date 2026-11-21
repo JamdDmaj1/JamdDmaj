@@ -19,6 +19,7 @@ import java.io.File;
 @CapacitorPlugin(name = "UpdateInstaller")
 public class UpdateInstallerPlugin extends Plugin {
     private long downloadId = -1L;
+    private File pendingApk;
 
     @PluginMethod
     public void canInstall(PluginCall call) {
@@ -45,15 +46,19 @@ public class UpdateInstallerPlugin extends Plugin {
         request.setTitle("JamdDmaj");
         request.setDescription("Actualizacion de la app");
         request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE);
-        request.setDestinationInExternalFilesDir(getContext(), Environment.DIRECTORY_DOWNLOADS, "updates/jamddmaj-update.apk");
+        File updatesDir = new File(getContext().getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "updates");
+        if (updatesDir.exists()) { File[] old = updatesDir.listFiles(); if (old != null) for (File f : old) f.delete(); }
+        String fileName = "jamddmaj-update-" + System.currentTimeMillis() + ".apk";
+        pendingApk = new File(updatesDir, fileName);
+        request.setDestinationInExternalFilesDir(getContext(), Environment.DIRECTORY_DOWNLOADS, "updates/" + fileName);
         downloadId = manager.enqueue(request);
         BroadcastReceiver receiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
                 if (intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L) != downloadId) return;
                 try { context.unregisterReceiver(this); } catch (Exception ignored) {}
-                File apk = new File(getContext().getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "updates/jamddmaj-update.apk");
-                if (!apk.exists() || apk.length() < 1024) { notifyListeners("installError", new JSObject().put("message", "download-missing")); return; }
+                File apk = pendingApk;
+                if (apk == null || !apk.exists() || apk.length() < 1024) { notifyListeners("installError", new JSObject().put("message", "download-missing")); return; }
                 Uri uri = FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".fileprovider", apk);
                 Intent installer = new Intent(Intent.ACTION_VIEW);
                 installer.setDataAndType(uri, "application/vnd.android.package-archive");
