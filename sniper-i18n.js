@@ -65,7 +65,25 @@
     ["Activar notificaciones", "Enable notifications"],
     ["Nube: sin conexion", "Cloud: offline"],
     ["Aviso:", "Notice:"],
-    ["Fuentes:", "Sources:"]
+    ["Fuentes:", "Sources:"],
+    ["Potencial BAJO", "LOW potential"],
+    ["Potencial MEDIO", "MEDIUM potential"],
+    ["Potencial ALTO", "HIGH potential"],
+    ["seguridad - 100 es mejor?", "safety - 100 is best?"],
+    ["potencial estimado?", "estimated potential?"],
+    ["Emision revocada", "Mint revoked"],
+    ["Nadie puede acunar mas", "No one can mint more"],
+    ["Congelacion revocada", "Freeze revoked"],
+    ["No pueden congelar saldos", "Cannot freeze balances"],
+    ["Liquidez bloqueada", "Liquidity locked"],
+    ["Concentracion de holders", "Holder concentration"],
+    ["Rotacion (volumen/liquidez)", "Turnover (volume/liquidity)"],
+    ["Profundidad de liquidez", "Liquidity depth"],
+    ["LP bloqueado 100%", "LP locked 100%"],
+    ["Retirada de liquidez:", "Liquidity withdrawal:"],
+    ["MEDIO", "MEDIUM"],
+    ["BAJO", "LOW"],
+    ["ALTO", "HIGH"]
   ]);
   const patterns = [
     [/\bSin wallet\b/g, "No wallet"],
@@ -101,6 +119,8 @@
     [/\bNube: sin conexion\b/g, "Cloud: offline"],
     [/\bConecta tu wallet para verlo\b/g, "Connect your wallet to view it"],
      [/\bFuentes:\s*/g, "Sources: "],
+    [/\b(\d+) token\(es\) analizados de (\d+)\./g, "$1 tokens analyzed out of $2."],
+    [/\bdel LP bloqueado\b/g, "of LP locked"],
     [/\bActualizado\s+/g, "Updated "],
     [/\bNube:\s*(\d+)\s*en vigilancia/g, "Cloud: $1 watched"],
     [/\ben vigilancia\b/g, "watched"]
