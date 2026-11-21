@@ -18,6 +18,7 @@ const assets = [
   "sniper.html",
   "sniper.css",
   "sniper.js",
+  "sniper-i18n.js",
   "discover.html",
   "terms.html",
   "privacy.html",

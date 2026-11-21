@@ -1416,15 +1416,15 @@ const shortAddress = value => value ? value.slice(0, 4) + '...' + value.slice(-4
 const looksLikeAddress = value => /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(String(value || ''));
 function storedWallet() {
   try {
-    const direct = localStorage.getItem('jamd-sniper-wallet');
-    if (looksLikeAddress(direct)) return { owner: direct, source: 'Manual' };
-    const raw = localStorage.getItem('jamd-wallet-trading-state');
-    const parsed = raw ? JSON.parse(raw) : null;
-    const candidate = parsed?.account?.address || parsed?.account?.publicKey || parsed?.snapshot?.address || parsed?.address;
-    if (looksLikeAddress(candidate)) return { owner: candidate, source: 'JamdDmaj' };
+    const direct = localStorage.getItem("jamd-sniper-wallet");
+    if (looksLikeAddress(direct)) return { owner: direct, source: "Manual" };
+    // Only an explicit Sniper wallet or Phantom is trusted here. The app's
+    // selected trading wallet may be a different account; showing its tokens
+    // as "My tokens" was misleading.
   } catch {}
   return null;
 }
+
 function resolveWallet() {
   const phantomKey = globalThis.JamdSniperTrade?.key?.();
   if (looksLikeAddress(phantomKey)) return { owner: phantomKey, source: 'Phantom' };
