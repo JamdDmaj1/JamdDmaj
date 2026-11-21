@@ -289,7 +289,7 @@ function auditPanel(item) {
 const TIPS = {
   seguridad: 'Puntuacion de 0 a 100 con emision, congelacion, liquidez bloqueada, concentracion de holders, liquidez real y antiguedad. Mas alto significa menos riesgo; no garantiza que sea seguro.',
   potencial: 'Estimacion de 0 a 100 con impulso de precio, rotacion volumen/liquidez, presion compradora y profundidad. Queda limitada por el riesgo. No es una prediccion.',
-  liquidez: 'Riesgo de que retiren la liquidez: porcentaje de LP bloqueado, porcentaje del creador, liquidez real y edad del pool. ALTO significa que el LP puede vaciarse.',
+  liquidez: 'Liquidity withdrawal risk: percentage of LP locked, creator share, real liquidity and pool age. HIGH means LP can be drained.',
   ath: 'Capitalizacion maxima historica: precio maximo del par por el suministro estimado. Se mide desde la creacion del par.',
   categorias: 'Etiquetas estimadas con el nombre, el mercado y el marketing. No son categorias oficiales.',
   boost: 'Promocion pagada detectada en DexScreener. No implica calidad ni seguridad.',
@@ -428,7 +428,7 @@ function openDetail(item) {
   stat('Potencial', String(item.growth?.score ?? '—') + '/100');
   stat('Market cap', money(item.marketCapUsd) + ' USD');
   stat('Liquidez', money(item.liquidity) + ' USD');
-  stat('LP bloqueado', Number.isFinite(item.lpLockedPct) ? Math.round(item.lpLockedPct) + '%' : 'sin dato');
+  stat('LP locked', Number.isFinite(item.lpLockedPct) ? Math.round(item.lpLockedPct) + '%' : 'sin dato');
   stat('Holders', Number.isFinite(item.holders) ? String(item.holders) : 'sin dato');
   stat('Mercados', (item.pairsCount || 1) + ' - ' + ((item.venues || []).join('/') || 'n/d'));
   stat('Vida', age(item.ageMinutes));
@@ -531,12 +531,12 @@ function card(item) {
   scores.className = 'sniper-scores';
   const safety = document.createElement('div');
   safety.className = 'sniper-score';
-  const safetyLabel = Object.assign(document.createElement('span'), { textContent: 'seguridad - 100 es mejor' });
+  const safetyLabel = Object.assign(document.createElement('span'), { textContent: 'safety - 100 is best' });
   safetyLabel.append(infoBadge('seguridad'));
   safety.append(Object.assign(document.createElement('strong'), { textContent: String(item.score) }), safetyLabel);
   const growth = document.createElement('div');
   growth.className = 'sniper-score growth';
-  const growthLabel = Object.assign(document.createElement('span'), { textContent: 'potencial estimado' });
+  const growthLabel = Object.assign(document.createElement('span'), { textContent: 'estimated potential' });
   growthLabel.append(infoBadge('potencial'));
   growth.append(Object.assign(document.createElement('strong'), { textContent: String(item.growth?.score ?? '—') }), growthLabel);
   scores.append(safety, growth);
@@ -554,16 +554,16 @@ function card(item) {
   meta.append(athItem);
   metaItem('Mercados', (item.pairsCount || 1) + ' - ' + ((item.venues || []).join('/') || 'n/d'));
   metaItem('Holders', Number.isFinite(item.holders) ? String(item.holders) : '—');
-  metaItem('LP bloqueado', Number.isFinite(item.lpLockedPct) ? Math.round(item.lpLockedPct) + '%' : '—');
+  metaItem('LP locked', Number.isFinite(item.lpLockedPct) ? Math.round(item.lpLockedPct) + '%' : '—');
   metaItem('Creador', Number.isFinite(item.creatorPct) ? item.creatorPct + '%' : '—');
 
   const liquidity = document.createElement('div');
   liquidity.className = 'sniper-liquidity';
-  liquidity.append(badge('Retirada de liquidez: ' + item.liquidityLabel + ' (' + item.liquidityRisk + '/100)', liquidityClass(item.liquidityLabel)));
+  liquidity.append(badge('Liquidity withdrawal: ' + ({ALTO:'HIGH',MEDIO:'MEDIUM',BAJO:'LOW'}[String(item.liquidityLabel).toUpperCase()] || item.liquidityLabel) + ' (' + item.liquidityRisk + '/100)', liquidityClass(item.liquidityLabel)));
   liquidity.append(infoBadge('liquidez'));
   if (item.liquidityLabel === 'ALTO') {
     const note = document.createElement('small');
-    note.textContent = 'El LP puede vaciarse: revisa el bloqueo y quien controla la liquidez.';
+    note.textContent = 'LP can be drained: check the lock and who controls liquidity.';
     liquidity.append(note);
   }
 
