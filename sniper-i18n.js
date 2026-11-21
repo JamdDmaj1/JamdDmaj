@@ -100,7 +100,10 @@
     [/\bPulsa \"Vigilar\" en un token para seguirlo en vivo\./g, "Tap \"Watch\" on a token to track it live."],
     [/\bNube: sin conexion\b/g, "Cloud: offline"],
     [/\bConecta tu wallet para verlo\b/g, "Connect your wallet to view it"],
-    [/\bFuentes:\s*/g, "Sources: "]
+     [/\bFuentes:\s*/g, "Sources: "],
+    [/\bActualizado\s+/g, "Updated "],
+    [/\bNube:\s*(\d+)\s*en vigilancia/g, "Cloud: $1 watched"],
+    [/\ben vigilancia\b/g, "watched"]
   ];
   const translate = value => {
     const raw = String(value || "");
