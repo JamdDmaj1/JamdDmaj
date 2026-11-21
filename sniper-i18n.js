@@ -81,6 +81,10 @@
     ["Profundidad de liquidez", "Liquidity depth"],
     ["LP bloqueado 100%", "LP locked 100%"],
     ["MEJOR PERFIL", "BEST PROFILE"],
+    ["PRUDENCIA", "CAUTION"],
+    ["RIESGO", "RISK"],
+    ["PELIGRO", "DANGER"],
+    ["Historial del creador limpio", "Clean creator history"],
     ["LOW potential", "Low potential"],
     ["Antiguedad", "Age"],
     ["Sin carteras insider", "No insider wallets"],
@@ -133,6 +137,7 @@
     [/\b(\d+) min de vida\b/g, "$1 min old"],
     [/\bMEJOR PERFIL\b/g, "BEST PROFILE"],
     [/\bAntiguedad\b/g, "Age"],
+    [/\bSin historial de rug conocido\b/g, "No known rug history"],
     [/\bActualizado\s+/g, "Updated "],
     [/\bNube:\s*(\d+)\s*en vigilancia/g, "Cloud: $1 watched"],
     [/\ben vigilancia\b/g, "watched"]
