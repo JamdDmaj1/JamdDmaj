@@ -3662,7 +3662,7 @@
         overscroll-behavior: contain;
       }
 
-      .top-actions .pill-btn:not(#learnBtn):not(#marketsBtn):not(#tradingDemoBtn):not(#fairLaunchBtn):not(#walletBtn):not(#topThemeBtn):not(#topSettingsBtn) {
+      .top-actions .pill-btn:not(#learnBtn):not(#marketsBtn):not(#tradingDemoBtn):not(#fairLaunchBtn):not(#sniperBtn):not(#walletBtn):not(#topThemeBtn):not(#topSettingsBtn) {
         display: none;
       }
 
@@ -4032,6 +4032,7 @@
 
       <div class="sidebar-footer">
         <button class="side-action" id="sideSignalsBtn" type="button"><span>↗</span><span>Pro Signals</span></button>
+        <button class="side-action" id="sideSniperBtn" type="button"><span>◎</span><span>Sniper</span></button>
         <button class="side-action" id="sideFuturesBtn" type="button"><span>⇅</span><span>Futures</span></button>
         <button class="side-action" id="sideAutomationBtn" type="button"><span>◷</span><span>Automation 24/7</span></button>
         <button class="side-action" id="sideAssetsBtn" type="button"><span>◈</span><span>Assets</span></button>
@@ -5344,7 +5345,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.81.34";
+      const APP_VERSION = "1.81.35";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -14939,6 +14940,7 @@ async function fetchCryptoComparePrices() {
       // Public discovery only. These links never grant access to another
       // account, the legacy owner server, signing, or automation activation.
       document.getElementById("sideSignalsBtn").addEventListener("click", enterTraderMode);
+      document.getElementById("sideSniperBtn")?.addEventListener("click", () => { location.href = "./sniper.html"; });
       for (const [id,view] of [["sideFuturesBtn","futures"],["sideAutomationBtn","automation"],["sideAssetsBtn","assets"]]) {
         document.getElementById(id).addEventListener("click", () => {
           const route = new URLSearchParams({view,lang:resolvedLanguage()});
@@ -15647,7 +15649,7 @@ if (tgResult) {
     })();
   </script>
   <script type="module" src="fair-launch-ui.js?v=1.38.27"></script>
-  <script type="module" src="wallet-login-ui.js?v=1.81.34"></script>
+  <script type="module" src="wallet-login-ui.js?v=1.81.35"></script>
   <script type="module" src="web-trial-ui.js"></script>
   <script type="module" src="jamd-credit-ui.js"></script>
   <script type="module" src="first-visit-ui.js"></script>
