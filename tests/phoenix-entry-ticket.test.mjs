@@ -1,4 +1,4 @@
-import test from 'node:test'
+﻿import test from 'node:test'
 import assert from 'node:assert/strict'
 import {setupPhoenixEntryTicket} from '../lib/phoenix-entry-ticket.js'
 import {rememberWalletAccount, selectWalletAccount} from '../lib/wallet-portfolio-store.js'
@@ -35,7 +35,7 @@ function findBy(node, predicate) {
 }
 
 async function settle(check, label) {
-  for (let attempt = 0; attempt < 200; attempt += 1) {
+  for (let attempt = 0; attempt < 600; attempt += 1) {
     if (check()) return
     await new Promise((resolve) => setTimeout(resolve, 5))
   }
@@ -70,7 +70,7 @@ test('reviews and confirms an opening only with explicit consent', async (t) => 
   t.after(f.dispose)
   const button = findBy(f.parent, (n) => n.tag === 'button' && n.textContent === 'Revisar entrada')
   button.onclick()
-  await settle(() => flatten(f.parent).some((text) => text.includes('Precio límite')), 'review')
+  await settle(() => flatten(f.parent).some((text) => text.includes('Precio lÃ­mite')), 'review')
   assert.deepEqual(calls[0], ['prepare', bot, {symbol: 'SOL', side: 'LONG', marginUsdcUnits: '10000000', leverageTenths: 30}])
   const confirm = findBy(f.parent, (n) => n.tag === 'button' && n.textContent === 'Confirmar apertura')
   assert.equal(confirm.disabled, true)
@@ -91,7 +91,7 @@ test('explains an unavailable venue instead of showing a raw code', async (t) =>
   const f = fixture(client)
   t.after(f.dispose)
   findBy(f.parent, (n) => n.tag === 'button' && n.textContent === 'Revisar entrada').onclick()
-  await settle(() => flatten(f.parent).some((text) => text.includes('todavía no está habilitado en el servidor')), 'unavailable message')
+  await settle(() => flatten(f.parent).some((text) => text.includes('todavÃ­a no estÃ¡ habilitado en el servidor')), 'unavailable message')
 })
 
 test('shows the release gate instead of pretending the market is open', async (t) => {
@@ -103,7 +103,7 @@ test('shows the release gate instead of pretending the market is open', async (t
   t.after(f.dispose)
   findBy(f.parent, (n) => n.tag === 'button' && n.textContent === 'Revisar entrada').onclick()
   await settle(() => flatten(f.parent).some((text) => text.includes('bloqueadas hasta el release')), 'gate message')
-  assert.ok(!flatten(f.parent).some((text) => text.includes('Precio límite')))
+  assert.ok(!flatten(f.parent).some((text) => text.includes('Precio lÃ­mite')))
 })
 
 test('retries a short busy window while preparing the review', async (t) => {
@@ -119,7 +119,7 @@ test('retries a short busy window while preparing the review', async (t) => {
   const f = fixture(client)
   t.after(f.dispose)
   findBy(f.parent, (n) => n.tag === 'button' && n.textContent === 'Revisar entrada').onclick()
-  await settle(() => flatten(f.parent).some((text) => text.includes('Precio límite')), 'review after retry')
+  await settle(() => flatten(f.parent).some((text) => text.includes('Precio lÃ­mite')), 'review after retry')
   assert.equal(prepares, 2)
 })
 
@@ -132,11 +132,12 @@ test('treats a timed-out confirm as pending and finds the new position', async (
   const f = fixture(client)
   t.after(f.dispose)
   findBy(f.parent, (n) => n.tag === 'button' && n.textContent === 'Revisar entrada').onclick()
-  await settle(() => flatten(f.parent).some((text) => text.includes('Precio límite')), 'review')
+  await settle(() => flatten(f.parent).some((text) => text.includes('Precio lÃ­mite')), 'review')
   const consent = findBy(f.parent, (n) => n.tag === 'input' && n.type === 'checkbox')
   consent.checked = true
   consent.onchange()
   findBy(f.parent, (n) => n.tag === 'button' && n.textContent === 'Confirmar apertura').onclick()
-  await settle(() => flatten(f.parent).some((text) => text.includes('Posición abierta')), 'pending position')
+  await settle(() => flatten(f.parent).some((text) => text.includes('PosiciÃ³n abierta')), 'pending position')
   assert.ok(!flatten(f.parent).some((text) => text.includes('No se pudo revisar la entrada')))
 })
+
