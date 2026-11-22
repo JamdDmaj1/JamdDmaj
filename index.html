@@ -2104,6 +2104,36 @@
       font-size: 0.76rem;
     }
 
+    .language-photo-strip {
+      display: grid;
+      grid-column: 1 / -1;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 2px;
+    }
+
+    .language-photo {
+      display: grid;
+      gap: 4px;
+      margin: 0;
+      overflow: hidden;
+    }
+
+    .language-photo img {
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      object-fit: cover;
+      border: 1px solid rgba(56, 189, 248, 0.24);
+      border-radius: 12px;
+    }
+
+    .language-photo figcaption {
+      color: var(--muted);
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-align: center;
+    }
+
     .language-audio-btn {
       display: inline-flex;
       width: fit-content;
@@ -5345,7 +5375,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      const APP_VERSION = "1.81.45";
+      const APP_VERSION = "1.81.46";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -7584,7 +7614,25 @@ function createLearnNotificationCard() {
               ? "Las imágenes y ejemplos conectan palabras con situaciones fáciles de recordar."
               : "Images and examples connect words with memorable situations.");
         copy.append(eyebrow, target, pronunciation, meaning, listen, help);
-        visual.append(art, copy);
+        const photoStrip = document.createElement("div");
+        photoStrip.className = "language-photo-strip";
+        const photoLabels = resolvedLanguage() === "es"
+          ? [["learn-cafe.jpg", "Café", "Pedir y saludar"], ["learn-station.jpg", "Estación", "Direcciones y viajes"], ["learn-market.jpg", "Mercado", "Números y compras"]]
+          : [["learn-cafe.jpg", "Cafe", "Ordering and greeting"], ["learn-station.jpg", "Station", "Directions and travel"], ["learn-market.jpg", "Market", "Numbers and shopping"]];
+        for (const [file, label, alt] of photoLabels) {
+          const figure = document.createElement("figure");
+          figure.className = "language-photo";
+          const image = document.createElement("img");
+          image.src = file;
+          image.alt = alt;
+          image.loading = "lazy";
+          image.decoding = "async";
+          const caption = document.createElement("figcaption");
+          caption.textContent = label;
+          figure.append(image, caption);
+          photoStrip.append(figure);
+        }
+        visual.append(art, copy, photoStrip);
         return visual;
       }
 
@@ -15649,7 +15697,7 @@ if (tgResult) {
     })();
   </script>
   <script type="module" src="fair-launch-ui.js?v=1.38.27"></script>
-  <script type="module" src="wallet-login-ui.js?v=1.81.45"></script>
+  <script type="module" src="wallet-login-ui.js?v=1.81.46"></script>
   <script type="module" src="web-trial-ui.js"></script>
   <script type="module" src="jamd-credit-ui.js"></script>
   <script type="module" src="first-visit-ui.js"></script>
