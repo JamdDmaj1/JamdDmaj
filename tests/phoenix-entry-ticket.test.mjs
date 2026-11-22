@@ -105,3 +105,38 @@ test('shows the release gate instead of pretending the market is open', async (t
   await settle(() => flatten(f.parent).some((text) => text.includes('bloqueadas hasta el release')), 'gate message')
   assert.ok(!flatten(f.parent).some((text) => text.includes('Precio límite')))
 })
+
+test('retries a short busy window while preparing the review', async (t) => {
+  let prepares = 0
+  const client = {
+    prepareEntry: async () => {
+      prepares += 1
+      if (prepares === 1) { const error = new Error('PHOENIX_SERVICE_BUSY'); error.code = 'PHOENIX_SERVICE_BUSY'; throw error }
+      return {...review}
+    },
+    confirmEntry: async () => ({state: 'OPEN', phase: 'OPEN'}),
+  }
+  const f = fixture(client)
+  t.after(f.dispose)
+  findBy(f.parent, (n) => n.tag === 'button' && n.textContent === 'Revisar entrada').onclick()
+  await settle(() => flatten(f.parent).some((text) => text.includes('Precio límite')), 'review after retry')
+  assert.equal(prepares, 2)
+})
+
+test('treats a timed-out confirm as pending and finds the new position', async (t) => {
+  const client = {
+    prepareEntry: async () => ({...review}),
+    confirmEntry: async () => { const error = new Error('AbortError'); error.code = 'AbortError'; throw error },
+    positions: async () => ({items: [{workflowId: 'b'.repeat(64), symbol: 'SOL', state: 'OPEN', subaccountIndex: 1}]}),
+  }
+  const f = fixture(client)
+  t.after(f.dispose)
+  findBy(f.parent, (n) => n.tag === 'button' && n.textContent === 'Revisar entrada').onclick()
+  await settle(() => flatten(f.parent).some((text) => text.includes('Precio límite')), 'review')
+  const consent = findBy(f.parent, (n) => n.tag === 'input' && n.type === 'checkbox')
+  consent.checked = true
+  consent.onchange()
+  findBy(f.parent, (n) => n.tag === 'button' && n.textContent === 'Confirmar apertura').onclick()
+  await settle(() => flatten(f.parent).some((text) => text.includes('Posición abierta')), 'pending position')
+  assert.ok(!flatten(f.parent).some((text) => text.includes('No se pudo revisar la entrada')))
+})

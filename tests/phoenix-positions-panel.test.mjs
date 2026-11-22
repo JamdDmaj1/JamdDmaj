@@ -52,7 +52,14 @@ async function settle(check, label) {
 }
 
 function fixture(client) {
-  const doc = { createElement: (tag) => element(tag), defaultView: undefined }
+  const listeners = new Map()
+  const doc = {
+    createElement: (tag) => element(tag),
+    defaultView: undefined,
+    addEventListener(type, fn) { listeners.set(type, fn) },
+    removeEventListener(type) { listeners.delete(type) },
+    dispatchEvent(event) { listeners.get(event.type)?.(event) },
+  }
   rememberWalletAccount(doc, {address: bot, source: 'watch', name: 'Solo consulta'})
   selectWalletAccount(doc, {address: bot, source: 'watch', name: 'Solo consulta'})
   const parent = element('section')
@@ -102,4 +109,20 @@ test('explains when the server has not enabled Phoenix', async (t) => {
   findButton(f.parent, 'Consultar posiciones').onclick()
   await settle(() => flatten(f.parent).some((text) => text.includes('no está habilitado en el servidor')), 'unavailable')
   assert.ok(!flatten(f.parent).some((text) => text.includes('Revisar cierre')))
+})
+
+test('refreshes the list when a new opening is announced', async (t) => {
+  let reads = 0
+  const client = {
+    positions: async () => { reads += 1; return {items: [{workflowId, symbol: 'SOL', subaccountIndex: 1}]} },
+    prepareClose: async () => { throw new Error('unused') },
+    confirmClose: async () => { throw new Error('unused') },
+  }
+  const f = fixture(client)
+  t.after(f.dispose)
+  findButton(f.parent, 'Consultar posiciones').onclick()
+  await settle(() => reads === 1, 'initial read')
+  f.doc.dispatchEvent({type: 'jamd-phoenix-changed', detail: {symbol: 'SOL', opened: true}})
+  await settle(() => reads === 2, 'refresh after opening')
+  assert.ok(flatten(f.parent).some((text) => text.includes('SOL')))
 })
