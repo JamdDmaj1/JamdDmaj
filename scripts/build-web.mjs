@@ -166,6 +166,7 @@ await cp(resolve(root, "lib", "finance-depth.js"), resolve(output, "lib", "finan
 await cp(resolve(root, "lib", "finance-candles.js"), resolve(output, "lib", "finance-candles.js"));
 await cp(resolve(root, "lib", "finance-activity.js"), resolve(output, "lib", "finance-activity.js"));
 await cp(resolve(root, "lib", "automation-panel.js"), resolve(output, "lib", "automation-panel.js"));
+await cp(resolve(root, "lib", "automation-panel-simple.js"), resolve(output, "lib", "automation-panel-simple.js"));
 await cp(resolve(root, "lib", "perps-control-panel.js"), resolve(output, "lib", "perps-control-panel.js"));
 await cp(resolve(root, "lib", "perps-navigation.js"), resolve(output, "lib", "perps-navigation.js"));
 await cp(resolve(root, "lib", "perps-market-reference.js"), resolve(output, "lib", "perps-market-reference.js"));
