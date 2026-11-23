@@ -40,8 +40,8 @@ export default async function handler(request) {
     return text.slice(0, -6) + (fraction ? '.' + fraction : '');
   };
   const icon = event === 'OPEN' ? '🟢' : '⚪';
-  const title = event === 'OPEN' ? 'AUTO ABIERTO' : 'AUTO CERRADO';
-  const text = `${icon} Automatic Trades · ${title}\n${symbol} ${side}\nMargen: ${amount(margin)} USDC\nEntrada: ${entry} USD\nJamdDmaj · no es asesoramiento financiero.`;
+  const title = event === 'OPEN' ? 'AUTO OPEN' : 'AUTO CLOSED';
+  const text = `${icon} Automatic Trades · ${title}\n${symbol} ${side}\nMargin: ${amount(margin)} USDC\nEntry: ${entry} USD\nJamdDmaj · Not financial advice.`;
   try {
     const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
       method: 'POST',
