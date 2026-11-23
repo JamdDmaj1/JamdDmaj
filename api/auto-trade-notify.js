@@ -21,6 +21,7 @@ export default async function handler(request) {
   }
   const botToken = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
   const chatId = String(process.env.TELEGRAM_AUTOTRADES_CHAT_ID || '').trim();
+  const threadId = String(process.env.TELEGRAM_AUTOTRADES_THREAD_ID || '').trim();
   if (!botToken || !chatId) return jsonResponse(request, {error: {code: 'automatic-trades-chat-missing'}}, 503);
   // Verify the session before allowing a message to a private group.
   try {
@@ -46,7 +47,7 @@ export default async function handler(request) {
     const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({chat_id: chatId, text, disable_web_page_preview: true})
+      body: JSON.stringify({chat_id: chatId, ...(threadId ? {message_thread_id: Number(threadId)} : {}), text, disable_web_page_preview: true})
     });
     const result = await response.json().catch(() => null);
     if (!response.ok || result?.ok !== true) return jsonResponse(request, {error: {code: 'telegram-unavailable'}}, 502);
