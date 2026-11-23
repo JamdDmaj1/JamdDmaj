@@ -1,5 +1,5 @@
 import { corsHeaders, jsonResponse } from "../lib/server.js";
-import { saveExecutorHeartbeat } from "../lib/pro-signals.js";
+import { saveExecutorHeartbeat, telegramSignalsEnabled } from "../lib/pro-signals.js";
 import { redisRequest } from "../lib/server.js";
 
 const EXECUTOR_LEARNING_PREFIX = "jamd:pro:executor:learning:";
@@ -26,10 +26,12 @@ export default async function handler(request) {
     const executorLearning = await updateExecutorLearning(input).catch(() => null);
     const enrichedInput = executorLearning ? { ...input, executorLearning } : input;
     const status = await saveExecutorHeartbeat(enrichedInput);
-    await maybeSendLiveOrderAlert(enrichedInput).catch(() => {});
-    await maybeSendExitManagerAlert(enrichedInput).catch(() => {});
-    await maybeSendPinnedDailyLearning(enrichedInput, executorLearning).catch(() => {});
-    await maybeSendDryRunSummary(enrichedInput).catch(() => {});
+    if (telegramSignalsEnabled()) {
+      await maybeSendLiveOrderAlert(enrichedInput).catch(() => {});
+      await maybeSendExitManagerAlert(enrichedInput).catch(() => {});
+      await maybeSendPinnedDailyLearning(enrichedInput, executorLearning).catch(() => {});
+      await maybeSendDryRunSummary(enrichedInput).catch(() => {});
+    }
     return jsonResponse(request, { ok: true, status });
   } catch (error) {
     return jsonResponse(request, {

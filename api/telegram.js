@@ -9,6 +9,10 @@ export const config = { runtime: "edge" };
 
 const TELEGRAM_API = "https://api.telegram.org";
 
+function telegramSignalsEnabled() {
+  return String(process.env.TELEGRAM_SIGNALS_ENABLED || "true").trim().toLowerCase() !== "false";
+}
+
 export default async function handler(request) {
   if (request.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders(request) });
@@ -71,6 +75,10 @@ export default async function handler(request) {
       await sendTelegram(botToken, chatId, testText);
       const mirror = await sendSignalMirror(botToken, chatId, signalChannelId, testText);
       return jsonResponse(request, { ok: true, sent: true, ...mirror });
+    }
+
+    if (input?.action === "signal" && !telegramSignalsEnabled()) {
+      return jsonResponse(request, { ok: true, sent: false, disabled: true });
     }
 
     if (input?.action !== "signal") {
