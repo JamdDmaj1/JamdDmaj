@@ -249,3 +249,28 @@ dialog.trade-share-dialog.share-out::backdrop{animation:share-backdrop-out .17s 
 .wt-percent-dialog h3{margin:0 0 14px;font-size:16px}
 .wt-percent-dialog .wt-percent-range{width:100%;accent-color:#51e5ad;margin:10px 0 6px}
 .wt-percent-dialog .wt-percent-value{margin:0 0 14px;color:#9db4ca;font-size:13px}
+body.light .wallet-trading-state{background:linear-gradient(135deg,#fff,#f5f9fc)!important;border-color:#d7e0ea!important;box-shadow:none!important}
+body.light .wallet-trading-state :is(h2,h2 span,p,small,summary,dt,dd,strong){color:#15213a!important}
+body.light .wallet-trading-state .wt-account,
+body.light .wallet-trading-state .wt-metric>span,
+body.light .wallet-trading-state .wt-metric>small,
+body.light .wallet-trading-state .wt-position-top>small,
+body.light .wallet-trading-state dt,
+body.light .wallet-trading-state .wt-activity,
+body.light .wallet-trading-state .wt-empty{color:#5b6b7c!important}
+body.light .wallet-trading-state .wt-metric,
+body.light .wallet-trading-state .wt-position,
+body.light .wallet-trading-state .wt-pnl,
+body.light .wallet-trading-state .wt-activity,
+body.light .wallet-trading-state .wt-empty,
+body.light .wallet-trading-state .wt-notice,
+body.light .wallet-trading-state .phoenix-position{background:#f7fafc!important;border-color:#d7e0ea!important}
+body.light .wallet-trading-state .wt-metric.wt-equity{background:linear-gradient(115deg,#e9f6f2,#f8fbfd)!important;border-color:#b9d9d0!important}
+body.light .wallet-trading-state .wt-notice{border-left-color:#0f766e!important}
+body.light .wallet-trading-state button{background:#eef6f3!important;color:#0f5f50!important;border-color:#bfe0d7!important}
+body.light .wallet-trading-state button:hover{border-color:#0f766e!important}
+body.light .wallet-trading-state .positive,
+body.light .wallet-trading-state .wt-positive{color:#047857!important}
+body.light .wallet-trading-state .negative,
+body.light .wallet-trading-state .wt-negative{color:#b91c1c!important}
+body.light .wallet-trading-state .neutral{color:#475569!important}
