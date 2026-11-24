@@ -1,4 +1,4 @@
-import test from 'node:test';
+﻿import test from 'node:test';
 import assert from 'node:assert/strict';
 import {selectPublishedServerPerpsSignals,readServerPerpsSignalFeed,requireFreshServerPerpsSignalFeed} from '../lib/perps-server-signal-feed.js';
 import {evaluateAutomaticEntryQuality} from '../lib/automatic-entry-quality.js';
@@ -25,6 +25,13 @@ test('unpublished, closed, stale, future, unsupported, multiplied and weak candi
  const currentFeed=feed();currentFeed.generatedAt=new Date(now+300000).toISOString();
  assert.equal(selectPublishedServerPerpsSignals(currentFeed,{now:now+300000}).candidates.length,0);
 });
+test('Phoenix can request its own allowed markets without widening Jupiter',()=>{
+ const vvv={...signal('signal:VVV:1'),pair:'VVVUSDT',score:13};
+ assert.equal(selectPublishedServerPerpsSignals(feed([vvv]),{now}).candidates.length,0);
+ const result=selectPublishedServerPerpsSignals(feed([vvv]),{now,allowedMarkets:['VVV']});
+ assert.deepEqual(result.candidates.map(s=>s.id),[vvv.id]);
+});
+
 test('paused feed stays paused and malformed, duplicated or stale feed snapshots fail closed',()=>{
  const paused=feed();paused.executor.livePaused=true;assert.equal(selectPublishedServerPerpsSignals(paused,{now}).remotePaused,true);
  for(const bad of [{...feed(),ok:false},{...feed(),clientFeed:false},{...feed(),executor:{}},{...feed(),open:[signal(),signal()]},
@@ -55,3 +62,4 @@ test('authorization, transport, timeout and size failures never publish, retry o
  let calls=0;for(const token of ['',undefined,'has space in token','x\n'.repeat(16)])await assert.rejects(readServerPerpsSignalFeed({feedToken:token},{fetchImpl:async()=>{calls++;}}));assert.equal(calls,0);
  let clock=0;await assert.rejects(readServerPerpsSignalFeed({feedToken},{now:()=>now,monotonicNow:()=>clock,fetchImpl:async()=>{clock=10001;return Response.json(feed());}}));
 });
+
