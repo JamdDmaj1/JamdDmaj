@@ -22,8 +22,14 @@ export default async function handler(request) {
   const side = String(body?.side || '').toUpperCase();
   const margin = String(body?.marginUsdcUnits || '0');
   const entry = String(body?.entryPriceUsd || '0');
+  const sl = String(body?.slUsdcUnits || '');
+  const tp = String(body?.tp1UsdcUnits || '');
+  const exit = String(body?.exitPriceUsd || '');
+  const pnl = String(body?.pnlUsdcUnits || '');
   if (!EVENTS.has(event) || !/^[A-Z0-9]{2,16}$/.test(symbol) || !['LONG', 'SHORT'].includes(side)
-    || !/^(0|[1-9][0-9]{0,15})$/.test(margin) || !/^(0|[1-9][0-9]{0,15})(\.[0-9]{1,8})?$/.test(entry)) {
+    || !/^(0|[1-9][0-9]{0,15})$/.test(margin) || !/^(0|[1-9][0-9]{0,15})(\.[0-9]{1,8})?$/.test(entry)
+    || (sl && !/^(0|[1-9][0-9]{0,15})$/.test(sl)) || (tp && !/^(0|[1-9][0-9]{0,15})$/.test(tp))
+    || (exit && !/^(0|[1-9][0-9]{0,15})(\.[0-9]{1,8})?$/.test(exit)) || (pnl && !/^-?(0|[1-9][0-9]{0,15})$/.test(pnl))) {
     return jsonResponse(request, {error: {code: 'invalid-event'}}, 400);
   }
   const botToken = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
@@ -32,7 +38,9 @@ export default async function handler(request) {
   if (!botToken || !chatId) return jsonResponse(request, {error: {code: 'automatic-trades-chat-missing'}}, 503);
   const icon = event === 'OPEN' ? '🟢' : '⚪';
   const title = event === 'OPEN' ? 'AUTO OPEN' : 'AUTO CLOSED';
-  const text = `${icon} Automatic Trades · ${title}\n${symbol} ${side}\nMargin: ${amount(margin)} USDC\nEntry: ${entry} USD\nJamdDmaj · Not financial advice.`;
+  const levels = [sl ? 'SL: ' + (Number(sl) / 1e6) + ' USD' : '', tp ? 'TP: ' + (Number(tp) / 1e6) + ' USD' : ''].filter(Boolean).join(' · ');
+  const closed = event === 'CLOSE' ? [exit ? 'Exit: ' + exit + ' USD' : '', pnl ? 'PnL: ' + (Number(pnl) / 1e6).toFixed(2) + ' USDC' : ''].filter(Boolean).join(' · ') : '';
+  const text = `${icon} Automatic Trades · ${title}\n${symbol} ${side}\nMargin: ${amount(margin)} USDC\nEntry: ${entry} USD${levels ? '\n' + levels : ''}${closed ? '\n' + closed : ''}\nJamdDmaj · Not financial advice.`;
   try {
     const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
       method: 'POST',
