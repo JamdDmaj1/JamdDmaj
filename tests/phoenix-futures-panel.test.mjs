@@ -1,4 +1,4 @@
-import test from 'node:test'
+﻿import test from 'node:test'
 import assert from 'node:assert/strict'
 import {setupPhoenixFuturesPanel} from '../lib/phoenix-futures-panel.js'
 
@@ -13,20 +13,17 @@ function element(tag) {
     setAttribute(name, value) { this.attributes[name] = value },
   }
 }
-
 function flatten(node, out = []) {
   if (!node || typeof node !== 'object') return out
   if (node.textContent) out.push(String(node.textContent))
   for (const child of node.children || []) flatten(child, out)
   return out
 }
-
 function byClass(node, className, out = []) {
   if (node?.className === className) out.push(node)
   for (const child of node?.children || []) byClass(child, className, out)
   return out
 }
-
 async function settle(check, label) {
   for (let attempt = 0; attempt < 200; attempt += 1) {
     if (check()) return
@@ -34,7 +31,6 @@ async function settle(check, label) {
   }
   throw new Error('timed out waiting for ' + label)
 }
-
 function fixture(client) {
   const doc = { createElement: (tag) => element(tag) }
   const parent = element('section')
@@ -42,24 +38,25 @@ function fixture(client) {
   return {parent, dispose}
 }
 
-test('lists only markets Phoenix actually serves and counts the rest', async (t) => {
+test('lists every market Phoenix actually serves, not only the curated catalog', async (t) => {
   const client = {
     catalog: async () => ({
       markets: [
         {symbol: 'BTC', active: true, feeMicro: 300, tiers: [{leverageTenths: 100, maxSizeBaseLots: '1'}]},
-        {symbol: 'XRP', active: true, feeMicro: 500, tiers: [{leverageTenths: 50, maxSizeBaseLots: '1'}]},
+        {symbol: 'VVV', active: true, feeMicro: 500, tiers: [{leverageTenths: 50, maxSizeBaseLots: '1'}]},
         {symbol: 'ETH', active: false, feeMicro: 300, tiers: [{leverageTenths: 100, maxSizeBaseLots: '1'}]},
       ],
     }),
   }
   const f = fixture(client)
   t.after(f.dispose)
-  await settle(() => flatten(f.parent).some((text) => text.includes('tienen mercado activo')), 'status')
+  await settle(() => flatten(f.parent).some((text) => text.includes('mercados activos en Phoenix')), 'status')
   const texts = flatten(f.parent)
   assert.ok(texts.some((text) => text.includes('BTC')))
-  assert.ok(texts.some((text) => text.includes('XRP')))
+  assert.ok(texts.some((text) => text.includes('VVV')))
   assert.ok(texts.some((text) => text.includes('mercado inactivo')))
-  assert.ok(texts.some((text) => text.includes('136 todavía no tienen mercado de futuros')))
+  assert.ok(texts.some((text) => text.includes('2 mercados activos en Phoenix')))
+  assert.equal(byClass(f.parent, 'phoenix-market-row').length, 3)
 })
 
 test('never invents markets when Phoenix cannot be read', async (t) => {
