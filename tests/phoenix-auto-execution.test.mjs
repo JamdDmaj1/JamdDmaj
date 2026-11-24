@@ -1,4 +1,4 @@
-import test from 'node:test';
+﻿import test from 'node:test';
 import assert from 'node:assert/strict';
 import {openAutomaticPhoenixPosition, closeAutomaticPhoenixPosition} from '../lib/phoenix-auto-execution.js';
 
@@ -15,7 +15,7 @@ test('automatic Phoenix entry uses the automation gate and explicit server revie
     },
     async confirmEntry(value) { calls.push(['confirm', value]); return {stage: 'PHOENIX_MANUAL_OPERATION', state: 'OPEN'}; }
   };
-  const result = await openAutomaticPhoenixPosition({service, ownerAccountHash: owner, walletAddress: wallet, symbol: 'VVV', side: 'LONG'});
+  const result = await openAutomaticPhoenixPosition({service, ownerAccountHash: owner, walletAddress: wallet, symbol: 'VVV', side: 'LONG', marginUsdcUnits: '10000000', leverageTenths: 30});
   assert.equal(result.state, 'OPEN');
   assert.equal(calls[0][1].automation, true);
   assert.equal(calls[1][1].explicitApproval, true);
@@ -37,3 +37,4 @@ test('automatic Phoenix close is a full close through the automation gate', asyn
   assert.equal(calls[0].automation, true);
   assert.equal(calls[0].closePercent, 100);
 });
+
