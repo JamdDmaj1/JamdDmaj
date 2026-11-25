@@ -124,15 +124,19 @@ test('automatic Phoenix recovers a CLOSING workflow and releases the slot', asyn
   f.store.dispose();
 });
 
-test('automatic Phoenix does not release a CANONICAL_READY slot before the unwrap completes', async () => {
+test('automatic Phoenix sends one close notification after COMPLETE', async () => {
   const f = fixture();
   f.store.reserve({signal: 'signal:1', symbol: 'VVV', side: 'LONG', margin: '10000000', entry: '100000000', sl: '95000000', tp1: '110000000'});
   f.store.attach('signal:1', workflow);
-  f.service.positions = async () => ({stage: 'PHOENIX_MANUAL_POSITIONS', items: [{workflowId: workflow, state: 'CANONICAL_READY', side: 'LONG'}]});
-  const executor = createPhoenixAutoExecutor({controls: f.controls, service: f.service, store: f.store, readFeed: f.feed, ownerAccountHash: owner, walletAddress: wallet});
-  await executor.runOnce();
+  f.service.positions = async () => ({stage: 'PHOENIX_MANUAL_POSITIONS', items: [{workflowId: workflow, state: 'OPEN', side: 'LONG', markPriceUsd: '90'}]});
+  const notices = [];
+  const executor = createPhoenixAutoExecutor({controls: f.controls, service: f.service, store: f.store, readFeed: f.feed, ownerAccountHash: owner, walletAddress: wallet, notify: async event => notices.push(event)});
+  const first = await executor.runOnce();
+  assert.equal(first.stage, 'PHOENIX_AUTO_CLOSE_SENT');
   assert.equal(f.store.read('signal:1').state, 'CLOSED');
-  assert.equal(f.calls.some(([name]) => name === 'recoverClose'), true);
+  assert.equal(notices.filter(event => event.event === 'CLOSE').length, 1);
+  await executor.runOnce();
+  assert.equal(notices.filter(event => event.event === 'CLOSE').length, 1);
   f.store.dispose();
 });
 
