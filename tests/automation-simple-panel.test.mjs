@@ -1,4 +1,4 @@
-﻿import test from 'node:test';
+import test from 'node:test';
 import assert from 'node:assert/strict';
 import {setupAutomationPanel} from '../lib/automation-panel-simple.js';
 
@@ -73,5 +73,38 @@ test('simple automation shows only balance, margin, leverage and trades at once'
   assert.equal(save.settings.loss, 11);
   assert.equal(save.settings.stopLossPercent, null);
   assert.equal(save.settings.takeProfitPercent, null);
+});
+
+test('simple automation retries once after a stale controls revision', async () => {
+  const calls = [];
+  let reads = 0;
+  const old = {
+    walletAddress: '3AXFGU5ErJB46YT6oCFbYh7fq54an1TmFsV5fNWmbQ5T',
+    revision: 'old-revision',
+    enabled: false, paused: true,
+    settings: {capital: 11, loss: 11, positions: 1, margin: 10, leverage: 3, dailyTrades: 5, stopLossPercent: null, takeProfitPercent: null, lossAction: 'disable', reductionPercent: 50}
+  };
+  const fresh = {...old, revision: 'fresh-revision'};
+  const client = {
+    async readStatus() { reads += 1; return {controls: reads === 1 ? old : fresh, recovery: {backupVerified: true}, executionAvailable: true, funding: {stage: 'OBSERVED_EXCLUSIVE_WALLET_FUNDS', availableUsdcUnits: '12272544'}}; },
+    async save(input) { calls.push(['save', input]); return {...fresh, ...input, settings: input.settings, revision: 'saved-revision'}; },
+    async prepareActivation(input) {
+      calls.push(['prepare', input]);
+      if (input.expectedRevision === 'old-revision') throw Object.assign(new Error('stale'), {code: 'settings-changed'});
+      return {walletAddress: old.walletAddress, revision: input.expectedRevision, settings: old.settings, token: 'a'.repeat(64), expiresAt: Date.now() + 30000};
+    },
+    async activate(input) { calls.push(['activate', input]); return {...fresh, enabled: true, paused: false}; },
+    async pause() { calls.push(['pause']); return fresh; }
+  };
+  const f = fixture(client);
+  await settle(() => flatten(f.parent).some(text => text.includes('Balance: 12.272544')), 'balance');
+  const button = findButton(f.parent, 'Activar bot');
+  button.onclick();
+  await settle(() => flatten(f.parent).some(text => text.includes('Pulsa de nuevo')), 'confirmation');
+  button.onclick();
+  await settle(() => calls.some(([name]) => name === 'activate'), 'activation retry');
+  assert.equal(calls.filter(([name]) => name === 'prepare').length, 2);
+  assert.ok(reads >= 2);
+  assert.ok(flatten(f.parent).some(text => text.includes('Bot activo')));
 });
 
