@@ -1,6 +1,6 @@
 const $ = id => document.getElementById(id);
 const base = globalThis.Capacitor?.isNativePlatform?.() ? 'https://www.jamddmaj.com' : '';
-const state = { items: [], data: {}, updatedAt: null, loading: false, usd: 5, solPrice: null, solPriceAt: 0, tab: 'new' };
+const state = { items: [], data: {}, updatedAt: null, loading: false, usd: 5, solPrice: null, solPriceAt: 0, tab: 'new', lookupItem: null, lookupMint: '', lookupLoading: false, lookupError: '' };
 const favorites = new Map();
 try { for (const entry of JSON.parse(localStorage.getItem('jamd-sniper-favs') || '[]')) if (entry?.mint && Number(entry.savedAt) > 0) favorites.set(entry.mint, entry); } catch {}
 const saveFavorites = () => { try { localStorage.setItem('jamd-sniper-favs', JSON.stringify([...favorites.values()])); } catch {} };
@@ -964,18 +964,86 @@ function render() {
   const status = $('sniperStatus');
   const minimum = Number($('sniperMin').value || 0);
   const hideHigh = $('sniperHideHigh').checked;
-  const query = ($('sniperSearch').value || '').toLowerCase().trim();
-  const items = state.items.filter(item => item.score >= minimum && (!hideHigh || item.verdict !== 'ALTO RIESGO') && (!query || String(item.symbol || '').toLowerCase().includes(query)));
+  const rawQuery = ($('sniperSearch').value || '').trim();
+  const query = rawQuery.toLowerCase();
+  const addressQuery = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(rawQuery);
+  if (addressQuery) {
+    if (state.lookupLoading) {
+      grid.replaceChildren();
+      const empty = document.createElement('p');
+      empty.className = 'sniper-empty';
+      empty.textContent = 'Looking up token address...';
+      grid.append(empty);
+      status.textContent = 'Searching ' + rawQuery.slice(0, 6) + '...' + rawQuery.slice(-4);
+      return;
+    }
+    if (state.lookupError) {
+      grid.replaceChildren();
+      const empty = document.createElement('p');
+      empty.className = 'sniper-empty';
+      empty.textContent = state.lookupError;
+      grid.append(empty);
+      status.textContent = 'Token address not found.';
+      return;
+    }
+    if (state.lookupItem) {
+      grid.replaceChildren(card(state.lookupItem));
+      status.textContent = '1 token analyzed by address.';
+      return;
+    }
+  }
+  const items = state.items.filter(item => item.score >= minimum && (!hideHigh || item.verdict !== 'ALTO RIESGO') && (!query || String(item.symbol || '').toLowerCase().includes(query) || String(item.mint || '').toLowerCase().includes(query)));
   grid.replaceChildren();
   if (!items.length) {
     const empty = document.createElement('p');
     empty.className = 'sniper-empty';
-    empty.textContent = state.loading ? 'Analizando tokens nuevos...' : 'Ningun token cumple esos filtros ahora mismo.';
+    empty.textContent = state.loading ? 'Analyzing new tokens...' : 'No token matches those filters right now.';
     grid.append(empty);
     return;
   }
   for (const item of items) grid.append(card(item));
-  status.textContent = items.length + ' token(es) analizados de ' + state.items.length + '.';
+  status.textContent = items.length + ' token(s) analyzed out of ' + state.items.length + '.';
+}
+
+let lookupTimer = null;
+async function lookupAddress(mint) {
+  state.lookupLoading = true;
+  state.lookupError = '';
+  state.lookupItem = null;
+  render();
+  try {
+    const response = await fetch(base + '/api/sniper?mint=' + encodeURIComponent(mint) + '&x=' + Date.now(), { cache: 'no-store' });
+    const data = await response.json().catch(() => null);
+    if (state.lookupMint !== mint) return;
+    const item = Array.isArray(data?.items) ? data.items[0] : null;
+    if (!response.ok || !item) throw Error(data?.error?.message || 'Token address not found');
+    state.lookupItem = item;
+  } catch (error) {
+    if (state.lookupMint === mint) state.lookupError = String(error?.message || error).slice(0, 120);
+  } finally {
+    if (state.lookupMint === mint) {
+      state.lookupLoading = false;
+      render();
+    }
+  }
+}
+function onSearchInput() {
+  const raw = ($('sniperSearch').value || '').trim();
+  clearTimeout(lookupTimer);
+  if (/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(raw)) {
+    state.lookupMint = raw;
+    state.lookupItem = null;
+    state.lookupError = '';
+    state.lookupLoading = true;
+    render();
+    lookupTimer = setTimeout(() => { void lookupAddress(raw); }, 350);
+    return;
+  }
+  state.lookupMint = '';
+  state.lookupItem = null;
+  state.lookupError = '';
+  state.lookupLoading = false;
+  render();
 }
 
 function autoFollow(items, source) {
@@ -1409,7 +1477,7 @@ if (usdInput) {
 $('sniperRefresh').addEventListener('click', refreshTab);
 $('sniperMin').addEventListener('change', render);
 $('sniperHideHigh').addEventListener('change', render);
-$('sniperSearch').addEventListener('input', render);
+$('sniperSearch').addEventListener('input', onSearchInput);
 // Barra de saldo: SOL disponible y valor en tokens, con ojo para ocultarlo.
 const walletState = { data: null, timer: null, hidden: false, owner: null, source: null };
 const shortAddress = value => value ? value.slice(0, 4) + '...' + value.slice(-4) : '';

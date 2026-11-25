@@ -4995,18 +4995,8 @@
         <div class="settings-grid">
           <div class="field">
             <label for="languageInput">Interface language</label>
-            <select id="languageInput">
-              <option value="auto">Automatic</option>
-              <option value="es">Español</option>
-              <option value="en">English</option>
-              <option value="fr">Français</option>
-              <option value="de">Deutsch</option>
-              <option value="pt">Português</option>
-              <option value="it">Italiano</option>
-              <option value="ja">日本語</option>
-              <option value="ko">한국어</option>
-              <option value="zh">中文</option>
-              <option value="ar">العربية</option>
+            <select id="languageInput" disabled>
+              <option value="en" selected>English</option>
             </select>
           </div>
           <div class="field">
@@ -5375,7 +5365,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      let APP_VERSION = "1.81.63";
+      let APP_VERSION = "1.81.64";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -6336,7 +6326,7 @@
         autoSpeak: false,
         liveWeb: false,
         allowPaidImages: false,
-        language: "auto",
+        language: "en",
         personality: "direct",
         voiceName: "",
         voiceStyle: "natural",
@@ -6699,6 +6689,7 @@
 
       let toastTimer = null;
       let settings = loadJson(STORAGE.settings, DEFAULT_SETTINGS);
+      settings.language = "en";
       if (localStorage.getItem(STORAGE.costProfile) !== "3") {
         settings.chatModel = DEFAULT_SETTINGS.chatModel;
         settings.liveWeb = false;
@@ -8412,10 +8403,7 @@ function createLearnNotificationCard() {
       }
 
       function resolvedLanguage() {
-        const requested = settings.language === "auto"
-          ? (navigator.language || "en").slice(0, 2).toLowerCase()
-          : settings.language;
-        return UI_TEXT[requested] ? requested : "en";
+        return "en";
       }
 
       function tradeText(key, replacements = {}) {
@@ -12960,7 +12948,7 @@ function openSettings(focusSection = "") {
           autoSpeak: els.autoSpeak.checked,
           liveWeb: els.liveWeb.checked,
           allowPaidImages: els.allowPaidImages.checked,
-          language: els.language.value,
+          language: "en",
           personality: els.personality.value,
           voiceName: els.voice.value,
           voiceStyle: els.voiceStyle.value,
@@ -15707,7 +15695,7 @@ if (tgResult) {
     })();
   </script>
   <script type="module" src="fair-launch-ui.js?v=1.38.27"></script>
-  <script type="module" src="wallet-login-ui.js?v=1.81.63"></script>
+  <script type="module" src="wallet-login-ui.js?v=1.81.64"></script>
   <script type="module" src="web-trial-ui.js"></script>
   <script type="module" src="jamd-credit-ui.js"></script>
   <script type="module" src="first-visit-ui.js"></script>

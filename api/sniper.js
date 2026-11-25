@@ -235,10 +235,73 @@ function poolSeed(pool) {
   };
 }
 
+async function analyzeSeed(seed, boosts) {
+  const [report, votes, dex] = await Promise.all([
+    readJson('https://api.rugcheck.xyz/v1/tokens/' + seed.mint + '/report'),
+    readJson('https://api.rugcheck.xyz/v1/tokens/' + seed.mint + '/votes', 6000),
+    readJson('https://api.dexscreener.com/latest/dex/tokens/' + seed.mint)
+  ]);
+  const audit = auditToken(report, {
+    reserve_in_usd: seed.liquidityUsd,
+    pool_created_at: seed.createdAt,
+    price_change_percentage: { m5: seed.change5m, h1: seed.change1h },
+    volume_usd: { h1: seed.volume1h },
+    transactions: seed.transactions,
+    symbol: seed.symbol
+  }, votes, null);
+  const pair = Array.isArray(dex?.pairs) ? dex.pairs[0] : null;
+  const socials = Array.isArray(pair?.info?.socials) ? pair.info.socials.filter(item => item && item.handle).slice(0, 4).map(item => ({ type: String(item.type || ''), handle: String(item.handle) })) : [];
+  const websites = Array.isArray(pair?.info?.websites) ? pair.info.websites.filter(item => item && item.url).slice(0, 2).map(item => String(item.url)) : [];
+  const marketCapUsd = num(pair?.marketCap) ?? num(pair?.fdv) ?? seed.marketCapUsd ?? seed.fdvUsd ?? null;
+  const venue = String(pair?.dexId || report?.markets?.[0]?.marketType || '');
+  const pairAddress = String(pair?.pairAddress || seed.poolAddress || '');
+  const pairs = Array.isArray(dex?.pairs) ? dex.pairs : [];
+  const venues = [...new Set(pairs.map(pair => String(pair?.dexId || '')).filter(Boolean))];
+  const boost = boosts.get(seed.mint) || null;
+  const categories = categoriesFor({ ...seed, venue }, boost);
+  return { ...seed, ...audit, marketCapUsd, venue, pairAddress, socials, websites, hasSocials: socials.length > 0, venues, pairsCount: pairs.length, boost, categories };
+}
+
 export default async function handler(request) {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(request) });
   if (request.method !== 'GET') return jsonResponse(request, { error: { message: 'Method not allowed' } }, 405);
   const url = new URL(request.url);
+  const lookupMint = String(url.searchParams.get('mint') || '').trim();
+  if (lookupMint) {
+    if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(lookupMint)) return jsonResponse(request, {error: {message: 'Invalid token address'}}, 400);
+    const feed = await readJson('https://api.geckoterminal.com/api/v2/networks/solana/tokens/' + encodeURIComponent(lookupMint) + '/pools?page=1');
+    const pools = Array.isArray(feed?.data) ? feed.data : [];
+    let seed = null;
+    if (pools.length) {
+      const best = pools.slice().sort((a, b) => (num(b?.attributes?.reserve_in_usd) || 0) - (num(a?.attributes?.reserve_in_usd) || 0))[0];
+      seed = poolSeed(best);
+      if (seed) seed.mint = lookupMint;
+    }
+    if (!seed) {
+      const dex = await readJson('https://api.dexscreener.com/latest/dex/tokens/' + encodeURIComponent(lookupMint));
+      const pair = Array.isArray(dex?.pairs) ? dex.pairs[0] : null;
+      if (pair) seed = {
+        mint: lookupMint,
+        symbol: String(pair.baseToken?.symbol || pair.baseToken?.name || lookupMint.slice(0, 6)).slice(0, 16),
+        poolName: String(pair.baseToken?.name || ''),
+        poolAddress: String(pair.pairAddress || ''),
+        createdAt: pair.pairCreatedAt ? new Date(Number(pair.pairCreatedAt)).toISOString() : null,
+        liquidityUsd: num(pair.liquidity?.usd),
+        fdvUsd: num(pair.fdv),
+        marketCapUsd: num(pair.marketCap),
+        volume24h: num(pair.volume?.h24),
+        volume1h: num(pair.volume?.h1),
+        priceUsd: num(pair.priceUsd),
+        change5m: num(pair.priceChange?.m5),
+        change1h: num(pair.priceChange?.h1),
+        change24h: num(pair.priceChange?.h24)
+      };
+    }
+    if (!seed) return jsonResponse(request, {observedAt: Date.now(), tab: 'lookup', lookupMint, items: [], error: 'token-not-found'}, 404);
+    const boosts = await loadBoosts();
+    const item = await analyzeSeed(seed, boosts);
+    return jsonResponse(request, {observedAt: Date.now(), tab: 'lookup', lookupMint, items: [item], disclaimer: 'Automatic public-data analysis. It does not guarantee a token is safe or profitable.'});
+  }
   const tab = ['new', 'trending', 'volume', 'marketcap'].includes(String(url.searchParams.get('tab'))) ? String(url.searchParams.get('tab')) : 'new';
   const now = Date.now();
   const cached = tabCache.get(tab);
@@ -266,35 +329,10 @@ export default async function handler(request) {
   seeds = seeds.slice(0, TAB_LIMIT);
 
   const boosts = await loadBoosts();
-  const items = await Promise.all(seeds.map(async seed => {
-    const [report, votes, dex] = await Promise.all([
-      readJson('https://api.rugcheck.xyz/v1/tokens/' + seed.mint + '/report'),
-      readJson('https://api.rugcheck.xyz/v1/tokens/' + seed.mint + '/votes', 6000),
-      readJson('https://api.dexscreener.com/latest/dex/tokens/' + seed.mint)
-    ]);
-    const audit = auditToken(report, {
-      reserve_in_usd: seed.liquidityUsd,
-      pool_created_at: seed.createdAt,
-      price_change_percentage: { m5: seed.change5m, h1: seed.change1h },
-      volume_usd: { h1: seed.volume1h },
-      transactions: seed.transactions,
-      symbol: seed.symbol
-    }, votes, null);
-    const pair = Array.isArray(dex?.pairs) ? dex.pairs[0] : null;
-    const socials = Array.isArray(pair?.info?.socials) ? pair.info.socials.filter(item => item && item.handle).slice(0, 4).map(item => ({ type: String(item.type || ''), handle: String(item.handle) })) : [];
-    const websites = Array.isArray(pair?.info?.websites) ? pair.info.websites.filter(item => item && item.url).slice(0, 2).map(item => String(item.url)) : [];
-    const marketCapUsd = num(pair?.marketCap) ?? num(pair?.fdv) ?? seed.marketCapUsd ?? seed.fdvUsd ?? null;
-    const venue = String(pair?.dexId || report?.markets?.[0]?.marketType || '');
-    const pairAddress = String(pair?.pairAddress || seed.poolAddress || '');
-    const pairs = Array.isArray(dex?.pairs) ? dex.pairs : [];
-    const venues = [...new Set(pairs.map(pair => String(pair?.dexId || '')).filter(Boolean))];
-    const boost = boosts.get(seed.mint) || null;
-    const categories = categoriesFor({ ...seed, venue }, boost);
-    return { ...seed, ...audit, marketCapUsd, venue, pairAddress, socials, websites, hasSocials: socials.length > 0, venues, pairsCount: pairs.length, boost, categories };
-  }));
+  const items = await Promise.all(seeds.map(seed => analyzeSeed(seed, boosts)));
 
   const sorted = items.sort((a, b) => b.score - a.score);
-  const body = { observedAt: now, tab, items: sorted, disclaimer: 'Analisis automatico de datos publicos. No garantiza que un token sea seguro ni rentable.' };
+  const body = { observedAt: now, tab, items: sorted, disclaimer: 'Automatic public-data analysis. It does not guarantee a token is safe or profitable.' };
   tabCache.set(tab, { at: now, body });
   return jsonResponse(request, body);
 }

@@ -157,27 +157,27 @@ export default async function handler(request) {
       const crashed = Number.isFinite(drop5) && drop5 <= -60 && sells > buys && nowLiquidity < beforeLiquidity * 0.4;
       if ((drained || crashed) && !(await recentlyNotified(mint, 'rug'))) {
         const detail = [];
-        if (drain !== null) detail.push('liquidez ' + drain.toFixed(0) + '%');
-        if (Number.isFinite(drop5)) detail.push('precio ' + drop5.toFixed(0) + '% 5m');
-        if (sells || buys) detail.push(sells + ' ventas / ' + buys + ' compras');
+        if (drain !== null) detail.push('liquidity ' + drain.toFixed(0) + '%');
+        if (Number.isFinite(drop5)) detail.push('price ' + drop5.toFixed(0) + '% 5m');
+        if (sells || buys) detail.push(sells + ' sells / ' + buys + ' buys');
         alerts.push({ mint, symbol, kind: 'rug', text: 'RUG ' + symbol + ': ' + detail.join(' · ') });
         await markNotified(mint, 'rug', 1200);
       } else if (Number.isFinite(drop5) && drop5 >= 40 && !(await recentlyNotified(mint, 'pump'))) {
-        alerts.push({ mint, symbol, kind: 'pump', text: 'SUBIDA ' + symbol + ': +' + drop5.toFixed(0) + '% en 5 min · liquidez ' + Math.round(nowLiquidity) + ' USD' });
+        alerts.push({ mint, symbol, kind: 'pump', text: 'PUMP ' + symbol + ': +' + drop5.toFixed(0) + '% in 5 min · liquidity ' + Math.round(nowLiquidity) + ' USD' });
         await markNotified(mint, 'pump', 1800);
       }
 
       const beforeVenues = Array.isArray(previous.venues) ? previous.venues : [];
       const freshVenues = Array.isArray(info.venues) ? info.venues.filter(venue => !beforeVenues.includes(venue)) : [];
       if (beforeVenues.length && freshVenues.length && freshVenues.length <= 3 && !(await recentlyNotified(mint, 'listing'))) {
-        alerts.push({ mint, symbol, kind: 'listing', text: 'NUEVO MERCADO ' + symbol + ': ' + freshVenues.join(', ') + ' (ahora ' + info.venues.length + ' en total)' });
+        alerts.push({ mint, symbol, kind: 'listing', text: 'NEW MARKET ' + symbol + ': ' + freshVenues.join(', ') + ' (now ' + info.venues.length + ' total)' });
         await markNotified(mint, 'listing', 7200);
       }
 
       const beforeBoost = Number(previous.boost) || 0;
       const nowBoost = Number(boosts.get(mint)) || 0;
       if (nowBoost > beforeBoost && !(await recentlyNotified(mint, 'boost'))) {
-        alerts.push({ mint, symbol, kind: 'boost', text: 'MARKETING ' + symbol + ': boost activo por ' + nowBoost + ' USD' });
+        alerts.push({ mint, symbol, kind: 'boost', text: 'MARKETING ' + symbol + ': boost active for ' + nowBoost + ' USD' });
         await markNotified(mint, 'boost', 7200);
       }
     }
@@ -188,10 +188,10 @@ export default async function handler(request) {
       const profile = await xProfile(entry.handle);
       if (profile) {
         if (previous?.x?.exists && !profile.exists) {
-          alerts.push({ mint, symbol, kind: 'x', text: 'X SUSPENDIDA ' + symbol + ': la cuenta @' + entry.handle + ' desaparecio' });
+          alerts.push({ mint, symbol, kind: 'x', text: 'X SUSPENDED ' + symbol + ': account @' + entry.handle + ' disappeared' });
           await markNotified(mint, 'x', 7200);
         } else if (profile.exists && Number.isFinite(profile.tweets) && Number.isFinite(previous?.x?.tweets) && profile.tweets > previous.x.tweets) {
-          alerts.push({ mint, symbol, kind: 'x', text: 'PUBLICACION ' + symbol + ': el dev publico ' + (profile.tweets - previous.x.tweets) + ' mensaje(s) en X (@' + entry.handle + ')' });
+          alerts.push({ mint, symbol, kind: 'x', text: 'POST ' + symbol + ': dev posted ' + (profile.tweets - previous.x.tweets) + ' message(s) on X (@' + entry.handle + ')' });
           await markNotified(mint, 'x', 1800);
         }
       }
@@ -203,7 +203,7 @@ export default async function handler(request) {
     if (Date.now() - lastScam > SCAM_INTERVAL && symbol && !(await recentlyNotified(mint, 'scam'))) {
       const mentions = await scamMentions(symbol);
       if (mentions && mentions.scam >= 3 && (!previous?.scam || mentions.scam > previous.scam)) {
-        alerts.push({ mint, symbol, kind: 'scam', text: 'ACUSACIONES ' + symbol + ': ' + mentions.scam + ' resultados publicos lo llaman scam' });
+        alerts.push({ mint, symbol, kind: 'scam', text: 'SCAM REPORTS ' + symbol + ': ' + mentions.scam + ' public results call it a scam' });
         await markNotified(mint, 'scam', 3600);
       }
       await writeSnapshot(mint, { ...(previous || {}), priceUsd: info.priceUsd, pool: entry.pool || previous?.pool || '', liquidityUsd: info.liquidityUsd, pairs: info.pairs, venues: info.venues, boost: Number(boosts.get(mint)) || 0, scamAt: Date.now(), scam: mentions?.scam || previous?.scam || 0 });

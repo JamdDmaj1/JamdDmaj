@@ -58,10 +58,9 @@
   catalogs.es.manualBotNotice="Futuros manuales permite aceptar el modo por orden: tú revisas y confirmas cada operación, sin topes personales obligatorios de capital o pérdida diaria. Puedes perder todo el margen. Los límites avanzados son opcionales y el bot automático conserva sus controles separados. Un Long desde USDC puede requerir conversión con límite del 0,5 % y otra confirmación para abrir. Cada etapa requiere tu aprobación. Se verifican saldo, comisiones y operaciones pendientes; los envíos nunca se repiten automáticamente.";
   const supported = Object.keys(catalogs);
   const browserLanguage = String(navigator.language || "en").split("-")[0].toLowerCase();
-  let locale = supported.includes(localStorage.getItem("jamddmaj_discover_language"))
-    ? localStorage.getItem("jamddmaj_discover_language")
-    : supported.includes(browserLanguage) ? browserLanguage : "en";
+  let locale = "en";
   const language = document.getElementById("language");
+  if (language) { language.hidden = true; language.disabled = true; }
   en.marketsText="Explore market lists and trending pairs in a dedicated workspace, without chat overlap. Open a token for research, then return to chat with one button. Public market data is not execution support or a recommendation.";
   catalogs.es.marketsText="Explora listas de mercados y pares destacados en una vista dedicada, sin el chat superpuesto. Abre un token para investigar y vuelve al chat con un botón. Los datos públicos no garantizan compatibilidad para operar ni son una recomendación.";
   en.marketsText+=" Set USD price alerts in Markets. In Trade Profile → Notifications, enable and save push for this device, then send a test. Check both the notification title and its message; a test is not a trading signal. If setup fails, keep the short status code shown—never share access tokens. Server checks run approximately every minute; delivery can be delayed or blocked by device settings. Telegram signal notices require authorized access. Alerts never place trades. Without push enrollment, local checks require the app open and visible.";
