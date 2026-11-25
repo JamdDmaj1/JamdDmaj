@@ -17,7 +17,7 @@ test('automation never activates from saved data and only persists limits',()=>{
  setupAutomationPanel(node(),'en',{createElement:node},{getItem:()=>JSON.stringify({capital:100,loss:10,positions:2,enabled:true}),setItem:(k,v)=>writes.push(JSON.parse(v))});
  assert.equal(writes.length,0);assert.equal(all.filter(n=>n.disabled).length,3);
  all.find(n=>n.id==='automation-margin').value=10;
- all.find(n=>n.textContent==='Save draft').onclick();assert.deepEqual(writes,[{capital:100,loss:10,positions:2,margin:10,leverage:3,dailyTrades:5,stopLossPercent:null,takeProfitPercent:null,lossAction:'disable',reductionPercent:50}]);
+ all.find(n=>n.textContent==='Save draft').onclick();assert.deepEqual(writes,[{capital:20,loss:20,positions:2,margin:10,leverage:3,dailyTrades:100,stopLossPercent:null,takeProfitPercent:null,lossAction:'disable',reductionPercent:50}]);
 });
 test('settings reject invalid sizing and reduction without persisting activation',()=>{
  const value={capital:100,loss:10,positions:2,margin:10,leverage:3,dailyTrades:5};

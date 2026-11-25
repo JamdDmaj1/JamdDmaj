@@ -1,4 +1,4 @@
-﻿import test from 'node:test';
+import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtempSync} from 'node:fs';
 import {tmpdir} from 'node:os';
@@ -31,7 +31,7 @@ function fixture() {
     async confirmClose() { return {stage: 'PHOENIX_MANUAL_OPERATION', state: 'COMPLETE'}; }
   };
   const controls = {readForOwner() { return {walletAddress: wallet, enabled: true, paused: false, settings: {positions: 1, margin: 10, leverage: 3}}; }};
-  const feed = () => ({remotePaused: false, candidates: [{id: 'signal:1', pair: 'VVVUSDT', side: 'LONG', entry: 100, sl: 95, tp1: 110}]});
+  const feed = () => ({remotePaused: false, candidates: [{id: 'signal:1', pair: 'VVVUSDT', side: 'LONG', entry: 100, sl: 95, tp1: 110, maxLeverage: 10}]});
   return {store, service, controls, feed, calls};
 }
 
@@ -42,6 +42,7 @@ test('automatic Phoenix cycle stores the signal, opens once and then respects th
   assert.equal(first.stage, 'PHOENIX_AUTO_OPEN_SENT');
   assert.equal(f.calls[0][1].automation, true);
   assert.equal(f.calls[1][1].explicitApproval, true);
+  assert.equal(f.calls[0][1].leverageTenths, 100);
   assert.equal(f.store.open().length, 1);
   const second = await executor.runOnce();
   assert.equal(second.stage, 'PHOENIX_AUTO_POSITION_LIMIT');
@@ -57,8 +58,8 @@ test('automatic Phoenix cycle closes only its own workflow at SL/TP', async () =
   const result = await executor.runOnce();
   assert.equal(result.stage, 'PHOENIX_AUTO_CLOSE_SENT');
   assert.equal(f.calls.at(-1)[1].automation, true);
-  assert.equal(f.store.open().length, 1);
-  assert.equal(f.store.open()[0].state, 'CLOSING');
+  assert.equal(f.store.open().length, 0);
+  assert.equal(f.store.read('signal:1').state, 'CLOSED');
   f.store.dispose();
 });
 
