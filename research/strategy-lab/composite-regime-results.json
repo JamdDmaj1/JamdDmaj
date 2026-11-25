@@ -1,0 +1,122 @@
+{
+  "base": {
+    "full": {
+      "cagr": 12.19,
+      "vol": 7.37,
+      "sharpe": 1.6,
+      "dd": -8.51,
+      "winDays": 50
+    },
+    "train": {
+      "cagr": 12.83,
+      "vol": 7.37,
+      "sharpe": 1.68,
+      "dd": -7.04,
+      "winDays": 49.6
+    },
+    "val": {
+      "cagr": 11.74,
+      "vol": 7.38,
+      "sharpe": 1.54,
+      "dd": -7.12,
+      "winDays": 50.2
+    },
+    "last": {
+      "cagr": 6.9,
+      "vol": 5.84,
+      "sharpe": 1.17,
+      "dd": -4.65,
+      "winDays": 50.9
+    }
+  },
+  "composite": {
+    "full": {
+      "cagr": 7.83,
+      "vol": 5.25,
+      "sharpe": 1.46,
+      "dd": -6.39,
+      "winDays": 30.4
+    },
+    "train": {
+      "cagr": 14.05,
+      "vol": 5.57,
+      "sharpe": 2.39,
+      "dd": -3.92,
+      "winDays": 34.2
+    },
+    "val": {
+      "cagr": 3.67,
+      "vol": 5,
+      "sharpe": 0.75,
+      "dd": -5.62,
+      "winDays": 27.8
+    },
+    "last": {
+      "cagr": 5.74,
+      "vol": 5.22,
+      "sharpe": 1.1,
+      "dd": -2.74,
+      "winDays": 25.7
+    }
+  },
+  "longprec_shortboth": {
+    "full": {
+      "cagr": 11.24,
+      "vol": 6.26,
+      "sharpe": 1.73,
+      "dd": -8.51,
+      "winDays": 39.7
+    },
+    "train": {
+      "cagr": 14.57,
+      "vol": 6.5,
+      "sharpe": 2.13,
+      "dd": -7.04,
+      "winDays": 44
+    },
+    "val": {
+      "cagr": 8.96,
+      "vol": 6.08,
+      "sharpe": 1.44,
+      "dd": -4.65,
+      "winDays": 36.7
+    },
+    "last": {
+      "cagr": 4.12,
+      "vol": 5.68,
+      "sharpe": 0.74,
+      "dd": -4.65,
+      "winDays": 48.5
+    }
+  },
+  "longprec_flat": {
+    "full": {
+      "cagr": 6.3,
+      "vol": 3.93,
+      "sharpe": 1.58,
+      "dd": -4.57,
+      "winDays": 19.5
+    },
+    "train": {
+      "cagr": 10.63,
+      "vol": 3.72,
+      "sharpe": 2.73,
+      "dd": -1.63,
+      "winDays": 19.3
+    },
+    "val": {
+      "cagr": 3.36,
+      "vol": 4.06,
+      "sharpe": 0.83,
+      "dd": -4.57,
+      "winDays": 19.6
+    },
+    "last": {
+      "cagr": 0.05,
+      "vol": 2.02,
+      "sharpe": 0.03,
+      "dd": -1.57,
+      "winDays": 9.3
+    }
+  }
+}

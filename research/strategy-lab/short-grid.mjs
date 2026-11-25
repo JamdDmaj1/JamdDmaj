@@ -1,0 +1,7 @@
+// Local research only: short-specific TP/SL grid.
+import {readFileSync, writeFileSync} from "node:fs";
+const S=["BTC-USD","ETH-USD","SOL-USD"],H=30;const data=Object.fromEntries(S.map(s=>[s,JSON.parse(readFileSync("data/"+s+".json","utf8"))]));
+function atr(rows,i,p=14){const t=[];for(let j=Math.max(1,i-p+1);j<=i;j++){const prev=rows[j-1].close;t.push(Math.max(rows[j].high-rows[j].low,Math.abs(rows[j].high-prev),Math.abs(rows[j].low-prev)))}return t.reduce((a,b)=>a+b,0)/t.length}
+function out(rows,i,e,a,tpM,slM){const tp=e-a*tpM,sl=e+a*slM;for(let j=i+1;j<=i+H;j++){const r=rows[j];if(r.high>=sl)return {ret:-slM*a/e-0.001,hit:false};if(r.low<=tp)return {ret:tpM*a/e-0.001,hit:true}}const last=rows[i+H].close;return {ret:(e-last)/e-0.001,hit:last<e}}
+const arr=[];for(const s of S){const rows=data[s];for(let i=20;i<rows.length-H;i++){const mom=rows[i].close/rows[i-10].close-1;if(mom>-0.05)continue;arr.push({rows,i,e:rows[i].close,a:atr(rows,i)})}}
+const res=[];for(const tp of [0.5,1,1.5,2,2.5,3,4])for(const sl of [2,3,4,5,6]){const r=arr.map(x=>out(x.rows,x.i,x.e,x.a,tp,sl));res.push({tp,sl,n:r.length,hit:+(r.filter(x=>x.hit).length/r.length*100).toFixed(1),avg:+(r.reduce((a,x)=>a+x.ret,0)/r.length*100).toFixed(2)})}writeFileSync("short-grid-results.json",JSON.stringify(res,null,2),"utf8");const good=res.filter(x=>x.avg>0).sort((a,b)=>b.avg-a.avg);console.log('positive',good.slice(0,15));console.log('maxhit positive');console.log([...good].sort((a,b)=>b.hit-a.hit).slice(0,8));

@@ -1,0 +1,13 @@
+// Local research only: barrier stats by period, side, momentum and vol.
+import {readFileSync, writeFileSync} from "node:fs";
+const S=["BTC-USD","ETH-USD","SOL-USD"],H=30,SPLIT=Date.UTC(2023,0,1);
+const data=Object.fromEntries(S.map(s=>[s,JSON.parse(readFileSync("data/"+s+".json","utf8"))]));
+function atr(rows,i,p=14){const trs=[];for(let j=Math.max(1,i-p+1);j<=i;j++){const prev=rows[j-1].close;trs.push(Math.max(rows[j].high-rows[j].low,Math.abs(rows[j].high-prev),Math.abs(rows[j].low-prev)))}return trs.length?trs.reduce((a,b)=>a+b,0)/trs.length:0}
+const samples=[];for(const s of S){const rows=data[s];for(let i=20;i<rows.length-H;i++){const mom=rows[i].close/rows[i-10].close-1;const side=mom>0.01?1:mom<-0.05?-1:0;if(!side)continue;const a=atr(rows,i);const rets=rows.slice(Math.max(0,i-20),i+1).map((r,j,arr)=>j?r.close/arr[j-1].close-1:0).slice(1);const vol=Math.sqrt(rets.reduce((x,y)=>x+(y-rets.reduce((a,b)=>a+b,0)/rets.length)**2,0)/rets.length)*Math.sqrt(365);samples.push({s,i,side,entry:rows[i].close,atr:a,rows,time:rows[i].time,mom,vol})}}
+function outcome(x,tpM,slM){const tp=x.entry+x.side*tpM*x.atr,sl=x.entry-x.side*slM*x.atr;for(let j=x.i+1;j<=x.i+H;j++){const r=x.rows[j];if(x.side===1){if(r.low<=sl)return {ret:-slM*x.atr/x.entry-0.001,hit:false};if(r.high>=tp)return {ret:tpM*x.atr/x.entry-0.001,hit:true}}else{if(r.high>=sl)return {ret:-slM*x.atr/x.entry-0.001,hit:false};if(r.low<=tp)return {ret:tpM*x.atr/x.entry-0.001,hit:true}}}const last=x.rows[x.i+H].close;return {ret:x.side*(last/x.entry-1)-0.001,hit:x.side*(last-x.entry)>0}}
+function sum(arr){if(!arr.length)return null;const r=arr.map(x=>outcome(x,3,4));return {n:r.length,hit:+(r.filter(x=>x.hit).length/r.length*100).toFixed(1),avg:+(r.reduce((a,x)=>a+x.ret,0)/r.length*100).toFixed(2)}}
+const momBucket=m=>Math.abs(m)<0.02?"1-2%":Math.abs(m)<0.05?"2-5%":Math.abs(m)<0.10?"5-10%":">10%";
+const volBucket=v=>v<0.4?"<40%":v<0.7?"40-70%":v<1?"70-100%":">100%";
+const out={all:sum(samples),train:sum(samples.filter(x=>x.time<SPLIT)),val:sum(samples.filter(x=>x.time>=SPLIT)),long:sum(samples.filter(x=>x.side===1)),short:sum(samples.filter(x=>x.side===-1)),longVal:sum(samples.filter(x=>x.side===1&&x.time>=SPLIT)),shortVal:sum(samples.filter(x=>x.side===-1&&x.time>=SPLIT)),byMom:{},byVol:{}};
+for(const b of ["1-2%","2-5%","5-10%",">10%"])out.byMom[b]=sum(samples.filter(x=>momBucket(x.mom)===b));for(const b of ["<40%","40-70%","70-100%",">100%"])out.byVol[b]=sum(samples.filter(x=>volBucket(x.vol)===b));
+writeFileSync("barrier-detail.json",JSON.stringify(out,null,2),"utf8");console.log(JSON.stringify(out,null,2));

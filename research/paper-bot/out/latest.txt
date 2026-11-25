@@ -1,0 +1,27 @@
+JamdDmaj Paper Signals · 2026-11-17T04:08:52.962Z
+
+Universe: top 10 Bitget crypto USDT futures by 24h volume
+
+Selected: 0/8 · gross 0.00x (cap 2x)
+
+Portfolio vol before scaling: 0% · scale 1.00 · target 10%
+
+Strategy: TSMOM 7d · long >5% + dip >2% · LONG-ONLY · vol target 10% · max 2x
+
+
+
+No active signals.
+
+Watchlist (not signals):
+
+HYPE 7d -3.25% | Vol 99.82%
+
+XRP 7d -7.42% | Vol 52.9%
+
+NEAR 7d -9.4% | Vol 92.52%
+
+
+
+Active: 0 · scanned: 10 · errors: 0
+
+No orders. No web. Paper research only.

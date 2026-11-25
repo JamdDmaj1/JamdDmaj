@@ -1,0 +1,9 @@
+// Local research only: long precision with BTC MA200 filter.
+import {readFileSync, writeFileSync} from "node:fs";
+const S=["BTC-USD","ETH-USD","SOL-USD"],H=30,LOOK=7,TH=0.05,DIP=0.02,TP=2,SL=5;
+const data=Object.fromEntries(S.map(s=>[s,JSON.parse(readFileSync("data/"+s+".json","utf8"))]));
+const btc=data["BTC-USD"],bmap=new Map(btc.map((r,i)=>[r.time,i]));
+function btcAbove(time){const i=bmap.get(time);if(i==null||i<199)return false;const ma=btc.slice(i-199,i+1).reduce((a,r)=>a+r.close,0)/200;return btc[i].close>ma}
+function atr(rows,i,p=14){const t=[];for(let j=Math.max(1,i-p+1);j<=i;j++){const prev=rows[j-1].close;t.push(Math.max(rows[j].high-rows[j].low,Math.abs(rows[j].high-prev),Math.abs(rows[j].low-prev)))}return t.reduce((a,b)=>a+b,0)/t.length}
+function out(rows,i,e,a){const tp=e+a*TP,sl=e-a*SL;for(let j=i+1;j<=i+H;j++){const r=rows[j];if(r.low<=sl)return {ret:-SL*a/e-0.001,hit:false};if(r.high>=tp)return {ret:TP*a/e-0.001,hit:true}}const last=rows[i+H].close;return {ret:(last/e-1)-0.001,hit:last>e}}
+const all=[],val=[];const years={};for(const s of S){const rows=data[s];for(let i=30;i<rows.length-H;i++){if(!btcAbove(rows[i].time))continue;const mom=rows[i].close/rows[i-LOOK].close-1;const day=rows[i].close/rows[i-1].close-1;if(mom<=TH||day>=-DIP)continue;const x=out(rows,i,rows[i].close,atr(rows,i));all.push(x);if(rows[i].time>=Date.UTC(2023,0,1))val.push(x);const y=new Date(rows[i].time).getUTCFullYear();(years[y]??=[]).push(x)}}function st(a){return {n:a.length,hit:+(a.filter(x=>x.hit).length/a.length*100).toFixed(1),avg:+(a.reduce((s,x)=>s+x.ret,0)/a.length*100).toFixed(2)}}const res={all:st(all),val:st(val),years:{}};for(const [y,a] of Object.entries(years))res.years[y]=st(a);writeFileSync("long-ma200-filter.json",JSON.stringify(res,null,2),"utf8");console.log(JSON.stringify(res,null,2));

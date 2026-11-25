@@ -1,0 +1,55 @@
+{
+  "at": "2026-11-17T04:10:32.106Z",
+  "positions": [
+    {
+      "symbol": "BTCUSDT",
+      "side": "SHORT",
+      "size": -0.06,
+      "entry": 65020.8,
+      "current": 64919,
+      "pnl": 0.009,
+      "tpDist": 13.47,
+      "slDist": 18.33,
+      "tpPnl": 0.82,
+      "slPnl": -1.09
+    },
+    {
+      "symbol": "ENAUSDT",
+      "side": "SHORT",
+      "size": -0.02,
+      "entry": 0.11599,
+      "current": 0.11617,
+      "pnl": -0.003,
+      "tpDist": 35.49,
+      "slDist": 46.95,
+      "tpPnl": 0.71,
+      "slPnl": -0.94
+    },
+    {
+      "symbol": "PEPEUSDT",
+      "side": "SHORT",
+      "size": -0.02,
+      "entry": 0.0000039604,
+      "current": 0.0000039359,
+      "pnl": 0.012,
+      "tpDist": 35.21,
+      "slDist": 48.38,
+      "tpPnl": 0.71,
+      "slPnl": -0.95
+    },
+    {
+      "symbol": "NEARUSDT",
+      "side": "SHORT",
+      "size": -0.03,
+      "entry": 3.2271,
+      "current": 3.2475,
+      "pnl": -0.019,
+      "tpDist": 29.44,
+      "slDist": 37.79,
+      "tpPnl": 0.87,
+      "slPnl": -1.16
+    }
+  ],
+  "allTpPct": 3.11,
+  "allSlPct": -4.14
+}

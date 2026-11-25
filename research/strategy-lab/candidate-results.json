@@ -1,0 +1,418 @@
+{
+  "candidate": {
+    "lookback": 20,
+    "targetVol": 0.15,
+    "maxLeverage": 2,
+    "rebalance": 14
+  },
+  "assumptions": {
+    "cost": 0.0005,
+    "funding": 0.0002
+  },
+  "assets": {
+    "BTC-USD": {
+      "full": {
+        "days": 2875,
+        "cagr": 18.25,
+        "vol": 20.69,
+        "sharpe": 0.91,
+        "maxDrawdown": -26.39,
+        "calmar": 0.69
+      },
+      "train": {
+        "days": 1460,
+        "cagr": 17.06,
+        "vol": 21.06,
+        "sharpe": 0.85,
+        "maxDrawdown": -26.39,
+        "calmar": 0.65
+      },
+      "validation": {
+        "days": 1415,
+        "cagr": 19.48,
+        "vol": 20.29,
+        "sharpe": 0.98,
+        "maxDrawdown": -21.05,
+        "calmar": 0.93
+      }
+    },
+    "ETH-USD": {
+      "full": {
+        "days": 2875,
+        "cagr": 9.68,
+        "vol": 18.93,
+        "sharpe": 0.58,
+        "maxDrawdown": -27.98,
+        "calmar": 0.35
+      },
+      "train": {
+        "days": 1460,
+        "cagr": 13.64,
+        "vol": 18.72,
+        "sharpe": 0.78,
+        "maxDrawdown": -20.07,
+        "calmar": 0.68
+      },
+      "validation": {
+        "days": 1415,
+        "cagr": 5.73,
+        "vol": 19.15,
+        "sharpe": 0.39,
+        "maxDrawdown": -27.98,
+        "calmar": 0.2
+      }
+    },
+    "SOL-USD": {
+      "full": {
+        "days": 2410,
+        "cagr": 19.66,
+        "vol": 18.32,
+        "sharpe": 1.07,
+        "maxDrawdown": -33.3,
+        "calmar": 0.59
+      },
+      "train": {
+        "days": 995,
+        "cagr": 28.27,
+        "vol": 19.28,
+        "sharpe": 1.39,
+        "maxDrawdown": -27.12,
+        "calmar": 1.04
+      },
+      "validation": {
+        "days": 1415,
+        "cagr": 13.95,
+        "vol": 17.61,
+        "sharpe": 0.83,
+        "maxDrawdown": -18.76,
+        "calmar": 0.74
+      }
+    }
+  },
+  "years": {
+    "BTC-USD_2019": {
+      "days": 364,
+      "cagr": 65.88,
+      "vol": 26.04,
+      "sharpe": 2.07,
+      "maxDrawdown": -12.24,
+      "calmar": 5.38
+    },
+    "BTC-USD_2020": {
+      "days": 366,
+      "cagr": 22.28,
+      "vol": 21.03,
+      "sharpe": 1.06,
+      "maxDrawdown": -19.81,
+      "calmar": 1.12
+    },
+    "BTC-USD_2021": {
+      "days": 365,
+      "cagr": 13.49,
+      "vol": 16.56,
+      "sharpe": 0.85,
+      "maxDrawdown": -10.2,
+      "calmar": 1.32
+    },
+    "BTC-USD_2022": {
+      "days": 365,
+      "cagr": -18.37,
+      "vol": 19.33,
+      "sharpe": -0.95,
+      "maxDrawdown": -26.39,
+      "calmar": -0.7
+    },
+    "BTC-USD_2023": {
+      "days": 365,
+      "cagr": 75.59,
+      "vol": 24.89,
+      "sharpe": 2.38,
+      "maxDrawdown": -15.32,
+      "calmar": 4.93
+    },
+    "BTC-USD_2024": {
+      "days": 366,
+      "cagr": -0.42,
+      "vol": 18.2,
+      "sharpe": 0.07,
+      "maxDrawdown": -19.74,
+      "calmar": -0.02
+    },
+    "BTC-USD_2025": {
+      "days": 365,
+      "cagr": 9.07,
+      "vol": 16.65,
+      "sharpe": 0.61,
+      "maxDrawdown": -7.62,
+      "calmar": 1.19
+    },
+    "BTC-USD_2026": {
+      "days": 320,
+      "cagr": 5.67,
+      "vol": 20.31,
+      "sharpe": 0.37,
+      "maxDrawdown": -19.58,
+      "calmar": 0.29
+    },
+    "ETH-USD_2019": {
+      "days": 364,
+      "cagr": 0.36,
+      "vol": 19.94,
+      "sharpe": 0.12,
+      "maxDrawdown": -20.07,
+      "calmar": 0.02
+    },
+    "ETH-USD_2020": {
+      "days": 366,
+      "cagr": 13.09,
+      "vol": 19.03,
+      "sharpe": 0.74,
+      "maxDrawdown": -14.12,
+      "calmar": 0.93
+    },
+    "ETH-USD_2021": {
+      "days": 365,
+      "cagr": 29.53,
+      "vol": 17.26,
+      "sharpe": 1.59,
+      "maxDrawdown": -12.27,
+      "calmar": 2.41
+    },
+    "ETH-USD_2022": {
+      "days": 365,
+      "cagr": 13.4,
+      "vol": 18.52,
+      "sharpe": 0.77,
+      "maxDrawdown": -13.88,
+      "calmar": 0.97
+    },
+    "ETH-USD_2023": {
+      "days": 365,
+      "cagr": 22.07,
+      "vol": 18.58,
+      "sharpe": 1.17,
+      "maxDrawdown": -15.48,
+      "calmar": 1.43
+    },
+    "ETH-USD_2024": {
+      "days": 366,
+      "cagr": -10.45,
+      "vol": 18.46,
+      "sharpe": -0.51,
+      "maxDrawdown": -23.87,
+      "calmar": -0.44
+    },
+    "ETH-USD_2025": {
+      "days": 365,
+      "cagr": 36.4,
+      "vol": 16.92,
+      "sharpe": 1.92,
+      "maxDrawdown": -6.2,
+      "calmar": 5.87
+    },
+    "ETH-USD_2026": {
+      "days": 320,
+      "cagr": -18.6,
+      "vol": 22.51,
+      "sharpe": -0.8,
+      "maxDrawdown": -27.56,
+      "calmar": -0.67
+    },
+    "SOL-USD_2020": {
+      "days": 265,
+      "cagr": 28.05,
+      "vol": 18.02,
+      "sharpe": 1.46,
+      "maxDrawdown": -11.42,
+      "calmar": 2.46
+    },
+    "SOL-USD_2021": {
+      "days": 365,
+      "cagr": 71.72,
+      "vol": 17.47,
+      "sharpe": 3.18,
+      "maxDrawdown": -12.36,
+      "calmar": 5.8
+    },
+    "SOL-USD_2022": {
+      "days": 365,
+      "cagr": -4.07,
+      "vol": 21.63,
+      "sharpe": -0.08,
+      "maxDrawdown": -27.12,
+      "calmar": -0.15
+    },
+    "SOL-USD_2023": {
+      "days": 365,
+      "cagr": 42.18,
+      "vol": 18.27,
+      "sharpe": 2.02,
+      "maxDrawdown": -16.41,
+      "calmar": 2.57
+    },
+    "SOL-USD_2024": {
+      "days": 366,
+      "cagr": 12.3,
+      "vol": 15.93,
+      "sharpe": 0.81,
+      "maxDrawdown": -12.19,
+      "calmar": 1.01
+    },
+    "SOL-USD_2025": {
+      "days": 365,
+      "cagr": 5.71,
+      "vol": 17.41,
+      "sharpe": 0.41,
+      "maxDrawdown": -10.74,
+      "calmar": 0.53
+    },
+    "SOL-USD_2026": {
+      "days": 320,
+      "cagr": -1.51,
+      "vol": 18.77,
+      "sharpe": 0.01,
+      "maxDrawdown": -18.76,
+      "calmar": -0.08
+    }
+  },
+  "portfolio": {
+    "full": {
+      "days": 2410,
+      "cagr": 14.88,
+      "vol": 14.23,
+      "sharpe": 1.05,
+      "maxDrawdown": -18.7,
+      "calmar": 0.8
+    },
+    "train": {
+      "days": 995,
+      "cagr": 16.47,
+      "vol": 13.83,
+      "sharpe": 1.17,
+      "maxDrawdown": -14.39,
+      "calmar": 1.15
+    },
+    "validation": {
+      "days": 1415,
+      "cagr": 13.78,
+      "vol": 14.5,
+      "sharpe": 0.96,
+      "maxDrawdown": -18.7,
+      "calmar": 0.74
+    },
+    "years": {
+      "2020": {
+        "days": 265,
+        "cagr": 20.13,
+        "vol": 11.85,
+        "sharpe": 1.61,
+        "maxDrawdown": -6.97,
+        "calmar": 2.89
+      },
+      "2021": {
+        "days": 365,
+        "cagr": 37.36,
+        "vol": 10.84,
+        "sharpe": 2.98,
+        "maxDrawdown": -5.19,
+        "calmar": 7.2
+      },
+      "2022": {
+        "days": 365,
+        "cagr": -3.42,
+        "vol": 17.33,
+        "sharpe": -0.11,
+        "maxDrawdown": -14.39,
+        "calmar": -0.24
+      },
+      "2023": {
+        "days": 365,
+        "cagr": 46.21,
+        "vol": 16.14,
+        "sharpe": 2.43,
+        "maxDrawdown": -5.87,
+        "calmar": 7.88
+      },
+      "2024": {
+        "days": 366,
+        "cagr": 0.65,
+        "vol": 13.74,
+        "sharpe": 0.12,
+        "maxDrawdown": -12.94,
+        "calmar": 0.05
+      },
+      "2025": {
+        "days": 365,
+        "cagr": 17.05,
+        "vol": 12.62,
+        "sharpe": 1.31,
+        "maxDrawdown": -5.46,
+        "calmar": 3.12
+      },
+      "2026": {
+        "days": 320,
+        "cagr": -4.45,
+        "vol": 15.24,
+        "sharpe": -0.22,
+        "maxDrawdown": -15.67,
+        "calmar": -0.28
+      }
+    }
+  },
+  "stress": {
+    "base": {
+      "full": {
+        "days": 2410,
+        "cagr": 14.88,
+        "vol": 14.23,
+        "sharpe": 1.05,
+        "maxDrawdown": -18.7,
+        "calmar": 0.8
+      },
+      "validation": {
+        "days": 1415,
+        "cagr": 13.78,
+        "vol": 14.5,
+        "sharpe": 0.96,
+        "maxDrawdown": -18.7,
+        "calmar": 0.74
+      }
+    },
+    "double": {
+      "full": {
+        "days": 2410,
+        "cagr": 12.35,
+        "vol": 14.23,
+        "sharpe": 0.89,
+        "maxDrawdown": -19.94,
+        "calmar": 0.62
+      },
+      "validation": {
+        "days": 1415,
+        "cagr": 10.81,
+        "vol": 14.5,
+        "sharpe": 0.78,
+        "maxDrawdown": -19.94,
+        "calmar": 0.54
+      }
+    },
+    "high": {
+      "full": {
+        "days": 2410,
+        "cagr": 11.28,
+        "vol": 14.23,
+        "sharpe": 0.82,
+        "maxDrawdown": -20.85,
+        "calmar": 0.54
+      },
+      "validation": {
+        "days": 1415,
+        "cagr": 9.58,
+        "vol": 14.5,
+        "sharpe": 0.7,
+        "maxDrawdown": -20.85,
+        "calmar": 0.46
+      }
+    }
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "all": {
+    "full": {
+      "cagr": 8.23,
+      "vol": 14.78,
+      "sharpe": 0.61,
+      "dd": -30.09,
+      "winDays": 16.6
+    },
+    "val": {
+      "cagr": 5.84,
+      "vol": 7.18,
+      "sharpe": 0.83,
+      "dd": -9.51,
+      "winDays": 4.1
+    },
+    "all": {
+      "cagr": 7.27,
+      "vol": 12.31,
+      "sharpe": 0.63,
+      "dd": -30.09,
+      "winDays": 11.6
+    }
+  },
+  "majority": {
+    "full": {
+      "cagr": 13.12,
+      "vol": 17.85,
+      "sharpe": 0.78,
+      "dd": -30.09,
+      "winDays": 22.9
+    },
+    "val": {
+      "cagr": 9.25,
+      "vol": 12.48,
+      "sharpe": 0.77,
+      "dd": -18.57,
+      "winDays": 13.9
+    },
+    "all": {
+      "cagr": 11.55,
+      "vol": 15.92,
+      "sharpe": 0.77,
+      "dd": -30.09,
+      "winDays": 19.3
+    }
+  }
+}

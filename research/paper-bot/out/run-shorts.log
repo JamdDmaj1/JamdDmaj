@@ -1,0 +1,51 @@
+JamdDmaj Paper Signals · 2026-11-17T04:07:53.019Z
+
+Universe: top 10 Bitget crypto USDT futures by 24h volume
+
+Selected: 4/8 · gross 0.13x (cap 2x)
+
+Portfolio vol before scaling: 37.7% · scale 0.27 · target 10%
+
+Strategy: TSMOM 10d · long >1% / short <-5% · vol target 10% · max 2x
+
+
+
+SHORT BTCUSDT
+Entry 65020.8
+10d -14.14% | Vol 44.15%
+Size -0.06x | TP 56172.535714 | SL 76818.485714 (18.14%)
+Paper only · rebalance 30d
+
+SHORT ENAUSDT
+Entry 0.11599
+10d -26.64% | Vol 111.06%
+Size -0.02x | TP 0.074946 | SL 0.170716 (47.18%)
+Paper only · rebalance 30d
+
+SHORT PEPEUSDT
+Entry 0.000004
+10d -18.77% | Vol 123.82%
+Size -0.02x | TP 0.000003 | SL 0.000006 (47.43%)
+Paper only · rebalance 30d
+
+SHORT NEARUSDT
+Entry 3.2271
+10d -12.25% | Vol 92.52%
+Size -0.03x | TP 2.291314 | SL 4.474814 (38.66%)
+Paper only · rebalance 30d
+
+
+
+Active: 4 · scanned: 10 · errors: 0
+
+No orders. No web. Paper research only.
+Paper Tracker · 2026-11-17T04:07:53.738Z
+Equity: 0.9999 | realized 0.00% | unrealized -0.00% | fees 0.01% | funding 0.00%
+Open: 4 | Closed: 0 | Win rate: n/a | Risk at stops: 4.141%
+
+SHORT BTC size -0.06x entry 65020.8 now 64919 pnl 0.0094%
+SHORT ENA size -0.02x entry 0.11599 now 0.11617 pnl -0.0031%
+SHORT PEPE size -0.02x entry 0.0000039604 now 0.0000039359 pnl 0.0124%
+SHORT NEAR size -0.03x entry 3.2271 now 3.2475 pnl -0.019%
+
+No real orders. Paper only.

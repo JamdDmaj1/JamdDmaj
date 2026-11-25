@@ -1,0 +1,67 @@
+{
+  "all": {
+    "all": {
+      "n": 111,
+      "hit": 74.8,
+      "avg": 4.71
+    },
+    "train": {
+      "n": 71,
+      "hit": 83.1,
+      "avg": 6.5
+    },
+    "val": {
+      "n": 40,
+      "hit": 60,
+      "avg": 1.52
+    }
+  },
+  "pos": {
+    "all": {
+      "n": 89,
+      "hit": 77.5,
+      "avg": 5.13
+    },
+    "train": {
+      "n": 55,
+      "hit": 87.3,
+      "avg": 7.55
+    },
+    "val": {
+      "n": 34,
+      "hit": 61.8,
+      "avg": 1.22
+    }
+  },
+  "neg": {
+    "all": {
+      "n": 22,
+      "hit": 63.6,
+      "avg": 2.98
+    },
+    "train": null,
+    "val": null
+  },
+  "strongNeg": {
+    "all": null,
+    "train": null,
+    "val": null
+  },
+  "strongPos": {
+    "all": {
+      "n": 56,
+      "hit": 75,
+      "avg": 4.55
+    },
+    "train": {
+      "n": 35,
+      "hit": 85.7,
+      "avg": 7.01
+    },
+    "val": {
+      "n": 21,
+      "hit": 57.1,
+      "avg": 0.45
+    }
+  }
+}

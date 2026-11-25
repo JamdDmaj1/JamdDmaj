@@ -1,0 +1,9 @@
+// Local research only: signal hit rates on long Yahoo history.
+import {readFileSync, writeFileSync} from "node:fs";
+const DATA="../strategy-lab/data";const SYMBOLS=["BTC-USD","ETH-USD","SOL-USD"];const H=[1,3,5,10,20,30],LOOK=10,TH=0.01;
+function sd(a){if(a.length<2)return 0;const m=a.reduce((x,y)=>x+y,0)/a.length;return Math.sqrt(a.reduce((x,y)=>x+(y-m)**2,0)/a.length)}
+function bucketMom(m){const a=Math.abs(m);return a<0.02?"1-2%":a<0.05?"2-5%":a<0.1?"5-10%":">10%"}
+const samples=[];
+for(const sym of SYMBOLS){const rows=JSON.parse(readFileSync(DATA+"/"+sym+".json","utf8"));const c=rows.map(r=>r.close);for(let i=20;i<c.length-1;i++){const mom=c[i]/c[i-LOOK]-1;if(Math.abs(mom)<TH)continue;const side=mom>0?1:-1;const rets=c.slice(i-20,i+1).map((v,j,a)=>j?v/a[j-1]-1:0).slice(1);const vol=sd(rets)*Math.sqrt(365);const sma50=i>=49?c.slice(i-49,i+1).reduce((a,b)=>a+b,0)/50:null;const regime=sma50==null?"unknown":c[i]>sma50?"above":"below";for(const h of H){if(i+h>=c.length)continue;const ret=side*(c[i+h]/c[i]-1);samples.push({sym,side,h,ret,hit:ret>0,mom,vol,regime,bucket:bucketMom(mom)})}}}
+function sum(filter){const o={};for(const h of H){const s=samples.filter(x=>x.h===h&&filter(x));if(!s.length){o[h]={n:0};continue}const wins=s.filter(x=>x.hit).length;const avg=s.reduce((a,x)=>a+x.ret,0)/s.length;o[h]={n:s.length,hit:+(wins/s.length*100).toFixed(1),avg:+(avg*100).toFixed(2)}}return o}
+const out={all:sum(()=>true), asym:sum(x=>x.side===1?x.mom>0.01:x.mom<-0.05),long:sum(x=>x.side===1),short:sum(x=>x.side===-1),aboveLong:sum(x=>x.regime==="above"&&x.side===1),aboveShort:sum(x=>x.regime==="above"&&x.side===-1),belowLong:sum(x=>x.regime==="below"&&x.side===1),belowShort:sum(x=>x.regime==="below"&&x.side===-1),byMom:Object.fromEntries(["1-2%","2-5%","5-10%",">10%"].map(b=>[b,sum(x=>x.bucket===b)]))};writeFileSync("out/signal-lab-yahoo.json",JSON.stringify(out,null,2),"utf8");console.log(JSON.stringify(out,null,2));

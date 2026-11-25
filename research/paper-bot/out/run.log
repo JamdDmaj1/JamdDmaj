@@ -1,0 +1,78 @@
+JamdDmaj Paper Signals · 2026-11-17T03:58:55.794Z
+
+Universe: top 10 Bitget crypto USDT futures by 24h volume
+
+Selected: 0/8 · gross 0.00x (cap 2x)
+
+Portfolio vol before scaling: 0% · scale 1.00 · target 10%
+
+Strategy: TSMOM 7d · long >5% + dip >2% · LONG-ONLY · vol target 10% · max 2x
+
+
+
+No active signals.
+
+
+
+Active: 0 · scanned: 10 · errors: 0
+
+No orders. No web. Paper research only.
+{
+  "generatedAt": "2026-11-17T03:58:55.932Z",
+  "universe": 10,
+  "period": {
+    "from": "2026-08-19",
+    "to": "2026-11-16",
+    "days": 89
+  },
+  "assumptions": {
+    "costPerSide": 0.0005,
+    "fundingDaily": 0.0002,
+    "targetVol": 0.1,
+    "maxLeverage": 2,
+    "lookback": 10,
+    "longThreshold": 0.01,
+    "shortThreshold": 0.05,
+    "rebalanceDays": 30
+  },
+  "strategy": {
+    "days": 89,
+    "returnPct": 5.28,
+    "cagr": 23.5,
+    "volPct": 8.59,
+    "sharpe": 2.5,
+    "maxDD": -3.19
+  },
+  "buyHold": {
+    "days": 89,
+    "returnPct": 7.63,
+    "cagr": 35.2,
+    "volPct": 71.84,
+    "sharpe": 0.78,
+    "maxDD": -35.58
+  },
+  "lastPositions": {
+    "XRPUSDT": -0.05639550229076287,
+    "SOLUSDT": -0.055315872050806916,
+    "ZECUSDT": -0.024465980076992085,
+    "HYPEUSDT": -0.051872045834551746,
+    "NEARUSDT": 0.022179312884909323,
+    "PEPEUSDT": 0.03488279300054358,
+    "ENAUSDT": -0.02633078626410696,
+    "DOGEUSDT": -0.04953676714651891
+  }
+}
+Paper Tracker · 2026-11-17T03:58:56.596Z
+Equity: 0.9996 | realized 0.00% | unrealized -0.03% | fees 0.01% | funding 0.00%
+Open: 8 | Closed: 0 | Win rate: n/a | Risk at stops: 4.336%
+
+SHORT BTC size -0.03x entry 65020.8 now 65022.7 pnl -0.0001%
+SHORT XRP size -0.03x entry 0.9639 now 0.9673 pnl -0.0106%
+SHORT DOGE size -0.02x entry 0.05935 now 0.05934 pnl 0.0003%
+SHORT SOL size -0.02x entry 72.504 now 72.779 pnl -0.0076%
+SHORT ETH size -0.02x entry 1829.16 now 1831.49 pnl -0.0025%
+SHORT ENA size -0.01x entry 0.11599 now 0.1165 pnl -0.0044%
+SHORT ZEC size -0.01x entry 918.99 now 923.1 pnl -0.0045%
+SHORT PEPE size -0.01x entry 0.0000039604 now 0.0000039462 pnl 0.0036%
+
+No real orders. Paper only.

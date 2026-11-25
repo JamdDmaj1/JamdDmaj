@@ -1,0 +1,25 @@
+{
+  "startedAt": "2026-11-17T04:07:30.232Z",
+  "realized": 0,
+  "fees": 0,
+  "funding": 0,
+  "lastFundingDate": "2026-11-17",
+  "positions": [],
+  "closed": [],
+  "history": [
+    {
+      "date": "2026-11-17",
+      "at": "2026-11-17T04:07:30.234Z",
+      "equity": 1,
+      "realized": 0,
+      "unrealized": 0,
+      "fees": 0,
+      "funding": 0,
+      "openRiskPct": 0,
+      "openPositions": 0,
+      "closedTrades": 0,
+      "winRate": null
+    }
+  ],
+  "feeInitialized": true
+}

@@ -1,0 +1,15 @@
+﻿[Unit]
+Description=JamdDmaj perps TLS reverse proxy
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/opt/jamddmaj-perps/https/caddy run --config /etc/jamddmaj-perps/Caddyfile --adapter caddyfile
+Restart=always
+RestartSec=5
+LimitNOFILE=1048576
+
+[Install]
+WantedBy=multi-user.target

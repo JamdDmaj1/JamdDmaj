@@ -1,0 +1,127 @@
+{
+  "chosen": [
+    {
+      "year": 2022,
+      "lookback": 12,
+      "rebalance": 30,
+      "th": 0.005,
+      "targetVol": 0.1,
+      "train": {
+        "cagr": 24.3,
+        "vol": 6.92,
+        "sharpe": 3.18,
+        "dd": -4.86
+      },
+      "i": 36
+    },
+    {
+      "year": 2023,
+      "lookback": 12,
+      "rebalance": 30,
+      "th": 0.005,
+      "targetVol": 0.1,
+      "train": {
+        "cagr": 17.17,
+        "vol": 7.6,
+        "sharpe": 2.12,
+        "dd": -8.4
+      },
+      "i": 36
+    },
+    {
+      "year": 2024,
+      "lookback": 10,
+      "rebalance": 30,
+      "th": 0.02,
+      "targetVol": 0.1,
+      "train": {
+        "cagr": 12.85,
+        "vol": 7.93,
+        "sharpe": 1.57,
+        "dd": -8.46
+      },
+      "i": 21
+    },
+    {
+      "year": 2025,
+      "lookback": 10,
+      "rebalance": 30,
+      "th": 0.015,
+      "targetVol": 0.1,
+      "train": {
+        "cagr": 12.79,
+        "vol": 8.68,
+        "sharpe": 1.43,
+        "dd": -8.23
+      },
+      "i": 18
+    },
+    {
+      "year": 2026,
+      "lookback": 12,
+      "rebalance": 20,
+      "th": 0.02,
+      "targetVol": 0.1,
+      "train": {
+        "cagr": 16.19,
+        "vol": 7.76,
+        "sharpe": 1.97,
+        "dd": -4.92
+      },
+      "i": 33
+    }
+  ],
+  "annual": [
+    {
+      "year": 2022,
+      "test": {
+        "cagr": 5.81,
+        "vol": 8.62,
+        "sharpe": 0.7,
+        "dd": -8.4
+      }
+    },
+    {
+      "year": 2023,
+      "test": {
+        "cagr": 20.77,
+        "vol": 10.09,
+        "sharpe": 1.92,
+        "dd": -7.73
+      }
+    },
+    {
+      "year": 2024,
+      "test": {
+        "cagr": 8.39,
+        "vol": 8.43,
+        "sharpe": 1,
+        "dd": -7.37
+      }
+    },
+    {
+      "year": 2025,
+      "test": {
+        "cagr": 5.26,
+        "vol": 8.8,
+        "sharpe": 0.63,
+        "dd": -4.24
+      }
+    },
+    {
+      "year": 2026,
+      "test": {
+        "cagr": 14.19,
+        "vol": 9.09,
+        "sharpe": 1.5,
+        "dd": -5.71
+      }
+    }
+  ],
+  "oos": {
+    "cagr": 10.64,
+    "vol": 9.03,
+    "sharpe": 1.17,
+    "dd": -9.21
+  }
+}

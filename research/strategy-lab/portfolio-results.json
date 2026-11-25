@@ -1,0 +1,158 @@
+{
+  "Buy & hold": {
+    "full": {
+      "days": 2410,
+      "cagr": 20.36,
+      "vol": 24.53,
+      "sharpe": 0.88,
+      "maxDrawdown": -44.36,
+      "calmar": 0.46
+    },
+    "inSample": {
+      "days": 995,
+      "cagr": 24.54,
+      "vol": 23.21,
+      "sharpe": 1.06,
+      "maxDrawdown": -44.36,
+      "calmar": 0.55
+    },
+    "outOfSample": {
+      "days": 1415,
+      "cagr": 17.51,
+      "vol": 25.42,
+      "sharpe": 0.76,
+      "maxDrawdown": -38.86,
+      "calmar": 0.45
+    }
+  },
+  "TSMOM 30d": {
+    "full": {
+      "days": 2410,
+      "cagr": 24.07,
+      "vol": 19.97,
+      "sharpe": 1.18,
+      "maxDrawdown": -26.41,
+      "calmar": 0.91
+    },
+    "inSample": {
+      "days": 995,
+      "cagr": 46.86,
+      "vol": 17.94,
+      "sharpe": 2.23,
+      "maxDrawdown": -11.08,
+      "calmar": 4.23
+    },
+    "outOfSample": {
+      "days": 1415,
+      "cagr": 10.19,
+      "vol": 21.26,
+      "sharpe": 0.56,
+      "maxDrawdown": -26.41,
+      "calmar": 0.39
+    }
+  },
+  "TSMOM 60d": {
+    "full": {
+      "days": 2410,
+      "cagr": 8.13,
+      "vol": 21.01,
+      "sharpe": 0.48,
+      "maxDrawdown": -52.32,
+      "calmar": 0.16
+    },
+    "inSample": {
+      "days": 995,
+      "cagr": 21.14,
+      "vol": 19.39,
+      "sharpe": 1.09,
+      "maxDrawdown": -31.55,
+      "calmar": 0.67
+    },
+    "outOfSample": {
+      "days": 1415,
+      "cagr": -0.17,
+      "vol": 22.07,
+      "sharpe": 0.1,
+      "maxDrawdown": -36.04,
+      "calmar": 0
+    }
+  },
+  "MA 50/200": {
+    "full": {
+      "days": 2410,
+      "cagr": -1.81,
+      "vol": 22.72,
+      "sharpe": 0.03,
+      "maxDrawdown": -63.38,
+      "calmar": -0.03
+    },
+    "inSample": {
+      "days": 995,
+      "cagr": 37.04,
+      "vol": 21.27,
+      "sharpe": 1.59,
+      "maxDrawdown": -24.19,
+      "calmar": 1.53
+    },
+    "outOfSample": {
+      "days": 1415,
+      "cagr": -22.33,
+      "vol": 23.61,
+      "sharpe": -0.95,
+      "maxDrawdown": -62.98,
+      "calmar": -0.35
+    }
+  },
+  "Donchian 55/20": {
+    "full": {
+      "days": 2410,
+      "cagr": 11.57,
+      "vol": 15.97,
+      "sharpe": 0.77,
+      "maxDrawdown": -35.26,
+      "calmar": 0.33
+    },
+    "inSample": {
+      "days": 995,
+      "cagr": 23.61,
+      "vol": 14.63,
+      "sharpe": 1.52,
+      "maxDrawdown": -20.41,
+      "calmar": 1.16
+    },
+    "outOfSample": {
+      "days": 1415,
+      "cagr": 3.82,
+      "vol": 16.84,
+      "sharpe": 0.31,
+      "maxDrawdown": -23.4,
+      "calmar": 0.16
+    }
+  },
+  "TSMOM + MA200": {
+    "full": {
+      "days": 2410,
+      "cagr": 15.43,
+      "vol": 16.75,
+      "sharpe": 0.94,
+      "maxDrawdown": -27.85,
+      "calmar": 0.55
+    },
+    "inSample": {
+      "days": 995,
+      "cagr": 41.3,
+      "vol": 16.25,
+      "sharpe": 2.21,
+      "maxDrawdown": -9.75,
+      "calmar": 4.24
+    },
+    "outOfSample": {
+      "days": 1415,
+      "cagr": 0.13,
+      "vol": 17.06,
+      "sharpe": 0.09,
+      "maxDrawdown": -27.85,
+      "calmar": 0
+    }
+  }
+}

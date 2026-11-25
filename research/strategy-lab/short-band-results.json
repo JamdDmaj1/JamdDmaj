@@ -1,0 +1,152 @@
+{
+  "longonly": {
+    "full": {
+      "cagr": 12.11,
+      "vol": 6.77,
+      "sharpe": 1.72,
+      "dd": -8.67,
+      "winDays": 39.1
+    },
+    "train": {
+      "cagr": 12.24,
+      "vol": 6.53,
+      "sharpe": 1.8,
+      "dd": -7.49,
+      "winDays": 43.2
+    },
+    "val": {
+      "cagr": 12.02,
+      "vol": 6.94,
+      "sharpe": 1.67,
+      "dd": -8.67,
+      "winDays": 36.2
+    },
+    "last": {
+      "cagr": -1.62,
+      "vol": 5.92,
+      "sharpe": -0.25,
+      "dd": -7.77,
+      "winDays": 40.7
+    }
+  },
+  "allshort": {
+    "full": {
+      "cagr": 12.19,
+      "vol": 7.37,
+      "sharpe": 1.6,
+      "dd": -8.51,
+      "winDays": 50
+    },
+    "train": {
+      "cagr": 12.83,
+      "vol": 7.37,
+      "sharpe": 1.68,
+      "dd": -7.04,
+      "winDays": 49.6
+    },
+    "val": {
+      "cagr": 11.74,
+      "vol": 7.38,
+      "sharpe": 1.54,
+      "dd": -7.12,
+      "winDays": 50.2
+    },
+    "last": {
+      "cagr": 6.9,
+      "vol": 5.84,
+      "sharpe": 1.17,
+      "dd": -4.65,
+      "winDays": 50.9
+    }
+  },
+  "band1020": {
+    "full": {
+      "cagr": 10.8,
+      "vol": 6.98,
+      "sharpe": 1.5,
+      "dd": -8.11,
+      "winDays": 46.1
+    },
+    "train": {
+      "cagr": 12.62,
+      "vol": 6.93,
+      "sharpe": 1.75,
+      "dd": -6.64,
+      "winDays": 48.4
+    },
+    "val": {
+      "cagr": 9.54,
+      "vol": 7.01,
+      "sharpe": 1.33,
+      "dd": -7.46,
+      "winDays": 44.4
+    },
+    "last": {
+      "cagr": -0.48,
+      "vol": 5.48,
+      "sharpe": -0.06,
+      "dd": -6.79,
+      "winDays": 45.2
+    }
+  },
+  "band1520": {
+    "full": {
+      "cagr": 10.82,
+      "vol": 6.67,
+      "sharpe": 1.57,
+      "dd": -9.73,
+      "winDays": 42.1
+    },
+    "train": {
+      "cagr": 11.24,
+      "vol": 6.49,
+      "sharpe": 1.67,
+      "dd": -7.16,
+      "winDays": 44.2
+    },
+    "val": {
+      "cagr": 10.53,
+      "vol": 6.79,
+      "sharpe": 1.51,
+      "dd": -9.73,
+      "winDays": 40.5
+    },
+    "last": {
+      "cagr": -2.87,
+      "vol": 5.94,
+      "sharpe": -0.46,
+      "dd": -8.84,
+      "winDays": 42.8
+    }
+  },
+  "shortonly1020": {
+    "full": {
+      "cagr": -1.21,
+      "vol": 3.25,
+      "sharpe": -0.36,
+      "dd": -11.8,
+      "winDays": 15.2
+    },
+    "train": {
+      "cagr": 0.31,
+      "vol": 3.4,
+      "sharpe": 0.11,
+      "dd": -7.39,
+      "winDays": 18.8
+    },
+    "val": {
+      "cagr": -2.26,
+      "vol": 3.13,
+      "sharpe": -0.72,
+      "dd": -11.66,
+      "winDays": 12.6
+    },
+    "last": {
+      "cagr": 1.12,
+      "vol": 2.02,
+      "sharpe": 0.56,
+      "dd": -1.8,
+      "winDays": 10.2
+    }
+  }
+}

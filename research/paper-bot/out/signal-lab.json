@@ -1,0 +1,853 @@
+{
+  "generatedAt": "2026-11-17T03:44:32.863Z",
+  "symbols": 45,
+  "samples": 14603,
+  "horizon": {
+    "1": {
+      "n": 2885,
+      "hitRatePct": 50,
+      "avgRetPct": 0.25,
+      "medianRetPct": 0,
+      "avgWinPct": 4.43,
+      "avgLossPct": 3.94,
+      "payoff": 1.12
+    },
+    "3": {
+      "n": 2798,
+      "hitRatePct": 53.4,
+      "avgRetPct": 0.04,
+      "medianRetPct": 0.45,
+      "avgWinPct": 7.42,
+      "avgLossPct": 8.4,
+      "payoff": 0.88
+    },
+    "5": {
+      "n": 2708,
+      "hitRatePct": 55.2,
+      "avgRetPct": 0.34,
+      "medianRetPct": 1.1,
+      "avgWinPct": 9.6,
+      "avgLossPct": 11.05,
+      "payoff": 0.87
+    },
+    "10": {
+      "n": 2490,
+      "hitRatePct": 56.4,
+      "avgRetPct": 0.23,
+      "medianRetPct": 2.06,
+      "avgWinPct": 13.49,
+      "avgLossPct": 16.91,
+      "payoff": 0.8
+    },
+    "20": {
+      "n": 2073,
+      "hitRatePct": 53.7,
+      "avgRetPct": 0.33,
+      "medianRetPct": 2.32,
+      "avgWinPct": 20.65,
+      "avgLossPct": 23.22,
+      "payoff": 0.89
+    },
+    "30": {
+      "n": 1649,
+      "hitRatePct": 50.2,
+      "avgRetPct": 1.37,
+      "medianRetPct": 0.25,
+      "avgWinPct": 26.64,
+      "avgLossPct": 24.11,
+      "payoff": 1.11
+    }
+  },
+  "bySide": {
+    "long": {
+      "1": {
+        "n": 1070,
+        "hitRatePct": 45.3,
+        "avgRetPct": 0.16,
+        "medianRetPct": -0.31,
+        "avgWinPct": 5.18,
+        "avgLossPct": 3.99,
+        "payoff": 1.3
+      },
+      "3": {
+        "n": 1055,
+        "hitRatePct": 41.8,
+        "avgRetPct": -0.16,
+        "medianRetPct": -1.05,
+        "avgWinPct": 8.92,
+        "avgLossPct": 6.67,
+        "payoff": 1.34
+      },
+      "5": {
+        "n": 1044,
+        "hitRatePct": 40.8,
+        "avgRetPct": 0.11,
+        "medianRetPct": -1.94,
+        "avgWinPct": 12.01,
+        "avgLossPct": 8.09,
+        "payoff": 1.48
+      },
+      "10": {
+        "n": 1014,
+        "hitRatePct": 40.8,
+        "avgRetPct": -0.04,
+        "medianRetPct": -2.29,
+        "avgWinPct": 17.12,
+        "avgLossPct": 11.89,
+        "payoff": 1.44
+      },
+      "20": {
+        "n": 913,
+        "hitRatePct": 33,
+        "avgRetPct": -3.11,
+        "medianRetPct": -8.25,
+        "avgWinPct": 26.58,
+        "avgLossPct": 17.71,
+        "payoff": 1.5
+      },
+      "30": {
+        "n": 800,
+        "hitRatePct": 29,
+        "avgRetPct": -6.06,
+        "medianRetPct": -11.06,
+        "avgWinPct": 27.13,
+        "avgLossPct": 19.62,
+        "payoff": 1.38
+      }
+    },
+    "short": {
+      "1": {
+        "n": 1815,
+        "hitRatePct": 52.8,
+        "avgRetPct": 0.29,
+        "medianRetPct": 0.22,
+        "avgWinPct": 4.05,
+        "avgLossPct": 3.9,
+        "payoff": 1.04
+      },
+      "3": {
+        "n": 1743,
+        "hitRatePct": 60.4,
+        "avgRetPct": 0.16,
+        "medianRetPct": 1.6,
+        "avgWinPct": 6.79,
+        "avgLossPct": 9.94,
+        "payoff": 0.68
+      },
+      "5": {
+        "n": 1664,
+        "hitRatePct": 64.2,
+        "avgRetPct": 0.49,
+        "medianRetPct": 3.05,
+        "avgWinPct": 8.64,
+        "avgLossPct": 14.12,
+        "payoff": 0.61
+      },
+      "10": {
+        "n": 1476,
+        "hitRatePct": 67.1,
+        "avgRetPct": 0.42,
+        "medianRetPct": 5.07,
+        "avgWinPct": 11.97,
+        "avgLossPct": 23.11,
+        "payoff": 0.52
+      },
+      "20": {
+        "n": 1160,
+        "hitRatePct": 70,
+        "avgRetPct": 3.04,
+        "medianRetPct": 10.09,
+        "avgWinPct": 18.45,
+        "avgLossPct": 32.91,
+        "payoff": 0.56
+      },
+      "30": {
+        "n": 849,
+        "hitRatePct": 70.2,
+        "avgRetPct": 8.38,
+        "medianRetPct": 16.89,
+        "avgWinPct": 26.45,
+        "avgLossPct": 34.19,
+        "payoff": 0.77
+      }
+    }
+  },
+  "byMomentum": {
+    "1-2%": {
+      "1": {
+        "n": 222,
+        "hitRatePct": 46.4,
+        "avgRetPct": 0.22,
+        "medianRetPct": -0.16,
+        "avgWinPct": 3.44,
+        "avgLossPct": 2.56,
+        "payoff": 1.34
+      },
+      "3": {
+        "n": 221,
+        "hitRatePct": 52.5,
+        "avgRetPct": 0.07,
+        "medianRetPct": 0.16,
+        "avgWinPct": 5.67,
+        "avgLossPct": 6.11,
+        "payoff": 0.93
+      },
+      "5": {
+        "n": 219,
+        "hitRatePct": 53.9,
+        "avgRetPct": 0.1,
+        "medianRetPct": 0.77,
+        "avgWinPct": 7.66,
+        "avgLossPct": 8.73,
+        "payoff": 0.88
+      },
+      "10": {
+        "n": 212,
+        "hitRatePct": 50.5,
+        "avgRetPct": -3.61,
+        "medianRetPct": 0.47,
+        "avgWinPct": 10.43,
+        "avgLossPct": 17.92,
+        "payoff": 0.58
+      },
+      "20": {
+        "n": 177,
+        "hitRatePct": 50.8,
+        "avgRetPct": -2.74,
+        "medianRetPct": 0.38,
+        "avgWinPct": 19.25,
+        "avgLossPct": 25.49,
+        "payoff": 0.76
+      },
+      "30": {
+        "n": 144,
+        "hitRatePct": 47.2,
+        "avgRetPct": -1.47,
+        "medianRetPct": -1.05,
+        "avgWinPct": 22.63,
+        "avgLossPct": 23.03,
+        "payoff": 0.98
+      }
+    },
+    "2-5%": {
+      "1": {
+        "n": 539,
+        "hitRatePct": 48.8,
+        "avgRetPct": 0.28,
+        "medianRetPct": -0.03,
+        "avgWinPct": 3.65,
+        "avgLossPct": 2.93,
+        "payoff": 1.25
+      },
+      "3": {
+        "n": 531,
+        "hitRatePct": 49.5,
+        "avgRetPct": -0.02,
+        "medianRetPct": -0.03,
+        "avgWinPct": 5.73,
+        "avgLossPct": 5.67,
+        "payoff": 1.01
+      },
+      "5": {
+        "n": 526,
+        "hitRatePct": 50.6,
+        "avgRetPct": 0.25,
+        "medianRetPct": 0.15,
+        "avgWinPct": 7.3,
+        "avgLossPct": 6.96,
+        "payoff": 1.05
+      },
+      "10": {
+        "n": 500,
+        "hitRatePct": 53.4,
+        "avgRetPct": 0.48,
+        "medianRetPct": 1.26,
+        "avgWinPct": 12.41,
+        "avgLossPct": 13.2,
+        "payoff": 0.94
+      },
+      "20": {
+        "n": 423,
+        "hitRatePct": 58.6,
+        "avgRetPct": 1.26,
+        "medianRetPct": 3.45,
+        "avgWinPct": 17.23,
+        "avgLossPct": 21.37,
+        "payoff": 0.81
+      },
+      "30": {
+        "n": 333,
+        "hitRatePct": 54.4,
+        "avgRetPct": 1.99,
+        "medianRetPct": 2.55,
+        "avgWinPct": 21.33,
+        "avgLossPct": 21.04,
+        "payoff": 1.01
+      }
+    },
+    "5-10%": {
+      "1": {
+        "n": 735,
+        "hitRatePct": 49.7,
+        "avgRetPct": 0.44,
+        "medianRetPct": -0.02,
+        "avgWinPct": 3.91,
+        "avgLossPct": 2.98,
+        "payoff": 1.31
+      },
+      "3": {
+        "n": 729,
+        "hitRatePct": 54.9,
+        "avgRetPct": 0.81,
+        "medianRetPct": 0.54,
+        "avgWinPct": 6.67,
+        "avgLossPct": 6.31,
+        "payoff": 1.06
+      },
+      "5": {
+        "n": 714,
+        "hitRatePct": 59.5,
+        "avgRetPct": 1.28,
+        "medianRetPct": 1.7,
+        "avgWinPct": 8.14,
+        "avgLossPct": 8.79,
+        "payoff": 0.93
+      },
+      "10": {
+        "n": 661,
+        "hitRatePct": 60.4,
+        "avgRetPct": 0.34,
+        "medianRetPct": 3.03,
+        "avgWinPct": 11.15,
+        "avgLossPct": 16.13,
+        "payoff": 0.69
+      },
+      "20": {
+        "n": 537,
+        "hitRatePct": 54.6,
+        "avgRetPct": 0.4,
+        "medianRetPct": 2.84,
+        "avgWinPct": 18.71,
+        "avgLossPct": 21.58,
+        "payoff": 0.87
+      },
+      "30": {
+        "n": 409,
+        "hitRatePct": 51.1,
+        "avgRetPct": 3.28,
+        "medianRetPct": 0.62,
+        "avgWinPct": 27.07,
+        "avgLossPct": 21.57,
+        "payoff": 1.25
+      }
+    },
+    ">10%": {
+      "1": {
+        "n": 1389,
+        "hitRatePct": 51.3,
+        "avgRetPct": 0.13,
+        "medianRetPct": 0.12,
+        "avgWinPct": 5.12,
+        "avgLossPct": 5.11,
+        "payoff": 1
+      },
+      "3": {
+        "n": 1317,
+        "hitRatePct": 54.2,
+        "avgRetPct": -0.36,
+        "medianRetPct": 0.77,
+        "avgWinPct": 8.75,
+        "avgLossPct": 11.15,
+        "payoff": 0.78
+      },
+      "5": {
+        "n": 1249,
+        "hitRatePct": 54.8,
+        "avgRetPct": -0.12,
+        "medianRetPct": 1.11,
+        "avgWinPct": 11.73,
+        "avgLossPct": 14.51,
+        "payoff": 0.81
+      },
+      "10": {
+        "n": 1117,
+        "hitRatePct": 56.5,
+        "avgRetPct": 0.78,
+        "medianRetPct": 2.4,
+        "avgWinPct": 15.94,
+        "avgLossPct": 18.89,
+        "payoff": 0.84
+      },
+      "20": {
+        "n": 936,
+        "hitRatePct": 51.5,
+        "avgRetPct": 0.45,
+        "medianRetPct": 1.25,
+        "avgWinPct": 23.85,
+        "avgLossPct": 24.39,
+        "payoff": 0.98
+      },
+      "30": {
+        "n": 763,
+        "hitRatePct": 48.5,
+        "avgRetPct": 0.62,
+        "medianRetPct": -2.21,
+        "avgWinPct": 29.73,
+        "avgLossPct": 26.79,
+        "payoff": 1.11
+      }
+    }
+  },
+  "byVol": {
+    "<40%": {
+      "1": {
+        "n": 267,
+        "hitRatePct": 48.7,
+        "avgRetPct": 0.04,
+        "medianRetPct": -0.03,
+        "avgWinPct": 1.63,
+        "avgLossPct": 1.48,
+        "payoff": 1.1
+      },
+      "3": {
+        "n": 265,
+        "hitRatePct": 47.9,
+        "avgRetPct": -0.11,
+        "medianRetPct": -0.08,
+        "avgWinPct": 2.79,
+        "avgLossPct": 2.77,
+        "payoff": 1.01
+      },
+      "5": {
+        "n": 263,
+        "hitRatePct": 50.2,
+        "avgRetPct": -0.55,
+        "medianRetPct": 0.08,
+        "avgWinPct": 3.12,
+        "avgLossPct": 4.24,
+        "payoff": 0.74
+      },
+      "10": {
+        "n": 255,
+        "hitRatePct": 47.5,
+        "avgRetPct": -1.24,
+        "medianRetPct": -0.14,
+        "avgWinPct": 4.68,
+        "avgLossPct": 6.59,
+        "payoff": 0.71
+      },
+      "20": {
+        "n": 222,
+        "hitRatePct": 55,
+        "avgRetPct": -0.11,
+        "medianRetPct": 1.17,
+        "avgWinPct": 7.72,
+        "avgLossPct": 9.67,
+        "payoff": 0.8
+      },
+      "30": {
+        "n": 163,
+        "hitRatePct": 58.9,
+        "avgRetPct": 3.13,
+        "medianRetPct": 2.81,
+        "avgWinPct": 10.84,
+        "avgLossPct": 7.93,
+        "payoff": 1.37
+      }
+    },
+    "40-70%": {
+      "1": {
+        "n": 798,
+        "hitRatePct": 50.4,
+        "avgRetPct": 0.27,
+        "medianRetPct": 0.04,
+        "avgWinPct": 2.91,
+        "avgLossPct": 2.41,
+        "payoff": 1.21
+      },
+      "3": {
+        "n": 769,
+        "hitRatePct": 56.7,
+        "avgRetPct": 0.77,
+        "medianRetPct": 0.72,
+        "avgWinPct": 5.01,
+        "avgLossPct": 4.79,
+        "payoff": 1.05
+      },
+      "5": {
+        "n": 737,
+        "hitRatePct": 58.1,
+        "avgRetPct": 1.13,
+        "medianRetPct": 1.56,
+        "avgWinPct": 7.35,
+        "avgLossPct": 7.49,
+        "payoff": 0.98
+      },
+      "10": {
+        "n": 662,
+        "hitRatePct": 60.6,
+        "avgRetPct": -0.04,
+        "medianRetPct": 2.49,
+        "avgWinPct": 10.96,
+        "avgLossPct": 16.93,
+        "payoff": 0.65
+      },
+      "20": {
+        "n": 518,
+        "hitRatePct": 51.9,
+        "avgRetPct": -0.82,
+        "medianRetPct": 1.68,
+        "avgWinPct": 19.57,
+        "avgLossPct": 22.85,
+        "payoff": 0.86
+      },
+      "30": {
+        "n": 384,
+        "hitRatePct": 45.6,
+        "avgRetPct": 0.44,
+        "medianRetPct": -1.61,
+        "avgWinPct": 23.56,
+        "avgLossPct": 18.92,
+        "payoff": 1.25
+      }
+    },
+    "70-100%": {
+      "1": {
+        "n": 756,
+        "hitRatePct": 50.3,
+        "avgRetPct": 0.41,
+        "medianRetPct": 0.04,
+        "avgWinPct": 4.51,
+        "avgLossPct": 3.74,
+        "payoff": 1.21
+      },
+      "3": {
+        "n": 732,
+        "hitRatePct": 56.1,
+        "avgRetPct": 0.82,
+        "medianRetPct": 1.05,
+        "avgWinPct": 7.71,
+        "avgLossPct": 7.99,
+        "payoff": 0.96
+      },
+      "5": {
+        "n": 708,
+        "hitRatePct": 57.6,
+        "avgRetPct": 1.27,
+        "medianRetPct": 2.4,
+        "avgWinPct": 10.07,
+        "avgLossPct": 10.7,
+        "payoff": 0.94
+      },
+      "10": {
+        "n": 650,
+        "hitRatePct": 61.4,
+        "avgRetPct": 0.28,
+        "medianRetPct": 5.14,
+        "avgWinPct": 13.42,
+        "avgLossPct": 20.59,
+        "payoff": 0.65
+      },
+      "20": {
+        "n": 556,
+        "hitRatePct": 60.1,
+        "avgRetPct": 0.41,
+        "medianRetPct": 7.88,
+        "avgWinPct": 19.83,
+        "avgLossPct": 28.81,
+        "payoff": 0.69
+      },
+      "30": {
+        "n": 443,
+        "hitRatePct": 53.7,
+        "avgRetPct": 0.41,
+        "medianRetPct": 4.39,
+        "avgWinPct": 25.24,
+        "avgLossPct": 28.41,
+        "payoff": 0.89
+      }
+    },
+    ">100%": {
+      "1": {
+        "n": 1064,
+        "hitRatePct": 49.9,
+        "avgRetPct": 0.16,
+        "medianRetPct": 0,
+        "avgWinPct": 6.19,
+        "avgLossPct": 5.84,
+        "payoff": 1.06
+      },
+      "3": {
+        "n": 1032,
+        "hitRatePct": 50.3,
+        "avgRetPct": -1.02,
+        "medianRetPct": 0.08,
+        "avgWinPct": 10.35,
+        "avgLossPct": 12.51,
+        "payoff": 0.83
+      },
+      "5": {
+        "n": 1000,
+        "hitRatePct": 52.6,
+        "avgRetPct": -0.66,
+        "medianRetPct": 0.93,
+        "avgWinPct": 12.69,
+        "avgLossPct": 15.47,
+        "payoff": 0.82
+      },
+      "10": {
+        "n": 923,
+        "hitRatePct": 52.3,
+        "avgRetPct": 0.79,
+        "medianRetPct": 1.15,
+        "avgWinPct": 17.86,
+        "avgLossPct": 17.95,
+        "payoff": 1
+      },
+      "20": {
+        "n": 777,
+        "hitRatePct": 49.9,
+        "avgRetPct": 1.17,
+        "medianRetPct": -0.28,
+        "avgWinPct": 26.17,
+        "avgLossPct": 23.76,
+        "payoff": 1.1
+      },
+      "30": {
+        "n": 659,
+        "hitRatePct": 48.4,
+        "avgRetPct": 2.13,
+        "medianRetPct": -3.77,
+        "avgWinPct": 34.12,
+        "avgLossPct": 27.89,
+        "payoff": 1.22
+      }
+    }
+  },
+  "byRegimeSide": {
+    "aboveLong": {
+      "1": {
+        "n": 241,
+        "hitRatePct": 42.3,
+        "avgRetPct": 0.19,
+        "medianRetPct": -0.38,
+        "avgWinPct": 6.68,
+        "avgLossPct": 4.58,
+        "payoff": 1.46
+      },
+      "3": {
+        "n": 234,
+        "hitRatePct": 37.2,
+        "avgRetPct": -1.38,
+        "medianRetPct": -1.87,
+        "avgWinPct": 9.11,
+        "avgLossPct": 7.59,
+        "payoff": 1.2
+      },
+      "5": {
+        "n": 228,
+        "hitRatePct": 36,
+        "avgRetPct": -3.92,
+        "medianRetPct": -3.97,
+        "avgWinPct": 7.67,
+        "avgLossPct": 10.44,
+        "payoff": 0.74
+      },
+      "10": {
+        "n": 214,
+        "hitRatePct": 32.2,
+        "avgRetPct": -5.82,
+        "medianRetPct": -7.63,
+        "avgWinPct": 12.14,
+        "avgLossPct": 14.36,
+        "payoff": 0.85
+      },
+      "20": {
+        "n": 148,
+        "hitRatePct": 23,
+        "avgRetPct": -6.03,
+        "medianRetPct": -12.26,
+        "avgWinPct": 35.28,
+        "avgLossPct": 18.35,
+        "payoff": 1.92
+      },
+      "30": {
+        "n": 74,
+        "hitRatePct": 21.6,
+        "avgRetPct": -13.2,
+        "medianRetPct": -11.3,
+        "avgWinPct": 16.61,
+        "avgLossPct": 21.43,
+        "payoff": 0.78
+      }
+    },
+    "aboveShort": {
+      "1": {
+        "n": 235,
+        "hitRatePct": 51.5,
+        "avgRetPct": 0.03,
+        "medianRetPct": 0.18,
+        "avgWinPct": 3.87,
+        "avgLossPct": 4.04,
+        "payoff": 0.96
+      },
+      "3": {
+        "n": 233,
+        "hitRatePct": 64.8,
+        "avgRetPct": -0.65,
+        "medianRetPct": 2.53,
+        "avgWinPct": 6.23,
+        "avgLossPct": 13.31,
+        "payoff": 0.47
+      },
+      "5": {
+        "n": 229,
+        "hitRatePct": 72.5,
+        "avgRetPct": 0.55,
+        "medianRetPct": 4.31,
+        "avgWinPct": 7.36,
+        "avgLossPct": 17.42,
+        "payoff": 0.42
+      },
+      "10": {
+        "n": 222,
+        "hitRatePct": 77.5,
+        "avgRetPct": 4.64,
+        "medianRetPct": 6.84,
+        "avgWinPct": 10,
+        "avgLossPct": 13.78,
+        "payoff": 0.73
+      },
+      "20": {
+        "n": 210,
+        "hitRatePct": 82.4,
+        "avgRetPct": 10.85,
+        "medianRetPct": 13.01,
+        "avgWinPct": 15.59,
+        "avgLossPct": 11.3,
+        "payoff": 1.38
+      },
+      "30": {
+        "n": 158,
+        "hitRatePct": 92.4,
+        "avgRetPct": 20.46,
+        "medianRetPct": 22.34,
+        "avgWinPct": 23.38,
+        "avgLossPct": 15.01,
+        "payoff": 1.56
+      }
+    },
+    "belowLong": {
+      "1": {
+        "n": 111,
+        "hitRatePct": 40.5,
+        "avgRetPct": -1,
+        "medianRetPct": -0.69,
+        "avgWinPct": 5.78,
+        "avgLossPct": 5.63,
+        "payoff": 1.03
+      },
+      "3": {
+        "n": 103,
+        "hitRatePct": 28.2,
+        "avgRetPct": -5.41,
+        "medianRetPct": -5.04,
+        "avgWinPct": 10.7,
+        "avgLossPct": 11.72,
+        "payoff": 0.91
+      },
+      "5": {
+        "n": 98,
+        "hitRatePct": 22.4,
+        "avgRetPct": -5.58,
+        "medianRetPct": -6.96,
+        "avgWinPct": 17.83,
+        "avgLossPct": 12.36,
+        "payoff": 1.44
+      },
+      "10": {
+        "n": 82,
+        "hitRatePct": 18.3,
+        "avgRetPct": -15.8,
+        "medianRetPct": -19.11,
+        "avgWinPct": 17.56,
+        "avgLossPct": 23.27,
+        "payoff": 0.75
+      },
+      "20": {
+        "n": 47,
+        "hitRatePct": 23.4,
+        "avgRetPct": -17.8,
+        "medianRetPct": -25.07,
+        "avgWinPct": 33.35,
+        "avgLossPct": 33.43,
+        "payoff": 1
+      },
+      "30": {
+        "n": 10,
+        "hitRatePct": 60,
+        "avgRetPct": 10.41,
+        "medianRetPct": 14.01,
+        "avgWinPct": 45.41,
+        "avgLossPct": 42.11,
+        "payoff": 1.08
+      }
+    },
+    "belowShort": {
+      "1": {
+        "n": 1092,
+        "hitRatePct": 56.3,
+        "avgRetPct": 0.65,
+        "medianRetPct": 0.41,
+        "avgWinPct": 4.22,
+        "avgLossPct": 3.96,
+        "payoff": 1.07
+      },
+      "3": {
+        "n": 1022,
+        "hitRatePct": 67.2,
+        "avgRetPct": 1.59,
+        "medianRetPct": 2.53,
+        "avgWinPct": 7.37,
+        "avgLossPct": 10.26,
+        "payoff": 0.72
+      },
+      "5": {
+        "n": 947,
+        "hitRatePct": 73.4,
+        "avgRetPct": 2.92,
+        "medianRetPct": 4.31,
+        "avgWinPct": 9.53,
+        "avgLossPct": 15.31,
+        "payoff": 0.62
+      },
+      "10": {
+        "n": 766,
+        "hitRatePct": 78.6,
+        "avgRetPct": 4.92,
+        "medianRetPct": 7.16,
+        "avgWinPct": 12.88,
+        "avgLossPct": 24.3,
+        "payoff": 0.53
+      },
+      "20": {
+        "n": 462,
+        "hitRatePct": 85.7,
+        "avgRetPct": 10.56,
+        "medianRetPct": 15.22,
+        "avgWinPct": 19.94,
+        "avgLossPct": 45.75,
+        "payoff": 0.44
+      },
+      "30": {
+        "n": 203,
+        "hitRatePct": 89.2,
+        "avgRetPct": 14.2,
+        "medianRetPct": 23.91,
+        "avgWinPct": 28.78,
+        "avgLossPct": 105.71,
+        "payoff": 0.27
+      }
+    }
+  }
+}

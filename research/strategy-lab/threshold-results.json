@@ -1,0 +1,301 @@
+{
+  "thresholds": {
+    "0": {
+      "train": {
+        "cagr": 16.47,
+        "vol": 13.83,
+        "sharpe": 1.17,
+        "maxDrawdown": -14.39,
+        "calmar": 1.15
+      },
+      "validation": {
+        "cagr": 13.78,
+        "vol": 14.5,
+        "sharpe": 0.96,
+        "maxDrawdown": -18.7,
+        "calmar": 0.74
+      },
+      "full": {
+        "cagr": 14.88,
+        "vol": 14.23,
+        "sharpe": 1.05,
+        "maxDrawdown": -18.7,
+        "calmar": 0.8
+      },
+      "year2022": {
+        "cagr": -3.42,
+        "vol": 17.33,
+        "sharpe": -0.11,
+        "maxDrawdown": -14.39,
+        "calmar": -0.24
+      },
+      "year2026": {
+        "cagr": -4.85,
+        "vol": 15.25,
+        "sharpe": -0.25,
+        "maxDrawdown": -15.67,
+        "calmar": -0.31
+      }
+    },
+    "0.005": {
+      "train": {
+        "cagr": 13.87,
+        "vol": 13.73,
+        "sharpe": 1.02,
+        "maxDrawdown": -16.95,
+        "calmar": 0.82
+      },
+      "validation": {
+        "cagr": 15.68,
+        "vol": 14.21,
+        "sharpe": 1.1,
+        "maxDrawdown": -17.18,
+        "calmar": 0.91
+      },
+      "full": {
+        "cagr": 14.93,
+        "vol": 14.01,
+        "sharpe": 1.06,
+        "maxDrawdown": -20.07,
+        "calmar": 0.74
+      },
+      "year2022": {
+        "cagr": -9.67,
+        "vol": 17.19,
+        "sharpe": -0.51,
+        "maxDrawdown": -16.95,
+        "calmar": -0.57
+      },
+      "year2026": {
+        "cagr": 2.37,
+        "vol": 14.85,
+        "sharpe": 0.23,
+        "maxDrawdown": -14.18,
+        "calmar": 0.17
+      }
+    },
+    "0.01": {
+      "train": {
+        "cagr": 11.8,
+        "vol": 13.69,
+        "sharpe": 0.88,
+        "maxDrawdown": -17.32,
+        "calmar": 0.68
+      },
+      "validation": {
+        "cagr": 13.87,
+        "vol": 13.99,
+        "sharpe": 1,
+        "maxDrawdown": -15.95,
+        "calmar": 0.87
+      },
+      "full": {
+        "cagr": 13.01,
+        "vol": 13.86,
+        "sharpe": 0.95,
+        "maxDrawdown": -20.18,
+        "calmar": 0.64
+      },
+      "year2022": {
+        "cagr": -10.73,
+        "vol": 17.05,
+        "sharpe": -0.58,
+        "maxDrawdown": -17.32,
+        "calmar": -0.62
+      },
+      "year2026": {
+        "cagr": -0.05,
+        "vol": 14.35,
+        "sharpe": 0.07,
+        "maxDrawdown": -12.91,
+        "calmar": 0
+      }
+    },
+    "0.02": {
+      "train": {
+        "cagr": 14.04,
+        "vol": 13.55,
+        "sharpe": 1.04,
+        "maxDrawdown": -16.4,
+        "calmar": 0.86
+      },
+      "validation": {
+        "cagr": 8.48,
+        "vol": 13.13,
+        "sharpe": 0.69,
+        "maxDrawdown": -15.95,
+        "calmar": 0.53
+      },
+      "full": {
+        "cagr": 10.74,
+        "vol": 13.31,
+        "sharpe": 0.83,
+        "maxDrawdown": -21.98,
+        "calmar": 0.49
+      },
+      "year2022": {
+        "cagr": -9.73,
+        "vol": 16.87,
+        "sharpe": -0.52,
+        "maxDrawdown": -16.4,
+        "calmar": -0.59
+      },
+      "year2026": {
+        "cagr": 0.47,
+        "vol": 14.3,
+        "sharpe": 0.1,
+        "maxDrawdown": -12.91,
+        "calmar": 0.04
+      }
+    },
+    "0.03": {
+      "train": {
+        "cagr": 20.03,
+        "vol": 12.42,
+        "sharpe": 1.53,
+        "maxDrawdown": -11.49,
+        "calmar": 1.74
+      },
+      "validation": {
+        "cagr": 6.74,
+        "vol": 12.67,
+        "sharpe": 0.58,
+        "maxDrawdown": -18.68,
+        "calmar": 0.36
+      },
+      "full": {
+        "cagr": 12.04,
+        "vol": 12.57,
+        "sharpe": 0.97,
+        "maxDrawdown": -18.68,
+        "calmar": 0.64
+      },
+      "year2022": {
+        "cagr": 0.42,
+        "vol": 14.29,
+        "sharpe": 0.1,
+        "maxDrawdown": -11.49,
+        "calmar": 0.04
+      },
+      "year2026": {
+        "cagr": -1.77,
+        "vol": 14,
+        "sharpe": -0.06,
+        "maxDrawdown": -15.88,
+        "calmar": -0.11
+      }
+    },
+    "0.05": {
+      "train": {
+        "cagr": 20.96,
+        "vol": 11.41,
+        "sharpe": 1.73,
+        "maxDrawdown": -10.24,
+        "calmar": 2.05
+      },
+      "validation": {
+        "cagr": 6.96,
+        "vol": 11.59,
+        "sharpe": 0.64,
+        "maxDrawdown": -14.34,
+        "calmar": 0.49
+      },
+      "full": {
+        "cagr": 12.53,
+        "vol": 11.52,
+        "sharpe": 1.08,
+        "maxDrawdown": -14.34,
+        "calmar": 0.87
+      },
+      "year2022": {
+        "cagr": 0.89,
+        "vol": 13.15,
+        "sharpe": 0.13,
+        "maxDrawdown": -10.24,
+        "calmar": 0.09
+      },
+      "year2026": {
+        "cagr": 3.8,
+        "vol": 12.24,
+        "sharpe": 0.37,
+        "maxDrawdown": -11.91,
+        "calmar": 0.32
+      }
+    },
+    "0.08": {
+      "train": {
+        "cagr": 20.49,
+        "vol": 9.69,
+        "sharpe": 1.97,
+        "maxDrawdown": -9.05,
+        "calmar": 2.26
+      },
+      "validation": {
+        "cagr": 7.06,
+        "vol": 9.62,
+        "sharpe": 0.76,
+        "maxDrawdown": -11.55,
+        "calmar": 0.61
+      },
+      "full": {
+        "cagr": 12.41,
+        "vol": 9.66,
+        "sharpe": 1.26,
+        "maxDrawdown": -11.55,
+        "calmar": 1.07
+      },
+      "year2022": {
+        "cagr": 1.14,
+        "vol": 10.24,
+        "sharpe": 0.16,
+        "maxDrawdown": -9.05,
+        "calmar": 0.13
+      },
+      "year2026": {
+        "cagr": 7.8,
+        "vol": 10.43,
+        "sharpe": 0.77,
+        "maxDrawdown": -7.37,
+        "calmar": 1.06
+      }
+    },
+    "0.1": {
+      "train": {
+        "cagr": 17.23,
+        "vol": 9.42,
+        "sharpe": 1.73,
+        "maxDrawdown": -9.05,
+        "calmar": 1.9
+      },
+      "validation": {
+        "cagr": 6.44,
+        "vol": 8.61,
+        "sharpe": 0.77,
+        "maxDrawdown": -9.07,
+        "calmar": 0.71
+      },
+      "full": {
+        "cagr": 10.76,
+        "vol": 8.96,
+        "sharpe": 1.19,
+        "maxDrawdown": -13.69,
+        "calmar": 0.79
+      },
+      "year2022": {
+        "cagr": 1.35,
+        "vol": 10.15,
+        "sharpe": 0.18,
+        "maxDrawdown": -9.05,
+        "calmar": 0.15
+      },
+      "year2026": {
+        "cagr": 10.2,
+        "vol": 9.45,
+        "sharpe": 1.07,
+        "maxDrawdown": -6.01,
+        "calmar": 1.7
+      }
+    }
+  },
+  "riskParity": {}
+}

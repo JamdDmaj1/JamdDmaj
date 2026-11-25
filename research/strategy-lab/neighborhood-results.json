@@ -1,0 +1,2522 @@
+[
+  {
+    "lookback": 15,
+    "rebalance": 20,
+    "th": 0.015,
+    "val": {
+      "cagr": 24.39,
+      "sharpe": 1.65,
+      "dd": -9.77
+    },
+    "recent": {
+      "cagr": 30.22,
+      "sharpe": 1.76,
+      "dd": -9.37
+    },
+    "train": {
+      "cagr": 16.55,
+      "sharpe": 1.2,
+      "dd": -20.5
+    },
+    "score": 1.65
+  },
+  {
+    "lookback": 15,
+    "rebalance": 20,
+    "th": 0.01,
+    "val": {
+      "cagr": 24.27,
+      "sharpe": 1.63,
+      "dd": -10.54
+    },
+    "recent": {
+      "cagr": 32.98,
+      "sharpe": 1.89,
+      "dd": -9.37
+    },
+    "train": {
+      "cagr": 18.73,
+      "sharpe": 1.32,
+      "dd": -20.5
+    },
+    "score": 1.63
+  },
+  {
+    "lookback": 15,
+    "rebalance": 20,
+    "th": 0.0075,
+    "val": {
+      "cagr": 24.16,
+      "sharpe": 1.62,
+      "dd": -10.54
+    },
+    "recent": {
+      "cagr": 32.98,
+      "sharpe": 1.89,
+      "dd": -9.37
+    },
+    "train": {
+      "cagr": 18.27,
+      "sharpe": 1.28,
+      "dd": -21.42
+    },
+    "score": 1.62
+  },
+  {
+    "lookback": 15,
+    "rebalance": 20,
+    "th": 0.02,
+    "val": {
+      "cagr": 21.68,
+      "sharpe": 1.58,
+      "dd": -9.37
+    },
+    "recent": {
+      "cagr": 24.69,
+      "sharpe": 1.63,
+      "dd": -9.37
+    },
+    "train": {
+      "cagr": 17.58,
+      "sharpe": 1.28,
+      "dd": -18.75
+    },
+    "score": 1.58
+  },
+  {
+    "lookback": 15,
+    "rebalance": 20,
+    "th": 0.005,
+    "val": {
+      "cagr": 23.22,
+      "sharpe": 1.56,
+      "dd": -10.54
+    },
+    "recent": {
+      "cagr": 32.98,
+      "sharpe": 1.89,
+      "dd": -9.37
+    },
+    "train": {
+      "cagr": 19.19,
+      "sharpe": 1.3,
+      "dd": -20.67
+    },
+    "score": 1.56
+  },
+  {
+    "lookback": 10,
+    "rebalance": 20,
+    "th": 0.0075,
+    "val": {
+      "cagr": 22.6,
+      "sharpe": 1.54,
+      "dd": -8.88
+    },
+    "recent": {
+      "cagr": 41.31,
+      "sharpe": 2.11,
+      "dd": -7.88
+    },
+    "train": {
+      "cagr": 12.56,
+      "sharpe": 0.95,
+      "dd": -22.91
+    },
+    "score": 1.54
+  },
+  {
+    "lookback": 10,
+    "rebalance": 20,
+    "th": 0.005,
+    "val": {
+      "cagr": 22.63,
+      "sharpe": 1.53,
+      "dd": -8.88
+    },
+    "recent": {
+      "cagr": 41.86,
+      "sharpe": 2.11,
+      "dd": -7.88
+    },
+    "train": {
+      "cagr": 10.01,
+      "sharpe": 0.78,
+      "dd": -24.46
+    },
+    "score": 1.53
+  },
+  {
+    "lookback": 10,
+    "rebalance": 20,
+    "th": 0.01,
+    "val": {
+      "cagr": 21.68,
+      "sharpe": 1.51,
+      "dd": -8.88
+    },
+    "recent": {
+      "cagr": 39.36,
+      "sharpe": 2.05,
+      "dd": -7.88
+    },
+    "train": {
+      "cagr": 13.04,
+      "sharpe": 0.99,
+      "dd": -22.91
+    },
+    "score": 1.51
+  },
+  {
+    "lookback": 10,
+    "rebalance": 20,
+    "th": 0.02,
+    "val": {
+      "cagr": 19.3,
+      "sharpe": 1.46,
+      "dd": -10.78
+    },
+    "recent": {
+      "cagr": 36.1,
+      "sharpe": 2.04,
+      "dd": -6.45
+    },
+    "train": {
+      "cagr": 11.81,
+      "sharpe": 0.95,
+      "dd": -20.1
+    },
+    "score": 1.46
+  },
+  {
+    "lookback": 10,
+    "rebalance": 20,
+    "th": 0.015,
+    "val": {
+      "cagr": 18.67,
+      "sharpe": 1.38,
+      "dd": -8.88
+    },
+    "recent": {
+      "cagr": 33.49,
+      "sharpe": 1.91,
+      "dd": -7.81
+    },
+    "train": {
+      "cagr": 14.67,
+      "sharpe": 1.13,
+      "dd": -20.1
+    },
+    "score": 1.38
+  },
+  {
+    "lookback": 12,
+    "rebalance": 20,
+    "th": 0.005,
+    "val": {
+      "cagr": 25.38,
+      "sharpe": 1.73,
+      "dd": -11.57
+    },
+    "recent": {
+      "cagr": 20.92,
+      "sharpe": 1.34,
+      "dd": -11.57
+    },
+    "train": {
+      "cagr": 9.51,
+      "sharpe": 0.77,
+      "dd": -27.69
+    },
+    "score": 1.34
+  },
+  {
+    "lookback": 12,
+    "rebalance": 20,
+    "th": 0.02,
+    "val": {
+      "cagr": 24.06,
+      "sharpe": 1.84,
+      "dd": -8.48
+    },
+    "recent": {
+      "cagr": 18.2,
+      "sharpe": 1.34,
+      "dd": -8.48
+    },
+    "train": {
+      "cagr": 8.41,
+      "sharpe": 0.7,
+      "dd": -26.63
+    },
+    "score": 1.34
+  },
+  {
+    "lookback": 12,
+    "rebalance": 20,
+    "th": 0.0075,
+    "val": {
+      "cagr": 25.48,
+      "sharpe": 1.77,
+      "dd": -11.57
+    },
+    "recent": {
+      "cagr": 19.85,
+      "sharpe": 1.29,
+      "dd": -11.57
+    },
+    "train": {
+      "cagr": 9.31,
+      "sharpe": 0.75,
+      "dd": -27.22
+    },
+    "score": 1.29
+  },
+  {
+    "lookback": 12,
+    "rebalance": 20,
+    "th": 0.01,
+    "val": {
+      "cagr": 24.81,
+      "sharpe": 1.76,
+      "dd": -11.57
+    },
+    "recent": {
+      "cagr": 19.85,
+      "sharpe": 1.29,
+      "dd": -11.57
+    },
+    "train": {
+      "cagr": 8.98,
+      "sharpe": 0.74,
+      "dd": -26.63
+    },
+    "score": 1.29
+  },
+  {
+    "lookback": 10,
+    "rebalance": 30,
+    "th": 0.01,
+    "val": {
+      "cagr": 16.6,
+      "sharpe": 1.26,
+      "dd": -10.8
+    },
+    "recent": {
+      "cagr": 11.7,
+      "sharpe": 1.24,
+      "dd": -6
+    },
+    "train": {
+      "cagr": 19.89,
+      "sharpe": 1.72,
+      "dd": -9.14
+    },
+    "score": 1.24
+  },
+  {
+    "lookback": 10,
+    "rebalance": 30,
+    "th": 0.005,
+    "val": {
+      "cagr": 16.19,
+      "sharpe": 1.22,
+      "dd": -10.8
+    },
+    "recent": {
+      "cagr": 11.39,
+      "sharpe": 1.16,
+      "dd": -5.66
+    },
+    "train": {
+      "cagr": 22.01,
+      "sharpe": 1.81,
+      "dd": -9.14
+    },
+    "score": 1.16
+  },
+  {
+    "lookback": 10,
+    "rebalance": 30,
+    "th": 0.0075,
+    "val": {
+      "cagr": 16.23,
+      "sharpe": 1.23,
+      "dd": -10.8
+    },
+    "recent": {
+      "cagr": 10.94,
+      "sharpe": 1.16,
+      "dd": -6
+    },
+    "train": {
+      "cagr": 19.59,
+      "sharpe": 1.66,
+      "dd": -9.14
+    },
+    "score": 1.16
+  },
+  {
+    "lookback": 7,
+    "rebalance": 20,
+    "th": 0.01,
+    "val": {
+      "cagr": 13.92,
+      "sharpe": 1.12,
+      "dd": -12
+    },
+    "recent": {
+      "cagr": 18.67,
+      "sharpe": 1.2,
+      "dd": -12
+    },
+    "train": {
+      "cagr": 1.11,
+      "sharpe": 0.15,
+      "dd": -28.71
+    },
+    "score": 1.12
+  },
+  {
+    "lookback": 7,
+    "rebalance": 20,
+    "th": 0.015,
+    "val": {
+      "cagr": 13.22,
+      "sharpe": 1.09,
+      "dd": -12
+    },
+    "recent": {
+      "cagr": 18.03,
+      "sharpe": 1.17,
+      "dd": -12
+    },
+    "train": {
+      "cagr": 3.4,
+      "sharpe": 0.34,
+      "dd": -26.66
+    },
+    "score": 1.09
+  },
+  {
+    "lookback": 20,
+    "rebalance": 20,
+    "th": 0.005,
+    "val": {
+      "cagr": 14.83,
+      "sharpe": 1.07,
+      "dd": -15.58
+    },
+    "recent": {
+      "cagr": 21.69,
+      "sharpe": 1.37,
+      "dd": -10.57
+    },
+    "train": {
+      "cagr": 12.4,
+      "sharpe": 0.9,
+      "dd": -14.46
+    },
+    "score": 1.07
+  },
+  {
+    "lookback": 7,
+    "rebalance": 20,
+    "th": 0.005,
+    "val": {
+      "cagr": 13.01,
+      "sharpe": 1.04,
+      "dd": -13.75
+    },
+    "recent": {
+      "cagr": 16.3,
+      "sharpe": 1.05,
+      "dd": -13.75
+    },
+    "train": {
+      "cagr": -1.27,
+      "sharpe": -0.04,
+      "dd": -28.61
+    },
+    "score": 1.04
+  },
+  {
+    "lookback": 7,
+    "rebalance": 20,
+    "th": 0.02,
+    "val": {
+      "cagr": 11.38,
+      "sharpe": 1,
+      "dd": -11.22
+    },
+    "recent": {
+      "cagr": 14.14,
+      "sharpe": 0.99,
+      "dd": -11.22
+    },
+    "train": {
+      "cagr": 5.14,
+      "sharpe": 0.48,
+      "dd": -22.58
+    },
+    "score": 0.99
+  },
+  {
+    "lookback": 10,
+    "rebalance": 30,
+    "th": 0.015,
+    "val": {
+      "cagr": 16.37,
+      "sharpe": 1.26,
+      "dd": -10.8
+    },
+    "recent": {
+      "cagr": 8.58,
+      "sharpe": 0.94,
+      "dd": -6
+    },
+    "train": {
+      "cagr": 19.98,
+      "sharpe": 1.76,
+      "dd": -9.72
+    },
+    "score": 0.94
+  },
+  {
+    "lookback": 20,
+    "rebalance": 20,
+    "th": 0.0075,
+    "val": {
+      "cagr": 13.18,
+      "sharpe": 0.96,
+      "dd": -15.62
+    },
+    "recent": {
+      "cagr": 13.51,
+      "sharpe": 0.88,
+      "dd": -15.62
+    },
+    "train": {
+      "cagr": 11.29,
+      "sharpe": 0.85,
+      "dd": -14.46
+    },
+    "score": 0.88
+  },
+  {
+    "lookback": 20,
+    "rebalance": 20,
+    "th": 0.01,
+    "val": {
+      "cagr": 12.67,
+      "sharpe": 0.93,
+      "dd": -15.62
+    },
+    "recent": {
+      "cagr": 13.51,
+      "sharpe": 0.88,
+      "dd": -15.62
+    },
+    "train": {
+      "cagr": 11.31,
+      "sharpe": 0.85,
+      "dd": -14.46
+    },
+    "score": 0.88
+  },
+  {
+    "lookback": 10,
+    "rebalance": 30,
+    "th": 0.02,
+    "val": {
+      "cagr": 15.71,
+      "sharpe": 1.22,
+      "dd": -10.96
+    },
+    "recent": {
+      "cagr": 7.75,
+      "sharpe": 0.85,
+      "dd": -6
+    },
+    "train": {
+      "cagr": 20.71,
+      "sharpe": 1.86,
+      "dd": -9.72
+    },
+    "score": 0.85
+  },
+  {
+    "lookback": 15,
+    "rebalance": 30,
+    "th": 0.01,
+    "val": {
+      "cagr": 10.69,
+      "sharpe": 0.82,
+      "dd": -16.05
+    },
+    "recent": {
+      "cagr": 9.65,
+      "sharpe": 0.85,
+      "dd": -5.66
+    },
+    "train": {
+      "cagr": 21.53,
+      "sharpe": 1.74,
+      "dd": -16.11
+    },
+    "score": 0.82
+  },
+  {
+    "lookback": 7,
+    "rebalance": 20,
+    "th": 0.0075,
+    "val": {
+      "cagr": 11.73,
+      "sharpe": 0.93,
+      "dd": -16.57
+    },
+    "recent": {
+      "cagr": 12.5,
+      "sharpe": 0.81,
+      "dd": -16.57
+    },
+    "train": {
+      "cagr": -0.9,
+      "sharpe": -0.01,
+      "dd": -28.08
+    },
+    "score": 0.81
+  },
+  {
+    "lookback": 15,
+    "rebalance": 30,
+    "th": 0.0075,
+    "val": {
+      "cagr": 10.46,
+      "sharpe": 0.81,
+      "dd": -16.05
+    },
+    "recent": {
+      "cagr": 9.65,
+      "sharpe": 0.85,
+      "dd": -5.66
+    },
+    "train": {
+      "cagr": 21.12,
+      "sharpe": 1.68,
+      "dd": -15.58
+    },
+    "score": 0.81
+  },
+  {
+    "lookback": 15,
+    "rebalance": 30,
+    "th": 0.005,
+    "val": {
+      "cagr": 9.61,
+      "sharpe": 0.75,
+      "dd": -14.84
+    },
+    "recent": {
+      "cagr": 9.65,
+      "sharpe": 0.85,
+      "dd": -5.66
+    },
+    "train": {
+      "cagr": 20.48,
+      "sharpe": 1.61,
+      "dd": -15.58
+    },
+    "score": 0.75
+  },
+  {
+    "lookback": 15,
+    "rebalance": 30,
+    "th": 0.015,
+    "val": {
+      "cagr": 9.16,
+      "sharpe": 0.74,
+      "dd": -14.4
+    },
+    "recent": {
+      "cagr": 8.49,
+      "sharpe": 0.77,
+      "dd": -6
+    },
+    "train": {
+      "cagr": 21.56,
+      "sharpe": 1.74,
+      "dd": -16.11
+    },
+    "score": 0.74
+  },
+  {
+    "lookback": 20,
+    "rebalance": 20,
+    "th": 0.015,
+    "val": {
+      "cagr": 10.7,
+      "sharpe": 0.83,
+      "dd": -15.62
+    },
+    "recent": {
+      "cagr": 8.43,
+      "sharpe": 0.62,
+      "dd": -15.62
+    },
+    "train": {
+      "cagr": 11.31,
+      "sharpe": 0.85,
+      "dd": -14.46
+    },
+    "score": 0.62
+  },
+  {
+    "lookback": 12,
+    "rebalance": 20,
+    "th": 0.015,
+    "val": {
+      "cagr": 21.28,
+      "sharpe": 1.58,
+      "dd": -16.56
+    },
+    "recent": {
+      "cagr": 7.74,
+      "sharpe": 0.59,
+      "dd": -16.56
+    },
+    "train": {
+      "cagr": 8.99,
+      "sharpe": 0.74,
+      "dd": -26.63
+    },
+    "score": 0.59
+  },
+  {
+    "lookback": 5,
+    "rebalance": 30,
+    "th": 0.005,
+    "val": {
+      "cagr": 8.17,
+      "sharpe": 0.72,
+      "dd": -16.45
+    },
+    "recent": {
+      "cagr": 5.71,
+      "sharpe": 0.56,
+      "dd": -7.39
+    },
+    "train": {
+      "cagr": 20.21,
+      "sharpe": 1.61,
+      "dd": -19.74
+    },
+    "score": 0.56
+  },
+  {
+    "lookback": 20,
+    "rebalance": 20,
+    "th": 0.02,
+    "val": {
+      "cagr": 10.18,
+      "sharpe": 0.79,
+      "dd": -16.76
+    },
+    "recent": {
+      "cagr": 6.96,
+      "sharpe": 0.53,
+      "dd": -16.76
+    },
+    "train": {
+      "cagr": 13.64,
+      "sharpe": 1.01,
+      "dd": -14.46
+    },
+    "score": 0.53
+  },
+  {
+    "lookback": 10,
+    "rebalance": 35,
+    "th": 0.01,
+    "val": {
+      "cagr": 5.74,
+      "sharpe": 0.5,
+      "dd": -22.52
+    },
+    "recent": {
+      "cagr": 6.72,
+      "sharpe": 0.61,
+      "dd": -11.11
+    },
+    "train": {
+      "cagr": 8.99,
+      "sharpe": 0.82,
+      "dd": -16.09
+    },
+    "score": 0.5
+  },
+  {
+    "lookback": 15,
+    "rebalance": 30,
+    "th": 0.02,
+    "val": {
+      "cagr": 7.59,
+      "sharpe": 0.65,
+      "dd": -16.03
+    },
+    "recent": {
+      "cagr": 4.51,
+      "sharpe": 0.46,
+      "dd": -8.81
+    },
+    "train": {
+      "cagr": 20.88,
+      "sharpe": 1.73,
+      "dd": -13.2
+    },
+    "score": 0.46
+  },
+  {
+    "lookback": 20,
+    "rebalance": 30,
+    "th": 0.005,
+    "val": {
+      "cagr": 9.28,
+      "sharpe": 0.71,
+      "dd": -16.93
+    },
+    "recent": {
+      "cagr": 4.75,
+      "sharpe": 0.46,
+      "dd": -10.15
+    },
+    "train": {
+      "cagr": 19.45,
+      "sharpe": 1.54,
+      "dd": -14.75
+    },
+    "score": 0.46
+  },
+  {
+    "lookback": 5,
+    "rebalance": 30,
+    "th": 0.0075,
+    "val": {
+      "cagr": 7.68,
+      "sharpe": 0.7,
+      "dd": -12.39
+    },
+    "recent": {
+      "cagr": 3.53,
+      "sharpe": 0.38,
+      "dd": -9.55
+    },
+    "train": {
+      "cagr": 18.67,
+      "sharpe": 1.53,
+      "dd": -19.12
+    },
+    "score": 0.38
+  },
+  {
+    "lookback": 10,
+    "rebalance": 35,
+    "th": 0.005,
+    "val": {
+      "cagr": 5.18,
+      "sharpe": 0.46,
+      "dd": -21.84
+    },
+    "recent": {
+      "cagr": 3.63,
+      "sharpe": 0.36,
+      "dd": -12.65
+    },
+    "train": {
+      "cagr": 10.5,
+      "sharpe": 0.94,
+      "dd": -15.3
+    },
+    "score": 0.36
+  },
+  {
+    "lookback": 5,
+    "rebalance": 20,
+    "th": 0.015,
+    "val": {
+      "cagr": 3.18,
+      "sharpe": 0.35,
+      "dd": -12.76
+    },
+    "recent": {
+      "cagr": 6.83,
+      "sharpe": 0.57,
+      "dd": -11.38
+    },
+    "train": {
+      "cagr": -5.95,
+      "sharpe": -0.5,
+      "dd": -27.86
+    },
+    "score": 0.35
+  },
+  {
+    "lookback": 10,
+    "rebalance": 35,
+    "th": 0.0075,
+    "val": {
+      "cagr": 5.13,
+      "sharpe": 0.45,
+      "dd": -21.84
+    },
+    "recent": {
+      "cagr": 3.41,
+      "sharpe": 0.34,
+      "dd": -12.56
+    },
+    "train": {
+      "cagr": 10.04,
+      "sharpe": 0.9,
+      "dd": -14.63
+    },
+    "score": 0.34
+  },
+  {
+    "lookback": 5,
+    "rebalance": 20,
+    "th": 0.02,
+    "val": {
+      "cagr": 2.09,
+      "sharpe": 0.25,
+      "dd": -13.86
+    },
+    "recent": {
+      "cagr": 3.96,
+      "sharpe": 0.4,
+      "dd": -10.11
+    },
+    "train": {
+      "cagr": -3.22,
+      "sharpe": -0.26,
+      "dd": -26.64
+    },
+    "score": 0.25
+  },
+  {
+    "lookback": 10,
+    "rebalance": 35,
+    "th": 0.02,
+    "val": {
+      "cagr": 2.09,
+      "sharpe": 0.23,
+      "dd": -23.29
+    },
+    "recent": {
+      "cagr": 3.1,
+      "sharpe": 0.32,
+      "dd": -10.51
+    },
+    "train": {
+      "cagr": 7.21,
+      "sharpe": 0.68,
+      "dd": -15.68
+    },
+    "score": 0.23
+  },
+  {
+    "lookback": 15,
+    "rebalance": 35,
+    "th": 0.02,
+    "val": {
+      "cagr": 1.68,
+      "sharpe": 0.19,
+      "dd": -26.63
+    },
+    "recent": {
+      "cagr": 2.2,
+      "sharpe": 0.25,
+      "dd": -10.66
+    },
+    "train": {
+      "cagr": 13.96,
+      "sharpe": 1.07,
+      "dd": -19.77
+    },
+    "score": 0.19
+  },
+  {
+    "lookback": 15,
+    "rebalance": 35,
+    "th": 0.01,
+    "val": {
+      "cagr": 1.49,
+      "sharpe": 0.18,
+      "dd": -31.25
+    },
+    "recent": {
+      "cagr": 5.98,
+      "sharpe": 0.57,
+      "dd": -10.75
+    },
+    "train": {
+      "cagr": 17.25,
+      "sharpe": 1.26,
+      "dd": -19.42
+    },
+    "score": 0.18
+  },
+  {
+    "lookback": 15,
+    "rebalance": 35,
+    "th": 0.0075,
+    "val": {
+      "cagr": 1.39,
+      "sharpe": 0.17,
+      "dd": -31.25
+    },
+    "recent": {
+      "cagr": 5.98,
+      "sharpe": 0.57,
+      "dd": -10.75
+    },
+    "train": {
+      "cagr": 17.25,
+      "sharpe": 1.26,
+      "dd": -19.42
+    },
+    "score": 0.17
+  },
+  {
+    "lookback": 5,
+    "rebalance": 25,
+    "th": 0.0075,
+    "val": {
+      "cagr": 1.16,
+      "sharpe": 0.16,
+      "dd": -18.08
+    },
+    "recent": {
+      "cagr": 11.28,
+      "sharpe": 0.99,
+      "dd": -5.99
+    },
+    "train": {
+      "cagr": 11.43,
+      "sharpe": 0.97,
+      "dd": -13.63
+    },
+    "score": 0.16
+  },
+  {
+    "lookback": 10,
+    "rebalance": 35,
+    "th": 0.015,
+    "val": {
+      "cagr": 1.25,
+      "sharpe": 0.16,
+      "dd": -23.8
+    },
+    "recent": {
+      "cagr": 2.41,
+      "sharpe": 0.26,
+      "dd": -11.11
+    },
+    "train": {
+      "cagr": 10.2,
+      "sharpe": 0.93,
+      "dd": -16.09
+    },
+    "score": 0.16
+  },
+  {
+    "lookback": 5,
+    "rebalance": 25,
+    "th": 0.005,
+    "val": {
+      "cagr": 0.92,
+      "sharpe": 0.14,
+      "dd": -18.55
+    },
+    "recent": {
+      "cagr": 11.38,
+      "sharpe": 0.91,
+      "dd": -6.22
+    },
+    "train": {
+      "cagr": 8.88,
+      "sharpe": 0.76,
+      "dd": -15.72
+    },
+    "score": 0.14
+  },
+  {
+    "lookback": 20,
+    "rebalance": 35,
+    "th": 0.01,
+    "val": {
+      "cagr": 3.6,
+      "sharpe": 0.33,
+      "dd": -25.12
+    },
+    "recent": {
+      "cagr": 0.92,
+      "sharpe": 0.14,
+      "dd": -10.35
+    },
+    "train": {
+      "cagr": 6.85,
+      "sharpe": 0.57,
+      "dd": -26.87
+    },
+    "score": 0.14
+  },
+  {
+    "lookback": 15,
+    "rebalance": 35,
+    "th": 0.015,
+    "val": {
+      "cagr": 0.83,
+      "sharpe": 0.13,
+      "dd": -31.37
+    },
+    "recent": {
+      "cagr": 3.5,
+      "sharpe": 0.37,
+      "dd": -10.66
+    },
+    "train": {
+      "cagr": 14.49,
+      "sharpe": 1.11,
+      "dd": -20.28
+    },
+    "score": 0.13
+  },
+  {
+    "lookback": 20,
+    "rebalance": 35,
+    "th": 0.005,
+    "val": {
+      "cagr": 4.75,
+      "sharpe": 0.41,
+      "dd": -27.06
+    },
+    "recent": {
+      "cagr": 0.79,
+      "sharpe": 0.13,
+      "dd": -7.7
+    },
+    "train": {
+      "cagr": 6.85,
+      "sharpe": 0.56,
+      "dd": -26.24
+    },
+    "score": 0.13
+  },
+  {
+    "lookback": 12,
+    "rebalance": 30,
+    "th": 0.0075,
+    "val": {
+      "cagr": 10.77,
+      "sharpe": 0.86,
+      "dd": -12.55
+    },
+    "recent": {
+      "cagr": 0.72,
+      "sharpe": 0.12,
+      "dd": -5.66
+    },
+    "train": {
+      "cagr": 24.83,
+      "sharpe": 2,
+      "dd": -12.67
+    },
+    "score": 0.12
+  },
+  {
+    "lookback": 12,
+    "rebalance": 30,
+    "th": 0.01,
+    "val": {
+      "cagr": 11.05,
+      "sharpe": 0.88,
+      "dd": -12.55
+    },
+    "recent": {
+      "cagr": 0.72,
+      "sharpe": 0.12,
+      "dd": -5.66
+    },
+    "train": {
+      "cagr": 26.02,
+      "sharpe": 2.09,
+      "dd": -12.67
+    },
+    "score": 0.12
+  },
+  {
+    "lookback": 20,
+    "rebalance": 30,
+    "th": 0.0075,
+    "val": {
+      "cagr": 7.52,
+      "sharpe": 0.61,
+      "dd": -16.93
+    },
+    "recent": {
+      "cagr": 0.31,
+      "sharpe": 0.08,
+      "dd": -10.15
+    },
+    "train": {
+      "cagr": 19.45,
+      "sharpe": 1.54,
+      "dd": -14.75
+    },
+    "score": 0.08
+  },
+  {
+    "lookback": 20,
+    "rebalance": 30,
+    "th": 0.01,
+    "val": {
+      "cagr": 6.33,
+      "sharpe": 0.52,
+      "dd": -16.93
+    },
+    "recent": {
+      "cagr": 0.27,
+      "sharpe": 0.08,
+      "dd": -10.19
+    },
+    "train": {
+      "cagr": 19.45,
+      "sharpe": 1.54,
+      "dd": -14.75
+    },
+    "score": 0.08
+  },
+  {
+    "lookback": 20,
+    "rebalance": 35,
+    "th": 0.015,
+    "val": {
+      "cagr": 1.74,
+      "sharpe": 0.2,
+      "dd": -26.86
+    },
+    "recent": {
+      "cagr": 0.17,
+      "sharpe": 0.07,
+      "dd": -10.35
+    },
+    "train": {
+      "cagr": 6.85,
+      "sharpe": 0.57,
+      "dd": -26.87
+    },
+    "score": 0.07
+  },
+  {
+    "lookback": 5,
+    "rebalance": 20,
+    "th": 0.005,
+    "val": {
+      "cagr": -0.04,
+      "sharpe": 0.06,
+      "dd": -18.56
+    },
+    "recent": {
+      "cagr": 2.99,
+      "sharpe": 0.26,
+      "dd": -18.56
+    },
+    "train": {
+      "cagr": -7.1,
+      "sharpe": -0.6,
+      "dd": -26.37
+    },
+    "score": 0.06
+  },
+  {
+    "lookback": 5,
+    "rebalance": 25,
+    "th": 0.01,
+    "val": {
+      "cagr": 0.06,
+      "sharpe": 0.06,
+      "dd": -17.15
+    },
+    "recent": {
+      "cagr": 8.7,
+      "sharpe": 0.81,
+      "dd": -5.99
+    },
+    "train": {
+      "cagr": 12.73,
+      "sharpe": 1.06,
+      "dd": -13.63
+    },
+    "score": 0.06
+  },
+  {
+    "lookback": 7,
+    "rebalance": 30,
+    "th": 0.005,
+    "val": {
+      "cagr": 14.71,
+      "sharpe": 1.17,
+      "dd": -12.39
+    },
+    "recent": {
+      "cagr": -0.38,
+      "sharpe": 0.02,
+      "dd": -9.09
+    },
+    "train": {
+      "cagr": 20.27,
+      "sharpe": 1.55,
+      "dd": -17.77
+    },
+    "score": 0.02
+  },
+  {
+    "lookback": 12,
+    "rebalance": 30,
+    "th": 0.005,
+    "val": {
+      "cagr": 11.02,
+      "sharpe": 0.86,
+      "dd": -11.43
+    },
+    "recent": {
+      "cagr": -0.33,
+      "sharpe": 0.02,
+      "dd": -6.54
+    },
+    "train": {
+      "cagr": 26.55,
+      "sharpe": 2.12,
+      "dd": -12.39
+    },
+    "score": 0.02
+  },
+  {
+    "lookback": 5,
+    "rebalance": 20,
+    "th": 0.0075,
+    "val": {
+      "cagr": -0.61,
+      "sharpe": 0.01,
+      "dd": -19.4
+    },
+    "recent": {
+      "cagr": 0.49,
+      "sharpe": 0.11,
+      "dd": -19.4
+    },
+    "train": {
+      "cagr": -6.32,
+      "sharpe": -0.54,
+      "dd": -26.88
+    },
+    "score": 0.01
+  },
+  {
+    "lookback": 5,
+    "rebalance": 25,
+    "th": 0.015,
+    "val": {
+      "cagr": -0.92,
+      "sharpe": -0.04,
+      "dd": -17.15
+    },
+    "recent": {
+      "cagr": 3.53,
+      "sharpe": 0.44,
+      "dd": -4.71
+    },
+    "train": {
+      "cagr": 11.84,
+      "sharpe": 1.07,
+      "dd": -13.63
+    },
+    "score": -0.04
+  },
+  {
+    "lookback": 7,
+    "rebalance": 30,
+    "th": 0.0075,
+    "val": {
+      "cagr": 13.82,
+      "sharpe": 1.1,
+      "dd": -12.96
+    },
+    "recent": {
+      "cagr": -1.02,
+      "sharpe": -0.04,
+      "dd": -9.79
+    },
+    "train": {
+      "cagr": 20.15,
+      "sharpe": 1.56,
+      "dd": -17.77
+    },
+    "score": -0.04
+  },
+  {
+    "lookback": 20,
+    "rebalance": 35,
+    "th": 0.02,
+    "val": {
+      "cagr": -1.29,
+      "sharpe": -0.05,
+      "dd": -26.86
+    },
+    "recent": {
+      "cagr": 0.17,
+      "sharpe": 0.07,
+      "dd": -10.35
+    },
+    "train": {
+      "cagr": 9.89,
+      "sharpe": 0.79,
+      "dd": -26.87
+    },
+    "score": -0.05
+  },
+  {
+    "lookback": 5,
+    "rebalance": 30,
+    "th": 0.02,
+    "val": {
+      "cagr": 1.81,
+      "sharpe": 0.24,
+      "dd": -10.68
+    },
+    "recent": {
+      "cagr": -0.85,
+      "sharpe": -0.06,
+      "dd": -9.42
+    },
+    "train": {
+      "cagr": 18.83,
+      "sharpe": 1.57,
+      "dd": -18.78
+    },
+    "score": -0.06
+  },
+  {
+    "lookback": 5,
+    "rebalance": 25,
+    "th": 0.02,
+    "val": {
+      "cagr": -1.24,
+      "sharpe": -0.08,
+      "dd": -18.59
+    },
+    "recent": {
+      "cagr": 0.47,
+      "sharpe": 0.1,
+      "dd": -7.95
+    },
+    "train": {
+      "cagr": 13.14,
+      "sharpe": 1.2,
+      "dd": -13.63
+    },
+    "score": -0.08
+  },
+  {
+    "lookback": 15,
+    "rebalance": 35,
+    "th": 0.005,
+    "val": {
+      "cagr": -2.08,
+      "sharpe": -0.09,
+      "dd": -32.8
+    },
+    "recent": {
+      "cagr": 5.98,
+      "sharpe": 0.57,
+      "dd": -10.75
+    },
+    "train": {
+      "cagr": 18.51,
+      "sharpe": 1.34,
+      "dd": -19.42
+    },
+    "score": -0.09
+  },
+  {
+    "lookback": 12,
+    "rebalance": 30,
+    "th": 0.02,
+    "val": {
+      "cagr": 13.62,
+      "sharpe": 1.09,
+      "dd": -12.55
+    },
+    "recent": {
+      "cagr": -1.41,
+      "sharpe": -0.1,
+      "dd": -8.47
+    },
+    "train": {
+      "cagr": 25.71,
+      "sharpe": 2.07,
+      "dd": -12.67
+    },
+    "score": -0.1
+  },
+  {
+    "lookback": 12,
+    "rebalance": 35,
+    "th": 0.02,
+    "val": {
+      "cagr": 2.99,
+      "sharpe": 0.31,
+      "dd": -23.8
+    },
+    "recent": {
+      "cagr": -2.31,
+      "sharpe": -0.13,
+      "dd": -13.89
+    },
+    "train": {
+      "cagr": 15.5,
+      "sharpe": 1.26,
+      "dd": -18.33
+    },
+    "score": -0.13
+  },
+  {
+    "lookback": 5,
+    "rebalance": 30,
+    "th": 0.015,
+    "val": {
+      "cagr": 6.73,
+      "sharpe": 0.67,
+      "dd": -11.25
+    },
+    "recent": {
+      "cagr": -1.49,
+      "sharpe": -0.14,
+      "dd": -9.42
+    },
+    "train": {
+      "cagr": 19.12,
+      "sharpe": 1.56,
+      "dd": -18.78
+    },
+    "score": -0.14
+  },
+  {
+    "lookback": 7,
+    "rebalance": 35,
+    "th": 0.01,
+    "val": {
+      "cagr": 8.76,
+      "sharpe": 0.7,
+      "dd": -20.86
+    },
+    "recent": {
+      "cagr": -3.05,
+      "sharpe": -0.19,
+      "dd": -17.71
+    },
+    "train": {
+      "cagr": 13.24,
+      "sharpe": 1.25,
+      "dd": -8.06
+    },
+    "score": -0.19
+  },
+  {
+    "lookback": 7,
+    "rebalance": 35,
+    "th": 0.015,
+    "val": {
+      "cagr": 7,
+      "sharpe": 0.59,
+      "dd": -22.22
+    },
+    "recent": {
+      "cagr": -2.95,
+      "sharpe": -0.19,
+      "dd": -17.71
+    },
+    "train": {
+      "cagr": 11.56,
+      "sharpe": 1.13,
+      "dd": -9.35
+    },
+    "score": -0.19
+  },
+  {
+    "lookback": 20,
+    "rebalance": 35,
+    "th": 0.0075,
+    "val": {
+      "cagr": 4,
+      "sharpe": 0.36,
+      "dd": -25.61
+    },
+    "recent": {
+      "cagr": -2.5,
+      "sharpe": -0.19,
+      "dd": -9.92
+    },
+    "train": {
+      "cagr": 6.85,
+      "sharpe": 0.57,
+      "dd": -26.87
+    },
+    "score": -0.19
+  },
+  {
+    "lookback": 5,
+    "rebalance": 20,
+    "th": 0.01,
+    "val": {
+      "cagr": -1.14,
+      "sharpe": -0.04,
+      "dd": -20.6
+    },
+    "recent": {
+      "cagr": -4.31,
+      "sharpe": -0.21,
+      "dd": -20.6
+    },
+    "train": {
+      "cagr": -5.55,
+      "sharpe": -0.47,
+      "dd": -25.27
+    },
+    "score": -0.21
+  },
+  {
+    "lookback": 20,
+    "rebalance": 25,
+    "th": 0.005,
+    "val": {
+      "cagr": 3.13,
+      "sharpe": 0.3,
+      "dd": -25.51
+    },
+    "recent": {
+      "cagr": -4.1,
+      "sharpe": -0.23,
+      "dd": -21.72
+    },
+    "train": {
+      "cagr": 14.86,
+      "sharpe": 1.21,
+      "dd": -13.89
+    },
+    "score": -0.23
+  },
+  {
+    "lookback": 5,
+    "rebalance": 30,
+    "th": 0.01,
+    "val": {
+      "cagr": 7.53,
+      "sharpe": 0.73,
+      "dd": -12.25
+    },
+    "recent": {
+      "cagr": -2.6,
+      "sharpe": -0.27,
+      "dd": -10.3
+    },
+    "train": {
+      "cagr": 19.45,
+      "sharpe": 1.59,
+      "dd": -18.78
+    },
+    "score": -0.27
+  },
+  {
+    "lookback": 20,
+    "rebalance": 30,
+    "th": 0.015,
+    "val": {
+      "cagr": 5.6,
+      "sharpe": 0.48,
+      "dd": -16.49
+    },
+    "recent": {
+      "cagr": -3.91,
+      "sharpe": -0.33,
+      "dd": -13.92
+    },
+    "train": {
+      "cagr": 19.4,
+      "sharpe": 1.55,
+      "dd": -14.75
+    },
+    "score": -0.33
+  },
+  {
+    "lookback": 20,
+    "rebalance": 30,
+    "th": 0.02,
+    "val": {
+      "cagr": 2.16,
+      "sharpe": 0.23,
+      "dd": -16.49
+    },
+    "recent": {
+      "cagr": -3.91,
+      "sharpe": -0.33,
+      "dd": -13.92
+    },
+    "train": {
+      "cagr": 19.86,
+      "sharpe": 1.59,
+      "dd": -13.86
+    },
+    "score": -0.33
+  },
+  {
+    "lookback": 7,
+    "rebalance": 35,
+    "th": 0.02,
+    "val": {
+      "cagr": 4.22,
+      "sharpe": 0.39,
+      "dd": -25.95
+    },
+    "recent": {
+      "cagr": -4.93,
+      "sharpe": -0.38,
+      "dd": -17.71
+    },
+    "train": {
+      "cagr": 11.04,
+      "sharpe": 1.04,
+      "dd": -11.44
+    },
+    "score": -0.38
+  },
+  {
+    "lookback": 7,
+    "rebalance": 30,
+    "th": 0.01,
+    "val": {
+      "cagr": 14.02,
+      "sharpe": 1.14,
+      "dd": -16.15
+    },
+    "recent": {
+      "cagr": -4.45,
+      "sharpe": -0.4,
+      "dd": -12.9
+    },
+    "train": {
+      "cagr": 19.7,
+      "sharpe": 1.53,
+      "dd": -18.74
+    },
+    "score": -0.4
+  },
+  {
+    "lookback": 7,
+    "rebalance": 30,
+    "th": 0.015,
+    "val": {
+      "cagr": 12.6,
+      "sharpe": 1.07,
+      "dd": -16.15
+    },
+    "recent": {
+      "cagr": -4.45,
+      "sharpe": -0.4,
+      "dd": -12.9
+    },
+    "train": {
+      "cagr": 19.64,
+      "sharpe": 1.54,
+      "dd": -18.21
+    },
+    "score": -0.4
+  },
+  {
+    "lookback": 12,
+    "rebalance": 25,
+    "th": 0.0075,
+    "val": {
+      "cagr": 1.79,
+      "sharpe": 0.21,
+      "dd": -14.19
+    },
+    "recent": {
+      "cagr": -4.09,
+      "sharpe": -0.4,
+      "dd": -10.6
+    },
+    "train": {
+      "cagr": 11.94,
+      "sharpe": 1.13,
+      "dd": -8.58
+    },
+    "score": -0.4
+  },
+  {
+    "lookback": 12,
+    "rebalance": 25,
+    "th": 0.01,
+    "val": {
+      "cagr": 1.45,
+      "sharpe": 0.18,
+      "dd": -15.29
+    },
+    "recent": {
+      "cagr": -4.09,
+      "sharpe": -0.4,
+      "dd": -10.6
+    },
+    "train": {
+      "cagr": 12.84,
+      "sharpe": 1.2,
+      "dd": -8.58
+    },
+    "score": -0.4
+  },
+  {
+    "lookback": 12,
+    "rebalance": 25,
+    "th": 0.005,
+    "val": {
+      "cagr": 1.76,
+      "sharpe": 0.21,
+      "dd": -14.36
+    },
+    "recent": {
+      "cagr": -4.27,
+      "sharpe": -0.42,
+      "dd": -10.77
+    },
+    "train": {
+      "cagr": 12.35,
+      "sharpe": 1.16,
+      "dd": -8.58
+    },
+    "score": -0.42
+  },
+  {
+    "lookback": 7,
+    "rebalance": 35,
+    "th": 0.0075,
+    "val": {
+      "cagr": 7.88,
+      "sharpe": 0.64,
+      "dd": -20.86
+    },
+    "recent": {
+      "cagr": -6.05,
+      "sharpe": -0.44,
+      "dd": -19.06
+    },
+    "train": {
+      "cagr": 10.58,
+      "sharpe": 0.99,
+      "dd": -14.13
+    },
+    "score": -0.44
+  },
+  {
+    "lookback": 5,
+    "rebalance": 35,
+    "th": 0.005,
+    "val": {
+      "cagr": 2.45,
+      "sharpe": 0.25,
+      "dd": -33.08
+    },
+    "recent": {
+      "cagr": -5.79,
+      "sharpe": -0.46,
+      "dd": -14.59
+    },
+    "train": {
+      "cagr": 6.67,
+      "sharpe": 0.66,
+      "dd": -14.13
+    },
+    "score": -0.46
+  },
+  {
+    "lookback": 5,
+    "rebalance": 35,
+    "th": 0.0075,
+    "val": {
+      "cagr": 0.75,
+      "sharpe": 0.12,
+      "dd": -32.52
+    },
+    "recent": {
+      "cagr": -6.37,
+      "sharpe": -0.52,
+      "dd": -13.6
+    },
+    "train": {
+      "cagr": 6.67,
+      "sharpe": 0.66,
+      "dd": -14.13
+    },
+    "score": -0.52
+  },
+  {
+    "lookback": 5,
+    "rebalance": 35,
+    "th": 0.02,
+    "val": {
+      "cagr": 0.03,
+      "sharpe": 0.06,
+      "dd": -27.35
+    },
+    "recent": {
+      "cagr": -6.6,
+      "sharpe": -0.52,
+      "dd": -15.26
+    },
+    "train": {
+      "cagr": 3.37,
+      "sharpe": 0.38,
+      "dd": -12.91
+    },
+    "score": -0.52
+  },
+  {
+    "lookback": 12,
+    "rebalance": 35,
+    "th": 0.015,
+    "val": {
+      "cagr": 1.68,
+      "sharpe": 0.2,
+      "dd": -26.48
+    },
+    "recent": {
+      "cagr": -7.6,
+      "sharpe": -0.55,
+      "dd": -17.23
+    },
+    "train": {
+      "cagr": 15.25,
+      "sharpe": 1.24,
+      "dd": -18.83
+    },
+    "score": -0.55
+  },
+  {
+    "lookback": 5,
+    "rebalance": 35,
+    "th": 0.015,
+    "val": {
+      "cagr": 3.36,
+      "sharpe": 0.33,
+      "dd": -28.52
+    },
+    "recent": {
+      "cagr": -7.22,
+      "sharpe": -0.57,
+      "dd": -15.83
+    },
+    "train": {
+      "cagr": 4.1,
+      "sharpe": 0.42,
+      "dd": -14.13
+    },
+    "score": -0.57
+  },
+  {
+    "lookback": 12,
+    "rebalance": 30,
+    "th": 0.015,
+    "val": {
+      "cagr": 10.34,
+      "sharpe": 0.85,
+      "dd": -12.55
+    },
+    "recent": {
+      "cagr": -6.24,
+      "sharpe": -0.6,
+      "dd": -8.91
+    },
+    "train": {
+      "cagr": 26.26,
+      "sharpe": 2.1,
+      "dd": -12.67
+    },
+    "score": -0.6
+  },
+  {
+    "lookback": 12,
+    "rebalance": 25,
+    "th": 0.02,
+    "val": {
+      "cagr": 4.16,
+      "sharpe": 0.43,
+      "dd": -12.64
+    },
+    "recent": {
+      "cagr": -5.6,
+      "sharpe": -0.62,
+      "dd": -11.85
+    },
+    "train": {
+      "cagr": 14.64,
+      "sharpe": 1.37,
+      "dd": -7.38
+    },
+    "score": -0.62
+  },
+  {
+    "lookback": 7,
+    "rebalance": 25,
+    "th": 0.01,
+    "val": {
+      "cagr": 0.3,
+      "sharpe": 0.08,
+      "dd": -22.64
+    },
+    "recent": {
+      "cagr": -7.43,
+      "sharpe": -0.63,
+      "dd": -17.64
+    },
+    "train": {
+      "cagr": 11.04,
+      "sharpe": 0.98,
+      "dd": -9.1
+    },
+    "score": -0.63
+  },
+  {
+    "lookback": 10,
+    "rebalance": 25,
+    "th": 0.005,
+    "val": {
+      "cagr": -2.02,
+      "sharpe": -0.1,
+      "dd": -27.94
+    },
+    "recent": {
+      "cagr": -8.54,
+      "sharpe": -0.63,
+      "dd": -20.81
+    },
+    "train": {
+      "cagr": 9.87,
+      "sharpe": 0.87,
+      "dd": -10.96
+    },
+    "score": -0.63
+  },
+  {
+    "lookback": 7,
+    "rebalance": 25,
+    "th": 0.015,
+    "val": {
+      "cagr": -1.77,
+      "sharpe": -0.11,
+      "dd": -27.32
+    },
+    "recent": {
+      "cagr": -8.4,
+      "sharpe": -0.74,
+      "dd": -18.49
+    },
+    "train": {
+      "cagr": 11.05,
+      "sharpe": 1,
+      "dd": -8.28
+    },
+    "score": -0.74
+  },
+  {
+    "lookback": 12,
+    "rebalance": 25,
+    "th": 0.015,
+    "val": {
+      "cagr": 2.03,
+      "sharpe": 0.24,
+      "dd": -12.64
+    },
+    "recent": {
+      "cagr": -6.61,
+      "sharpe": -0.76,
+      "dd": -9.75
+    },
+    "train": {
+      "cagr": 13.05,
+      "sharpe": 1.22,
+      "dd": -8.58
+    },
+    "score": -0.76
+  },
+  {
+    "lookback": 7,
+    "rebalance": 25,
+    "th": 0.0075,
+    "val": {
+      "cagr": -0.01,
+      "sharpe": 0.06,
+      "dd": -22.43
+    },
+    "recent": {
+      "cagr": -9.82,
+      "sharpe": -0.8,
+      "dd": -19.76
+    },
+    "train": {
+      "cagr": 9.48,
+      "sharpe": 0.84,
+      "dd": -9.1
+    },
+    "score": -0.8
+  },
+  {
+    "lookback": 7,
+    "rebalance": 35,
+    "th": 0.005,
+    "val": {
+      "cagr": 6.22,
+      "sharpe": 0.51,
+      "dd": -25.41
+    },
+    "recent": {
+      "cagr": -11.55,
+      "sharpe": -0.82,
+      "dd": -23.1
+    },
+    "train": {
+      "cagr": 10.2,
+      "sharpe": 0.96,
+      "dd": -14.13
+    },
+    "score": -0.82
+  },
+  {
+    "lookback": 12,
+    "rebalance": 35,
+    "th": 0.01,
+    "val": {
+      "cagr": 2.45,
+      "sharpe": 0.25,
+      "dd": -26.94
+    },
+    "recent": {
+      "cagr": -13.03,
+      "sharpe": -0.86,
+      "dd": -23.81
+    },
+    "train": {
+      "cagr": 15.62,
+      "sharpe": 1.26,
+      "dd": -18.83
+    },
+    "score": -0.86
+  },
+  {
+    "lookback": 5,
+    "rebalance": 35,
+    "th": 0.01,
+    "val": {
+      "cagr": 0.53,
+      "sharpe": 0.1,
+      "dd": -33.93
+    },
+    "recent": {
+      "cagr": -10.82,
+      "sharpe": -0.89,
+      "dd": -17.87
+    },
+    "train": {
+      "cagr": 5.33,
+      "sharpe": 0.54,
+      "dd": -14.13
+    },
+    "score": -0.89
+  },
+  {
+    "lookback": 10,
+    "rebalance": 25,
+    "th": 0.0075,
+    "val": {
+      "cagr": -1.3,
+      "sharpe": -0.05,
+      "dd": -23.65
+    },
+    "recent": {
+      "cagr": -11.12,
+      "sharpe": -0.93,
+      "dd": -20.32
+    },
+    "train": {
+      "cagr": 10.27,
+      "sharpe": 0.92,
+      "dd": -10.96
+    },
+    "score": -0.93
+  },
+  {
+    "lookback": 15,
+    "rebalance": 25,
+    "th": 0.02,
+    "val": {
+      "cagr": -0.57,
+      "sharpe": 0.02,
+      "dd": -29.32
+    },
+    "recent": {
+      "cagr": -12.88,
+      "sharpe": -0.93,
+      "dd": -25.59
+    },
+    "train": {
+      "cagr": 11.09,
+      "sharpe": 0.94,
+      "dd": -13.76
+    },
+    "score": -0.93
+  },
+  {
+    "lookback": 20,
+    "rebalance": 25,
+    "th": 0.0075,
+    "val": {
+      "cagr": 0.84,
+      "sharpe": 0.13,
+      "dd": -25.44
+    },
+    "recent": {
+      "cagr": -12.1,
+      "sharpe": -0.97,
+      "dd": -21.64
+    },
+    "train": {
+      "cagr": 14.86,
+      "sharpe": 1.21,
+      "dd": -13.89
+    },
+    "score": -0.97
+  },
+  {
+    "lookback": 10,
+    "rebalance": 25,
+    "th": 0.02,
+    "val": {
+      "cagr": -1.51,
+      "sharpe": -0.08,
+      "dd": -25.01
+    },
+    "recent": {
+      "cagr": -11.13,
+      "sharpe": -0.98,
+      "dd": -20.33
+    },
+    "train": {
+      "cagr": 11.46,
+      "sharpe": 1.05,
+      "dd": -10.14
+    },
+    "score": -0.98
+  },
+  {
+    "lookback": 12,
+    "rebalance": 35,
+    "th": 0.005,
+    "val": {
+      "cagr": 2.6,
+      "sharpe": 0.25,
+      "dd": -27.21
+    },
+    "recent": {
+      "cagr": -15.08,
+      "sharpe": -1.01,
+      "dd": -23.39
+    },
+    "train": {
+      "cagr": 15.56,
+      "sharpe": 1.28,
+      "dd": -18.83
+    },
+    "score": -1.01
+  },
+  {
+    "lookback": 10,
+    "rebalance": 25,
+    "th": 0.015,
+    "val": {
+      "cagr": -1.56,
+      "sharpe": -0.08,
+      "dd": -25.8
+    },
+    "recent": {
+      "cagr": -11.79,
+      "sharpe": -1.04,
+      "dd": -20.92
+    },
+    "train": {
+      "cagr": 9.81,
+      "sharpe": 0.9,
+      "dd": -11.2
+    },
+    "score": -1.04
+  },
+  {
+    "lookback": 12,
+    "rebalance": 35,
+    "th": 0.0075,
+    "val": {
+      "cagr": 2.02,
+      "sharpe": 0.21,
+      "dd": -25.98
+    },
+    "recent": {
+      "cagr": -15.72,
+      "sharpe": -1.06,
+      "dd": -23.97
+    },
+    "train": {
+      "cagr": 14.35,
+      "sharpe": 1.17,
+      "dd": -18.83
+    },
+    "score": -1.06
+  },
+  {
+    "lookback": 20,
+    "rebalance": 25,
+    "th": 0.015,
+    "val": {
+      "cagr": 0.91,
+      "sharpe": 0.13,
+      "dd": -24.59
+    },
+    "recent": {
+      "cagr": -13.07,
+      "sharpe": -1.07,
+      "dd": -21.49
+    },
+    "train": {
+      "cagr": 13.87,
+      "sharpe": 1.16,
+      "dd": -13.89
+    },
+    "score": -1.07
+  },
+  {
+    "lookback": 20,
+    "rebalance": 25,
+    "th": 0.02,
+    "val": {
+      "cagr": 1.87,
+      "sharpe": 0.21,
+      "dd": -25.92
+    },
+    "recent": {
+      "cagr": -13.07,
+      "sharpe": -1.07,
+      "dd": -21.49
+    },
+    "train": {
+      "cagr": 13.56,
+      "sharpe": 1.14,
+      "dd": -13.78
+    },
+    "score": -1.07
+  },
+  {
+    "lookback": 20,
+    "rebalance": 25,
+    "th": 0.01,
+    "val": {
+      "cagr": 0.85,
+      "sharpe": 0.13,
+      "dd": -24.56
+    },
+    "recent": {
+      "cagr": -13.24,
+      "sharpe": -1.08,
+      "dd": -21.64
+    },
+    "train": {
+      "cagr": 14.88,
+      "sharpe": 1.21,
+      "dd": -13.89
+    },
+    "score": -1.08
+  },
+  {
+    "lookback": 15,
+    "rebalance": 25,
+    "th": 0.005,
+    "val": {
+      "cagr": 0.64,
+      "sharpe": 0.11,
+      "dd": -31.76
+    },
+    "recent": {
+      "cagr": -16.49,
+      "sharpe": -1.12,
+      "dd": -28.67
+    },
+    "train": {
+      "cagr": 9.93,
+      "sharpe": 0.8,
+      "dd": -13.76
+    },
+    "score": -1.12
+  },
+  {
+    "lookback": 15,
+    "rebalance": 25,
+    "th": 0.0075,
+    "val": {
+      "cagr": 0.57,
+      "sharpe": 0.11,
+      "dd": -32.33
+    },
+    "recent": {
+      "cagr": -16.49,
+      "sharpe": -1.12,
+      "dd": -28.67
+    },
+    "train": {
+      "cagr": 9.84,
+      "sharpe": 0.82,
+      "dd": -13.76
+    },
+    "score": -1.12
+  },
+  {
+    "lookback": 15,
+    "rebalance": 25,
+    "th": 0.01,
+    "val": {
+      "cagr": 0.23,
+      "sharpe": 0.08,
+      "dd": -32.33
+    },
+    "recent": {
+      "cagr": -16.49,
+      "sharpe": -1.12,
+      "dd": -28.67
+    },
+    "train": {
+      "cagr": 10.19,
+      "sharpe": 0.85,
+      "dd": -13.76
+    },
+    "score": -1.12
+  },
+  {
+    "lookback": 15,
+    "rebalance": 25,
+    "th": 0.015,
+    "val": {
+      "cagr": -0.58,
+      "sharpe": 0.02,
+      "dd": -32.18
+    },
+    "recent": {
+      "cagr": -16.31,
+      "sharpe": -1.12,
+      "dd": -28.51
+    },
+    "train": {
+      "cagr": 11.11,
+      "sharpe": 0.93,
+      "dd": -13.76
+    },
+    "score": -1.12
+  },
+  {
+    "lookback": 7,
+    "rebalance": 25,
+    "th": 0.005,
+    "val": {
+      "cagr": -0.66,
+      "sharpe": 0.01,
+      "dd": -26.56
+    },
+    "recent": {
+      "cagr": -14.91,
+      "sharpe": -1.13,
+      "dd": -24.28
+    },
+    "train": {
+      "cagr": 9.48,
+      "sharpe": 0.84,
+      "dd": -9.1
+    },
+    "score": -1.13
+  },
+  {
+    "lookback": 7,
+    "rebalance": 30,
+    "th": 0.02,
+    "val": {
+      "cagr": 10.85,
+      "sharpe": 1,
+      "dd": -16.24
+    },
+    "recent": {
+      "cagr": -9.39,
+      "sharpe": -1.2,
+      "dd": -13.64
+    },
+    "train": {
+      "cagr": 21.31,
+      "sharpe": 1.73,
+      "dd": -16.01
+    },
+    "score": -1.2
+  },
+  {
+    "lookback": 10,
+    "rebalance": 25,
+    "th": 0.01,
+    "val": {
+      "cagr": -2.82,
+      "sharpe": -0.18,
+      "dd": -28.24
+    },
+    "recent": {
+      "cagr": -14.69,
+      "sharpe": -1.29,
+      "dd": -23.51
+    },
+    "train": {
+      "cagr": 10.27,
+      "sharpe": 0.93,
+      "dd": -11.2
+    },
+    "score": -1.29
+  },
+  {
+    "lookback": 7,
+    "rebalance": 25,
+    "th": 0.02,
+    "val": {
+      "cagr": -3.81,
+      "sharpe": -0.33,
+      "dd": -26.64
+    },
+    "recent": {
+      "cagr": -15.28,
+      "sharpe": -1.68,
+      "dd": -20.87
+    },
+    "train": {
+      "cagr": 12.03,
+      "sharpe": 1.08,
+      "dd": -9.71
+    },
+    "score": -1.68
+  }
+]

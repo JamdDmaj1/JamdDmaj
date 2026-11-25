@@ -1,0 +1,48 @@
+{
+  "equal": {
+    "train": {
+      "cagr": 15.25,
+      "vol": 13.38,
+      "sharpe": 1.13,
+      "maxDrawdown": -16.95,
+      "calmar": 0.9
+    },
+    "validation": {
+      "cagr": 15.68,
+      "vol": 14.21,
+      "sharpe": 1.1,
+      "maxDrawdown": -17.18,
+      "calmar": 0.91
+    },
+    "full": {
+      "cagr": 15.46,
+      "vol": 13.79,
+      "sharpe": 1.11,
+      "maxDrawdown": -20.07,
+      "calmar": 0.77
+    }
+  },
+  "riskParity": {
+    "train": {
+      "cagr": 15.45,
+      "vol": 13.73,
+      "sharpe": 1.12,
+      "maxDrawdown": -17.74,
+      "calmar": 0.87
+    },
+    "validation": {
+      "cagr": 16.39,
+      "vol": 14.5,
+      "sharpe": 1.12,
+      "maxDrawdown": -17.32,
+      "calmar": 0.95
+    },
+    "full": {
+      "cagr": 15.91,
+      "vol": 14.12,
+      "sharpe": 1.12,
+      "maxDrawdown": -20.52,
+      "calmar": 0.78
+    }
+  }
+}

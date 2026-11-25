@@ -1,0 +1,17 @@
+{
+  "snapshots": [
+    {
+      "date": "2026-11-17",
+      "at": "2026-11-17T04:07:53.738Z",
+      "equity": 0.999906,
+      "realized": 0,
+      "unrealized": -0.000003,
+      "fees": 0.000065,
+      "funding": 0.000026,
+      "openRiskPct": 4.141,
+      "openPositions": 4,
+      "closedTrades": 0,
+      "winRate": null
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+Paper Tracker · 2026-11-17T04:07:53.738Z
+Equity: 0.9999 | realized 0.00% | unrealized -0.00% | fees 0.01% | funding 0.00%
+Open: 4 | Closed: 0 | Win rate: n/a | Risk at stops: 4.141%
+
+SHORT BTC size -0.06x entry 65020.8 now 64919 pnl 0.0094%
+SHORT ENA size -0.02x entry 0.11599 now 0.11617 pnl -0.0031%
+SHORT PEPE size -0.02x entry 0.0000039604 now 0.0000039359 pnl 0.0124%
+SHORT NEAR size -0.03x entry 3.2271 now 3.2475 pnl -0.019%
+
+No real orders. Paper only.

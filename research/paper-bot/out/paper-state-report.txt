@@ -1,0 +1,6 @@
+Paper Tracker · 2026-11-17T04:07:30.234Z
+Equity: 1.0000 | realized 0.00% | unrealized 0.00% | fees 0.00% | funding 0.00%
+Open: 0 | Closed: 0 | Win rate: n/a | Risk at stops: 0%
+
+
+No real orders. Paper only.

@@ -1,0 +1,10 @@
+// Local research only: long-only barrier grid.
+import {readFileSync, writeFileSync} from "node:fs";
+const S=["BTC-USD","ETH-USD","SOL-USD"],H=30,SPLIT=Date.UTC(2023,0,1);
+const data=Object.fromEntries(S.map(s=>[s,JSON.parse(readFileSync("data/"+s+".json","utf8"))]));
+function atr(rows,i,p=14){const trs=[];for(let j=Math.max(1,i-p+1);j<=i;j++){const prev=rows[j-1].close;trs.push(Math.max(rows[j].high-rows[j].low,Math.abs(rows[j].high-prev),Math.abs(rows[j].low-prev)))}return trs.length?trs.reduce((a,b)=>a+b,0)/trs.length:0}
+const samples=[];for(const s of S){const rows=data[s];for(let i=30;i<rows.length-H;i++){const a=atr(rows,i);if(!a)continue;for(const look of [7,10,15,20,30]){const mom=rows[i].close/rows[i-look].close-1;samples.push({s,i,look,mom,entry:rows[i].close,atr:a,rows,time:rows[i].time})}}}
+function outcome(x,tpM,slM){const tp=x.entry+tpM*x.atr,sl=x.entry-slM*x.atr;for(let j=x.i+1;j<=x.i+H;j++){const r=x.rows[j];if(r.low<=sl)return {ret:-slM*x.atr/x.entry-0.001,hit:false};if(r.high>=tp)return {ret:tpM*x.atr/x.entry-0.001,hit:true}}const last=x.rows[x.i+H].close;return {ret:(last/x.entry-1)-0.001,hit:last>x.entry}}
+function sum(arr,tp,sl){if(arr.length<30)return null;const r=arr.map(x=>outcome(x,tp,sl));const wins=r.filter(x=>x.hit).length;return {n:r.length,hit:+(wins/r.length*100).toFixed(1),avg:+(r.reduce((a,x)=>a+x.ret,0)/r.length*100).toFixed(2)}}
+const out=[];for(const look of [7,10,15,20,30])for(const th of [0.005,0.01,0.02,0.03,0.05])for(const tp of [1,2,3,4])for(const sl of [2,3,4,5]){const base=samples.filter(x=>x.look===look&&x.mom>th);const train=sum(base.filter(x=>x.time<SPLIT),tp,sl),val=sum(base.filter(x=>x.time>=SPLIT),tp,sl);if(!train||!val)continue;out.push({look,th,tp,sl,train,val,score:Math.min(train.hit,val.hit)})}
+out.sort((a,b)=>b.score-a.score||b.val.avg-a.val.avg);writeFileSync("long-grid-results.json",JSON.stringify(out.slice(0,100),null,2),"utf8");for(const r of out.slice(0,15))console.log('look',r.look,'th',r.th,'tp',r.tp,'sl',r.sl,'train',r.train.hit,r.train.avg,'val',r.val.hit,r.val.avg,'score',r.score)

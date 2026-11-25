@@ -1,0 +1,78 @@
+{
+  "startedAt": "2026-11-17T04:07:32.534Z",
+  "realized": 0,
+  "fees": 0.00006500000000000001,
+  "funding": 0.000026000000000000005,
+  "lastFundingDate": "2026-11-17",
+  "positions": [
+    {
+      "symbol": "BTCUSDT",
+      "base": "BTC",
+      "side": -1,
+      "size": -0.06,
+      "entry": 65020.8,
+      "takeProfit": 56172.53571429,
+      "stopLoss": 76818.48571429,
+      "openedAt": "2026-11-17T04:07:32.535Z",
+      "openedDate": "2026-11-17",
+      "lastPrice": 64919,
+      "unrealizedPct": 0.0094
+    },
+    {
+      "symbol": "ENAUSDT",
+      "base": "ENA",
+      "side": -1,
+      "size": -0.02,
+      "entry": 0.11599,
+      "takeProfit": 0.07494571,
+      "stopLoss": 0.17071571,
+      "openedAt": "2026-11-17T04:07:32.535Z",
+      "openedDate": "2026-11-17",
+      "lastPrice": 0.11617,
+      "unrealizedPct": -0.0031
+    },
+    {
+      "symbol": "PEPEUSDT",
+      "base": "PEPE",
+      "side": -1,
+      "size": -0.02,
+      "entry": 0.0000039604,
+      "takeProfit": 0.00000255,
+      "stopLoss": 0.00000584,
+      "openedAt": "2026-11-17T04:07:32.535Z",
+      "openedDate": "2026-11-17",
+      "lastPrice": 0.0000039359,
+      "unrealizedPct": 0.0124
+    },
+    {
+      "symbol": "NEARUSDT",
+      "base": "NEAR",
+      "side": -1,
+      "size": -0.03,
+      "entry": 3.2271,
+      "takeProfit": 2.29131429,
+      "stopLoss": 4.47481429,
+      "openedAt": "2026-11-17T04:07:32.535Z",
+      "openedDate": "2026-11-17",
+      "lastPrice": 3.2475,
+      "unrealizedPct": -0.019
+    }
+  ],
+  "closed": [],
+  "history": [
+    {
+      "date": "2026-11-17",
+      "at": "2026-11-17T04:07:53.738Z",
+      "equity": 0.999906,
+      "realized": 0,
+      "unrealized": -0.000003,
+      "fees": 0.000065,
+      "funding": 0.000026,
+      "openRiskPct": 4.141,
+      "openPositions": 4,
+      "closedTrades": 0,
+      "winRate": null
+    }
+  ],
+  "feeInitialized": true
+}

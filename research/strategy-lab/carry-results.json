@@ -1,0 +1,35 @@
+{
+  "generatedAt": "2026-11-17T01:33:27.239Z",
+  "symbols": {
+    "BTCUSDT": {
+      "samples": 270,
+      "from": "2026-08-19T08:00:00.000Z",
+      "to": "2026-11-17T00:00:00.000Z",
+      "meanFundingPct": 0.006,
+      "annualizedPct": 6.57,
+      "annualizedVolPct": 0.13,
+      "sharpe": 52.3,
+      "maxDrawdownPct": -0.01
+    },
+    "ETHUSDT": {
+      "samples": 270,
+      "from": "2026-08-19T08:00:00.000Z",
+      "to": "2026-11-17T00:00:00.000Z",
+      "meanFundingPct": 0.0058,
+      "annualizedPct": 6.35,
+      "annualizedVolPct": 0.14,
+      "sharpe": 44.82,
+      "maxDrawdownPct": -0.03
+    },
+    "SOLUSDT": {
+      "samples": 270,
+      "from": "2026-08-19T08:00:00.000Z",
+      "to": "2026-11-17T00:00:00.000Z",
+      "meanFundingPct": 0.0038,
+      "annualizedPct": 4.16,
+      "annualizedVolPct": 0.21,
+      "sharpe": 20.27,
+      "maxDrawdownPct": -0.12
+    }
+  }
+}

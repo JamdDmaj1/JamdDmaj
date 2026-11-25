@@ -1,0 +1,182 @@
+{
+  "longshort": {
+    "full": {
+      "cagr": 11.84,
+      "vol": 8.05,
+      "sharpe": 1.43,
+      "dd": -7.84,
+      "winDays": 51.8
+    },
+    "train": {
+      "cagr": 13.01,
+      "vol": 7.25,
+      "sharpe": 1.72,
+      "dd": -6.17,
+      "winDays": 52.1
+    },
+    "val": {
+      "cagr": 11.03,
+      "vol": 8.57,
+      "sharpe": 1.26,
+      "dd": -7.25,
+      "winDays": 51.6
+    },
+    "last365": {
+      "cagr": 9.27,
+      "vol": 6.07,
+      "sharpe": 1.49,
+      "dd": -4.02,
+      "winDays": 50.6
+    }
+  },
+  "longonly": {
+    "full": {
+      "cagr": 12.11,
+      "vol": 6.77,
+      "sharpe": 1.72,
+      "dd": -8.67,
+      "winDays": 39.1
+    },
+    "train": {
+      "cagr": 12.24,
+      "vol": 6.53,
+      "sharpe": 1.8,
+      "dd": -7.49,
+      "winDays": 43.2
+    },
+    "val": {
+      "cagr": 12.02,
+      "vol": 6.94,
+      "sharpe": 1.67,
+      "dd": -8.67,
+      "winDays": 36.2
+    },
+    "last365": {
+      "cagr": -1.62,
+      "vol": 5.92,
+      "sharpe": -0.25,
+      "dd": -7.77,
+      "winDays": 40.7
+    }
+  },
+  "longabove50": {
+    "full": {
+      "cagr": 10.07,
+      "vol": 6.18,
+      "sharpe": 1.58,
+      "dd": -9.84,
+      "winDays": 32.4
+    },
+    "train": {
+      "cagr": 12.04,
+      "vol": 5.62,
+      "sharpe": 2.05,
+      "dd": -7.03,
+      "winDays": 35.5
+    },
+    "val": {
+      "cagr": 8.71,
+      "vol": 6.55,
+      "sharpe": 1.31,
+      "dd": -9.84,
+      "winDays": 30.3
+    },
+    "last365": {
+      "cagr": -3.57,
+      "vol": 5.53,
+      "sharpe": -0.63,
+      "dd": -8.93,
+      "winDays": 29.6
+    }
+  },
+  "longabove200": {
+    "full": {
+      "cagr": 8.58,
+      "vol": 4.87,
+      "sharpe": 1.71,
+      "dd": -4.12,
+      "winDays": 25.8
+    },
+    "train": {
+      "cagr": 12.59,
+      "vol": 5.14,
+      "sharpe": 2.33,
+      "dd": -4.12,
+      "winDays": 31.1
+    },
+    "val": {
+      "cagr": 5.85,
+      "vol": 4.67,
+      "sharpe": 1.24,
+      "dd": -3.77,
+      "winDays": 22.2
+    },
+    "last365": {
+      "cagr": 0.05,
+      "vol": 2.02,
+      "sharpe": 0.03,
+      "dd": -1.57,
+      "winDays": 9.3
+    }
+  },
+  "regime": {
+    "full": {
+      "cagr": 9.5,
+      "vol": 7.81,
+      "sharpe": 1.2,
+      "dd": -8.12,
+      "winDays": 49.6
+    },
+    "train": {
+      "cagr": 14.19,
+      "vol": 7.23,
+      "sharpe": 1.87,
+      "dd": -6.84,
+      "winDays": 49.6
+    },
+    "val": {
+      "cagr": 6.32,
+      "vol": 8.19,
+      "sharpe": 0.79,
+      "dd": -8.12,
+      "winDays": 49.6
+    },
+    "last365": {
+      "cagr": 2.77,
+      "vol": 5.5,
+      "sharpe": 0.52,
+      "dd": -5.41,
+      "winDays": 48.2
+    }
+  },
+  "shortonly": {
+    "full": {
+      "cagr": -0.37,
+      "vol": 6.67,
+      "sharpe": -0.02,
+      "dd": -16.57,
+      "winDays": 36.5
+    },
+    "train": {
+      "cagr": 0.55,
+      "vol": 5.98,
+      "sharpe": 0.12,
+      "dd": -10.31,
+      "winDays": 38.2
+    },
+    "val": {
+      "cagr": -1.01,
+      "vol": 7.11,
+      "sharpe": -0.11,
+      "dd": -15.47,
+      "winDays": 35.2
+    },
+    "last365": {
+      "cagr": 10.82,
+      "vol": 6.84,
+      "sharpe": 1.54,
+      "dd": -7.24,
+      "winDays": 35
+    }
+  }
+}

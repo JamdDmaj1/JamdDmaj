@@ -1,0 +1,8 @@
+[Unit]
+Description=JamdDmaj operational audit for Phoenix AUTO
+After=network-online.target jamddmaj-perps-worker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/node /opt/jamddmaj-perps/audit/auto-audit.mjs

@@ -1,0 +1,691 @@
+{
+  "generatedAt": "2026-11-17T02:12:43.367Z",
+  "assumptions": {
+    "costPerSide": 0.0005,
+    "fundingDaily": 0.0002,
+    "assets": [
+      "BTC-USD",
+      "ETH-USD",
+      "SOL-USD"
+    ],
+    "train": "2019-01-01/2023-01-01",
+    "validation": "2023-01-01/2026-11-17"
+  },
+  "bestByTrain": [
+    {
+      "lookback": 30,
+      "targetVol": 0.25,
+      "maxLeverage": 1,
+      "rebalance": 7,
+      "train": {
+        "days": 995,
+        "cagr": 54.76,
+        "vol": 20.32,
+        "sharpe": 2.25,
+        "maxDrawdown": -12.53,
+        "calmar": 4.37
+      },
+      "test": {
+        "days": 1415,
+        "cagr": 7.52,
+        "vol": 23.37,
+        "sharpe": 0.43,
+        "maxDrawdown": -29.71,
+        "calmar": 0.25
+      }
+    },
+    {
+      "lookback": 30,
+      "targetVol": 0.15,
+      "maxLeverage": 1,
+      "rebalance": 7,
+      "train": {
+        "days": 995,
+        "cagr": 30.41,
+        "vol": 12.23,
+        "sharpe": 2.23,
+        "maxDrawdown": -7.63,
+        "calmar": 3.98
+      },
+      "test": {
+        "days": 1415,
+        "cagr": 6.52,
+        "vol": 14.32,
+        "sharpe": 0.51,
+        "maxDrawdown": -18.12,
+        "calmar": 0.36
+      }
+    },
+    {
+      "lookback": 30,
+      "targetVol": 0.15,
+      "maxLeverage": 1.5,
+      "rebalance": 7,
+      "train": {
+        "days": 995,
+        "cagr": 30.41,
+        "vol": 12.23,
+        "sharpe": 2.23,
+        "maxDrawdown": -7.63,
+        "calmar": 3.98
+      },
+      "test": {
+        "days": 1415,
+        "cagr": 7.36,
+        "vol": 14.5,
+        "sharpe": 0.56,
+        "maxDrawdown": -18.12,
+        "calmar": 0.41
+      }
+    },
+    {
+      "lookback": 30,
+      "targetVol": 0.15,
+      "maxLeverage": 2,
+      "rebalance": 7,
+      "train": {
+        "days": 995,
+        "cagr": 30.41,
+        "vol": 12.23,
+        "sharpe": 2.23,
+        "maxDrawdown": -7.63,
+        "calmar": 3.98
+      },
+      "test": {
+        "days": 1415,
+        "cagr": 7.36,
+        "vol": 14.5,
+        "sharpe": 0.56,
+        "maxDrawdown": -18.12,
+        "calmar": 0.41
+      }
+    },
+    {
+      "lookback": 30,
+      "targetVol": 0.15,
+      "maxLeverage": 3,
+      "rebalance": 7,
+      "train": {
+        "days": 995,
+        "cagr": 30.41,
+        "vol": 12.23,
+        "sharpe": 2.23,
+        "maxDrawdown": -7.63,
+        "calmar": 3.98
+      },
+      "test": {
+        "days": 1415,
+        "cagr": 7.36,
+        "vol": 14.5,
+        "sharpe": 0.56,
+        "maxDrawdown": -18.12,
+        "calmar": 0.41
+      }
+    },
+    {
+      "lookback": 30,
+      "targetVol": 0.2,
+      "maxLeverage": 1,
+      "rebalance": 7,
+      "train": {
+        "days": 995,
+        "cagr": 42.01,
+        "vol": 16.31,
+        "sharpe": 2.23,
+        "maxDrawdown": -10.1,
+        "calmar": 4.16
+      },
+      "test": {
+        "days": 1415,
+        "cagr": 7.1,
+        "vol": 18.87,
+        "sharpe": 0.46,
+        "maxDrawdown": -24.02,
+        "calmar": 0.3
+      }
+    },
+    {
+      "lookback": 30,
+      "targetVol": 0.2,
+      "maxLeverage": 1.5,
+      "rebalance": 7,
+      "train": {
+        "days": 995,
+        "cagr": 42.01,
+        "vol": 16.31,
+        "sharpe": 2.23,
+        "maxDrawdown": -10.1,
+        "calmar": 4.16
+      },
+      "test": {
+        "days": 1415,
+        "cagr": 8.77,
+        "vol": 19.19,
+        "sharpe": 0.53,
+        "maxDrawdown": -24.06,
+        "calmar": 0.36
+      }
+    },
+    {
+      "lookback": 30,
+      "targetVol": 0.2,
+      "maxLeverage": 2,
+      "rebalance": 7,
+      "train": {
+        "days": 995,
+        "cagr": 42.01,
+        "vol": 16.31,
+        "sharpe": 2.23,
+        "maxDrawdown": -10.1,
+        "calmar": 4.16
+      },
+      "test": {
+        "days": 1415,
+        "cagr": 9.43,
+        "vol": 19.33,
+        "sharpe": 0.56,
+        "maxDrawdown": -24.06,
+        "calmar": 0.39
+      }
+    },
+    {
+      "lookback": 30,
+      "targetVol": 0.2,
+      "maxLeverage": 3,
+      "rebalance": 7,
+      "train": {
+        "days": 995,
+        "cagr": 42.01,
+        "vol": 16.31,
+        "sharpe": 2.23,
+        "maxDrawdown": -10.1,
+        "calmar": 4.16
+      },
+      "test": {
+        "days": 1415,
+        "cagr": 9.43,
+        "vol": 19.33,
+        "sharpe": 0.56,
+        "maxDrawdown": -24.06,
+        "calmar": 0.39
+      }
+    },
+    {
+      "lookback": 30,
+      "targetVol": 0.25,
+      "maxLeverage": 1.5,
+      "rebalance": 7,
+      "train": {
+        "days": 995,
+        "cagr": 54.37,
+        "vol": 20.39,
+        "sharpe": 2.23,
+        "maxDrawdown": -12.53,
+        "calmar": 4.34
+      },
+      "test": {
+        "days": 1415,
+        "cagr": 9.22,
+        "vol": 23.76,
+        "sharpe": 0.49,
+        "maxDrawdown": -29.89,
+        "calmar": 0.31
+      }
+    }
+  ],
+  "bestByValidation": [
+    {
+      "lookback": 20,
+      "targetVol": 0.15,
+      "maxLeverage": 1.5,
+      "rebalance": 14,
+      "train": {
+        "days": 995,
+        "cagr": 16.47,
+        "vol": 13.83,
+        "sharpe": 1.17,
+        "maxDrawdown": -14.39,
+        "calmar": 1.15
+      },
+      "test": {
+        "days": 1415,
+        "cagr": 13.78,
+        "vol": 14.5,
+        "sharpe": 0.96,
+        "maxDrawdown": -18.7,
+        "calmar": 0.74
+      }
+    },
+    {
+      "lookback": 20,
+      "targetVol": 0.15,
+      "maxLeverage": 2,
+      "rebalance": 14,
+      "train": {
+        "days": 995,
+        "cagr": 16.47,
+        "vol": 13.83,
+        "sharpe": 1.17,
+        "maxDrawdown": -14.39,
+        "calmar": 1.15
+      },
+      "test": {
+        "days": 1415,
+        "cagr": 13.78,
+        "vol": 14.5,
+        "sharpe": 0.96,
+        "maxDrawdown": -18.7,
+        "calmar": 0.74
+      }
+    },
+    {
+      "lookback": 20,
+      "targetVol": 0.15,
+      "maxLeverage": 3,
+      "rebalance": 14,
+      "train": {
+        "days": 995,
+        "cagr": 16.47,
+        "vol": 13.83,
+        "sharpe": 1.17,
+        "maxDrawdown": -14.39,
+        "calmar": 1.15
+      },
+      "test": {
+        "days": 1415,
+        "cagr": 13.78,
+        "vol": 14.5,
+        "sharpe": 0.96,
+        "maxDrawdown": -18.7,
+        "calmar": 0.74
+      }
+    },
+    {
+      "lookback": 20,
+      "targetVol": 0.2,
+      "maxLeverage": 2,
+      "rebalance": 14,
+      "train": {
+        "days": 995,
+        "cagr": 22.02,
+        "vol": 18.44,
+        "sharpe": 1.17,
+        "maxDrawdown": -18.97,
+        "calmar": 1.16
+      },
+      "test": {
+        "days": 1415,
+        "cagr": 18.23,
+        "vol": 19.34,
+        "sharpe": 0.96,
+        "maxDrawdown": -24.28,
+        "calmar": 0.75
+      }
+    },
+    {
+      "lookback": 20,
+      "targetVol": 0.2,
+      "maxLeverage": 3,
+      "rebalance": 14,
+      "train": {
+        "days": 995,
+        "cagr": 22.02,
+        "vol": 18.44,
+        "sharpe": 1.17,
+        "maxDrawdown": -18.97,
+        "calmar": 1.16
+      },
+      "test": {
+        "days": 1415,
+        "cagr": 18.23,
+        "vol": 19.34,
+        "sharpe": 0.96,
+        "maxDrawdown": -24.28,
+        "calmar": 0.75
+      }
+    },
+    {
+      "lookback": 20,
+      "targetVol": 0.25,
+      "maxLeverage": 3,
+      "rebalance": 14,
+      "train": {
+        "days": 995,
+        "cagr": 27.56,
+        "vol": 23.05,
+        "sharpe": 1.17,
+        "maxDrawdown": -23.44,
+        "calmar": 1.18
+      },
+      "test": {
+        "days": 1415,
+        "cagr": 22.58,
+        "vol": 24.17,
+        "sharpe": 0.96,
+        "maxDrawdown": -29.56,
+        "calmar": 0.76
+      }
+    },
+    {
+      "lookback": 20,
+      "targetVol": 0.25,
+      "maxLeverage": 2,
+      "rebalance": 14,
+      "train": {
+        "days": 995,
+        "cagr": 27.56,
+        "vol": 23.05,
+        "sharpe": 1.17,
+        "maxDrawdown": -23.44,
+        "calmar": 1.18
+      },
+      "test": {
+        "days": 1415,
+        "cagr": 21.69,
+        "vol": 23.96,
+        "sharpe": 0.94,
+        "maxDrawdown": -29.56,
+        "calmar": 0.73
+      }
+    },
+    {
+      "lookback": 20,
+      "targetVol": 0.2,
+      "maxLeverage": 1.5,
+      "rebalance": 14,
+      "train": {
+        "days": 995,
+        "cagr": 22.02,
+        "vol": 18.44,
+        "sharpe": 1.17,
+        "maxDrawdown": -18.97,
+        "calmar": 1.16
+      },
+      "test": {
+        "days": 1415,
+        "cagr": 17.26,
+        "vol": 19.11,
+        "sharpe": 0.93,
+        "maxDrawdown": -24.28,
+        "calmar": 0.71
+      }
+    },
+    {
+      "lookback": 20,
+      "targetVol": 0.15,
+      "maxLeverage": 1,
+      "rebalance": 14,
+      "train": {
+        "days": 995,
+        "cagr": 16.47,
+        "vol": 13.83,
+        "sharpe": 1.17,
+        "maxDrawdown": -14.39,
+        "calmar": 1.15
+      },
+      "test": {
+        "days": 1415,
+        "cagr": 12.72,
+        "vol": 14.25,
+        "sharpe": 0.91,
+        "maxDrawdown": -18.7,
+        "calmar": 0.68
+      }
+    },
+    {
+      "lookback": 20,
+      "targetVol": 0.25,
+      "maxLeverage": 1.5,
+      "rebalance": 14,
+      "train": {
+        "days": 995,
+        "cagr": 27.56,
+        "vol": 23.05,
+        "sharpe": 1.17,
+        "maxDrawdown": -23.44,
+        "calmar": 1.18
+      },
+      "test": {
+        "days": 1415,
+        "cagr": 20.25,
+        "vol": 23.66,
+        "sharpe": 0.9,
+        "maxDrawdown": -29.56,
+        "calmar": 0.69
+      }
+    }
+  ],
+  "mostRobustTrainAndValidation": [
+    {
+      "lookback": 20,
+      "targetVol": 0.15,
+      "maxLeverage": 1.5,
+      "rebalance": 14,
+      "train": {
+        "days": 995,
+        "cagr": 16.47,
+        "vol": 13.83,
+        "sharpe": 1.17,
+        "maxDrawdown": -14.39,
+        "calmar": 1.15
+      },
+      "test": {
+        "days": 1415,
+        "cagr": 13.78,
+        "vol": 14.5,
+        "sharpe": 0.96,
+        "maxDrawdown": -18.7,
+        "calmar": 0.74
+      },
+      "score": 0.96
+    },
+    {
+      "lookback": 20,
+      "targetVol": 0.15,
+      "maxLeverage": 2,
+      "rebalance": 14,
+      "train": {
+        "days": 995,
+        "cagr": 16.47,
+        "vol": 13.83,
+        "sharpe": 1.17,
+        "maxDrawdown": -14.39,
+        "calmar": 1.15
+      },
+      "test": {
+        "days": 1415,
+        "cagr": 13.78,
+        "vol": 14.5,
+        "sharpe": 0.96,
+        "maxDrawdown": -18.7,
+        "calmar": 0.74
+      },
+      "score": 0.96
+    },
+    {
+      "lookback": 20,
+      "targetVol": 0.15,
+      "maxLeverage": 3,
+      "rebalance": 14,
+      "train": {
+        "days": 995,
+        "cagr": 16.47,
+        "vol": 13.83,
+        "sharpe": 1.17,
+        "maxDrawdown": -14.39,
+        "calmar": 1.15
+      },
+      "test": {
+        "days": 1415,
+        "cagr": 13.78,
+        "vol": 14.5,
+        "sharpe": 0.96,
+        "maxDrawdown": -18.7,
+        "calmar": 0.74
+      },
+      "score": 0.96
+    },
+    {
+      "lookback": 20,
+      "targetVol": 0.2,
+      "maxLeverage": 2,
+      "rebalance": 14,
+      "train": {
+        "days": 995,
+        "cagr": 22.02,
+        "vol": 18.44,
+        "sharpe": 1.17,
+        "maxDrawdown": -18.97,
+        "calmar": 1.16
+      },
+      "test": {
+        "days": 1415,
+        "cagr": 18.23,
+        "vol": 19.34,
+        "sharpe": 0.96,
+        "maxDrawdown": -24.28,
+        "calmar": 0.75
+      },
+      "score": 0.96
+    },
+    {
+      "lookback": 20,
+      "targetVol": 0.2,
+      "maxLeverage": 3,
+      "rebalance": 14,
+      "train": {
+        "days": 995,
+        "cagr": 22.02,
+        "vol": 18.44,
+        "sharpe": 1.17,
+        "maxDrawdown": -18.97,
+        "calmar": 1.16
+      },
+      "test": {
+        "days": 1415,
+        "cagr": 18.23,
+        "vol": 19.34,
+        "sharpe": 0.96,
+        "maxDrawdown": -24.28,
+        "calmar": 0.75
+      },
+      "score": 0.96
+    },
+    {
+      "lookback": 20,
+      "targetVol": 0.25,
+      "maxLeverage": 3,
+      "rebalance": 14,
+      "train": {
+        "days": 995,
+        "cagr": 27.56,
+        "vol": 23.05,
+        "sharpe": 1.17,
+        "maxDrawdown": -23.44,
+        "calmar": 1.18
+      },
+      "test": {
+        "days": 1415,
+        "cagr": 22.58,
+        "vol": 24.17,
+        "sharpe": 0.96,
+        "maxDrawdown": -29.56,
+        "calmar": 0.76
+      },
+      "score": 0.96
+    },
+    {
+      "lookback": 20,
+      "targetVol": 0.25,
+      "maxLeverage": 2,
+      "rebalance": 14,
+      "train": {
+        "days": 995,
+        "cagr": 27.56,
+        "vol": 23.05,
+        "sharpe": 1.17,
+        "maxDrawdown": -23.44,
+        "calmar": 1.18
+      },
+      "test": {
+        "days": 1415,
+        "cagr": 21.69,
+        "vol": 23.96,
+        "sharpe": 0.94,
+        "maxDrawdown": -29.56,
+        "calmar": 0.73
+      },
+      "score": 0.94
+    },
+    {
+      "lookback": 20,
+      "targetVol": 0.2,
+      "maxLeverage": 1.5,
+      "rebalance": 14,
+      "train": {
+        "days": 995,
+        "cagr": 22.02,
+        "vol": 18.44,
+        "sharpe": 1.17,
+        "maxDrawdown": -18.97,
+        "calmar": 1.16
+      },
+      "test": {
+        "days": 1415,
+        "cagr": 17.26,
+        "vol": 19.11,
+        "sharpe": 0.93,
+        "maxDrawdown": -24.28,
+        "calmar": 0.71
+      },
+      "score": 0.93
+    },
+    {
+      "lookback": 20,
+      "targetVol": 0.15,
+      "maxLeverage": 1,
+      "rebalance": 14,
+      "train": {
+        "days": 995,
+        "cagr": 16.47,
+        "vol": 13.83,
+        "sharpe": 1.17,
+        "maxDrawdown": -14.39,
+        "calmar": 1.15
+      },
+      "test": {
+        "days": 1415,
+        "cagr": 12.72,
+        "vol": 14.25,
+        "sharpe": 0.91,
+        "maxDrawdown": -18.7,
+        "calmar": 0.68
+      },
+      "score": 0.91
+    },
+    {
+      "lookback": 20,
+      "targetVol": 0.25,
+      "maxLeverage": 1.5,
+      "rebalance": 14,
+      "train": {
+        "days": 995,
+        "cagr": 27.56,
+        "vol": 23.05,
+        "sharpe": 1.17,
+        "maxDrawdown": -23.44,
+        "calmar": 1.18
+      },
+      "test": {
+        "days": 1415,
+        "cagr": 20.25,
+        "vol": 23.66,
+        "sharpe": 0.9,
+        "maxDrawdown": -29.56,
+        "calmar": 0.69
+      },
+      "score": 0.9
+    }
+  ],
+  "variantsTested": 192
+}

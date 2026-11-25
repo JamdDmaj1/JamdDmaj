@@ -1,0 +1,130 @@
+{
+  "startedAt": "2026-11-17T03:53:55.562Z",
+  "realized": 0,
+  "positions": [
+    {
+      "symbol": "BTCUSDT",
+      "base": "BTC",
+      "side": -1,
+      "size": -0.03,
+      "entry": 65020.8,
+      "takeProfit": 56172.53571429,
+      "stopLoss": 76818.48571429,
+      "openedAt": "2026-11-17T03:53:55.564Z",
+      "openedDate": "2026-11-17",
+      "lastPrice": 64905.6,
+      "unrealizedPct": 0.0053
+    },
+    {
+      "symbol": "XRPUSDT",
+      "base": "XRP",
+      "side": -1,
+      "size": -0.03,
+      "entry": 0.9639,
+      "takeProfit": 0.77704286,
+      "stopLoss": 1.21304286,
+      "openedAt": "2026-11-17T03:53:55.564Z",
+      "openedDate": "2026-11-17",
+      "lastPrice": 0.9652,
+      "unrealizedPct": -0.004
+    },
+    {
+      "symbol": "DOGEUSDT",
+      "base": "DOGE",
+      "side": -1,
+      "size": -0.02,
+      "entry": 0.05935,
+      "takeProfit": 0.04767786,
+      "stopLoss": 0.07491286,
+      "openedAt": "2026-11-17T03:53:55.564Z",
+      "openedDate": "2026-11-17",
+      "lastPrice": 0.05923,
+      "unrealizedPct": 0.004
+    },
+    {
+      "symbol": "SOLUSDT",
+      "base": "SOL",
+      "side": -1,
+      "size": -0.02,
+      "entry": 72.504,
+      "takeProfit": 58.02257143,
+      "stopLoss": 91.81257143,
+      "openedAt": "2026-11-17T03:53:55.564Z",
+      "openedDate": "2026-11-17",
+      "lastPrice": 72.743,
+      "unrealizedPct": -0.0066
+    },
+    {
+      "symbol": "ETHUSDT",
+      "base": "ETH",
+      "side": -1,
+      "size": -0.02,
+      "entry": 1829.16,
+      "takeProfit": 1479.41785714,
+      "stopLoss": 2295.48285714,
+      "openedAt": "2026-11-17T03:53:55.564Z",
+      "openedDate": "2026-11-17",
+      "lastPrice": 1828.31,
+      "unrealizedPct": 0.0009
+    },
+    {
+      "symbol": "ENAUSDT",
+      "base": "ENA",
+      "side": -1,
+      "size": -0.01,
+      "entry": 0.11599,
+      "takeProfit": 0.07494571,
+      "stopLoss": 0.17071571,
+      "openedAt": "2026-11-17T03:53:55.564Z",
+      "openedDate": "2026-11-17",
+      "lastPrice": 0.11642,
+      "unrealizedPct": -0.0037
+    },
+    {
+      "symbol": "ZECUSDT",
+      "base": "ZEC",
+      "side": -1,
+      "size": -0.01,
+      "entry": 918.99,
+      "takeProfit": 572.61,
+      "stopLoss": 1380.83,
+      "openedAt": "2026-11-17T03:53:55.564Z",
+      "openedDate": "2026-11-17",
+      "lastPrice": 919.48,
+      "unrealizedPct": -0.0005
+    },
+    {
+      "symbol": "PEPEUSDT",
+      "base": "PEPE",
+      "side": -1,
+      "size": -0.01,
+      "entry": 0.0000039604,
+      "takeProfit": 0.00000255,
+      "stopLoss": 0.00000584,
+      "openedAt": "2026-11-17T03:53:55.564Z",
+      "openedDate": "2026-11-17",
+      "lastPrice": 0.0000039406,
+      "unrealizedPct": 0.005
+    }
+  ],
+  "closed": [],
+  "history": [
+    {
+      "date": "2026-11-17",
+      "at": "2026-11-17T04:06:04.933Z",
+      "equity": 0.999899,
+      "realized": 0,
+      "unrealized": 0.000004,
+      "fees": 0.000075,
+      "funding": 0.00003,
+      "openRiskPct": 4.336,
+      "openPositions": 8,
+      "closedTrades": 0,
+      "winRate": null
+    }
+  ],
+  "fees": 0.00007500000000000001,
+  "funding": 0.00003000000000000001,
+  "lastFundingDate": "2026-11-17",
+  "feeInitialized": true
+}

@@ -1,0 +1,152 @@
+{
+  "base": {
+    "full": {
+      "cagr": 12.19,
+      "vol": 7.37,
+      "sharpe": 1.6,
+      "dd": -8.51,
+      "winDays": 50
+    },
+    "train": {
+      "cagr": 12.83,
+      "vol": 7.37,
+      "sharpe": 1.68,
+      "dd": -7.04,
+      "winDays": 49.6
+    },
+    "val": {
+      "cagr": 11.74,
+      "vol": 7.38,
+      "sharpe": 1.54,
+      "dd": -7.12,
+      "winDays": 50.2
+    },
+    "last365": {
+      "cagr": 6.9,
+      "vol": 5.84,
+      "sharpe": 1.17,
+      "dd": -4.65,
+      "winDays": 50.9
+    }
+  },
+  "ma20": {
+    "full": {
+      "cagr": 10.88,
+      "vol": 7.08,
+      "sharpe": 1.49,
+      "dd": -8.95,
+      "winDays": 48.6
+    },
+    "train": {
+      "cagr": 12.33,
+      "vol": 6.96,
+      "sharpe": 1.7,
+      "dd": -7.49,
+      "winDays": 49.1
+    },
+    "val": {
+      "cagr": 9.87,
+      "vol": 7.17,
+      "sharpe": 1.35,
+      "dd": -7.21,
+      "winDays": 48.2
+    },
+    "last365": {
+      "cagr": 5.96,
+      "vol": 5.69,
+      "sharpe": 1.05,
+      "dd": -4.65,
+      "winDays": 50.3
+    }
+  },
+  "ma50": {
+    "full": {
+      "cagr": 10.87,
+      "vol": 6.88,
+      "sharpe": 1.53,
+      "dd": -7.76,
+      "winDays": 45.7
+    },
+    "train": {
+      "cagr": 14.26,
+      "vol": 6.53,
+      "sharpe": 2.08,
+      "dd": -4.62,
+      "winDays": 45.1
+    },
+    "val": {
+      "cagr": 8.55,
+      "vol": 7.11,
+      "sharpe": 1.19,
+      "dd": -7.76,
+      "winDays": 46.1
+    },
+    "last365": {
+      "cagr": 4.77,
+      "vol": 5.56,
+      "sharpe": 0.87,
+      "dd": -5.2,
+      "winDays": 44.9
+    }
+  },
+  "break20": {
+    "full": {
+      "cagr": 0,
+      "vol": 0,
+      "sharpe": 0,
+      "dd": 0,
+      "winDays": 0
+    },
+    "train": {
+      "cagr": 0,
+      "vol": 0,
+      "sharpe": 0,
+      "dd": 0,
+      "winDays": 0
+    },
+    "val": {
+      "cagr": 0,
+      "vol": 0,
+      "sharpe": 0,
+      "dd": 0,
+      "winDays": 0
+    },
+    "last365": {
+      "cagr": 0,
+      "vol": 0,
+      "sharpe": 0,
+      "dd": 0,
+      "winDays": 0
+    }
+  },
+  "break20ma20": {
+    "full": {
+      "cagr": 0,
+      "vol": 0,
+      "sharpe": 0,
+      "dd": 0,
+      "winDays": 0
+    },
+    "train": {
+      "cagr": 0,
+      "vol": 0,
+      "sharpe": 0,
+      "dd": 0,
+      "winDays": 0
+    },
+    "val": {
+      "cagr": 0,
+      "vol": 0,
+      "sharpe": 0,
+      "dd": 0,
+      "winDays": 0
+    },
+    "last365": {
+      "cagr": 0,
+      "vol": 0,
+      "sharpe": 0,
+      "dd": 0,
+      "winDays": 0
+    }
+  }
+}
