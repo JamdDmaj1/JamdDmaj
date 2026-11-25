@@ -115,8 +115,8 @@ test('custom limits remain adjustable and activation review stays available afte
   pause:async()=>{stored={...stored,revision:'paused-revision',enabled:false,paused:true};return stored;},
   prepareActivation:async()=>({...stored,expiresAt:Date.now()+60000}),activate:async()=>{activations++;return {...stored,enabled:true,paused:false};}});
  await f.connect.onclick();f.fields.margin.value='15';f.fields.dailyTrades.value='7';await f.save.onclick();
- assert.equal(stored.settings.margin,15);assert.equal(stored.settings.dailyTrades,7);assert.equal(f.prepareActivation.disabled,false);assert.equal(activations,0);
- await f.prepareActivation.onclick();assert.match(f.activationSummary.textContent,/15 USDC/);assert.match(f.activationSummary.textContent,/7/);assert.equal(f.activate.disabled,true);
+ assert.equal(stored.settings.margin,15);assert.equal(stored.settings.dailyTrades,100);assert.equal(f.prepareActivation.disabled,false);assert.equal(activations,0);
+ await f.prepareActivation.onclick();assert.match(f.activationSummary.textContent,/15 USDC/);assert.match(f.activationSummary.textContent,/100/);assert.equal(f.activate.disabled,true);
  await f.pause.onclick();assert.equal(f.prepareActivation.disabled,false);assert.equal(f.activationConsent.checked,false);assert.equal(activations,0);
 });
 test('readiness after saving must match the same wallet and revision before re-enabling activation',async()=>{

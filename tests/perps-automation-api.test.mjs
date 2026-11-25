@@ -225,7 +225,7 @@ test('app panel and fixed-origin client reach verified-session custody setup end
  assert.throws(()=>client.activate({explicitApproval:true}),/activation-review-expired/);assert.equal(posts,1);
 });
 
-test('invalid setup highlights the correct field and opens advanced exits without sending any provisioning request',async()=>{
+test('invalid setup highlights the correct field and the AUTO-only panel keeps advanced exits hidden',async()=>{
  let posts=0;const node=()=>({children:[],append(...items){this.children.push(...items);},setAttribute(){}}),doc={createElement:node};
  const value=validateAutomationSettings(settings),fields=Object.fromEntries(Object.entries(value).map(([key,value])=>[key,{
   value:value==null?'':String(value),attrs:{},setAttribute(k,v){this.attrs[k]=v;},focus(){this.focused=true;},closest(){return this.details;}
@@ -234,7 +234,6 @@ test('invalid setup highlights the correct field and opens advanced exits withou
  const panel=setupPerpsControlPanel({panel:node(),fields,client,validateSettings:validatePerpsAutomationForm,language:'en',doc});
  await panel.connect.onclick();panel.consent.checked=true;panel.consent.onchange();fields.capital.value='';
  await panel.provision.onclick();assert.equal(posts,0);assert.equal(fields.capital.attrs['aria-invalid'],'true');assert.equal(fields.capital.focused,true);assert.match(panel.status.textContent,/Maximum capital/);
- fields.capital.value='100';fields.stopLossPercent.value='0';fields.stopLossPercent.details={open:false};
- await panel.provision.onclick();assert.equal(posts,0);assert.equal(fields.capital.attrs['aria-invalid'],'false');assert.equal(fields.stopLossPercent.attrs['aria-invalid'],'true');assert.equal(fields.stopLossPercent.details.open,true);assert.match(panel.status.textContent,/leave blank/);
+ assert.equal(fields.stopLossPercent.details,undefined);
  assert.equal(panel.provision.disabled,false);assert.equal(panel.consent.checked,true);
 });
