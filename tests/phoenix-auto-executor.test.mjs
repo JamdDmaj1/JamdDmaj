@@ -124,6 +124,17 @@ test('automatic Phoenix recovers a CLOSING workflow and releases the slot', asyn
   f.store.dispose();
 });
 
+test('automatic Phoenix blocks a pair after repeated stop-loss lessons', async () => {
+  const f = fixture();
+  f.store.lesson({signal: 'old:1', symbol: 'VVV', side: 'LONG', outcome: 'SL', entry: '100000000', exit: '95000000', reason: 'stop-loss mark reached'});
+  f.store.lesson({signal: 'old:2', symbol: 'VVV', side: 'LONG', outcome: 'SL', entry: '100000000', exit: '95000000', reason: 'stop-loss mark reached'});
+  const executor = createPhoenixAutoExecutor({controls: f.controls, service: f.service, store: f.store, readFeed: f.feed, ownerAccountHash: owner, walletAddress: wallet});
+  const result = await executor.runOnce();
+  assert.equal(result.stage, 'PHOENIX_AUTO_LESSON_BLOCK');
+  assert.equal(f.calls.length, 0);
+  f.store.dispose();
+});
+
 test('automatic Phoenix sends one close notification after COMPLETE', async () => {
   const f = fixture();
   f.store.reserve({signal: 'signal:1', symbol: 'VVV', side: 'LONG', margin: '10000000', entry: '100000000', sl: '95000000', tp1: '110000000'});

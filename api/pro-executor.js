@@ -519,12 +519,22 @@ function formatExitManagerMessage(input, action) {
   ].filter(Boolean).join("\n");
 }
 
+function englishDirectionLabel(value) {
+  const label = String(value || "").trim().toUpperCase();
+  if (label.includes("FUERTEMENTE") && label.includes("ALCISTA")) return "STRONGLY BULLISH";
+  if (label.includes("FUERTEMENTE") && label.includes("BAJISTA")) return "STRONGLY BEARISH";
+  if (label.includes("ALCISTA")) return "BULLISH";
+  if (label.includes("BAJISTA")) return "BEARISH";
+  if (label.includes("MIXTA") || label.includes("SIN DIRECCION")) return "MIXED / NO CLEAR DIRECTION";
+  return label || "MIXED / NO CLEAR DIRECTION";
+}
+
 function formatLiveOrderMessage(input, order) {
   const risk = input?.accountRisk || {};
   return [
     "🚨 <b>BITGET AUTO ENTRY EXECUTED</b>",
     `<b>${escapeHtml(order.pair || order.symbol)}</b> ${escapeHtml(order.side || "")}`,
-    order.marketDirectionLabel ? `Direccion dominante: <b>${escapeHtml(order.marketDirectionLabel)}</b> | score ${Number(order.marketDirectionScore || 0).toFixed(1)} | ${order.marketAlignment === "with-market" ? "A FAVOR" : order.marketAlignment === "counter-market" ? "CONTRA MERCADO" : "NEUTRAL"}` : "",
+    order.marketDirectionLabel ? `Market direction: <b>${escapeHtml(englishDirectionLabel(order.marketDirectionLabel))}</b> | score ${Number(order.marketDirectionScore || 0).toFixed(1)} | ${order.marketAlignment === "with-market" ? "WITH MARKET" : order.marketAlignment === "counter-market" ? "AGAINST MARKET" : "NEUTRAL"}` : "",
     `Mode: <code>${escapeHtml(String(input?.mode || "live").toUpperCase())}</code> | Source: ${escapeHtml(order.source || "executor")}`,
     `Margin: ${Number(order.marginUsd || 0).toFixed(2)} | Notional: ${Number(order.notionalUsd || 0).toFixed(2)}`,
     Number(order.entry || 0) ? `Entry ref: <code>${Number(order.entry).toPrecision(8)}</code>` : "",
@@ -547,11 +557,11 @@ function formatExecutorDailyLearningMessage(input, learning) {
   return [
     "📌 <b>JamdDmaj Bitget daily learning</b>",
     `Day: ${escapeHtml(learning.day || dayKey())}`,
-    "Hora del informe: 9:00 p. m. Miami",
+    "Report time: 9:00 PM Miami",
     `VPS runs: ${Number(learning.runs || 0)} | ${dryRun ? "Simulated entries" : "Live entries"}: ${Number(learning.liveOrders || 0)}`,
     formatExecutorMarketDirection(input?.marketDirection),
-    `🎯 TP tocados: <b>${Number(outcomes.tpHits || 0)}</b> | 🛑 SL tocados: <b>${Number(outcomes.stopLossHits || 0)}</b>`,
-    `Resultados: wins ${Number(outcomes.wins || 0)} | losses ${Number(outcomes.losses || 0)} | invalidaciones ${Number(outcomes.invalidationLosses || 0)} | reversals ${Number(outcomes.reversalLosses || 0)}`,
+    `🎯 TP hits: <b>${Number(outcomes.tpHits || 0)}</b> | 🛑 SL hits: <b>${Number(outcomes.stopLossHits || 0)}</b>`,
+    `Results: wins ${Number(outcomes.wins || 0)} | losses ${Number(outcomes.losses || 0)} | invalidations ${Number(outcomes.invalidationLosses || 0)} | reversals ${Number(outcomes.reversalLosses || 0)}`,
     Number(outcomes.profitGivebacks || 0) ? `Profit givebacks: ${Number(outcomes.profitGivebacks || 0)}` : "",
     lossReasons.length ? `Loss reasons: ${lossReasons.join(" | ")}` : "",
     lossExamples.length ? `Loss examples: ${lossExamples.join(" | ")}` : "",
@@ -559,7 +569,7 @@ function formatExecutorDailyLearningMessage(input, learning) {
     top.length ? `Top filters: ${top.join(" | ")}` : "Top filters: none yet",
     examples.length ? `Examples: ${examples.join(" | ")}` : "",
     `Lesson: ${escapeHtml(learning.lesson || "Collecting data.")}`,
-    "\n<b>Sugerencias de SL</b>",
+    "\n<b>SL suggestions</b>",
     ...slSuggestions.map((suggestion, index) => `${index + 1}. ${escapeHtml(suggestion)}`),
     formatAiSimulationExperiment(input?.aiExperiment),
     improvements.length ? "\n<b>AI self-improvement requests</b>" : "",
@@ -584,22 +594,22 @@ export function buildDailyStopLossSuggestions(outcomes = {}) {
   const givebacks = Number(outcomes.profitGivebacks || 0);
   const losses = Number(outcomes.losses || 0);
   if (stopLossHits >= 2) {
-    suggestions.push("Hubo varios SL: revisar si la entrada quedó demasiado cerca del ruido/ATR; validar en simulación antes de ampliar el stop.");
+    suggestions.push("Multiple SL hits: check whether entries were too close to noise/ATR; validate in simulation before widening the stop.");
   } else if (stopLossHits === 1) {
-    suggestions.push("Revisar el trade que tocó SL y comparar distancia ATR, estructura y spread con los trades que alcanzaron TP.");
+    suggestions.push("Review the losing trade and compare ATR distance, structure and spread with the winners.");
   }
   if (invalidations >= 2) {
-    suggestions.push("Las invalidaciones se repitieron: exigir confirmación de tendencia 4h y cierre de vela antes de entrar.");
+    suggestions.push("Invalidations repeated: require 4h trend confirmation and a candle close before entry.");
   }
   if (givebacks > 0) {
-    suggestions.push("Hubo devolución de beneficio: después de TP1 conviene evaluar protección a break-even o beneficio, primero en simulación.");
+    suggestions.push("Profit was given back: after TP1, evaluate break-even or profit protection first in simulation.");
   }
   if (!suggestions.length && losses === 0) {
-    suggestions.push("Sin pérdidas registradas hoy: mantener el SL técnico actual y no aflojarlo sin más muestras.");
+    suggestions.push("No losses today: keep the current technical SL and do not loosen it without more samples.");
   } else if (!suggestions.length) {
-    suggestions.push("Mantener el SL detrás de la invalidación técnica; no moverlo para aumentar riesgo después de abrir el trade.");
+    suggestions.push("Keep the SL behind technical invalidation; do not move it to add risk after entry.");
   }
-  suggestions.push("Cualquier cambio de distancia o gestión del SL debe probarse en A/B simulado antes de aplicarse al bot.");
+  suggestions.push("Any SL distance or management change must be A/B tested in simulation before going live.");
   return suggestions.slice(0, 3);
 }
 
@@ -612,9 +622,9 @@ function formatAiSimulationExperiment(value) {
     : "";
   const quality = ["A", "B", "C"].map((tier) => {
     const bucket = value?.quality?.[tier] || {};
-    return `${tier} ${Number(bucket.wins || 0)}W/${Number(bucket.losses || 0)}L (${bucket.calibrated ? `${Number(bucket.winRate || 0).toFixed(1)}%` : `muestra ${Number(bucket.decided || 0)}/${Number(value.minimumCalibrationSamples || 30)}`})`;
+    return `${tier} ${Number(bucket.wins || 0)}W/${Number(bucket.losses || 0)}L (${bucket.calibrated ? `${Number(bucket.winRate || 0).toFixed(1)}%` : `samples ${Number(bucket.decided || 0)}/${Number(value.minimumCalibrationSamples || 30)}`})`;
   }).join(" | ");
-  return `Simulation A/B: baseline ${Number(baseline.candidates || 0)} candidates, ${Number(baseline.wins || 0)}W/${Number(baseline.losses || 0)}L (${Number(baseline.winRate || 0).toFixed(1)}%) | AI variant ${Number(ai.candidates || 0)} candidates, ${Number(ai.wins || 0)}W/${Number(ai.losses || 0)}L (${Number(ai.winRate || 0).toFixed(1)}%)\nCalibración: ${quality}${top}`;
+  return `Simulation A/B: baseline ${Number(baseline.candidates || 0)} candidates, ${Number(baseline.wins || 0)}W/${Number(baseline.losses || 0)}L (${Number(baseline.winRate || 0).toFixed(1)}%) | AI variant ${Number(ai.candidates || 0)} candidates, ${Number(ai.wins || 0)}W/${Number(ai.losses || 0)}L (${Number(ai.winRate || 0).toFixed(1)}%)\nCalibration: ${quality}${top}`;
 }
 
 export function executorRejectionSnapshot(input = {}) {
@@ -651,11 +661,11 @@ function formatExecutorMarketDirection(direction) {
   const bias = String(direction.bias || "mixed").toLowerCase();
   const icon = bias === "bullish" ? "🟢" : bias === "bearish" ? "🔴" : "🟡";
   const guidance = bias === "bullish"
-    ? "favorece LONG; SHORT va contra mercado"
+    ? "favors LONG; SHORT is counter-market"
     : bias === "bearish"
-      ? "favorece SHORT; LONG va contra mercado"
-      : "sin lado favorecido; exigir mas confirmacion";
-  return `${icon} Direccion dominante: <b>${escapeHtml(direction.label || "MIXTA / SIN DIRECCION CLARA")}</b> | score ${Number(direction.score || 0).toFixed(1)}\nAmplitud: ${Number(direction.bullishPercent || 0).toFixed(0)}% alcista / ${Number(direction.bearishPercent || 0).toFixed(0)}% bajista / ${Number(direction.mixedPercent || 0).toFixed(0)}% mixta | ${escapeHtml(guidance)}`;
+      ? "favors SHORT; LONG is counter-market"
+      : "no favored side; demand more confirmation";
+  return `${icon} Market direction: <b>${escapeHtml(englishDirectionLabel(direction.label))}</b> | score ${Number(direction.score || 0).toFixed(1)}\nBreadth: ${Number(direction.bullishPercent || 0).toFixed(0)}% bullish / ${Number(direction.bearishPercent || 0).toFixed(0)}% bearish / ${Number(direction.mixedPercent || 0).toFixed(0)}% mixed | ${escapeHtml(guidance)}`;
 }
 
 export function dayKey(date = new Date()) {

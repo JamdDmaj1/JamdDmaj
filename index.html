@@ -4752,7 +4752,7 @@
                 <option value="20">20x</option>
               </select>
             </label>
-            <p class="trader-note" id="paperTpPlanText">TP plan: TP1 closes 70%, TP2 closes half of the rest, TP3 closes everything left. After TP1, the remainder is protected around +10% ROE.</p>
+            <p class="trader-note" id="paperTpPlanText">TP plan: TP1 closes 70%, TP2 closes half of the rest, TP3 closes everything left. After TP1, the remainder is protected at break-even after fees. Bitget simulation allows up to two positions, uses 0.05% entry slippage, and charges 0.06% taker fees per side.</p>
             <div class="pro-stat-grid">
               <div class="pro-stat"><span id="paperEquityLabel">Equity</span><strong id="paperEquity">$1,000</strong></div>
               <div class="pro-stat"><span id="paperPnlLabel">Realized PnL</span><strong id="paperPnl">$0</strong></div>
@@ -5365,7 +5365,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      let APP_VERSION = "1.81.68";
+      let APP_VERSION = "1.81.69";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -9422,7 +9422,7 @@ function createLearnNotificationCard() {
       }
       function renderPaperTrading(paper, config, spanish) {
         const enabled = config.paperEnabled !== false;
-        document.getElementById("paperTradingTitle").textContent = spanish ? "Paper trading automatico" : "Automatic paper trading";
+        document.getElementById("paperTradingTitle").textContent = spanish ? "Paper trading automatico de Bitget" : "Automatic Bitget paper trading";
         document.getElementById("paperTradingStatus").textContent = enabled
           ? (spanish ? "Simula las calls del servidor sin usar dinero real." : "Simulates server calls without using real money.")
           : (spanish ? "Simulacion pausada." : "Simulation paused.");
@@ -9439,8 +9439,8 @@ function createLearnNotificationCard() {
          if (paperLeverageSelect) paperLeverageSelect.value = String(config.paperLeverage || config.leverage || 10);
          const paperTpPlan = document.getElementById("paperTpPlanText");
          if (paperTpPlan) paperTpPlan.textContent = spanish
-           ? "Plan TP: TP1 cierra 70%, TP2 cierra la mitad restante y TP3 cierra todo. Despues de TP1, el restante se protege cerca de +10% ROE."
-           : "TP plan: TP1 closes 70%, TP2 closes half of the rest, and TP3 closes everything left. After TP1, the remainder is protected around +10% ROE.";
+           ? "Plan TP: TP1 cierra 70%, TP2 cierra la mitad restante y TP3 cierra todo. Despues de TP1, el restante se protege en break-even neto de comisiones. La simulacion Bitget permite hasta dos posiciones, usa 0.05% de slippage de entrada y cobra 0.06% taker por lado."
+           : "TP plan: TP1 closes 70%, TP2 closes half of the rest, and TP3 closes everything left. After TP1, the remainder is protected at break-even after fees. Bitget simulation allows up to two positions, uses 0.05% entry slippage, and charges 0.06% taker fees per side.";
          document.getElementById("paperEquityLabel").textContent = spanish ? "Equity demo" : "Paper equity";
         document.getElementById("paperPnlLabel").textContent = spanish ? "PnL realizado" : "Realized PnL";
         document.getElementById("paperWinRateLabel").textContent = spanish ? "Aciertos demo" : "Paper win rate";
@@ -15695,7 +15695,7 @@ if (tgResult) {
     })();
   </script>
   <script type="module" src="fair-launch-ui.js?v=1.38.27"></script>
-  <script type="module" src="wallet-login-ui.js?v=1.81.68"></script>
+  <script type="module" src="wallet-login-ui.js?v=1.81.69"></script>
   <script type="module" src="web-trial-ui.js"></script>
   <script type="module" src="jamd-credit-ui.js"></script>
   <script type="module" src="first-visit-ui.js"></script>

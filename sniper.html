@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sniper · JamdDmaj</title>
-<meta name="description" content="Analisis automatico de tokens nuevos en Solana: emision, congelacion, liquidez bloqueada, concentracion de holders y liquidez real.">
+<meta name="description" content="Automatic Solana token analysis: mint and freeze authority, locked liquidity, holder concentration, real liquidity, market risk and contract lookup by token address.">
 <link rel="manifest" href="manifest.json">
 <link rel="stylesheet" href="app-polish.css">
 <link rel="stylesheet" href="sniper.css">
@@ -12,57 +12,82 @@
 <body class="sniper-body">
 <main class="sniper-shell">
   <header class="sniper-header">
-    <div>
+    <div class="sniper-heading">
       <span class="sniper-kicker">JamdDmaj · Sniper</span>
-      <h1>Tokens nuevos bajo lupa</h1>
-      <p class="sniper-lead">Analisis automatico de datos publicos: emision y congelacion de la autoridad, liquidez bloqueada, concentracion de holders, liquidez real y senales de riesgo del mercado.</p>
+      <h1>New tokens under the radar</h1>
+      <p class="sniper-lead">Automatic public-data analysis: mint and freeze authority, locked liquidity, holder concentration, real liquidity and market risk signals. Paste a Solana contract address to inspect any token directly.</p>
     </div>
-    <a class="sniper-back" href="/">Volver</a>
+    <div class="sniper-header-actions">
+      <button class="sniper-connect-compact" id="sniperHeaderConnect" type="button">Connect wallet</button>
+      <a class="sniper-back" href="/">Back</a>
+    </div>
   </header>
 
-  <section class="sniper-balance" id="sniperBalance" aria-label="Tu saldo">
+  <section class="sniper-balance" id="sniperBalance" aria-label="Your balance">
     <div class="balance-card">
-      <span class="balance-label">Disponible</span>
+      <span class="balance-label">Available</span>
       <strong class="balance-value" id="balanceSol">—</strong>
       <small class="balance-sub" id="balanceSolSub"></small>
     </div>
     <div class="balance-card">
-      <span class="balance-label">En tokens</span>
+      <span class="balance-label">In tokens</span>
       <strong class="balance-value" id="balanceTokens">—</strong>
       <small class="balance-sub" id="balanceTokensSub"></small>
     </div>
-    <div class="balance-wallet"><span class="balance-source" id="balanceSource">Sin wallet</span><small id="balanceAddress"></small><button class="balance-change" id="balanceChange" type="button">Cambiar</button></div>
-    <button class="balance-eye" id="balanceEye" type="button" aria-pressed="false">Mostrar</button>
-    <button class="balance-connect" id="balanceConnect" type="button">Conectar wallet</button>
+    <div class="balance-wallet">
+      <span class="balance-source" id="balanceSource">No wallet</span>
+      <small id="balanceAddress"></small>
+      <button class="balance-change" id="balanceChange" type="button">Change</button>
+    </div>
+    <button class="balance-eye" id="balanceEye" type="button" aria-pressed="false">Show</button>
+    <button class="balance-connect" id="balanceConnect" type="button">Connect wallet</button>
   </section>
 
-  <section class="sniper-controls" aria-label="Filtros">
-    <button id="sniperRefresh" type="button">Analizar ahora</button>
-    <label>Minimo de seguridad
-      <select id="sniperMin">
-        <option value="0">Todos</option>
-        <option value="55" selected>Medio o mejor</option>
-        <option value="75">Mejor perfil</option>
-      </select>
-    </label>
-    <label class="sniper-check"><input id="sniperHideHigh" type="checkbox" checked> Ocultar alto riesgo</label>
-    <input id="sniperSearch" type="search" placeholder="Search symbol or token address" autocomplete="off">
-    <label>Compra rapida USD
-      <input id="sniperUsd" type="number" min="1" step="1" inputmode="decimal" value="5">
-    </label>
-    <span id="sniperUpdated" class="sniper-updated"></span>
+  <section class="sniper-controls" aria-label="Sniper filters">
+    <div class="sniper-search-row">
+      <div class="sniper-search-wrap">
+        <input id="sniperSearch" type="search" placeholder="Token name or contract address" autocomplete="off" spellcheck="false" aria-describedby="sniperLookupHint">
+        <button id="sniperPaste" class="sniper-input-btn" type="button" title="Paste a contract address">Paste</button>
+        <button id="sniperClear" class="sniper-input-btn sniper-clear" type="button" title="Clear search" hidden>Clear</button>
+      </div>
+      <button id="sniperRefresh" type="button">Analyze now</button>
+    </div>
+    <p class="sniper-lookup-hint" id="sniperLookupHint">Tip: paste a Solana contract address to inspect that token directly, even if it is not in the new-token feed.</p>
+    <div class="sniper-filter-row">
+      <label>Minimum safety
+        <select id="sniperMin">
+          <option value="0">All</option>
+          <option value="55" selected>Medium or better</option>
+          <option value="75">Best profile</option>
+        </select>
+      </label>
+      <label class="sniper-check"><input id="sniperHideHigh" type="checkbox" checked> Hide risk</label>
+      <label class="sniper-check"><input id="sniperAuto" type="checkbox"> Auto 60s</label>
+      <label>Sort
+        <select id="sniperSort">
+          <option value="safety">Safety first</option>
+          <option value="potential">Potential first</option>
+          <option value="newest">Newest first</option>
+          <option value="liquidity">Most liquidity</option>
+        </select>
+      </label>
+      <label class="sniper-quick-label">Quick buy USD
+        <input id="sniperUsd" type="number" min="1" step="1" inputmode="decimal" value="5">
+      </label>
+      <span id="sniperUpdated" class="sniper-updated"></span>
+    </div>
   </section>
 
-  <nav id="sniperTabs" class="sniper-tabs" aria-label="Categorias"></nav>
+  <nav id="sniperTabs" class="sniper-tabs" aria-label="Categories"></nav>
 
-  <p id="sniperStatus" class="sniper-status" role="status" aria-live="polite">Cargando tokens nuevos...</p>
+  <p id="sniperStatus" class="sniper-status" role="status" aria-live="polite">Loading new tokens...</p>
   <section id="sniperGrid" class="sniper-grid" aria-live="polite"></section>
 
   <div id="sniperDetail" class="sniper-detail" hidden></div>
 
   <footer class="sniper-footer">
-    <p><strong>Aviso:</strong> esta herramienta no garantiza que un token sea seguro ni rentable. La verificacion de cuentas de X requiere una API externa de pago; aqui solo se muestran los enlaces publicados por el token para que puedas revisarlos tu mismo.</p>
-    <p>Fuentes: GeckoTerminal (pools nuevos), RugCheck (autoridades, holders, LP) y DexScreener (redes).</p>
+    <p><strong>Notice:</strong> this tool does not guarantee that a token is safe or profitable. X account verification requires a paid external API; only links published by the token are shown so you can review them yourself.</p>
+    <p>Sources: GeckoTerminal (new pools, volume, trades), RugCheck (authorities, holders, LP, creator history) and DexScreener (socials and market data).</p>
   </footer>
 </main>
 <script src="sniper-i18n.js"></script>

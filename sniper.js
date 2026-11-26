@@ -1,6 +1,6 @@
 const $ = id => document.getElementById(id);
 const base = globalThis.Capacitor?.isNativePlatform?.() ? 'https://www.jamddmaj.com' : '';
-const state = { items: [], data: {}, updatedAt: null, loading: false, usd: 5, solPrice: null, solPriceAt: 0, tab: 'new', lookupItem: null, lookupMint: '', lookupLoading: false, lookupError: '' };
+const state = { items: [], data: {}, updatedAt: null, loading: false, usd: 5, solPrice: null, solPriceAt: 0, tab: 'new', lookupItem: null, lookupMint: '', lookupLoading: false, lookupError: '', coverage: null, sort: 'safety', auto: true };
 const favorites = new Map();
 try { for (const entry of JSON.parse(localStorage.getItem('jamd-sniper-favs') || '[]')) if (entry?.mint && Number(entry.savedAt) > 0) favorites.set(entry.mint, entry); } catch {}
 const saveFavorites = () => { try { localStorage.setItem('jamd-sniper-favs', JSON.stringify([...favorites.values()])); } catch {} };
@@ -11,9 +11,9 @@ const recordTrade = entry => { if (String(entry.tx || '').length < 60) return; h
 try { const saved = Number(JSON.parse(localStorage.getItem('jamd-sniper-usd') || 'null')); if (saved > 0) state.usd = saved; } catch {}
 
 const marks = { ok: '✓', high: '✕', critical: '✕', medium: '!', low: '·' };
-const verdictClass = verdict => verdict === 'ALTO RIESGO' ? 'alto' : verdict === 'MEDIO' ? 'medio' : verdict === 'PRUDENCIA' ? 'prudencia' : 'mejor';
-const growthClass = label => label === 'ALTO' ? 'mejor' : label === 'MODERADO' ? 'prudencia' : 'medio';
-const liquidityClass = label => label === 'ALTO' ? 'alto' : label === 'MEDIO' ? 'medio' : 'mejor';
+const verdictClass = verdict => ['HIGH RISK','ALTO RIESGO'].includes(verdict) ? 'alto' : ['MEDIUM','MEDIO'].includes(verdict) ? 'medio' : ['CAUTION','PRUDENCIA'].includes(verdict) ? 'prudencia' : 'mejor';
+const growthClass = label => ['HIGH','ALTO'].includes(label) ? 'mejor' : ['MODERATE','MODERADO'].includes(label) ? 'prudencia' : 'medio';
+const liquidityClass = label => ['HIGH','ALTO'].includes(label) ? 'alto' : ['MEDIUM','MEDIO'].includes(label) ? 'medio' : 'mejor';
 
 function money(value) {
   if (!Number.isFinite(value)) return '—';
@@ -287,13 +287,13 @@ function auditPanel(item) {
 }
 
 const TIPS = {
-  seguridad: 'Puntuacion de 0 a 100 con emision, congelacion, liquidez bloqueada, concentracion de holders, liquidez real y antiguedad. Mas alto significa menos riesgo; no garantiza que sea seguro.',
-  potencial: 'Estimacion de 0 a 100 con impulso de precio, rotacion volumen/liquidez, presion compradora y profundidad. Queda limitada por el riesgo. No es una prediccion.',
-  liquidez: 'Liquidity withdrawal risk: percentage of LP locked, creator share, real liquidity and pool age. HIGH means LP can be drained.',
-  ath: 'Capitalizacion maxima historica: precio maximo del par por el suministro estimado. Se mide desde la creacion del par.',
-  categorias: 'Etiquetas estimadas con el nombre, el mercado y el marketing. No son categorias oficiales.',
-  boost: 'Promocion pagada detectada en DexScreener. No implica calidad ni seguridad.',
-  mercado: 'Numero de mercados donde cotiza el par y en cuales.'
+  seguridad: 'Safety score from 0 to 100 based on mint and freeze authority, locked liquidity, holder concentration, real liquidity and pool age. Higher is less risky; it does not guarantee safety.',
+  potencial: 'Estimated potential from 0 to 100 based on price momentum, volume/liquidity turnover, buy pressure and depth. Risk caps the score. It is not a prediction.',
+  liquidez: 'Liquidity withdrawal risk: percentage of LP locked, creator share, real liquidity and pool age. HIGH means the LP can be drained.',
+  ath: 'All-time-high market cap using the highest pair price and estimated supply, measured since the pair was created.',
+  categorias: 'Estimated tags from the name, venue and marketing. They are not official categories.',
+  boost: 'Paid promotion detected on DexScreener. It does not imply quality or safety.',
+  mercado: 'Number of markets listing the pair and which venues carry it.'
 };
 let tipTimer = null;
 let tipNode = null;
@@ -424,28 +424,28 @@ function openDetail(item) {
     card.append(key, val);
     stats.append(card);
   };
-  stat('Seguridad', String(item.score) + '/100');
-  stat('Potencial', String(item.growth?.score ?? '—') + '/100');
+  stat('Safety', String(item.score) + '/100');
+  stat('Potential', String(item.growth?.score ?? '—') + '/100');
   stat('Market cap', money(item.marketCapUsd) + ' USD');
-  stat('Liquidez', money(item.liquidity) + ' USD');
-  stat('LP locked', Number.isFinite(item.lpLockedPct) ? Math.round(item.lpLockedPct) + '%' : 'sin dato');
-  stat('Holders', Number.isFinite(item.holders) ? String(item.holders) : 'sin dato');
-  stat('Mercados', (item.pairsCount || 1) + ' - ' + ((item.venues || []).join('/') || 'n/d'));
-  stat('Vida', age(item.ageMinutes));
+  stat('Liquidity', money(item.liquidity) + ' USD');
+  stat('LP locked', Number.isFinite(item.lpLockedPct) ? Math.round(item.lpLockedPct) + '%' : 'no data');
+  stat('Holders', Number.isFinite(item.holders) ? String(item.holders) : 'no data');
+  stat('Markets', (item.pairsCount || 1) + ' - ' + ((item.venues || []).join('/') || 'n/a'));
+  stat('Age', age(item.ageMinutes));
 
   const contract = document.createElement('div');
   contract.className = 'sniper-contract';
   const contractLabel = document.createElement('span');
-  contractLabel.textContent = 'Contrato';
+  contractLabel.textContent = 'Contract';
   const code = document.createElement('code');
   code.textContent = item.mint;
   const copy = document.createElement('button');
   copy.type = 'button';
   copy.className = 'sniper-copy';
-  copy.textContent = 'Copiar';
+  copy.textContent = 'Copy';
   copy.addEventListener('click', async () => {
-    try { await navigator.clipboard.writeText(item.mint); copy.textContent = 'Copiado'; } catch { copy.textContent = 'No disponible'; }
-    setTimeout(() => { copy.textContent = 'Copiar'; }, 1600);
+    try { await navigator.clipboard.writeText(item.mint); copy.textContent = 'Copied'; } catch { copy.textContent = 'Unavailable'; }
+    setTimeout(() => { copy.textContent = 'Copy'; }, 1600);
   });
   const scan = document.createElement('a');
   scan.href = 'https://solscan.io/token/' + item.mint;
@@ -458,7 +458,7 @@ function openDetail(item) {
   chartBox.className = 'sniper-sheet-chart';
   const frame = document.createElement('iframe');
   frame.loading = 'lazy';
-  frame.title = 'Grafico ' + (item.symbol || '');
+  frame.title = 'Chart ' + (item.symbol || '');
   frame.src = 'https://www.geckoterminal.com/solana/pools/' + encodeURIComponent(item.poolAddress || '') + '?embed=1&info=0&swaps=0&light_chart=1';
   frame.setAttribute('allowfullscreen', 'true');
   chartBox.append(frame);
@@ -481,13 +481,13 @@ function card(item) {
   symbol.textContent = item.symbol || '—';
   const badges = document.createElement('div');
   badges.className = 'sniper-badges';
-  badges.append(badge(item.verdict, verdictClass(item.verdict)), badge('Potencial ' + (item.growth?.label || '—'), growthClass(item.growth?.label)));
+  badges.append(badge(item.verdict, verdictClass(item.verdict)), badge('Potential ' + (item.growth?.label || '—'), growthClass(item.growth?.label)));
   if (item.boost) badges.append(badge('BOOST ' + (Number(item.boost.total) || Number(item.boost.amount) || 0) + ' USD', 'mejor'));
   const star = document.createElement('button');
   star.type = 'button';
   star.className = 'sniper-star' + (favorites.has(item.mint) ? ' active' : '');
   star.textContent = favorites.has(item.mint) ? '★' : '☆';
-  star.title = 'Guardar en favoritos';
+  star.title = 'Save to favorites';
   star.addEventListener('click', event => {
     event.stopPropagation();
     if (favorites.has(item.mint)) favorites.delete(item.mint);
@@ -503,7 +503,7 @@ function card(item) {
   const view = document.createElement('button');
   view.type = 'button';
   view.className = 'sniper-view';
-  view.textContent = 'Ver token';
+  view.textContent = 'View token';
   view.addEventListener('click', event => { event.stopPropagation(); openDetail(item); });
   actions.append(view);
   actions.append(star);
@@ -511,7 +511,7 @@ function card(item) {
     const remove = document.createElement('button');
     remove.type = 'button';
     remove.className = 'sniper-remove';
-    remove.textContent = 'Quitar de favoritos';
+    remove.textContent = 'Remove from favorites';
     remove.addEventListener('click', () => { favorites.delete(item.mint); saveFavorites(); paintTabs(); void load('fav'); });
     actions.append(remove);
   }
@@ -544,24 +544,24 @@ function card(item) {
   const meta = document.createElement('div');
   meta.className = 'sniper-metabar';
   const metaItem = (name, value) => { const span = document.createElement('span'); span.innerHTML = name + ' <b>' + value + '</b>'; meta.append(span); };
-  metaItem('Vida', age(item.ageMinutes));
-  metaItem('Liquidez', money(item.liquidity) + ' USD');
+  metaItem('Age', age(item.ageMinutes));
+  metaItem('Liquidity', money(item.liquidity) + ' USD');
   metaItem('Market cap', money(item.marketCapUsd) + ' USD');
   const athItem = document.createElement('span');
   athItem.setAttribute('data-ath', item.mint);
-  athItem.innerHTML = 'ATH mcap <b>cargando...</b>';
+  athItem.innerHTML = 'ATH mcap <b>loading...</b>';
   athItem.append(infoBadge('ath'));
   meta.append(athItem);
-  metaItem('Mercados', (item.pairsCount || 1) + ' - ' + ((item.venues || []).join('/') || 'n/d'));
+  metaItem('Markets', (item.pairsCount || 1) + ' - ' + ((item.venues || []).join('/') || 'n/a'));
   metaItem('Holders', Number.isFinite(item.holders) ? String(item.holders) : '—');
   metaItem('LP locked', Number.isFinite(item.lpLockedPct) ? Math.round(item.lpLockedPct) + '%' : '—');
-  metaItem('Creador', Number.isFinite(item.creatorPct) ? item.creatorPct + '%' : '—');
+  metaItem('Creator', Number.isFinite(item.creatorPct) ? item.creatorPct + '%' : '—');
 
   const liquidity = document.createElement('div');
   liquidity.className = 'sniper-liquidity';
   liquidity.append(badge('Liquidity withdrawal: ' + ({ALTO:'HIGH',MEDIO:'MEDIUM',BAJO:'LOW'}[String(item.liquidityLabel).toUpperCase()] || item.liquidityLabel) + ' (' + item.liquidityRisk + '/100)', liquidityClass(item.liquidityLabel)));
   liquidity.append(infoBadge('liquidez'));
-  if (item.liquidityLabel === 'ALTO') {
+  if (item.liquidityLabel === 'HIGH' || item.liquidityLabel === 'ALTO') {
     const note = document.createElement('small');
     note.textContent = 'LP can be drained: check the lock and who controls liquidity.';
     liquidity.append(note);
@@ -597,7 +597,7 @@ function card(item) {
   scams.className = 'sniper-scams';
   if ((item.scamSignals || []).length) {
     const title = document.createElement('strong');
-    title.textContent = 'Senales de scam o abuso';
+    title.textContent = 'Scam or abuse signals';
     scams.append(title);
     for (const signal of item.scamSignals) {
       const chip = document.createElement('span');
@@ -609,24 +609,24 @@ function card(item) {
   } else {
     const clean = document.createElement('span');
     clean.className = 'clean';
-    clean.textContent = 'Sin senales publicas de scam en el analizador ni en sus votos.';
+    clean.textContent = 'No public scam signals in the analyzer or its votes.';
     scams.append(clean);
   }
 
   const contract = document.createElement('div');
   contract.className = 'sniper-contract';
   const contractLabel = document.createElement('span');
-  contractLabel.textContent = 'Contrato';
+  contractLabel.textContent = 'Contract';
   const contractCode = document.createElement('code');
   contractCode.textContent = item.mint;
   const copyButton = document.createElement('button');
   copyButton.type = 'button';
   copyButton.className = 'sniper-copy';
-  copyButton.textContent = 'Copiar';
+  copyButton.textContent = 'Copy';
   copyButton.addEventListener('click', async () => {
-    try { await navigator.clipboard.writeText(item.mint); copyButton.textContent = 'Copiado'; }
-    catch { copyButton.textContent = 'No disponible'; }
-    setTimeout(() => { copyButton.textContent = 'Copiar'; }, 1600);
+    try { await navigator.clipboard.writeText(item.mint); copyButton.textContent = 'Copied'; }
+    catch { copyButton.textContent = 'Unavailable'; }
+    setTimeout(() => { copyButton.textContent = 'Copy'; }, 1600);
   });
   const solscan = document.createElement('a');
   solscan.href = 'https://solscan.io/token/' + item.mint;
@@ -638,7 +638,7 @@ function card(item) {
   const chartBox = document.createElement('details');
   chartBox.className = 'sniper-chart';
   const chartSummary = document.createElement('summary');
-  chartSummary.textContent = 'Grafico en vivo';
+  chartSummary.textContent = 'Live chart';
   const chartFrameBox = document.createElement('div');
   chartFrameBox.className = 'sniper-chart-frame';
   chartBox.append(chartSummary, chartFrameBox);
@@ -648,7 +648,7 @@ function card(item) {
     chartLoaded = true;
     const frame = document.createElement('iframe');
     frame.loading = 'lazy';
-    frame.title = 'Grafico ' + (item.symbol || '');
+    frame.title = 'Chart ' + (item.symbol || '');
     frame.src = 'https://www.geckoterminal.com/solana/pools/' + encodeURIComponent(item.poolAddress || '') + '?embed=1&info=0&swaps=0&light_chart=1';
     frame.setAttribute('allowfullscreen', 'true');
     chartFrameBox.append(frame);
@@ -657,7 +657,7 @@ function card(item) {
   const trades = document.createElement('details');
   trades.className = 'sniper-trades';
   const tradesSummary = document.createElement('summary');
-  tradesSummary.textContent = 'Quien compra y vende (en vivo)';
+  tradesSummary.textContent = 'Who is buying and selling (live)';
   const tradesBody = document.createElement('div');
   tradesBody.className = 'sniper-trades-body';
   trades.append(tradesSummary, tradesBody);
@@ -671,12 +671,12 @@ function card(item) {
     tradesBody.replaceChildren();
     const head = document.createElement('div');
     head.className = 'sniper-trades-head';
-    head.textContent = (data?.venue ? data.venue + ' · ' : '') + 'ultimas ' + (data?.items?.length || 0) + ' operaciones';
+    head.textContent = (data?.venue ? data.venue + ' · ' : '') + 'latest ' + (data?.items?.length || 0) + ' trades';
     tradesBody.append(head);
     if (!data?.items?.length) {
       const empty = document.createElement('div');
       empty.className = 'sniper-trades-empty';
-      empty.textContent = 'Sin operaciones recientes detectadas.';
+      empty.textContent = 'No recent trades detected.';
       tradesBody.append(empty);
       return;
     }
@@ -684,7 +684,7 @@ function card(item) {
       const row = document.createElement('div');
       row.className = 'sniper-trade-row ' + trade.side;
       const side = document.createElement('b');
-      side.textContent = trade.side === 'buy' ? 'COMPRA' : 'VENTA';
+      side.textContent = trade.side === 'buy' ? 'BUY' : 'SELL';
       const amount = document.createElement('span');
       amount.textContent = (Number.isFinite(trade.usd) ? trade.usd.toFixed(2) + ' USD' : (Number.isFinite(trade.sol) ? trade.sol.toFixed(3) + ' SOL' : '—'));
       const wallet = document.createElement('a');
@@ -789,7 +789,7 @@ function shareTrade(data) {
   const result = Number(data.pnlUsd) || 0;
   const details = [
     'Precio: $' + fmtPrice(data.priceUsd),
-    'Market cap: ' + (Number.isFinite(Number(data.mcap)) ? money(Number(data.mcap)) + ' USD' : 'sin dato'),
+    'Market cap: ' + (Number.isFinite(Number(data.mcap)) ? money(Number(data.mcap)) + ' USD' : 'no data'),
     'Fecha: ' + fmtDate(data.at),
     'Tiempo de hold: ' + fmtHold(data.holdMs)
   ];
@@ -872,7 +872,7 @@ async function renderHoldings() {
       const view = document.createElement('button');
       view.type = 'button';
       view.className = 'sniper-view';
-      view.textContent = 'Ver token';
+      view.textContent = 'View token';
       view.addEventListener('click', () => openDetail(known));
       actions.append(view);
     }
@@ -880,7 +880,7 @@ async function renderHoldings() {
     copy.type = 'button';
     copy.className = 'sniper-copy';
     copy.textContent = 'Copiar contrato';
-    copy.addEventListener('click', async () => { try { await navigator.clipboard.writeText(position.mint); copy.textContent = 'Copiado'; } catch { copy.textContent = 'No disponible'; } setTimeout(() => { copy.textContent = 'Copiar contrato'; }, 1600); });
+    copy.addEventListener('click', async () => { try { await navigator.clipboard.writeText(position.mint); copy.textContent = 'Copied'; } catch { copy.textContent = 'Unavailable'; } setTimeout(() => { copy.textContent = 'Copiar contrato'; }, 1600); });
     actions.append(copy);
     article.append(top, meta, actions);
     grid.append(article);
@@ -893,11 +893,11 @@ function renderHistory() {
   if (!history.length) { status.textContent = 'Tu historial de Sniper esta vacio.'; return; }
   for (const trade of history.slice(0, 60)) {
     const row = document.createElement('div'); row.className = 'sniper-history-row';
-    const side = document.createElement('b'); side.className = trade.side; side.textContent = trade.side === 'buy' ? 'COMPRA' : 'VENTA';
+    const side = document.createElement('b'); side.className = trade.side; side.textContent = trade.side === 'buy' ? 'BUY' : 'SELL';
     const symbol = document.createElement('strong'); symbol.textContent = trade.symbol || '—';
     const amount = document.createElement('span'); amount.textContent = (Number(trade.usd) ? Number(trade.usd).toFixed(2) : '—') + ' USD';
     const price = document.createElement('span'); price.textContent = 'Precio ' + fmtPrice(trade.priceUsd) + ' USD';
-    const mcap = document.createElement('span'); mcap.textContent = 'MCap ' + (Number.isFinite(Number(trade.mcap)) ? money(Number(trade.mcap)) : 'sin dato');
+    const mcap = document.createElement('span'); mcap.textContent = 'MCap ' + (Number.isFinite(Number(trade.mcap)) ? money(Number(trade.mcap)) : 'no data');
     const date = document.createElement('small'); date.textContent = fmtDate(trade.at);
     const hold = document.createElement('small');
     const first = [...history].reverse().find(entry => entry.mint === trade.mint && entry.side === 'buy');
@@ -928,7 +928,7 @@ const applyAth = (mint, value) => {
   if (!element) return;
   if (!value || !value.available) { element.innerHTML = 'ATH mcap <b>sin dato</b> <span class="sniper-ath-retry">reintentar</span>'; return; }
   const fromAth = Number(value.fromAthPct);
-  element.innerHTML = 'ATH mcap <b>' + (value.athMarketCap ? money(value.athMarketCap) + ' USD' : 'sin dato') + '</b>' + (Number.isFinite(fromAth) ? ' · ' + fromAth.toFixed(1) + '% del ATH' : '');
+  element.innerHTML = 'ATH mcap <b>' + (value.athMarketCap ? money(value.athMarketCap) + ' USD' : 'no data') + '</b>' + (Number.isFinite(fromAth) ? ' · ' + fromAth.toFixed(1) + '% del ATH' : '');
 };
 let athQueueRunning = false;
 async function loadAth(items) {
@@ -992,7 +992,7 @@ function render() {
       return;
     }
   }
-  const items = state.items.filter(item => item.score >= minimum && (!hideHigh || item.verdict !== 'ALTO RIESGO') && (!query || String(item.symbol || '').toLowerCase().includes(query) || String(item.mint || '').toLowerCase().includes(query)));
+  const items = state.items.filter(item => item.score >= minimum && (!hideHigh || item.verdict !== 'HIGH RISK' && item.verdict !== 'ALTO RIESGO') && (!query || String(item.symbol || '').toLowerCase().includes(query) || String(item.mint || '').toLowerCase().includes(query)));
   grid.replaceChildren();
   if (!items.length) {
     const empty = document.createElement('p');
@@ -1002,7 +1002,10 @@ function render() {
     return;
   }
   for (const item of items) grid.append(card(item));
-  status.textContent = items.length + ' token(s) analyzed out of ' + state.items.length + '.';
+  const analyzed = Number(state.coverage?.analyzed ?? state.items.length);
+  const requested = Number(state.coverage?.requested ?? state.items.length);
+  status.innerHTML = `<b>${items.length}</b> shown · ${analyzed}${requested > analyzed ? ' / ' + requested : ''} analyzed`;
+  if (state.updatedAt) status.insertAdjacentHTML('beforeend', ` · updated ${new Date(state.updatedAt).toLocaleTimeString()}`);
 }
 
 let lookupTimer = null;
@@ -1219,7 +1222,7 @@ if (usdInput) {
     dock.className = 'radar-dock';
     const head = document.createElement('header');
     const title = document.createElement('strong');
-    title.textContent = 'Radar en vivo';
+    title.textContent = 'Radar';
     countEl = document.createElement('span');
     countEl.className = 'radar-count';
     const toggle = document.createElement('button');
@@ -1228,6 +1231,7 @@ if (usdInput) {
     toggle.className = 'radar-toggle';
     toggle.addEventListener('click', () => { dock.classList.toggle('collapsed'); toggle.textContent = dock.classList.contains('collapsed') ? '+' : '—'; });
     head.append(title, countEl, toggle);
+    dock.classList.add('collapsed'); toggle.textContent = '+';
     listEl = document.createElement('div');
     listEl.className = 'radar-list';
     const foot = document.createElement('footer');
@@ -1478,6 +1482,35 @@ $('sniperRefresh').addEventListener('click', refreshTab);
 $('sniperMin').addEventListener('change', render);
 $('sniperHideHigh').addEventListener('change', render);
 $('sniperSearch').addEventListener('input', onSearchInput);
+$('sniperHeaderConnect')?.addEventListener('click', () => $('balanceConnect')?.click());
+const sortSelect = $('sniperSort');
+if (sortSelect) {
+  try { const savedSort = localStorage.getItem('jamd-sniper-sort'); if (['safety','potential','newest','liquidity'].includes(savedSort)) { state.sort = savedSort; sortSelect.value = savedSort; } } catch {}
+  sortSelect.addEventListener('change', () => { state.sort = sortSelect.value; try { localStorage.setItem('jamd-sniper-sort', state.sort); } catch {} render(); });
+}
+const pasteButton = $('sniperPaste');
+const clearButton = $('sniperClear');
+const searchInput = $('sniperSearch');
+const syncClear = () => { if (clearButton) clearButton.hidden = !String(searchInput?.value || '').trim(); };
+searchInput?.addEventListener('input', syncClear);
+pasteButton?.addEventListener('click', async () => {
+  let value = '';
+  try { value = await navigator.clipboard.readText(); } catch { value = prompt('Paste a Solana contract address:', '') || ''; }
+  value = String(value || '').trim();
+  if (!value || !searchInput) return;
+  searchInput.value = value;
+  searchInput.dispatchEvent(new Event('input', {bubbles: true}));
+  searchInput.focus();
+  syncClear();
+});
+clearButton?.addEventListener('click', () => {
+  if (!searchInput) return;
+  searchInput.value = '';
+  searchInput.dispatchEvent(new Event('input', {bubbles: true}));
+  searchInput.focus();
+  syncClear();
+});
+syncClear();
 // Barra de saldo: SOL disponible y valor en tokens, con ojo para ocultarlo.
 const walletState = { data: null, timer: null, hidden: false, owner: null, source: null };
 const shortAddress = value => value ? value.slice(0, 4) + '...' + value.slice(-4) : '';
@@ -1518,17 +1551,21 @@ function paintBalance() {
   const connectButton = document.getElementById('balanceConnect');
   const sourceEl = document.getElementById('balanceSource');
   const addressEl = document.getElementById('balanceAddress');
-  if (sourceEl) sourceEl.textContent = walletState.source || 'Sin wallet';
+  const balanceShell = document.getElementById('sniperBalance');
+  if (balanceShell) balanceShell.classList.toggle('is-empty', !walletState.owner);
+  if (sourceEl) sourceEl.textContent = walletState.source || 'No wallet';
   if (addressEl) addressEl.textContent = walletState.owner ? shortAddress(walletState.owner) : '';
   if (!solEl) return;
   const data = walletState.data;
-  if (eye) { eye.textContent = walletState.hidden ? 'Mostrar' : 'Ocultar'; eye.setAttribute('aria-pressed', String(walletState.hidden)); }
+  if (eye) { eye.textContent = walletState.hidden ? 'Show' : 'Hide'; eye.setAttribute('aria-pressed', String(walletState.hidden)); }
   const wallet = globalThis.JamdSniperTrade;
   const connected = Boolean(wallet?.key?.());
   if (connectButton) connectButton.hidden = connected;
+  const headerConnect = document.getElementById('sniperHeaderConnect');
+  if (headerConnect) headerConnect.hidden = connected;
   if (!data) {
     solEl.textContent = '—';
-    if (solSub) solSub.textContent = connected ? 'Leyendo saldo...' : 'Conecta tu wallet para verlo';
+    if (solSub) solSub.textContent = connected ? 'Reading balance...' : 'Connect your wallet to view it';
     tokensEl.textContent = '—';
     if (tokensSub) tokensSub.textContent = '';
     return;
@@ -1536,7 +1573,7 @@ function paintBalance() {
   solEl.textContent = mask((Number(data.solUsd) || 0).toFixed(2) + ' USD');
   if (solSub) solSub.textContent = mask((Number(data.solBalance) || 0).toFixed(4) + ' SOL');
   tokensEl.textContent = mask((Number(data.tokensUsd) || 0).toFixed(2) + ' USD');
-  if (tokensSub) tokensSub.textContent = walletState.hidden ? '' : (data.pricedCount || 0) + ' de ' + (data.tokenCount || 0) + ' tokens con precio';
+  if (tokensSub) tokensSub.textContent = walletState.hidden ? '' : (data.pricedCount || 0) + ' of ' + (data.tokenCount || 0) + ' tokens priced';
 }
 async function refreshBalance() {
   if (!walletState.owner) { const resolved = resolveWallet(); if (resolved) { walletState.owner = resolved.owner; walletState.source = resolved.source; } }
@@ -1576,12 +1613,23 @@ setTimeout(() => { void refreshBalance(); }, 600);
 setInterval(() => { if (!document.hidden) void refreshBalance(); }, 20000);
 load('new');
 
-// La informacion se refresca sola: la pestana activa cada 45 segundos y el radar cada pocos segundos.
-setInterval(() => {
-  if (document.hidden) return;
-  const source = state.tab === 'safe' || state.tab === 'risk' ? 'trending' : state.tab;
-  if (source === 'mine' || source === 'hist' || source === 'fav') { void load(state.tab); return; }
-  delete state.data[source];
-  void load(state.tab);
-  if (globalThis.SniperRadar) globalThis.SniperRadar.pollNow();
-}, 45000);
+// Auto refresh is opt-in and never overwrites an address lookup.
+let autoRefreshTimer = null;
+function scheduleAutoRefresh() {
+  if (autoRefreshTimer) { clearInterval(autoRefreshTimer); autoRefreshTimer = null; }
+  if (!state.auto) return;
+  autoRefreshTimer = setInterval(() => {
+    if (document.hidden || state.loading) return;
+    const raw = String(searchInput?.value || '').trim();
+    if (/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(raw)) return;
+    refreshTab();
+    if (globalThis.SniperRadar) globalThis.SniperRadar.pollNow();
+  }, 60000);
+}
+try { const savedAuto = localStorage.getItem('jamd-sniper-auto'); if (savedAuto !== null) state.auto = savedAuto === '1'; } catch {}
+const autoInput = $('sniperAuto');
+if (autoInput) {
+  autoInput.checked = state.auto;
+  autoInput.addEventListener('change', () => { state.auto = autoInput.checked; try { localStorage.setItem('jamd-sniper-auto', state.auto ? '1' : '0'); } catch {} scheduleAutoRefresh(); });
+}
+scheduleAutoRefresh();

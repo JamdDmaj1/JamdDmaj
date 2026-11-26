@@ -1,8 +1,6 @@
 (() => {
-  let language = "auto";
-  try { language = JSON.parse(localStorage.getItem("jamdV2Settings") || "{}")?.language || "auto"; } catch {}
-  if (language === "auto") language = (navigator.language || "en").toLowerCase().startsWith("es") ? "es" : "en";
-  if (language !== "en") return;
+  // The JamdDmaj app and public web are English-only.
+  const language = "en";
   document.documentElement.lang = "en";
   const exact = new Map([
     ["Tokens nuevos bajo lupa", "New tokens under the radar"],

@@ -50,20 +50,20 @@ function auditToken(report, pool, votes, dexPair) {
   let safety = 100;
   const checks = [];
   const add = (id, label, ok, penalty, detail, severity) => { checks.push({ id, label, ok, detail, severity: severity || (ok ? 'ok' : 'high') }); if (!ok) safety -= penalty; };
-  add('mint', 'Emision revocada', !mintAuthority, 40, mintAuthority ? 'El creador aun puede acunar tokens' : 'Nadie puede acunar mas', 'critical');
-  add('freeze', 'Congelacion revocada', !freezeAuthority, 30, freezeAuthority ? 'Pueden congelar tu cuenta' : 'No pueden congelar saldos', 'critical');
-  if (lpLockedPct === null) add('lp', 'Liquidez bloqueada', false, 10, 'Sin dato de bloqueo de LP', 'medium');
-  else add('lp', 'Liquidez bloqueada', lpLockedPct >= 90, lpLockedPct >= 50 ? 10 : 22, Math.round(lpLockedPct) + '% del LP bloqueado', lpLockedPct >= 90 ? 'ok' : 'high');
-  if (top10 <= 0) add('holders', 'Concentracion de holders', false, 20, 'Sin dato de holders', 'medium');
-  else add('holders', 'Concentracion de holders', top10 <= 35, top10 > 80 ? 50 : top10 > 60 ? 35 : 20, 'Top 10 con ' + top10.toFixed(1) + '% (sin LP)', top10 <= 35 ? 'ok' : top10 > 60 ? 'critical' : 'high');
-  if (liquidity === null) add('liquidity', 'Liquidez', false, 20, 'Sin liquidez medida', 'medium');
-  else add('liquidity', 'Liquidez', liquidity >= 15000, liquidity < 5000 ? 25 : 12, Math.round(liquidity).toLocaleString('en-US') + ' USD', liquidity >= 15000 ? 'ok' : liquidity < 5000 ? 'critical' : 'high');
-  if (ageMinutes === null) add('age', 'Antiguedad', false, 8, 'Sin fecha de creacion', 'medium');
-  else add('age', 'Antiguedad', ageMinutes >= 30, 8, ageMinutes + ' min de vida', ageMinutes >= 30 ? 'ok' : 'medium');
-  if (insiders > 0) add('insiders', 'Sin carteras insider', false, Math.min(20, insiders * 6), insiders + ' cartera(s) marcadas como insider', 'high');
-  else add('insiders', 'Sin carteras insider', true, 0, 'No se detectan carteras insider', 'ok');
+  add('mint', 'Mint authority revoked', !mintAuthority, 40, mintAuthority ? 'The creator can still mint tokens' : 'No one can mint more', 'critical');
+  add('freeze', 'Freeze authority revoked', !freezeAuthority, 30, freezeAuthority ? 'They can freeze your account' : 'They cannot freeze balances', 'critical');
+  if (lpLockedPct === null) add('lp', 'Liquidity locked', false, 10, 'No LP lock data', 'medium');
+  else add('lp', 'Liquidity locked', lpLockedPct >= 90, lpLockedPct >= 50 ? 10 : 22, Math.round(lpLockedPct) + '% of LP locked', lpLockedPct >= 90 ? 'ok' : 'high');
+  if (top10 <= 0) add('holders', 'Holder concentration', false, 20, 'No holder data', 'medium');
+  else add('holders', 'Holder concentration', top10 <= 35, top10 > 80 ? 50 : top10 > 60 ? 35 : 20, 'Top 10 hold ' + top10.toFixed(1) + '% (excluding LP)', top10 <= 35 ? 'ok' : top10 > 60 ? 'critical' : 'high');
+  if (liquidity === null) add('liquidity', 'Liquidity', false, 20, 'No measured liquidity', 'medium');
+  else add('liquidity', 'Liquidity', liquidity >= 15000, liquidity < 5000 ? 25 : 12, Math.round(liquidity).toLocaleString('en-US') + ' USD', liquidity >= 15000 ? 'ok' : liquidity < 5000 ? 'critical' : 'high');
+  if (ageMinutes === null) add('age', 'Age', false, 8, 'No creation date', 'medium');
+  else add('age', 'Age', ageMinutes >= 30, 8, ageMinutes + ' min old', ageMinutes >= 30 ? 'ok' : 'medium');
+  if (insiders > 0) add('insiders', 'No insider wallets', false, Math.min(20, insiders * 6), insiders + ' wallet(s) flagged as insider', 'high');
+  else add('insiders', 'No insider wallets', true, 0, 'No insider wallets detected', 'ok');
   const ruggedCreator = risks.some(risk => /creator history of rugged|rugged tokens/i.test(String(risk?.name || '')) || /rugged/i.test(String(risk?.description || '')));
-  add('creator', 'Historial del creador limpio', !ruggedCreator, 30, ruggedCreator ? 'El creador ya ha hecho rug en otros tokens' : 'Sin historial de rug conocido', 'critical');
+  add('creator', 'Clean creator history', !ruggedCreator, 30, ruggedCreator ? 'The creator has rugged other tokens' : 'No known rug history', 'critical');
   const critical = risks.filter(risk => SCAM_PATTERNS.test(String(risk?.name || ''))).length;
   safety -= Math.min(24, critical * 8);
   safety = Math.max(0, Math.min(100, Math.round(safety)));
@@ -76,7 +76,7 @@ function auditToken(report, pool, votes, dexPair) {
   if (ageMinutes !== null && ageMinutes < 10) liquidityRisk += 12;
   if (/pump_fun|raydium/i.test(String(market?.marketType || '')) && (lpLockedPct ?? 0) < 90) liquidityRisk += 5;
   liquidityRisk = Math.max(0, Math.min(100, liquidityRisk));
-  const liquidityLabel = liquidityRisk >= 70 ? 'ALTO' : liquidityRisk >= 45 ? 'MEDIO' : 'BAJO';
+  const liquidityLabel = liquidityRisk >= 70 ? 'HIGH' : liquidityRisk >= 45 ? 'MEDIUM' : 'LOW';
 
   // Growth potential: momentum, turnover, buy pressure and depth, discounted by risk.
   const tx = pool?.transactions || {};
@@ -92,35 +92,35 @@ function auditToken(report, pool, votes, dexPair) {
   let growth = 0;
   const momentumPoints = change1h === null ? 0 : Math.max(-15, Math.min(30, change1h * 0.6)) + Math.max(-10, Math.min(15, (change5m || 0) * 0.5));
   growth += momentumPoints;
-  factors.push({ label: 'Impulso de precio', value: (change1h === null ? '—' : change1h.toFixed(1) + '% 1h') + (change5m === null ? '' : ' · ' + change5m.toFixed(1) + '% 5m'), points: Math.round(momentumPoints) });
+  factors.push({ label: 'Price momentum', value: (change1h === null ? '—' : change1h.toFixed(1) + '% 1h') + (change5m === null ? '' : ' · ' + change5m.toFixed(1) + '% 5m'), points: Math.round(momentumPoints) });
   const turnoverPoints = Math.min(25, turnover * 12);
   growth += turnoverPoints;
-  factors.push({ label: 'Rotacion (volumen/liquidez)', value: volume1h ? Math.round(volume1h).toLocaleString('en-US') + ' USD en 1h' : 'Sin volumen', points: Math.round(turnoverPoints) });
+  factors.push({ label: 'Turnover (volume/liquidity)', value: volume1h ? Math.round(volume1h).toLocaleString('en-US') + ' USD en 1h' : 'No volume', points: Math.round(turnoverPoints) });
   const buyPoints = (buyRatio - 0.5) * 40;
   growth += buyPoints;
-  factors.push({ label: 'Presion compradora', value: buys + sells ? Math.round(buyRatio * 100) + '% compras (' + buys + '/' + sells + ')' : 'Sin operaciones', points: Math.round(buyPoints) });
+  factors.push({ label: 'Buy pressure', value: buys + sells ? Math.round(buyRatio * 100) + '% compras (' + buys + '/' + sells + ')' : 'No trades', points: Math.round(buyPoints) });
   const depthPoints = liquidity === null ? 0 : Math.min(15, Math.log10(Math.max(1, liquidity)) * 3.2);
   growth += depthPoints;
-  factors.push({ label: 'Profundidad de liquidez', value: liquidity === null ? '—' : Math.round(liquidity).toLocaleString('en-US') + ' USD', points: Math.round(depthPoints) });
+  factors.push({ label: 'Liquidity depth', value: liquidity === null ? '—' : Math.round(liquidity).toLocaleString('en-US') + ' USD', points: Math.round(depthPoints) });
   growth += Math.max(0, (35 - (ageMinutes ?? 0)) * 0.25);
   growth -= liquidityRisk * 0.35;
   growth -= Math.max(0, 55 - safety) * 0.4;
   const growthCap = liquidity === null ? 40 : liquidity < 5000 ? 45 : liquidity < 15000 ? 60 : safety < 55 ? 55 : 100;
   growth = Math.min(growth, growthCap);
   growth = Math.max(0, Math.min(100, Math.round(growth)));
-  const growthLabel = growth >= 70 ? 'ALTO' : growth >= 45 ? 'MODERADO' : 'BAJO';
+  const growthLabel = growth >= 70 ? 'HIGH' : growth >= 45 ? 'MODERATE' : 'LOW';
 
   // Public signals of scam or abuse, from the analyzer and its community votes.
   const scamSignals = [];
-  for (const risk of risks) if (SCAM_PATTERNS.test(String(risk?.name || ''))) scamSignals.push({ source: 'analizador', text: String(risk.name), detail: String(risk.description || '') });
-  if (ruggedCreator) scamSignals.push({ source: 'creador', text: 'Creador con historial de rug', detail: 'La misma cartera ya ha retirado liquidez en otros tokens.' });
-  if (mintAuthority) scamSignals.push({ source: 'contrato', text: 'Emision abierta', detail: 'Puede acunar tokens sin limite cuando quiera.' });
-  if (freezeAuthority) scamSignals.push({ source: 'contrato', text: 'Congelacion abierta', detail: 'Puede bloquear la venta de tu cuenta.' });
-  if (insiders > 0) scamSignals.push({ source: 'carteras', text: insiders + ' insider(s)', detail: 'Carteras relacionadas con el creador detectadas por el analizador.' });
-  if (votesDown > votesUp && votesDown >= 3) scamSignals.push({ source: 'comunidad', text: votesDown + ' votos negativos', detail: 'Usuarios del analizador marcaron este token como sospechoso.' });
-  if (top10 > 60) scamSignals.push({ source: 'holders', text: 'Top 10 con ' + top10.toFixed(0) + '%', detail: 'Pocas carteras pueden vender todo a la vez.' });
+  for (const risk of risks) if (SCAM_PATTERNS.test(String(risk?.name || ''))) scamSignals.push({ source: 'analyzer', text: String(risk.name), detail: String(risk.description || '') });
+  if (ruggedCreator) scamSignals.push({ source: 'creator', text: 'Creator with rug history', detail: 'The same wallet has already removed liquidity from other tokens.' });
+  if (mintAuthority) scamSignals.push({ source: 'contract', text: 'Mint authority open', detail: 'It can mint unlimited tokens at any time.' });
+  if (freezeAuthority) scamSignals.push({ source: 'contract', text: 'Freeze authority open', detail: 'It can block selling from your account.' });
+  if (insiders > 0) scamSignals.push({ source: 'wallets', text: insiders + ' insider(s)', detail: 'Wallets related to the creator detected by the analyzer.' });
+  if (votesDown > votesUp && votesDown >= 3) scamSignals.push({ source: 'community', text: votesDown + ' negative votes', detail: 'Analyzer users flagged this token as suspicious.' });
+  if (top10 > 60) scamSignals.push({ source: 'holders', text: 'Top 10 hold ' + top10.toFixed(0) + '%', detail: 'A few wallets can sell everything at once.' });
 
-  const verdict = safety <= 30 ? 'ALTO RIESGO' : safety <= 55 ? 'MEDIO' : safety <= 75 ? 'PRUDENCIA' : 'MEJOR PERFIL';
+  const verdict = safety <= 30 ? 'HIGH RISK' : safety <= 55 ? 'MEDIUM' : safety <= 75 ? 'CAUTION' : 'BEST PROFILE';
   return {
     score: safety, verdict, checks, top10, insiders, lpLockedPct, liquidity, holders, ageMinutes,
     decimals: num(report?.token?.decimals) ?? 6,
@@ -159,13 +159,13 @@ async function loadBoosts() {
 const CATEGORY_RULES = [
   ['AI', /\b(ai|gpt|agent|neural|bot|llm|deepseek)\b/i],
   ['Animal', /(dog|cat|pepe|frog|moon|bear|bull|bird|monkey|puppy|kitty)/i],
-  ['Politica', /(trump|biden|maga|vote|president|senate)/i],
-  ['Celebridad', /(elon|musk|kanye|taylor|ronaldo|messi)/i],
+  ['Politics', /(trump|biden|maga|vote|president|senate)/i],
+  ['Celebrity', /(elon|musk|kanye|taylor|ronaldo|messi)/i],
   ['DeFi', /(swap|finance|defi|dex|lend|yield|stake)/i],
-  ['Juego', /(game|play|quest|arcade)/i],
+  ['Gaming', /(game|play|quest|arcade)/i],
   ['NFT', /(nft|art|pfp|punk)/i],
-  ['Acciones', /(tsla|spx|nasdaq|stock|etf|aapl)/i],
-  ['Comunidad', /(dao|community|social|meme)/i]
+  ['Stocks', /(tsla|spx|nasdaq|stock|etf|aapl)/i],
+  ['Community', /(dao|community|social|meme)/i]
 ];
 
 function categoriesFor(seed, boost) {
@@ -300,7 +300,7 @@ export default async function handler(request) {
     if (!seed) return jsonResponse(request, {observedAt: Date.now(), tab: 'lookup', lookupMint, items: [], error: 'token-not-found'}, 404);
     const boosts = await loadBoosts();
     const item = await analyzeSeed(seed, boosts);
-    return jsonResponse(request, {observedAt: Date.now(), tab: 'lookup', lookupMint, items: [item], disclaimer: 'Automatic public-data analysis. It does not guarantee a token is safe or profitable.'});
+    return jsonResponse(request, {observedAt: Date.now(), tab: 'lookup', lookupMint, items: [item], coverage: {requested: 1, analyzed: 1}, disclaimer: 'Automatic public-data analysis. It does not guarantee a token is safe or profitable.'});
   }
   const tab = ['new', 'trending', 'volume', 'marketcap'].includes(String(url.searchParams.get('tab'))) ? String(url.searchParams.get('tab')) : 'new';
   const now = Date.now();
@@ -332,7 +332,7 @@ export default async function handler(request) {
   const items = await Promise.all(seeds.map(seed => analyzeSeed(seed, boosts)));
 
   const sorted = items.sort((a, b) => b.score - a.score);
-  const body = { observedAt: now, tab, items: sorted, disclaimer: 'Automatic public-data analysis. It does not guarantee a token is safe or profitable.' };
+  const body = { observedAt: now, tab, items: sorted, coverage: {requested: seeds.length, analyzed: sorted.length}, disclaimer: 'Automatic public-data analysis. It does not guarantee a token is safe or profitable.' };
   tabCache.set(tab, { at: now, body });
   return jsonResponse(request, body);
 }

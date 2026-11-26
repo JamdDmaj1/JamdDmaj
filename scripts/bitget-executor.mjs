@@ -93,7 +93,7 @@ async function main() {
   const executorTest = await fetchExecutorTestSignal().catch(() => null);
   const manualSignals = executorTest?.signal ? [{ ...executorTest.signal, executorSource: "manual-test", manualTest: true }] : [];
   const newSignals = Array.isArray(scan?.signals) ? scan.signals : [];
-  const recentOpen = selectRecentOpenSignals(scan?.openSignals || scan?.open || [], settings.recentOpenMinutes);
+  const recentOpen = selectRecentOpenSignals(scan?.openSignals || scan?.open || [], settings.mode === "dry-run" ? 720 : settings.recentOpenMinutes, Date.now(), {allowStudy: settings.mode === "dry-run"});
   const signals = mergeSignalSources([...manualSignals, ...newSignals], recentOpen);
   const events = Array.isArray(scan?.events) ? scan.events : [];
   const latestMarketDirection = scan?.marketDirection
@@ -132,12 +132,12 @@ async function main() {
   const executable = [];
   const baselineEvaluations = [];
   for (const signal of signals) {
-    const sourceDecision = entrySourceDecision(signal, settings.entrySource);
+    const sourceDecision = entrySourceDecision(signal, settings.entrySource, settings.mode);
     if (!sourceDecision.ok) {
       recordRejection(decisions, sourceDecision.reason, signal);
       continue;
     }
-    const decision = executableDecision(signal, state, policy, marketContext);
+    const decision = executableDecision(signal, state, policy, marketContext, settings.mode);
     baselineEvaluations.push({ signal, decision });
     if (decision.ok) {
       executable.push({
@@ -151,7 +151,7 @@ async function main() {
     }
   }
   if (isAiSimulationMode(settings.mode)) {
-    state.aiExperiment = recordAiSimulationCycle(state.aiExperiment, baselineEvaluations, state.categoryLearning);
+    state.aiExperiment = recordAiSimulationCycle(state.aiExperiment, baselineEvaluations, state.categoryLearning, Date.now(), settings.mode === "dry-run" ? 720 : 5);
     decisions.aiExperiment = compactAiSimulationExperiment(state.aiExperiment, true);
   } else {
     decisions.aiExperiment = compactAiSimulationExperiment(state.aiExperiment, false);
@@ -183,7 +183,7 @@ async function main() {
     return;
   }
 
-  if (settings.mode === "off" || policy.livePaused) {
+  if (settings.mode === "off" || (policy.livePaused && settings.mode !== "dry-run")) {
     const reason = policy.livePaused ? "remote live pause is active" : "execution off";
     console.log(`${LOG_PREFIX} ${reason}. candidates=${candidates.length}`);
     state.lastAction = reason;
@@ -363,18 +363,21 @@ async function fetchClientFeed() {
 }
 
 // Source selection never overrides the global pause or existing risk checks.
-export function entrySourceDecision(signal = {}, source = "all") {
+export function entrySourceDecision(signal = {}, source = "all", mode = "live") {
   if (source === "all") return { ok: true };
   if (source !== "manual-only") return { ok: false, reason: "invalid entry source: entries blocked" };
   if (signal?.manualTest === true && signal?.executorSource === "manual-test") return { ok: true };
+  // Dry-run is simulation-only: let it study automatic signals without ever
+  // sending an order. Live execution still requires an explicit manual test.
+  if (mode === "dry-run") return { ok: true, simulationOnly: true };
   return { ok: false, reason: "manual-only mode: automatic entry blocked" };
 }
 
-export function selectRecentOpenSignals(openSignals, minutes, now = Date.now()) {
+export function selectRecentOpenSignals(openSignals, minutes, now = Date.now(), {allowStudy = false} = {}) {
   if (!Array.isArray(openSignals)) return [];
   const cutoff = now - (Number(minutes) || 20) * 60000;
   return openSignals
-    .filter((signal) => signal && signal.status === "OPEN" && signal.bitgetEligible === true)
+    .filter((signal) => signal && signal.status === "OPEN" && (signal.bitgetEligible === true || allowStudy === true))
     .filter((signal) => {
       const created = Date.parse(signal.createdAt || "");
       return Number.isFinite(created) && created >= cutoff;
@@ -487,10 +490,11 @@ function marketGateDecision(signal, gate) {
   return { ok: true, reason: "market gate passed" };
 }
 
-function executionFreshnessDecision(signal, policy = {}) {
-  const maxAgeMinutes = signal?.manualTest === true
+function executionFreshnessDecision(signal, policy = {}, mode = "live") {
+  const configuredMaxAge = signal?.manualTest === true
     ? settings.manualTestMaxAgeMinutes
     : clampInt(policy?.maxExecutionSignalAgeMinutes, 5, 240, settings.maxExecutionSignalAgeMinutes);
+  const maxAgeMinutes = mode === "dry-run" ? Math.max(configuredMaxAge, 720) : configuredMaxAge;
   const expiresAt = latestFiniteDate(signal?.validUntil, signal?.expiresAt, signal?.monitoredUntil);
   if (Number.isFinite(expiresAt) && expiresAt < Date.now()) return { ok: false, reason: "stale signal expired" };
   const startedAt = earliestFiniteDate(signal?.executorQueuedAt, signal?.createdAt, signal?.openedAt, signal?.telegramSentAt, signal?.detectedAt, signal?.receivedAt);
@@ -510,10 +514,10 @@ function latestFiniteDate(...values) {
   return stamps.length ? Math.max(...stamps) : NaN;
 }
 
-function executableDecision(signal, state, policy = {}, marketContext = null) {
+function executableDecision(signal, state, policy = {}, marketContext = null, mode = "live") {
   if (!signal) return { ok: false, reason: "missing signal" };
   if (!signal.id || !signal.pair || !signal.side) return { ok: false, reason: "missing id/pair/side" };
-  const freshness = executionFreshnessDecision(signal, policy);
+  const freshness = executionFreshnessDecision(signal, policy, settings.mode);
   if (!freshness.ok) return freshness;
   const rejectionBlock = recentSymbolRejectionDecision(signal, state);
   if (!rejectionBlock.ok) return rejectionBlock;
@@ -534,9 +538,11 @@ function executableDecision(signal, state, policy = {}, marketContext = null) {
       return { ok: false, reason: "manual live order blocks counter-market setup" };
     }
   } else {
-    if (signal.bitgetEligible !== true) return { ok: false, reason: "signal is not Bitget-ready" };
+    if (mode !== "dry-run" && signal.bitgetEligible !== true) return { ok: false, reason: "signal is not Bitget-ready" };
+    if (mode !== "dry-run") {
     const liveQuality = automaticEntryQualityDecision(signal, gate);
     if (!liveQuality.ok) return liveQuality;
+    }
     if (Number(signal.score) < minScore) return { ok: false, reason: `score below ${minScore}` };
   }
   if (!gate.allowMemeLive && /meme/i.test(String(signal.category || ""))) return { ok: false, reason: "meme live disabled" };
@@ -929,11 +935,11 @@ export function automaticEntryQualityDecision(signal = {}, gate = {}) {
   return { ok: true, reason: "passed conservative automatic entry gate" };
 }
 
-export function evaluateAiSimulationVariant(signal = {}, baselineDecision = { ok: true }, categoryLearning = {}, now = Date.now()) {
+export function evaluateAiSimulationVariant(signal = {}, baselineDecision = { ok: true }, categoryLearning = {}, now = Date.now(), maxAgeMinutes = 5) {
   if (!baselineDecision?.ok) return { ok: false, reason: `baseline rejected: ${baselineDecision?.reason || "unknown"}` };
   const side = String(signal.side || "").toUpperCase();
   const startedAt = earliestFiniteDate(signal.executorQueuedAt, signal.createdAt, signal.openedAt, signal.telegramSentAt, signal.detectedAt, signal.receivedAt);
-  if (!Number.isFinite(startedAt) || now - startedAt > 5 * 60000) {
+  if (!Number.isFinite(startedAt) || now - startedAt > maxAgeMinutes * 60000) {
     return { ok: false, reason: "AI experiment freshness older than 5m" };
   }
   const expectedHigherTrend = side === "LONG" ? "bullish" : "bearish";
@@ -1010,14 +1016,14 @@ export function isAiSimulationMode(mode) {
   return String(mode || "").toLowerCase() === "dry-run";
 }
 
-export function recordAiSimulationCycle(current, evaluations = [], categoryLearning = {}, now = Date.now()) {
+export function recordAiSimulationCycle(current, evaluations = [], categoryLearning = {}, now = Date.now(), maxAgeMinutes = 5) {
   const state = normalizeAiSimulationExperiment(current);
   for (const item of evaluations) {
     const signal = item?.signal || {};
     const id = String(signal.id || "").slice(0, 180);
     if (!id || state.signals[id]) continue;
     const baselineAccepted = item?.decision?.ok === true;
-    const aiDecision = evaluateAiSimulationVariant(signal, item?.decision, categoryLearning, now);
+    const aiDecision = evaluateAiSimulationVariant(signal, item?.decision, categoryLearning, now, maxAgeMinutes);
     state.signals[id] = {
       pair: String(signal.pair || signal.symbol || "").slice(0, 40),
       side: String(signal.side || "").slice(0, 12),

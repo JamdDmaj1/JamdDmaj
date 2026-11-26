@@ -18,13 +18,19 @@ test('Jupiter selects only published fresh supported signals, independently of B
  a.entry=200;assert.equal(result.candidates[1].entry,100);assert.equal(result.readyForSigning,false);assert.equal(result.tradingEnabled,false);
 });
 test('unpublished, closed, stale, future, unsupported, multiplied and weak candidates never reach preparation',()=>{
- const changes=[{telegramMessageId:null},{telegramSentAt:null},{status:'CLOSED'},{createdAt:new Date(now-300001).toISOString()},
-  {telegramSentAt:new Date(now+2001).toISOString()},{telegramSentAt:new Date(now-100000).toISOString()},{pair:'XRPUSDT'},
+ const changes=[{telegramMessageId:null},{telegramSentAt:null},{status:'CLOSED'},
+  {telegramSentAt:new Date(now+2001).toISOString()},{telegramSentAt:new Date(now-31*60*1000).toISOString()},{pair:'XRPUSDT'},
   {contractMultiplier:1000},{side:'BUY'},{sl:101},{score:11.9},{marketAlignment:'counter-market'},{freshness:{status:'late'}},{score:NaN},{id:'unsafe\n'}];
  for(const change of changes){const result=selectPublishedServerPerpsSignals(feed([{...signal(),...change}]),{now});assert.equal(result.candidates.length,0,JSON.stringify(change));}
- const currentFeed=feed();currentFeed.generatedAt=new Date(now+300000).toISOString();
- assert.equal(selectPublishedServerPerpsSignals(currentFeed,{now:now+300000}).candidates.length,0);
+ const currentFeed=feed();currentFeed.generatedAt=new Date(now+31*60*1000).toISOString();
+ assert.equal(selectPublishedServerPerpsSignals(currentFeed,{now:now+31*60*1000}).candidates.length,0);
 });
+test('a recently published signal remains actionable even if its setup was created earlier',()=>{
+ const oldSetup={...signal(),createdAt:new Date(now-24*3600000).toISOString(),telegramSentAt:new Date(now-60000).toISOString()};
+ const result=selectPublishedServerPerpsSignals(feed([oldSetup]),{now});
+ assert.deepEqual(result.candidates.map(s=>s.id),[oldSetup.id]);
+});
+
 test('Phoenix can request its own allowed markets without widening Jupiter',()=>{
  const vvv={...signal('signal:VVV:1'),pair:'VVVUSDT',score:13};
  assert.equal(selectPublishedServerPerpsSignals(feed([vvv]),{now}).candidates.length,0);
