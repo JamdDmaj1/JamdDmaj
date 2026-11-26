@@ -253,8 +253,8 @@ test("daily Telegram report produces safe SL suggestions from outcomes", () => {
     losses: 4
   });
   assert.equal(suggestions.length, 3);
-  assert.match(suggestions[0], /varios SL/);
-  assert.match(suggestions[1], /invalidaciones/);
+  assert.match(suggestions[0], /Multiple SL hits/);
+  assert.match(suggestions[1], /Invalidations repeated/);
   assert.match(suggestions[2], /TP1/);
 });
 
