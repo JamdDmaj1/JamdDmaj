@@ -180,7 +180,7 @@ function categoriesFor(seed, boost) {
   return [...new Set(tags)].slice(0, 4);
 }
 
-const TAB_TTL = 90000;
+const TAB_TTL = 60000;
 const tabCache = new Map();
 const tabCooldown = new Map();
 const TAB_LIMIT = 8;
