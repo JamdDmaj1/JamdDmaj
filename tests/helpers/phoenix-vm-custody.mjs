@@ -36,7 +36,7 @@ export async function openPhoenixVmCustody(root){
   await backupRegistry.registerArchive(archive,{explicitOperatorApproval:true});
   const restored=await restorePerpsCustodyRecoveryArchive({ciphertext:archive.ciphertext,operatorDirectory,destinationDirectory:join(root,'paused-restore-proof'),explicitOperatorApproval:true,...options});
   backupRegistry.acceptRestoreProof({proofFile:restored.proofFile,explicitOperatorApproval:true});
-  return {ownerAccountHash,identity,vault,controls,revision:control.revision,riskJournal,swapJournal,journal,backupRegistry,
+  return {ownerAccountHash,identity,vault,controls,controlsPath,revision:control.revision,riskJournal,swapJournal,journal,backupRegistry,
    close(){for(const store of opened.reverse())store.close();opened.length=0;}};
  }catch(error){for(const store of opened.reverse())try{store.close();}catch{}throw error;}
 }

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {mkdtempSync,chmodSync,rmSync} from 'node:fs';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
+import {DatabaseSync} from 'node:sqlite';
 import {openPhoenixVmCustody} from './helpers/phoenix-vm-custody.mjs';
 import {createPhoenixManualService} from '../lib/phoenix-manual-service.js';
 import {createPerpsAutomationApi} from '../lib/perps-automation-api.js';
@@ -22,6 +23,10 @@ test('service reports pending entry gates and never enables trading or sends on 
  f.setRunning(false);assert.equal((await f.service.status(who)).closeAvailable,false);
  await assert.rejects(()=>f.service.status({...who,ownerAccountHash:'e'.repeat(64)}),/OWNERSHIP/);
  await assert.rejects(()=>f.service.prepareClose({...who,workflowId:'b'.repeat(64)}),/CUSTODY/);assert.equal(f.network(),0);
+});
+test('active AUTO controls report closeAvailable without requiring a manual pause',async t=>{
+ const f=await fixture(t);const db=new DatabaseSync(f.controlsPath);try{db.exec('UPDATE perps_automation_controls SET enabled=1,paused=0');}finally{db.close();}
+ const status=await f.service.status(f.identity);assert.equal(status.closeAvailable,true);assert.equal(status.closeReason,null);
 });
 test('authenticated API allows only exact native actions and obtains ownership from the verified session',async t=>{
  const f=await fixture(t),api=createPerpsAutomationApi({controls:f.controls,authenticate:async()=>f.ownerAccountHash,rateLimit:async()=>true,botPhoenix:f.service});
