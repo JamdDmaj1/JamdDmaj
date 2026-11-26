@@ -5365,7 +5365,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      let APP_VERSION = "1.81.76";
+      let APP_VERSION = "1.81.77";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -12307,6 +12307,16 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
           : (spanish ? "Guarda el Sync ID antes de continuar." : "Save the Sync ID before continuing."));
       }
 
+      async function restoreLinkedBackupIfEmpty() {
+        if (!googleSyncRecoveryCode) return;
+        const hasMessages = () => Array.isArray(chats) && chats.some(chat => Array.isArray(chat?.messages) && chat.messages.length > 0);
+        if (hasMessages()) return;
+        const attemptKey = "jamdV3AutoAccountRestore";
+        try { if (localStorage.getItem(attemptKey)) return; localStorage.setItem(attemptKey, new Date().toISOString()); } catch { return; }
+        const restored = await restoreCloudBackupWithCode(googleSyncRecoveryCode, true);
+        if (!restored) { try { localStorage.removeItem(attemptKey); } catch {} }
+      }
+
       async function initGoogleAccount() {
         const button = document.getElementById("googleSignInBtn");
         const status = document.getElementById("socialAccountStatus");
@@ -12339,6 +12349,7 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
             if (session === 'valid') {
               status.textContent = spanish ? "Sesión de acceso verificada. Tu perfil de Google está vinculado." : "Access session verified. Your Google profile is linked.";
               await refreshGoogleSyncId();
+              await restoreLinkedBackupIfEmpty();
             } else if (session === 'missing' || session === 'rejected') {
               button.textContent = spanish ? "Google · Renovar acceso" : "Google · Renew access";
               status.textContent = spanish ? "Tu perfil está guardado, pero la sesión de acceso no está activa. Pulsa Google para renovarla; conectar Phantom no sustituye este acceso." : "Your profile is saved, but the access session is not active. Press Google to renew it; connecting Phantom does not replace this access.";
@@ -12346,6 +12357,7 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
               status.textContent = spanish ? "Perfil guardado. No se pudo verificar la sesión; no se ha cerrado tu cuenta ni cambiado tu billetera." : "Saved profile. The session could not be verified; your account was not signed out and your wallet was not changed.";
             }
           }
+          try { await refreshGoogleSyncId(); await restoreLinkedBackupIfEmpty(); } catch {}
         } catch {
           status.textContent = accountProfile?.email
             ? (spanish ? "No se pudo recuperar el Sync ID vinculado. No se cambió tu progreso local; renueva el acceso con Google e inténtalo de nuevo." : "The linked Sync ID could not be retrieved. Local progress was not changed; renew Google access and try again.")
@@ -15695,7 +15707,7 @@ if (tgResult) {
     })();
   </script>
   <script type="module" src="fair-launch-ui.js?v=1.38.27"></script>
-  <script type="module" src="wallet-login-ui.js?v=1.81.76"></script>
+  <script type="module" src="wallet-login-ui.js?v=1.81.77"></script>
   <script type="module" src="web-trial-ui.js"></script>
   <script type="module" src="jamd-credit-ui.js"></script>
   <script type="module" src="first-visit-ui.js"></script>
