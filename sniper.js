@@ -1080,7 +1080,7 @@ function detectNew(items, source) {
   } catch {}
 }
 
-async function load(tab = state.tab) {
+async function load(tab = state.tab, fresh = false) {
   const seq = ++state.seq;
   state.tab = tab;
   paintTabs();
@@ -1116,7 +1116,7 @@ async function load(tab = state.tab) {
   if (!state.data[source]) $('sniperStatus').textContent = 'Analyzing tokens...';
   try {
     if (!state.data[source]) {
-      const response = await fetch(base + '/api/sniper?tab=' + source + '&x=' + Date.now(), { cache: 'no-store' });
+      const response = await fetch(base + '/api/sniper?tab=' + source + '&x=' + Date.now() + (fresh ? '&fresh=1' : ''), { cache: 'no-store' });
       if (seq !== state.seq) return;
       if (!response.ok) throw new Error('HTTP ' + response.status);
       const data = await response.json();
@@ -1143,7 +1143,7 @@ async function load(tab = state.tab) {
   }
 }
 
-function refreshTab() { state.data = {}; void load(state.tab); }
+function refreshTab() { state.data = {}; void load(state.tab, true); }
 
 const usdInput = $('sniperUsd');
 if (usdInput) {
@@ -1650,7 +1650,7 @@ function scheduleAutoRefresh() {
     if (document.hidden || state.loading) return;
     const raw = String(searchInput?.value || '').trim();
     if (/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(raw)) return;
-    refreshTab();
+    refreshTab(true);
     if (globalThis.SniperRadar) globalThis.SniperRadar.pollNow();
   }, 60000);
 }

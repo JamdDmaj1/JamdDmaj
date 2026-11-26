@@ -1,4 +1,4 @@
-﻿import test from "node:test";
+import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 const sniper = readFileSync(new URL("../sniper.html", import.meta.url), "utf8");
@@ -25,6 +25,8 @@ test("Sniper tabs route My tokens and History explicitly", () => {
 test("Sniper API returns English analysis labels and coverage", () => {
   assert.match(api, /Mint authority revoked/);
   assert.match(api, /coverage:\s*\{requested:/);
+  assert.match(api, /const TAB_TTL = 60000/);
+  assert.match(api, /const fresh = url\.searchParams\.get\('fresh'\) === '1'/);
   assert.doesNotMatch(api, /Emision revocada/);
   assert.doesNotMatch(api, /Sin dato de bloqueo/);
 });

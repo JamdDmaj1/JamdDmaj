@@ -303,11 +303,12 @@ export default async function handler(request) {
     return jsonResponse(request, {observedAt: Date.now(), tab: 'lookup', lookupMint, items: [item], coverage: {requested: 1, analyzed: 1}, disclaimer: 'Automatic public-data analysis. It does not guarantee a token is safe or profitable.'});
   }
   const tab = ['new', 'trending', 'volume', 'marketcap'].includes(String(url.searchParams.get('tab'))) ? String(url.searchParams.get('tab')) : 'new';
+  const fresh = url.searchParams.get('fresh') === '1';
   const now = Date.now();
   const cached = tabCache.get(tab);
-  if (cached && now - cached.at < TAB_TTL) return jsonResponse(request, { ...cached.body, cached: true });
+  if (!fresh && cached && now - cached.at < TAB_TTL) return jsonResponse(request, { ...cached.body, cached: true });
   const cooldown = tabCooldown.get(tab) || 0;
-  if (cooldown > now && cached) return jsonResponse(request, { ...cached.body, cached: true, cooling: true });
+  if (!fresh && cooldown > now && cached) return jsonResponse(request, { ...cached.body, cached: true, cooling: true });
 
   let pools = [];
   try { pools = await loadPools(tab); } catch { pools = []; }
