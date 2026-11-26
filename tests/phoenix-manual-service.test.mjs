@@ -31,6 +31,7 @@ test('authenticated API allows only exact native actions and obtains ownership f
  assert.equal(response.headers.get('cache-control'),'no-store, max-age=0');assert.equal(JSON.stringify(body).includes(f.ownerAccountHash),false);
  assert.equal((await call({ownerAccountHash:'e'.repeat(64)})).status,400);assert.equal((await call({serializedTxBase64:'injected'})).status,400);
  assert.equal((await call({action:'phoenixClosePrepare',workflowId:'b'.repeat(64)})).status,409);
+ assert.equal((await call({action:'phoenixClosePrepare',workflowId:'b'.repeat(64),closePercent:100,automation:true})).status,409);
  assert.equal((await call({},'wrong')).status,401);assert.equal(f.network(),0);
  const unavailable=createPerpsAutomationApi({controls:f.controls,authenticate:async()=>f.ownerAccountHash,rateLimit:async()=>true});
  const off=await unavailable(new Request('https://executor.invalid/v1/automation',{method:'POST',headers:{Authorization:'Bearer '+'f'.repeat(64),'Content-Type':'application/json'},body:JSON.stringify({action:'phoenixStatus',walletAddress:f.identity.walletAddress})}));

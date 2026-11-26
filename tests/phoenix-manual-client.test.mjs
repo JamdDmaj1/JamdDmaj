@@ -72,6 +72,10 @@ test('close review uses existing bearer session and wallet, and confirmation is 
  assert.equal(f.sent[0].options.credentials,'omit');assert.equal(f.sent[0].options.redirect,'error');assert.equal(f.sent[0].options.headers.Authorization,'Bearer '+'a'.repeat(64));
  assert.equal(JSON.stringify(f.sent.map(v=>v.body)).includes('serializedTxBase64'),false);
 });
+test('AUTO close opts into the automation gate and manual close stays paused-only',async()=>{
+ const auto=fixture();await auto.client.prepareClose(wallet,workflowId,100,true);assert.equal(auto.sent[0].body.automation,true);
+ const manual=fixture();await manual.client.prepareClose(wallet,workflowId);assert.equal('automation' in manual.sent[0].body,false);
+});
 test('session change, expired review and a broadened price tolerance cannot authorize confirmation',async()=>{
  const f=fixture(),r=await f.client.prepareClose(wallet,workflowId);f.setToken('d'.repeat(64));
  await assert.rejects(()=>f.client.confirmClose(r,true),/review-required/);assert.equal(f.sent.length,1);
