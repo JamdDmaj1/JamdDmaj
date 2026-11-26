@@ -50,24 +50,24 @@ function tradePanel(item, setStatusHook) {
   const instant = document.createElement('button');
   instant.type = 'button';
   instant.className = 'sniper-instant';
-  const instantLabel = () => { instant.textContent = 'Comprar ' + state.usd + ' USD al instante'; };
+  const instantLabel = () => { instant.textContent = 'Buy ' + state.usd + ' USD instantly'; };
   instantLabel();
 
   const quick = document.createElement('div');
   quick.className = 'sniper-quick';
   const quoteLine = document.createElement('div');
   quoteLine.className = 'sniper-quote';
-  quoteLine.textContent = 'Elige un importe para ver el precio en vivo.';
+  quoteLine.textContent = 'Choose an amount to see the live price.';
   const statusLine = document.createElement('div');
   statusLine.className = 'sniper-trade-status';
   const buyButton = document.createElement('button');
   buyButton.type = 'button';
   buyButton.className = 'sniper-buy';
-  buyButton.textContent = 'Comprar importe elegido';
+  buyButton.textContent = 'Buy selected amount';
   const sellButton = document.createElement('button');
   sellButton.type = 'button';
   sellButton.className = 'sniper-sell';
-  sellButton.textContent = 'Vender todo';
+  sellButton.textContent = 'Sell all';
 
   let solAmount = 0.1;
   let quoteAt = 0;
@@ -77,17 +77,17 @@ function tradePanel(item, setStatusHook) {
 
   const setStatus = text => { statusLine.textContent = text; if (setStatusHook) setStatusHook(text); };
   const report = signature => {
-    setStatus('Enviada: ' + signature.slice(0, 10) + '...');
+    setStatus('Sent: ' + signature.slice(0, 10) + '...');
     const link = document.createElement('a');
     link.href = 'https://solscan.io/tx/' + signature;
     link.target = '_blank';
     link.rel = 'noopener noreferrer';
-    link.textContent = 'ver en Solscan';
+    link.textContent = 'view on Solscan';
     statusLine.append(' ', link);
   };
 
   const refreshQuote = async () => {
-    if (!api() || !api().provider()) { quoteLine.textContent = 'Phantom no esta disponible en este navegador.'; return; }
+    if (!api() || !api().provider()) { quoteLine.textContent = 'Phantom is not available in this browser.'; return; }
     const token = ++quoteToken;
     try {
       const data = await api().quote({ mint: item.mint, solAmount, slippageBps: 120 });
@@ -95,9 +95,9 @@ function tradePanel(item, setStatusHook) {
       quoteAt = Date.now();
       const decimals = Number.isInteger(item.decimals) ? item.decimals : 6;
       const tokens = Number(data.outAmount || 0) / Math.pow(10, decimals);
-      quoteLine.textContent = solAmount + ' SOL ~ ' + tokens.toLocaleString('en-US', { maximumFractionDigits: 2 }) + ' ' + (item.symbol || '') + ' - impacto ' + (Number(data.priceImpactPct) * 100).toFixed(2) + '%';
+      quoteLine.textContent = solAmount + ' SOL ~ ' + tokens.toLocaleString('en-US', { maximumFractionDigits: 2 }) + ' ' + (item.symbol || '') + ' - impact ' + (Number(data.priceImpactPct) * 100).toFixed(2) + '%';
     } catch (error) {
-      if (token === quoteToken) quoteLine.textContent = 'Sin ruta ahora mismo: ' + (error?.message || error);
+      if (token === quoteToken) quoteLine.textContent = 'No route right now: ' + (error?.message || error);
     }
   };
 
@@ -125,22 +125,22 @@ function tradePanel(item, setStatusHook) {
   }
 
   instant.addEventListener('click', async () => {
-    if (!api()) { setStatus('Recarga la pagina para cargar el modulo de compra.'); return; }
+    if (!api()) { setStatus('Reload the page to load the buy module.'); return; }
     try {
-      if (!api().provider()) { setStatus('Phantom no esta disponible aqui.'); offerPhantom(); return; }
+      if (!api().provider()) { setStatus('Phantom is not available here.'); offerPhantom(); return; }
       instant.disabled = true;
-      instant.textContent = 'Comprando ' + state.usd + ' USD...';
-      if (!api().key()) { setStatus('Conectando Phantom...'); await api().connect(); }
+      instant.textContent = 'Buying ' + state.usd + ' USD...';
+      if (!api().key()) { setStatus('Connecting Phantom...'); await api().connect(); }
       const price = await solPrice();
-      if (!price) throw new Error('sin precio de SOL');
+      if (!price) throw new Error('no SOL price');
       const sol = state.usd / price;
-      setStatus('Cotizando ' + state.usd + ' USD (' + sol.toFixed(4) + ' SOL)...');
+      setStatus('Quoting ' + state.usd + ' USD (' + sol.toFixed(4) + ' SOL)...');
       const result = await api().buy({ mint: item.mint, solAmount: sol, slippageBps: 150 });
       logTrade('buy', { tokens: Number(result.outAmount) / Math.pow(10, decimalsOf()), usd: state.usd, sol, tx: result.signature });
       report(result.signature);
     } catch (error) {
       const text = String(error?.message || error);
-      setStatus(text === 'phantom-missing' ? 'Phantom no esta disponible aqui.' : 'No se pudo comprar: ' + text);
+      setStatus(text === 'phantom-missing' ? 'Phantom is not available here.' : 'Could not buy: ' + text);
     } finally {
       instant.disabled = false;
       instantLabel();
@@ -148,13 +148,13 @@ function tradePanel(item, setStatusHook) {
   });
 
   buyButton.addEventListener('click', async () => {
-    if (!api()) { setStatus('Recarga la pagina para cargar el modulo de compra.'); return; }
+    if (!api()) { setStatus('Reload the page to load the buy module.'); return; }
     try {
-      if (!api().provider()) { setStatus('Phantom no esta disponible aqui.'); offerPhantom(); return; }
+      if (!api().provider()) { setStatus('Phantom is not available here.'); offerPhantom(); return; }
       buyButton.disabled = true;
-      if (!api().key()) { setStatus('Conectando Phantom...'); await api().connect(); }
+      if (!api().key()) { setStatus('Connecting Phantom...'); await api().connect(); }
       if (!quoteAt || Date.now() - quoteAt > 4000) await refreshQuote();
-      setStatus('Firmando en Phantom...');
+      setStatus('Signing in Phantom...');
       const result = await api().buy({ mint: item.mint, solAmount, slippageBps: 120 });
       logTrade('buy', { tokens: Number(result.outAmount) / Math.pow(10, decimalsOf()), usd: solAmount * (state.solPrice || 0), sol: solAmount, tx: result.signature });
       report(result.signature);
@@ -166,18 +166,18 @@ function tradePanel(item, setStatusHook) {
   });
 
   sellButton.addEventListener('click', async () => {
-    if (!api()) { setStatus('Recarga la pagina para cargar el modulo de venta.'); return; }
+    if (!api()) { setStatus('Reload the page to load the sell module.'); return; }
     try {
-      if (!api().provider()) { setStatus('Phantom no esta disponible aqui.'); offerPhantom(); return; }
+      if (!api().provider()) { setStatus('Phantom is not available here.'); offerPhantom(); return; }
       sellButton.disabled = true;
-      if (!api().key()) { setStatus('Conectando Phantom...'); await api().connect(); }
-      setStatus('Leyendo tu saldo...');
+      if (!api().key()) { setStatus('Connecting Phantom...'); await api().connect(); }
+      setStatus('Reading your balance...');
       const result = await api().sellAll({ mint: item.mint, slippageBps: 150 });
       logTrade('sell', { tokens: Number(result.rawAmount) / Math.pow(10, decimalsOf()), usd: (Number(result.outAmount) / 1e9) * (state.solPrice || 0), sol: Number(result.outAmount) / 1e9, tx: result.signature });
       report(result.signature);
     } catch (error) {
       const text = String(error?.message || error);
-      setStatus(text === 'no-balance' ? 'No tienes este token en la wallet conectada.' : 'No se pudo vender: ' + text);
+      setStatus(text === 'no-balance' ? 'You do not hold this token in the connected wallet.' : 'Could not sell: ' + text);
     } finally {
       sellButton.disabled = false;
     }
@@ -185,7 +185,7 @@ function tradePanel(item, setStatusHook) {
 
   const warning = document.createElement('small');
   warning.className = 'sniper-warning';
-  warning.textContent = 'Operacion real con tu wallet. Revisa el impacto antes de firmar.';
+  warning.textContent = 'Real transaction with your wallet. Review the impact before signing.';
 
   wrap.append(instant, quick, quoteLine, statusLine, buyButton, sellButton, warning);
   return wrap;
@@ -409,7 +409,7 @@ function openDetail(item) {
   const close = document.createElement('button');
   close.type = 'button';
   close.className = 'sniper-sheet-close';
-  close.textContent = 'Cerrar';
+  close.textContent = 'Close';
   close.addEventListener('click', closeDetail);
   head.append(title, close);
 
@@ -454,14 +454,24 @@ function openDetail(item) {
   scan.textContent = 'Solscan';
   contract.append(contractLabel, code, copy, scan);
 
-  const chartBox = document.createElement('div');
-  chartBox.className = 'sniper-sheet-chart';
+  const chartBox = document.createElement('details');
+  chartBox.className = 'sniper-chart';
+  const chartSummary = document.createElement('summary');
+  chartSummary.textContent = 'Live chart';
   const frame = document.createElement('iframe');
   frame.loading = 'lazy';
   frame.title = 'Chart ' + (item.symbol || '');
-  frame.src = 'https://www.geckoterminal.com/solana/pools/' + encodeURIComponent(item.poolAddress || '') + '?embed=1&info=0&swaps=0&light_chart=1';
+  frame.dataset.src = 'https://www.geckoterminal.com/solana/pools/' + encodeURIComponent(item.poolAddress || '') + '?embed=1&info=0&swaps=0&light_chart=1';
   frame.setAttribute('allowfullscreen', 'true');
-  chartBox.append(frame);
+  const chartLink = document.createElement('a');
+  chartLink.className = 'sniper-chart-link';
+  chartLink.href = 'https://www.geckoterminal.com/solana/pools/' + encodeURIComponent(item.poolAddress || '');
+  chartLink.target = '_blank';
+  chartLink.rel = 'noopener noreferrer';
+  chartLink.textContent = 'Open full chart on GeckoTerminal';
+  chartBox.append(chartSummary, frame, chartLink);
+  chartBox.addEventListener('toggle', () => { if (chartBox.open && !frame.src && frame.dataset.src) frame.src = frame.dataset.src; }, {once: false});
+
 
   const why = whyPanel(item);
 

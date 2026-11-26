@@ -293,3 +293,7 @@
   .radar-dock.collapsed header strong{font-size:11px}
   .radar-dock .radar-count{display:none}
 }
+
+.sniper-chart-link{display:block;padding:7px 12px 9px;color:#7ef0cf;font-size:11px;text-decoration:none}
+.sniper-chart-link:hover{text-decoration:underline}
+
