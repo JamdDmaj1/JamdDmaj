@@ -35,6 +35,17 @@ function fixture(client) {
   return {parent};
 }
 
+test('app session without bot controls offers the web Google account switch', async () => {
+  globalThis.Capacitor = {isNativePlatform: () => true};
+  try {
+    const client = {async readStatus() { throw Object.assign(Error('controls-unavailable'), {code: 'controls-unavailable'}); }};
+    const f = fixture(client);
+    await settle(() => flatten(f.parent).some(text => text.includes('Esta sesión de la app')), 'account switch');
+    const switchButton = findButton(f.parent, 'Usar la misma cuenta de Google que en la web');
+    assert.ok(switchButton);
+    assert.equal(switchButton.hidden, false);
+  } finally { delete globalThis.Capacitor; }
+});
 test('waits for the native Google session before reading bot controls', async () => {
   let resolveReady; const ready = new Promise(resolve => { resolveReady = resolve; });
   let reads = 0;
