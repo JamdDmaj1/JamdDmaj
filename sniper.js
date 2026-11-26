@@ -1,6 +1,6 @@
 const $ = id => document.getElementById(id);
 const base = globalThis.Capacitor?.isNativePlatform?.() ? 'https://www.jamddmaj.com' : '';
-const state = { items: [], data: {}, updatedAt: null, loading: false, usd: 5, solPrice: null, solPriceAt: 0, tab: 'new', lookupItem: null, lookupMint: '', lookupLoading: false, lookupError: '', coverage: null, sort: 'safety', auto: true };
+const state = { items: [], data: {}, updatedAt: null, loading: false, usd: 5, solPrice: null, solPriceAt: 0, tab: 'new', lookupItem: null, lookupMint: '', lookupLoading: false, lookupError: '', coverage: null, sort: 'safety', auto: true, seq: 0 };
 const favorites = new Map();
 try { for (const entry of JSON.parse(localStorage.getItem('jamd-sniper-favs') || '[]')) if (entry?.mint && Number(entry.savedAt) > 0) favorites.set(entry.mint, entry); } catch {}
 const saveFavorites = () => { try { localStorage.setItem('jamd-sniper-favs', JSON.stringify([...favorites.values()])); } catch {} };
@@ -197,7 +197,7 @@ function auditPanel(item) {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'sniper-audit-btn';
-  button.textContent = 'Auditoria profunda: web, X y cadena';
+  button.textContent = 'Deep audit: website, X and chain';
   const body = document.createElement('div');
   body.className = 'sniper-audit-body';
   body.hidden = true;
@@ -229,28 +229,28 @@ function auditPanel(item) {
     const site = data.website || {};
     const x = data.x || {};
     const chain = data.chain || {};
-    const xName = x.handle ? '<a href="https://x.com/' + x.handle + '" target="_blank" rel="noopener noreferrer">@' + x.handle + '</a>' : 'no publicada';
-    const siteName = site.url ? '<a href="' + site.url + '" target="_blank" rel="noopener noreferrer">' + (site.domain || site.url) + '</a>' : 'no publica web';
-    body.append(section('Web', [
-      'Sitio: ' + siteName,
-      'Estado: ' + (site.ok ? 'responde' : 'no responde') + (site.title ? ' - ' + String(site.title).slice(0, 60) : ''),
-      'Enlaza la X del token: ' + (site.hasXLink ? 'si' : 'no')
+    const xName = x.handle ? '<a href="https://x.com/' + x.handle + '" target="_blank" rel="noopener noreferrer">@' + x.handle + '</a>' : 'not published';
+    const siteName = site.url ? '<a href="' + site.url + '" target="_blank" rel="noopener noreferrer">' + (site.domain || site.url) + '</a>' : 'no website published';
+    body.append(section('Website', [
+      'Site: ' + siteName,
+      'Status: ' + (site.ok ? 'responds' : 'does not respond') + (site.title ? ' - ' + String(site.title).slice(0, 60) : ''),
+      'Links token X account: ' + (site.hasXLink ? 'yes' : 'no')
     ], site.flags));
-    body.append(section('Cuenta de X', [
-      'Cuenta: ' + xName,
-      'Antiguedad: ' + (Number.isFinite(x.joinedDays) ? x.joinedDays + ' dias' : '—') + ' - Seguidores: ' + (Number.isFinite(x.followers) ? x.followers.toLocaleString('en-US') : '—'),
-      'Tweets: ' + (Number.isFinite(x.tweets) ? x.tweets : '—') + ' - Verificada: ' + (x.verified ? 'si' : 'no')
+    body.append(section('X account', [
+      'Account: ' + xName,
+      'Age: ' + (Number.isFinite(x.joinedDays) ? x.joinedDays + ' days' : '--') + ' - Followers: ' + (Number.isFinite(x.followers) ? x.followers.toLocaleString('en-US') : '--'),
+      'Tweets: ' + (Number.isFinite(x.tweets) ? x.tweets : '--') + ' - Verified: ' + (x.verified ? 'yes' : 'no')
     ], x.flags));
-    body.append(section('Cadena (muestra reciente)', [
-      'Transacciones: ' + (chain.sampled ?? 0),
-      'Compras: ' + (chain.buys ?? 0) + ' - Ventas: ' + (chain.sells ?? 0),
-      'Carteras: ' + (chain.uniqueTraders ?? 0) + ' - SOL comprado: ' + (chain.solVolume ?? 0),
-      'Quemas: ' + (chain.burns ?? 0) + (chain.burnAmount ? ' - cantidad ' + chain.burnAmount : '')
+    body.append(section('Chain (recent sample)', [
+      'Transactions: ' + (chain.sampled ?? 0),
+      'Buys: ' + (chain.buys ?? 0) + ' - Sells: ' + (chain.sells ?? 0),
+      'Wallets: ' + (chain.uniqueTraders ?? 0) + ' - SOL bought: ' + (chain.solVolume ?? 0),
+      'Burns: ' + (chain.burns ?? 0) + (chain.burnAmount ? ' - amount ' + chain.burnAmount : '')
     ], chain.flags));
     if (data.penaltyScore) {
       const summary = document.createElement('div');
       summary.className = 'sniper-audit-summary';
-      summary.textContent = 'Penalizacion adicional estimada: ' + data.penaltyScore + '/100';
+      summary.textContent = 'Estimated additional penalty: ' + data.penaltyScore + '/100';
       body.append(summary);
     }
   };
@@ -259,7 +259,7 @@ function auditPanel(item) {
     body.hidden = false;
     if (cached) { render(cached); return; }
     button.disabled = true;
-    button.textContent = 'Analizando web, X y cadena...';
+    button.textContent = 'Analyzing website, X and chain...';
     try {
       const response = await fetch(base + '/api/sniper-audit?x=' + Date.now(), {
         method: 'POST',
@@ -269,14 +269,14 @@ function auditPanel(item) {
       if (!response.ok) throw new Error('HTTP ' + response.status);
       cached = await response.json();
       render(cached);
-      button.textContent = 'Actualizar auditoria';
+      button.textContent = 'Refresh audit';
     } catch (error) {
       body.replaceChildren();
       const row = document.createElement('div');
       row.className = 'sniper-audit-flag high';
-      row.textContent = 'No se pudo auditar: ' + (error?.message || error);
+      row.textContent = 'Could not audit: ' + (error?.message || error);
       body.append(row);
-      button.textContent = 'Reintentar auditoria';
+      button.textContent = 'Retry audit';
     } finally {
       button.disabled = false;
     }
@@ -331,7 +331,7 @@ function whyPanel(item) {
   const box = document.createElement('details');
   box.className = 'sniper-why';
   const head = document.createElement('summary');
-  head.textContent = '¿Por qué se movió?';
+  head.textContent = 'Why did it move?';
   const body = document.createElement('div');
   body.className = 'sniper-why-body';
   box.append(head, body);
@@ -340,7 +340,7 @@ function whyPanel(item) {
     body.replaceChildren();
     const title = document.createElement('div');
     title.className = 'sniper-why-title';
-    title.textContent = data.summary || 'Sin resumen';
+    title.textContent = data.summary || 'No summary';
     body.append(title);
     const stats = document.createElement('div');
     stats.className = 'sniper-why-stats';
@@ -365,13 +365,13 @@ function whyPanel(item) {
   const load = async () => {
     if (loaded) return;
     loaded = true;
-    body.textContent = 'Reuniendo pruebas: volumen, compras grandes, listados y marketing...';
+    body.textContent = 'Gathering evidence: volume, large buys, listings and marketing...';
     try {
       const response = await fetch(base + '/api/sniper-why?mint=' + encodeURIComponent(item.mint) + '&pool=' + encodeURIComponent(item.poolAddress || '') + '&symbol=' + encodeURIComponent(item.symbol || '') + '&x=' + Date.now(), { cache: 'no-store' });
       if (!response.ok) throw new Error('HTTP ' + response.status);
       paint(await response.json());
     } catch (error) {
-      body.textContent = 'No se pudo analizar el movimiento: ' + (error?.message || error);
+      body.textContent = 'Could not analyze the move: ' + (error?.message || error);
       loaded = false;
     }
   };
@@ -764,15 +764,15 @@ function card(item) {
 }
 
 const TABS = [
-  { id: 'new', label: 'Nuevos' },
+  { id: 'new', label: 'New' },
   { id: 'trending', label: 'Trending' },
-  { id: 'safe', label: 'Confiables' },
-  { id: 'risk', label: 'Alto riesgo' },
-  { id: 'fav', label: 'Favoritos' },
-  { id: 'mine', label: 'Mis tokens' },
-  { id: 'hist', label: 'Historial' },
-  { id: 'volume', label: 'Mayor volumen' },
-  { id: 'marketcap', label: 'Mayor market cap' }
+  { id: 'safe', label: 'Trusted' },
+  { id: 'risk', label: 'High risk' },
+  { id: 'fav', label: 'Favorites' },
+  { id: 'mine', label: 'My tokens' },
+  { id: 'hist', label: 'History' },
+  { id: 'volume', label: 'Highest volume' },
+  { id: 'marketcap', label: 'Highest market cap' }
 ];
 
 function paintTabs() {
@@ -837,7 +837,7 @@ async function renderHoldings() {
     if (resolved) { walletState.owner = resolved.owner; walletState.source = resolved.source; }
   }
   if (!walletState.owner) {
-    status.textContent = 'Conecta Phantom o indica una direccion en la barra de saldo para ver tus tokens reales.';
+    status.textContent = 'Connect Phantom or enter an address in the balance bar to view your real tokens.';
     return;
   }
   if (!walletState.data) await refreshBalance();
@@ -850,7 +850,7 @@ async function renderHoldings() {
   if (!positions.length) {
     const empty = document.createElement('p');
     empty.className = 'sniper-empty';
-    empty.textContent = 'Esta wallet no tiene tokens con precio en este momento.';
+    empty.textContent = 'This wallet has no priced tokens right now.';
     grid.append(empty);
     return;
   }
@@ -870,11 +870,11 @@ async function renderHoldings() {
     const meta = document.createElement('div');
     meta.className = 'sniper-metabar';
     const metaItem = (name, valueText) => { const span = document.createElement('span'); span.innerHTML = name + ' <b>' + valueText + '</b>'; meta.append(span); };
-    metaItem('Cantidad', Number(position.amount).toLocaleString('en-US', { maximumFractionDigits: 4 }));
-    metaItem('Precio', fmtPrice(position.price) + ' USD');
-    metaItem('Valor', (Number(position.value) || 0).toFixed(2) + ' USD');
+    metaItem('Amount', Number(position.amount).toLocaleString('en-US', { maximumFractionDigits: 4 }));
+    metaItem('Price', fmtPrice(position.price) + ' USD');
+    metaItem('Value', (Number(position.value) || 0).toFixed(2) + ' USD');
     const share = data?.tokensUsd ? ((Number(position.value) || 0) / data.tokensUsd) * 100 : 0;
-    metaItem('Del total', share.toFixed(1) + '%');
+    metaItem('Of total', share.toFixed(1) + '%');
     if (known) metaItem('Market cap', money(known.marketCapUsd) + ' USD');
     const actions = document.createElement('div');
     actions.className = 'sniper-actions';
@@ -889,8 +889,8 @@ async function renderHoldings() {
     const copy = document.createElement('button');
     copy.type = 'button';
     copy.className = 'sniper-copy';
-    copy.textContent = 'Copiar contrato';
-    copy.addEventListener('click', async () => { try { await navigator.clipboard.writeText(position.mint); copy.textContent = 'Copied'; } catch { copy.textContent = 'Unavailable'; } setTimeout(() => { copy.textContent = 'Copiar contrato'; }, 1600); });
+    copy.textContent = 'Copy contract';
+    copy.addEventListener('click', async () => { try { await navigator.clipboard.writeText(position.mint); copy.textContent = 'Copied'; } catch { copy.textContent = 'Unavailable'; } setTimeout(() => { copy.textContent = 'Copy contract'; }, 1600); });
     actions.append(copy);
     article.append(top, meta, actions);
     grid.append(article);
@@ -900,24 +900,24 @@ function renderHistory() {
   const grid = document.getElementById('sniperGrid');
   const status = document.getElementById('sniperStatus');
   grid.replaceChildren();
-  if (!history.length) { status.textContent = 'Tu historial de Sniper esta vacio.'; return; }
+  if (!history.length) { status.textContent = 'Your Sniper history is empty.'; return; }
   for (const trade of history.slice(0, 60)) {
     const row = document.createElement('div'); row.className = 'sniper-history-row';
     const side = document.createElement('b'); side.className = trade.side; side.textContent = trade.side === 'buy' ? 'BUY' : 'SELL';
     const symbol = document.createElement('strong'); symbol.textContent = trade.symbol || '—';
     const amount = document.createElement('span'); amount.textContent = (Number(trade.usd) ? Number(trade.usd).toFixed(2) : '—') + ' USD';
-    const price = document.createElement('span'); price.textContent = 'Precio ' + fmtPrice(trade.priceUsd) + ' USD';
+    const price = document.createElement('span'); price.textContent = 'Price ' + fmtPrice(trade.priceUsd) + ' USD';
     const mcap = document.createElement('span'); mcap.textContent = 'MCap ' + (Number.isFinite(Number(trade.mcap)) ? money(Number(trade.mcap)) : 'no data');
     const date = document.createElement('small'); date.textContent = fmtDate(trade.at);
     const hold = document.createElement('small');
     const first = [...history].reverse().find(entry => entry.mint === trade.mint && entry.side === 'buy');
     hold.textContent = trade.side === 'sell' && first ? 'Hold ' + fmtHold(trade.at - first.at) : '';
-    const share = document.createElement('button'); share.type = 'button'; share.className = 'sniper-share-btn'; share.textContent = 'Compartir';
+    const share = document.createElement('button'); share.type = 'button'; share.className = 'sniper-share-btn'; share.textContent = 'Share';
     share.addEventListener('click', () => shareTrade({ symbol: trade.symbol, priceUsd: trade.priceUsd, mcap: trade.mcap, at: trade.at, holdMs: trade.side === 'sell' && first ? trade.at - first.at : Date.now() - trade.at, pnlUsd: trade.side === 'sell' ? (Number(trade.usd) || 0) - (Number(trade.invested) || Number(trade.usd) || 0) : 0, basis: Number(trade.invested) || Number(trade.usd) || 1, button: share }));
     const drop = document.createElement('button');
     drop.type = 'button';
     drop.className = 'sniper-remove';
-    drop.textContent = 'Quitar';
+    drop.textContent = 'Remove';
     drop.addEventListener('click', () => { const position = history.indexOf(trade); if (position >= 0) history.splice(position, 1); saveHistory(); paintTabs(); void load('hist'); });
     row.append(side, symbol, amount, price, mcap, date, hold, share, drop);
     grid.append(row);
@@ -926,9 +926,9 @@ function renderHistory() {
   const clearHist = document.createElement('button');
   clearHist.type = 'button';
   clearHist.className = 'sniper-clear-favs';
-  clearHist.textContent = 'Vaciar historial (' + history.length + ')';
+  clearHist.textContent = 'Clear history (' + history.length + ')';
   clearHist.addEventListener('click', () => { history.length = 0; saveHistory(); paintTabs(); void load('hist'); });
-  status.append(clearHist, document.createTextNode(' ' + history.length + ' operacion(es) registradas.'));
+  status.append(clearHist, document.createTextNode(' ' + history.length + ' recorded trade(s).'));
 }
 
 const athCache = (() => { try { return JSON.parse(localStorage.getItem('jamd-sniper-ath') || '{}'); } catch { return {}; } })();
@@ -972,8 +972,8 @@ let athRetryTimer = null;
 function render() {
   const grid = $('sniperGrid');
   const status = $('sniperStatus');
-  const minimum = Number($('sniperMin').value || 0);
-  const hideHigh = $('sniperHideHigh').checked;
+  const minimum = state.tab === 'risk' ? 0 : Number($('sniperMin').value || 0);
+  const hideHigh = state.tab !== 'risk' && $('sniperHideHigh').checked;
   const rawQuery = ($('sniperSearch').value || '').trim();
   const query = rawQuery.toLowerCase();
   const addressQuery = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(rawQuery);
@@ -1007,8 +1007,9 @@ function render() {
   if (!items.length) {
     const empty = document.createElement('p');
     empty.className = 'sniper-empty';
-    empty.textContent = state.loading ? 'Analyzing new tokens...' : 'No token matches those filters right now.';
+    empty.textContent = state.loading ? 'Analyzing tokens...' : state.tab === 'risk' ? 'No high-risk token in this sample.' : state.tab === 'safe' ? 'No token reaches a safety score of 75 right now.' : 'No token matches those filters right now.';
     grid.append(empty);
+    status.textContent = empty.textContent;
     return;
   }
   for (const item of items) grid.append(card(item));
@@ -1073,15 +1074,18 @@ function detectNew(items, source) {
     const firstRun = seen.size === 0;
     for (const item of items) {
       if (seen.has(item.mint)) continue;
-      if (!firstRun && globalThis.SniperRadar) globalThis.SniperRadar.push('info', item.symbol || '', 'Token nuevo en la lista: ' + (item.symbol || item.mint.slice(0, 6)));
+      if (!firstRun && globalThis.SniperRadar) globalThis.SniperRadar.push('info', item.symbol || '', 'New token in the list: ' + (item.symbol || item.mint.slice(0, 6)));
     }
     localStorage.setItem(key, JSON.stringify(items.map(item => item.mint).slice(0, 200)));
   } catch {}
 }
 
 async function load(tab = state.tab) {
+  const seq = ++state.seq;
   state.tab = tab;
   paintTabs();
+  state.loading = false;
+  $('sniperRefresh').disabled = false;
   if (tab === 'fav') {
     state.items = [...favorites.values()];
     const statusFav = $('sniperStatus');
@@ -1089,39 +1093,53 @@ async function load(tab = state.tab) {
     const clear = document.createElement('button');
     clear.type = 'button';
     clear.className = 'sniper-clear-favs';
-    clear.textContent = 'Vaciar favoritos (' + state.items.length + ')';
+    clear.textContent = 'Clear favorites (' + state.items.length + ')';
     clear.addEventListener('click', () => { favorites.clear(); saveFavorites(); paintTabs(); void load('fav'); });
     if (state.items.length) statusFav.append(clear);
-    else statusFav.textContent = 'Aun no has guardado favoritos: pulsa la estrella en un token.';
+    else statusFav.textContent = 'You have not saved favorites yet: tap the star on a token.';
     render();
     return;
   }
+  if (tab === 'hist') {
+    state.items = [];
+    renderHistory();
+    return;
+  }
+  if (tab === 'mine') {
+    state.items = [];
+    await renderHoldings();
+    return;
+  }
   const source = tab === 'safe' || tab === 'risk' ? 'trending' : tab;
-  if (state.loading) return;
   state.loading = true;
   $('sniperRefresh').disabled = true;
-  if (!state.data[source]) $('sniperStatus').textContent = 'Analizando tokens...';
+  if (!state.data[source]) $('sniperStatus').textContent = 'Analyzing tokens...';
   try {
     if (!state.data[source]) {
       const response = await fetch(base + '/api/sniper?tab=' + source + '&x=' + Date.now(), { cache: 'no-store' });
+      if (seq !== state.seq) return;
       if (!response.ok) throw new Error('HTTP ' + response.status);
       const data = await response.json();
+      if (seq !== state.seq) return;
       state.data[source] = Array.isArray(data.items) ? data.items : [];
       if (data.error) state.data[source] = [];
+      state.coverage = data.coverage || null;
       state.updatedAt = data.observedAt || Date.now();
-      $('sniperUpdated').textContent = 'Actualizado ' + new Date(state.updatedAt).toLocaleTimeString();
+      $('sniperUpdated').textContent = 'Updated ' + new Date(state.updatedAt).toLocaleTimeString();
     }
+    if (seq !== state.seq) return;
     let items = state.data[source] || [];
     if (tab === 'safe') items = items.filter(item => item.score >= 75);
     if (tab === 'risk') items = items.filter(item => item.score <= 30);
     state.items = items;
-    if (!items.length) $('sniperStatus').textContent = tab === 'safe' ? 'Ningun token alcanza 75 de seguridad ahora mismo.' : tab === 'risk' ? 'Ningun token con riesgo alto en esta muestra.' : 'Sin resultados ahora mismo.';
     render();
   } catch (error) {
-    $('sniperStatus').textContent = 'No se pudo analizar ahora: ' + (error?.message || error);
+    if (seq === state.seq) $('sniperStatus').textContent = 'Could not analyze right now: ' + (error?.message || error);
   } finally {
-    state.loading = false;
-    $('sniperRefresh').disabled = false;
+    if (seq === state.seq) {
+      state.loading = false;
+      $('sniperRefresh').disabled = false;
+    }
   }
 }
 

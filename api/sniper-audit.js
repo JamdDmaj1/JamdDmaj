@@ -33,36 +33,36 @@ function websiteAudit(page, symbol, socials) {
   const description = (html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']{1,240})["']/i) || [])[1] || '';
   const domain = (() => { try { return new URL(page.url || '').hostname.replace(/^www\./, ''); } catch { return null; } })();
   const flags = [];
-  if (!page.ok) flags.push({ level: 'high', text: 'La web no responde (' + (page.status || 'sin respuesta') + ')' });
-  if (page.ok && !title) flags.push({ level: 'medium', text: 'La web no tiene titulo' });
-  if (page.ok && symbol && !html.toLowerCase().includes(String(symbol).toLowerCase())) flags.push({ level: 'medium', text: 'La web no menciona el simbolo ' + symbol });
-  if (/connect wallet|conectar wallet|claim|airdrop|presale|preventa/i.test(html)) flags.push({ level: 'medium', text: 'La web pide conectar wallet, reclamar o preventa' });
+  if (!page.ok) flags.push({ level: 'high', text: 'Website does not respond (' + (page.status || 'no response') + ')' });
+  if (page.ok && !title) flags.push({ level: 'medium', text: 'Website has no title' });
+  if (page.ok && symbol && !html.toLowerCase().includes(String(symbol).toLowerCase())) flags.push({ level: 'medium', text: 'Website does not mention the symbol ' + symbol });
+  if (/connect wallet|conectar wallet|claim|airdrop|presale|preventa/i.test(html)) flags.push({ level: 'medium', text: 'Website asks to connect a wallet, claim or join a presale' });
   const linksX = socials.filter(social => /twitter|x/i.test(String(social.type || ''))).map(social => String(social.handle).toLowerCase());
   const pageHasX = linksX.some(handle => html.toLowerCase().includes(handle));
-  if (linksX.length && !pageHasX) flags.push({ level: 'medium', text: 'La web no enlaza la cuenta de X del token' });
+  if (linksX.length && !pageHasX) flags.push({ level: 'medium', text: 'Website does not link the token X account' });
   return { url: page.url || null, domain, ok: page.ok, status: page.status, title, description, hasXLink: pageHasX, flags };
 }
 
 async function xAudit(handle) {
   const clean = String(handle || '').replace(/^@/, '').trim();
-  if (!clean) return { handle: null, exists: false, flags: [{ level: 'low', text: 'El token no publica cuenta de X' }] };
+  if (!clean) return { handle: null, exists: false, flags: [{ level: 'low', text: 'Token does not publish an X account' }] };
   const result = await text('https://api.fxtwitter.com/' + encodeURIComponent(clean), 7000, { accept: 'application/json' });
   let profile = null;
   try { profile = JSON.parse(result.body)?.user || null; } catch {}
-  if (!profile) return { handle: clean, exists: false, flags: [{ level: 'high', text: 'La cuenta @' + clean + ' no existe o no es accesible' }] };
+  if (!profile) return { handle: clean, exists: false, flags: [{ level: 'high', text: 'Account @' + clean + ' does not exist or is not accessible' }] };
   const joinedDays = days(profile.joined || profile.created_at);
   const followers = num(profile.followers);
   const flags = [];
-  if (joinedDays !== null && joinedDays < 14) flags.push({ level: 'critical', text: 'Cuenta creada hace ' + joinedDays + ' dias' });
-  else if (joinedDays !== null && joinedDays < 60) flags.push({ level: 'medium', text: 'Cuenta con ' + joinedDays + ' dias de antiguedad' });
-  if (followers !== null && followers < 250) flags.push({ level: 'high', text: 'Solo ' + followers + ' seguidores' });
-  if (profile.verification?.verified === false && followers !== null && followers > 10000) flags.push({ level: 'low', text: 'Muchos seguidores sin verificacion' });
+  if (joinedDays !== null && joinedDays < 14) flags.push({ level: 'critical', text: 'Account created ' + joinedDays + ' days ago' });
+  else if (joinedDays !== null && joinedDays < 60) flags.push({ level: 'medium', text: 'Account is ' + joinedDays + ' days old' });
+  if (followers !== null && followers < 250) flags.push({ level: 'high', text: 'Only ' + followers + ' followers' });
+  if (profile.verification?.verified === false && followers !== null && followers > 10000) flags.push({ level: 'low', text: 'Many followers without verification' });
   return { handle: clean, exists: true, name: profile.name || '', joinedDays, followers, tweets: num(profile.tweets), verified: Boolean(profile.verification?.verified), flags };
 }
 
 async function chainAudit(mint, pool) {
   const signatures = await rpcCall('getSignaturesForAddress', [pool, { limit: 18 }]);
-  if (!Array.isArray(signatures) || !signatures.length) return { sampled: 0, buys: 0, sells: 0, uniqueTraders: 0, solVolume: 0, burns: 0, burnAmount: 0, flags: [{ level: 'medium', text: 'Sin actividad reciente medible' }] };
+  if (!Array.isArray(signatures) || !signatures.length) return { sampled: 0, buys: 0, sells: 0, uniqueTraders: 0, solVolume: 0, burns: 0, burnAmount: 0, flags: [{ level: 'medium', text: 'No measurable recent activity' }] };
   const results = [];
   const queue = signatures.map(item => item.signature).slice(0, 18);
   const workers = Array.from({ length: 5 }, async () => {
@@ -110,10 +110,10 @@ async function chainAudit(mint, pool) {
     if (/instruction: burn/i.test(logs)) burns++;
   }
   const flags = [];
-  if (sells > buys * 2 && sells > 3) flags.push({ level: 'high', text: 'Presion vendedora: ' + sells + ' ventas frente a ' + buys + ' compras' });
-  if (sells > 0 && buys === 0) flags.push({ level: 'critical', text: 'Sin compras en la muestra: solo ventas' });
-  if (burns > 0) flags.push({ level: 'low', text: burns + ' quema(s) de tokens detectadas' });
-  if (traders.size > 0 && traders.size <= 3 && results.length >= 8) flags.push({ level: 'high', text: 'Solo ' + traders.size + ' cartera(s) operando' });
+  if (sells > buys * 2 && sells > 3) flags.push({ level: 'high', text: 'Sell pressure: ' + sells + ' sells versus ' + buys + ' buys' });
+  if (sells > 0 && buys === 0) flags.push({ level: 'critical', text: 'No buys in the sample: sells only' });
+  if (burns > 0) flags.push({ level: 'low', text: burns + ' token burn(s) detected' });
+  if (traders.size > 0 && traders.size <= 3 && results.length >= 8) flags.push({ level: 'high', text: 'Only ' + traders.size + ' wallet(s) trading' });
   return { sampled: results.length, buys, sells, uniqueTraders: traders.size, solVolume: Number(solVolume.toFixed(3)), burns, burnAmount, flags };
 }
 
@@ -135,8 +135,8 @@ export default async function handler(request) {
   const xHandle = (socials.find(social => /twitter|x/i.test(String(social?.type || ''))) || {}).handle || null;
 
   const page = websites.length ? await text(websites[0]) : null;
-  const website = page ? websiteAudit(page, symbol, socials) : { url: null, ok: false, flags: [{ level: 'high', text: 'El token no publica web' }] };
-  const [x, chain] = await Promise.all([xAudit(xHandle), /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(pool) ? chainAudit(mint, pool) : Promise.resolve({ sampled: 0, buys: 0, sells: 0, uniqueTraders: 0, solVolume: 0, burns: 0, burnAmount: 0, flags: [{ level: 'medium', text: 'Sin direccion de pool para revisar la cadena' }] })]);
+  const website = page ? websiteAudit(page, symbol, socials) : { url: null, ok: false, flags: [{ level: 'high', text: 'Token does not publish a website' }] };
+  const [x, chain] = await Promise.all([xAudit(xHandle), /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(pool) ? chainAudit(mint, pool) : Promise.resolve({ sampled: 0, buys: 0, sells: 0, uniqueTraders: 0, solVolume: 0, burns: 0, burnAmount: 0, flags: [{ level: 'medium', text: 'No pool address to inspect the chain' }] })]);
 
   const penalties = [...website.flags, ...x.flags, ...chain.flags];
   const criticals = penalties.filter(item => item.level === 'critical').length;

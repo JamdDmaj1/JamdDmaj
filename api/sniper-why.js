@@ -103,47 +103,47 @@ export default async function handler(request) {
   const venues = [...new Set(pairs.map(item => String(item?.dexId || '')).filter(Boolean))];
 
   const move5 = num(changes.m5), move1 = num(changes.h1), move6 = num(changes.h6), move24 = num(changes.h24);
-  if (move5 !== null && Math.abs(move5) >= 5) evidence.push({ type: move5 > 0 ? 'good' : 'bad', text: 'Precio ' + move5.toFixed(1) + '% en 5 minutos' });
-  if (move1 !== null && Math.abs(move1) >= 15) evidence.push({ type: move1 > 0 ? 'good' : 'bad', text: 'Precio ' + move1.toFixed(1) + '% en 1 hora' });
+  if (move5 !== null && Math.abs(move5) >= 5) evidence.push({ type: move5 > 0 ? 'good' : 'bad', text: 'Price ' + move5.toFixed(1) + '% in 5 minutes' });
+  if (move1 !== null && Math.abs(move1) >= 15) evidence.push({ type: move1 > 0 ? 'good' : 'bad', text: 'Price ' + move1.toFixed(1) + '% in 1 hour' });
 
   const volume5 = num(volumes.m5) || 0;
   const volume1 = num(volumes.h1) || 0;
-  if (liquidity && volume5 > liquidity * 0.2) evidence.push({ type: 'warn', text: 'Volumen de 5 min (' + Math.round(volume5).toLocaleString('en-US') + ' USD) supera el 20% de la liquidez' });
-  if (liquidity && volume1 > liquidity) evidence.push({ type: 'warn', text: 'Rotacion altisima: ' + Math.round(volume1).toLocaleString('en-US') + ' USD en 1h frente a ' + Math.round(liquidity).toLocaleString('en-US') + ' USD de liquidez' });
+  if (liquidity && volume5 > liquidity * 0.2) evidence.push({ type: 'warn', text: '5-minute volume (' + Math.round(volume5).toLocaleString('en-US') + ' USD) exceeds 20% of liquidity' });
+  if (liquidity && volume1 > liquidity) evidence.push({ type: 'warn', text: 'Very high turnover: ' + Math.round(volume1).toLocaleString('en-US') + ' USD in 1h versus ' + Math.round(liquidity).toLocaleString('en-US') + ' USD of liquidity' });
 
   const buys5 = num(txns.m5?.buys) || 0, sells5 = num(txns.m5?.sells) || 0;
   const buys1 = num(txns.h1?.buys) || 0, sells1 = num(txns.h1?.sells) || 0;
-  if (buys5 >= 5 && buys5 >= sells5 * 2) evidence.push({ type: 'good', text: 'Presion compradora: ' + buys5 + ' compras frente a ' + sells5 + ' ventas en 5 min' });
-  if (sells5 >= 5 && sells5 >= buys5 * 2) evidence.push({ type: 'bad', text: 'Presion vendedora: ' + sells5 + ' ventas frente a ' + buys5 + ' compras en 5 min' });
-  if (buys1 + sells1 > 0) evidence.push({ type: 'info', text: (buys1 + sells1) + ' operaciones en la ultima hora (' + buys1 + ' compras / ' + sells1 + ' ventas)' });
+  if (buys5 >= 5 && buys5 >= sells5 * 2) evidence.push({ type: 'good', text: 'Buy pressure: ' + buys5 + ' buys versus ' + sells5 + ' sells in 5 minutes' });
+  if (sells5 >= 5 && sells5 >= buys5 * 2) evidence.push({ type: 'bad', text: 'Sell pressure: ' + sells5 + ' sells versus ' + buys5 + ' buys in 5 minutes' });
+  if (buys1 + sells1 > 0) evidence.push({ type: 'info', text: (buys1 + sells1) + ' trades in the last hour (' + buys1 + ' buys / ' + sells1 + ' sells)' });
 
   const buys = trades.filter(trade => trade.side === 'buy');
   const bigBuys = buys.filter(trade => trade.sol * solPrice >= 200).sort((a, b) => b.sol - a.sol).slice(0, 3);
   if (bigBuys.length) {
     const total = bigBuys.reduce((sum, trade) => sum + trade.sol * solPrice, 0);
-    evidence.push({ type: 'good', text: bigBuys.length + ' compra(s) grande(s) detectada(s) en cadena por ' + Math.round(total).toLocaleString('en-US') + ' USD', wallets: bigBuys.map(trade => trade.wallet) });
+    evidence.push({ type: 'good', text: bigBuys.length + ' large on-chain buy(s) totaling ' + Math.round(total).toLocaleString('en-US') + ' USD', wallets: bigBuys.map(trade => trade.wallet) });
   }
   const uniqueBuyers = new Set(buys.map(trade => trade.wallet)).size;
-  if (uniqueBuyers >= 5) evidence.push({ type: 'info', text: uniqueBuyers + ' carteras distintas comprando en la muestra reciente' });
+  if (uniqueBuyers >= 5) evidence.push({ type: 'info', text: uniqueBuyers + ' distinct wallets buying in the recent sample' });
 
-  if (venues.length > 1) evidence.push({ type: 'good', text: 'Cotiza en ' + venues.length + ' mercados: ' + venues.join(', ') });
-  if (boost > 0) evidence.push({ type: 'warn', text: 'Marketing pagado: boost activo por ' + boost + ' USD' });
+  if (venues.length > 1) evidence.push({ type: 'good', text: 'Trades on ' + venues.length + ' venues: ' + venues.join(', ') });
+  if (boost > 0) evidence.push({ type: 'warn', text: 'Paid marketing: active boost of ' + boost + ' USD' });
   if (pair?.pairCreatedAt) {
     const ageHours = (Date.now() - Number(pair.pairCreatedAt)) / 3600000;
-    if (ageHours < 24) evidence.push({ type: 'info', text: 'Par creado hace ' + ageHours.toFixed(1) + ' horas' });
+    if (ageHours < 24) evidence.push({ type: 'info', text: 'Pair created ' + ageHours.toFixed(1) + ' hours ago' });
   }
-  if (!evidence.length) evidence.push({ type: 'info', text: 'Sin causa visible en los datos publicos: el movimiento no viene acompanado de volumen, compras grandes ni marketing.' });
+  if (!evidence.length) evidence.push({ type: 'info', text: 'No visible cause in public data: the move is not backed by volume, large buys or marketing.' });
 
   const rugLikely = (move5 !== null && move5 <= -60 && (sells1 >= buys1 || sells5 >= buys5)) || (liquidity !== null && liquidity < 600 && move5 !== null && move5 <= -40);
-  if (rugLikely) evidence.unshift({ type: 'bad', text: 'Patron de rug pull: caida vertical con ventas dominantes y liquidez minima' });
+  if (rugLikely) evidence.unshift({ type: 'bad', text: 'Rug-pull pattern: vertical drop with dominant selling and minimal liquidity' });
   const positives = evidence.filter(item => item.type === 'good').length;
   const negatives = evidence.filter(item => item.type === 'bad').length;
-  const summary = rugLikely ? 'Posible rug pull: la liquidez y el precio se han roto'
+  const summary = rugLikely ? 'Possible rug pull: liquidity and price have broken down'
     : positives > negatives
-    ? 'Movimiento con compras y actividad por encima de lo normal'
+    ? 'Move backed by buying and above-normal activity'
     : negatives > positives
-      ? 'Movimiento con presion vendedora o deterioro'
-      : 'Movimiento sin una causa clara en los datos publicos';
+      ? 'Move driven by sell pressure or deterioration'
+      : 'Move without a clear cause in public data';
 
   const value = {
     observedAt: Date.now(),
