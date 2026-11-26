@@ -35,6 +35,19 @@ function fixture(client) {
   return {parent};
 }
 
+test('waits for the native Google session before reading bot controls', async () => {
+  let resolveReady; const ready = new Promise(resolve => { resolveReady = resolve; });
+  let reads = 0;
+  globalThis.JamdTrial = {ready};
+  try {
+    const client = { async readStatus() { reads += 1; return {controls: null, recovery: null, executionAvailable: false, funding: null}; } };
+    fixture(client);
+    await new Promise(resolve => setTimeout(resolve, 20));
+    assert.equal(reads, 0);
+    resolveReady();
+    await settle(() => reads === 1, 'session-ready read');
+  } finally { delete globalThis.JamdTrial; }
+});
 test('simple automation shows only balance, margin, leverage and trades at once', async () => {
   const calls = [];
   const base = {
