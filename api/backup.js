@@ -6,7 +6,7 @@ import {
   redisRequest
 } from "../lib/server.js";
 
-export const config = { runtime: "edge" };
+export const config = { runtime: "nodejs", maxDuration: 60 };
 
 const MAX_BODY_BYTES = 1_500_000;
 const MAX_BACKUP_BYTES = 1_200_000;

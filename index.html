@@ -5365,7 +5365,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      let APP_VERSION = "1.81.77";
+      let APP_VERSION = "1.81.78";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -12586,7 +12586,7 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
 
       async function fetchBackupApi(body) {
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 20000);
+        const timer = setTimeout(() => controller.abort(), 45000);
         try {
           return await fetch(BACKUP_API_URL, {
             method: "POST",
@@ -12664,11 +12664,16 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
         return JSON.parse(new TextDecoder().decode(decrypted));
       }
 
-      function scheduleCloudBackup(delay = 3500) {
+      function scheduleCloudBackup(delay = 5000) {
         if (!globalThis.crypto?.subtle || cloudBackupInProgress) return;
+        if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
         clearTimeout(cloudBackupTimer);
         cloudBackupTimer = setTimeout(() => syncCloudBackup(false), delay);
       }
+
+      if (typeof document !== "undefined") document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible" && hasPendingBackupChanges()) scheduleCloudBackup(1500);
+      });
 
       function hasPendingBackupChanges() {
         const dirty = Date.parse(localStorage.getItem(STORAGE.backupDirtyAt) || "");
@@ -15707,7 +15712,7 @@ if (tgResult) {
     })();
   </script>
   <script type="module" src="fair-launch-ui.js?v=1.38.27"></script>
-  <script type="module" src="wallet-login-ui.js?v=1.81.77"></script>
+  <script type="module" src="wallet-login-ui.js?v=1.81.78"></script>
   <script type="module" src="web-trial-ui.js"></script>
   <script type="module" src="jamd-credit-ui.js"></script>
   <script type="module" src="first-visit-ui.js"></script>
