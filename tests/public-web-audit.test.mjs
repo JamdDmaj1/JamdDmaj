@@ -136,3 +136,15 @@ test('public app and Discover link to Terms and Privacy', () => {
     assert.match(html, /href="\/privacy\.html"/, name);
   }
 });
+
+test('shareable public pages expose complete English social metadata', () => {
+  for (const name of ['index.html', 'discover.html', 'sniper.html', 'terms.html', 'privacy.html']) {
+    const html = read(name);
+    assert.match(html, /property="og:title"/, name);
+    assert.match(html, /property="og:description"/, name);
+    assert.match(html, /property="og:image"/, name);
+    assert.match(html, /name="twitter:card"/, name);
+  }
+  const discover = read('discover.html');
+  assert.doesNotMatch(discover, /Descubre todo lo que puedes hacer/);
+});

@@ -85,6 +85,10 @@
     document.documentElement.dir = locale === "ar" ? "rtl" : "ltr";
     document.title = `${copy.navTour} · JamdDmaj AI`;
     document.querySelector('meta[name="description"]').setAttribute("content", copy.heroText);
+  document.querySelector('meta[property="og:title"]')?.setAttribute("content", `${copy.navTour} · JamdDmaj AI`);
+  document.querySelector('meta[property="og:description"]')?.setAttribute("content", copy.heroText);
+  document.querySelector('meta[name="twitter:title"]')?.setAttribute("content", `${copy.navTour} · JamdDmaj AI`);
+  document.querySelector('meta[name="twitter:description"]')?.setAttribute("content", copy.heroText);
     document.querySelectorAll("[data-i18n]").forEach((element) => {
       const value = copy[element.dataset.i18n] || en[element.dataset.i18n];
       if (value) element.textContent = value;
