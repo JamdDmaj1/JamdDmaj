@@ -11,7 +11,7 @@ export const config = { runtime: "nodejs", maxDuration: 60 };
 const MAX_BODY_BYTES = 1_500_000;
 const MAX_BACKUP_BYTES = 1_200_000;
 
-export default async function handler(request) {
+async function handleWebRequest(request) {
   if (request.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders(request) });
   }
@@ -89,3 +89,47 @@ function sanitizeEncryptedBackup(value) {
   }
   return { iv, data };
 }
+
+// Vercel's Node runtime supplies IncomingMessage/ServerResponse, while the
+// existing handler is written against the Web Request/Response contract.
+// This adapter keeps the backup on its own runtime without changing its logic.
+export default async function handler(request, response) {
+  if (request?.headers && typeof request.headers.get === "function") {
+    return handleWebRequest(request);
+  }
+  return handleNodeRequest(request, response);
+}
+
+async function handleNodeRequest(request, response) {
+  try {
+    const chunks = [];
+    if (request.body !== undefined && request.body !== null) {
+      chunks.push(Buffer.isBuffer(request.body) ? request.body : Buffer.from(typeof request.body === "string" ? request.body : JSON.stringify(request.body)));
+    } else {
+      for await (const chunk of request) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    }
+    const headers = new Headers();
+    for (const [key, value] of Object.entries(request.headers || {})) {
+      if (value !== undefined) headers.set(key, Array.isArray(value) ? value.join(",") : String(value));
+    }
+    const host = headers.get("host") || "www.jamddmaj.com";
+    const url = new URL(request.url || "/api/backup", "https://" + host);
+    const webRequest = new Request(url, {
+      method: request.method || "POST",
+      headers,
+      body: ["GET", "HEAD"].includes(request.method) ? undefined : Buffer.concat(chunks)
+    });
+    const webResponse = await handleWebRequest(webRequest);
+    response.statusCode = webResponse.status;
+    for (const [key, value] of webResponse.headers) response.setHeader(key, value);
+    response.end(Buffer.from(await webResponse.arrayBuffer()));
+  } catch {
+    if (!response.headersSent) {
+      response.statusCode = 500;
+      response.setHeader("Content-Type", "application/json; charset=utf-8");
+      response.setHeader("Cache-Control", "no-store");
+    }
+    response.end(JSON.stringify({ error: { message: "No se pudo procesar el respaldo." } }));
+  }
+}
+
