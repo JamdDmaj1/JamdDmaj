@@ -97,3 +97,11 @@ test('Finance page language follows the selected app language', () => {
   assert.match(read('private-simulator.html'), /<html lang="en"/i);
   assert.match(read('private-simulator-ui.js'), /document\.documentElement\.lang = language/);
 });
+
+test('custom 404 page is present, English and linked to core pages', () => {
+  const html = read('404.html');
+  assert.match(html, /<html lang="en"/i);
+  assert.match(html, /Page not found/);
+  assert.match(html, /href="\/sniper.html"/);
+  assert.doesNotMatch(html, /<html lang="es"/i);
+});

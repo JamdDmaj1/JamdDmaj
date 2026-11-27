@@ -6,6 +6,7 @@ const root = resolve(import.meta.dirname, "..");
 const output = resolve(root, "www");
 const assets = [
   "index.html",
+  "404.html",
   "wallet-web.html",
   "wallet-web.css",
   "wallet-trading-panel.css",
