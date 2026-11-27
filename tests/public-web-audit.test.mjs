@@ -46,3 +46,8 @@ test('release notes cannot open on top of the first-visit access dialog', () => 
   assert.match(html, /const access = document\.getElementById\('first-visit-access'\);/);
   assert.match(html, /!access\?\.open/);
 });
+
+test('retired internal testnet page is not part of the public build', () => {
+  const build = read('scripts/build-web.mjs');
+  assert.doesNotMatch(build, /hyperliquid-testnet/);
+});

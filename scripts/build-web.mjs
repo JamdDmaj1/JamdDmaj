@@ -12,7 +12,6 @@ const assets = [
   "fee-recipient-setup.html",
   "fee-recipient-setup.css",
   "private-simulator.html",
-  "hyperliquid-testnet.html",
   "private-simulator-ui.js",
   "manual-order-review-ui.js",
   "sniper.html",
@@ -151,7 +150,6 @@ await build({
   }}]
 });
 for(const name of ['hyperliquid-public','hyperliquid-panel'])await cp(resolve(root,'lib',name+'.js'),resolve(output,'lib',name+'.js'));
-await build({absWorkingDir:root,entryPoints:[resolve(root,'hyperliquid-testnet-ui.js')],outfile:resolve(output,'hyperliquid-testnet-ui.js'),bundle:true,format:'esm',platform:'browser',target:['es2022'],legalComments:'none'});
 await build({absWorkingDir:root,entryPoints:[resolve(root,'lib/market-signal-alerts.js')],outfile:resolve(output,'lib/market-signal-alerts.js'),bundle:true,format:'esm',platform:'browser',target:['es2020'],legalComments:'none'});
 await build({absWorkingDir:root,entryPoints:[resolve(root,'firebase-messaging-sw.js')],outfile:resolve(output,'firebase-messaging-sw.js'),bundle:true,format:'iife',platform:'browser',target:['es2020'],legalComments:'none'});
 await build({absWorkingDir:root,entryPoints:[resolve(root,'lib/firebase-push-web.js')],outfile:resolve(output,'lib/firebase-push-web.js'),bundle:true,format:'esm',platform:'browser',target:['es2020'],legalComments:'none'});

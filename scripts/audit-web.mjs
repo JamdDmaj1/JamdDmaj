@@ -1,6 +1,6 @@
 // Public web audit: every served page, every internal reference and the candle feed.
 const base = 'https://www.jamddmaj.com/'
-const pages = (process.argv[2] ? process.argv[2].split(',') : ['index.html','private-simulator.html','wallet-web.html','discover.html','fee-recipient-setup.html','google-mobile.html','hyperliquid-testnet.html','oauth-mobile.html'])
+const pages = (process.argv[2] ? process.argv[2].split(',') : ['index.html','private-simulator.html','wallet-web.html','discover.html','fee-recipient-setup.html','google-mobile.html','oauth-mobile.html'])
 const stamp = () => '?x=' + Math.random()
 let failures = 0
 for (const page of pages) {
