@@ -15476,7 +15476,7 @@ if (tgResult) {
       });
       document.getElementById("assetBackBtn").addEventListener("click", closeMarketAsset);
       document.getElementById("tradingDemoBtn").addEventListener("click", () => {
-        location.href = `./private-simulator.html?v=9#lang=${encodeURIComponent(resolvedLanguage())}`;
+        location.href = `./private-simulator.html?v=9#view=trade&lang=${encodeURIComponent(resolvedLanguage())}`;
       });
       document.getElementById("assetPracticeBtn").addEventListener("click", () => {
         if (!selectedMarketAsset) return;

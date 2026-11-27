@@ -148,3 +148,7 @@ test('shareable public pages expose complete English social metadata', () => {
   const discover = read('discover.html');
   assert.doesNotMatch(discover, /Descubre todo lo que puedes hacer/);
 });
+
+test('top Trade button routes to the Trade view', () => {
+  assert.match(read('index.html'), /private-simulator\.html\?v=9#view=trade&lang=/);
+});
