@@ -483,6 +483,11 @@ function openDetail(item) {
 function card(item) {
   const article = document.createElement('article');
   article.className = 'sniper-card';
+  article.tabIndex = 0;
+  article.setAttribute('role', 'group');
+  article.setAttribute('aria-label', 'Open details for ' + (item.symbol || 'token'));
+  article.addEventListener('click', event => { if (event.target.closest('a,button,input,select,textarea,details,summary')) return; openDetail(item); });
+  article.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openDetail(item); } });
 
   const top = document.createElement('div');
   top.className = 'sniper-card-top';
@@ -985,8 +990,8 @@ function paintSummary() {
   const high = items.filter(item => Number(item.score) <= 30).length;
   const trusted = items.filter(item => Number(item.score) >= 75).length;
   const best = [...items].sort((a, b) => Number(b.score) - Number(a.score))[0];
-  const chip = (label, value, kind) => { const node = document.createElement('span'); node.className = 'sniper-summary-chip' + (kind ? ' ' + kind : ''); node.textContent = label + ' '; const strong = document.createElement('b'); strong.textContent = value; node.append(strong); return node; };
-  host.replaceChildren(chip('Analyzed', analyzed + (requested > analyzed ? '/' + requested : '')), chip('High risk', String(high), high ? 'bad' : 'good'), chip('Trusted', String(trusted), trusted ? 'good' : ''), chip('Best safety', best ? (best.symbol || 'token') + ' ' + best.score : '--', 'good'));
+  const chip = (label, value, kind, action) => { const node = document.createElement('button'); node.type = 'button'; node.className = 'sniper-summary-chip' + (kind ? ' ' + kind : ''); node.textContent = label + ' '; const strong = document.createElement('b'); strong.textContent = value; node.append(strong); if (action) node.addEventListener('click', action); else node.disabled = true; return node; };
+  host.replaceChildren(chip('Analyzed', analyzed + (requested > analyzed ? '/' + requested : '')), chip('High risk', String(high), high ? 'bad' : 'good', () => void load('risk')), chip('Trusted', String(trusted), trusted ? 'good' : '', () => void load('safe')), chip('Best safety', best ? (best.symbol || 'token') + ' ' + best.score : '--', 'good', best ? () => openDetail(best) : null));
   host.hidden = false;
 }
 function render() {

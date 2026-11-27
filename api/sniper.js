@@ -59,7 +59,7 @@ function auditToken(report, pool, votes, dexPair) {
   if (liquidity === null) add('liquidity', 'Liquidity', false, 20, 'No measured liquidity', 'medium');
   else add('liquidity', 'Liquidity', liquidity >= 15000, liquidity < 5000 ? 25 : 12, Math.round(liquidity).toLocaleString('en-US') + ' USD', liquidity >= 15000 ? 'ok' : liquidity < 5000 ? 'critical' : 'high');
   if (ageMinutes === null) add('age', 'Age', false, 8, 'No creation date', 'medium');
-  else add('age', 'Age', ageMinutes >= 30, 8, ageMinutes + ' min old', ageMinutes >= 30 ? 'ok' : 'medium');
+  else add('age', 'Age', ageMinutes >= 30, 8, ageMinutes < 60 ? ageMinutes + ' min old' : ageMinutes < 1440 ? Math.round(ageMinutes / 60) + ' h old' : Math.round(ageMinutes / 1440) + ' d old', ageMinutes >= 30 ? 'ok' : 'medium');
   if (insiders > 0) add('insiders', 'No insider wallets', false, Math.min(20, insiders * 6), insiders + ' wallet(s) flagged as insider', 'high');
   else add('insiders', 'No insider wallets', true, 0, 'No insider wallets detected', 'ok');
   const ruggedCreator = risks.some(risk => /creator history of rugged|rugged tokens/i.test(String(risk?.name || '')) || /rugged/i.test(String(risk?.description || '')));
