@@ -980,6 +980,22 @@ async function loadAth(items) {
   }
 }
 let athRetryTimer = null;
+const TRUSTED_MIN_SCORE = 75;
+const TRUSTED_MIN_LIQUIDITY_USD = 50000;
+const TRUSTED_MAX_AGE_MINUTES = 14 * 24 * 60;
+function isTrustedItem(item) {
+  const liquidity = Number(item?.liquidityUsd ?? item?.liquidity ?? 0);
+  const age = Number(item?.ageMinutes);
+  return Number(item?.score) >= TRUSTED_MIN_SCORE && Number.isFinite(liquidity) && liquidity >= TRUSTED_MIN_LIQUIDITY_USD
+    && Number.isFinite(age) && age >= 0 && age <= TRUSTED_MAX_AGE_MINUTES;
+}
+function sortForView(items) {
+  const rows = [...items];
+  if (state.sort === 'newest') return rows.sort((a, b) => Number(a.ageMinutes ?? Infinity) - Number(b.ageMinutes ?? Infinity));
+  if (state.sort === 'potential') return rows.sort((a, b) => Number(b.growth?.score || 0) - Number(a.growth?.score || 0) || Number(b.score) - Number(a.score));
+  if (state.sort === 'liquidity') return rows.sort((a, b) => Number(b.liquidityUsd ?? b.liquidity ?? 0) - Number(a.liquidityUsd ?? a.liquidity ?? 0));
+  return rows.sort((a, b) => Number(b.score) - Number(a.score) || Number(b.liquidityUsd ?? b.liquidity ?? 0) - Number(a.liquidityUsd ?? a.liquidity ?? 0));
+}
 function paintSummary() {
   const host = $('sniperSummary');
   if (!host) return;
@@ -988,7 +1004,7 @@ function paintSummary() {
   const analyzed = Number(state.coverage?.analyzed ?? items.length);
   const requested = Number(state.coverage?.requested ?? items.length);
   const high = items.filter(item => Number(item.score) <= 30).length;
-  const trusted = items.filter(item => Number(item.score) >= 75).length;
+  const trusted = items.filter(isTrustedItem).length;
   const best = [...items].sort((a, b) => Number(b.score) - Number(a.score))[0];
   const chip = (label, value, kind, action) => { const node = document.createElement('button'); node.type = 'button'; node.className = 'sniper-summary-chip' + (kind ? ' ' + kind : ''); node.textContent = label + ' '; const strong = document.createElement('b'); strong.textContent = value; node.append(strong); if (action) node.addEventListener('click', action); else node.disabled = true; return node; };
   host.replaceChildren(chip('Analyzed', analyzed + (requested > analyzed ? '/' + requested : '')), chip('High risk', String(high), high ? 'bad' : 'good', () => void load('risk')), chip('Trusted', String(trusted), trusted ? 'good' : '', () => void load('safe')), chip('Best safety', best ? (best.symbol || 'token') + ' ' + best.score : '--', 'good', best ? () => openDetail(best) : null));
@@ -1030,6 +1046,8 @@ function render() {
   }
   const symbolActive = rawQuery.length >= 2 && !addressQuery;
   let items = state.items.filter(item => item.score >= minimum && (!hideHigh || item.verdict !== 'HIGH RISK' && item.verdict !== 'ALTO RIESGO') && (!query || String(item.symbol || '').toLowerCase().includes(query) || String(item.mint || '').toLowerCase().includes(query)));
+  if (state.tab === 'safe' && !state.lookupItem && !state.symbolItem) items = items.filter(isTrustedItem);
+  items = sortForView(items);
   if (symbolActive && !items.length) {
     if (state.symbolQuery === rawQuery && state.symbolItem) {
       grid.replaceChildren(card(state.symbolItem));
@@ -1060,7 +1078,7 @@ function render() {
   if (!items.length) {
     const empty = document.createElement('p');
     empty.className = 'sniper-empty';
-    empty.textContent = state.loading ? 'Analyzing tokens...' : state.tab === 'risk' ? 'No high-risk token in this sample.' : state.tab === 'safe' ? 'No token reaches a safety score of 75 right now.' : 'No token matches those filters right now.';
+    empty.textContent = state.loading ? 'Analyzing tokens...' : state.tab === 'risk' ? 'No high-risk token in this sample.' : state.tab === 'safe' ? 'No recent trusted token right now: safety 75+, liquidity $50k+ and age 14 days or less.' : 'No token matches those filters right now.';
     grid.append(empty);
     status.textContent = empty.textContent;
     paintSummary();
@@ -1071,6 +1089,7 @@ function render() {
   const requested = Number(state.coverage?.requested ?? state.items.length);
   status.innerHTML = `<b>${items.length}</b> shown · ${analyzed}${requested > analyzed ? ' / ' + requested : ''} analyzed`;
   if (state.updatedAt) status.insertAdjacentHTML('beforeend', ` · updated ${new Date(state.updatedAt).toLocaleTimeString()}`);
+  if (state.tab === 'safe') status.insertAdjacentHTML('beforeend', ' - newest first - 75+ safety - $50k+ liquidity - 14 days or less');
 }
 
 let lookupTimer = null;
@@ -1171,7 +1190,9 @@ function detectNew(items, source) {
 
 async function load(tab = state.tab, fresh = false) {
   const seq = ++state.seq;
+  const previousTab = state.tab;
   state.tab = tab;
+  if (tab === 'safe' && previousTab !== 'safe') { state.sort = 'newest'; const sel = $('sniperSort'); if (sel) sel.value = 'newest'; }
   paintTabs();
   state.loading = false;
   $('sniperRefresh').disabled = false;
@@ -1218,7 +1239,7 @@ async function load(tab = state.tab, fresh = false) {
     }
     if (seq !== state.seq) return;
     let items = state.data[source] || [];
-    if (tab === 'safe') items = items.filter(item => item.score >= 75);
+    if (tab === 'safe') items = items.filter(isTrustedItem);
     if (tab === 'risk') items = items.filter(item => item.score <= 30);
     state.items = items;
     state.loading = false;

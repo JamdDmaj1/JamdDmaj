@@ -15,6 +15,10 @@ test("Sniper 2.0 exposes contract search, sorting and auto refresh", () => {
   assert.match(script, /state\.sort/);
   assert.match(script, /lookupSymbol/);
   assert.match(script, /paintSummary/);
+  assert.match(script, /TRUSTED_MIN_LIQUIDITY_USD = 50000/);
+  assert.match(script, /function isTrustedItem/);
+  assert.match(script, /function sortForView/);
+  assert.match(script, /newest first/);
   assert.match(script, /state\.items = items;\s*state\.loading = false;\s*render\(\);/);
   assert.match(sniper, /sniperSummary/);
   assert.match(api, /search\/pools/);
