@@ -166,3 +166,11 @@ test('new visitors get a neutral sign-in message and Price alerts keeps heading 
   assert.doesNotMatch(access, /Closing the app may have lost the session/);
   assert.match(read('lib/market-signal-alerts.js'), /node\('h2',t\('Alertas de precio','Price alerts'\)\)/);
 });
+
+test('Discover static fallback is English before JavaScript runs', () => {
+  const html = read('discover.html');
+  assert.match(html, /Your crypto world\. All connected\./);
+  assert.match(html, /CHOOSE YOUR SPACE/);
+  assert.match(html, /Everything connected/);
+  assert.doesNotMatch(html, /Tu mundo cripto|ELIGE TU ESPACIO|Todo conectado/);
+});
