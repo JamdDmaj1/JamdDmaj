@@ -307,9 +307,18 @@ export default async function handler(request) {
     if (!/^[A-Za-z0-9 ._$#&'-]{2,32}$/.test(searchQuery)) return jsonResponse(request, {error:{message:'Invalid search query'}}, 400);
     const search = await readJson('https://api.geckoterminal.com/api/v2/search/pools?network=solana&query=' + encodeURIComponent(searchQuery) + '&page=1', 9000);
     const pools = (Array.isArray(search?.data) ? search.data : [])
-      .filter(pool => String(pool?.relationships?.base_token?.data?.id || '').startsWith('solana_'))
-      .sort((a, b) => (num(b?.attributes?.reserve_in_usd) || 0) - (num(a?.attributes?.reserve_in_usd) || 0));
-    const seed = pools.length ? poolSeed(pools[0]) : null;
+      .filter(pool => String(pool?.relationships?.base_token?.data?.id || '').startsWith('solana_'));
+    const normalizedQuery = searchQuery.replace(/[$#]/g, '').trim().toLowerCase();
+    const rank = (pool) => {
+      const symbol = String(poolSymbol(pool?.attributes?.name) || '').toLowerCase();
+      const name = String(pool?.attributes?.name || '').toLowerCase();
+      const exact = symbol === normalizedQuery || name.split(' / ')[0].trim() === normalizedQuery;
+      const starts = symbol.startsWith(normalizedQuery);
+      const contains = symbol.includes(normalizedQuery) || name.includes(normalizedQuery);
+      return exact ? 0 : starts ? 1 : contains ? 2 : 3;
+    };
+    pools.sort((a, b) => rank(a) - rank(b) || (num(b?.attributes?.reserve_in_usd) || 0) - (num(a?.attributes?.reserve_in_usd) || 0));
+    const seed = pools.length && rank(pools[0]) < 3 ? poolSeed(pools[0]) : null;
     if (!seed) return jsonResponse(request, {observedAt: Date.now(), tab: 'search', query: searchQuery, items: [], coverage:{requested:1, analyzed:0}, error:'token-not-found'}, 404);
     const boosts = await loadBoosts();
     const item = await analyzeSeed(seed, boosts);
