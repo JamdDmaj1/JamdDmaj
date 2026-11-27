@@ -12707,7 +12707,7 @@ Security and privacy facts: JamdDmaj never needs a seed phrase or private key. W
           const code = getRecoveryCode(true);
           const payload = createBackupPayload();
           const encrypted = await encryptBackupPayload(payload, code);
-          if (new TextEncoder().encode(JSON.stringify(encrypted)).byteLength > 1_400_000) {
+          if (new TextEncoder().encode(JSON.stringify(encrypted)).byteLength > 1_150_000) {
             const message = resolvedLanguage() === "es"
               ? "El respaldo es demasiado grande para la nube. Exporta un backup de archivo para conservar todas las imágenes."
               : "This backup is too large for the cloud. Export a file backup to keep all images.";
