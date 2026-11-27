@@ -152,3 +152,10 @@ test('shareable public pages expose complete English social metadata', () => {
 test('top Trade button routes to the Trade view', () => {
   assert.match(read('index.html'), /private-simulator\.html\?v=9#view=trade&lang=/);
 });
+
+test('Finance fallback never shows a Spanish boot error', () => {
+  const html = read('private-simulator.html');
+  assert.match(html, /Loading terminal\.\.\./);
+  assert.match(html, /The terminal did not mount\./);
+  assert.doesNotMatch(html, /Cargando terminal|La terminal no se monto/);
+});
