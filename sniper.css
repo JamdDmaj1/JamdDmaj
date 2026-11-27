@@ -297,3 +297,13 @@
 .sniper-chart-link{display:block;padding:7px 12px 9px;color:#7ef0cf;font-size:11px;text-decoration:none}
 .sniper-chart-link:hover{text-decoration:underline}
 
+
+.sniper-summary{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0 0}
+.sniper-summary[hidden]{display:none}
+.sniper-summary-chip{display:inline-flex;align-items:baseline;gap:5px;padding:5px 9px;border:1px solid #1b2b3c;border-radius:999px;background:#0a1423;color:#9ab2ca;font-size:10px}
+.sniper-summary-chip b{color:#e8f1fa;font-size:11px}
+.sniper-summary-chip.good{border-color:#1d4b40;color:#7ef0cf}
+.sniper-summary-chip.bad{border-color:#5a2430;color:#ffb3c0}
+.sniper-risk-summary{margin:2px 0 7px;padding:6px 9px;border-radius:9px;background:#1b1414;border:1px solid #4a262c;color:#ffb3c0;font-size:11px}
+.sniper-risk-summary.ok{background:#0d201b;border-color:#1d4b40;color:#7ef0cf}
+@media(min-width:900px){.sniper-checks{grid-template-columns:1fr 1fr;column-gap:18px}}

@@ -13,6 +13,10 @@ test("Sniper 2.0 exposes contract search, sorting and auto refresh", () => {
   assert.match(sniper, /Token name or contract address/);
   assert.match(script, /scheduleAutoRefresh/);
   assert.match(script, /state\.sort/);
+  assert.match(script, /lookupSymbol/);
+  assert.match(script, /paintSummary/);
+  assert.match(sniper, /sniperSummary/);
+  assert.match(api, /search\/pools/);
 });
 test("Sniper tabs route My tokens and History explicitly", () => {
   assert.match(script, /tab === 'mine'/);

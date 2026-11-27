@@ -1,6 +1,6 @@
 const $ = id => document.getElementById(id);
 const base = globalThis.Capacitor?.isNativePlatform?.() ? 'https://www.jamddmaj.com' : '';
-const state = { items: [], data: {}, updatedAt: null, loading: false, usd: 5, solPrice: null, solPriceAt: 0, tab: 'new', lookupItem: null, lookupMint: '', lookupLoading: false, lookupError: '', coverage: null, sort: 'safety', auto: true, seq: 0 };
+const state = { items: [], data: {}, updatedAt: null, loading: false, usd: 5, solPrice: null, solPriceAt: 0, tab: 'new', lookupItem: null, lookupMint: '', lookupLoading: false, lookupError: '', coverage: null, sort: 'safety', auto: true, seq: 0, symbolItem: null, symbolQuery: '', symbolLoading: false, symbolError: '' };
 const favorites = new Map();
 try { for (const entry of JSON.parse(localStorage.getItem('jamd-sniper-favs') || '[]')) if (entry?.mint && Number(entry.savedAt) > 0) favorites.set(entry.mint, entry); } catch {}
 const saveFavorites = () => { try { localStorage.setItem('jamd-sniper-favs', JSON.stringify([...favorites.values()])); } catch {} };
@@ -593,6 +593,12 @@ function card(item) {
     li.append(mark, text);
     checks.append(li);
   }
+  const failedChecks = (item.checks || []).filter(check => !check.ok);
+  const riskSummary = document.createElement('div');
+  riskSummary.className = 'sniper-risk-summary' + (failedChecks.length ? '' : ' ok');
+  riskSummary.textContent = failedChecks.length
+    ? 'Top risk: ' + failedChecks[0].label + ' - ' + failedChecks[0].detail
+    : 'No failed safety checks in the public data.';
 
   const factors = document.createElement('ul');
   factors.className = 'sniper-factors';
@@ -757,7 +763,7 @@ function card(item) {
   chart.textContent = 'Grafico';
   links.append(search, chart);
 
-  article.append(top, cats, actions, scores, liquidity, checks);
+  article.append(top, cats, actions, scores, liquidity, riskSummary, checks);
   if (factors.children.length) article.append(factors);
   article.append(contract, meta, scams, tradePanel(item), chartBox, trades, auditPanel(item), links);
   return article;
@@ -969,7 +975,22 @@ async function loadAth(items) {
   }
 }
 let athRetryTimer = null;
+function paintSummary() {
+  const host = $('sniperSummary');
+  if (!host) return;
+  const items = Array.isArray(state.items) ? state.items : [];
+  if (!items.length || state.lookupItem || state.symbolItem) { host.hidden = true; host.replaceChildren(); return; }
+  const analyzed = Number(state.coverage?.analyzed ?? items.length);
+  const requested = Number(state.coverage?.requested ?? items.length);
+  const high = items.filter(item => Number(item.score) <= 30).length;
+  const trusted = items.filter(item => Number(item.score) >= 75).length;
+  const best = [...items].sort((a, b) => Number(b.score) - Number(a.score))[0];
+  const chip = (label, value, kind) => { const node = document.createElement('span'); node.className = 'sniper-summary-chip' + (kind ? ' ' + kind : ''); node.textContent = label + ' '; const strong = document.createElement('b'); strong.textContent = value; node.append(strong); return node; };
+  host.replaceChildren(chip('Analyzed', analyzed + (requested > analyzed ? '/' + requested : '')), chip('High risk', String(high), high ? 'bad' : 'good'), chip('Trusted', String(trusted), trusted ? 'good' : ''), chip('Best safety', best ? (best.symbol || 'token') + ' ' + best.score : '--', 'good'));
+  host.hidden = false;
+}
 function render() {
+  paintSummary();
   const grid = $('sniperGrid');
   const status = $('sniperStatus');
   const minimum = state.tab === 'risk' ? 0 : Number($('sniperMin').value || 0);
@@ -1002,7 +1023,34 @@ function render() {
       return;
     }
   }
-  const items = state.items.filter(item => item.score >= minimum && (!hideHigh || item.verdict !== 'HIGH RISK' && item.verdict !== 'ALTO RIESGO') && (!query || String(item.symbol || '').toLowerCase().includes(query) || String(item.mint || '').toLowerCase().includes(query)));
+  const symbolActive = rawQuery.length >= 2 && !addressQuery;
+  let items = state.items.filter(item => item.score >= minimum && (!hideHigh || item.verdict !== 'HIGH RISK' && item.verdict !== 'ALTO RIESGO') && (!query || String(item.symbol || '').toLowerCase().includes(query) || String(item.mint || '').toLowerCase().includes(query)));
+  if (symbolActive && !items.length) {
+    if (state.symbolQuery === rawQuery && state.symbolItem) {
+      grid.replaceChildren(card(state.symbolItem));
+      status.innerHTML = '<b>1</b> best match for "' + rawQuery.replace(/[<>&]/g, '') + '"';
+      return;
+    }
+    if (state.symbolQuery === rawQuery && state.symbolLoading) {
+      grid.replaceChildren();
+      const empty = document.createElement('p');
+      empty.className = 'sniper-empty';
+      empty.textContent = 'Searching the live Solana market...';
+      grid.append(empty);
+      status.textContent = 'Searching by symbol...';
+      return;
+    }
+    if (state.symbolQuery === rawQuery && state.symbolError) {
+      grid.replaceChildren();
+      const empty = document.createElement('p');
+      empty.className = 'sniper-empty';
+      empty.textContent = state.symbolError;
+      grid.append(empty);
+      status.textContent = 'No token found for that symbol.';
+      return;
+    }
+  }
+
   grid.replaceChildren();
   if (!items.length) {
     const empty = document.createElement('p');
@@ -1010,6 +1058,7 @@ function render() {
     empty.textContent = state.loading ? 'Analyzing tokens...' : state.tab === 'risk' ? 'No high-risk token in this sample.' : state.tab === 'safe' ? 'No token reaches a safety score of 75 right now.' : 'No token matches those filters right now.';
     grid.append(empty);
     status.textContent = empty.textContent;
+    paintSummary();
     return;
   }
   for (const item of items) grid.append(card(item));
@@ -1020,6 +1069,7 @@ function render() {
 }
 
 let lookupTimer = null;
+let symbolTimer = null;
 async function lookupAddress(mint) {
   state.lookupLoading = true;
   state.lookupError = '';
@@ -1044,6 +1094,11 @@ async function lookupAddress(mint) {
 function onSearchInput() {
   const raw = ($('sniperSearch').value || '').trim();
   clearTimeout(lookupTimer);
+  clearTimeout(symbolTimer);
+  state.symbolQuery = raw;
+  state.symbolItem = null;
+  state.symbolError = '';
+  state.symbolLoading = false;
   if (/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(raw)) {
     state.lookupMint = raw;
     state.lookupItem = null;
@@ -1058,6 +1113,35 @@ function onSearchInput() {
   state.lookupError = '';
   state.lookupLoading = false;
   render();
+  if (raw.length < 2) return;
+  const minimum = state.tab === 'risk' ? 0 : Number($('sniperMin').value || 0);
+  const hideHigh = state.tab !== 'risk' && $('sniperHideHigh').checked;
+  const query = raw.toLowerCase();
+  const local = state.items.some(item => item.score >= minimum && (!hideHigh || item.verdict !== 'HIGH RISK') && (String(item.symbol || '').toLowerCase().includes(query) || String(item.mint || '').toLowerCase().includes(query)));
+  if (local) return;
+  state.symbolLoading = true;
+  render();
+  symbolTimer = setTimeout(() => { void lookupSymbol(raw); }, 500);
+}
+function lookupSymbol(query) {
+  if (state.symbolQuery !== query) return;
+  return fetch(base + '/api/sniper?q=' + encodeURIComponent(query) + '&x=' + Date.now(), { cache: 'no-store' })
+    .then(async response => {
+      const data = await response.json().catch(() => null);
+      if (state.symbolQuery !== query) return;
+      const item = Array.isArray(data?.items) ? data.items[0] : null;
+      if (!response.ok || !item) throw Error(data?.error?.message || 'No token found for that symbol');
+      state.symbolItem = item;
+      state.symbolError = '';
+    })
+    .catch(error => {
+      if (state.symbolQuery === query) state.symbolError = String(error?.message || error).slice(0, 100);
+    })
+    .finally(() => {
+      if (state.symbolQuery !== query) return;
+      state.symbolLoading = false;
+      render();
+    });
 }
 
 function autoFollow(items, source) {
@@ -1534,6 +1618,7 @@ pasteButton?.addEventListener('click', async () => {
 clearButton?.addEventListener('click', () => {
   if (!searchInput) return;
   searchInput.value = '';
+  state.symbolItem = null; state.symbolQuery = ''; state.symbolError = ''; state.symbolLoading = false;
   searchInput.dispatchEvent(new Event('input', {bubbles: true}));
   searchInput.focus();
   syncClear();

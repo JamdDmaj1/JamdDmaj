@@ -302,6 +302,19 @@ export default async function handler(request) {
     const item = await analyzeSeed(seed, boosts);
     return jsonResponse(request, {observedAt: Date.now(), tab: 'lookup', lookupMint, items: [item], coverage: {requested: 1, analyzed: 1}, disclaimer: 'Automatic public-data analysis. It does not guarantee a token is safe or profitable.'});
   }
+  const searchQuery = String(url.searchParams.get('q') || '').trim();
+  if (searchQuery) {
+    if (!/^[A-Za-z0-9 ._-]{2,32}$/.test(searchQuery)) return jsonResponse(request, {error:{message:'Invalid search query'}}, 400);
+    const search = await readJson('https://api.geckoterminal.com/api/v2/search/pools?network=solana&query=' + encodeURIComponent(searchQuery) + '&page=1', 9000);
+    const pools = (Array.isArray(search?.data) ? search.data : [])
+      .filter(pool => String(pool?.relationships?.base_token?.data?.id || '').startsWith('solana_'))
+      .sort((a, b) => (num(b?.attributes?.reserve_in_usd) || 0) - (num(a?.attributes?.reserve_in_usd) || 0));
+    const seed = pools.length ? poolSeed(pools[0]) : null;
+    if (!seed) return jsonResponse(request, {observedAt: Date.now(), tab: 'search', query: searchQuery, items: [], coverage:{requested:1, analyzed:0}, error:'token-not-found'}, 404);
+    const boosts = await loadBoosts();
+    const item = await analyzeSeed(seed, boosts);
+    return jsonResponse(request, {observedAt: Date.now(), tab: 'search', query: searchQuery, items: [item], coverage:{requested:1, analyzed:1}, disclaimer:'Automatic public-data analysis. It does not guarantee a token is safe or profitable.'});
+  }
   const tab = ['new', 'trending', 'volume', 'marketcap'].includes(String(url.searchParams.get('tab'))) ? String(url.searchParams.get('tab')) : 'new';
   const fresh = url.searchParams.get('fresh') === '1';
   const now = Date.now();
