@@ -17,10 +17,12 @@ test('Jupiter selects only published fresh supported signals, independently of B
  assert.equal(result.candidates[1].decision.ok,true);assert.equal(result.candidates[1].bitgetEligible,undefined);assert.ok(Object.isFrozen(result.candidates[1].decision));
  a.entry=200;assert.equal(result.candidates[1].entry,100);assert.equal(result.readyForSigning,false);assert.equal(result.tradingEnabled,false);
 });
-test('unpublished, closed, stale, future, unsupported, multiplied and weak candidates never reach preparation',()=>{
+test('published Telegram signals bypass the duplicate AUTO score gate; unpublished and invalid ones never reach preparation',()=>{
+ const publishedWeak=[{score:11.9},{marketAlignment:'counter-market'},{freshness:{status:'late'}},{volumeRatio:1.1},{adx:18},{spreadPercent:0},{liquidityUsd:0}];
+ for(const change of publishedWeak){const result=selectPublishedServerPerpsSignals(feed([{...signal(),...change}]),{now});assert.equal(result.candidates.length,1,JSON.stringify(change));assert.equal(result.candidates[0].decision.reason,'telegram-published');}
  const changes=[{telegramMessageId:null},{telegramSentAt:null},{status:'CLOSED'},
   {telegramSentAt:new Date(now+2001).toISOString()},{telegramSentAt:new Date(now-31*60*1000).toISOString()},{pair:'XRPUSDT'},
-  {contractMultiplier:1000},{side:'BUY'},{sl:101},{score:11.9},{marketAlignment:'counter-market'},{freshness:{status:'late'}},{score:NaN},{id:'unsafe\n'}];
+  {contractMultiplier:1000},{side:'BUY'},{sl:101},{score:NaN},{id:'unsafe\n'}];
  for(const change of changes){const result=selectPublishedServerPerpsSignals(feed([{...signal(),...change}]),{now});assert.equal(result.candidates.length,0,JSON.stringify(change));}
  const currentFeed=feed();currentFeed.generatedAt=new Date(now+31*60*1000).toISOString();
  assert.equal(selectPublishedServerPerpsSignals(currentFeed,{now:now+31*60*1000}).candidates.length,0);
