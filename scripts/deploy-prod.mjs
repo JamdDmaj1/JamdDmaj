@@ -9,7 +9,7 @@ import { tmpdir } from "node:os";
 
 const ROOT = process.cwd();
 const LEDGER = join(ROOT, ".deploy-ledger.json");
-const MAX_PER_DAY = 14;
+const MAX_PER_DAY = 50;
 const args = new Set(process.argv.slice(2));
 const confirm = args.has("--confirm");
 const dryRun = args.has("--dry-run") || !confirm;

@@ -1,11 +1,11 @@
 # Release and Vercel deployment policy
 
-JamdDmaj runs on Vercel Hobby, which allows **100 deployments per day**.
-Vercel Pro allows 6,000 per day (developer seat $20/user/month).
-Source: https://vercel.com/docs/plans/hobby
+JamdDmaj runs on Vercel Pro, which allows **6,000 deployments per day**.
+The repository still enforces a conservative internal budget of **50 production
+deployments per UTC day** so one-fix-per-deploy churn cannot run uncontrolled.
 
-Rapid one-fix-per-deploy iterations can exhaust the Hobby budget and block
-production updates for the rest of the UTC day. Use one release for all fixes.
+Rapid one-fix-per-deploy iterations waste build time and review quality. Use one
+release for all fixes even though the Vercel plan has much more headroom.
 
 ## Mandatory flow
 
@@ -15,7 +15,7 @@ production updates for the rest of the UTC day. Use one release for all fixes.
    `npm run release:prod -- --dry-run`
 4. If it passes, release the whole batch once:
    `npm run release:prod -- --confirm`
-5. The gate refuses versions already live and enforces **max 3 production
+5. The gate refuses versions already live and enforces **max 50 production
    deploys per UTC day** in `.deploy-ledger.json`.
 
 ## Rules
