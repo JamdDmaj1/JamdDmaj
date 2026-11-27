@@ -85,3 +85,15 @@ test('Fair Launch mainnet dynamic messages are English', () => {
   assert.match(read('token-creator-ui.js'), /Could not read the saved operation/);
   assert.match(read('cpmm-pool-ui.js'), /Could not read the pending operation/);
 });
+
+test('PWA manifest matches the English public app', () => {
+  const manifest = JSON.parse(read('manifest.json'));
+  assert.equal(manifest.lang, 'en');
+  assert.doesNotMatch(manifest.description, /asistente|visión|imágenes/i);
+  assert.match(manifest.description, /AI assistant/);
+});
+
+test('Finance page language follows the selected app language', () => {
+  assert.match(read('private-simulator.html'), /<html lang="en"/i);
+  assert.match(read('private-simulator-ui.js'), /document\.documentElement\.lang = language/);
+});

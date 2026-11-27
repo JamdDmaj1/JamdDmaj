@@ -7,6 +7,7 @@ import {setupTerminalLayout} from './lib/terminal-layout.js';
 import {setupAssetsWallets} from './assets-wallet-ui.js';
 import {setupAccountSession} from './lib/account-session-client.js';
 const accountSession=setupAccountSession();
+document.documentElement.lang = language;
 const terminalApiRoot = window.Capacitor?.isNativePlatform?.() ? 'https://www.jamddmaj.com' : '';
 let account=new SimulatorAccount();
 // Owner-only diagnostics: never call the execution, configuration or queue actions here.
