@@ -2552,7 +2552,7 @@
       font-weight: 900;
     }
 
-    .welcome h1 {
+    .welcome h1, .welcome h2 {
       margin: 0;
       font-size: clamp(1.8rem, 4vw, 3.4rem);
       letter-spacing: -0.055em;
@@ -3923,7 +3923,8 @@
     }
   
     a.pill-btn,a.pill-btn:visited{font-family:inherit;font-size:0.8rem;font-weight:720;color:inherit;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;line-height:1}
-  </style>
+  .visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+</style>
   <link rel="stylesheet" href="app-polish.css">
 <style id="learn-redesign-v1">
 .learn-view{--learn-accent:#5eead4;--learn-violet:#a78bfa;background:radial-gradient(1100px 560px at 8% -10%,rgba(94,234,212,.10),transparent 60%),radial-gradient(900px 520px at 100% 0%,rgba(167,139,250,.13),transparent 55%);padding:clamp(16px,3vw,34px);border-radius:28px}
@@ -4025,6 +4026,7 @@
 </style>
 </head>
 <body>
+  <h1 class="visually-hidden">JamdDmaj AI</h1>
   <div class="launch-intro" id="launchIntro" aria-hidden="true">
     <div class="launch-intro-brand">
       <img src="icon-192.png" alt="" width="112" height="112" fetchpriority="high">
@@ -8031,7 +8033,7 @@ function createLearnNotificationCard() {
           welcome.className = "welcome";
           welcome.innerHTML = `
             <div class="welcome-orb">JD</div>
-            <h1>What are we building?</h1>
+            <h2>What are we building?</h2>
             <p>Chat, inspect an image, brainstorm an idea, or switch on image mode to create something new.</p>
             <div class="suggestions">
               <button class="suggestion" data-text="Explain a complex topic in a simple way.">Explain something clearly</button>
