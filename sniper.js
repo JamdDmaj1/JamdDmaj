@@ -982,12 +982,9 @@ async function loadAth(items) {
 let athRetryTimer = null;
 const TRUSTED_MIN_SCORE = 75;
 const TRUSTED_MIN_LIQUIDITY_USD = 50000;
-const TRUSTED_MAX_AGE_MINUTES = 14 * 24 * 60;
 function isTrustedItem(item) {
   const liquidity = Number(item?.liquidityUsd ?? item?.liquidity ?? 0);
-  const age = Number(item?.ageMinutes);
-  return Number(item?.score) >= TRUSTED_MIN_SCORE && Number.isFinite(liquidity) && liquidity >= TRUSTED_MIN_LIQUIDITY_USD
-    && Number.isFinite(age) && age >= 0 && age <= TRUSTED_MAX_AGE_MINUTES;
+  return Number(item?.score) >= TRUSTED_MIN_SCORE && Number.isFinite(liquidity) && liquidity >= TRUSTED_MIN_LIQUIDITY_USD;
 }
 function sortForView(items) {
   const rows = [...items];
@@ -1078,7 +1075,7 @@ function render() {
   if (!items.length) {
     const empty = document.createElement('p');
     empty.className = 'sniper-empty';
-    empty.textContent = state.loading ? 'Analyzing tokens...' : state.tab === 'risk' ? 'No high-risk token in this sample.' : state.tab === 'safe' ? 'No recent trusted token right now: safety 75+, liquidity $50k+ and age 14 days or less.' : 'No token matches those filters right now.';
+    empty.textContent = state.loading ? 'Analyzing tokens...' : state.tab === 'risk' ? 'No high-risk token in this sample.' : state.tab === 'safe' ? 'No trusted token right now: safety 75+ and liquidity $50k+.' : 'No token matches those filters right now.';
     grid.append(empty);
     status.textContent = empty.textContent;
     paintSummary();
@@ -1089,7 +1086,7 @@ function render() {
   const requested = Number(state.coverage?.requested ?? state.items.length);
   status.innerHTML = `<b>${items.length}</b> shown · ${analyzed}${requested > analyzed ? ' / ' + requested : ''} analyzed`;
   if (state.updatedAt) status.insertAdjacentHTML('beforeend', ` · updated ${new Date(state.updatedAt).toLocaleTimeString()}`);
-  if (state.tab === 'safe') status.insertAdjacentHTML('beforeend', ' - newest first - 75+ safety - $50k+ liquidity - 14 days or less');
+  if (state.tab === 'safe') status.insertAdjacentHTML('beforeend', ' - newest first - 75+ safety - $50k+ liquidity');
 }
 
 let lookupTimer = null;
