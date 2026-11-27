@@ -59,3 +59,9 @@ test('retired internal testnet page is not part of the public build', () => {
   const build = read('scripts/build-web.mjs');
   assert.doesNotMatch(build, /hyperliquid-testnet/);
 });
+
+test('desktop backup export falls back to a real download', () => {
+  const html = read('index.html');
+  assert.match(html, /nativeOrMobile/);
+  assert.match(html, /if \(canShare && nativeOrMobile\)/);
+});
