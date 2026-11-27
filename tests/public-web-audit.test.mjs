@@ -117,3 +117,8 @@ test('Fair Launch query opens the view and exit clears it', () => {
   assert.match(js, /view.*=== "fair-launch"/);
   assert.match(js, /url\.searchParams\.delete\("view"\)/);
 });
+
+test('oversized cloud backups fail clearly instead of retrying forever', () => {
+  assert.match(read('index.html'), /too large for the cloud/);
+  assert.match(read('api/backup.js'), /The backup is too large/);
+});

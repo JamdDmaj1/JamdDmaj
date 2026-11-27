@@ -16,21 +16,21 @@ async function handleWebRequest(request) {
     return new Response(null, { status: 204, headers: corsHeaders(request) });
   }
   if (request.method !== "POST") {
-    return jsonResponse(request, { error: { message: "Metodo no permitido." } }, 405);
+    return jsonResponse(request, { error: { message: "Method not allowed." } }, 405);
   }
   if (!isServiceConfigured()) {
-    return jsonResponse(request, { error: { message: "El respaldo automatico no esta configurado." } }, 503);
+    return jsonResponse(request, { error: { message: "Cloud backup is not configured." } }, 503);
   }
   const contentLength = Number(request.headers.get("content-length") || 0);
   if (contentLength > MAX_BODY_BYTES) {
-    return jsonResponse(request, { error: { message: "El respaldo es demasiado grande." } }, 413);
+    return jsonResponse(request, { error: { message: "The backup is too large." } }, 413);
   }
 
   try {
     const input = await request.json();
     const recoveryHash = normalizeHash(input.recoveryHash);
     if (!recoveryHash) {
-      return jsonResponse(request, { error: { message: "Codigo de recuperacion invalido." } }, 400);
+      return jsonResponse(request, { error: { message: "Invalid recovery code." } }, 400);
     }
     if (input.action === "save") {
       return saveBackup(request, recoveryHash, input);
@@ -38,9 +38,9 @@ async function handleWebRequest(request) {
     if (input.action === "restore") {
       return restoreBackup(request, recoveryHash);
     }
-    return jsonResponse(request, { error: { message: "Accion invalida." } }, 400);
+    return jsonResponse(request, { error: { message: "Invalid action." } }, 400);
   } catch {
-    return jsonResponse(request, { error: { message: "No se pudo procesar el respaldo." } }, 400);
+    return jsonResponse(request, { error: { message: "The backup could not be processed." } }, 400);
   }
 }
 
@@ -52,7 +52,7 @@ async function saveBackup(request, recoveryHash, input) {
     device: await hashIdentifier(request.headers.get("x-jamddmaj-device") || "unknown")
   });
   if (new TextEncoder().encode(payload).byteLength > MAX_BACKUP_BYTES) {
-    return jsonResponse(request, { error: { message: "El respaldo es demasiado grande." } }, 413);
+    return jsonResponse(request, { error: { message: "The backup is too large." } }, 413);
   }
   await redisRequest("pipeline", [
     ["SET", `jamd:backup:${recoveryHash}`, payload],
@@ -65,7 +65,7 @@ async function restoreBackup(request, recoveryHash) {
   const data = await redisRequest("pipeline", [["GET", `jamd:backup:${recoveryHash}`]]);
   const raw = data?.[0]?.result;
   if (!raw) {
-    return jsonResponse(request, { error: { message: "No se encontro respaldo para ese codigo." } }, 404);
+    return jsonResponse(request, { error: { message: "No backup found for that code." } }, 404);
   }
   const parsed = JSON.parse(raw);
   const encrypted = sanitizeEncryptedBackup(parsed.encrypted);
@@ -129,7 +129,7 @@ async function handleNodeRequest(request, response) {
       response.setHeader("Content-Type", "application/json; charset=utf-8");
       response.setHeader("Cache-Control", "no-store");
     }
-    response.end(JSON.stringify({ error: { message: "No se pudo procesar el respaldo." } }));
+    response.end(JSON.stringify({ error: { message: "The backup could not be processed." } }));
   }
 }
 
