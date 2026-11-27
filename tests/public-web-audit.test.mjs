@@ -78,3 +78,10 @@ test('Fair Launch mainnet panels are English', () => {
   assert.match(html, /Protected lab · Devnet only/);
   assert.doesNotMatch(html, /Crear token|Pool y liquidez|Laboratorio protegido/);
 });
+
+test('Fair Launch mainnet dynamic messages are English', () => {
+  assert.doesNotMatch(read('token-creator-ui.js'), /No se pudo|No se detect|Comisión|Revisión/);
+  assert.doesNotMatch(read('cpmm-pool-ui.js'), /No se pudo|No se conect|Aportación|Comisión/);
+  assert.match(read('token-creator-ui.js'), /Could not read the saved operation/);
+  assert.match(read('cpmm-pool-ui.js'), /Could not read the pending operation/);
+});
