@@ -110,6 +110,19 @@ test('automatic Phoenix extends take profit when the trade is well in profit', a
   f.store.dispose();
 });
 
+test('automatic Phoenix reconciles a terminal workflow that vanished from positions', async () => {
+  const f = fixture();
+  f.store.reserve({signal: 'signal:1', symbol: 'VVV', side: 'LONG', margin: '10000000', entry: '100000000', sl: '95000000', tp1: '110000000'});
+  f.store.attach('signal:1', workflow);
+  f.service.positions = async () => ({stage: 'PHOENIX_MANUAL_POSITIONS', items: []});
+  const executor = createPhoenixAutoExecutor({controls: f.controls, service: f.service, store: f.store, readFeed: f.feed, ownerAccountHash: owner, walletAddress: wallet, now: () => Date.now() + 6 * 60 * 1000});
+  await executor.runOnce();
+  assert.equal(f.store.read('signal:1').state, 'CLOSED');
+  assert.equal(f.store.open().length, 0);
+  assert.equal(f.calls.some(([name, value]) => name === 'recoverClose' && value.automation === true), true);
+  f.store.dispose();
+});
+
 test('automatic Phoenix recovers a CLOSING workflow and releases the slot', async () => {
   const f = fixture();
   f.store.reserve({signal: 'signal:1', symbol: 'VVV', side: 'LONG', margin: '10000000', entry: '100000000', sl: '95000000', tp1: '110000000'});
