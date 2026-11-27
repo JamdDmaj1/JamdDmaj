@@ -933,6 +933,14 @@ const VERIFIER_LABEL_KEYS = Object.freeze({
   function localizeDevnetError(message) {
     const value = String(message || "");
     if (!value) return "";
+    if (/cannot sign Solana transactions/i.test(value)) return ui("errorWalletSign");
+    if (/does not support Solana v0/i.test(value)) return ui("errorV0");
+    if (/supports 0 to 9 decimals/i.test(value)) return ui("errorDecimals");
+    if (/safe integer/i.test(value)) return ui("errorSupply");
+    if (/technical limit/i.test(value)) return ui("errorSupplyLimit");
+    if (/only enabled for Solana Token-2022/i.test(value)) return ui("errorNetwork");
+    if (/mint authority revocation/i.test(value)) return ui("errorMint");
+    if (/freeze authority/i.test(value)) return ui("errorFreeze");
     if (/firmar transacciones/i.test(value)) return ui("errorWalletSign");
     if (/transacciones Solana v0/i.test(value)) return ui("errorV0");
     if (/0 a 9 decimales/i.test(value)) return ui("errorDecimals");
