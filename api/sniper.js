@@ -304,7 +304,7 @@ export default async function handler(request) {
   }
   const searchQuery = String(url.searchParams.get('q') || '').trim();
   if (searchQuery) {
-    if (!/^[A-Za-z0-9 ._-]{2,32}$/.test(searchQuery)) return jsonResponse(request, {error:{message:'Invalid search query'}}, 400);
+    if (!/^[A-Za-z0-9 ._$#&'-]{2,32}$/.test(searchQuery)) return jsonResponse(request, {error:{message:'Invalid search query'}}, 400);
     const search = await readJson('https://api.geckoterminal.com/api/v2/search/pools?network=solana&query=' + encodeURIComponent(searchQuery) + '&page=1', 9000);
     const pools = (Array.isArray(search?.data) ? search.data : [])
       .filter(pool => String(pool?.relationships?.base_token?.data?.id || '').startsWith('solana_'))

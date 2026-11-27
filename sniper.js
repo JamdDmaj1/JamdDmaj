@@ -159,7 +159,7 @@ function tradePanel(item, setStatusHook) {
       logTrade('buy', { tokens: Number(result.outAmount) / Math.pow(10, decimalsOf()), usd: solAmount * (state.solPrice || 0), sol: solAmount, tx: result.signature });
       report(result.signature);
     } catch (error) {
-      setStatus('No se pudo comprar: ' + (error?.message || error));
+      setStatus('Could not buy: ' + (error?.message || error));
     } finally {
       buyButton.disabled = false;
     }
@@ -287,13 +287,13 @@ function auditPanel(item) {
 }
 
 const TIPS = {
-  seguridad: 'Safety score from 0 to 100 based on mint and freeze authority, locked liquidity, holder concentration, real liquidity and pool age. Higher is less risky; it does not guarantee safety.',
-  potencial: 'Estimated potential from 0 to 100 based on price momentum, volume/liquidity turnover, buy pressure and depth. Risk caps the score. It is not a prediction.',
-  liquidez: 'Liquidity withdrawal risk: percentage of LP locked, creator share, real liquidity and pool age. HIGH means the LP can be drained.',
+  safety: 'Safety score from 0 to 100 based on mint and freeze authority, locked liquidity, holder concentration, real liquidity and pool age. Higher is less risky; it does not guarantee safety.',
+  potential: 'Estimated potential from 0 to 100 based on price momentum, volume/liquidity turnover, buy pressure and depth. Risk caps the score. It is not a prediction.',
+  liquidity: 'Liquidity withdrawal risk: percentage of LP locked, creator share, real liquidity and pool age. HIGH means the LP can be drained.',
   ath: 'All-time-high market cap using the highest pair price and estimated supply, measured since the pair was created.',
-  categorias: 'Estimated tags from the name, venue and marketing. They are not official categories.',
+  categories: 'Estimated tags from the name, venue and marketing. They are not official categories.',
   boost: 'Paid promotion detected on DexScreener. It does not imply quality or safety.',
-  mercado: 'Number of markets listing the pair and which venues carry it.'
+  markets: 'Number of markets listing the pair and which venues carry it.'
 };
 let tipTimer = null;
 let tipNode = null;
@@ -404,7 +404,7 @@ function openDetail(item) {
   const name = document.createElement('strong');
   name.textContent = item.symbol || 'Token';
   const subtitle = document.createElement('small');
-  subtitle.textContent = (item.categories || []).join(' · ') || 'Sin categoria';
+  subtitle.textContent = (item.categories || []).join(' · ') || 'Uncategorized';
   title.append(name, subtitle);
   const close = document.createElement('button');
   close.type = 'button';
@@ -535,7 +535,7 @@ function card(item) {
 
   const cats = document.createElement('div');
   cats.className = 'sniper-cats';
-  cats.append(infoBadge('categorias'));
+  cats.append(infoBadge('categories'));
   for (const category of item.categories || []) {
     const chip = document.createElement('span');
     chip.textContent = category;
@@ -547,12 +547,12 @@ function card(item) {
   const safety = document.createElement('div');
   safety.className = 'sniper-score';
   const safetyLabel = Object.assign(document.createElement('span'), { textContent: 'safety - 100 is best' });
-  safetyLabel.append(infoBadge('seguridad'));
+  safetyLabel.append(infoBadge('safety'));
   safety.append(Object.assign(document.createElement('strong'), { textContent: String(item.score) }), safetyLabel);
   const growth = document.createElement('div');
   growth.className = 'sniper-score growth';
   const growthLabel = Object.assign(document.createElement('span'), { textContent: 'estimated potential' });
-  growthLabel.append(infoBadge('potencial'));
+  growthLabel.append(infoBadge('potential'));
   growth.append(Object.assign(document.createElement('strong'), { textContent: String(item.growth?.score ?? '—') }), growthLabel);
   scores.append(safety, growth);
 
@@ -575,7 +575,7 @@ function card(item) {
   const liquidity = document.createElement('div');
   liquidity.className = 'sniper-liquidity';
   liquidity.append(badge('Liquidity withdrawal: ' + ({ALTO:'HIGH',MEDIO:'MEDIUM',BAJO:'LOW'}[String(item.liquidityLabel).toUpperCase()] || item.liquidityLabel) + ' (' + item.liquidityRisk + '/100)', liquidityClass(item.liquidityLabel)));
-  liquidity.append(infoBadge('liquidez'));
+  liquidity.append(infoBadge('liquidity'));
   if (item.liquidityLabel === 'HIGH' || item.liquidityLabel === 'ALTO') {
     const note = document.createElement('small');
     note.textContent = 'LP can be drained: check the lock and who controls liquidity.';
@@ -760,12 +760,12 @@ function card(item) {
   search.href = 'https://x.com/search?q=' + encodeURIComponent((item.symbol || '') + ' scam');
   search.target = '_blank';
   search.rel = 'noopener noreferrer';
-  search.textContent = 'Buscar "scam" en X';
+  search.textContent = 'Search "scam" on X';
   const chart = document.createElement('a');
   chart.href = 'https://www.geckoterminal.com/solana/pools/' + encodeURIComponent(item.poolAddress || '');
   chart.target = '_blank';
   chart.rel = 'noopener noreferrer';
-  chart.textContent = 'Grafico';
+  chart.textContent = 'Chart';
   links.append(search, chart);
 
   article.append(top, cats, actions, scores, liquidity, riskSummary, checks);
@@ -805,16 +805,16 @@ const fmtDate = value => new Date(value).toLocaleString();
 const fmtHold = ms => { if (!Number.isFinite(ms) || ms <= 0) return '—'; const minutes = Math.round(ms / 60000); if (minutes < 60) return minutes + ' min'; const hours = Math.floor(minutes / 60); if (hours < 24) return hours + 'h ' + (minutes % 60) + 'm'; return Math.floor(hours / 24) + 'd ' + (hours % 24) + 'h'; };
 
 function shareTrade(data) {
-  if (!globalThis.JamdShare) { alert('El modulo de compartir todavia no esta cargado.'); return; }
+  if (!globalThis.JamdShare) { alert('The share module is not loaded yet.'); return; }
   const basis = Math.max(0.01, Number(data.basis) || 0.01);
   const result = Number(data.pnlUsd) || 0;
   const details = [
-    'Precio: $' + fmtPrice(data.priceUsd),
+    'Price: $' + fmtPrice(data.priceUsd),
     'Market cap: ' + (Number.isFinite(Number(data.mcap)) ? money(Number(data.mcap)) + ' USD' : 'no data'),
-    'Fecha: ' + fmtDate(data.at),
-    'Tiempo de hold: ' + fmtHold(data.holdMs)
+    'Date: ' + fmtDate(data.at),
+    'Hold time: ' + fmtHold(data.holdMs)
   ];
-  globalThis.JamdShare.open({ doc: document, language: 'es', sourceButton: data.button || undefined, isCurrent: () => true, onClose: () => {}, item: { kind: 'SNIPER_TRADE', asset: String(data.symbol || '').toUpperCase(), closedAt: Number(data.at) || Date.now(), performance: { resultUsdcUnits: String(Math.round(result * 1e6)), returnBps: String(Math.round((result / basis) * 10000)), basisUsdcUnits: String(Math.round(basis * 1e6)) }, receivedUsdcUnits: String(Math.round(result * 1e6)), state: 'COMPLETED', details } });
+  globalThis.JamdShare.open({ doc: document, language: 'en', sourceButton: data.button || undefined, isCurrent: () => true, onClose: () => {}, item: { kind: 'SNIPER_TRADE', asset: String(data.symbol || '').toUpperCase(), closedAt: Number(data.at) || Date.now(), performance: { resultUsdcUnits: String(Math.round(result * 1e6)), returnBps: String(Math.round((result / basis) * 10000)), basisUsdcUnits: String(Math.round(basis * 1e6)) }, receivedUsdcUnits: String(Math.round(result * 1e6)), state: 'COMPLETED', details } });
 }
 
 function holdingsList() {
@@ -947,9 +947,9 @@ const saveAthCache = () => { try { localStorage.setItem('jamd-sniper-ath', JSON.
 const applyAth = (mint, value) => {
   const element = document.querySelector('[data-ath="' + mint + '"]');
   if (!element) return;
-  if (!value || !value.available) { element.innerHTML = 'ATH mcap <b>sin dato</b> <span class="sniper-ath-retry">reintentar</span>'; return; }
+  if (!value || !value.available) { element.innerHTML = 'ATH mcap <b>no data</b> <span class="sniper-ath-retry">retry</span>'; return; }
   const fromAth = Number(value.fromAthPct);
-  element.innerHTML = 'ATH mcap <b>' + (value.athMarketCap ? money(value.athMarketCap) + ' USD' : 'no data') + '</b>' + (Number.isFinite(fromAth) ? ' · ' + fromAth.toFixed(1) + '% del ATH' : '');
+  element.innerHTML = 'ATH mcap <b>' + (value.athMarketCap ? money(value.athMarketCap) + ' USD' : 'no data') + '</b>' + (Number.isFinite(fromAth) ? ' · ' + fromAth.toFixed(1) + '% from ATH' : '');
 };
 let athQueueRunning = false;
 async function loadAth(items) {
@@ -1280,7 +1280,7 @@ if (usdInput) {
         body: JSON.stringify({ device: deviceId, items })
       });
       const cloudEl = document.querySelector('.radar-cloud');
-      if (cloudEl) cloudEl.textContent = response.ok ? 'Nube: ' + items.length + ' en vigilancia' : 'Nube: sin conexion';
+      if (cloudEl) cloudEl.textContent = response.ok ? 'Cloud: ' + items.length + ' watched' : 'Cloud: offline';
     } catch {}
   };
   const persist = () => {
@@ -1317,7 +1317,7 @@ if (usdInput) {
     if (!alerts.length) {
       const empty = document.createElement('div');
       empty.className = 'radar-empty';
-      empty.textContent = watch.size ? 'Sin cambios desde que empezaste a vigilar.' : 'Pulsa "Vigilar" en un token para seguirlo en vivo.';
+      empty.textContent = watch.size ? 'No changes since you started watching.' : 'Press "Watch" on a token to follow it live.';
       listEl.append(empty);
       return;
     }
@@ -1354,17 +1354,17 @@ if (usdInput) {
     const foot = document.createElement('footer');
     const enable = document.createElement('button');
     enable.type = 'button';
-    enable.textContent = 'Activar notificaciones';
+    enable.textContent = 'Enable notifications';
     enable.addEventListener('click', async () => {
       try {
         const permission = await Notification.requestPermission();
-        enable.textContent = permission === 'granted' ? 'Notificaciones activas' : 'Permiso denegado';
+        enable.textContent = permission === 'granted' ? 'Notifications on' : 'Permission denied';
         enable.disabled = true;
-      } catch { enable.textContent = 'No disponible'; enable.disabled = true; }
+      } catch { enable.textContent = 'Unavailable'; enable.disabled = true; }
     });
     const cloud = document.createElement('span');
     cloud.className = 'radar-cloud';
-    cloud.textContent = 'Nube: —';
+    cloud.textContent = 'Cloud: —';
     foot.append(enable, cloud);
     void syncCloud();
     dock.append(head, listEl, foot);
@@ -1379,7 +1379,7 @@ if (usdInput) {
     card.classList.add('rugged');
     const banner = document.createElement('div');
     banner.className = 'sniper-rug-banner';
-    banner.textContent = 'RUG PULL DETECTADO: ' + detail;
+    banner.textContent = 'RUG PULL DETECTED: ' + detail;
     card.prepend(banner);
     const badgeNode = card.querySelector('.sniper-badge');
     if (badgeNode) { badgeNode.textContent = 'RUG'; badgeNode.className = 'sniper-badge alto'; }
@@ -1397,9 +1397,9 @@ if (usdInput) {
     const rugged = (drainPct !== null && drainPct <= -45) || (Number.isFinite(drop5) && drop5 <= -60 && sellers >= buyers);
     if (rugged && previous) {
       const detail = [];
-      if (drainPct !== null) detail.push('liquidez ' + drainPct.toFixed(0) + '%');
-      if (Number.isFinite(drop5)) detail.push('precio ' + drop5.toFixed(0) + '% en 5 min');
-      if (sellers || buyers) detail.push(sellers + ' ventas / ' + buyers + ' compras');
+      if (drainPct !== null) detail.push('liquidity ' + drainPct.toFixed(0) + '%');
+      if (Number.isFinite(drop5)) detail.push('price ' + drop5.toFixed(0) + '% en 5 min');
+      if (sellers || buyers) detail.push(sellers + ' sells / ' + buyers + ' buys');
       push('rug', symbol, 'RUG PULL: ' + detail.join(' · '), meta);
       markRugged(mint, detail.join(' · '));
     }
@@ -1410,27 +1410,27 @@ if (usdInput) {
       const nowLiquidity = Number(info.liquidityUsd);
       if (Number.isFinite(beforeLiquidity) && beforeLiquidity > 0 && Number.isFinite(nowLiquidity)) {
         const change = (nowLiquidity - beforeLiquidity) / beforeLiquidity;
-        if (change <= -0.2) push('bad', symbol, 'Liquidez retirada: ' + (change * 100).toFixed(1) + '% (' + Math.round(nowLiquidity) + ' USD)', meta);
-        else if (change <= -0.08) push('warn', symbol, 'Liquidez bajando: ' + (change * 100).toFixed(1) + '%', meta);
-        else if (change >= 0.2) push('good', symbol, 'Liquidez añadida: +' + (change * 100).toFixed(1) + '% (' + Math.round(nowLiquidity) + ' USD)');
+        if (change <= -0.2) push('bad', symbol, 'Liquidity removed: ' + (change * 100).toFixed(1) + '% (' + Math.round(nowLiquidity) + ' USD)', meta);
+        else if (change <= -0.08) push('warn', symbol, 'Liquidity falling: ' + (change * 100).toFixed(1) + '%', meta);
+        else if (change >= 0.2) push('good', symbol, 'Liquidity added: +' + (change * 100).toFixed(1) + '% (' + Math.round(nowLiquidity) + ' USD)');
       }
       const sells = Number(info.sells5m);
       const buys = Number(info.buys5m);
-      if (Number.isFinite(sells) && Number.isFinite(buys) && sells >= 12 && sells >= buys * 4) push('bad', symbol, 'Presion vendedora fuerte: ' + sells + ' ventas / ' + buys + ' compras en 5 min', { mint });
-      else if (Number.isFinite(sells) && Number.isFinite(buys) && buys >= 8 && buys >= sells * 2.5) push('good', symbol, 'Compras fuertes: ' + buys + ' compras / ' + sells + ' ventas en 5 min', meta);
+      if (Number.isFinite(sells) && Number.isFinite(buys) && sells >= 12 && sells >= buys * 4) push('bad', symbol, 'Heavy selling pressure: ' + sells + ' sells / ' + buys + ' buys in 5 min', { mint });
+      else if (Number.isFinite(sells) && Number.isFinite(buys) && buys >= 8 && buys >= sells * 2.5) push('good', symbol, 'Strong buying: ' + buys + ' buys / ' + sells + ' sells in 5 min', meta);
       const move = Number(info.change5m);
-      if (Number.isFinite(move) && move <= -20) push('bad', symbol, 'Caida rapida: ' + move.toFixed(1) + '% en 5 min', meta);
-      else if (Number.isFinite(move) && move >= 25) push('good', symbol, 'Subida fuerte: +' + move.toFixed(1) + '% en 5 min', meta);
+      if (Number.isFinite(move) && move <= -20) push('bad', symbol, 'Fast drop: ' + move.toFixed(1) + '% en 5 min', meta);
+      else if (Number.isFinite(move) && move >= 25) push('good', symbol, 'Strong move up: +' + move.toFixed(1) + '% en 5 min', meta);
     }
     const beforeVenues = Array.isArray(previous?.venues) ? previous.venues.length : 0;
     const nowVenues = Array.isArray(info.venues) ? info.venues.length : 0;
     if (previous) {
-      if (nowVenues > beforeVenues) push('info', symbol, 'Nuevo listado: ' + nowVenues + ' mercado(s) - ' + (info.venues || []).join(', '), meta);
-      else if (nowVenues < beforeVenues) push('bad', symbol, 'Perdio un listado: ahora ' + nowVenues + ' mercado(s)', meta);
+      if (nowVenues > beforeVenues) push('info', symbol, 'New listing: ' + nowVenues + ' market(s) - ' + (info.venues || []).join(', '), meta);
+      else if (nowVenues < beforeVenues) push('bad', symbol, 'Lost a listing: now ' + nowVenues + ' market(s)', meta);
       const beforeBoost = Number(previous.boostTotal) || 0;
       const nowBoost = Number(info.boostTotal) || 0;
-      if (nowBoost > beforeBoost) push('good', symbol, 'Marketing: boost activo por ' + nowBoost + ' USD', meta);
-      else if (!nowBoost && beforeBoost > 0) push('warn', symbol, 'El boost de marketing termino', meta);
+      if (nowBoost > beforeBoost) push('good', symbol, 'Marketing: boost active for ' + nowBoost + ' USD', meta);
+      else if (!nowBoost && beforeBoost > 0) push('warn', symbol, 'Marketing boost ended', meta);
     }
     snap.set(mint, { liquidityUsd: info.liquidityUsd, venues: info.venues || [], boostTotal: Number(info.boostTotal) || 0, at: Date.now() });
     persist();
@@ -1438,7 +1438,7 @@ if (usdInput) {
 
   const poll = async () => {
     if (!watch.size) { if (countEl) countEl.textContent = ''; return; }
-    if (countEl) countEl.textContent = watch.size + ' en seguimiento';
+    if (countEl) countEl.textContent = watch.size + ' watched';
     const mints = [...watch.keys()];
     try {
       const response = await fetch(base + '/api/sniper-watch?x=' + Date.now(), {
@@ -1569,7 +1569,7 @@ if (usdInput) {
     control.className = 'radar-follow';
     const sync = () => {
       const active = watch.has(item.mint);
-      control.textContent = active ? 'Vigilando' : 'Vigilar';
+      control.textContent = active ? 'Watching' : 'Watch';
       control.classList.toggle('active', active);
     };
     control.addEventListener('click', event => {
@@ -1711,18 +1711,18 @@ if (eyeButton) eyeButton.addEventListener('click', () => {
 });
 const changeBalance = document.getElementById('balanceChange');
 if (changeBalance) changeBalance.addEventListener('click', () => {
-  const value = prompt('Direccion de wallet Solana para consultar (solo lectura):', walletState.owner || '');
+  const value = prompt('Solana wallet address to inspect (read-only):', walletState.owner || '');
   if (!value) return;
   const clean = value.trim();
-  if (!looksLikeAddress(clean)) { alert('Esa direccion no parece valida.'); return; }
+  if (!looksLikeAddress(clean)) { alert('That address does not look valid.'); return; }
   const phantomKey = globalThis.JamdSniperTrade?.key?.();
   setWallet(clean, clean === phantomKey ? 'Phantom' : 'Manual');
 });
 const connectBalance = document.getElementById('balanceConnect');
 if (connectBalance) connectBalance.addEventListener('click', async () => {
   const wallet = globalThis.JamdSniperTrade;
-  if (!wallet || !wallet.provider()) { alert('Phantom no esta disponible en este navegador. Instalalo o abre la pagina dentro de Phantom.'); return; }
-  try { await wallet.connect(); await refreshBalance(); } catch (error) { alert('No se pudo conectar: ' + (error?.message || error)); }
+  if (!wallet || !wallet.provider()) { alert('Phantom is not available in this browser. Install it or open this page inside Phantom.'); return; }
+  try { await wallet.connect(); await refreshBalance(); } catch (error) { alert('Could not connect: ' + (error?.message || error)); }
 });
 const initialWallet = resolveWallet();
 if (initialWallet) { walletState.owner = initialWallet.owner; walletState.source = initialWallet.source; }
