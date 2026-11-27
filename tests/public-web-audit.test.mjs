@@ -111,3 +111,9 @@ test('transient sign-in and wallet pages are not indexed', () => {
     assert.match(read(name), /name="robots" content="noindex,nofollow"/, name);
   }
 });
+
+test('Fair Launch query opens the view and exit clears it', () => {
+  const js = read('fair-launch-ui.js');
+  assert.match(js, /view.*=== "fair-launch"/);
+  assert.match(js, /url\.searchParams\.delete\("view"\)/);
+});

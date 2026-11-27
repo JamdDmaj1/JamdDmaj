@@ -281,7 +281,17 @@ const VERIFIER_LABEL_KEYS = Object.freeze({
     });
   });
 
+  function syncFairLaunchUrl(open) {
+    try {
+      const url = new URL(location.href);
+      if (open) url.searchParams.set("view", "fair-launch");
+      else url.searchParams.delete("view");
+      history.replaceState(null, "", url);
+    } catch {}
+  }
+
   function enterFairLaunch() {
+    syncFairLaunchUrl(true);
     previousUi = {
       targets: hiddenTargets.map((element) => ({
         element,
