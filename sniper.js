@@ -1221,6 +1221,7 @@ async function load(tab = state.tab, fresh = false) {
     if (tab === 'safe') items = items.filter(item => item.score >= 75);
     if (tab === 'risk') items = items.filter(item => item.score <= 30);
     state.items = items;
+    state.loading = false;
     render();
   } catch (error) {
     if (seq === state.seq) $('sniperStatus').textContent = 'Could not analyze right now: ' + (error?.message || error);
