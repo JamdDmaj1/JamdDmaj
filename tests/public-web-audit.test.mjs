@@ -105,3 +105,9 @@ test('custom 404 page is present, English and linked to core pages', () => {
   assert.match(html, /href="\/sniper.html"/);
   assert.doesNotMatch(html, /<html lang="es"/i);
 });
+
+test('transient sign-in and wallet pages are not indexed', () => {
+  for (const name of ['google-mobile.html', 'oauth-mobile.html', 'wallet-web.html']) {
+    assert.match(read(name), /name="robots" content="noindex,nofollow"/, name);
+  }
+});
