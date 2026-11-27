@@ -122,3 +122,9 @@ test('oversized cloud backups fail clearly instead of retrying forever', () => {
   assert.match(read('index.html'), /too large for the cloud/);
   assert.match(read('api/backup.js'), /The backup is too large/);
 });
+
+test('Discover keeps its advertised language selector usable', () => {
+  const js = read('discover.js');
+  assert.doesNotMatch(js, /language\.hidden = true/);
+  assert.match(js, /language\.hidden = false/);
+});
