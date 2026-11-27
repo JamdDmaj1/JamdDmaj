@@ -2,7 +2,7 @@
 // Read-only production smoke check. Safe to run repeatedly after a release.
 const base = (process.env.JAMDDMAJ_PUBLIC_BASE || 'https://www.jamddmaj.com').replace(/\/$/, '');
 const expectedVersion = String(process.argv[2] || '').trim();
-const pages = ['/', '/discover.html', '/sniper.html', '/private-simulator.html', '/terms.html', '/privacy.html', '/wallet-web.html', '/fee-recipient-setup.html', '/404.html'];
+const pages = ['/', '/discover.html', '/sniper.html', '/private-simulator.html', '/terms.html', '/privacy.html', '/wallet-web.html', '/fee-recipient-setup.html', '/google-mobile.html', '/oauth-mobile.html', '/404.html'];
 const failures = [];
 
 async function text(path, options = {}) {
