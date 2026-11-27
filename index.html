@@ -4193,7 +4193,7 @@
           <section class="asset-question-card">
             <div class="asset-card-heading"><h3 id="assetQuestionTitle">Ask about this asset</h3></div>
             <form class="asset-question-form" id="assetQuestionForm">
-              <input id="assetQuestionInput" type="search" maxlength="400" autocomplete="off" placeholder="Ask about trend, risks, volume, news or fundamentals...">
+              <input id="assetQuestionInput" aria-label="Ask about a market trend or asset" type="search" maxlength="400" autocomplete="off" placeholder="Ask about trend, risks, volume, news or fundamentals...">
               <button class="pill-btn" id="assetQuestionBtn" type="submit">Ask JamdDmaj AI</button>
             </form>
           </section>
@@ -4520,9 +4520,9 @@
             </div>
             <div class="chart-analysis-controls">
               <button class="pill-btn" id="selectChartBtn" type="button">Elegir captura</button>
-              <input id="chartContextInput" type="text" maxlength="500" autocomplete="off" placeholder="Opcional: BTCUSDT, 15m, que quieres revisar...">
+              <input id="chartContextInput" aria-label="Context for chart analysis" type="text" maxlength="500" autocomplete="off" placeholder="Opcional: BTCUSDT, 15m, que quieres revisar...">
               <button class="pill-btn" id="analyzeChartBtn" type="button" disabled>Analizar señal</button>
-              <input id="chartImageInput" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+              <input id="chartImageInput" aria-label="Upload chart image" type="file" accept="image/png,image/jpeg,image/webp" hidden>
             </div>
             <div class="chart-preview" id="chartPreview" hidden>
               <img id="chartPreviewImage" alt="Captura del grafico seleccionada">
@@ -4536,7 +4536,7 @@
             <article class="chart-analysis-result" id="chartAnalysisResult" data-signal="NO TRADE" hidden></article>
           </section>
           <div class="trader-token-search" role="search" aria-label="Search token trade setup">
-            <input id="traderTokenInput" type="text" inputmode="text" autocomplete="off" placeholder="Token/stock, e.g. XRP or NVDA">
+            <input id="traderTokenInput" aria-label="Token or stock symbol" type="text" inputmode="text" autocomplete="off" placeholder="Token/stock, e.g. XRP or NVDA">
             <button class="pill-btn" id="searchTradeBtn" type="button">Trade</button>
           </div>
           <div class="trader-telegram is-hidden" id="traderTelegramPanel">
@@ -4894,7 +4894,7 @@
         </div>
         <div class="attachment-tray" id="attachmentTray"></div>
         <div class="composer">
-          <input id="fileInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif,.txt,.md,.json,.csv,.js,.html,.css,.py" multiple hidden>
+          <input id="fileInput" aria-label="Upload text file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,.txt,.md,.json,.csv,.js,.html,.css,.py" multiple hidden>
           <button class="icon-btn" id="attachBtn" type="button" aria-label="Open attachment menu">＋</button>
           <button class="icon-btn" id="imageModeBtn" type="button" aria-label="Create an image">◇</button>
           <textarea id="promptInput" rows="1" maxlength="12000" placeholder="Message JamdDmaj AI..." aria-label="Message"></textarea>
@@ -4941,7 +4941,7 @@
       <section class="wallet-watch-only" aria-labelledby="walletWatchTitle">
         <strong id="walletWatchTitle" data-wallet-copy="watchTitle">View a public wallet</strong>
         <div class="wallet-watch-controls">
-          <input id="walletInspectAddress" type="text" inputmode="text" autocomplete="off" spellcheck="false" maxlength="44" data-wallet-placeholder="watchPlaceholder" placeholder="Solana public address">
+          <input id="walletInspectAddress" aria-label="Solana public address to inspect" type="text" inputmode="text" autocomplete="off" spellcheck="false" maxlength="44" data-wallet-placeholder="watchPlaceholder" placeholder="Solana public address">
           <button class="pill-btn" id="walletInspectBtn" type="button" data-wallet-copy="inspect">Inspect</button>
         </div>
         <p class="wallet-watch-note" data-wallet-copy="watchHelp">Watch-only mode reads public blockchain data. It cannot spend funds and does not prove ownership. Never paste a recovery phrase or private key.</p>
@@ -5195,7 +5195,7 @@
           <div class="data-actions">
             <button class="pill-btn" id="exportBackupBtn" type="button">Export full backup</button>
             <button class="pill-btn" id="importBackupBtn" type="button">Restore backup</button>
-            <input id="backupFileInput" type="file" accept="application/json,.json" hidden>
+            <input id="backupFileInput" aria-label="Import a backup file" type="file" accept="application/json,.json" hidden>
           </div>
           <div class="settings-section">
             <div>
@@ -5289,7 +5289,7 @@
       </div>
       <div class="dialog-body">
         <p id="copyDialogHelp" style="margin:0;color:var(--muted)">The browser blocked automatic copying. The content below is selected and ready to copy.</p>
-        <textarea class="copy-dialog-text" id="copyDialogText" readonly></textarea>
+        <textarea class="copy-dialog-text" id="copyDialogText" aria-label="Text to copy" readonly></textarea>
       </div>
       <div class="dialog-actions">
         <button class="pill-btn" id="selectCopyTextBtn" type="button">Select all</button>

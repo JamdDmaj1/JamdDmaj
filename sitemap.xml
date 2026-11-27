@@ -12,4 +12,16 @@
     <loc>https://www.jamddmaj.com/?view=fair-launch</loc>
     <changefreq>weekly</changefreq>
   </url>
+  <url>
+    <loc>https://www.jamddmaj.com/sniper.html</loc>
+    <changefreq>daily</changefreq>
+  </url>
+  <url>
+    <loc>https://www.jamddmaj.com/terms.html</loc>
+    <changefreq>monthly</changefreq>
+  </url>
+  <url>
+    <loc>https://www.jamddmaj.com/privacy.html</loc>
+    <changefreq>monthly</changefreq>
+  </url>
 </urlset>
