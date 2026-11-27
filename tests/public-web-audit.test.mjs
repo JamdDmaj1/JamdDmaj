@@ -24,6 +24,14 @@ test('legal and wallet pages no longer expose the old Spanish shell', () => {
   assert.doesNotMatch(wallet, /Desbloquear en este navegador/);
 });
 
+test('operator fee setup page is English and keeps its safety status', () => {
+  const html = read('fee-recipient-setup.html');
+  assert.match(html, /<html lang="en"/i);
+  assert.match(html, /Prepare USDC fee reception/);
+  assert.match(html, /No USDC will be transferred/);
+  assert.doesNotMatch(html, /Receptor USDC|Preparar recepción/);
+});
+
 test('sitemap includes the public product and legal pages', () => {
   const sitemap = read('sitemap.xml');
   for (const path of ['/', '/discover.html', '/sniper.html', '/terms.html', '/privacy.html']) {

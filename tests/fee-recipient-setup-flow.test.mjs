@@ -211,7 +211,7 @@ test('page + Wallet Standard + HTTP uses explicit approval and exposes finalized
  await el.connect.onclick();await el.prepare.onclick();assert.match(el.summary.textContent,/0\.00149644 SOL/);assert.equal(el.confirm.disabled,true);
  await el.confirm.onclick();assert.equal(f.state.prompts,0);el.consent.checked=true;el.consent.onchange();assert.equal(el.confirm.disabled,false);
  await el.confirm.onclick();assert.equal(f.state.prompts,1);assert.equal(f.state.sends,1);assert.equal(el.confirm.disabled,true);
- await el.recover.onclick();assert.match(el.status.textContent,/operación finalizada/);assert.equal(values.size,0);
+ await el.recover.onclick();assert.match(el.status.textContent,/operation complete/);assert.equal(values.size,0);
 });
 
 async function approvalScenario(kind){
@@ -239,18 +239,18 @@ async function approvalScenario(kind){
 }
 test('extension focus lag waits for foreground and submits only the exact approved signature once',async()=>{
  const {f,el,focusWaits}=await approvalScenario('focus-return');assert.equal(focusWaits,1);assert.equal(f.state.prompts,1);assert.equal(f.state.sends,1);
- await el.recover.onclick();assert.match(el.status.textContent,/operación finalizada/);assert.equal(f.state.sends,1);
+ await el.recover.onclick();assert.match(el.status.textContent,/operation complete/);assert.equal(f.state.sends,1);
 });
 test('page accepts a verified readonly-key reorder without a second signature prompt or changed effects',async()=>{
- const {f,el}=await approvalScenario('readonly-reorder');assert.equal(f.state.prompts,1);assert.equal(f.state.sends,1);await el.recover.onclick();assert.match(el.status.textContent,/operación finalizada/);assert.equal(f.state.sends,1);
+ const {f,el}=await approvalScenario('readonly-reorder');assert.equal(f.state.prompts,1);assert.equal(f.state.sends,1);await el.recover.onclick();assert.match(el.status.textContent,/operation complete/);assert.equal(f.state.sends,1);
 });
 test('page accepts an owner-signed v0 equivalent and reconciles without requesting a second signature',async()=>{
- const {f,el}=await approvalScenario('v0');assert.equal(f.state.prompts,1);assert.equal(f.state.sends,1);await el.recover.onclick();assert.match(el.status.textContent,/operación finalizada/);assert.equal(f.state.sends,1);
+ const {f,el}=await approvalScenario('v0');assert.equal(f.state.prompts,1);assert.equal(f.state.sends,1);await el.recover.onclick();assert.match(el.status.textContent,/operation complete/);assert.equal(f.state.sends,1);
 });
 test('page accepts validated 439-byte protection guards, submits once and recovers',async()=>{
- const {f,el}=await approvalScenario('guards');assert.equal(f.state.prompts,1);assert.equal(f.state.sends,1);await el.recover.onclick();assert.match(el.status.textContent,/operación finalizada/);assert.equal(f.state.sends,1);
+ const {f,el}=await approvalScenario('guards');assert.equal(f.state.prompts,1);assert.equal(f.state.sends,1);await el.recover.onclick();assert.match(el.status.textContent,/operation complete/);assert.equal(f.state.sends,1);
 });
-for(const [kind,message]of [['expired',/La revisión venció/],['changed-wire',/SETUP_WALLET_TRANSACTION_CHANGED/],['focus-missing',/SETUP_FOCUS_NOT_RETURNED/],['hidden',/SETUP_FOCUS_NOT_RETURNED/],['changed-account',/La cuenta o la revisión cambió/],['provider-rejected',/SETUP_WALLET_DECLINED/],['provider-error',/SETUP_WALLET_SIGN_FAILED/]])test('approval safely retains the exact reason without submission: '+kind,async()=>{
+for(const [kind,message]of [['expired',/review expired/],['changed-wire',/SETUP_WALLET_TRANSACTION_CHANGED/],['focus-missing',/SETUP_FOCUS_NOT_RETURNED/],['hidden',/SETUP_FOCUS_NOT_RETURNED/],['changed-account',/account or review changed/],['provider-rejected',/SETUP_WALLET_DECLINED/],['provider-error',/SETUP_WALLET_SIGN_FAILED/]])test('approval safely retains the exact reason without submission: '+kind,async()=>{
  const {f,el,values}=await approvalScenario(kind);assert.equal(f.state.prompts,1);assert.equal(f.state.sends,0);assert.match(el.status.textContent,message);
  await el.recover.onclick();assert.match(el.status.textContent,message);assert.equal(f.state.sends,0);assert.equal(f.state.prompts,1);
  assert.doesNotMatch(el.status.textContent,/PRIVATE_PROVIDER_ERROR/);

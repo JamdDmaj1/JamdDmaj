@@ -27,7 +27,7 @@ test('compiled operator page discovers mocked Phantom, renders exact costs and n
    if(url.pathname==='/api/fee-recipient-setup'){methods.push(request.method());assert.equal(request.method(),'GET');return route.fulfill({json:{ok:true,result:packet}});}
    if(url.origin!==target)return route.abort();return route.continue();
   });
-  await page.goto(target+'/fee-recipient-setup.html');await page.locator('#connect').click();await page.locator('#wallet-status').filter({hasText:'Phantom conectada'}).waitFor();
+  await page.goto(target+'/fee-recipient-setup.html');await page.locator('#connect').click();await page.locator('#wallet-status').filter({hasText:'Phantom connected'}).waitFor();
   assert.equal(await page.locator('#flow-version').innerText(),'Asistente 2026.10.27.8');
   await page.locator('#prepare').click();await page.locator('#summary').filter({hasText:'0.00149644 SOL'}).waitFor();
   assert.equal(await page.locator('#confirm').isDisabled(),true);await page.locator('#consent').check();assert.equal(await page.locator('#confirm').isDisabled(),false);
