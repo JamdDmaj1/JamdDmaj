@@ -159,3 +159,10 @@ test('Finance fallback never shows a Spanish boot error', () => {
   assert.match(html, /The terminal did not mount\./);
   assert.doesNotMatch(html, /Cargando terminal|La terminal no se monto/);
 });
+
+test('new visitors get a neutral sign-in message and Price alerts keeps heading order', () => {
+  const access = read('lib/first-visit-access.js');
+  assert.match(access, /Sign in with Google to continue/);
+  assert.doesNotMatch(access, /Closing the app may have lost the session/);
+  assert.match(read('lib/market-signal-alerts.js'), /node\('h2',t\('Alertas de precio','Price alerts'\)\)/);
+});
