@@ -578,8 +578,8 @@ test("Fair Launch UI exposes a guided flow and non-disableable safety policy", (
     assert.match(html, new RegExp(`id="${id}"[^>]+checked disabled`));
   }
   assert.match(html, /id="fairTransactionPreview"/);
-  assert.match(html, /Mainnet bloqueado/);
-  assert.match(html, /no auditado/);
+  assert.match(html, /Mainnet blocked/);
+  assert.match(html, /not audited/);
   for (const id of ["fairLogoUrl", "fairBannerUrl", "fairWebsiteUrl", "fairXUrl", "fairTelegramUrl", "fairDiscordUrl"]) {
     assert.match(html, new RegExp(`id="${id}"`));
   }
