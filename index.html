@@ -35,6 +35,7 @@
   <link rel="manifest" href="/manifest.json">
   <link rel="apple-touch-icon" href="/icon-192.png">
   <title>JamdDmaj AI</title>
+<link rel="icon" type="image/png" href="/icon-192.png">
   <link rel="stylesheet" href="fair-launch.css">
   <style>
     :root {
@@ -1902,7 +1903,7 @@
       text-transform: uppercase;
     }
 
-    .learn-hero h1 {
+    .learn-hero h1, .learn-hero .learn-hero-title {
       max-width: 760px;
       margin: 0;
       font-size: clamp(2rem, 5vw, 4.3rem);
@@ -3931,7 +3932,7 @@
 .learn-hero:before{content:"";position:absolute;inset:-45% 45% 45% -10%;background:radial-gradient(circle,rgba(94,234,212,.16),transparent 65%);pointer-events:none}
 .learn-hero-main{position:relative;z-index:1;display:flex;flex-direction:column;justify-content:center}
 .learn-eyebrow{display:inline-flex;align-items:center;gap:8px;align-self:flex-start;padding:6px 12px;border-radius:999px;border:1px solid rgba(94,234,212,.3);background:rgba(94,234,212,.08);color:#bff7ec;font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase}
-.learn-hero h1{margin:14px 0 10px;font-size:clamp(31px,4.6vw,54px);line-height:1.02;letter-spacing:-.035em;color:#f2f8ff}
+.learn-hero h1,.learn-hero .learn-hero-title{margin:14px 0 10px;font-size:clamp(31px,4.6vw,54px);line-height:1.02;letter-spacing:-.035em;color:#f2f8ff}
 .learn-hero p{max-width:56ch;margin:0;color:#b6c6d8;line-height:1.6;font-size:15px}
 .learn-hero-side{position:relative;z-index:1;display:flex;flex-direction:column;gap:14px;justify-content:space-between}
 .learn-ring{width:132px;height:132px;margin-left:auto;border-radius:50%;display:grid;place-items:center;position:relative;background:conic-gradient(var(--learn-accent) calc(var(--learn-progress,0)*1%),rgba(148,163,184,.18) 0);box-shadow:0 0 46px rgba(94,234,212,.14)}
@@ -4014,7 +4015,7 @@
 }
 .learn-shell{gap:16px}
 .learn-hero{padding:clamp(18px,3vw,28px)}
-.learn-hero h1{font-size:clamp(29px,3.6vw,44px);margin:10px 0 8px}
+.learn-hero h1,.learn-hero .learn-hero-title{font-size:clamp(29px,3.6vw,44px);margin:10px 0 8px}
 .learn-hero p{font-size:14px}
 .learn-ring{width:112px;height:112px}
 .learn-path-ring{width:84px;height:84px}
@@ -4204,7 +4205,7 @@
           <header class="fair-launch-hero">
             <div>
               <span class="fair-launch-kicker" data-fl-ui="heroKicker">JamdDmaj Fair Launch · secure lab</span>
-              <h1 data-fl-ui="heroTitle">Create your token in five clear steps.</h1>
+              <h2 class="fair-launch-hero-title" data-fl-ui="heroTitle">Create your token in five clear steps.</h2>
               <p data-fl-ui="heroText">Define the project, apply the mandatory anti-rug protections and test a Token-2022 mint on Solana Devnet. Mainnet and real payments remain disabled.</p>
             </div>
             <button class="pill-btn" id="exitFairLaunchBtn" type="button" data-fl-ui="back">Back</button>
@@ -4805,7 +4806,7 @@
           <div class="learn-hero">
             <div class="learn-hero-main">
               <span class="learn-eyebrow" id="learnEyebrow">JamdDmaj Learn</span>
-              <h1 id="learnHeroTitle">Learn something you can use.</h1>
+              <h2 class="learn-hero-title" id="learnHeroTitle">Learn something you can use.</h2>
               <p id="learnHeroText">Guided paths, personal explanations, exercises, and practice with a tutor that adapts to your level.</p>
             </div>
             <aside class="learn-hero-side">
@@ -5365,7 +5366,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      let APP_VERSION = "1.81.81";
+      let APP_VERSION = "1.81.82";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -15712,7 +15713,7 @@ if (tgResult) {
     })();
   </script>
   <script type="module" src="fair-launch-ui.js?v=1.38.27"></script>
-  <script type="module" src="wallet-login-ui.js?v=1.81.81"></script>
+  <script type="module" src="wallet-login-ui.js?v=1.81.82"></script>
   <script type="module" src="web-trial-ui.js"></script>
   <script type="module" src="jamd-credit-ui.js"></script>
   <script type="module" src="first-visit-ui.js"></script>

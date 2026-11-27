@@ -1,10 +1,11 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="dark">
-  <title>Volviendo a JamdDmaj AI</title>
+  <title>Returning to JamdDmaj AI</title>
+<link rel="icon" type="image/png" href="/icon-192.png">
   <style>
     * {
       box-sizing: border-box;
@@ -56,9 +57,9 @@
 </head>
 <body>
   <main>
-    <h1>Autorización completada</h1>
-    <p id="message">Volviendo a JamdDmaj AI...</p>
-    <button id="openAppBtn" type="button">Abrir JamdDmaj AI</button>
+    <h1>Authorization complete</h1>
+    <p id="message">Returning to JamdDmaj AI...</p>
+    <button id="openAppBtn" type="button">Open JamdDmaj AI</button>
   </main>
 
   <script>
@@ -68,7 +69,7 @@
       const message = document.getElementById("message");
 
       if (!code) {
-        message.textContent = "OpenRouter no devolvió un código de autorización. Inténtalo de nuevo.";
+        message.textContent = "OpenRouter did not return an authorization code. Please try again.";
         button.hidden = true;
         return;
       }
