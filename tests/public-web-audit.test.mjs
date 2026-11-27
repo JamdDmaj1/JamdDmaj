@@ -70,3 +70,11 @@ test('Automation deep link targets the visible automation card', () => {
   assert.match(read('lib/automation-panel-simple.js'), /section\.id = 'jamd-automation'/);
   assert.match(read('lib/terminal-layout.js'), /scrollIntoView/);
 });
+
+test('Fair Launch mainnet panels are English', () => {
+  const html = read('index.html');
+  assert.match(html, /Create token · Solana mainnet/);
+  assert.match(html, /Pool and liquidity · Token \/ USDC/);
+  assert.match(html, /Protected lab · Devnet only/);
+  assert.doesNotMatch(html, /Crear token|Pool y liquidez|Laboratorio protegido/);
+});

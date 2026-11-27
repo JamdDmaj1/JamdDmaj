@@ -4211,11 +4211,11 @@
             <button class="pill-btn" id="exitFairLaunchBtn" type="button" data-fl-ui="back">Back</button>
           </header>
 
-          <div class="fair-release-status" aria-label="Estado de publicación" data-fl-aria="statusAria">
-            <span data-state="safe"><strong data-fl-key="designProtected">Diseño protegido</strong><small data-fl-key="mandatoryRules">Reglas JamdDmaj obligatorias</small></span>
-            <span data-state="pending"><strong data-fl-key="devnetPending">Devnet pendiente</strong><small id="fairDevnetBadgeText" data-fl-key="noOnchainVerification">Sin verificación on-chain</small></span>
-            <span data-state="pending"><strong data-fl-key="auditPending">Auditoría pendiente</strong><small data-fl-key="notCertification">No es una certificación</small></span>
-            <span data-state="blocked"><strong data-fl-key="mainnetBlocked">Mainnet bloqueado</strong><small data-fl-key="noRealPayments">Sin pagos ni fondos reales</small></span>
+          <div class="fair-release-status" aria-label="Release status" data-fl-aria="statusAria">
+            <span data-state="safe"><strong data-fl-key="designProtected">Protected design</strong><small data-fl-key="mandatoryRules">Mandatory JamdDmaj rules</small></span>
+            <span data-state="pending"><strong data-fl-key="devnetPending">Devnet pending</strong><small id="fairDevnetBadgeText" data-fl-key="noOnchainVerification">No on-chain verification</small></span>
+            <span data-state="pending"><strong data-fl-key="auditPending">Audit pending</strong><small data-fl-key="notCertification">Not a certification</small></span>
+            <span data-state="blocked"><strong data-fl-key="mainnetBlocked">Mainnet blocked</strong><small data-fl-key="noRealPayments">No payments or real funds</small></span>
           </div>
 
           <div class="fair-guided-banner">
@@ -4237,7 +4237,7 @@
             </div>
             <div class="fair-wallet-controls">
               <label for="fairWalletSelect" data-fl-ui="detectedWallet">Detected wallet</label>
-              <select id="fairWalletSelect"><option value="">Buscando wallets…</option></select>
+              <select id="fairWalletSelect"><option value="">Searching wallets...</option></select>
               <div class="fair-launch-actions">
                 <button class="pill-btn active" id="fairConnectWalletBtn" type="button" disabled data-fl-ui="connectWallet">Connect wallet</button>
                 <button class="pill-btn" id="fairCopyWalletBtn" type="button" hidden data-fl-ui="copyAddress">Copy address</button>
@@ -4257,47 +4257,47 @@
             <p class="fair-wallet-help" data-fl-ui="mobileHelp">On mobile, wallet connection works inside the wallet browser. Never continue through a red malicious-site warning.</p>
           </section>
 
-          <section class="fair-launch-panel" id="tokenCreatorMainnet" aria-label="Crear un token en Solana mainnet">
-            <h2>Crear token · Solana mainnet</h2>
-            <p>Crea un token de suministro fijo con tu wallet. Se usa SOL real. Este creador es independiente del laboratorio protegido: no crea pool, vesting ni distribución automática.</p>
-            <button type="button" data-token="preset">Usar JAMD · 100 millones</button>
+          <section class="fair-launch-panel" id="tokenCreatorMainnet" aria-label="Create a token on Solana mainnet">
+            <h2>Create token · Solana mainnet</h2>
+            <p>Create a fixed-supply token with your wallet. Real SOL is used. This creator is independent from the protected lab: it does not create a pool, vesting or automatic distribution.</p>
+            <button type="button" data-token="preset">Use JAMD · 100 million</button>
             <div class="fair-form-grid">
-              <label>Nombre<input data-token="name" maxlength="60" value="JamdDmaj"></label>
-              <label>Símbolo<input data-token="symbol" maxlength="10" value="JAMD"></label>
-              <label>Suministro total<input data-token="supply" inputmode="numeric" value="100000000"></label>
-              <label>Decimales<input data-token="decimals" type="number" min="0" max="9" value="6"></label>
+              <label>Name<input data-token="name" maxlength="60" value="JamdDmaj"></label>
+              <label>Symbol<input data-token="symbol" maxlength="10" value="JAMD"></label>
+              <label>Total supply<input data-token="supply" inputmode="numeric" value="100000000"></label>
+              <label>Decimals<input data-token="decimals" type="number" min="0" max="9" value="6"></label>
               <label>Wallet<select data-token="wallets"></select></label>
             </div>
-            <button type="button" data-token="check-name">Comprobar nombre y símbolo</button>
-            <p>Consultamos nombres y símbolos en índices públicos, sin enviar datos de tu wallet. Las coincidencias detectadas bloquean este formulario; no existe reserva universal de nombres en Solana.</p>
+            <button type="button" data-token="check-name">Check name and symbol</button>
+            <p>We check names and symbols in public indexes without sending wallet data. Detected matches block this form; Solana has no universal name reservation.</p>
             <div data-token="name-results" role="status" aria-live="polite"></div>
-            <button type="button" data-token="connect">Conectar wallet</button>
-            <button type="button" data-token="prepare" disabled>Revisar creación · no envía</button>
+            <button type="button" data-token="connect">Connect wallet</button>
+            <button type="button" data-token="prepare" disabled>Review creation · does not send</button>
             <div data-token="review" aria-live="polite"></div>
-            <label><input type="checkbox" data-token="approval"> Revisé la red mainnet, el coste en SOL y los permisos. Autorizo únicamente esta creación.</label>
-            <button type="button" data-token="submit" disabled>Aprobar en mi wallet y crear</button>
-            <button type="button" data-token="recover" hidden>Consultar creación pendiente · no reenvía</button>
-            <p data-token="status" role="status">Conecta una wallet compatible para revisar. No se importa ninguna clave.</p>
+            <label><input type="checkbox" data-token="approval"> I reviewed the mainnet, the SOL cost and the permissions. I authorize only this creation.</label>
+            <button type="button" data-token="submit" disabled>Approve in my wallet and create</button>
+            <button type="button" data-token="recover" hidden>Check pending creation · does not resend</button>
+            <p data-token="status" role="status">Connect a compatible wallet to review. No key is imported.</p>
           </section>
-          <section class="fair-launch-panel" id="cpmmPoolMainnet" aria-label="Crear pool o añadir liquidez en Solana mainnet">
-            <h2>Pool y liquidez · Token / USDC</h2>
-            <p>Crea un pool Raydium CPMM o añade liquidez al pool existente, usando su configuración estándar. Se aportan los dos tokens y SOL real. Introduce la dirección exacta de tu token; el nombre no demuestra su identidad.</p>
-            <p><strong>Esta aportación NO queda bloqueada.</strong> No activa la comisión del 1%, el bloqueo permanente ni la distribución de JAMD. Esos mecanismos siguen pendientes.</p>
+          <section class="fair-launch-panel" id="cpmmPoolMainnet" aria-label="Create a pool or add liquidity on Solana mainnet">
+            <h2>Pool and liquidity · Token / USDC</h2>
+            <p>Create a Raydium CPMM pool or add liquidity to an existing pool using its standard configuration. Both tokens and real SOL are contributed. Enter the exact token address; the name does not prove its identity.</p>
+            <p><strong>This contribution is NOT locked.</strong> It does not activate the 1% fee, permanent lock or JAMD distribution. Those mechanisms remain pending.</p>
             <div class="fair-form-grid">
-              <label>Dirección del token · Solana<input data-pool="mint" autocomplete="off" spellcheck="false" placeholder="Dirección mint, no dirección de tu wallet"></label>
-              <label>Cantidad de tokens · máximo al añadir<input data-pool="tokens" inputmode="decimal" autocomplete="off" placeholder="Por ejemplo: 1000000"></label>
-              <label>USDC · máximo al añadir<input data-pool="usdc" inputmode="decimal" autocomplete="off" placeholder="Elige tu importe"></label>
-              <label>Wallet para aportar<select data-pool="wallets"></select></label>
+              <label>Token address · Solana<input data-pool="mint" autocomplete="off" spellcheck="false" placeholder="Mint address, not your wallet address"></label>
+              <label>Token amount · maximum to add<input data-pool="tokens" inputmode="decimal" autocomplete="off" placeholder="For example: 1000000"></label>
+              <label>USDC · maximum to add<input data-pool="usdc" inputmode="decimal" autocomplete="off" placeholder="Choose your amount"></label>
+              <label>Wallet to contribute<select data-pool="wallets"></select></label>
             </div>
-            <button type="button" data-pool="connect">Conectar wallet</button>
-            <button type="button" data-pool="prepare" disabled>Consultar saldos y revisar pool · no envía</button>
+            <button type="button" data-pool="connect">Connect wallet</button>
+            <button type="button" data-pool="prepare" disabled>Check balances and review pool · does not send</button>
             <div data-pool="review" aria-live="polite"></div>
-            <label><input type="checkbox" data-pool="approval"> Revisé la wallet, el token, el pool, los importes y los costes. Entiendo el riesgo y que los LP NO quedan bloqueados. Autorizo únicamente esta aportación.</label>
-            <button type="button" data-pool="submit" disabled>Aprobar aportación en mi wallet</button>
-            <button type="button" data-pool="recover" hidden>Consultar aportación pendiente · no reenvía</button>
-            <p data-pool="status" role="status">Conecta una wallet compatible con Solana mainnet. Solo tokens sin emisión adicional, congelación ni extensiones de transferencia especiales; USDC canónico.</p>
+            <label><input type="checkbox" data-pool="approval"> I reviewed the wallet, token, pool, amounts and costs. I understand the risk and that the LP is NOT locked. I authorize only this contribution.</label>
+            <button type="button" data-pool="submit" disabled>Approve contribution in my wallet</button>
+            <button type="button" data-pool="recover" hidden>Check pending contribution · does not resend</button>
+            <p data-pool="status" role="status">Connect a wallet compatible with Solana mainnet. Only tokens without extra minting, freezing or special transfer extensions; canonical USDC.</p>
           </section>
-          <h2>Laboratorio protegido · solo Devnet</h2>
+          <h2>Protected lab · Devnet only</h2>
           <div class="fair-launch-grid">
             <form class="fair-launch-panel" id="fairLaunchForm">
               <h2 data-fl-ui="formTitle">Create your token</h2>
@@ -4424,7 +4424,7 @@
                   <button class="pill-btn active" id="fairCreateDevnetTokenBtn" type="button" disabled data-fl-ui="createTest">Create test token</button>
                   <a class="pill-btn" href="https://faucet.solana.com/" target="_blank" rel="noopener noreferrer" data-fl-ui="faucet">Get test SOL</a>
                 </div>
-                <p class="fair-launch-note" id="fairDevnetStatus" role="status" aria-live="polite">Conecta una wallet compatible para habilitar la prueba.</p>
+                <p class="fair-launch-note" id="fairDevnetStatus" role="status" aria-live="polite">Connect a compatible wallet to enable the test.</p>
                 <div class="fair-devnet-result" id="fairDevnetResult" hidden></div>
                 <div class="fair-devnet-result">
                   <p data-fl-ui="mockLiquidityNotice">Next safe rehearsal: create one valueless mock LP receipt and lock it on Devnet for at least 24 months. This is not real liquidity or a market.</p>
@@ -4450,7 +4450,7 @@
               <h2 data-fl-ui="reviewTitle">Live safety summary</h2>
               <div class="fair-score-card">
                 <span class="fair-grade" id="fairSecurityGrade">A</span>
-                <div><strong id="fairSecurityScore">100/100 de diseño</strong><span id="fairReadiness">Cumple las reglas JamdDmaj · no auditado</span></div>
+                <div><strong id="fairSecurityScore">100/100 design</strong><span id="fairReadiness">Meets JamdDmaj rules · not audited</span></div>
               </div>
               <div class="fair-launch-stats">
                 <div class="fair-launch-stat"><strong data-fl-ui="creatorStat">Creator purchase</strong><span id="fairCreatorPreview">—</span></div>
