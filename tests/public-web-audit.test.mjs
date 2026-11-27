@@ -65,3 +65,8 @@ test('desktop backup export falls back to a real download', () => {
   assert.match(html, /nativeOrMobile/);
   assert.match(html, /if \(canShare && nativeOrMobile\)/);
 });
+
+test('Automation deep link targets the visible automation card', () => {
+  assert.match(read('lib/automation-panel-simple.js'), /section\.id = 'jamd-automation'/);
+  assert.match(read('lib/terminal-layout.js'), /scrollIntoView/);
+});
