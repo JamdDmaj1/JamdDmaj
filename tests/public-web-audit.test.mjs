@@ -128,3 +128,11 @@ test('Discover keeps its advertised language selector usable', () => {
   assert.doesNotMatch(js, /language\.hidden = true/);
   assert.match(js, /language\.hidden = false/);
 });
+
+test('public app and Discover link to Terms and Privacy', () => {
+  for (const name of ['index.html', 'discover.html', 'sniper.html']) {
+    const html = read(name);
+    assert.match(html, /href="\/terms\.html"/, name);
+    assert.match(html, /href="\/privacy\.html"/, name);
+  }
+});

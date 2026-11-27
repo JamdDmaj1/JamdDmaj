@@ -310,3 +310,7 @@
 .sniper-risk-summary{margin:2px 0 7px;padding:6px 9px;border-radius:9px;background:#1b1414;border:1px solid #4a262c;color:#ffb3c0;font-size:11px}
 .sniper-risk-summary.ok{background:#0d201b;border-color:#1d4b40;color:#7ef0cf}
 @media(min-width:900px){.sniper-checks{grid-template-columns:1fr 1fr;column-gap:18px}}
+
+.sniper-legal{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px}
+.sniper-legal a{color:#9ab2ca;font-size:11px;font-weight:700;text-decoration:none}
+.sniper-legal a:hover{color:#50e2bd}

@@ -5,3 +5,7 @@
 #language:hover{border-color:#28d8f1}
 #language:focus-visible{outline:3px solid #28d8f1;outline-offset:3px}
 @media(max-width:560px){#language{min-height:36px;padding-right:27px}}
+
+.footer-legal{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.footer-legal a{color:var(--muted);font-size:12px;font-weight:700;text-decoration:none}
+.footer-legal a:hover{color:var(--cyan)}
