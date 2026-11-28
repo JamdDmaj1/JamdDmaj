@@ -83,7 +83,7 @@ async function syncExchangePositions(store, accountHash, row, exchange, position
   }
   store.updateConnectionSync(accountHash, row.id, {
     status: 'connected', lastError: null,
-    balance: null,
+    balance: row.balance_json ? JSON.parse(row.balance_json) : null,
     positions: positions.map(position => ({
       symbol: position.symbol, side: position.side, amount: position.amount,
       entry: position.entry, mark: position.mark, leverage: position.leverage,
