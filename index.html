@@ -3760,7 +3760,7 @@
         overscroll-behavior: contain;
       }
 
-      .top-actions .pill-btn:not(#learnBtn):not(#marketsBtn):not(#tradingDemoBtn):not(#fairLaunchBtn):not(#sniperBtn):not(#walletBtn):not(#topThemeBtn):not(#topSettingsBtn) {
+      .top-actions .pill-btn:not(#learnBtn):not(#marketsBtn):not(#tradingDemoBtn):not(#liveTopBtn):not(#fairLaunchBtn):not(#sniperBtn):not(#walletBtn):not(#topThemeBtn):not(#topSettingsBtn) {
         display: none;
       }
 
@@ -3768,7 +3768,8 @@
         display: block;
       }
 
-      .top-actions #tradingDemoBtn {
+      .top-actions #tradingDemoBtn,
+      .top-actions #liveTopBtn {
         display: block;
         order: -1;
         flex-shrink: 0;
@@ -4165,6 +4166,7 @@
           <button class="pill-btn" id="learnBtn" type="button">Learn</button>
           <button class="pill-btn" id="marketsBtn" type="button">Markets</button>
           <button class="pill-btn" id="tradingDemoBtn" type="button">Trade</button>
+          <a class="pill-btn" id="liveTopBtn" href="/live.html" title="JamdDmaj Live trading">Live</a>
           <button class="pill-btn" id="fairLaunchBtn" type="button">Fair Launch</button>
             <a class="pill-btn" id="sniperBtn" href="/sniper.html">Sniper</a>
           <button class="pill-btn" id="walletBtn" type="button"><span data-wallet-button-label>Wallet</span></button>
@@ -5469,7 +5471,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      let APP_VERSION = "1.81.114";
+      let APP_VERSION = "1.81.115";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -15896,7 +15898,7 @@ if (tgResult) {
     })();
   </script>
   <script type="module" src="fair-launch-ui.js?v=1.38.27"></script>
-  <script type="module" src="wallet-login-ui.js?v=1.81.114"></script>
+  <script type="module" src="wallet-login-ui.js?v=1.81.115"></script>
   <script type="module" src="web-trial-ui.js"></script>
   <script type="module" src="jamd-credit-ui.js"></script>
   <script type="module" src="first-visit-ui.js"></script>
