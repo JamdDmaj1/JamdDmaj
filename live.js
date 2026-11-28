@@ -110,7 +110,7 @@ async function startLiveGoogle() {
     button.disabled = false;
   }
 }
-function friendlyError(code) {
+function friendlyError(code, exchange = '') {
   const map = {
     'exchange-credentials-invalid': 'The exchange rejected the API key, secret or passphrase. Check that you selected the correct exchange and that the key is active.',
     'live-passphrase-required': 'This exchange requires the API passphrase.',
@@ -120,7 +120,8 @@ function friendlyError(code) {
     'live-exchange-unsupported': 'This exchange is not supported by the current adapter.',
     'live-rate-limited': 'Too many attempts. Wait a minute and try again.'
   };
-  return map[String(code || '').toLowerCase()] || String(code || 'The exchange connection failed.');
+  const message = map[String(code || '').toLowerCase()] || String(code || 'The exchange connection failed.');
+  return exchange ? `${message} (${exchange})` : message;
 }
 function showAuth() {
   $('liveAuth').hidden = false;
@@ -424,7 +425,7 @@ function wire() {
       await loadStatus();
       await loadPositions();
     } catch (error) {
-      const message = friendlyError(error.message);
+      const message = friendlyError(error.message, $('liveExchange').selectedOptions[0]?.textContent || $('liveExchange').value);
       alertBox(message);
       toast(message, true);
     } finally {

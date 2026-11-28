@@ -152,7 +152,8 @@ export async function startServer({env = process.env} = {}) {
 
   function fail(request, response, error) {
     if (error?.message === 'LIVE_EXCHANGE_AUTH_FAILED') {
-      return send(request, response, 409, {error: {code: 'exchange-credentials-invalid'}});
+      try { console.warn('LIVE_AUTH_FAILED', String(error.exchange || 'unknown')); } catch {}
+      return send(request, response, 409, {error: {code: 'exchange-credentials-invalid', exchange: error.exchange || null}});
     }
     const status = Number(error?.status) || 500;
     const code = status >= 500 ? 'live-service-error' : String(error?.message || 'live-request-failed').toLowerCase();
@@ -288,7 +289,13 @@ export async function startServer({env = process.env} = {}) {
         if (existing.some(row => row.exchange === definition.id && row.label === label)) {
           throw Object.assign(Error('LIVE_CONNECTION_EXISTS'), {status: 409});
         }
-        const checked = await probeExchange(definition, {apiKey, secret, passphrase}, {timeout: config.requestTimeoutMs});
+        let checked;
+        try {
+          checked = await probeExchange(definition, {apiKey, secret, passphrase}, {timeout: config.requestTimeoutMs});
+        } catch (error) {
+          error.exchange = definition.id;
+          throw error;
+        }
         if (checked.permissions?.withdrawals === true) throw Object.assign(Error('LIVE_WITHDRAWAL_PERMISSION_ENABLED'), {status: 409});
         const id = cryptoRandomId();
         const context = vaultContext({accountHash, connectionId: id, exchange: definition.id});
