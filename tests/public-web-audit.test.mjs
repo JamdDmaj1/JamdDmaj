@@ -174,3 +174,14 @@ test('Discover static fallback is English before JavaScript runs', () => {
   assert.match(html, /Everything connected/);
   assert.doesNotMatch(html, /Tu mundo cripto|ELIGE TU ESPACIO|Todo conectado/);
 });
+
+test('Futures copy reflects the active Phoenix catalog, not the old three-market text', () => {
+  const layout = read('lib/terminal-layout.js');
+  const discover = read('discover.js');
+  const discoverHtml = read('discover.html');
+  assert.doesNotMatch(layout, /33 mercados|33 markets|BTC - ETH - SOL|BTC, ETH y SOL|BTC, ETH and SOL/);
+  assert.match(layout, /Mercados disponibles: Phoenix/);
+  assert.doesNotMatch(discover, /Futures supports BTC, ETH and SOL only|Futuros admite solo BTC/);
+  assert.match(discover, /active Phoenix markets|mercados activos de Phoenix/);
+  assert.doesNotMatch(discoverHtml, /BTC, ETH y SOL|BTC, ETH and SOL/);
+});
