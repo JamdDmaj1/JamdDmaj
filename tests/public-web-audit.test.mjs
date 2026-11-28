@@ -193,3 +193,13 @@ test('Pro Signals persists margin, planning leverage and protection fields', () 
   assert.match(html, /protectionTriggerRoe: Number\(document\.getElementById\("proTriggerRoeInput"\)/);
   assert.match(html, /exitProtectionTriggerRoe: Number\(document\.getElementById\("proTriggerRoeInput"\)/);
 });
+
+test('Pro Signals exposes one simple Bitget control panel', () => {
+  const html = read('index.html');
+  assert.match(html, /id="bitgetSimplePanel"/);
+  for (const id of ['simpleBitgetMargin', 'simpleBitgetLeverage', 'simpleBitgetMaxOpen', 'simpleBitgetProtection', 'simpleBitgetLiveBtn']) {
+    assert.match(html, new RegExp('id="' + id + '"'));
+  }
+  assert.match(html, /pro-legacy-controls/);
+  assert.match(html, /function saveSimpleBitgetConfig/);
+});

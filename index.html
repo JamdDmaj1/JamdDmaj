@@ -1143,6 +1143,63 @@
       background: rgba(251, 113, 133, 0.1);
     }
 
+
+    .bitget-simple-panel {
+      display: grid;
+      gap: 12px;
+      padding: 14px;
+      border: 1px solid rgba(52, 211, 153, 0.34);
+      border-radius: 16px;
+      background: rgba(3, 20, 18, 0.42);
+    }
+
+    .bitget-simple-head,
+    .bitget-simple-live-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .bitget-simple-head strong { font-size: 0.98rem; }
+    .bitget-simple-head span { color: var(--muted); font-size: 0.72rem; }
+
+    .bitget-simple-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(110px, 1fr));
+      gap: 8px;
+    }
+
+    .bitget-simple-grid label {
+      display: grid;
+      gap: 4px;
+      color: var(--muted);
+      font-size: 0.7rem;
+      font-weight: 750;
+    }
+
+    .bitget-simple-grid input,
+    .bitget-simple-grid select {
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      padding: 0 9px;
+      background: var(--panel-2);
+      color: var(--text);
+    }
+
+    .bitget-simple-note { color: var(--muted); font-size: 0.68rem; line-height: 1.35; }
+    .pro-legacy-controls, .pro-legacy-actions { display: none !important; }
+
+    @media (max-width: 700px) {
+      .bitget-simple-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 420px) {
+      .bitget-simple-grid { grid-template-columns: 1fr; }
+    }
+
     .trader-server {
       display: grid;
       gap: 12px;
@@ -4655,7 +4712,7 @@
                 <small id="proServerLastRun">No server cycle recorded yet.</small>
                 <small id="proExecutorStatus">Ejecutor: esperando actividad del servidor.</small>
               </div>
-              <div class="trader-server-actions">
+              <div class="trader-server-actions pro-legacy-actions">
                 <button class="pill-btn danger" id="pauseLiveExecutorBtn" type="button">Pause live</button>
                 <button class="pill-btn" id="toggleProServerBtn" type="button">Enable 24/7</button>
                 <button class="pill-btn" id="runProServerBtn" type="button">Run server now</button>
@@ -4663,7 +4720,38 @@
                 <button class="pill-btn" id="refreshProServerBtn" type="button">Refresh</button>
               </div>
             </div>
-            <div class="trader-alert-controls">
+            <div class="bitget-simple-panel" id="bitgetSimplePanel">
+              <div class="bitget-simple-head">
+                <strong id="bitgetSimpleTitle">Bitget Live</strong>
+                <span id="bitgetSimpleState">Comprobando estado...</span>
+              </div>
+              <div class="bitget-simple-grid">
+                <label><span id="simpleBitgetMarginLabel">Margen por trade (USDT)</span>
+                  <input id="simpleBitgetMargin" type="number" min="10" max="1000" step="1" value="10">
+                </label>
+                <label><span id="simpleBitgetLeverageLabel">Apalancamiento</span>
+                  <select id="simpleBitgetLeverage">
+                    <option value="2">2x</option>
+                    <option value="3">3x</option>
+                    <option value="5">5x</option>
+                    <option value="10">10x</option>
+                    <option value="15">15x</option>
+                    <option value="20">20x</option>
+                  </select>
+                </label>
+                <label><span id="simpleBitgetMaxOpenLabel">Trades a la vez</span>
+                  <input id="simpleBitgetMaxOpen" type="number" min="1" max="10" step="1" value="1">
+                </label>
+                <label><span id="simpleBitgetProtectionLabel">Protección (ROE %)</span>
+                  <input id="simpleBitgetProtection" type="number" min="0.5" max="50" step="0.5" value="4">
+                </label>
+              </div>
+              <div class="bitget-simple-live-row">
+                <button class="pill-btn" id="simpleBitgetLiveBtn" type="button">Encender live</button>
+                <small class="bitget-simple-note" id="simpleBitgetNote">El margen se guarda como fijo y máximo. El TP/SL y las protecciones se gestionan automáticamente.</small>
+              </div>
+            </div>
+            <div class="trader-alert-controls pro-legacy-controls">
               <label><span id="maxDailyLossUsdLabel">Max daily loss (USD)</span>
                 <input id="maxDailyLossUsdInput" type="number" min="1" max="100000" step="1" value="25">
               </label>
@@ -5380,7 +5468,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      let APP_VERSION = "1.81.97";
+      let APP_VERSION = "1.81.98";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -8942,6 +9030,65 @@ function createLearnNotificationCard() {
         }
       }
 
+      function renderSimpleBitget(config = {}, spanish = false) {
+        const margin = document.getElementById("simpleBitgetMargin");
+        if (!margin) return;
+        const fixed = Number(config.fixedMarginUsd) || Number(config.maxLiveMarginUsd) || 10;
+        const maxMargin = Number(config.maxLiveMarginUsd) || fixed;
+        const livePaused = config.livePaused === true;
+        margin.value = String(Math.max(10, Math.round(Math.max(fixed, maxMargin))));
+        document.getElementById("simpleBitgetLeverage").value = String(Number(config.leverage) || 10);
+        document.getElementById("simpleBitgetMaxOpen").value = String(Number(config.maxLiveOpen) || 1);
+        document.getElementById("simpleBitgetProtection").value = String(Number(config.exitProtectionTriggerRoe ?? config.protectionTriggerRoe) || 4);
+        document.getElementById("bitgetSimpleTitle").textContent = spanish ? "Bitget Live" : "Bitget Live";
+        document.getElementById("bitgetSimpleState").textContent = livePaused
+          ? (spanish ? "Live apagado" : "Live off")
+          : (spanish ? "Live encendido" : "Live on");
+        document.getElementById("simpleBitgetMarginLabel").textContent = spanish ? "Margen por trade (USDT)" : "Margin per trade (USDT)";
+        document.getElementById("simpleBitgetLeverageLabel").textContent = spanish ? "Apalancamiento" : "Leverage";
+        document.getElementById("simpleBitgetMaxOpenLabel").textContent = spanish ? "Trades a la vez" : "Trades at once";
+        document.getElementById("simpleBitgetProtectionLabel").textContent = spanish ? "Proteccion (ROE %)" : "Protection (ROE %)";
+        const liveButton = document.getElementById("simpleBitgetLiveBtn");
+        liveButton.textContent = livePaused
+          ? (spanish ? "Encender live" : "Turn live on")
+          : (spanish ? "Apagar live" : "Turn live off");
+        liveButton.classList.toggle("active", livePaused);
+        liveButton.classList.toggle("danger", !livePaused);
+        document.getElementById("simpleBitgetNote").textContent = spanish
+          ? "Margen fijo y maximo se guardan juntos. TP/SL y protecciones se gestionan automaticamente."
+          : "Fixed and max margin save together. TP/SL and protection are managed automatically.";
+      }
+
+      async function saveSimpleBitgetConfig() {
+        if (!telegramOwnerAuthorized || !proServerState?.config) return;
+        const margin = Math.max(10, Math.min(1000, Number(document.getElementById("simpleBitgetMargin")?.value) || 10));
+        const leverage = Math.max(1, Math.min(20, Number(document.getElementById("simpleBitgetLeverage")?.value) || 10));
+        const maxOpen = Math.max(1, Math.min(10, Number(document.getElementById("simpleBitgetMaxOpen")?.value) || 1));
+        const protection = Math.max(0.5, Math.min(50, Number(document.getElementById("simpleBitgetProtection")?.value) || 4));
+        const lock = Math.min(2, protection);
+        try {
+          proServerState = await callProApi({
+            action: "config",
+            config: {
+              ...proServerState.config,
+              fixedMarginUsd: margin,
+              maxLiveMarginUsd: margin,
+              leverage,
+              maxLiveOpen: maxOpen,
+              protectionTriggerRoe: protection,
+              protectionLockRoe: lock,
+              exitProtectionTriggerRoe: protection,
+              exitProtectionLockRoe: lock,
+              exitManager: true
+            }
+          });
+          renderProServerState(proServerState);
+          showToast(resolvedLanguage() === "es" ? "Configuracion de Bitget guardada." : "Bitget settings saved.");
+        } catch (error) {
+          showToast(error?.message || (resolvedLanguage() === "es" ? "No se pudo guardar." : "Could not save."));
+        }
+      }
+
       function renderProServerState(state) {
         if (!state) return;
         const spanish = resolvedLanguage() === "es";
@@ -9013,6 +9160,7 @@ function createLearnNotificationCard() {
         document.getElementById("bitgetMaxDriftLabel").textContent = spanish ? "Entrada tardia max. (%)" : "Max late entry move (%)";
         document.getElementById("bitgetAllowMemeLabel").textContent = spanish ? "Meme/cap desconocida en live" : "Meme/unknown-cap live";
         document.getElementById("bitgetExitManagerLabel").textContent = spanish ? "Proteccion automatica" : "Auto protect exits";
+        renderSimpleBitget(state.config || {}, spanish);
         const pauseButton = document.getElementById("pauseLiveExecutorBtn");
         const livePaused = state.config?.livePaused === true;
         pauseButton.textContent = livePaused ? (spanish ? "Reactivar live" : "Resume live") : (spanish ? "Pausar live" : "Pause live");
@@ -15112,6 +15260,10 @@ document.getElementById("exitLearnBtn").addEventListener("click", exitLearnMode)
         document.getElementById(id).addEventListener("change", syncProServerConfig);
       });
       document.getElementById("pauseLiveExecutorBtn").addEventListener("click", toggleLiveExecutorPause);
+      ["simpleBitgetMargin", "simpleBitgetLeverage", "simpleBitgetMaxOpen", "simpleBitgetProtection"].forEach((id) => {
+        document.getElementById(id).addEventListener("change", saveSimpleBitgetConfig);
+      });
+      document.getElementById("simpleBitgetLiveBtn").addEventListener("click", toggleLiveExecutorPause);
       document.getElementById("toggleProServerBtn").addEventListener("click", toggleProServer);
       document.getElementById("runProServerBtn").addEventListener("click", runProServerNow);
       document.getElementById("queueBitgetTestBtn").addEventListener("click", queueBitgetExecutorTest);
@@ -15742,7 +15894,7 @@ if (tgResult) {
     })();
   </script>
   <script type="module" src="fair-launch-ui.js?v=1.38.27"></script>
-  <script type="module" src="wallet-login-ui.js?v=1.81.97"></script>
+  <script type="module" src="wallet-login-ui.js?v=1.81.98"></script>
   <script type="module" src="web-trial-ui.js"></script>
   <script type="module" src="jamd-credit-ui.js"></script>
   <script type="module" src="first-visit-ui.js"></script>
