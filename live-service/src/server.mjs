@@ -151,6 +151,9 @@ export async function startServer({env = process.env} = {}) {
   }
 
   function fail(request, response, error) {
+    if (error?.message === 'LIVE_EXCHANGE_AUTH_FAILED') {
+      return send(request, response, 409, {error: {code: 'exchange-credentials-invalid'}});
+    }
     const status = Number(error?.status) || 500;
     const code = status >= 500 ? 'live-service-error' : String(error?.message || 'live-request-failed').toLowerCase();
     if (status >= 500) console.error('LIVE_API_ERROR', code, safeError(error));

@@ -89,8 +89,9 @@ export async function inspectKeyPermissions(exchange, definition) {
 }
 
 export async function probeExchange(definition, credentials, options = {}) {
-  const exchange = await createAdapter(definition, credentials, options);
+  let exchange;
   try {
+    exchange = await createAdapter(definition, credentials, options);
     let balance;
     try {
       balance = await exchange.fetchBalance({type: 'swap'});
@@ -114,8 +115,13 @@ export async function probeExchange(definition, credentials, options = {}) {
       permissions,
       checkedAt: Date.now()
     };
+  } catch (error) {
+    if (/apikey\/password is incorrect|invalid api|api.?key|signature|authentication|unauthorized|\b40012\b|\b401\b/i.test(String(error?.message || error))) {
+      throw Object.assign(Error('LIVE_EXCHANGE_AUTH_FAILED'), {status: 409, cause: error});
+    }
+    throw error;
   } finally {
-    try { await exchange.close(); } catch {}
+    try { if (exchange) await exchange.close(); } catch {}
   }
 }
 

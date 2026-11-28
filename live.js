@@ -110,6 +110,18 @@ async function startLiveGoogle() {
     button.disabled = false;
   }
 }
+function friendlyError(code) {
+  const map = {
+    'exchange-credentials-invalid': 'The exchange rejected the API key, secret or passphrase. Check that you selected the correct exchange and that the key is active.',
+    'live-passphrase-required': 'This exchange requires the API passphrase.',
+    'live-withdrawal-permission-enabled': 'This API key has withdrawal permission enabled. Create a trade-only key with withdrawals disabled.',
+    'live-trading-permission-required': 'This API key cannot trade futures. Enable futures trading permission.',
+    'live-credentials-invalid': 'The API key or secret is incomplete.',
+    'live-exchange-unsupported': 'This exchange is not supported by the current adapter.',
+    'live-rate-limited': 'Too many attempts. Wait a minute and try again.'
+  };
+  return map[String(code || '').toLowerCase()] || String(code || 'The exchange connection failed.');
+}
 function showAuth() {
   $('liveAuth').hidden = false;
   $('liveWorkspace').hidden = true;
@@ -412,8 +424,9 @@ function wire() {
       await loadStatus();
       await loadPositions();
     } catch (error) {
-      alertBox(error.message || 'Could not connect this exchange.');
-      toast(error.message || 'Could not connect this exchange.', true);
+      const message = friendlyError(error.message);
+      alertBox(message);
+      toast(message, true);
     } finally {
       button.disabled = false;
       button.textContent = 'Verify and connect';
