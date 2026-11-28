@@ -49,6 +49,7 @@ function publicConnection(row) {
     lastSyncAt: row.last_sync_at || null,
     balance: row.balance_json ? JSON.parse(row.balance_json) : null,
     positions: row.positions_json ? JSON.parse(row.positions_json) : [],
+    permissions: row.permissions_json ? JSON.parse(row.permissions_json) : null,
     config: {
       marginUsd: row.margin_usd,
       leverage: row.leverage,
@@ -204,9 +205,10 @@ export async function startServer({env = process.env} = {}) {
     const checked = await probeExchange(definition, credentials, {timeout: config.requestTimeoutMs});
     persistExchangePositions(store, accountHash, row, checked.positions);
     store.updateConnectionSync(accountHash, row.id, {
-      status: 'connected', lastError: null, balance: checked.balance, positions: checked.positions
+      status: 'connected', lastError: null, balance: checked.balance, positions: checked.positions,
+      permissions: checked.permissions
     });
-    return {status: 'connected', balance: checked.balance, positions: checked.positions};
+    return {status: 'connected', balance: checked.balance, positions: checked.positions, permissions: checked.permissions};
   }
 
   const server = createServer(async (request, response) => {
@@ -274,6 +276,7 @@ export async function startServer({env = process.env} = {}) {
           throw Object.assign(Error('LIVE_CONNECTION_EXISTS'), {status: 409});
         }
         const checked = await probeExchange(definition, {apiKey, secret, passphrase}, {timeout: config.requestTimeoutMs});
+        if (checked.permissions?.withdrawals === true) throw Object.assign(Error('LIVE_WITHDRAWAL_PERMISSION_ENABLED'), {status: 409});
         const id = cryptoRandomId();
         const context = vaultContext({accountHash, connectionId: id, exchange: definition.id});
         const created = store.createConnection({
@@ -282,7 +285,7 @@ export async function startServer({env = process.env} = {}) {
           secretEnc: vault.seal(secret, context),
           passphraseEnc: passphrase ? vault.seal(passphrase, context) : null,
           status: 'connected', balance: checked.balance, positions: checked.positions,
-          consentVersion: CONSENT_VERSION,
+          permissions: checked.permissions, consentVersion: CONSENT_VERSION,
           ...DEFAULT_CONFIG
         });
         persistExchangePositions(store, accountHash, created, checked.positions);
@@ -316,6 +319,9 @@ export async function startServer({env = process.env} = {}) {
           const body = await readBody(request);
           if (body.enabled === true && !betaAccess(accountHash)) throw Object.assign(Error('LIVE_BETA_ACCESS_REQUIRED'), {status: 403});
           const definition = exchangeDefinition(row.exchange);
+          const permissions = row.permissions_json ? JSON.parse(row.permissions_json) : null;
+          if (body.enabled === true && permissions?.withdrawals === true) throw Object.assign(Error('LIVE_WITHDRAWAL_PERMISSION_ENABLED'), {status: 409});
+          if (body.enabled === true && permissions?.trading === false) throw Object.assign(Error('LIVE_TRADING_PERMISSION_REQUIRED'), {status: 409});
           if (body.enabled === true && !config.verifiedExchanges.includes(row.exchange) && config.allowUnverifiedExchanges !== true) {
             throw Object.assign(Error('LIVE_EXCHANGE_NOT_VERIFIED'), {status: 409});
           }

@@ -60,6 +60,34 @@ export async function createAdapter(definition, credentials, {timeout = 15000} =
   return exchange;
 }
 
+export async function inspectKeyPermissions(exchange, definition) {
+  const id = definition?.id;
+  try {
+    if (id === 'binance') {
+      const result = await exchange.sapiGetAccountApiRestrictions();
+      const data = result?.data || result || {};
+      return {checked: true, withdrawals: data.enableWithdrawals === true, trading: data.enableFutures === true, reading: data.enableReading !== false};
+    }
+    if (id === 'bybit') {
+      const result = await exchange.privateGetV5UserQueryApi();
+      const data = result?.result || result?.data?.result || {};
+      const permissions = data.permissions || {};
+      const wallet = Array.isArray(permissions.Wallet) ? permissions.Wallet : [];
+      const contract = Array.isArray(permissions.ContractTrade) ? permissions.ContractTrade : [];
+      return {checked: true, withdrawals: wallet.includes('Withdraw') || wallet.includes('Withdrawal'), trading: contract.includes('Order') || contract.includes('Position'), reading: true};
+    }
+    if (id === 'okx') {
+      const result = await exchange.privateGetAccountConfig();
+      const data = result?.data?.[0] || result?.data || {};
+      const perm = String(data.perm || '').toLowerCase();
+      return {checked: true, withdrawals: perm.includes('withdraw'), trading: perm.includes('trade') || perm === 'read_write', reading: true};
+    }
+  } catch {
+    return {checked: false, withdrawals: null, trading: null, reading: true};
+  }
+  return {checked: false, withdrawals: null, trading: null, reading: true};
+}
+
 export async function probeExchange(definition, credentials, options = {}) {
   const exchange = await createAdapter(definition, credentials, options);
   try {
@@ -78,10 +106,12 @@ export async function probeExchange(definition, credentials, options = {}) {
     } catch {
       positions = [];
     }
+    const permissions = await inspectKeyPermissions(exchange, definition);
     return {
       status: 'connected',
       balance: {currency: 'USDT', total, free, used},
       positions,
+      permissions,
       checkedAt: Date.now()
     };
   } finally {

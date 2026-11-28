@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS connections (
   key_enc TEXT NOT NULL,
   secret_enc TEXT NOT NULL,
   passphrase_enc TEXT,
+  permissions_json TEXT,
   status TEXT NOT NULL,
   last_error TEXT,
   balance_json TEXT,
@@ -126,6 +127,8 @@ export function openStore(path, {now = Date.now} = {}) {
   db.exec(SCHEMA);
   const positionColumns = db.prepare('PRAGMA table_info(positions)').all().map(row => row.name);
   if (!positionColumns.includes('realized_pnl')) db.exec('ALTER TABLE positions ADD COLUMN realized_pnl REAL');
+  const connectionColumns = db.prepare('PRAGMA table_info(connections)').all().map(row => row.name);
+  if (!connectionColumns.includes('permissions_json')) db.exec('ALTER TABLE connections ADD COLUMN permissions_json TEXT');
   const tx = fn => {
     db.exec('BEGIN IMMEDIATE');
     try {
@@ -157,11 +160,11 @@ export function openStore(path, {now = Date.now} = {}) {
       return tx(() => {
         user(input.accountHash, input.consentVersion);
         db.prepare(`INSERT INTO connections(
-          id,account_hash,exchange,label,key_enc,secret_enc,passphrase_enc,status,last_error,
+          id,account_hash,exchange,label,key_enc,secret_enc,passphrase_enc,permissions_json,status,last_error,
           balance_json,positions_json,last_sync_at,created_at,updated_at)
-          VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+          VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
           id, input.accountHash, input.exchange, input.label, input.keyEnc, input.secretEnc,
-          input.passphraseEnc || null, input.status || 'connected', input.lastError || null,
+          input.passphraseEnc || null, json(input.permissions), input.status || 'connected', input.lastError || null,
           json(input.balance), json(input.positions), input.lastSyncAt || at, at, at
         );
         db.prepare(`INSERT INTO configs(
@@ -187,11 +190,11 @@ export function openStore(path, {now = Date.now} = {}) {
         FROM connections c JOIN configs g ON g.connection_id=c.id
         WHERE c.account_hash=? AND c.id=?`).get(accountHash, id);
     },
-    updateConnectionSync(accountHash, id, {status, lastError = null, balance, positions}) {
+    updateConnectionSync(accountHash, id, {status, lastError = null, balance, positions, permissions}) {
       const at = nowMs(now);
       const result = db.prepare(`UPDATE connections SET status=?,last_error=?,balance_json=?,positions_json=?,
-        last_sync_at=?,updated_at=? WHERE account_hash=? AND id=?`)
-        .run(status, lastError, json(balance), json(positions), at, at, accountHash, id);
+        permissions_json=COALESCE(?,permissions_json),last_sync_at=?,updated_at=? WHERE account_hash=? AND id=?`)
+        .run(status, lastError, json(balance), json(positions), json(permissions), at, at, accountHash, id);
       if (!result.changes) throw Error('LIVE_CONNECTION_NOT_FOUND');
       return this.getConnection(accountHash, id);
     },

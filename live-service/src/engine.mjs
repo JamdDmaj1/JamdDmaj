@@ -198,8 +198,12 @@ export function startEngine({config, store, vault, vaultContext, fetchImpl = fet
     health.lastRunAt = now();
     try {
       const signals = await fetchSignals({config, fetchImpl, now});
-      const rows = store.activeConnections().filter(row => (!config.betaMode || config.betaAllowlist.includes(row.account_hash))
-        && (config.allowUnverifiedExchanges === true || config.verifiedExchanges.includes(row.exchange)));
+      const rows = store.activeConnections().filter(row => {
+        const permissions = row.permissions_json ? JSON.parse(row.permissions_json) : null;
+        return (!config.betaMode || config.betaAllowlist.includes(row.account_hash))
+          && (config.allowUnverifiedExchanges === true || config.verifiedExchanges.includes(row.exchange))
+          && permissions?.withdrawals !== true && permissions?.trading !== false;
+      });
       summary.connections = rows.length;
       for (const row of rows) {
         try {
