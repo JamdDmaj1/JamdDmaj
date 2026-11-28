@@ -546,7 +546,7 @@ function formatLiveOrderMessage(input, order) {
   ].filter(Boolean).join("\n");
 }
 
-function formatDailyLearningHighlights(input = {}, learning = {}) {
+export function formatDailyLearningHighlights(input = {}, learning = {}) {
   const outcomes = learning.outcomes || {};
   const comparison = outcomes.comparison || {};
   const winners = comparison.winners || {};
@@ -590,7 +590,7 @@ function formatDailyLearningHighlights(input = {}, learning = {}) {
   };
 }
 
-function formatExecutorDailyLearningMessage(input, learning) {
+export function formatExecutorDailyLearningMessage(input, learning) {
   const top = (learning.topRejects || []).slice(0, 4).map((item) => `${escapeHtml(item.reason)} (${Number(item.count || 0)})`);
   const examples = (learning.examples || []).slice(0, 3).map((item) => `${escapeHtml(item.pair)} ${escapeHtml(item.side)}: ${escapeHtml(item.reason)}`);
   const improvements = normalizeSelfImprovement(learning.selfImprovement);
