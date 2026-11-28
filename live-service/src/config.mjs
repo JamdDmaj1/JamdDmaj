@@ -35,6 +35,7 @@ export function loadConfig(env = process.env) {
     betaMode: String(env.JAMDDMAJ_LIVE_BETA || 'true').toLowerCase() !== 'false',
     engineIntervalMs: positiveInt(env.JAMDDMAJ_LIVE_ENGINE_INTERVAL_MS, 30000, 'LIVE_ENGINE_INTERVAL'),
     engineEnabled: String(env.JAMDDMAJ_LIVE_ENGINE_ENABLED || 'false').toLowerCase() === 'true',
+    allowUnverifiedExchanges: String(env.JAMDDMAJ_LIVE_ALLOW_UNVERIFIED_EXCHANGES || 'false').toLowerCase() === 'true',
     requestTimeoutMs: positiveInt(env.JAMDDMAJ_LIVE_REQUEST_TIMEOUT_MS, 15000, 'LIVE_REQUEST_TIMEOUT'),
     maxConnectionsPerUser: positiveInt(env.JAMDDMAJ_LIVE_MAX_CONNECTIONS, 8, 'LIVE_MAX_CONNECTIONS')
   });

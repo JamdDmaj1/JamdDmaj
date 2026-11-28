@@ -61,7 +61,7 @@ function showAuth() {
 function renderExchangeOptions() {
   const select = $('liveExchange');
   select.innerHTML = state.exchanges.map(item =>
-    `<option value="${esc(item.id)}" data-passphrase="${item.passphrase ? '1' : '0'}">${esc(item.label)}</option>`
+    `<option value="${esc(item.id)}" data-passphrase="${item.passphrase ? '1' : '0'}">${esc(item.label)}${item.verified === true ? '' : ' · beta verification pending'}</option>`
   ).join('');
   togglePassphrase();
 }
@@ -79,6 +79,7 @@ function renderConnections() {
   host.innerHTML = state.connections.map(connection => {
     const balance = connection.balance || {};
     const live = connection.config?.liveEnabled === true;
+    const verified = state.exchanges.find(item => item.id === connection.exchange)?.verified === true;
     const statusClass = connection.status === 'connected' ? 'ok' : 'bad';
     return `<article class="live-card live-connection" data-id="${esc(connection.id)}">
       <div class="live-connection-head">
@@ -101,7 +102,7 @@ function renderConnections() {
       <div class="live-connection-actions">
         <button class="live-button ghost" data-action="save" type="button">Save</button>
         <button class="live-button ghost" data-action="refresh" type="button">Refresh</button>
-        <button class="live-button ${live ? 'live-toggle on' : 'live-toggle'}" data-action="live" type="button" ${live ? '' : state.betaAccess ? '' : 'disabled title="Private beta access required"'}>${live ? 'Turn live off' : state.betaAccess ? 'Turn live on' : 'Beta access required'}</button>
+        <button class="live-button ${live ? 'live-toggle on' : 'live-toggle'}" data-action="live" type="button" ${live ? '' : verified && state.betaAccess ? '' : 'disabled'}>${live ? 'Turn live off' : !verified ? 'Verification pending' : state.betaAccess ? 'Turn live on' : 'Beta access required'}</button>
         <button class="live-button ghost" data-action="delete" type="button">Disconnect</button>
       </div>
       <small class="live-status ${statusClass}">${esc(connection.status || 'unknown')}${connection.lastError ? ` · ${esc(connection.lastError)}` : ''}</small>
@@ -164,6 +165,7 @@ async function refreshConnection(id, card) {
 async function toggleLive(id, card) {
   if (!state.betaAccess) { toast('Live execution is limited to approved beta accounts.', true); return; }
   const connection = state.connections.find(item => item.id === id);
+  if (state.exchanges.find(item => item.id === connection?.exchange)?.verified !== true) { toast('This exchange is still in verification and cannot execute live yet.', true); return; }
   const enabled = connection?.config?.liveEnabled === true;
   if (!enabled) {
     if (!$('liveConsent').checked) { toast('Accept the risk disclosure before turning live on.', true); return; }

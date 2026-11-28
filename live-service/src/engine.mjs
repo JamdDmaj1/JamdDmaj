@@ -62,6 +62,19 @@ async function fetchSignals({config, fetchImpl, now}) {
 }
 
 async function syncExchangePositions(store, accountHash, row, exchange, positions) {
+  const liveKeys = new Set(positions.map(position => `${position.symbol}|${position.side}`));
+  for (const local of store.listPositions(accountHash, row.id)) {
+    if (local.status === 'OPEN' && !liveKeys.has(`${local.symbol}|${local.side}`)) {
+      store.upsertPosition(accountHash, {
+        id: local.id, connectionId: local.connection_id, exchange: local.exchange, symbol: local.symbol,
+        side: local.side, amount: local.amount, entry: local.entry, mark: local.mark,
+        leverage: local.leverage, marginUsd: local.margin_usd, unrealizedPnl: local.unrealized_pnl,
+        protectionRoe: local.protection_roe, realizedPnl: local.realized_pnl,
+        tp: local.tp, sl: local.sl, status: 'CLOSED', sourceSignal: local.source_signal,
+        openedAt: local.opened_at, closedAt: Date.now(), raw: {closedBy: 'exchange-or-manual'}
+      });
+    }
+  }
   for (const position of positions) {
     const existing = store.findOpenPosition(accountHash, row.id, position.symbol, position.side);
     if (existing) {
@@ -139,6 +152,7 @@ async function executeSignals({store, accountHash, row, exchange, positions, sig
     return;
   }
   for (const signal of signals) {
+    if (!(signal.tp > 0) || !(signal.sl > 0)) continue;
     if (store.orderForSignal(row.id, signal.id)) continue;
     const market = resolveMarket(exchange, signal.pair);
     if (!market) continue;
@@ -151,7 +165,8 @@ async function executeSignals({store, accountHash, row, exchange, positions, sig
     try {
       const placed = await placeMarketOrder(exchange, {
         symbol: market.symbol, side: signal.side,
-        marginUsd: row.margin_usd, leverage: row.leverage, clientOrderId: orderId
+        marginUsd: row.margin_usd, leverage: row.leverage, clientOrderId: orderId,
+        takeProfit: signal.tp, stopLoss: signal.sl
       });
       store.updateOrder(row.id, pending.id, 'OPEN');
       store.upsertPosition(accountHash, {
@@ -182,7 +197,8 @@ export function startEngine({config, store, vault, vaultContext, fetchImpl = fet
     health.lastRunAt = now();
     try {
       const signals = await fetchSignals({config, fetchImpl, now});
-      const rows = store.activeConnections().filter(row => !config.betaMode || config.betaAllowlist.includes(row.account_hash));
+      const rows = store.activeConnections().filter(row => (!config.betaMode || config.betaAllowlist.includes(row.account_hash))
+        && (config.allowUnverifiedExchanges === true || exchangeDefinition(row.exchange)?.verified === true));
       summary.connections = rows.length;
       for (const row of rows) {
         try {

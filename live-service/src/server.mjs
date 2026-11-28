@@ -312,6 +312,10 @@ export async function startServer({env = process.env} = {}) {
           if (!allowWrite(accountHash)) throw Object.assign(Error('LIVE_RATE_LIMITED'), {status: 429});
           const body = await readBody(request);
           if (body.enabled === true && !betaAccess(accountHash)) throw Object.assign(Error('LIVE_BETA_ACCESS_REQUIRED'), {status: 403});
+          const definition = exchangeDefinition(row.exchange);
+          if (body.enabled === true && definition?.verified !== true && config.allowUnverifiedExchanges !== true) {
+            throw Object.assign(Error('LIVE_EXCHANGE_NOT_VERIFIED'), {status: 409});
+          }
           if (body.enabled === true && body.consent !== true) throw Object.assign(Error('LIVE_CONSENT_REQUIRED'), {status: 400});
           if (body.enabled === true) {
             const result = await refreshConnection(accountHash, row);

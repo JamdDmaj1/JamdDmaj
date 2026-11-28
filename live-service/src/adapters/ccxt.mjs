@@ -1,13 +1,13 @@
 import {createHash} from 'node:crypto';
 
 export const EXCHANGES = Object.freeze([
-  {id: 'bitget', label: 'Bitget', ccxt: 'bitget', passphrase: true, defaultType: 'swap'},
-  {id: 'binance', label: 'Binance USDⓈ-M', ccxt: 'binanceusdm', passphrase: false, defaultType: 'swap'},
-  {id: 'bybit', label: 'Bybit', ccxt: 'bybit', passphrase: false, defaultType: 'swap'},
-  {id: 'okx', label: 'OKX', ccxt: 'okx', passphrase: true, defaultType: 'swap'},
-  {id: 'kucoin', label: 'KuCoin Futures', ccxt: 'kucoinfutures', passphrase: true, defaultType: 'swap'},
-  {id: 'gate', label: 'Gate.io', ccxt: 'gate', passphrase: false, defaultType: 'swap'},
-  {id: 'mexc', label: 'MEXC', ccxt: 'mexc', passphrase: false, defaultType: 'swap'}
+  {id: 'bitget', label: 'Bitget', ccxt: 'bitget', passphrase: true, defaultType: 'swap', verified: true},
+  {id: 'binance', label: 'Binance USDⓈ-M', ccxt: 'binanceusdm', passphrase: false, defaultType: 'swap', verified: false},
+  {id: 'bybit', label: 'Bybit', ccxt: 'bybit', passphrase: false, defaultType: 'swap', verified: false},
+  {id: 'okx', label: 'OKX', ccxt: 'okx', passphrase: true, defaultType: 'swap', verified: false},
+  {id: 'kucoin', label: 'KuCoin Futures', ccxt: 'kucoinfutures', passphrase: true, defaultType: 'swap', verified: false},
+  {id: 'gate', label: 'Gate.io', ccxt: 'gate', passphrase: false, defaultType: 'swap', verified: false},
+  {id: 'mexc', label: 'MEXC', ccxt: 'mexc', passphrase: false, defaultType: 'swap', verified: false}
 ]);
 
 const BY_ID = new Map(EXCHANGES.map(item => [item.id, Object.freeze(item)]));
@@ -17,7 +17,7 @@ export function exchangeDefinition(id) {
 }
 
 export function publicExchanges() {
-  return EXCHANGES.map(({id, label, passphrase}) => ({id, label, passphrase}));
+  return EXCHANGES.map(({id, label, passphrase, verified}) => ({id, label, passphrase, verified: verified === true}));
 }
 
 function number(value) {
@@ -132,7 +132,7 @@ export async function marketPrice(exchange, symbol) {
   return price;
 }
 
-export async function placeMarketOrder(exchange, {symbol, side, marginUsd, leverage, clientOrderId}) {
+export async function placeMarketOrder(exchange, {symbol, side, marginUsd, leverage, clientOrderId, takeProfit, stopLoss}) {
   try { await exchange.setMarginMode('isolated', symbol); } catch {}
   await exchange.setLeverage(leverage, symbol);
   const price = await marketPrice(exchange, symbol);
@@ -143,8 +143,23 @@ export async function placeMarketOrder(exchange, {symbol, side, marginUsd, lever
   if (!(amount > 0)) throw Object.assign(Error('LIVE_ORDER_SIZE_INVALID'), {status: 400});
   const orderSide = String(side).toLowerCase() === 'short' ? 'sell' : 'buy';
   const request = {clientOrderId};
-  const order = await exchange.createOrder(symbol, 'market', orderSide, amount, undefined, request);
-  return {order, amount, price, notional, orderSide, clientOrderId};
+  let order;
+  const tp = Number(takeProfit) || 0, sl = Number(stopLoss) || 0;
+  if (tp > 0 && sl > 0 && typeof exchange.createOrderWithTakeProfitAndStopLoss === 'function') {
+    try {
+      order = await exchange.createOrderWithTakeProfitAndStopLoss(symbol, 'market', orderSide, amount, undefined, tp, sl, {
+        ...request, takeProfitType: 'market', stopLossType: 'market'
+      });
+    } catch (error) {
+      // The entry itself has not been submitted when the bracket request is
+      // rejected. Surface the error instead of silently opening an unprotected
+      // position.
+      throw error;
+    }
+  } else {
+    order = await exchange.createOrder(symbol, 'market', orderSide, amount, undefined, request);
+  }
+  return {order, amount, price, notional, orderSide, clientOrderId, protected: tp > 0 && sl > 0};
 }
 
 export async function closeMarketPosition(exchange, {symbol, side, amount, clientOrderId}) {
