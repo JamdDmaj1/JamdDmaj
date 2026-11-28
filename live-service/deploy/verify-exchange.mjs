@@ -15,7 +15,7 @@ import {exchangeDefinition, probeExchange, safeError} from '../src/adapters/ccxt
 const id = String(process.env.JAMDDMAJ_TEST_EXCHANGE || '').trim().toLowerCase();
 const definition = exchangeDefinition(id);
 if (!definition) {
-  console.error('Unknown exchange. Supported: bitget, binance, bybit, okx, kucoin, gate, mexc');
+  console.error('Unknown exchange. Supported: bitget, binance, bybit, okx, kucoin, gate, htx, phemex, bingx, deribit, krakenfutures, mexc');
   process.exit(2);
 }
 const apiKey = String(process.env.JAMDDMAJ_TEST_API_KEY || '').trim();
