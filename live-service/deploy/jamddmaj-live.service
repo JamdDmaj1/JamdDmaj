@@ -1,0 +1,24 @@
+[Unit]
+Description=JamdDmaj Live multi-user exchange service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=jamddmaj-live
+Group=jamddmaj-live
+WorkingDirectory=/opt/jamddmaj-live
+EnvironmentFile=/etc/jamddmaj-live/live.env
+ExecStart=/usr/bin/node /opt/jamddmaj-live/src/server.mjs
+Restart=always
+RestartSec=5
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/jamddmaj-live
+RestrictSUIDSGID=yes
+LockPersonality=yes
+
+[Install]
+WantedBy=multi-user.target

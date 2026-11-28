@@ -110,7 +110,8 @@ async function manageExits({store, accountHash, row, exchange, positions}) {
     });
     const hitTp = local.tp > 0 && (dir === 1 ? mark >= local.tp : mark <= local.tp);
     const hitSl = local.sl > 0 && (dir === 1 ? mark <= local.sl : mark >= local.sl);
-    if (!hitTp && !hitSl) continue;
+    const hitProtection = Number(local.protection_roe) > 0 && roe >= Number(local.protection_roe);
+    if (!hitTp && !hitSl && !hitProtection) continue;
     await closeMarketPosition(exchange, {
       symbol: local.symbol, side: local.side, amount: local.amount,
       clientOrderId: `jlive-exit-${local.id.slice(0, 12)}`
@@ -121,7 +122,7 @@ async function manageExits({store, accountHash, row, exchange, positions}) {
       leverage: local.leverage, marginUsd: local.margin_usd, unrealizedPnl: live.unrealizedPnl,
       protectionRoe: local.protection_roe, tp: local.tp, sl: local.sl, status: 'CLOSED',
       sourceSignal: local.source_signal, openedAt: local.opened_at, closedAt: Date.now(),
-      raw: {exit: hitTp ? 'TP' : 'SL', roe}
+      raw: {exit: hitTp ? 'TP' : hitSl ? 'SL' : 'PROTECTION', roe}
     });
   }
 }
@@ -165,11 +166,13 @@ export function startEngine({config, store, vault, vaultContext, fetchImpl = fet
   if (config.engineEnabled !== true) return Object.freeze({stop() {}, runOnce: async () => ({disabled: true})});
   let running = false;
   let timer = null;
+  const health = {enabled: true, lastRunAt: null, lastSummary: null, lastError: null};
 
   async function runOnce() {
     if (running) return {skipped: true};
     running = true;
     const summary = {connections: 0, executed: 0, errors: 0};
+    health.lastRunAt = now();
     try {
       const signals = await fetchSignals({config, fetchImpl, now});
       const rows = store.activeConnections();
@@ -204,8 +207,10 @@ export function startEngine({config, store, vault, vaultContext, fetchImpl = fet
       }
     } catch (error) {
       summary.errors += 1;
+      health.lastError = safeError(error);
       log.warn('LIVE_ENGINE_ERROR', safeError(error));
     } finally {
+      health.lastSummary = summary;
       running = false;
     }
     return summary;
@@ -215,6 +220,7 @@ export function startEngine({config, store, vault, vaultContext, fetchImpl = fet
   timer.unref?.();
   return Object.freeze({
     stop() { if (timer) clearInterval(timer); timer = null; },
-    runOnce
+    runOnce,
+    status() { return Object.freeze({...health}); }
   });
 }

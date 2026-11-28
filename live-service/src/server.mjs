@@ -220,7 +220,7 @@ export async function startServer({env = process.env} = {}) {
         return send(request, response, 200, {
           ok: true, service: 'jamddmaj-live', version: '0.1.0',
           startedAt, uptimeSeconds: Math.floor((Date.now() - startedAt) / 1000),
-          beta: config.betaMode, engineEnabled: config.engineEnabled
+          beta: config.betaMode, engineEnabled: config.engineEnabled, engine: engine.status()
         });
       }
       if (url.pathname === '/live/exchanges' && request.method === 'GET') {
@@ -243,7 +243,7 @@ export async function startServer({env = process.env} = {}) {
         return send(request, response, 200, {ok: true, connections, consentVersion: CONSENT_VERSION});
       }
       if (url.pathname === '/live/positions' && request.method === 'GET') {
-        const rows = store.listPositions(accountHash);
+        const rows = store.listPositions(accountHash).filter(row => row.status === 'OPEN' || row.status === 'CLOSING');
         return send(request, response, 200, {ok: true, positions: rows.map(row => ({
           id: row.id, connectionId: row.connection_id, exchange: row.exchange, symbol: row.symbol,
           side: row.side, amount: row.amount, entry: row.entry, mark: row.mark,

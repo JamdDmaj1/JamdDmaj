@@ -6,7 +6,7 @@ export const EXCHANGES = Object.freeze([
   {id: 'bybit', label: 'Bybit', ccxt: 'bybit', passphrase: false, defaultType: 'swap'},
   {id: 'okx', label: 'OKX', ccxt: 'okx', passphrase: true, defaultType: 'swap'},
   {id: 'kucoin', label: 'KuCoin Futures', ccxt: 'kucoinfutures', passphrase: true, defaultType: 'swap'},
-  {id: 'gate', label: 'Gate.io', ccxt: 'gateio', passphrase: false, defaultType: 'swap'},
+  {id: 'gate', label: 'Gate.io', ccxt: 'gate', passphrase: false, defaultType: 'swap'},
   {id: 'mexc', label: 'MEXC', ccxt: 'mexc', passphrase: false, defaultType: 'swap'}
 ]);
 
