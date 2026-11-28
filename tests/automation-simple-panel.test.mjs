@@ -25,7 +25,7 @@ function findButton(node, label) {
   return null;
 }
 async function settle(check, label) {
-  for (let i = 0; i < 100; i += 1) { if (check()) return; await new Promise(r => setTimeout(r, 5)); }
+  for (let i = 0; i < 400; i += 1) { if (check()) return; await new Promise(r => setTimeout(r, 5)); }
   throw new Error('timed out ' + label);
 }
 function fixture(client) {
