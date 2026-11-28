@@ -747,7 +747,7 @@ test("server and VPS agree that a fully confirmed 12 point signal is Bitget-read
     side: "LONG",
     score: 12,
     volumeRatio: 1.3,
-    adx: 26,
+    adx: 30,
     spreadPercent: 0.0015,
     higherTrend: "bullish 4h",
     microTrend: "bullish 15m",
@@ -757,6 +757,7 @@ test("server and VPS agree that a fully confirmed 12 point signal is Bitget-read
   const direction = { bias: "bullish", label: "ALCISTA", score: 35 };
   assert.equal(applyMarketDirection(signal, direction).bitgetEligible, true);
   assert.equal(applyMarketDirection({ ...signal, score: 11.9 }, direction).bitgetEligible, false);
+  assert.equal(applyMarketDirection({ ...signal, adx: 27 }, direction).bitgetEligible, false);
 });
 
 test("public status reports only a safe executor pause category", () => {
