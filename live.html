@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="index,follow">
+<meta name="description" content="Connect a futures exchange to JamdDmaj Live, verify your balance, configure margin and leverage, and follow automatic Telegram signals.">
+<link rel="canonical" href="https://www.jamddmaj.com/live.html">
+<title>JamdDmaj Live · Automatic exchange execution</title>
+<link rel="icon" type="image/png" href="/icon-192.png">
+<link rel="stylesheet" href="/live.css">
+</head>
+<body>
+<header class="live-header">
+  <a class="live-brand" href="/">
+    <span class="live-mark">JD</span>
+    <span><strong>JamdDmaj <em>Live</em></strong><small>Automatic futures execution</small></span>
+  </a>
+  <div class="live-head-actions">
+    <span class="live-beta">BETA</span>
+    <a class="live-link" href="/">Back to app</a>
+  </div>
+</header>
+
+<main class="live-main">
+  <section class="live-hero">
+    <div>
+      <p class="live-kicker">CONNECT · VERIFY · AUTOMATE</p>
+      <h1>Your exchange. Your rules.<br><span>JamdDmaj signals.</span></h1>
+      <p class="live-lede">Connect a futures account with trade-only API keys. JamdDmaj verifies the balance, applies your margin and leverage, and executes eligible signals automatically.</p>
+    </div>
+    <div class="live-steps" aria-label="Setup steps">
+      <div><b>01</b><span>Connect exchange</span></div>
+      <div><b>02</b><span>Verify balance</span></div>
+      <div><b>03</b><span>Set risk</span></div>
+      <div><b>04</b><span>Turn live on</span></div>
+    </div>
+  </section>
+
+  <section class="live-alert" id="liveAlert" hidden role="alert"></section>
+  <section class="live-auth" id="liveAuth" hidden>
+    <h2>Sign in to JamdDmaj first</h2>
+    <p>Live needs your JamdDmaj session to isolate your exchange connections.</p>
+    <a class="live-button primary" href="/">Open JamdDmaj and sign in</a>
+  </section>
+
+  <section class="live-share-view" id="liveShareView" hidden>
+    <div class="live-card live-share-card" id="liveShareCard"></div>
+    <a class="live-button" href="/live.html">Open JamdDmaj Live</a>
+  </section>
+
+  <div id="liveWorkspace" hidden>
+    <section class="live-grid">
+      <article class="live-card">
+        <div class="live-card-head">
+          <div><p class="live-kicker">STEP 1</p><h2>Connect an exchange</h2></div>
+          <span class="live-pill">Trade-only keys</span>
+        </div>
+        <form id="liveConnectForm" autocomplete="off">
+          <div class="live-fields two">
+            <label>Exchange
+              <select id="liveExchange" required></select>
+            </label>
+            <label>Account label
+              <input id="liveLabel" maxlength="40" placeholder="Main account">
+            </label>
+          </div>
+          <label>API key
+            <input id="liveApiKey" type="password" autocomplete="off" spellcheck="false" required minlength="8" maxlength="200">
+          </label>
+          <label>API secret
+            <input id="liveApiSecret" type="password" autocomplete="off" spellcheck="false" required minlength="8" maxlength="400">
+          </label>
+          <label id="livePassphraseLabel" hidden>API passphrase
+            <input id="livePassphrase" type="password" autocomplete="off" spellcheck="false" maxlength="200">
+          </label>
+          <label class="live-check">
+            <input id="liveConsent" type="checkbox" required>
+            <span>I understand automated futures trading can lose money. I will use a trade-only API key without withdrawal permission.</span>
+          </label>
+          <button class="live-button primary" id="liveConnectBtn" type="submit">Verify and connect</button>
+          <p class="live-fine">Keys are encrypted on the server and are never stored in this browser. Withdrawal permission is never requested.</p>
+        </form>
+      </article>
+
+      <aside class="live-card live-safety">
+        <p class="live-kicker">SECURITY</p>
+        <h2>What JamdDmaj can do</h2>
+        <ul>
+          <li><b>Read</b> balance and open positions.</li>
+          <li><b>Trade</b> futures with your configured risk.</li>
+          <li><b>Close</b> positions it opened or that you close from this page.</li>
+          <li class="no"><b>Never</b> withdraw or transfer funds.</li>
+        </ul>
+        <p class="live-fine">Create the API key on the exchange with futures trading enabled and withdrawals disabled. IP whitelist it if your exchange supports it.</p>
+      </aside>
+    </section>
+
+    <section class="live-section">
+      <div class="live-section-head">
+        <div><p class="live-kicker">CONNECTED ACCOUNTS</p><h2>Balances and live controls</h2></div>
+        <button class="live-button ghost" id="liveRefreshAll" type="button">Refresh</button>
+      </div>
+      <div id="liveConnections" class="live-connections"></div>
+      <p class="live-empty" id="liveEmpty">No exchange connected yet.</p>
+    </section>
+
+    <section class="live-section">
+      <div class="live-section-head">
+        <div><p class="live-kicker">OPEN POSITIONS</p><h2>Trades to share</h2></div>
+        <span class="live-pill" id="livePositionCount">0 open</span>
+      </div>
+      <div id="livePositions" class="live-positions"></div>
+      <p class="live-empty" id="livePositionsEmpty">No open positions.</p>
+    </section>
+  </div>
+
+  <section class="live-risk">
+    <strong>Risk disclosure.</strong> Futures are leveraged and can lose more than the margin assigned to a trade. Signals are not guarantees. JamdDmaj Live is a beta execution tool, not investment advice. Public availability is limited to eligible jurisdictions and requires acceptance of the risk terms.
+  </section>
+</main>
+
+<div class="live-toast" id="liveToast" role="status" hidden></div>
+<script type="module" src="/live.js"></script>
+</body>
+</html>

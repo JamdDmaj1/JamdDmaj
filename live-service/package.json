@@ -1,0 +1,17 @@
+{
+  "name": "jamddmaj-live-service",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Multi-tenant JamdDmaj Live exchange execution service",
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "ccxt": "^4.4.95"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

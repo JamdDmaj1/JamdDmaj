@@ -203,3 +203,14 @@ test('Pro Signals exposes one simple Bitget control panel', () => {
   assert.match(html, /pro-legacy-controls/);
   assert.match(html, /function saveSimpleBitgetConfig/);
 });
+
+test('public live page is shipped with the service UI', () => {
+  const html = read('live.html');
+  assert.match(html, /id="liveConnectForm"/);
+  assert.match(html, /id="liveWorkspace"/);
+  assert.match(html, /id="livePositions"/);
+  const js = read('live.js');
+  assert.match(js, /157\.230\.54\.133/);
+  assert.match(js, /live\/connect/);
+  assert.match(js, /live\/positions/);
+});
