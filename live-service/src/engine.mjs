@@ -143,13 +143,13 @@ async function manageExits({store, accountHash, row, exchange, positions}) {
 
 async function executeSignals({store, accountHash, row, exchange, positions, signals}) {
   const open = positions.length;
-  if (open >= row.max_open) return;
-  if (store.countOrdersSince(row.id, utcDayStart(Date.now())) >= row.max_trades_day) return;
+  if (open >= row.max_open) return 0;
+  if (store.countOrdersSince(row.id, utcDayStart(Date.now())) >= row.max_trades_day) return 0;
   const realized = store.realizedPnlSince(row.id, utcDayStart(Date.now()));
   if (row.daily_loss_usd > 0 && realized <= -Number(row.daily_loss_usd)) {
     store.setLive(accountHash, row.id, false);
     store.audit(accountHash, row.id, 'DAILY_LOSS_LIMIT', String(realized));
-    return;
+    return 0;
   }
   for (const signal of signals) {
     if (!(signal.tp > 0) || !(signal.sl > 0)) continue;
@@ -176,15 +176,16 @@ async function executeSignals({store, accountHash, row, exchange, positions, sig
         tp: signal.tp, sl: signal.sl, status: 'OPEN', sourceSignal: signal.id,
         openedAt: Date.now(), raw: {orderId: placed.order?.id || null, score: signal.score}
       });
-      return;
+      return 1;
     } catch (error) {
       store.updateOrder(row.id, pending.id, 'FAILED', safeError(error));
       throw error;
     }
   }
+  return 0;
 }
 
-export function startEngine({config, store, vault, vaultContext, fetchImpl = fetch, now = Date.now, log = console}) {
+export function startEngine({config, store, vault, vaultContext, fetchImpl = fetch, now = Date.now, log = console, adapterFactory = createAdapter}) {
   if (config.engineEnabled !== true) return Object.freeze({stop() {}, runOnce: async () => ({disabled: true})});
   let running = false;
   let timer = null;
@@ -209,12 +210,12 @@ export function startEngine({config, store, vault, vaultContext, fetchImpl = fet
             secret: vault.open(row.secret_enc, vaultContext({accountHash: row.account_hash, connectionId: row.id, exchange: row.exchange})),
             passphrase: row.passphrase_enc ? vault.open(row.passphrase_enc, vaultContext({accountHash: row.account_hash, connectionId: row.id, exchange: row.exchange})) : ''
           };
-          const exchange = await createAdapter(definition, credentials, {timeout: config.requestTimeoutMs});
+          const exchange = await adapterFactory(definition, credentials, {timeout: config.requestTimeoutMs});
           try {
             const positions = normalizePositions(await exchange.fetchPositions());
             await syncExchangePositions(store, row.account_hash, row, exchange, positions);
             await manageExits({store, accountHash: row.account_hash, row, exchange, positions});
-            await executeSignals({store, accountHash: row.account_hash, row, exchange, positions, signals});
+            summary.executed += await executeSignals({store, accountHash: row.account_hash, row, exchange, positions, signals});
           } finally {
             try { await exchange.close(); } catch {}
           }

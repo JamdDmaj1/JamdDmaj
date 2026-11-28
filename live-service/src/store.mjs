@@ -150,7 +150,8 @@ export function openStore(path, {now = Date.now} = {}) {
   return Object.freeze({
     user,
     createConnection(input) {
-      const id = randomUUID();
+      const id = input.id || randomUUID();
+      if (typeof id !== 'string' || !/^[a-f0-9-]{36}$/.test(id)) throw Error('LIVE_CONNECTION_ID_INVALID');
       const at = nowMs(now);
       return tx(() => {
         user(input.accountHash, input.consentVersion);
