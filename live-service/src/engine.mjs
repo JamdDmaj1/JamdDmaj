@@ -64,7 +64,7 @@ async function fetchSignals({config, fetchImpl, now}) {
 async function syncExchangePositions(store, accountHash, row, exchange, positions) {
   const liveKeys = new Set(positions.map(position => `${position.symbol}|${position.side}`));
   for (const local of store.listPositions(accountHash, row.id)) {
-    if (local.status === 'OPEN' && !liveKeys.has(`${local.symbol}|${local.side}`)) {
+    if ((local.status === 'OPEN' || local.status === 'CLOSING') && !liveKeys.has(`${local.symbol}|${local.side}`)) {
       store.upsertPosition(accountHash, {
         id: local.id, connectionId: local.connection_id, exchange: local.exchange, symbol: local.symbol,
         side: local.side, amount: local.amount, entry: local.entry, mark: local.mark,

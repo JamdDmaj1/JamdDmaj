@@ -371,12 +371,14 @@ export async function startServer({env = process.env} = {}) {
         } finally {
           try { await exchange.close(); } catch {}
         }
+        const direction = String(position.side).toLowerCase() === 'short' ? -1 : 1;
+        const realizedPnl = Number(position.entry) > 0 ? (Number(position.mark) - Number(position.entry)) * Number(position.amount) * direction : null;
         const closed = store.upsertPosition(accountHash, {
           id: position.id, connectionId: position.connection_id, exchange: position.exchange,
           symbol: position.symbol, side: position.side, amount: position.amount,
           entry: position.entry, mark: position.mark, leverage: position.leverage,
           marginUsd: position.margin_usd, protectionRoe: position.protection_roe,
-          tp: position.tp, sl: position.sl, status: 'CLOSING', sourceSignal: position.source_signal,
+          realizedPnl, tp: position.tp, sl: position.sl, status: 'CLOSING', sourceSignal: position.source_signal,
           openedAt: position.opened_at, closedAt: Date.now(), raw: {closedBy: 'user'}
         });
         return send(request, response, 200, {ok: true, position: closed});
