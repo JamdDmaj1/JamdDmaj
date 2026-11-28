@@ -310,6 +310,7 @@ function compactOutcomeSummary(value) {
     profitGivebacks: Number(value.profitGivebacks || 0),
     topLossReasons,
     lossExamples: (Array.isArray(value.lossExamples) ? value.lossExamples : []).slice(0, 5),
+    winExamples: (Array.isArray(value.winExamples) ? value.winExamples : []).slice(0, 5),
     comparison: buildOutcomeCohortComparison(value)
   };
 }
@@ -545,6 +546,50 @@ function formatLiveOrderMessage(input, order) {
   ].filter(Boolean).join("\n");
 }
 
+function formatDailyLearningHighlights(input = {}, learning = {}) {
+  const outcomes = learning.outcomes || {};
+  const comparison = outcomes.comparison || {};
+  const winners = comparison.winners || {};
+  const losses = comparison.losses || {};
+  const wins = Number(outcomes.wins || 0);
+  const lossesCount = Number(outcomes.losses || 0);
+  const invalidationLosses = Number(outcomes.invalidationLosses || 0);
+  const stopLossHits = Number(outcomes.stopLossHits || 0);
+  const decisions = wins + lossesCount;
+  const winRate = decisions ? (wins / decisions) * 100 : 0;
+  const winExamples = Array.isArray(outcomes.winExamples) ? outcomes.winExamples : [];
+  const winLabels = winExamples.slice(0, 3).map(item => `${String(item.pair || '').slice(0, 16)} ${String(item.side || '').slice(0, 6)}`).filter(Boolean);
+
+  const works = [];
+  if (wins > 0) works.push(`${wins} win(s), ${Number(outcomes.tpHits || 0)} TP hit(s)`);
+  if (Number(winners.samples || 0) > 0) {
+    works.push(`winner cohort: volume ${Number(winners.averageVolumeRatio || 0).toFixed(2)}x, ADX ${Number(winners.averageAdx || 0).toFixed(1)}`);
+  }
+  if (winLabels.length) works.push(`winners: ${winLabels.join(' | ')}`);
+  if (!works.length) works.push('no positive pattern with enough samples yet; do not claim an edge from this day');
+
+  const improve = [];
+  if (decisions > 0 && winRate < 50) improve.push(`win rate ${winRate.toFixed(1)}% (${wins}/${decisions})`);
+  if (invalidationLosses >= 2) improve.push(`${invalidationLosses} invalidations vs ${stopLossHits} SL; entries are being invalidated before the stop`);
+  if (Number(losses.samples || 0) > 0 && Number(losses.averageVolumeRatio || 0) < 1.1) improve.push(`loser volume ${Number(losses.averageVolumeRatio || 0).toFixed(2)}x is weak`);
+  if (Number(winners.samples || 0) > 0 && Number(losses.samples || 0) > 0
+      && Number(winners.averageAdx || 0) - Number(losses.averageAdx || 0) >= 5) {
+    improve.push(`winners have ADX ${Number(winners.averageAdx || 0).toFixed(1)} vs ${Number(losses.averageAdx || 0).toFixed(1)} in losses`);
+  }
+  if (!improve.length) improve.push('no statistically strong weakness detected yet; keep collecting samples');
+
+  const actions = [];
+  if (invalidationLosses >= 2) actions.push('A/B: require 4h alignment + candle close before entry (simulation only)');
+  if (Number(winners.averageVolumeRatio || 0) >= Number(losses.averageVolumeRatio || 0) + 0.15) actions.push('A/B: raise volume floor and compare against the current baseline');
+  if (Number(winners.averageAdx || 0) >= Number(losses.averageAdx || 0) + 5) actions.push('A/B: test ADX 28+ versus the current ADX baseline');
+  actions.push('collect at least 30 A/B samples before changing live risk');
+  return {
+    works: works.join(' | '),
+    improve: improve.join(' | '),
+    actions: actions.join(' | ')
+  };
+}
+
 function formatExecutorDailyLearningMessage(input, learning) {
   const top = (learning.topRejects || []).slice(0, 4).map((item) => `${escapeHtml(item.reason)} (${Number(item.count || 0)})`);
   const examples = (learning.examples || []).slice(0, 3).map((item) => `${escapeHtml(item.pair)} ${escapeHtml(item.side)}: ${escapeHtml(item.reason)}`);
@@ -554,6 +599,7 @@ function formatExecutorDailyLearningMessage(input, learning) {
   const lossExamples = (outcomes.lossExamples || []).slice(0, 3).map((item) => `${escapeHtml(item.pair)} ${escapeHtml(item.side)}: ${escapeHtml(item.reason)}`);
   const lossReasons = (outcomes.topLossReasons || []).slice(0, 3).map((item) => `${escapeHtml(item.reason)} (${Number(item.count || 0)})`);
   const dryRun = String(input?.mode || "").toLowerCase() === "dry-run";
+  const highlights = formatDailyLearningHighlights(input, learning);
   return [
     "📌 <b>JamdDmaj Bitget daily learning</b>",
     `Day: ${escapeHtml(learning.day || dayKey())}`,
@@ -566,6 +612,9 @@ function formatExecutorDailyLearningMessage(input, learning) {
     lossReasons.length ? `Loss reasons: ${lossReasons.join(" | ")}` : "",
     lossExamples.length ? `Loss examples: ${lossExamples.join(" | ")}` : "",
     formatOutcomeCohortComparison(outcomes.comparison),
+    `\u2705 <b>What works:</b> ${escapeHtml(highlights.works)}`,
+    `\u26A0\uFE0F <b>What to improve:</b> ${escapeHtml(highlights.improve)}`,
+    `\u{1F52C} <b>Next tests:</b> ${escapeHtml(highlights.actions)}`,
     top.length ? `Top filters: ${top.join(" | ")}` : "Top filters: none yet",
     examples.length ? `Examples: ${examples.join(" | ")}` : "",
     `Lesson: ${escapeHtml(learning.lesson || "Collecting data.")}`,
