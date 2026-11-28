@@ -339,6 +339,20 @@ function renderEngineStatus(health = {}) {
   strip.innerHTML = `<b class="ok">Engine live</b><span>observed <b>${Number(summary.observed || 0)}</b></span><span>Bitget-ready <b>${Number(summary.eligible || 0)}</b></span><span>accounts <b>${Number(summary.connections || 0)}</b></span>${reasons.length ? `<span class="bad">${reasons.join(' · ')}</span>` : '<span>No pending rejection</span>'}`;
   strip.hidden = false;
 }
+async function refreshConnectionsQuietly() {
+  if (!state.token || document.hidden) return;
+  if (document.activeElement?.closest?.('#liveConnections')) return;
+  try {
+    const [connections, health] = await Promise.all([
+      api('/live/connections'),
+      fetch(API_BASE + '/live/health', {cache: 'no-store', signal: AbortSignal.timeout(15000)}).then(r => r.json()).catch(() => ({}))
+    ]);
+    state.connections = connections.connections || [];
+    renderConnections();
+    renderEngineStatus(health);
+  } catch {}
+}
+setInterval(refreshConnectionsQuietly, 45000);
 async function load() {
   try {
     const [me, exchanges, status, positions, health] = await Promise.all([

@@ -1,6 +1,6 @@
 import {
   closeMarketPosition, clientOrderId, createAdapter, exchangeDefinition,
-  marketPrice, normalizePositions, placeMarketOrder, resolveMarket, safeError
+  marketPrice, normalizeBalance, normalizePositions, placeMarketOrder, resolveMarket, safeError
 } from './adapters/ccxt.mjs';
 
 const MIN_SCORE = 12;
@@ -91,7 +91,7 @@ function rejectionReason(signal, now) {
   return 'filtered';
 }
 
-async function syncExchangePositions(store, accountHash, row, exchange, positions) {
+async function syncExchangePositions(store, accountHash, row, exchange, positions, balance = null) {
   const liveKeys = new Set(positions.map(position => `${position.symbol}|${position.side}`));
   for (const local of store.listPositions(accountHash, row.id)) {
     if ((local.status === 'OPEN' || local.status === 'CLOSING') && !liveKeys.has(`${local.symbol}|${local.side}`)) {
@@ -126,7 +126,7 @@ async function syncExchangePositions(store, accountHash, row, exchange, position
   }
   store.updateConnectionSync(accountHash, row.id, {
     status: 'connected', lastError: null,
-    balance: row.balance_json ? JSON.parse(row.balance_json) : null,
+    balance: balance || (row.balance_json ? JSON.parse(row.balance_json) : null),
     positions: positions.map(position => ({
       symbol: position.symbol, side: position.side, amount: position.amount,
       entry: position.entry, mark: position.mark, leverage: position.leverage,
@@ -252,7 +252,9 @@ export function startEngine({config, store, vault, vaultContext, fetchImpl = fet
           const exchange = await adapterFactory(definition, credentials, {timeout: config.requestTimeoutMs});
           try {
             const positions = normalizePositions(await exchange.fetchPositions());
-            await syncExchangePositions(store, row.account_hash, row, exchange, positions);
+            let balance = null;
+            try { balance = normalizeBalance(await exchange.fetchBalance({type: 'swap'})); } catch {}
+            await syncExchangePositions(store, row.account_hash, row, exchange, positions, balance);
             await manageExits({store, accountHash: row.account_hash, row, exchange, positions});
             summary.executed += await executeSignals({store, accountHash: row.account_hash, row, exchange, positions, signals});
           } finally {

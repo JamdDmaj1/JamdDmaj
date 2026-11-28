@@ -88,6 +88,15 @@ export async function inspectKeyPermissions(exchange, definition) {
   return {checked: false, withdrawals: null, trading: null, reading: true};
 }
 
+export function normalizeBalance(balance) {
+  return {
+    currency: 'USDT',
+    total: number(balance?.total?.USDT ?? balance?.USDT?.total),
+    free: number(balance?.free?.USDT ?? balance?.USDT?.free),
+    used: number(balance?.used?.USDT ?? balance?.USDT?.used)
+  };
+}
+
 export async function probeExchange(definition, credentials, options = {}) {
   let exchange;
   try {
@@ -98,9 +107,7 @@ export async function probeExchange(definition, credentials, options = {}) {
     } catch {
       balance = await exchange.fetchBalance();
     }
-    const total = number(balance?.total?.USDT ?? balance?.USDT?.total);
-    const free = number(balance?.free?.USDT ?? balance?.USDT?.free);
-    const used = number(balance?.used?.USDT ?? balance?.USDT?.used);
+    const normalizedBalance = normalizeBalance(balance);
     let positions = [];
     try {
       positions = normalizePositions(await exchange.fetchPositions());
@@ -110,7 +117,7 @@ export async function probeExchange(definition, credentials, options = {}) {
     const permissions = await inspectKeyPermissions(exchange, definition);
     return {
       status: 'connected',
-      balance: {currency: 'USDT', total, free, used},
+      balance: normalizedBalance,
       positions,
       permissions,
       checkedAt: Date.now()
