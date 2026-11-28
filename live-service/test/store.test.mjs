@@ -4,6 +4,8 @@ import {mkdtempSync, rmSync} from 'node:fs';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {openStore} from '../src/store.mjs';
+import {randomBytes} from 'node:crypto';
+import {createVault, vaultContext} from '../src/vault.mjs';
 
 const account = 'a'.repeat(64);
 
@@ -45,6 +47,28 @@ test('store isolates connections, config, positions and shares by account', () =
     assert.equal(store.revokeShare(account, share.token), true);
     assert.equal(store.getShare(share.token), null);
     assert.throws(() => store.deleteConnection('b'.repeat(64), created.id));
+  } finally {
+    store.close();
+    rmSync(dir, {recursive: true, force: true});
+  }
+});
+
+test('supplied connection id is preserved for vault context', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'jamd-live-store-id-'));
+  const store = openStore(join(dir, 'live.sqlite'));
+  try {
+    store.user(account, 'live-risk-v1');
+    const id = '22222222-2222-4222-8222-222222222222';
+    const vault = createVault(randomBytes(32));
+    const context = vaultContext({accountHash: account, connectionId: id, exchange: 'bitget'});
+    const created = store.createConnection({
+      id, accountHash: account, exchange: 'bitget', label: 'id-test',
+      keyEnc: vault.seal('key', context), secretEnc: vault.seal('secret', context), passphraseEnc: null,
+      status: 'connected', balance: {total: 0}, positions: [],
+      marginUsd: 25, leverage: 5, maxOpen: 1, protectionRoe: 4, dailyLossUsd: 50, maxTradesDay: 3
+    });
+    assert.equal(created.id, id);
+    assert.equal(vault.open(created.key_enc, vaultContext({accountHash: created.account_hash, connectionId: created.id, exchange: created.exchange})), 'key');
   } finally {
     store.close();
     rmSync(dir, {recursive: true, force: true});

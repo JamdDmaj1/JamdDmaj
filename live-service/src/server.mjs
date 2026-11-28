@@ -300,6 +300,7 @@ export async function startServer({env = process.env} = {}) {
         const id = cryptoRandomId();
         const context = vaultContext({accountHash, connectionId: id, exchange: definition.id});
         const created = store.createConnection({
+          id,
           accountHash, exchange: definition.id, label,
           keyEnc: vault.seal(apiKey, context),
           secretEnc: vault.seal(secret, context),
