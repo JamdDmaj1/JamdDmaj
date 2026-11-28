@@ -132,3 +132,29 @@ test('simple automation retries once after a stale controls revision', async () 
   assert.ok(flatten(f.parent).some(text => text.includes('Bot activo')));
 });
 
+
+test('simple automation retries a transient controls-unavailable activation', async () => {
+  const calls = []; let reads = 0; let activations = 0;
+  const base = {
+    walletAddress: '3AXFGU5ErJB46YT6oCFbYh7fq54an1TmFsV5fNWmbQ5T', revision: 'revision-1', enabled: false, paused: true,
+    settings: {capital: 11, loss: 11, positions: 1, margin: 10, leverage: 3, dailyTrades: 5, stopLossPercent: null, takeProfitPercent: null, lossAction: 'disable', reductionPercent: 50}
+  };
+  const client = {
+    async readStatus() { reads += 1; return {controls: base, recovery: {backupVerified: true}, executionAvailable: true, funding: {stage: 'OBSERVED_EXCLUSIVE_WALLET_FUNDS', availableUsdcUnits: '12272544'}}; },
+    async save(input) { calls.push(['save', input]); return {...base, ...input, revision: 'revision-2'}; },
+    async prepareActivation(input) { calls.push(['prepare', input]); return {walletAddress: base.walletAddress, revision: input.expectedRevision, settings: base.settings, token: 'b'.repeat(64), expiresAt: Date.now() + 30000}; },
+    async activate(input) { activations += 1; calls.push(['activate', input]); if (activations === 1) throw Object.assign(new Error('controls-unavailable'), {code: 'controls-unavailable'}); return {...base, enabled: true, paused: false, revision: 'revision-3'}; },
+    async pause() { calls.push(['pause']); return base; }
+  };
+  const f = fixture(client);
+  await settle(() => flatten(f.parent).some(text => text.includes('Balance: 12.272544')), 'balance');
+  const button = findButton(f.parent, 'Activar bot');
+  button.onclick();
+  await settle(() => flatten(f.parent).some(text => text.includes('Pulsa de nuevo')), 'confirmation');
+  button.onclick();
+  await new Promise(resolve => setTimeout(resolve, 2600));
+  assert.equal(activations, 2);
+  assert.equal(calls.filter(([name]) => name === 'prepare').length, 2);
+  assert.ok(reads >= 2);
+  assert.ok(flatten(f.parent).some(text => text.includes('Bot activo')));
+});

@@ -26,8 +26,8 @@ android {
         applicationId "com.jamddmaj.ai"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 445
-        versionName "1.81.95"
+        versionCode 446
+        versionName "1.81.96"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
