@@ -317,13 +317,23 @@ async function loadAudit() {
   renderAudit();
 }
 
+function renderEngineStatus(health = {}) {
+  const strip = $('liveEngineStrip');
+  const engine = health.engine || {};
+  const summary = engine.lastSummary || {};
+  if (!engine.enabled) { strip.innerHTML = '<b class="bad">Execution engine offline</b>'; strip.hidden = false; return; }
+  const reasons = (engine.lastRejected || []).slice(0, 2).map(item => `${esc(item.pair)} ${esc(item.side)}: ${esc(item.reason)}`);
+  strip.innerHTML = `<b class="ok">Engine live</b><span>observed <b>${Number(summary.observed || 0)}</b></span><span>Bitget-ready <b>${Number(summary.eligible || 0)}</b></span><span>accounts <b>${Number(summary.connections || 0)}</b></span>${reasons.length ? `<span class="bad">${reasons.join(' · ')}</span>` : '<span>No pending rejection</span>'}`;
+  strip.hidden = false;
+}
 async function load() {
   try {
-    const [me, exchanges, status, positions] = await Promise.all([
+    const [me, exchanges, status, positions, health] = await Promise.all([
       api('/live/me'),
       api('/live/exchanges'),
       api('/live/status'),
-      api('/live/positions')
+      api('/live/positions'),
+      fetch(API_BASE + '/live/health', {cache: 'no-store', signal: AbortSignal.timeout(15000)}).then(r => r.json()).catch(() => ({}))
     ]);
     state.exchanges = exchanges.exchanges || [];
     state.connections = status.connections || [];
@@ -332,6 +342,7 @@ async function load() {
     renderExchangeOptions();
     renderConnections();
     renderPositions();
+    renderEngineStatus(health);
     await loadAudit();
     $('liveAuth').hidden = true;
     $('liveWorkspace').hidden = false;

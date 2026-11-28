@@ -160,3 +160,12 @@ a { color: var(--mint); text-decoration: none; }
   .live-position { grid-template-columns: 1fr 1fr; }
   .live-steps { grid-template-columns: 1fr; }
 }
+
+.live-engine-strip {
+  display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center;
+  margin: 0 0 18px; padding: 10px 14px; border: 1px solid var(--line);
+  border-radius: 12px; background: #0b1320; color: var(--muted); font-size: .72rem;
+}
+.live-engine-strip b { color: var(--text); }
+.live-engine-strip .bad { color: var(--red); }
+.live-engine-strip .ok { color: var(--green); }

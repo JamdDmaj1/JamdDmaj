@@ -54,11 +54,41 @@ async function fetchSignals({config, fetchImpl, now}) {
     : Array.isArray(body?.openSignals) ? body.openSignals
       : Array.isArray(body?.signals) ? body.signals : [];
   const seen = new Set();
-  return rows.map(normalizeSignal).filter(signal => {
-    if (!signal || seen.has(signal.id)) return false;
+  const signals = [];
+  const rejected = [];
+  for (const raw of rows) {
+    const signal = normalizeSignal(raw);
+    if (!signal) {
+      rejected.push({
+        pair: String(raw?.pair || raw?.symbol || '').slice(0, 30),
+        side: String(raw?.side || '').slice(0, 8),
+        score: Number(raw?.score) || 0,
+        reason: rejectionReason(raw, now())
+      });
+      continue;
+    }
+    if (seen.has(signal.id)) continue;
+    if (signal.createdAt > now() || now() - signal.createdAt > MAX_SIGNAL_AGE_MS) {
+      rejected.push({pair: signal.pair, side: signal.side, score: signal.score, reason: 'stale'});
+      continue;
+    }
     seen.add(signal.id);
-    return signal.createdAt <= now() && now() - signal.createdAt <= MAX_SIGNAL_AGE_MS;
-  });
+    signals.push(signal);
+  }
+  return {signals, observed: rows.length, rejected: rejected.slice(0, 20)};
+}
+
+function rejectionReason(signal, now) {
+  const pair = String(signal?.pair || signal?.symbol || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const side = String(signal?.side || '').toLowerCase();
+  const score = Number(signal?.score);
+  const createdAt = timestamp(signal?.createdAt || signal?.publishedAt);
+  if (!pair || !['long', 'short'].includes(side)) return 'invalid signal';
+  if (!Number.isFinite(score) || score < MIN_SCORE) return 'score below 12';
+  if (signal?.bitgetEligible === false) return 'not Bitget-ready';
+  if (signal?.status && signal.status !== 'OPEN') return 'not open';
+  if (!createdAt || now - createdAt > MAX_SIGNAL_AGE_MS) return 'stale';
+  return 'filtered';
 }
 
 async function syncExchangePositions(store, accountHash, row, exchange, positions) {
@@ -194,10 +224,15 @@ export function startEngine({config, store, vault, vaultContext, fetchImpl = fet
   async function runOnce() {
     if (running) return {skipped: true};
     running = true;
-    const summary = {connections: 0, executed: 0, errors: 0};
+    const summary = {connections: 0, executed: 0, errors: 0, observed: 0, eligible: 0};
     health.lastRunAt = now();
     try {
-      const signals = await fetchSignals({config, fetchImpl, now});
+      const feed = await fetchSignals({config, fetchImpl, now});
+      const signals = feed.signals;
+      summary.observed = feed.observed;
+      summary.eligible = signals.length;
+      health.lastSignals = signals.slice(0, 5).map(signal => ({pair: signal.pair, side: signal.side, score: signal.score}));
+      health.lastRejected = feed.rejected.slice(0, 5);
       const rows = store.activeConnections().filter(row => {
         const permissions = row.permissions_json ? JSON.parse(row.permissions_json) : null;
         return (!config.betaMode || config.betaAllowlist.includes(row.account_hash))
