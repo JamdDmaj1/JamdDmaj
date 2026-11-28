@@ -233,7 +233,7 @@ export async function startServer({env = process.env} = {}) {
         const token = url.pathname.slice('/live/share/'.length);
         const share = store.getShare(token);
         if (!share) return send(request, response, 404, {error: {code: 'live-share-not-found'}});
-        return send(request, response, 200, {ok: true, share: JSON.parse(share.payload_json)});
+        return send(request, response, 200, {ok: true, share: JSON.parse(share.payload_json), expiresAt: share.expires_at || null});
       }
 
       const accountHash = await authenticated(request);
@@ -244,6 +244,16 @@ export async function startServer({env = process.env} = {}) {
       if (url.pathname === '/live/status' && request.method === 'GET') {
         const connections = store.listConnections(accountHash).map(publicConnection);
         return send(request, response, 200, {ok: true, connections, consentVersion: CONSENT_VERSION});
+      }
+      if (url.pathname === '/live/account/export' && request.method === 'GET') {
+        return send(request, response, 200, {ok: true, exportedAt: Date.now(), accountHash, connections: store.listConnections(accountHash).map(publicConnection), positions: store.listPositions(accountHash), events: store.listAudit(accountHash, 200)});
+      }
+      if (url.pathname === '/live/account/delete' && request.method === 'POST') {
+        if (!allowWrite(accountHash)) throw Object.assign(Error('LIVE_RATE_LIMITED'), {status: 429});
+        const body = await readBody(request);
+        if (body.confirmation !== 'DELETE') throw Object.assign(Error('LIVE_DELETE_CONFIRMATION_REQUIRED'), {status: 400});
+        store.deleteAccount(accountHash);
+        return send(request, response, 200, {ok: true, deleted: true});
       }
       if (url.pathname === '/live/audit' && request.method === 'GET') {
         return send(request, response, 200, {ok: true, events: store.listAudit(accountHash, 100)});
@@ -361,7 +371,13 @@ export async function startServer({env = process.env} = {}) {
           exchange: position.exchange
         };
         const share = store.createShare(accountHash, position.id, payload);
-        return send(request, response, 201, {ok: true, share: {token: share.token, url: `${config.publicBaseUrl}/live.html?share=${share.token}`}});
+        return send(request, response, 201, {ok: true, share: {token: share.token, url: `${config.publicBaseUrl}/live.html?share=${share.token}`, expiresAt: share.expiresAt}});
+      }
+      const shareRevokeMatch = url.pathname.match(/^\/live\/shares\/([A-Za-z0-9_-]{20,80})\/revoke$/);
+      if (shareRevokeMatch && request.method === 'POST') {
+        if (!allowWrite(accountHash)) throw Object.assign(Error('LIVE_RATE_LIMITED'), {status: 429});
+        if (!store.revokeShare(accountHash, shareRevokeMatch[1])) throw Object.assign(Error('LIVE_SHARE_NOT_FOUND'), {status: 404});
+        return send(request, response, 200, {ok: true, revoked: true});
       }
       const closeMatch = url.pathname.match(/^\/live\/positions\/([a-f0-9-]{36})\/close$/);
       if (closeMatch && request.method === 'POST') {

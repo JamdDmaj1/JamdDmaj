@@ -99,6 +99,7 @@ CREATE TABLE IF NOT EXISTS shares (
   position_id TEXT NOT NULL,
   payload_json TEXT NOT NULL,
   created_at INTEGER NOT NULL,
+  expires_at INTEGER,
   revoked INTEGER NOT NULL DEFAULT 0
 ) STRICT;
 
@@ -129,6 +130,8 @@ export function openStore(path, {now = Date.now} = {}) {
   if (!positionColumns.includes('realized_pnl')) db.exec('ALTER TABLE positions ADD COLUMN realized_pnl REAL');
   const connectionColumns = db.prepare('PRAGMA table_info(connections)').all().map(row => row.name);
   if (!connectionColumns.includes('permissions_json')) db.exec('ALTER TABLE connections ADD COLUMN permissions_json TEXT');
+  const shareColumns = db.prepare('PRAGMA table_info(shares)').all().map(row => row.name);
+  if (!shareColumns.includes('expires_at')) db.exec('ALTER TABLE shares ADD COLUMN expires_at INTEGER');
   const tx = fn => {
     db.exec('BEGIN IMMEDIATE');
     try {
@@ -298,20 +301,34 @@ export function openStore(path, {now = Date.now} = {}) {
       db.prepare('INSERT INTO events(id,account_hash,connection_id,type,detail,at) VALUES(?,?,?,?,?,?)')
         .run(randomUUID(), accountHash, connectionId || null, type, detail ? String(detail).slice(0,500) : null, nowMs(now));
     },
-    createShare(accountHash, positionId, payload) {
+    createShare(accountHash, positionId, payload, ttlMs = 30 * 24 * 60 * 60 * 1000) {
       const token = randomBytes(24).toString('base64url');
       const at = nowMs(now);
-      db.prepare('INSERT INTO shares(token,account_hash,position_id,payload_json,created_at,revoked) VALUES(?,?,?,?,?,0)')
-        .run(token, accountHash, positionId, json(payload), at);
-      return {token, createdAt: at};
+      const expiresAt = at + Math.max(60_000, Math.min(90 * 24 * 60 * 60 * 1000, Number(ttlMs) || 0));
+      db.prepare('INSERT INTO shares(token,account_hash,position_id,payload_json,created_at,expires_at,revoked) VALUES(?,?,?,?,?,?,0)')
+        .run(token, accountHash, positionId, json(payload), at, expiresAt);
+      return {token, createdAt: at, expiresAt};
     },
     getShare(token) {
       if (typeof token !== 'string' || !/^[A-Za-z0-9_-]{20,80}$/.test(token)) return null;
-      return db.prepare('SELECT * FROM shares WHERE token=? AND revoked=0').get(token) || null;
+      return db.prepare('SELECT * FROM shares WHERE token=? AND revoked=0 AND (expires_at IS NULL OR expires_at>?)')
+        .get(token, nowMs(now)) || null;
     },
     revokeShare(accountHash, token) {
       const result = db.prepare('UPDATE shares SET revoked=1 WHERE token=? AND account_hash=?').run(token, accountHash);
       return result.changes > 0;
+    },
+    deleteAccount(accountHash) {
+      const open = db.prepare("SELECT COUNT(*) AS n FROM positions WHERE account_hash=? AND status IN ('OPEN','CLOSING')").get(accountHash).n;
+      if (open > 0) throw Error('LIVE_ACCOUNT_HAS_OPEN_POSITIONS');
+      return tx(() => {
+        db.prepare('DELETE FROM shares WHERE account_hash=?').run(accountHash);
+        db.prepare('DELETE FROM events WHERE account_hash=?').run(accountHash);
+        db.prepare('DELETE FROM connections WHERE account_hash=?').run(accountHash);
+        db.prepare('DELETE FROM users WHERE account_hash=?').run(accountHash);
+        try { db.exec('PRAGMA wal_checkpoint(TRUNCATE)'); } catch {}
+        return true;
+      });
     },
     close() { db.close(); }
   });
