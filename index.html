@@ -5380,7 +5380,7 @@
       const MANAGED_STATUS_URL = `${WEB_APP_URL}api/status`;
       const MOBILE_OAUTH_URL = "jamddmaj://oauth";
       const MOBILE_GOOGLE_URL = "jamddmaj://google";
-      let APP_VERSION = "1.81.96";
+      let APP_VERSION = "1.81.97";
       const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/JamdDmaj1/JamdDmaj/releases/latest";
       const DEFAULT_APK_URL = "https://github.com/JamdDmaj1/JamdDmaj/releases/latest/download/JamdDmaj-AI.apk";
       const BACKUP_API_URL = `${WEB_APP_URL}api/backup`;
@@ -8707,10 +8707,10 @@ function createLearnNotificationCard() {
               quality: proServerState.config?.quality || getTelegramQuality(),
               cooldownMinutes: Number(proServerState.config?.cooldownMinutes || getTelegramCooldownMinutes()),
               maxSignalsPerRun: proServerState.config?.maxSignalsPerRun || 3,
-              plannedUsd: Number(proServerState.config?.plannedUsd) || 25,
-              leverage: Number(proServerState.config?.leverage) || 10,
-              protectionTriggerRoe: Number(proServerState.config?.protectionTriggerRoe) || 10,
-              protectionLockRoe: Number(proServerState.config?.protectionLockRoe) || 2,
+              plannedUsd: Number(document.getElementById("proPlannedUsdInput")?.value) || Number(proServerState.config?.plannedUsd) || 25,
+              leverage: Number(document.getElementById("proLeverageSelect")?.value) || Number(proServerState.config?.leverage) || 10,
+              protectionTriggerRoe: Number(document.getElementById("proTriggerRoeInput")?.value) || Number(proServerState.config?.protectionTriggerRoe) || 10,
+              protectionLockRoe: Number(document.getElementById("proLockRoeInput")?.value) || Number(proServerState.config?.protectionLockRoe) || 2,
               paperEnabled: proServerState.config?.paperEnabled !== false,
                paperStartingBalance: Number(document.getElementById("paperStartingBalanceInput").value) || 1000,
                paperRiskPercent: Number(document.getElementById("paperRiskPercentInput").value) || 0.5,
@@ -8735,8 +8735,8 @@ function createLearnNotificationCard() {
               defensiveMaxLeverage: 10,
               defensiveMaxMarginUsd: Number(document.getElementById("bitgetFixedMarginInput")?.value) || 10,
               exitManager: document.getElementById("bitgetExitManagerSelect")?.value !== "false",
-              exitProtectionTriggerRoe: 10,
-              exitProtectionLockRoe: 2,
+              exitProtectionTriggerRoe: Number(document.getElementById("proTriggerRoeInput")?.value) || 10,
+              exitProtectionLockRoe: Number(document.getElementById("proLockRoeInput")?.value) || 2,
               exitCloseOnReversal: true
             }
           });
@@ -15742,7 +15742,7 @@ if (tgResult) {
     })();
   </script>
   <script type="module" src="fair-launch-ui.js?v=1.38.27"></script>
-  <script type="module" src="wallet-login-ui.js?v=1.81.96"></script>
+  <script type="module" src="wallet-login-ui.js?v=1.81.97"></script>
   <script type="module" src="web-trial-ui.js"></script>
   <script type="module" src="jamd-credit-ui.js"></script>
   <script type="module" src="first-visit-ui.js"></script>

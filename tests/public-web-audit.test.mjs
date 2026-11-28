@@ -185,3 +185,11 @@ test('Futures copy reflects the active Phoenix catalog, not the old three-market
   assert.match(discover, /active Phoenix markets|mercados activos de Phoenix/);
   assert.doesNotMatch(discoverHtml, /BTC, ETH y SOL|BTC, ETH and SOL/);
 });
+
+test('Pro Signals persists margin, planning leverage and protection fields', () => {
+  const html = read('index.html');
+  assert.match(html, /plannedUsd: Number\(document\.getElementById\("proPlannedUsdInput"\)/);
+  assert.match(html, /leverage: Number\(document\.getElementById\("proLeverageSelect"\)/);
+  assert.match(html, /protectionTriggerRoe: Number\(document\.getElementById\("proTriggerRoeInput"\)/);
+  assert.match(html, /exitProtectionTriggerRoe: Number\(document\.getElementById\("proTriggerRoeInput"\)/);
+});
