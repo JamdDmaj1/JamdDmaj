@@ -326,6 +326,8 @@ export async function startServer({env = process.env} = {}) {
             throw Object.assign(Error('LIVE_EXCHANGE_NOT_VERIFIED'), {status: 409});
           }
           if (body.enabled === true && body.consent !== true) throw Object.assign(Error('LIVE_CONSENT_REQUIRED'), {status: 400});
+          if (body.enabled === true && body.termsVersion !== CONSENT_VERSION) throw Object.assign(Error('LIVE_TERMS_REQUIRED'), {status: 400});
+          if (body.enabled === true && body.eligibility !== true) throw Object.assign(Error('LIVE_ELIGIBILITY_REQUIRED'), {status: 400});
           if (body.enabled === true) {
             const result = await refreshConnection(accountHash, row);
             if (result.status !== 'connected') throw Object.assign(Error('LIVE_CONNECTION_NOT_READY'), {status: 409});

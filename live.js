@@ -228,10 +228,11 @@ async function toggleLive(id, card) {
   const enabled = connection?.config?.liveEnabled === true;
   if (!enabled) {
     if (!$('liveConsent').checked) { toast('Accept the risk disclosure before turning live on.', true); return; }
+    if (!$('liveEligibility').checked) { toast('Confirm your legal eligibility before turning live on.', true); return; }
     if (!window.confirm('Turn live trading on? JamdDmaj will place real orders on this exchange using your configured risk.')) return;
   }
   try {
-    await api(`/live/connections/${id}/live`, {method: 'POST', body: {enabled: !enabled, consent: true}});
+    await api(`/live/connections/${id}/live`, {method: 'POST', body: {enabled: !enabled, consent: true, termsVersion: 'live-risk-v1', eligibility: $('liveEligibility').checked}});
     toast(enabled ? 'Live turned off.' : 'Live turned on.');
     await loadStatus();
   } catch (error) {

@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily JamdDmaj Live database backup
+
+[Timer]
+OnCalendar=*-*-* 03:15:00
+Persistent=true
+RandomizedDelaySec=900
+Unit=jamddmaj-live-backup.service
+
+[Install]
+WantedBy=timers.target

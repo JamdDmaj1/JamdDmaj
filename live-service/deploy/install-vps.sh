@@ -45,10 +45,15 @@ fi
 cd /opt/jamddmaj-live
 npm install --omit=dev --no-audit --no-fund
 
+install -d -o jamddmaj-live -g jamddmaj-live -m 700 /opt/jamddmaj-live/deploy
+install -m 755 "$ROOT/live-service/deploy/backup-live.mjs" /opt/jamddmaj-live/deploy/backup-live.mjs
 install -m 644 "$ROOT/live-service/deploy/jamddmaj-live.service" /etc/systemd/system/jamddmaj-live.service
+install -m 644 "$ROOT/live-service/deploy/jamddmaj-live-backup.service" /etc/systemd/system/jamddmaj-live-backup.service
+install -m 644 "$ROOT/live-service/deploy/jamddmaj-live-backup.timer" /etc/systemd/system/jamddmaj-live-backup.timer
 systemctl daemon-reload
 systemctl enable jamddmaj-live
 systemctl restart jamddmaj-live
+systemctl enable --now jamddmaj-live-backup.timer
 sleep 2
 systemctl is-active jamddmaj-live
 curl -fsS --max-time 5 http://127.0.0.1:8790/live/health

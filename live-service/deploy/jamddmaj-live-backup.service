@@ -1,0 +1,16 @@
+[Unit]
+Description=JamdDmaj Live encrypted database backup
+After=jamddmaj-live.service
+
+[Service]
+Type=oneshot
+User=jamddmaj-live
+Group=jamddmaj-live
+WorkingDirectory=/opt/jamddmaj-live
+EnvironmentFile=/etc/jamddmaj-live/live.env
+ExecStart=/usr/bin/node /opt/jamddmaj-live/deploy/backup-live.mjs
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/jamddmaj-live
