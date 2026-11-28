@@ -66,7 +66,7 @@ executor. It does not invent signals. For every active connection it:
 5. stores the exchange order/position and reconciles it on later cycles.
 
 Bitget is the first adapter because it is already validated in production.
-Binance, Bybit, OKX, KuCoin, Gate and MEXC use CCXT's unified futures API. An
+Binance, Bybit, OKX, KuCoin, Gate, MEXC, HTX, Phemex, BingX, Deribit and Kraken Futures use CCXT's unified futures API. An
 exchange is shown only when its adapter and market metadata are verified.
 
 ## Emergency controls
