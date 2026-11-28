@@ -52,6 +52,64 @@ async function api(path, {method = 'GET', body} = {}) {
   return payload;
 }
 
+function setAuthStatus(message) { $('liveAuthStatus').textContent = message; }
+
+function loadGoogleScript() {
+  if (window.google?.accounts?.oauth2) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector('script[data-live-google]');
+    if (existing) { existing.addEventListener('load', resolve, {once: true}); existing.addEventListener('error', reject, {once: true}); return; }
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.dataset.liveGoogle = '1';
+    script.onload = resolve;
+    script.onerror = () => reject(new Error('Google sign-in could not be loaded.'));
+    document.head.appendChild(script);
+  });
+}
+
+async function startLiveGoogle() {
+  const button = $('liveGoogleBtn');
+  button.disabled = true;
+  setAuthStatus('Opening Google…');
+  try {
+    const root = window.JAMD_API_BASE || '';
+    const configResponse = await fetch(root + '/api/account?t=' + Date.now(), {cache: 'no-store', signal: AbortSignal.timeout(15000)});
+    const config = await configResponse.json().catch(() => ({}));
+    if (!config?.google?.enabled || !config.google.clientId) throw new Error('Google sign-in is not configured yet.');
+    await loadGoogleScript();
+    const accessToken = await new Promise((resolve, reject) => {
+      const client = google.accounts.oauth2.initTokenClient({
+        client_id: config.google.clientId,
+        scope: 'openid email profile',
+        callback: response => response?.access_token ? resolve(response.access_token) : reject(new Error('Google did not return access.')),
+        error_callback: () => reject(new Error('Google sign-in was cancelled.'))
+      });
+      client.requestAccessToken({prompt: 'consent'});
+    });
+    setAuthStatus('Creating your JamdDmaj session…');
+    const response = await fetch(root + '/api/account', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({action: 'google', accessToken}),
+      signal: AbortSignal.timeout(30000)
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.error?.message || 'Google sign-in failed.');
+    const token = data?.webTrial?.token;
+    if (!/^[a-f0-9]{64}$/.test(token || '')) throw new Error('The account session was not issued.');
+    sessionStorage.setItem(SESSION_KEY, token);
+    state.token = token;
+    $('liveAuth').hidden = true;
+    await load();
+    toast('Signed in. Your exchange connections are isolated to this account.');
+  } catch (error) {
+    setAuthStatus(error.message || 'Google sign-in failed.');
+  } finally {
+    button.disabled = false;
+  }
+}
 function showAuth() {
   $('liveAuth').hidden = false;
   $('liveWorkspace').hidden = true;
@@ -304,6 +362,7 @@ async function loadShare(token) {
 
 function wire() {
   $('liveExchange').addEventListener('change', togglePassphrase);
+  $('liveGoogleBtn').addEventListener('click', startLiveGoogle);
   $('liveConnectForm').addEventListener('submit', async event => {
     event.preventDefault();
     alertBox('');

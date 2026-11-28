@@ -213,4 +213,6 @@ test('public live page is shipped with the service UI', () => {
   assert.match(js, /157\.230\.54\.133/);
   assert.match(js, /live\/connect/);
   assert.match(js, /live\/positions/);
+  assert.match(js, /startLiveGoogle/);
+  assert.match(html, /id="liveGoogleBtn"/);
 });
