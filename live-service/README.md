@@ -68,3 +68,20 @@ executor. It does not invent signals. For every active connection it:
 Bitget is the first adapter because it is already validated in production.
 Binance, Bybit, OKX, KuCoin, Gate and MEXC use CCXT's unified futures API. An
 exchange is shown only when its adapter and market metadata are verified.
+
+## Emergency controls
+
+- Per-user: turn live off in `live.html`; the engine stops opening new trades for
+  that connection.
+- Global: run `live-service/deploy/kill-switch.sh` as root. This leaves the API
+  and position dashboard online but stops the execution engine.
+- Resume only after reviewing: `live-service/deploy/resume-engine.sh`.
+
+## Exchange verification
+
+Only exchanges listed in `JAMDDMAJ_LIVE_VERIFIED_EXCHANGES` can turn real live
+trading on. The default is `bitget`. After an exchange has been tested with a
+dedicated account, add it to this comma-separated environment variable and
+restart the service. Unverified exchanges remain available for read-only
+connection and balance checks.
+
