@@ -284,6 +284,10 @@ export function openStore(path, {now = Date.now} = {}) {
           input.status || 'PENDING', input.error ?? null, at, at);
       return db.prepare('SELECT * FROM orders WHERE id=?').get(id);
     },
+    listAudit(accountHash, limit = 100) {
+      const size = Math.max(1, Math.min(200, Number(limit) || 100));
+      return db.prepare('SELECT id,connection_id AS connectionId,type,detail,at FROM events WHERE account_hash=? ORDER BY at DESC LIMIT ?').all(accountHash, size);
+    },
     audit(accountHash, connectionId, type, detail) {
       db.prepare('INSERT INTO events(id,account_hash,connection_id,type,detail,at) VALUES(?,?,?,?,?,?)')
         .run(randomUUID(), accountHash, connectionId || null, type, detail ? String(detail).slice(0,500) : null, nowMs(now));

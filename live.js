@@ -1,6 +1,6 @@
 const API_BASE = 'https://157.230.54.133';
 const SESSION_KEY = 'jamdWebTrialSession';
-const state = { token: '', exchanges: [], connections: [], positions: [], loaded: false, betaAccess: false };
+const state = { token: '', exchanges: [], connections: [], positions: [], audit: [], loaded: false, betaAccess: false };
 
 const $ = id => document.getElementById(id);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[ch]));
@@ -153,6 +153,7 @@ async function refreshConnection(id, card) {
     await api(`/live/connections/${id}/refresh`, {method: 'POST'});
     await loadStatus();
     await loadPositions();
+    await loadAudit();
     toast('Connection verified.');
   } catch (error) {
     toast(error.message, true);
@@ -191,6 +192,12 @@ async function deleteConnection(id) {
   }
 }
 
+function renderAudit() {
+  const host = $('liveAudit');
+  const rows = state.audit || [];
+  $('liveAuditEmpty').hidden = rows.length > 0;
+  host.innerHTML = rows.slice(0, 12).map(event => '<div class="live-position"><div class="live-position-main"><strong>' + esc(event.type) + '</strong><small>' + new Date(event.at).toLocaleString() + '</small></div><div class="live-position-cell" style="grid-column: 2 / -1"><span>Details</span><b>' + esc(event.detail || '—') + '</b></div></div>').join('');
+}
 function renderPositions() {
   const host = $('livePositions');
   const rows = state.positions || [];
@@ -234,6 +241,12 @@ async function loadPositions() {
   renderPositions();
 }
 
+async function loadAudit() {
+  const audit = await api('/live/audit');
+  state.audit = audit.events || [];
+  renderAudit();
+}
+
 async function load() {
   try {
     const [me, exchanges, status, positions] = await Promise.all([
@@ -249,6 +262,7 @@ async function load() {
     renderExchangeOptions();
     renderConnections();
     renderPositions();
+    await loadAudit();
     $('liveAuth').hidden = true;
     $('liveWorkspace').hidden = false;
     $('liveShareView').hidden = true;

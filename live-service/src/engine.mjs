@@ -198,7 +198,7 @@ export function startEngine({config, store, vault, vaultContext, fetchImpl = fet
     try {
       const signals = await fetchSignals({config, fetchImpl, now});
       const rows = store.activeConnections().filter(row => (!config.betaMode || config.betaAllowlist.includes(row.account_hash))
-        && (config.allowUnverifiedExchanges === true || exchangeDefinition(row.exchange)?.verified === true));
+        && (config.allowUnverifiedExchanges === true || config.verifiedExchanges.includes(row.exchange)));
       summary.connections = rows.length;
       for (const row of rows) {
         try {

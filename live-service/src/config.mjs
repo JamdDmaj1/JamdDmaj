@@ -19,6 +19,9 @@ export function loadConfig(env = process.env) {
   const origins = String(env.JAMDDMAJ_LIVE_ALLOWED_ORIGINS || 'https://www.jamddmaj.com,https://jamddmaj.com,https://localhost,capacitor://localhost')
     .split(',').map(value => value.trim()).filter(Boolean);
   if (!origins.length || origins.some(value => !/^https:\/\/[a-z0-9.-]+(?::\d+)?$/i.test(value) && value !== 'capacitor://localhost')) throw Error('LIVE_ORIGINS_INVALID');
+  const verifiedExchanges = String(env.JAMDDMAJ_LIVE_VERIFIED_EXCHANGES || 'bitget')
+    .split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
+  if (verifiedExchanges.some(value => !/^[a-z0-9-]{2,40}$/.test(value))) throw Error('LIVE_VERIFIED_EXCHANGES_INVALID');
   const allowlist = String(env.JAMDDMAJ_LIVE_BETA_ALLOWLIST || '')
     .split(',').map(value => value.trim()).filter(Boolean);
   if (allowlist.some(value => !/^[a-f0-9]{64}$/.test(value))) throw Error('LIVE_BETA_ALLOWLIST_INVALID');
@@ -31,6 +34,7 @@ export function loadConfig(env = process.env) {
     cronSecret: required(env.JAMDDMAJ_CRON_SECRET, 'LIVE_CRON_SECRET'),
     allowedOrigins: Object.freeze(origins),
     betaAllowlist: Object.freeze(allowlist),
+    verifiedExchanges: Object.freeze(verifiedExchanges),
     publicBaseUrl: String(env.JAMDDMAJ_LIVE_PUBLIC_URL || 'https://www.jamddmaj.com').replace(/\/+$/, ''),
     betaMode: String(env.JAMDDMAJ_LIVE_BETA || 'true').toLowerCase() !== 'false',
     engineIntervalMs: positiveInt(env.JAMDDMAJ_LIVE_ENGINE_INTERVAL_MS, 30000, 'LIVE_ENGINE_INTERVAL'),

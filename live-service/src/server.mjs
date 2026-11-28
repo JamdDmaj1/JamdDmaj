@@ -225,7 +225,7 @@ export async function startServer({env = process.env} = {}) {
         });
       }
       if (url.pathname === '/live/exchanges' && request.method === 'GET') {
-        return send(request, response, 200, {ok: true, exchanges: publicExchanges()});
+        return send(request, response, 200, {ok: true, exchanges: publicExchanges().map(item => ({...item, verified: config.verifiedExchanges.includes(item.id)}))});
       }
       if (url.pathname.startsWith('/live/share/') && request.method === 'GET') {
         const token = url.pathname.slice('/live/share/'.length);
@@ -242,6 +242,9 @@ export async function startServer({env = process.env} = {}) {
       if (url.pathname === '/live/status' && request.method === 'GET') {
         const connections = store.listConnections(accountHash).map(publicConnection);
         return send(request, response, 200, {ok: true, connections, consentVersion: CONSENT_VERSION});
+      }
+      if (url.pathname === '/live/audit' && request.method === 'GET') {
+        return send(request, response, 200, {ok: true, events: store.listAudit(accountHash, 100)});
       }
       if (url.pathname === '/live/positions' && request.method === 'GET') {
         const rows = store.listPositions(accountHash).filter(row => row.status === 'OPEN' || row.status === 'CLOSING');
@@ -313,7 +316,7 @@ export async function startServer({env = process.env} = {}) {
           const body = await readBody(request);
           if (body.enabled === true && !betaAccess(accountHash)) throw Object.assign(Error('LIVE_BETA_ACCESS_REQUIRED'), {status: 403});
           const definition = exchangeDefinition(row.exchange);
-          if (body.enabled === true && definition?.verified !== true && config.allowUnverifiedExchanges !== true) {
+          if (body.enabled === true && !config.verifiedExchanges.includes(row.exchange) && config.allowUnverifiedExchanges !== true) {
             throw Object.assign(Error('LIVE_EXCHANGE_NOT_VERIFIED'), {status: 409});
           }
           if (body.enabled === true && body.consent !== true) throw Object.assign(Error('LIVE_CONSENT_REQUIRED'), {status: 400});
@@ -326,6 +329,7 @@ export async function startServer({env = process.env} = {}) {
         }
         if (action === 'delete' && request.method === 'POST') {
           if (!allowWrite(accountHash)) throw Object.assign(Error('LIVE_RATE_LIMITED'), {status: 429});
+          store.audit(accountHash, row.id, 'CONNECTION_DELETED', row.exchange);
           store.deleteConnection(accountHash, row.id);
           return send(request, response, 200, {ok: true, deleted: true});
         }
