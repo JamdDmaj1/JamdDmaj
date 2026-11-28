@@ -4,6 +4,7 @@ import {randomBytes, randomUUID} from 'node:crypto';
 const SCHEMA = `
 PRAGMA journal_mode = WAL;
 PRAGMA synchronous = FULL;
+PRAGMA secure_delete = ON;
 PRAGMA foreign_keys = ON;
 
 CREATE TABLE IF NOT EXISTS users (
@@ -222,6 +223,7 @@ export function openStore(path, {now = Date.now} = {}) {
     deleteConnection(accountHash, id) {
       const result = db.prepare('DELETE FROM connections WHERE account_hash=? AND id=?').run(accountHash, id);
       if (!result.changes) throw Error('LIVE_CONNECTION_NOT_FOUND');
+      try { db.exec('PRAGMA wal_checkpoint(TRUNCATE)'); } catch {}
       return true;
     },
     activeConnections() {

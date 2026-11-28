@@ -7,6 +7,11 @@ export const EXCHANGES = Object.freeze([
   {id: 'okx', label: 'OKX', ccxt: 'okx', passphrase: true, defaultType: 'swap', verified: false},
   {id: 'kucoin', label: 'KuCoin Futures', ccxt: 'kucoinfutures', passphrase: true, defaultType: 'swap', verified: false},
   {id: 'gate', label: 'Gate.io', ccxt: 'gate', passphrase: false, defaultType: 'swap', verified: false},
+  {id: 'htx', label: 'HTX Futures', ccxt: 'htx', passphrase: false, defaultType: 'swap', verified: false},
+  {id: 'phemex', label: 'Phemex', ccxt: 'phemex', passphrase: false, defaultType: 'swap', verified: false},
+  {id: 'bingx', label: 'BingX', ccxt: 'bingx', passphrase: false, defaultType: 'swap', verified: false},
+  {id: 'deribit', label: 'Deribit', ccxt: 'deribit', passphrase: false, defaultType: 'swap', verified: false},
+  {id: 'krakenfutures', label: 'Kraken Futures', ccxt: 'krakenfutures', passphrase: false, defaultType: 'swap', verified: false},
   {id: 'mexc', label: 'MEXC', ccxt: 'mexc', passphrase: false, defaultType: 'swap', verified: false}
 ]);
 
