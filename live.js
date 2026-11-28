@@ -1,6 +1,6 @@
 const API_BASE = 'https://157.230.54.133';
 const SESSION_KEY = 'jamdWebTrialSession';
-const state = { token: '', exchanges: [], connections: [], positions: [], loaded: false };
+const state = { token: '', exchanges: [], connections: [], positions: [], loaded: false, betaAccess: false };
 
 const $ = id => document.getElementById(id);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[ch]));
@@ -101,7 +101,7 @@ function renderConnections() {
       <div class="live-connection-actions">
         <button class="live-button ghost" data-action="save" type="button">Save</button>
         <button class="live-button ghost" data-action="refresh" type="button">Refresh</button>
-        <button class="live-button ${live ? 'live-toggle on' : 'live-toggle'}" data-action="live" type="button">${live ? 'Turn live off' : 'Turn live on'}</button>
+        <button class="live-button ${live ? 'live-toggle on' : 'live-toggle'}" data-action="live" type="button" ${live ? '' : state.betaAccess ? '' : 'disabled title="Private beta access required"'}>${live ? 'Turn live off' : state.betaAccess ? 'Turn live on' : 'Beta access required'}</button>
         <button class="live-button ghost" data-action="delete" type="button">Disconnect</button>
       </div>
       <small class="live-status ${statusClass}">${esc(connection.status || 'unknown')}${connection.lastError ? ` · ${esc(connection.lastError)}` : ''}</small>
@@ -162,6 +162,7 @@ async function refreshConnection(id, card) {
 }
 
 async function toggleLive(id, card) {
+  if (!state.betaAccess) { toast('Live execution is limited to approved beta accounts.', true); return; }
   const connection = state.connections.find(item => item.id === id);
   const enabled = connection?.config?.liveEnabled === true;
   if (!enabled) {
@@ -242,6 +243,7 @@ async function load() {
     state.exchanges = exchanges.exchanges || [];
     state.connections = status.connections || [];
     state.positions = positions.positions || [];
+    state.betaAccess = me?.betaAccess !== false;
     renderExchangeOptions();
     renderConnections();
     renderPositions();
@@ -249,7 +251,8 @@ async function load() {
     $('liveWorkspace').hidden = false;
     $('liveShareView').hidden = true;
     state.loaded = true;
-    if (me?.engineEnabled === false) alertBox('Execution engine is starting. Connections and balances are live; automatic orders will be enabled after the final safety check.', false);
+    if (me?.betaAccess === false) alertBox('Private beta: you can connect and verify an exchange, but live execution requires an approved account.', false);
+    else if (me?.engineEnabled === false) alertBox('Execution engine is starting. Connections and balances are live; automatic orders will be enabled after the final safety check.', false);
     else $('liveAlert').hidden = true;
   } catch (error) {
     if (error.status === 401) showAuth();

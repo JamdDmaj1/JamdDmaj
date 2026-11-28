@@ -61,6 +61,7 @@ CREATE TABLE IF NOT EXISTS positions (
   margin_usd REAL,
   unrealized_pnl REAL,
   protection_roe REAL,
+  realized_pnl REAL,
   tp REAL,
   sl REAL,
   status TEXT NOT NULL,
@@ -122,6 +123,8 @@ function json(value) {
 export function openStore(path, {now = Date.now} = {}) {
   const db = new DatabaseSync(path, {timeout: 5000});
   db.exec(SCHEMA);
+  const positionColumns = db.prepare('PRAGMA table_info(positions)').all().map(row => row.name);
+  if (!positionColumns.includes('realized_pnl')) db.exec('ALTER TABLE positions ADD COLUMN realized_pnl REAL');
   const tx = fn => {
     db.exec('BEGIN IMMEDIATE');
     try {
@@ -230,6 +233,10 @@ export function openStore(path, {now = Date.now} = {}) {
       return db.prepare('SELECT COUNT(*) AS count FROM orders WHERE connection_id=? AND created_at>=?')
         .get(connectionId, since).count;
     },
+    realizedPnlSince(connectionId, since) {
+      return Number(db.prepare(`SELECT COALESCE(SUM(realized_pnl),0) AS pnl FROM positions
+        WHERE connection_id=? AND status='CLOSED' AND closed_at>=?`).get(connectionId, since).pnl || 0);
+    },
     listPositions(accountHash, connectionId = null) {
       if (connectionId) return db.prepare('SELECT * FROM positions WHERE account_hash=? AND connection_id=? ORDER BY opened_at DESC').all(accountHash, connectionId);
       return db.prepare('SELECT * FROM positions WHERE account_hash=? ORDER BY opened_at DESC').all(accountHash);
@@ -253,14 +260,14 @@ export function openStore(path, {now = Date.now} = {}) {
       const id = input.id || randomUUID();
       db.prepare(`INSERT INTO positions(
         id,connection_id,account_hash,exchange,symbol,side,amount,entry,mark,leverage,margin_usd,
-        unrealized_pnl,protection_roe,tp,sl,status,source_signal,opened_at,closed_at,raw_json,updated_at)
-        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        unrealized_pnl,protection_roe,realized_pnl,tp,sl,status,source_signal,opened_at,closed_at,raw_json,updated_at)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         ON CONFLICT(id) DO UPDATE SET mark=excluded.mark,unrealized_pnl=excluded.unrealized_pnl,
-          status=excluded.status,closed_at=excluded.closed_at,raw_json=excluded.raw_json,updated_at=excluded.updated_at`)
+          status=excluded.status,realized_pnl=excluded.realized_pnl,closed_at=excluded.closed_at,raw_json=excluded.raw_json,updated_at=excluded.updated_at`)
         .run(id, input.connectionId, accountHash, input.exchange, input.symbol, input.side,
           input.amount, input.entry ?? null, input.mark ?? null, input.leverage ?? null,
           input.marginUsd ?? null, input.unrealizedPnl ?? null, input.protectionRoe ?? null,
-          input.tp ?? null, input.sl ?? null, input.status || 'OPEN', input.sourceSignal ?? null,
+          input.realizedPnl ?? null, input.tp ?? null, input.sl ?? null, input.status || 'OPEN', input.sourceSignal ?? null,
           input.openedAt || at, input.closedAt ?? null, json(input.raw), at);
       return this.getPosition(accountHash, id);
     },

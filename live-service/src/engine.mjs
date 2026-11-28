@@ -101,11 +101,12 @@ async function manageExits({store, accountHash, row, exchange, positions}) {
     if (!(mark > 0)) mark = await marketPrice(exchange, local.symbol);
     const dir = direction(local.side);
     const roe = local.entry > 0 ? ((mark - local.entry) / local.entry) * dir * Number(local.leverage || 1) * 100 : 0;
+    const realizedPnl = local.entry > 0 ? (mark - local.entry) * Number(local.amount || 0) * dir : 0;
     store.upsertPosition(accountHash, {
       id: local.id, connectionId: local.connection_id, exchange: local.exchange, symbol: local.symbol,
       side: local.side, amount: local.amount, entry: local.entry, mark,
       leverage: local.leverage, marginUsd: local.margin_usd, unrealizedPnl: live.unrealizedPnl,
-      protectionRoe: local.protection_roe, tp: local.tp, sl: local.sl, status: 'OPEN',
+      protectionRoe: local.protection_roe, realizedPnl, tp: local.tp, sl: local.sl, status: 'OPEN',
       sourceSignal: local.source_signal, openedAt: local.opened_at, raw: live.raw
     });
     const hitTp = local.tp > 0 && (dir === 1 ? mark >= local.tp : mark <= local.tp);
@@ -120,7 +121,7 @@ async function manageExits({store, accountHash, row, exchange, positions}) {
       id: local.id, connectionId: local.connection_id, exchange: local.exchange, symbol: local.symbol,
       side: local.side, amount: local.amount, entry: local.entry, mark,
       leverage: local.leverage, marginUsd: local.margin_usd, unrealizedPnl: live.unrealizedPnl,
-      protectionRoe: local.protection_roe, tp: local.tp, sl: local.sl, status: 'CLOSED',
+      protectionRoe: local.protection_roe, realizedPnl, tp: local.tp, sl: local.sl, status: 'CLOSED',
       sourceSignal: local.source_signal, openedAt: local.opened_at, closedAt: Date.now(),
       raw: {exit: hitTp ? 'TP' : hitSl ? 'SL' : 'PROTECTION', roe}
     });
@@ -131,6 +132,12 @@ async function executeSignals({store, accountHash, row, exchange, positions, sig
   const open = positions.length;
   if (open >= row.max_open) return;
   if (store.countOrdersSince(row.id, utcDayStart(Date.now())) >= row.max_trades_day) return;
+  const realized = store.realizedPnlSince(row.id, utcDayStart(Date.now()));
+  if (row.daily_loss_usd > 0 && realized <= -Number(row.daily_loss_usd)) {
+    store.setLive(accountHash, row.id, false);
+    store.audit(accountHash, row.id, 'DAILY_LOSS_LIMIT', String(realized));
+    return;
+  }
   for (const signal of signals) {
     if (store.orderForSignal(row.id, signal.id)) continue;
     const market = resolveMarket(exchange, signal.pair);
@@ -175,7 +182,7 @@ export function startEngine({config, store, vault, vaultContext, fetchImpl = fet
     health.lastRunAt = now();
     try {
       const signals = await fetchSignals({config, fetchImpl, now});
-      const rows = store.activeConnections();
+      const rows = store.activeConnections().filter(row => !config.betaMode || config.betaAllowlist.includes(row.account_hash));
       summary.connections = rows.length;
       for (const row of rows) {
         try {

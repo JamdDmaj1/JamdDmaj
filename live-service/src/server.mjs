@@ -128,6 +128,7 @@ export async function startServer({env = process.env} = {}) {
   const allowWrite = createRateLimiter({max: 30});
   const allowConnect = createRateLimiter({windowMs: 60000, max: 8});
   const startedAt = Date.now();
+  const betaAccess = accountHash => !config.betaMode || config.betaAllowlist.includes(accountHash);
   const engine = startEngine({config, store, vault, vaultContext});
 
   function corsOrigin(request) {
@@ -236,7 +237,7 @@ export async function startServer({env = process.env} = {}) {
       const accountHash = await authenticated(request);
 
       if (url.pathname === '/live/me' && request.method === 'GET') {
-        return send(request, response, 200, {ok: true, accountHash, beta: config.betaMode, engineEnabled: config.engineEnabled, consentVersion: CONSENT_VERSION});
+        return send(request, response, 200, {ok: true, accountHash, beta: config.betaMode, betaAccess: betaAccess(accountHash), engineEnabled: config.engineEnabled, consentVersion: CONSENT_VERSION});
       }
       if (url.pathname === '/live/status' && request.method === 'GET') {
         const connections = store.listConnections(accountHash).map(publicConnection);
@@ -310,6 +311,7 @@ export async function startServer({env = process.env} = {}) {
         if (action === 'live' && request.method === 'POST') {
           if (!allowWrite(accountHash)) throw Object.assign(Error('LIVE_RATE_LIMITED'), {status: 429});
           const body = await readBody(request);
+          if (body.enabled === true && !betaAccess(accountHash)) throw Object.assign(Error('LIVE_BETA_ACCESS_REQUIRED'), {status: 403});
           if (body.enabled === true && body.consent !== true) throw Object.assign(Error('LIVE_CONSENT_REQUIRED'), {status: 400});
           if (body.enabled === true) {
             const result = await refreshConnection(accountHash, row);

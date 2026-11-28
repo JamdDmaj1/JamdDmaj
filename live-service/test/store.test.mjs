@@ -34,6 +34,12 @@ test('store isolates connections, config, positions and shares by account', () =
     });
     assert.equal(store.listPositions(account).length, 1);
     assert.equal(store.listPositions('b'.repeat(64)).length, 0);
+    store.upsertPosition(account, {
+      id: position.id, connectionId: created.id, exchange: 'bitget', symbol: 'BTC/USDT:USDT', side: 'long',
+      amount: 0.01, entry: 100, mark: 90, status: 'CLOSED', realizedPnl: -0.1,
+      openedAt: position.opened_at, closedAt: Date.now()
+    });
+    assert.equal(store.realizedPnlSince(created.id, 0), -0.1);
     const share = store.createShare(account, position.id, {symbol: 'BTC/USDT:USDT'});
     assert.equal(store.getShare(share.token).position_id, position.id);
     assert.equal(store.revokeShare(account, share.token), true);
